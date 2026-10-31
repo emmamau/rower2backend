@@ -1,23 +1,28 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { RowerService } from './services/rower.service';
 import { RowerData } from './models/rower-data.model';
+import { UserProfile } from './models/user.model';
 import { interval, Subscription } from 'rxjs';
 import { switchMap, startWith } from 'rxjs/operators';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, FormsModule],
   templateUrl: './app.html',
   styleUrls: ['./app.css']
 })
 export class AppComponent implements OnInit, OnDestroy {
+  currentUser: UserProfile | null = null;
   latestData: RowerData | null = null;
   history: RowerData[] = [];
   backendConnected = false;
   apiUrl = '';
   errorMessage = '';
+  isEditProfileOpen = false;
+
   private pollingSub?: Subscription;
 
   constructor(private rowerService: RowerService) {
@@ -25,6 +30,8 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
+    this.loadUserProfile();
+
     // Poll latest metrics every 2 seconds
     this.pollingSub = interval(2000)
       .pipe(
@@ -54,6 +61,34 @@ export class AppComponent implements OnInit, OnDestroy {
     if (this.pollingSub) {
       this.pollingSub.unsubscribe();
     }
+  }
+
+  loadUserProfile(): void {
+    this.rowerService.getCurrentUser().subscribe({
+      next: (user) => {
+        this.currentUser = user;
+      },
+      error: (err) => {
+        console.error('Impossible de charger le profil utilisateur', err);
+      }
+    });
+  }
+
+  toggleEditProfile(): void {
+    this.isEditProfileOpen = !this.isEditProfileOpen;
+  }
+
+  saveProfile(): void {
+    if (!this.currentUser) return;
+    this.rowerService.updateCurrentUser(this.currentUser).subscribe({
+      next: (updated) => {
+        this.currentUser = updated;
+        this.isEditProfileOpen = false;
+      },
+      error: (err) => {
+        console.error('Erreur mise à jour profil', err);
+      }
+    });
   }
 
   loadHistory(): void {

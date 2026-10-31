@@ -3,6 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
 import { RowerData, HistoryResponse } from '../models/rower-data.model';
+import { UserProfile } from '../models/user.model';
 
 @Injectable({
   providedIn: 'root'
@@ -14,6 +15,14 @@ export class RowerService {
 
   getApiUrl(): string {
     return this.apiUrl;
+  }
+
+  getCurrentUser(): Observable<UserProfile> {
+    return this.http.get<UserProfile>(`${this.apiUrl}/api/user/me`);
+  }
+
+  updateCurrentUser(profile: Partial<UserProfile>): Observable<UserProfile> {
+    return this.http.put<UserProfile>(`${this.apiUrl}/api/user/me`, profile);
   }
 
   getLatestData(): Observable<RowerData> {
@@ -28,4 +37,3 @@ export class RowerService {
     return this.http.get<{ status: string; database: string }>(`${this.apiUrl}/health`);
   }
 }
-

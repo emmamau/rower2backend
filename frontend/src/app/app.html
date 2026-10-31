@@ -1,20 +1,75 @@
 <div class="dashboard-container">
-  <!-- Header -->
+  <!-- Header with User Profile -->
   <header class="dashboard-header">
     <div class="header-content">
       <div class="brand">
         <span class="icon">🚣</span>
-        <h1>FTMS Rower Live Activity</h1>
+        <div>
+          <h1>FTMS Rower Live Activity</h1>
+          <span class="subbrand">Garmin Connect IQ & Multisport Telemetry</span>
+        </div>
       </div>
+
+      <!-- User Profile Box in Header -->
+      <div class="user-header-profile" *ngIf="currentUser">
+        <img [src]="currentUser.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=128&q=80'" 
+             alt="Avatar" class="user-avatar" />
+        <div class="user-details">
+          <div class="user-name">{{ currentUser.name }}</div>
+          <div class="user-meta">
+            <span class="user-badge">{{ currentUser.athleteLevel }}</span>
+            <span class="user-info">{{ currentUser.weightKg }} kg · VO2max: {{ currentUser.vo2MaxEstimate }}</span>
+          </div>
+        </div>
+        <button class="btn-profile" (click)="toggleEditProfile()">
+          {{ isEditProfileOpen ? 'Fermer' : 'Éditer Profil' }}
+        </button>
+      </div>
+
       <div class="status-indicator">
         <span class="dot" [class.online]="backendConnected" [class.offline]="!backendConnected"></span>
-        <span class="status-text">{{ backendConnected ? 'Connecté au Backend' : 'Hors-ligne' }}</span>
-        <span class="badge">{{ apiUrl }}</span>
+        <span class="status-text">{{ backendConnected ? 'Connecté' : 'Hors-ligne' }}</span>
       </div>
     </div>
   </header>
 
   <main class="dashboard-main">
+    <!-- User Profile Modal/Banner when editing -->
+    @if (isEditProfileOpen && currentUser) {
+      <section class="profile-card">
+        <h3>Paramètres de l'athlète connecté</h3>
+        <div class="profile-form">
+          <div class="form-group">
+            <label>Nom complet</label>
+            <input type="text" [(ngModel)]="currentUser.name" />
+          </div>
+          <div class="form-group">
+            <label>Niveau sportif</label>
+            <input type="text" [(ngModel)]="currentUser.athleteLevel" />
+          </div>
+          <div class="form-group">
+            <label>Poids (kg)</label>
+            <input type="number" [(ngModel)]="currentUser.weightKg" />
+          </div>
+          <div class="form-group">
+            <label>Taille (cm)</label>
+            <input type="number" [(ngModel)]="currentUser.heightCm" />
+          </div>
+          <div class="form-group">
+            <label>FC Max (bpm)</label>
+            <input type="number" [(ngModel)]="currentUser.maxHeartRate" />
+          </div>
+          <div class="form-group">
+            <label>Estimation VO2Max</label>
+            <input type="number" step="0.1" [(ngModel)]="currentUser.vo2MaxEstimate" />
+          </div>
+        </div>
+        <div class="profile-actions">
+          <button class="btn-save" (click)="saveProfile()">Enregistrer les modifications</button>
+        </div>
+      </section>
+    }
+
     @if (errorMessage && !latestData) {
       <div class="alert-box">
         <p>{{ errorMessage }}</p>
@@ -67,11 +122,11 @@
           <div class="metric-footer">Résistance : Niv. {{ latestData.resistanceLevel || 1 }}</div>
         </div>
 
-        <!-- Device Info -->
+        <!-- Device & Athlete Context Info -->
         <div class="metric-card">
           <div class="metric-label">Montre Garmin / Source</div>
-          <div class="metric-value small">{{ latestData.deviceId || 'Garmin Watch' }}</div>
-          <div class="metric-footer">Dernier relevé : {{ latestData.timestamp | date:'HH:mm:ss' }}</div>
+          <div class="metric-value small">{{ latestData.deviceId || 'Garmin Enduro 3 / Fenix' }}</div>
+          <div class="metric-footer">Athlète : {{ currentUser ? currentUser.name : 'Inconnu' }}</div>
         </div>
       </section>
     }

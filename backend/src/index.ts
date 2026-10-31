@@ -3,6 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import { sequelize } from './database';
 import { RowerData } from './models/RowerData';
+import { User } from './models/User';
 
 dotenv.config();
 
@@ -19,6 +20,57 @@ app.get('/health', async (_req: Request, res: Response) => {
     res.status(200).json({ status: 'ok', database: 'connected' });
   } catch (error) {
     res.status(500).json({ status: 'error', database: 'disconnected', details: (error as Error).message });
+  }
+});
+
+// Seed default user if not exists
+async function ensureDefaultUser(): Promise<User> {
+  let user = await User.findOne({ where: { email: 'athlete@garmin-rower.app' } });
+  if (!user) {
+    user = await User.create({
+      email: 'athlete@garmin-rower.app',
+      name: 'Emma Rower Athlete',
+      avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=256&q=80',
+      athleteLevel: 'Advanced Competitor',
+      weightKg: 72.5,
+      heightCm: 178,
+      maxHeartRate: 195,
+      vo2MaxEstimate: 54.2,
+    });
+  }
+  return user;
+}
+
+// User Profile API (Current connected user)
+app.get('/api/user/me', async (_req: Request, res: Response) => {
+  try {
+    const user = await ensureDefaultUser();
+    return res.json(user);
+  } catch (error) {
+    console.error('Error fetching current user:', error);
+    return res.status(500).json({ error: 'Failed to retrieve user profile', details: (error as Error).message });
+  }
+});
+
+// Update user profile
+app.put('/api/user/me', async (req: Request, res: Response) => {
+  try {
+    const user = await ensureDefaultUser();
+    const { name, weightKg, heightCm, athleteLevel, maxHeartRate, vo2MaxEstimate } = req.body;
+
+    await user.update({
+      name: name ?? user.name,
+      weightKg: weightKg !== undefined ? Number(weightKg) : user.weightKg,
+      heightCm: heightCm !== undefined ? Number(heightCm) : user.heightCm,
+      athleteLevel: athleteLevel ?? user.athleteLevel,
+      maxHeartRate: maxHeartRate !== undefined ? Number(maxHeartRate) : user.maxHeartRate,
+      vo2MaxEstimate: vo2MaxEstimate !== undefined ? Number(vo2MaxEstimate) : user.vo2MaxEstimate,
+    });
+
+    return res.json(user);
+  } catch (error) {
+    console.error('Error updating user profile:', error);
+    return res.status(500).json({ error: 'Failed to update user profile', details: (error as Error).message });
   }
 });
 
@@ -121,6 +173,9 @@ async function startServer() {
     await sequelize.sync({ alter: true });
     console.log('All models were synchronized successfully.');
 
+    // Ensure initial default athlete
+    await ensureDefaultUser();
+
     app.listen(port, () => {
       console.log(`Rower backend server is running on port ${port}`);
     });
@@ -131,4 +186,3 @@ async function startServer() {
 }
 
 startServer();
-
