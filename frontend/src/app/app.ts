@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RowerService } from './services/rower.service';
@@ -15,7 +15,7 @@ import { switchMap, startWith, catchError } from 'rxjs/operators';
   styleUrls: ['./app.css']
 })
 export class AppComponent implements OnInit, OnDestroy {
-  // Default fallback user so the page is never blank even if offline
+  // Profil athlète par défaut pour garantir l'affichage sans aucune dépendance réseau
   currentUser: UserProfile = {
     id: 1,
     name: 'Emma Rower Athlete',
@@ -37,76 +37,107 @@ export class AppComponent implements OnInit, OnDestroy {
 
   private pollingSub?: Subscription;
 
-  constructor(private rowerService: RowerService) {
+  constructor(
+    private rowerService: RowerService,
+    private cdr: ChangeDetectorRef
+  ) {
     this.apiUrl = this.rowerService.getApiUrl();
   }
 
   ngOnInit(): void {
     this.loadUserProfile();
-
-    // Poll latest metrics every 2 seconds without dying on 404 or connection errors
-    this.pollingSub = interval(2000)
-      .pipe(
-        startWith(0),
-        switchMap(() =>
-          this.rowerService.getLatestData().pipe(
-            catchError((err) => {
-              this.backendConnected = err.status !== 0; // if status 404, backend is alive
-              if (err.status === 404) {
-                this.errorMessage = 'En attente de la première émission de données par la montre Garmin...';
-              } else {
-                this.errorMessage = 'Connexion en attente avec le backend (' + this.apiUrl + ')';
-              }
-              return of(null);
-            })
-          )
-        )
-      )
-      .subscribe((data) => {
-        if (data) {
-          this.latestData = data;
-          this.backendConnected = true;
-          this.errorMessage = '';
-        }
-      });
-
+    this.initSecurePolling();
     this.loadHistory();
   }
 
   ngOnDestroy(): void {
     if (this.pollingSub) {
       this.pollingSub.unsubscribe();
+      this.pollingSub = undefined;
     }
+  }
+
+  /**
+   * Polling sécurisé et résilient :
+   * - Ne plante jamais (catchError localisé dans l'observable interne).
+   * - Gère les cold starts du backend ou l'absence initiale d'enregistrements en base (404).
+   * - Déclenche markForCheck() pour forcer la mise à jour UI en mode Zoneless ultra-performant.
+   */
+  private initSecurePolling(): void {
+    if (this.pollingSub) {
+      this.pollingSub.unsubscribe();
+    }
+
+    this.pollingSub = interval(2000)
+      .pipe(
+        startWith(0),
+        switchMap(() =>
+          this.rowerService.getLatestData().pipe(
+            catchError((err) => {
+              // Si 404, le backend fonctionne mais aucune montre n'a encore transmis de relevé
+              if (err.status === 404) {
+                this.backendConnected = true;
+                this.errorMessage = 'Backend connecté. En attente de la première émission de la montre Garmin...';
+              } else {
+                this.backendConnected = false;
+                this.errorMessage = 'Connexion en attente avec le backend API (' + this.apiUrl + ')';
+              }
+              this.cdr.markForCheck();
+              return of(null);
+            })
+          )
+        )
+      )
+      .subscribe({
+        next: (data) => {
+          if (data) {
+            this.latestData = data;
+            this.backendConnected = true;
+            this.errorMessage = '';
+          }
+          this.cdr.markForCheck();
+        },
+        error: (err) => {
+          console.warn('Erreur polling inattendue (auto-relance):', err);
+          this.cdr.markForCheck();
+          // Relance automatique de secours
+          setTimeout(() => this.initSecurePolling(), 3000);
+        }
+      });
   }
 
   loadUserProfile(): void {
     this.rowerService.getCurrentUser().pipe(
       catchError((err) => {
-        console.warn('Backend user profile inaccessible, using default presentation profile', err);
+        console.warn('Backend user profile inaccessible, utilisation du profil local', err);
         return of(null);
       })
     ).subscribe((user) => {
       if (user) {
         this.currentUser = user;
+        this.cdr.markForCheck();
       }
     });
   }
 
   toggleEditProfile(): void {
     this.isEditProfileOpen = !this.isEditProfileOpen;
+    this.cdr.markForCheck();
   }
 
   saveProfile(): void {
     if (!this.currentUser) return;
-    this.rowerService.updateCurrentUser(this.currentUser).subscribe({
-      next: (updated) => {
-        this.currentUser = updated;
-        this.isEditProfileOpen = false;
-      },
-      error: (err) => {
+    this.rowerService.updateCurrentUser(this.currentUser).pipe(
+      catchError((err) => {
         console.error('Erreur mise à jour profil', err);
-        this.isEditProfileOpen = false;
+        return of(this.currentUser);
+      })
+    ).subscribe((updated) => {
+      if (updated) {
+        this.currentUser = updated;
       }
+      this.isEditProfileOpen = false;
+      this.cdr.markForCheck();
     });
   }
 
@@ -115,6 +146,7 @@ export class AppComponent implements OnInit, OnDestroy {
       catchError(() => of({ total: 0, records: [] }))
     ).subscribe((res) => {
       this.history = res.records;
+      this.cdr.markForCheck();
     });
   }
 
