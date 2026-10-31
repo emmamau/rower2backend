@@ -15,7 +15,7 @@ services:
   # Backend Node.js / Express / Sequelize API
   - type: web
     name: rower-api-service
-    env: node
+    runtime: node
     plan: free
     region: frankfurt
     rootDir: backend
@@ -31,14 +31,14 @@ services:
           name: rower-postgres-db
           property: connectionString
 
-  # Angular Web Frontend (Static Site with automatic rewrite for SPA routing)
+  # Angular Web Frontend (Static Site hosted on Render's Global CDN)
+  # Note: In Render Blueprints, static sites use runtime: static, publishPath, and do NOT take a plan or region parameter.
   - type: web
     name: rower-dashboard-frontend
-    env: static
-    plan: free
+    runtime: static
     rootDir: frontend
     buildCommand: npm install && npm run build
-    staticPublishPath: dist/frontend/browser
+    publishPath: dist/frontend/browser
     routes:
       - type: rewrite
         source: /*
