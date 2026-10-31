@@ -36,7 +36,6 @@ services:
     name: rower-dashboard-frontend
     env: static
     plan: free
-    region: frankfurt
     rootDir: frontend
     buildCommand: npm install && npm run build
     staticPublishPath: dist/frontend/browser
