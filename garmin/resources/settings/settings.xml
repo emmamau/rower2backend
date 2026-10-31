@@ -5,7 +5,7 @@
     </properties>
 
     <settings>
-        <setting propertyKey="@Properties.backendUrl" title="@Strings.BackendUrlTitle" prompt="@Strings.BackendUrlPrompt" type="string">
+        <setting propertyKey="@Properties.backendUrl" title="@Strings.BackendUrlTitle" prompt="@Strings.BackendUrlPrompt">
             <settingConfig type="alphaNumeric" maxLength="128" />
         </setting>
     </settings>

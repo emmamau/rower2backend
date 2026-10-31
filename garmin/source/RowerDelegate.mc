@@ -1,4 +1,5 @@
 import Toybox.WatchUi;
+import Toybox.Lang;
 
 class RowerDelegate extends WatchUi.BehaviorDelegate {
 

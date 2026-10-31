@@ -19,7 +19,7 @@ class RowerDataModel {
     public var remainingTime as Number = 0;     // seconds
     public var rawFlags as Number = 0;
 
-    function toDictionary() as Dictionary<String, Object> {
+    function toDictionary() as Dictionary<Object, Object> {
         var dict = {
             "strokeRate" => strokeRate,
             "strokeCount" => strokeCount,
