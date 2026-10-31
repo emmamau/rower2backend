@@ -485,3 +485,28 @@ body {
   outline: none;
   border-color: var(--primary);
 }
+.btn-wakelock {
+  background-color: #21262d;
+  color: #8b949e;
+  border: 1px solid var(--border-color);
+  padding: 0.35rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.btn-wakelock:hover {
+  background-color: #30363d;
+  color: var(--text-bright);
+}
+
+.btn-wakelock.active {
+  background-color: rgba(63, 185, 80, 0.15);
+  border-color: var(--accent-green);
+  color: var(--accent-green);
+  font-weight: 600;
+}

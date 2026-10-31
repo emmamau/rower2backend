@@ -29,6 +29,10 @@
       }
 
       <div class="status-indicator">
+        <!-- Anti-veille / Screen Wake Lock Toggle -->
+        <button class="btn-wakelock" [class.active]="wakeLockActive" (click)="toggleWakeLock()" [title]="wakeLockActive ? 'Anti-veille actif (l\'écran reste allumé)' : 'Cliquer pour activer l\'anti-veille'">
+          {{ wakeLockActive ? '🔆 Écran Actif' : '🌙 Écran Normal' }}
+        </button>
         <button class="btn-settings" (click)="toggleSettings()" title="Configurer l'URL API Backend">⚙️ API URL</button>
         <span class="dot" [class.online]="backendConnected" [class.offline]="!backendConnected"></span>
         <span class="status-text">{{ backendConnected ? 'Connecté' : 'En attente API' }}</span>

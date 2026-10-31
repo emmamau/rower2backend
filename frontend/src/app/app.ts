@@ -2,6 +2,7 @@ import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RowerService } from './services/rower.service';
+import { WakeLockService } from './services/wake-lock.service';
 import { RowerData } from './models/rower-data.model';
 import { UserProfile } from './models/user.model';
 import { interval, Subscription, of } from 'rxjs';
@@ -37,20 +38,27 @@ export class AppComponent implements OnInit, OnDestroy {
   isEditProfileOpen = false;
   isSettingsOpen = false;
 
+  // Wake Lock status (Anti-veille écran)
+  wakeLockActive = false;
+  wakeLockSupported = false;
+
   private pollingSub?: Subscription;
 
   constructor(
     private rowerService: RowerService,
+    private wakeLockService: WakeLockService,
     private cdr: ChangeDetectorRef
   ) {
     this.apiUrl = this.rowerService.getApiUrl();
     this.customApiUrlInput = this.apiUrl;
+    this.wakeLockSupported = this.wakeLockService.isSupported();
   }
 
   ngOnInit(): void {
     this.loadUserProfile();
     this.initSecurePolling();
     this.loadHistory();
+    this.enableScreenWakeLock();
   }
 
   ngOnDestroy(): void {
@@ -58,6 +66,21 @@ export class AppComponent implements OnInit, OnDestroy {
       this.pollingSub.unsubscribe();
       this.pollingSub = undefined;
     }
+    this.wakeLockService.releaseWakeLock();
+  }
+
+  /**
+   * Active le Screen Wake Lock pour maintenir l'écran du smartphone allumé pendant la séance
+   */
+  async enableScreenWakeLock(): Promise<void> {
+    const success = await this.wakeLockService.requestWakeLock();
+    this.wakeLockActive = success;
+    this.cdr.markForCheck();
+  }
+
+  async toggleWakeLock(): Promise<void> {
+    this.wakeLockActive = await this.wakeLockService.toggleWakeLock();
+    this.cdr.markForCheck();
   }
 
   toggleSettings(): void {
@@ -108,6 +131,10 @@ export class AppComponent implements OnInit, OnDestroy {
             this.latestData = data;
             this.backendConnected = true;
             this.errorMessage = '';
+            // Ensure wake lock remains active on active telemetry stream
+            if (!this.wakeLockActive && this.wakeLockSupported) {
+              this.enableScreenWakeLock();
+            }
           }
           this.cdr.markForCheck();
         },
