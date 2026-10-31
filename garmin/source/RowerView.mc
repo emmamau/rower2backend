@@ -43,12 +43,14 @@ class RowerView extends WatchUi.View {
 
         var m = _model as RowerDataModel;
 
-        // Metric 1: Stroke Rate (SPM) - Large in center
+        // Metric 1: Stroke Rate (SPM) & Strokes Label positioned just below the top separator line
+        dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(width / 2, 42, Graphics.FONT_XTINY, "SPM / STROKES: " + m.strokeCount, Graphics.TEXT_JUSTIFY_CENTER);
+
+        // Big numeric value in center
         dc.setColor(Graphics.COLOR_ORANGE, Graphics.COLOR_TRANSPARENT);
         var spmStr = m.strokeRate.format("%.1f");
-        dc.drawText(width / 2, 45, Graphics.FONT_NUMBER_HOT, spmStr, Graphics.TEXT_JUSTIFY_CENTER);
-        dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(width / 2, 95, Graphics.FONT_XTINY, "SPM / STROKES: " + m.strokeCount, Graphics.TEXT_JUSTIFY_CENTER);
+        dc.drawText(width / 2, 58, Graphics.FONT_NUMBER_HOT, spmStr, Graphics.TEXT_JUSTIFY_CENTER);
 
         // Metric 2: Power (Watts) & Pace (/500m)
         dc.setColor(Graphics.COLOR_GREEN, Graphics.COLOR_TRANSPARENT);
