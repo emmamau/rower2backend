@@ -1,15 +1,18 @@
 # Blueprint for Render Deployment
-# This configuration creates a managed PostgreSQL database and a Node.js web service.
-# The DATABASE_URL credential from the database is automatically shared with the API service.
+# This configuration deploys:
+# 1. Managed PostgreSQL database (rower-postgres-db)
+# 2. Node.js backend API (rower-api-service)
+# 3. Angular Web Frontend (rower-dashboard-frontend)
 
 databases:
   - name: rower-postgres-db
     databaseName: rower_db
     user: rower_user
     plan: free
-    region: frankfurt # Change to oregon, ohio, etc., if preferred
+    region: frankfurt # Change region if desired (frankfurt, oregon, ohio, etc.)
 
 services:
+  # Backend Node.js / Express / Sequelize API
   - type: web
     name: rower-api-service
     env: node
@@ -28,3 +31,22 @@ services:
           name: rower-postgres-db
           property: connectionString
 
+  # Angular Web Frontend (Static Site with automatic rewrite for SPA routing)
+  - type: web
+    name: rower-dashboard-frontend
+    env: static
+    plan: free
+    region: frankfurt
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist/frontend/browser
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: API_URL
+        fromService:
+          type: web
+          name: rower-api-service
+          property: host
