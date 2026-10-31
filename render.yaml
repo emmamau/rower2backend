@@ -44,7 +44,4 @@ services:
         destination: /index.html
     envVars:
       - key: API_URL
-        fromService:
-          type: web
-          name: rower-api-service
-          envVarKey: RENDER_EXTERNAL_URL
+        value: https://rower-api-service.onrender.com

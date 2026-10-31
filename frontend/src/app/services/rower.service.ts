@@ -12,12 +12,23 @@ export class RowerService {
   private apiUrl: string;
 
   constructor(private http: HttpClient) {
-    // 1. Check if user configured a custom URL in localStorage
     const savedUrl = localStorage.getItem('rower_backend_url');
     if (savedUrl && savedUrl.trim().length > 0) {
       this.apiUrl = savedUrl.trim().replace(/\/$/, '');
     } else {
-      this.apiUrl = environment.apiUrl ? environment.apiUrl.replace(/\/$/, '') : '';
+      let defaultUrl = (environment.apiUrl || '').trim().replace(/\/$/, '');
+      // If defaultUrl was configured as internal Render hostname (e.g. "https://rower-api-service")
+      // which cannot be resolved by client browsers, purge it to relative path ""
+      if (defaultUrl === 'https://rower-api-service' || defaultUrl === 'http://rower-api-service' || defaultUrl === 'rower-api-service') {
+        defaultUrl = '';
+      }
+      this.apiUrl = defaultUrl;
+    }
+
+    // Safety: if stored localStorage had the bad internal name, clean it up
+    if (this.apiUrl === 'https://rower-api-service' || this.apiUrl === 'http://rower-api-service' || this.apiUrl === 'rower-api-service') {
+      this.apiUrl = '';
+      localStorage.removeItem('rower_backend_url');
     }
   }
 
@@ -31,26 +42,35 @@ export class RowerService {
       clean = 'https://' + clean;
     }
     this.apiUrl = clean;
-    localStorage.setItem('rower_backend_url', clean);
+    if (clean) {
+      localStorage.setItem('rower_backend_url', clean);
+    } else {
+      localStorage.removeItem('rower_backend_url');
+    }
   }
 
   getCurrentUser(): Observable<UserProfile> {
-    return this.http.get<UserProfile>(`${this.apiUrl}/api/user/me`);
+    const endpoint = this.apiUrl ? `${this.apiUrl}/api/user/me` : '/api/user/me';
+    return this.http.get<UserProfile>(endpoint);
   }
 
   updateCurrentUser(profile: Partial<UserProfile>): Observable<UserProfile> {
-    return this.http.put<UserProfile>(`${this.apiUrl}/api/user/me`, profile);
+    const endpoint = this.apiUrl ? `${this.apiUrl}/api/user/me` : '/api/user/me';
+    return this.http.put<UserProfile>(endpoint, profile);
   }
 
   getLatestData(): Observable<RowerData> {
-    return this.http.get<RowerData>(`${this.apiUrl}/api/rower/latest`);
+    const endpoint = this.apiUrl ? `${this.apiUrl}/api/rower/latest` : '/api/rower/latest';
+    return this.http.get<RowerData>(endpoint);
   }
 
   getHistory(limit: number = 50, offset: number = 0): Observable<HistoryResponse> {
-    return this.http.get<HistoryResponse>(`${this.apiUrl}/api/rower/history?limit=${limit}&offset=${offset}`);
+    const endpoint = this.apiUrl ? `${this.apiUrl}/api/rower/history?limit=${limit}&offset=${offset}` : `/api/rower/history?limit=${limit}&offset=${offset}`;
+    return this.http.get<HistoryResponse>(endpoint);
   }
 
   checkHealth(): Observable<{ status: string; database: string }> {
-    return this.http.get<{ status: string; database: string }>(`${this.apiUrl}/health`);
+    const endpoint = this.apiUrl ? `${this.apiUrl}/health` : '/health';
+    return this.http.get<{ status: string; database: string }>(endpoint);
   }
 }
