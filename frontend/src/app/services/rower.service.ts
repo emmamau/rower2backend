@@ -9,12 +9,29 @@ import { UserProfile } from '../models/user.model';
   providedIn: 'root'
 })
 export class RowerService {
-  private apiUrl = environment.apiUrl;
+  private apiUrl: string;
 
-  constructor(private http: HttpClient) {}
+  constructor(private http: HttpClient) {
+    // 1. Check if user configured a custom URL in localStorage
+    const savedUrl = localStorage.getItem('rower_backend_url');
+    if (savedUrl && savedUrl.trim().length > 0) {
+      this.apiUrl = savedUrl.trim().replace(/\/$/, '');
+    } else {
+      this.apiUrl = environment.apiUrl ? environment.apiUrl.replace(/\/$/, '') : '';
+    }
+  }
 
   getApiUrl(): string {
     return this.apiUrl;
+  }
+
+  setApiUrl(url: string): void {
+    let clean = url.trim().replace(/\/$/, '');
+    if (clean && !clean.startsWith('http://') && !clean.startsWith('https://')) {
+      clean = 'https://' + clean;
+    }
+    this.apiUrl = clean;
+    localStorage.setItem('rower_backend_url', clean);
   }
 
   getCurrentUser(): Observable<UserProfile> {

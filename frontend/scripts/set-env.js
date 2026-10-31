@@ -2,9 +2,12 @@ const fs = require('fs');
 const path = require('path');
 
 const targetPath = path.resolve(__dirname, '../src/environments/environment.prod.ts');
-let rawApiUrl = process.env.API_URL || process.env.BACKEND_URL || 'https://rower-api-service.onrender.com';
+let rawApiUrl = process.env.API_URL || process.env.RENDER_EXTERNAL_URL || process.env.BACKEND_URL || 'https://rower-api-service.onrender.com';
 
-// If Render passes a bare hostname (e.g. rower-api-service.onrender.com), ensure https:// scheme
+// Clean leading/trailing spaces
+rawApiUrl = rawApiUrl.trim();
+
+// Ensure https scheme if bare domain
 if (!rawApiUrl.startsWith('http://') && !rawApiUrl.startsWith('https://')) {
   rawApiUrl = `https://${rawApiUrl}`;
 }

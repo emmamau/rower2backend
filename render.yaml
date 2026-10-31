@@ -47,4 +47,4 @@ services:
         fromService:
           type: web
           name: rower-api-service
-          property: host
+          envVarKey: RENDER_EXTERNAL_URL

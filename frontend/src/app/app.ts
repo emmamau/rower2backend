@@ -32,8 +32,10 @@ export class AppComponent implements OnInit, OnDestroy {
   history: RowerData[] = [];
   backendConnected = false;
   apiUrl = '';
+  customApiUrlInput = '';
   errorMessage = '';
   isEditProfileOpen = false;
+  isSettingsOpen = false;
 
   private pollingSub?: Subscription;
 
@@ -42,6 +44,7 @@ export class AppComponent implements OnInit, OnDestroy {
     private cdr: ChangeDetectorRef
   ) {
     this.apiUrl = this.rowerService.getApiUrl();
+    this.customApiUrlInput = this.apiUrl;
   }
 
   ngOnInit(): void {
@@ -57,12 +60,24 @@ export class AppComponent implements OnInit, OnDestroy {
     }
   }
 
-  /**
-   * Polling sécurisé et résilient :
-   * - Ne plante jamais (catchError localisé dans l'observable interne).
-   * - Gère les cold starts du backend ou l'absence initiale d'enregistrements en base (404).
-   * - Déclenche markForCheck() pour forcer la mise à jour UI en mode Zoneless ultra-performant.
-   */
+  toggleSettings(): void {
+    this.isSettingsOpen = !this.isSettingsOpen;
+    this.customApiUrlInput = this.apiUrl;
+    this.cdr.markForCheck();
+  }
+
+  saveCustomApiUrl(): void {
+    if (this.customApiUrlInput && this.customApiUrlInput.trim().length > 0) {
+      this.rowerService.setApiUrl(this.customApiUrlInput);
+      this.apiUrl = this.rowerService.getApiUrl();
+      this.isSettingsOpen = false;
+      this.loadUserProfile();
+      this.initSecurePolling();
+      this.loadHistory();
+      this.cdr.markForCheck();
+    }
+  }
+
   private initSecurePolling(): void {
     if (this.pollingSub) {
       this.pollingSub.unsubscribe();
@@ -74,13 +89,12 @@ export class AppComponent implements OnInit, OnDestroy {
         switchMap(() =>
           this.rowerService.getLatestData().pipe(
             catchError((err) => {
-              // Si 404, le backend fonctionne mais aucune montre n'a encore transmis de relevé
               if (err.status === 404) {
                 this.backendConnected = true;
                 this.errorMessage = 'Backend connecté. En attente de la première émission de la montre Garmin...';
               } else {
                 this.backendConnected = false;
-                this.errorMessage = 'Connexion en attente avec le backend API (' + this.apiUrl + ')';
+                this.errorMessage = 'Connexion en attente avec le backend (' + this.apiUrl + ')';
               }
               this.cdr.markForCheck();
               return of(null);
@@ -100,7 +114,6 @@ export class AppComponent implements OnInit, OnDestroy {
         error: (err) => {
           console.warn('Erreur polling inattendue (auto-relance):', err);
           this.cdr.markForCheck();
-          // Relance automatique de secours
           setTimeout(() => this.initSecurePolling(), 3000);
         }
       });
@@ -115,6 +128,7 @@ export class AppComponent implements OnInit, OnDestroy {
     ).subscribe((user) => {
       if (user) {
         this.currentUser = user;
+        this.backendConnected = true;
         this.cdr.markForCheck();
       }
     });

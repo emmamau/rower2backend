@@ -29,13 +29,29 @@
       }
 
       <div class="status-indicator">
+        <button class="btn-settings" (click)="toggleSettings()" title="Configurer l'URL API Backend">⚙️ API URL</button>
         <span class="dot" [class.online]="backendConnected" [class.offline]="!backendConnected"></span>
-        <span class="status-text">{{ backendConnected ? 'Connecté' : 'Hors-ligne' }}</span>
+        <span class="status-text">{{ backendConnected ? 'Connecté' : 'En attente API' }}</span>
       </div>
     </div>
   </header>
 
   <main class="dashboard-main">
+    <!-- API URL Configuration Modal / Box -->
+    @if (isSettingsOpen) {
+      <section class="settings-card">
+        <h3>Configuration de l'URL du Backend API</h3>
+        <p class="settings-desc">
+          Indiquez l'URL publique de votre service API hébergé sur Render (ex: <code>https://rower-api-service.onrender.com</code>).
+          Cette valeur est enregistrée dans votre navigateur.
+        </p>
+        <div class="settings-form">
+          <input type="text" [(ngModel)]="customApiUrlInput" placeholder="https://votre-api.onrender.com" />
+          <button class="btn-save" (click)="saveCustomApiUrl()">Appliquer & Reconnecter</button>
+        </div>
+      </section>
+    }
+
     <!-- User Profile Modal/Banner when editing -->
     @if (isEditProfileOpen && currentUser) {
       <section class="profile-card">
@@ -78,12 +94,12 @@
         <h2>Système de suivi d'activité Rameur FTMS</h2>
         <p>
           Cette application synchronise en direct les métriques de votre rameur Bluetooth FTMS
-          (Concept2, WaterRower, Matrix, etc.) relayées par votre montre <strong>Garmin (Enduro 3, Fenix 8, Forerunner)</strong>
+          relayées par votre montre <strong>Garmin (Enduro 3, Fenix 8, Forerunner)</strong>
           vers votre base de données PostgreSQL.
         </p>
         <div class="connection-status-pill" [class.live]="backendConnected">
           <span class="pulse-indicator"></span>
-          <span>{{ errorMessage || 'Télémétrie prête et en écoute' }}</span>
+          <span>{{ errorMessage || 'Télémétrie prête et en écoute' }} (API: {{ apiUrl }})</span>
         </div>
       </div>
     </section>
