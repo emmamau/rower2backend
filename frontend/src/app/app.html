@@ -11,20 +11,22 @@
       </div>
 
       <!-- User Profile Box in Header -->
-      <div class="user-header-profile" *ngIf="currentUser">
-        <img [src]="currentUser.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=128&q=80'" 
-             alt="Avatar" class="user-avatar" />
-        <div class="user-details">
-          <div class="user-name">{{ currentUser.name }}</div>
-          <div class="user-meta">
-            <span class="user-badge">{{ currentUser.athleteLevel }}</span>
-            <span class="user-info">{{ currentUser.weightKg }} kg · VO2max: {{ currentUser.vo2MaxEstimate }}</span>
+      @if (currentUser) {
+        <div class="user-header-profile">
+          <img [src]="currentUser.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=128&q=80'" 
+               alt="Avatar" class="user-avatar" />
+          <div class="user-details">
+            <div class="user-name">{{ currentUser.name }}</div>
+            <div class="user-meta">
+              <span class="user-badge">{{ currentUser.athleteLevel }}</span>
+              <span class="user-info">{{ currentUser.weightKg }} kg · VO2max: {{ currentUser.vo2MaxEstimate }}</span>
+            </div>
           </div>
+          <button class="btn-profile" (click)="toggleEditProfile()">
+            {{ isEditProfileOpen ? 'Fermer' : 'Éditer Profil' }}
+          </button>
         </div>
-        <button class="btn-profile" (click)="toggleEditProfile()">
-          {{ isEditProfileOpen ? 'Fermer' : 'Éditer Profil' }}
-        </button>
-      </div>
+      }
 
       <div class="status-indicator">
         <span class="dot" [class.online]="backendConnected" [class.offline]="!backendConnected"></span>
@@ -70,66 +72,101 @@
       </section>
     }
 
-    @if (errorMessage && !latestData) {
-      <div class="alert-box">
-        <p>{{ errorMessage }}</p>
+    <!-- Banner / Overview Presentation -->
+    <section class="hero-presentation">
+      <div class="hero-content">
+        <h2>Système de suivi d'activité Rameur FTMS</h2>
+        <p>
+          Cette application synchronise en direct les métriques de votre rameur Bluetooth FTMS
+          (Concept2, WaterRower, Matrix, etc.) relayées par votre montre <strong>Garmin (Enduro 3, Fenix 8, Forerunner)</strong>
+          vers votre base de données PostgreSQL.
+        </p>
+        <div class="connection-status-pill" [class.live]="backendConnected">
+          <span class="pulse-indicator"></span>
+          <span>{{ errorMessage || 'Télémétrie prête et en écoute' }}</span>
+        </div>
       </div>
-    }
+    </section>
 
-    <!-- Live Telemetry Display -->
-    @if (latestData) {
-      <section class="live-grid">
-        <!-- Cadence Card -->
-        <div class="metric-card primary-card">
-          <div class="metric-label">Cadence (Coups/min)</div>
-          <div class="metric-value-huge">{{ latestData.strokeRate | number:'1.1-1' }} <span class="unit">SPM</span></div>
-          <div class="metric-footer">Total coups : <strong>{{ latestData.strokeCount || 0 }}</strong></div>
+    <!-- Telemetry Display (Live or Waiting state) -->
+    <section class="live-grid">
+      <!-- Cadence Card -->
+      <div class="metric-card primary-card">
+        <div class="metric-label">Cadence (Coups/min)</div>
+        <div class="metric-value-huge">
+          {{ latestData ? (latestData.strokeRate | number:'1.1-1') : '0.0' }} 
+          <span class="unit">SPM</span>
         </div>
-
-        <!-- Power & Pace Card -->
-        <div class="metric-card">
-          <div class="metric-label">Puissance Développée</div>
-          <div class="metric-value">{{ latestData.instantPower || 0 }} <span class="unit">Watts</span></div>
-          <div class="metric-footer">Moyenne : {{ latestData.avgPower || 0 }} W</div>
+        <div class="metric-footer">
+          Total coups : <strong>{{ latestData ? (latestData.strokeCount || 0) : 0 }}</strong>
         </div>
+      </div>
 
-        <div class="metric-card">
-          <div class="metric-label">Allure Instantanée</div>
-          <div class="metric-value">{{ formatPace(latestData.instantPace) }} <span class="unit">/500m</span></div>
-          <div class="metric-footer">Allure moyenne : {{ formatPace(latestData.avgPace) }} /500m</div>
+      <!-- Power Card -->
+      <div class="metric-card">
+        <div class="metric-label">Puissance Développée</div>
+        <div class="metric-value">
+          {{ latestData ? (latestData.instantPower || 0) : 0 }} 
+          <span class="unit">Watts</span>
         </div>
-
-        <!-- Distance & Time Card -->
-        <div class="metric-card">
-          <div class="metric-label">Distance Totale</div>
-          <div class="metric-value">{{ latestData.totalDistance || 0 }} <span class="unit">m</span></div>
-          <div class="metric-footer">Temps : {{ formatTime(latestData.elapsedTime) }}</div>
+        <div class="metric-footer">
+          Moyenne : {{ latestData ? (latestData.avgPower || 0) : 0 }} W
         </div>
+      </div>
 
-        <!-- Heart Rate & Calories -->
-        <div class="metric-card">
-          <div class="metric-label">Cardio & Énergie</div>
-          <div class="metric-value-dual">
-            <div>
-              <span class="sub-val">{{ latestData.heartRate || '--' }}</span>
-              <span class="sub-unit">BPM</span>
-            </div>
-            <div>
-              <span class="sub-val">{{ latestData.totalEnergy || 0 }}</span>
-              <span class="sub-unit">kCal</span>
-            </div>
+      <!-- Pace Card -->
+      <div class="metric-card">
+        <div class="metric-label">Allure Instantanée</div>
+        <div class="metric-value">
+          {{ formatPace(latestData?.instantPace) }} 
+          <span class="unit">/500m</span>
+        </div>
+        <div class="metric-footer">
+          Allure moyenne : {{ formatPace(latestData?.avgPace) }} /500m
+        </div>
+      </div>
+
+      <!-- Distance & Time Card -->
+      <div class="metric-card">
+        <div class="metric-label">Distance Totale</div>
+        <div class="metric-value">
+          {{ latestData ? (latestData.totalDistance || 0) : 0 }} 
+          <span class="unit">m</span>
+        </div>
+        <div class="metric-footer">
+          Temps : {{ formatTime(latestData?.elapsedTime) }}
+        </div>
+      </div>
+
+      <!-- Heart Rate & Calories -->
+      <div class="metric-card">
+        <div class="metric-label">Cardio & Énergie</div>
+        <div class="metric-value-dual">
+          <div>
+            <span class="sub-val">{{ latestData?.heartRate || '--' }}</span>
+            <span class="sub-unit">BPM</span>
           </div>
-          <div class="metric-footer">Résistance : Niv. {{ latestData.resistanceLevel || 1 }}</div>
+          <div>
+            <span class="sub-val">{{ latestData?.totalEnergy || 0 }}</span>
+            <span class="sub-unit">kCal</span>
+          </div>
         </div>
+        <div class="metric-footer">
+          Résistance : Niv. {{ latestData?.resistanceLevel || 1 }}
+        </div>
+      </div>
 
-        <!-- Device & Athlete Context Info -->
-        <div class="metric-card">
-          <div class="metric-label">Montre Garmin / Source</div>
-          <div class="metric-value small">{{ latestData.deviceId || 'Garmin Enduro 3 / Fenix' }}</div>
-          <div class="metric-footer">Athlète : {{ currentUser ? currentUser.name : 'Inconnu' }}</div>
+      <!-- Device & Athlete Context Info -->
+      <div class="metric-card">
+        <div class="metric-label">Montre Garmin / Source</div>
+        <div class="metric-value small">
+          {{ latestData?.deviceId || 'Garmin Enduro 3 / Fenix 8' }}
         </div>
-      </section>
-    }
+        <div class="metric-footer">
+          Athlète : {{ currentUser ? currentUser.name : 'Emma Rower Athlete' }}
+        </div>
+      </div>
+    </section>
 
     <!-- Recent History Table -->
     <section class="history-section">
@@ -166,7 +203,9 @@
               </tr>
             } @empty {
               <tr>
-                <td colspan="8" class="text-center">Aucun enregistrement disponible pour l'instant.</td>
+                <td colspan="8" class="text-center">
+                  Aucun enregistrement en base. Connectez votre montre Garmin pour commencer le suivi en direct.
+                </td>
               </tr>
             }
           </tbody>

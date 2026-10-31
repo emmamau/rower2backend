@@ -121,6 +121,58 @@ body {
   background-color: #484f58;
 }
 
+/* Hero Presentation Banner */
+.hero-presentation {
+  background: linear-gradient(135deg, rgba(22, 27, 34, 0.95), rgba(33, 38, 45, 0.95));
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 1.5rem 2rem;
+  margin-bottom: 2rem;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+
+.hero-content h2 {
+  margin-top: 0;
+  font-size: 1.4rem;
+  color: var(--text-bright);
+}
+
+.hero-content p {
+  color: #8b949e;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  margin: 0.5rem 0 1rem 0;
+}
+
+.connection-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  background-color: #0d1117;
+  border: 1px solid var(--border-color);
+  padding: 0.4rem 1rem;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  color: #8b949e;
+}
+
+.connection-status-pill.live {
+  border-color: var(--accent-green);
+  color: var(--accent-green);
+}
+
+.pulse-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: var(--accent-orange);
+}
+
+.connection-status-pill.live .pulse-indicator {
+  background-color: var(--accent-green);
+  box-shadow: 0 0 6px var(--accent-green);
+}
+
 /* Profile Edit Section */
 .profile-card {
   background-color: var(--card-bg);
@@ -215,18 +267,9 @@ body {
 .dashboard-main {
   max-width: 1400px;
   width: 100%;
-  margin: 2rem auto;
+  margin: 1rem auto 2rem auto;
   padding: 0 1rem;
   box-sizing: border-box;
-}
-
-.alert-box {
-  background-color: rgba(56, 139, 253, 0.1);
-  border: 1px solid var(--primary);
-  border-radius: 8px;
-  padding: 1rem;
-  margin-bottom: 2rem;
-  text-align: center;
 }
 
 .live-grid {

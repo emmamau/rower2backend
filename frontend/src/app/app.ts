@@ -4,8 +4,8 @@ import { FormsModule } from '@angular/forms';
 import { RowerService } from './services/rower.service';
 import { RowerData } from './models/rower-data.model';
 import { UserProfile } from './models/user.model';
-import { interval, Subscription } from 'rxjs';
-import { switchMap, startWith } from 'rxjs/operators';
+import { interval, Subscription, of } from 'rxjs';
+import { switchMap, startWith, catchError } from 'rxjs/operators';
 
 @Component({
   selector: 'app-root',
@@ -15,7 +15,19 @@ import { switchMap, startWith } from 'rxjs/operators';
   styleUrls: ['./app.css']
 })
 export class AppComponent implements OnInit, OnDestroy {
-  currentUser: UserProfile | null = null;
+  // Default fallback user so the page is never blank even if offline
+  currentUser: UserProfile = {
+    id: 1,
+    name: 'Emma Rower Athlete',
+    email: 'athlete@garmin-rower.app',
+    avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=128&q=80',
+    athleteLevel: 'Advanced Competitor',
+    weightKg: 72.5,
+    heightCm: 178,
+    maxHeartRate: 195,
+    vo2MaxEstimate: 54.2
+  };
+
   latestData: RowerData | null = null;
   history: RowerData[] = [];
   backendConnected = false;
@@ -32,25 +44,29 @@ export class AppComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.loadUserProfile();
 
-    // Poll latest metrics every 2 seconds
+    // Poll latest metrics every 2 seconds without dying on 404 or connection errors
     this.pollingSub = interval(2000)
       .pipe(
         startWith(0),
-        switchMap(() => this.rowerService.getLatestData())
+        switchMap(() =>
+          this.rowerService.getLatestData().pipe(
+            catchError((err) => {
+              this.backendConnected = err.status !== 0; // if status 404, backend is alive
+              if (err.status === 404) {
+                this.errorMessage = 'En attente de la première émission de données par la montre Garmin...';
+              } else {
+                this.errorMessage = 'Connexion en attente avec le backend (' + this.apiUrl + ')';
+              }
+              return of(null);
+            })
+          )
+        )
       )
-      .subscribe({
-        next: (data) => {
+      .subscribe((data) => {
+        if (data) {
           this.latestData = data;
           this.backendConnected = true;
           this.errorMessage = '';
-        },
-        error: (err) => {
-          this.backendConnected = false;
-          if (err.status === 404) {
-            this.errorMessage = 'En attente de données émises par la montre...';
-          } else {
-            this.errorMessage = 'Impossible de joindre le backend API (' + this.apiUrl + ')';
-          }
         }
       });
 
@@ -64,12 +80,14 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   loadUserProfile(): void {
-    this.rowerService.getCurrentUser().subscribe({
-      next: (user) => {
+    this.rowerService.getCurrentUser().pipe(
+      catchError((err) => {
+        console.warn('Backend user profile inaccessible, using default presentation profile', err);
+        return of(null);
+      })
+    ).subscribe((user) => {
+      if (user) {
         this.currentUser = user;
-      },
-      error: (err) => {
-        console.error('Impossible de charger le profil utilisateur', err);
       }
     });
   }
@@ -87,16 +105,16 @@ export class AppComponent implements OnInit, OnDestroy {
       },
       error: (err) => {
         console.error('Erreur mise à jour profil', err);
+        this.isEditProfileOpen = false;
       }
     });
   }
 
   loadHistory(): void {
-    this.rowerService.getHistory(20, 0).subscribe({
-      next: (res) => {
-        this.history = res.records;
-      },
-      error: () => {}
+    this.rowerService.getHistory(20, 0).pipe(
+      catchError(() => of({ total: 0, records: [] }))
+    ).subscribe((res) => {
+      this.history = res.records;
     });
   }
 
