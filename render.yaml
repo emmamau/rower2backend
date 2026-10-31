@@ -32,13 +32,12 @@ services:
           property: connectionString
 
   # Angular Web Frontend (Static Site hosted on Render's Global CDN)
-  # Note: In Render Blueprints, static sites use runtime: static, publishPath, and do NOT take a plan or region parameter.
   - type: web
     name: rower-dashboard-frontend
     runtime: static
     rootDir: frontend
     buildCommand: npm install && npm run build
-    publishPath: dist/frontend/browser
+    staticPublishPath: dist/frontend/browser
     routes:
       - type: rewrite
         source: /*
