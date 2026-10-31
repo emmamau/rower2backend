@@ -1,0 +1,9 @@
+<resources>
+    <string id="AppName">FTMS Rower</string>
+    <string id="BackendUrlTitle">Backend API URL</string>
+    <string id="BackendUrlPrompt">URL (e.g. https://...onrender.com)</string>
+    <string id="StatusDisconnected">BLE: Disconnected</string>
+    <string id="StatusScanning">BLE: Scanning...</string>
+    <string id="StatusConnected">BLE: Connected</string>
+</resources>
+
