@@ -1,6 +1,8 @@
 import Toybox.BluetoothLowEnergy;
 import Toybox.Lang;
 import Toybox.System;
+import Toybox.ActivityRecording;
+import Toybox.Time;
 
 class BleDelegate extends BluetoothLowEnergy.BleDelegate {
 
@@ -14,14 +16,39 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
     private var _syncManager as RestSyncManager;
     private var _deviceName as String? = null;
 
+    // Race & Session State
+    private var _session as ActivityRecording.Session?;
+    private var _userId as String = "";
+    private var _activityId as String = "";
+    private var _raceMode as String = "race"; // "race" or "solo"
+    private var _activityStatus as String = "in_progress"; // "in_progress", "paused", "completed"
+    private var _targetDistance as Number = 10000;
+    private var _initialDistance as Number = -1; // -1 means uninitialized
+    private var _netDistance as Number = 0;
+    private var _progressPercent as Float = 0.0;
+    private var _lastModel as RowerDataModel?;
+
     function initialize() {
         BleDelegate.initialize();
-        _syncManager = new RestSyncManager();
+        _syncManager = new RestSyncManager(self);
+        _userId = UserManager.getUserId();
         registerProfiles();
     }
 
     function setView(view as RowerView) as Void {
         _view = view;
+    }
+
+    function getSyncManager() as RestSyncManager {
+        return _syncManager;
+    }
+
+    function getRaceMode() as String {
+        return _raceMode;
+    }
+
+    function setRaceMode(mode as String) as Void {
+        _raceMode = mode;
     }
 
     private function registerProfiles() as Void {
@@ -42,7 +69,7 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
     function startScan() as Void {
         BluetoothLowEnergy.setScanState(BluetoothLowEnergy.SCAN_STATE_SCANNING);
         if (_view != null) {
-            _view.setStatus("Scanning for FTMS...");
+            _view.setStatus("Recherche Rameur FTMS...");
         }
     }
 
@@ -65,7 +92,7 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
                     stopScan();
                     _deviceName = (result as BluetoothLowEnergy.ScanResult).getDeviceName();
                     if (_view != null) {
-                        _view.setStatus("Connecting...");
+                        _view.setStatus("Connexion en cours...");
                     }
                     _device = BluetoothLowEnergy.pairDevice(result as BluetoothLowEnergy.ScanResult);
                     return;
@@ -77,7 +104,7 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
     function onConnectedStateChanged(device as BluetoothLowEnergy.Device, state as BluetoothLowEnergy.ConnectionState) as Void {
         if (state == BluetoothLowEnergy.CONNECTION_STATE_CONNECTED) {
             if (_view != null) {
-                _view.setStatus("Connected!");
+                _view.setStatus("Rameur Connecte !");
             }
             // Subscribe to Rower Data notifications
             var service = device.getService(FTMS_SERVICE_UUID);
@@ -90,11 +117,132 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
                     }
                 }
             }
+
+            // Fetch Next Race info from backend to initialize Lobby
+            fetchLobbyRace();
         } else {
             if (_view != null) {
-                _view.setStatus("Disconnected");
+                _view.setStatus("Rameur Deconnecte");
             }
             startScan();
+        }
+    }
+
+    function fetchLobbyRace() as Void {
+        _syncManager.fetchNextRace();
+    }
+
+    function onLobbyDataReceived(data as Dictionary?) as Void {
+        if (data != null && _view != null) {
+            var countdown = (data.hasKey("countdownSeconds")) ? (data.get("countdownSeconds") as Number) : 600;
+            var players = (data.hasKey("totalParticipants")) ? (data.get("totalParticipants") as Number) : 1;
+            var dist = (data.hasKey("targetDistance")) ? (data.get("targetDistance") as Number) : 10000;
+            _targetDistance = dist;
+            _view.setLobbyInfo(countdown, players, dist);
+            _view.setAppState(RowerView.STATE_LOBBY);
+        } else if (_view != null) {
+            // Default 15m lobby fallback
+            _view.setLobbyInfo(900, 1, 10000);
+            _view.setAppState(RowerView.STATE_LOBBY);
+        }
+    }
+
+    // --- FIT Activity Recording & Race Lifecycle ---
+
+    function startRaceSession(mode as String) as Void {
+        _raceMode = mode;
+        _activityStatus = "in_progress";
+        _initialDistance = -1; // Will reset to first received BLE distance
+        _netDistance = 0;
+        _progressPercent = 0.0;
+        
+        // Generate unique activity ID
+        var nowSec = Time.now().value();
+        _activityId = "act_" + nowSec;
+
+        // Start Garmin FIT Activity recording
+        try {
+            _session = ActivityRecording.createSession({
+                :name => "Rower Race - " + _raceMode,
+                :sport => ActivityRecording.SPORT_ROWING,
+                :subSport => ActivityRecording.SUB_SPORT_INDOOR_ROWING
+            });
+            _session.start();
+            System.println("FIT Activity Session started: " + _activityId);
+        } catch (ex) {
+            System.println("ActivityRecording start error: " + ex.getErrorMessage());
+        }
+
+        if (_view != null) {
+            _view.setAppState(RowerView.STATE_RACING);
+        }
+    }
+
+    function pauseSession() as Void {
+        if (_session != null && _session.isRecording()) {
+            _session.stop();
+        }
+        _activityStatus = "paused";
+        if (_view != null) {
+            _view.setAppState(RowerView.STATE_PAUSED);
+        }
+    }
+
+    function resumeSession() as Void {
+        if (_session != null && !_session.isRecording()) {
+            _session.start();
+        }
+        _activityStatus = "in_progress";
+        if (_view != null) {
+            _view.setAppState(RowerView.STATE_RACING);
+        }
+    }
+
+    function saveAndExitSession() as Void {
+        if (_session != null) {
+            _session.save();
+            _session = null;
+            System.println("FIT Activity Session saved to Garmin.");
+        }
+        _activityStatus = "completed";
+
+        // Push final update to backend
+        if (_lastModel != null) {
+            _syncManager.syncActivity(_activityId, _userId, _userId, _raceMode,
+                                      _activityStatus, _targetDistance, _lastModel as RowerDataModel,
+                                      _deviceName, true);
+        } else {
+            if (_view != null) {
+                _view.setFinishResults(1, []);
+            }
+        }
+    }
+
+    function discardSession() as Void {
+        if (_session != null) {
+            _session.discard();
+            _session = null;
+            System.println("FIT Activity Session discarded.");
+        }
+        _activityStatus = "discarded";
+        if (_view != null) {
+            _view.setAppState(RowerView.STATE_LOBBY);
+        }
+    }
+
+    function onFinalSyncResponse(data as Dictionary?) as Void {
+        var rank = 1;
+        var podium = [] as Array<Dictionary>;
+        if (data != null) {
+            if (data.hasKey("finalRank")) {
+                rank = data.get("finalRank") as Number;
+            }
+            if (data.hasKey("podium") && data.get("podium") instanceof Array) {
+                podium = data.get("podium") as Array<Dictionary>;
+            }
+        }
+        if (_view != null) {
+            _view.setFinishResults(rank, podium);
         }
     }
 
@@ -104,7 +252,7 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
         }
     }
 
-    // FTMS 0x2AD1 Rower Data parser (Little Endian byte decoding)
+    // FTMS 0x2AD1 Rower Data parser
     private function parseRowerData(bytes as ByteArray) as Void {
         if (bytes.size() < 3) {
             return;
@@ -114,23 +262,21 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
         var flags = (bytes[0] & 0xFF) | ((bytes[1] & 0xFF) << 8);
         model.rawFlags = flags;
 
-        // Mandatory fields:
-        // Stroke Rate: uint8, resolution 0.5 spm
+        // Mandatory fields: Stroke Rate (0.5 spm) & Stroke Count
         model.strokeRate = (bytes[2] & 0xFF) * 0.5;
-        // Stroke Count: uint16
         if (bytes.size() >= 5) {
             model.strokeCount = (bytes[3] & 0xFF) | ((bytes[4] & 0xFF) << 8);
         }
 
         var offset = 5;
 
-        // Bit 1: Average Stroke Rate Present (uint8, 0.5 resolution)
+        // Bit 1: Average Stroke Rate Present
         if ((flags & (1 << 1)) != 0 && (offset + 1) <= bytes.size()) {
             model.avgStrokeRate = (bytes[offset] & 0xFF) * 0.5;
             offset += 1;
         }
 
-        // Bit 2: Total Distance Present (uint24, meters)
+        // Bit 2: Total Distance Present
         if ((flags & (1 << 2)) != 0 && (offset + 3) <= bytes.size()) {
             model.totalDistance = (bytes[offset] & 0xFF) |
                                   ((bytes[offset + 1] & 0xFF) << 8) |
@@ -138,19 +284,19 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
             offset += 3;
         }
 
-        // Bit 3: Instantaneous Pace Present (uint16, sec/500m)
+        // Bit 3: Instantaneous Pace Present
         if ((flags & (1 << 3)) != 0 && (offset + 2) <= bytes.size()) {
             model.instantPace = (bytes[offset] & 0xFF) | ((bytes[offset + 1] & 0xFF) << 8);
             offset += 2;
         }
 
-        // Bit 4: Average Pace Present (uint16, sec/500m)
+        // Bit 4: Average Pace Present
         if ((flags & (1 << 4)) != 0 && (offset + 2) <= bytes.size()) {
             model.avgPace = (bytes[offset] & 0xFF) | ((bytes[offset + 1] & 0xFF) << 8);
             offset += 2;
         }
 
-        // Bit 5: Instantaneous Power Present (sint16, Watts)
+        // Bit 5: Instantaneous Power Present
         if ((flags & (1 << 5)) != 0 && (offset + 2) <= bytes.size()) {
             var rawPow = (bytes[offset] & 0xFF) | ((bytes[offset + 1] & 0xFF) << 8);
             if (rawPow > 32767) {
@@ -160,7 +306,7 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
             offset += 2;
         }
 
-        // Bit 6: Average Power Present (sint16, Watts)
+        // Bit 6: Average Power Present
         if ((flags & (1 << 6)) != 0 && (offset + 2) <= bytes.size()) {
             var rawAvgPow = (bytes[offset] & 0xFF) | ((bytes[offset + 1] & 0xFF) << 8);
             if (rawAvgPow > 32767) {
@@ -170,7 +316,7 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
             offset += 2;
         }
 
-        // Bit 7: Resistance Level Present (sint16)
+        // Bit 7: Resistance Level
         if ((flags & (1 << 7)) != 0 && (offset + 2) <= bytes.size()) {
             var rawRes = (bytes[offset] & 0xFF) | ((bytes[offset + 1] & 0xFF) << 8);
             if (rawRes > 32767) {
@@ -180,7 +326,7 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
             offset += 2;
         }
 
-        // Bit 8: Expired Energy Present (Total Energy uint16, Energy/h uint16, Energy/m uint8)
+        // Bit 8: Total Energy / kcal
         if ((flags & (1 << 8)) != 0 && (offset + 5) <= bytes.size()) {
             model.totalEnergy = (bytes[offset] & 0xFF) | ((bytes[offset + 1] & 0xFF) << 8);
             model.energyPerHour = (bytes[offset + 2] & 0xFF) | ((bytes[offset + 3] & 0xFF) << 8);
@@ -188,37 +334,66 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
             offset += 5;
         }
 
-        // Bit 9: Heart Rate Present (uint8, bpm)
+        // Bit 9: Heart Rate
         if ((flags & (1 << 9)) != 0 && (offset + 1) <= bytes.size()) {
             model.heartRate = (bytes[offset] & 0xFF);
             offset += 1;
         }
 
-        // Bit 10: Metabolic Equivalent Present (uint8, 0.1 METs)
+        // Bit 10: Metabolic Equivalent
         if ((flags & (1 << 10)) != 0 && (offset + 1) <= bytes.size()) {
             model.metabolicEq = (bytes[offset] & 0xFF) * 0.1;
             offset += 1;
         }
 
-        // Bit 11: Elapsed Time Present (uint16, seconds)
+        // Bit 11: Elapsed Time
         if ((flags & (1 << 11)) != 0 && (offset + 2) <= bytes.size()) {
             model.elapsedTime = (bytes[offset] & 0xFF) | ((bytes[offset + 1] & 0xFF) << 8);
             offset += 2;
         }
 
-        // Bit 12: Remaining Time Present (uint16, seconds)
+        // Bit 12: Remaining Time
         if ((flags & (1 << 12)) != 0 && (offset + 2) <= bytes.size()) {
             model.remainingTime = (bytes[offset] & 0xFF) | ((bytes[offset + 1] & 0xFF) << 8);
             offset += 2;
         }
 
-        // Update the UI
-        if (_view != null) {
-            _view.updateRowerData(model);
+        _lastModel = model;
+
+        // Calculate Net Distance = currentDistance - initialDistance
+        if (_initialDistance < 0) {
+            _initialDistance = model.totalDistance;
+        }
+        _netDistance = model.totalDistance - _initialDistance;
+        if (_netDistance < 0) {
+            _netDistance = 0;
         }
 
-        // Transmit to Render Backend API
-        _syncManager.sendRowerData(model, _deviceName);
+        if (_targetDistance > 0) {
+            _progressPercent = (_netDistance * 1.0) / _targetDistance;
+            if (_progressPercent > 1.0) {
+                _progressPercent = 1.0;
+            }
+        }
+
+        // Check race completion
+        if (_activityStatus.equals("in_progress") && _view != null && _view.getAppState() == RowerView.STATE_RACING) {
+            if (_netDistance >= _targetDistance) {
+                saveAndExitSession();
+                return;
+            }
+        }
+
+        // Update the Watch UI
+        if (_view != null) {
+            _view.updateRowerData(model, _netDistance, _progressPercent);
+        }
+
+        // Transmit stroke data to Render Backend API (only if session active)
+        if (_activityStatus.equals("in_progress") && _activityId.length() > 0) {
+            _syncManager.syncActivity(_activityId, _userId, _userId, _raceMode,
+                                      _activityStatus, _targetDistance, model,
+                                      _deviceName, false);
+        }
     }
 }
-

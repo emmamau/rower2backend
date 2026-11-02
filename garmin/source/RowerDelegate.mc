@@ -1,25 +1,104 @@
 import Toybox.WatchUi;
 import Toybox.Lang;
+import Toybox.System;
 
 class RowerDelegate extends WatchUi.BehaviorDelegate {
 
     private var _bleDelegate as BleDelegate;
+    private var _view as RowerView?;
 
-    function initialize(bleDelegate as BleDelegate) {
+    function initialize(bleDelegate as BleDelegate, view as RowerView?) {
         BehaviorDelegate.initialize();
         _bleDelegate = bleDelegate;
+        _view = view;
     }
 
-    // Press Select / Start-Stop to toggle scan / reconnect
+    function setView(view as RowerView) as Void {
+        _view = view;
+    }
+
+    // Handles START / SELECT button
     function onSelect() as Boolean {
-        _bleDelegate.startScan();
-        return true;
+        if (_view == null) {
+            return false;
+        }
+
+        var state = _view.getAppState();
+
+        if (state == RowerView.STATE_SCANNING) {
+            _bleDelegate.startScan();
+            return true;
+        } else if (state == RowerView.STATE_LOBBY) {
+            // Join race mode
+            _bleDelegate.startRaceSession("race");
+            return true;
+        } else if (state == RowerView.STATE_RACING) {
+            // Pause activity
+            _bleDelegate.pauseSession();
+            return true;
+        } else if (state == RowerView.STATE_PAUSED) {
+            // Validate selected pause menu item
+            var menuIdx = _view.getPauseMenuIndex();
+            if (menuIdx == 0) {
+                // Reprendre
+                _bleDelegate.resumeSession();
+            } else if (menuIdx == 1) {
+                // Enregistrer & Quitter
+                _bleDelegate.saveAndExitSession();
+            } else if (menuIdx == 2) {
+                // Abandonner
+                _bleDelegate.discardSession();
+            }
+            return true;
+        } else if (state == RowerView.STATE_FINISHED) {
+            // Back to lobby
+            _view.setAppState(RowerView.STATE_LOBBY);
+            return true;
+        }
+
+        return false;
     }
 
+    // Handles DOWN / NEXT_PAGE button
+    function onNextPage() as Boolean {
+        if (_view == null) {
+            return false;
+        }
+
+        var state = _view.getAppState();
+        if (state == RowerView.STATE_LOBBY) {
+            // Option to decline multiplayer and row in Solo mode
+            _bleDelegate.startRaceSession("solo");
+            return true;
+        } else if (state == RowerView.STATE_PAUSED) {
+            // Cycle pause menu choices
+            _view.cyclePauseMenu();
+            return true;
+        }
+
+        return false;
+    }
+
+    // Handles BACK / ESC button
     function onBack() as Boolean {
-        _bleDelegate.stopScan();
-        _bleDelegate.disconnect();
-        return false; // allow exit
+        if (_view == null) {
+            return false;
+        }
+
+        var state = _view.getAppState();
+        if (state == RowerView.STATE_RACING) {
+            // Pressing back during racing prompts pause menu
+            _bleDelegate.pauseSession();
+            return true;
+        } else if (state == RowerView.STATE_PAUSED) {
+            _bleDelegate.resumeSession();
+            return true;
+        } else if (state == RowerView.STATE_LOBBY || state == RowerView.STATE_SCANNING) {
+            _bleDelegate.stopScan();
+            _bleDelegate.disconnect();
+            return false; // allow exit application
+        }
+
+        return false;
     }
 }
-

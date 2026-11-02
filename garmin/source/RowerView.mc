@@ -1,15 +1,47 @@
 import Toybox.WatchUi;
 import Toybox.Graphics;
 import Toybox.Lang;
+import Toybox.ActivityRecording;
+import Toybox.System;
 
 class RowerView extends WatchUi.View {
 
-    private var _statusText as String = "Scanning...";
+    // App state machine
+    public static const STATE_SCANNING = 0;
+    public static const STATE_LOBBY = 1;
+    public static const STATE_RACING = 2;
+    public static const STATE_PAUSED = 3;
+    public static const STATE_FINISHED = 4;
+
+    private var _currentState as Number = STATE_SCANNING;
+    private var _statusText as String = "Scanning FTMS...";
     private var _model as RowerDataModel?;
+    
+    // Race details
+    private var _userId as String = "";
+    private var _raceMode as String = "race"; // "race" or "solo"
+    private var _nextRaceCountdown as Number = 0; // seconds
+    private var _connectedPlayers as Number = 1;
+    private var _targetDistance as Number = 10000;
+    private var _finalRank as Number = 0;
+    private var _top3Podium as Array<Dictionary> = [];
+    private var _netDistance as Number = 0;
+    private var _progressPercent as Float = 0.0;
+    private var _pauseMenuIndex as Number = 0; // 0: Reprendre, 1: Enregistrer & Quitter, 2: Abandonner
 
     function initialize() {
         View.initialize();
         _model = new RowerDataModel();
+        _userId = UserManager.getUserId();
+    }
+
+    function setAppState(state as Number) as Void {
+        _currentState = state;
+        WatchUi.requestUpdate();
+    }
+
+    function getAppState() as Number {
+        return _currentState;
     }
 
     function setStatus(status as String) as Void {
@@ -17,9 +49,34 @@ class RowerView extends WatchUi.View {
         WatchUi.requestUpdate();
     }
 
-    function updateRowerData(model as RowerDataModel) as Void {
-        _model = model;
+    function setLobbyInfo(countdownSec as Number, playersCount as Number, targetDist as Number) as Void {
+        _nextRaceCountdown = countdownSec;
+        _connectedPlayers = playersCount;
+        _targetDistance = targetDist;
         WatchUi.requestUpdate();
+    }
+
+    function updateRowerData(model as RowerDataModel, netDist as Number, progress as Float) as Void {
+        _model = model;
+        _netDistance = netDist;
+        _progressPercent = progress;
+        WatchUi.requestUpdate();
+    }
+
+    function setFinishResults(rank as Number, podium as Array<Dictionary>) as Void {
+        _finalRank = rank;
+        _top3Podium = podium;
+        _currentState = STATE_FINISHED;
+        WatchUi.requestUpdate();
+    }
+
+    function cyclePauseMenu() as Void {
+        _pauseMenuIndex = (_pauseMenuIndex + 1) % 3;
+        WatchUi.requestUpdate();
+    }
+
+    function getPauseMenuIndex() as Number {
+        return _pauseMenuIndex;
     }
 
     function onUpdate(dc as Graphics.Dc) as Void {
@@ -29,39 +86,89 @@ class RowerView extends WatchUi.View {
         var width = dc.getWidth();
         var height = dc.getHeight();
 
-        // 1. Status Bar (Top Header, y = 6)
-        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(width / 2, 6, Graphics.FONT_XTINY, _statusText, Graphics.TEXT_JUSTIFY_CENTER);
+        if (_currentState == STATE_SCANNING) {
+            drawScanningScreen(dc, width, height);
+        } else if (_currentState == STATE_LOBBY) {
+            drawLobbyScreen(dc, width, height);
+        } else if (_currentState == STATE_RACING) {
+            drawRacingScreen(dc, width, height);
+        } else if (_currentState == STATE_PAUSED) {
+            drawPausedScreen(dc, width, height);
+        } else if (_currentState == STATE_FINISHED) {
+            drawFinishedScreen(dc, width, height);
+        }
+    }
 
-        // Top horizontal separator line at y = 26
+    // 1. Scanning Screen
+    private function drawScanningScreen(dc as Graphics.Dc, width as Number, height as Number) as Void {
+        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(width / 2, 20, Graphics.FONT_SMALL, "ROWER RACE", Graphics.TEXT_JUSTIFY_CENTER);
+
+        dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(width / 2, height / 2 - 20, Graphics.FONT_XTINY, "Joueur: " + _userId, Graphics.TEXT_JUSTIFY_CENTER);
+
+        dc.setColor(Graphics.COLOR_YELLOW, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(width / 2, height / 2 + 10, Graphics.FONT_TINY, _statusText, Graphics.TEXT_JUSTIFY_CENTER);
+
+        dc.setColor(Graphics.COLOR_DK_GRAY, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(width / 2, height - 35, Graphics.FONT_XTINY, "Connectez le rameur BLE", Graphics.TEXT_JUSTIFY_CENTER);
+    }
+
+    // 2. Lobby Screen (Waiting for next race or solo)
+    private function drawLobbyScreen(dc as Graphics.Dc, width as Number, height as Number) as Void {
+        dc.setColor(Graphics.COLOR_ORANGE, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(width / 2, 10, Graphics.FONT_TINY, "LOBBY COURSE (15m)", Graphics.TEXT_JUSTIFY_CENTER);
+
+        // Countdown timer
+        var min = _nextRaceCountdown / 60;
+        var sec = _nextRaceCountdown % 60;
+        var timeStr = (sec < 10) ? (min + ":0" + sec) : (min + ":" + sec);
+
+        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(width / 2, 45, Graphics.FONT_NUMBER_MEDIUM, timeStr, Graphics.TEXT_JUSTIFY_CENTER);
+
+        dc.setColor(Graphics.COLOR_GREEN, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(width / 2, 110, Graphics.FONT_XTINY, "Joueurs inscrits: " + _connectedPlayers, Graphics.TEXT_JUSTIFY_CENTER);
+        dc.drawText(width / 2, 130, Graphics.FONT_XTINY, "Distance: " + _targetDistance + "m", Graphics.TEXT_JUSTIFY_CENTER);
+
+        // Buttons instruction
+        dc.setColor(Graphics.COLOR_BLUE, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(width / 2, 165, Graphics.FONT_XTINY, "START : Rejoindre Course", Graphics.TEXT_JUSTIFY_CENTER);
+        dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(width / 2, 190, Graphics.FONT_XTINY, "DOWN : Ramer en Solo", Graphics.TEXT_JUSTIFY_CENTER);
+    }
+
+    // 3. Racing HUD Screen
+    private function drawRacingScreen(dc as Graphics.Dc, width as Number, height as Number) as Void {
+        // Status Bar (Top Header)
+        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
+        var modeTitle = (_raceMode.equals("solo")) ? "MODE SOLO" : "RACE 10km";
+        dc.drawText(width / 2, 6, Graphics.FONT_XTINY, modeTitle + " (" + _userId + ")", Graphics.TEXT_JUSTIFY_CENTER);
+
+        // Separator line
         dc.setColor(Graphics.COLOR_DK_GRAY, Graphics.COLOR_TRANSPARENT);
         dc.drawLine(15, 26, width - 15, 26);
 
-        if (_model == null) {
-            return;
-        }
+        var m = (_model != null) ? (_model as RowerDataModel) : new RowerDataModel();
 
-        var m = _model as RowerDataModel;
-
-        // 2. Data Label: SPM / STROKES placed immediately below the top horizontal bar (y = 29)
+        // SPM & Stroke Count
         dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(width / 2, 29, Graphics.FONT_XTINY, "SPM / STROKES: " + m.strokeCount, Graphics.TEXT_JUSTIFY_CENTER);
+        dc.drawText(width / 2, 29, Graphics.FONT_XTINY, "SPM / COUPS: " + m.strokeCount, Graphics.TEXT_JUSTIFY_CENTER);
 
-        // 3. Cadence (SPM) Main Metric - moved UP right below the label (y = 44) with FONT_NUMBER_MEDIUM to prevent overlapping with 2nd line
+        // Cadence (SPM) Main Metric
         dc.setColor(Graphics.COLOR_ORANGE, Graphics.COLOR_TRANSPARENT);
         var spmStr = m.strokeRate.format("%.1f");
         dc.drawText(width / 2, 44, Graphics.FONT_NUMBER_MEDIUM, spmStr, Graphics.TEXT_JUSTIFY_CENTER);
 
-        // 2nd horizontal separator line at y = 108
+        // 2nd horizontal separator line
         dc.setColor(Graphics.COLOR_DK_GRAY, Graphics.COLOR_TRANSPARENT);
         dc.drawLine(25, 108, width - 25, 108);
 
-        // 4. Power (Watts) & Pace (/500m) Row (y = 114)
+        // Power (Watts) & Pace (/500m) Row
         dc.setColor(Graphics.COLOR_GREEN, Graphics.COLOR_TRANSPARENT);
         var powerStr = m.instantPower.toString() + " W";
         dc.drawText(width / 4, 114, Graphics.FONT_MEDIUM, powerStr, Graphics.TEXT_JUSTIFY_CENTER);
 
-        // Format pace (sec -> MM:SS)
         var paceSec = m.instantPace;
         var paceMin = paceSec / 60;
         var paceRemainder = paceSec % 60;
@@ -69,25 +176,83 @@ class RowerView extends WatchUi.View {
         dc.setColor(Graphics.COLOR_BLUE, Graphics.COLOR_TRANSPARENT);
         dc.drawText((width * 3) / 4, 114, Graphics.FONT_MEDIUM, paceStr + "/500m", Graphics.TEXT_JUSTIFY_CENTER);
 
-        // Row Labels (y = 142)
+        // Labels
         dc.setColor(Graphics.COLOR_DK_GRAY, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(width / 4, 142, Graphics.FONT_XTINY, "POWER", Graphics.TEXT_JUSTIFY_CENTER);
-        dc.drawText((width * 3) / 4, 142, Graphics.FONT_XTINY, "PACE", Graphics.TEXT_JUSTIFY_CENTER);
+        dc.drawText(width / 4, 142, Graphics.FONT_XTINY, "PUISSANCE", Graphics.TEXT_JUSTIFY_CENTER);
+        dc.drawText((width * 3) / 4, 142, Graphics.FONT_XTINY, "ALLURE", Graphics.TEXT_JUSTIFY_CENTER);
 
-        // 5. Total Distance & Elapsed Time Row (y = 168)
-        var distStr = m.totalDistance.toString() + " m";
+        // Net Distance & Elapsed Time Row
+        var distStr = _netDistance.toString() + " / " + _targetDistance + "m";
         var timeSec = m.elapsedTime;
         var tMin = timeSec / 60;
         var tSec = timeSec % 60;
         var timeStr = (tSec < 10) ? (tMin + ":0" + tSec) : (tMin + ":" + tSec);
 
         dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(width / 2, 168, Graphics.FONT_SMALL, distStr + "  |  " + timeStr, Graphics.TEXT_JUSTIFY_CENTER);
+        dc.drawText(width / 2, 165, Graphics.FONT_SMALL, distStr + "  |  " + timeStr, Graphics.TEXT_JUSTIFY_CENTER);
 
-        // 6. Heart Rate & Calories (Bottom Row, y = 198)
-        var hrStr = (m.heartRate > 0) ? (m.heartRate.toString() + " bpm") : "-- bpm";
-        var calStr = m.totalEnergy.toString() + " kcal";
+        // Progress bar at bottom
+        var barWidth = width - 40;
+        var progressPx = (_progressPercent * barWidth).toNumber();
+        if (progressPx > barWidth) { progressPx = barWidth; }
+        dc.setColor(Graphics.COLOR_DK_GRAY, Graphics.COLOR_TRANSPARENT);
+        dc.fillRectangle(20, 195, barWidth, 6);
+        dc.setColor(Graphics.COLOR_YELLOW, Graphics.COLOR_TRANSPARENT);
+        dc.fillRectangle(20, 195, progressPx, 6);
+    }
+
+    // 4. Paused Screen Menu
+    private function drawPausedScreen(dc as Graphics.Dc, width as Number, height as Number) as Void {
         dc.setColor(Graphics.COLOR_RED, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(width / 2, 198, Graphics.FONT_XTINY, hrStr + "  *  " + calStr, Graphics.TEXT_JUSTIFY_CENTER);
+        dc.drawText(width / 2, 20, Graphics.FONT_MEDIUM, "EN PAUSE", Graphics.TEXT_JUSTIFY_CENTER);
+
+        var options = ["Reprendre", "Enregistrer & Quitter", "Abandonner"];
+        for (var i = 0; i < 3; i++) {
+            var yPos = 75 + (i * 35);
+            if (i == _pauseMenuIndex) {
+                dc.setColor(Graphics.COLOR_DK_BLUE, Graphics.COLOR_DK_BLUE);
+                dc.fillRectangle(25, yPos - 3, width - 50, 26);
+                dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
+                dc.drawText(width / 2, yPos, Graphics.FONT_TINY, "> " + options[i] + " <", Graphics.TEXT_JUSTIFY_CENTER);
+            } else {
+                dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
+                dc.drawText(width / 2, yPos, Graphics.FONT_TINY, options[i], Graphics.TEXT_JUSTIFY_CENTER);
+            }
+        }
+
+        dc.setColor(Graphics.COLOR_DK_GRAY, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(width / 2, height - 30, Graphics.FONT_XTINY, "DOWN: Choisir | START: Valider", Graphics.TEXT_JUSTIFY_CENTER);
+    }
+
+    // 5. Finished Screen (Rank and Podium)
+    private function drawFinishedScreen(dc as Graphics.Dc, width as Number, height as Number) as Void {
+        dc.setColor(Graphics.COLOR_YELLOW, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(width / 2, 10, Graphics.FONT_MEDIUM, "COURSE TERMINEE", Graphics.TEXT_JUSTIFY_CENTER);
+
+        // Player Final Rank
+        var rankStr = (_finalRank > 0) ? ("Votre Rang: #" + _finalRank) : "Bravo!";
+        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(width / 2, 45, Graphics.FONT_SMALL, rankStr, Graphics.TEXT_JUSTIFY_CENTER);
+
+        // Top 3 Podium
+        dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(width / 2, 80, Graphics.FONT_XTINY, "--- PODIUM OFFICIEL ---", Graphics.TEXT_JUSTIFY_CENTER);
+
+        var medals = ["1er:", "2eme:", "3eme:"];
+        for (var i = 0; i < 3; i++) {
+            var racerName = "--";
+            if (i < _top3Podium.size() && _top3Podium[i] != null) {
+                var p = _top3Podium[i] as Dictionary;
+                if (p.hasKey("userName")) {
+                    racerName = p.get("userName").toString();
+                }
+            }
+            var yPos = 105 + (i * 24);
+            dc.setColor((i == 0) ? Graphics.COLOR_YELLOW : ((i == 1) ? Graphics.COLOR_LT_GRAY : Graphics.COLOR_ORANGE), Graphics.COLOR_TRANSPARENT);
+            dc.drawText(width / 2, yPos, Graphics.FONT_TINY, medals[i] + " " + racerName, Graphics.TEXT_JUSTIFY_CENTER);
+        }
+
+        dc.setColor(Graphics.COLOR_GREEN, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(width / 2, height - 35, Graphics.FONT_XTINY, "FIT enregistre dans Garmin", Graphics.TEXT_JUSTIFY_CENTER);
     }
 }

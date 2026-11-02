@@ -1,6 +1,6 @@
 export interface UserProfile {
-  id: number;
-  email: string;
+  id: string | number;
+  email?: string;
   name: string;
   avatarUrl?: string;
   athleteLevel?: string;
@@ -8,6 +8,9 @@ export interface UserProfile {
   heightCm?: number;
   maxHeartRate?: number;
   vo2MaxEstimate?: number;
+  totalRaces?: number;
+  totalWins?: number;
+  podiums?: number;
   createdAt?: string;
   updatedAt?: string;
 }

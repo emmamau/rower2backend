@@ -1,31 +1,55 @@
 export interface RowerData {
-  id: number;
-  sessionId?: string;
-  deviceId?: string;
-  timestamp: string;
-  strokeRate?: number;       // strokes/min
-  strokeCount?: number;      // total strokes
-  avgStrokeRate?: number;    // strokes/min
-  totalDistance?: number;    // meters
-  instantPace?: number;      // sec/500m
-  avgPace?: number;          // sec/500m
-  instantPower?: number;     // Watts
-  avgPower?: number;         // Watts
-  resistanceLevel?: number;  // level
-  totalEnergy?: number;      // kcal
-  energyPerHour?: number;    // kcal/h
-  energyPerMinute?: number;  // kcal/min
-  heartRate?: number;        // bpm
-  metabolicEq?: number;      // METs
-  elapsedTime?: number;      // seconds
-  remainingTime?: number;    // seconds
-  rawFlags?: number;
-  createdAt?: string;
+  id: string;
+  activityId: string;
+  userId: string;
+  userName?: string;
+  avatarUrl?: string;
+  raceMode: 'race' | 'solo';
+  targetDistance: number;
+  status: 'waiting' | 'in_progress' | 'paused' | 'finished';
+
+  initialDistance: number;
+  currentDistance: number;
+  netDistance: number;
+  progressPercent: number;
+
+  lastStrokeRate: number;
+  lastStrokeCount: number;
+  lastPower: number;
+  lastPace: number;
+  lastHeartRate: number;
+  lastResistance: number;
+
+  avgPower: number;
+  avgPace: number;
+  avgStrokeRate: number;
+  totalStrokes: number;
+  totalEnergy: number;
+  elapsedTime: number;
+  avgSpeedKmh: number;
+
+  finalRank?: number;
+  finishedAt?: string;
   updatedAt?: string;
 }
 
-export interface HistoryResponse {
-  total: number;
-  records: RowerData[];
+export interface NextRaceInfo {
+  race: {
+    id: string;
+    title: string;
+    targetDistance: number;
+    startTime: string;
+    intervalMinutes: number;
+    status: string;
+    totalParticipants: number;
+  };
+  secondsRemaining: number;
+  formattedCountdown: string;
+  totalParticipants: number;
 }
 
+export interface LeaderboardResponse {
+  activityId: string;
+  totalParticipants: number;
+  leaderboard: RowerData[];
+}

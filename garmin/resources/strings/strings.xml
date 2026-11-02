@@ -1,7 +1,9 @@
 <resources>
-    <string id="AppName">FTMS Rower</string>
+    <string id="AppName">Rower Race</string>
     <string id="BackendUrlTitle">Backend API URL</string>
     <string id="BackendUrlPrompt">URL (e.g. https://...onrender.com)</string>
+    <string id="UserLoginTitle">Player Login / Code</string>
+    <string id="UserLoginPrompt">Code joueur ou pseudo (6 car. base64)</string>
     <string id="StatusDisconnected">BLE: Disconnected</string>
     <string id="StatusScanning">BLE: Scanning...</string>
     <string id="StatusConnected">BLE: Connected</string>

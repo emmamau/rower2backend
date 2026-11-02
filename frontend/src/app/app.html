@@ -1,235 +1,205 @@
-<div class="dashboard-container">
-  <!-- Header with User Profile -->
-  <header class="dashboard-header">
-    <div class="header-content">
-      <div class="brand">
-        <span class="icon">🚣</span>
+<div class="game-container">
+  <!-- HUD Header -->
+  <header class="hud-header">
+    <div class="header-left">
+      <div class="game-logo">
+        <span class="game-icon">🛶</span>
         <div>
-          <h1>FTMS Rower Live Activity</h1>
-          <span class="subbrand">Garmin Connect IQ & Multisport Telemetry</span>
+          <h1 class="game-title">ROWER RACE</h1>
+          <span class="game-subtitle">MULTIPLAYER KAYAK CHAMPIONSHIP</span>
         </div>
       </div>
 
-      <!-- User Profile Box in Header -->
-      @if (currentUser) {
-        <div class="user-header-profile">
-          <img [src]="currentUser.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=128&q=80'" 
-               alt="Avatar" class="user-avatar" />
-          <div class="user-details">
-            <div class="user-name">{{ currentUser.name }}</div>
-            <div class="user-meta">
-              <span class="user-badge">{{ currentUser.athleteLevel }}</span>
-              <span class="user-info">{{ currentUser.weightKg }} kg · VO2max: {{ currentUser.vo2MaxEstimate }}</span>
-            </div>
-          </div>
-          <button class="btn-profile" (click)="toggleEditProfile()">
-            {{ isEditProfileOpen ? 'Fermer' : 'Éditer Profil' }}
-          </button>
+      <!-- Current Race Schedule Badge -->
+      <div class="race-schedule-badge" *ngIf="nextRaceInfo">
+        <div class="badge-title">PROCHAINE COURSE ({{ nextRaceInfo.race.targetDistance }}M)</div>
+        <div class="badge-timer">
+          <span class="timer-digits">⏱️ {{ nextRaceInfo.formattedCountdown }}</span>
+          <span class="racers-count">👥 {{ nextRaceInfo.totalParticipants }} connecté(s)</span>
         </div>
-      }
+      </div>
+    </div>
 
-      <div class="status-indicator">
-        <!-- Anti-veille / Screen Wake Lock Toggle -->
-        <button class="btn-wakelock" [class.active]="wakeLockActive" (click)="toggleWakeLock()" [title]="wakeLockActive ? 'Anti-veille actif (l\'écran reste allumé)' : 'Cliquer pour activer l\'anti-veille'">
-          {{ wakeLockActive ? '🔆 Écran Actif' : '🌙 Écran Normal' }}
+    <!-- User Profile & Action Bar -->
+    <div class="header-right">
+      <div class="player-card" *ngIf="currentUser">
+        <div class="player-avatar-box">
+          <img [src]="currentUser.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=128&q=80'" alt="Avatar" class="player-avatar" />
+          <span class="player-status-dot"></span>
+        </div>
+        <div class="player-info">
+          <div class="player-name">{{ currentUser.name }}</div>
+          <div class="player-code">LOGIN / CODE: <span class="highlight">{{ activeUserId }}</span></div>
+        </div>
+        <button class="btn-hud" (click)="isLoginModalOpen = true">Changer Login</button>
+      </div>
+
+      <div class="hud-actions">
+        <button class="btn-hud" (click)="isConfigRaceOpen = true" title="Paramètres de course">🏁 Config Course</button>
+        <button class="btn-wakelock" [class.active]="wakeLockActive" (click)="toggleWakeLock()">
+          {{ wakeLockActive ? '🔆 Écran ON' : '🌙 Écran Veille' }}
         </button>
-        <button class="btn-settings" (click)="toggleSettings()" title="Configurer l'URL API Backend">⚙️ API URL</button>
-        <span class="dot" [class.online]="backendConnected" [class.offline]="!backendConnected"></span>
-        <span class="status-text">{{ backendConnected ? 'Connecté' : 'En attente API' }}</span>
+        <button class="btn-hud" (click)="isSettingsOpen = true">⚙️ API</button>
       </div>
     </div>
   </header>
 
-  <main class="dashboard-main">
-    <!-- API URL Configuration Modal / Box -->
-    @if (isSettingsOpen) {
-      <section class="settings-card">
-        <h3>Configuration de l'URL du Backend API</h3>
-        <p class="settings-desc">
-          Indiquez l'URL publique de votre service API hébergé sur Render (ex: <code>https://rower-api-service.onrender.com</code>).
-          Cette valeur est enregistrée dans votre navigateur.
+  <!-- Modals -->
+  <!-- 1. Change Login Modal -->
+  @if (isLoginModalOpen) {
+    <div class="modal-overlay">
+      <div class="modal-card">
+        <h3>Connexion / Identifiant Coureur</h3>
+        <p class="modal-desc">
+          Entrez le login ou code Base64 à 6 caractères de votre montre Garmin pour synchroniser votre kayak.
         </p>
-        <div class="settings-form">
-          <input type="text" [(ngModel)]="customApiUrlInput" placeholder="https://votre-api.onrender.com" />
-          <button class="btn-save" (click)="saveCustomApiUrl()">Appliquer & Reconnecter</button>
+        <div class="modal-form">
+          <input type="text" [(ngModel)]="userLoginInput" placeholder="Ex: aB3_9Z ou MonPseudo" />
+          <div class="modal-buttons">
+            <button class="btn-primary" (click)="changeLogin()">Valider</button>
+            <button class="btn-secondary" (click)="isLoginModalOpen = false">Annuler</button>
+          </div>
         </div>
-      </section>
-    }
+      </div>
+    </div>
+  }
 
-    <!-- User Profile Modal/Banner when editing -->
-    @if (isEditProfileOpen && currentUser) {
-      <section class="profile-card">
-        <h3>Paramètres de l'athlète connecté</h3>
-        <div class="profile-form">
+  <!-- 2. Race Config Modal -->
+  @if (isConfigRaceOpen) {
+    <div class="modal-overlay">
+      <div class="modal-card">
+        <h3>Paramètres des Courses Rower Race</h3>
+        <div class="modal-form">
           <div class="form-group">
-            <label>Nom complet</label>
-            <input type="text" [(ngModel)]="currentUser.name" />
+            <label>Distance de course (mètres)</label>
+            <input type="number" [(ngModel)]="configTargetDistance" step="500" min="500" />
           </div>
           <div class="form-group">
-            <label>Niveau sportif</label>
-            <input type="text" [(ngModel)]="currentUser.athleteLevel" />
+            <label>Fréquence des courses (minutes)</label>
+            <input type="number" [(ngModel)]="configIntervalMinutes" min="2" max="60" />
           </div>
-          <div class="form-group">
-            <label>Poids (kg)</label>
-            <input type="number" [(ngModel)]="currentUser.weightKg" />
-          </div>
-          <div class="form-group">
-            <label>Taille (cm)</label>
-            <input type="number" [(ngModel)]="currentUser.heightCm" />
-          </div>
-          <div class="form-group">
-            <label>FC Max (bpm)</label>
-            <input type="number" [(ngModel)]="currentUser.maxHeartRate" />
-          </div>
-          <div class="form-group">
-            <label>Estimation VO2Max</label>
-            <input type="number" step="0.1" [(ngModel)]="currentUser.vo2MaxEstimate" />
+          <div class="modal-buttons">
+            <button class="btn-primary" (click)="saveRaceConfig()">Enregistrer & Appliquer</button>
+            <button class="btn-secondary" (click)="isConfigRaceOpen = false">Fermer</button>
           </div>
         </div>
-        <div class="profile-actions">
-          <button class="btn-save" (click)="saveProfile()">Enregistrer les modifications</button>
-        </div>
-      </section>
-    }
+      </div>
+    </div>
+  }
 
-    <!-- Banner / Overview Presentation -->
-    <section class="hero-presentation">
-      <div class="hero-content">
-        <h2>Système de suivi d'activité Rameur FTMS</h2>
-        <p>
-          Cette application synchronise en direct les métriques de votre rameur Bluetooth FTMS
-          relayées par votre montre <strong>Garmin (Enduro 3, Fenix 8, Forerunner)</strong>
-          vers votre base de données PostgreSQL.
-        </p>
-        <div class="connection-status-pill" [class.live]="backendConnected">
-          <span class="pulse-indicator"></span>
-          <span>{{ errorMessage || 'Télémétrie prête et en écoute' }} (API: {{ apiUrl }})</span>
+  <!-- 3. API Config Modal -->
+  @if (isSettingsOpen) {
+    <div class="modal-overlay">
+      <div class="modal-card">
+        <h3>Configuration de l'URL Backend API</h3>
+        <div class="modal-form">
+          <input type="text" [(ngModel)]="customApiUrlInput" />
+          <div class="modal-buttons">
+            <button class="btn-primary" (click)="saveCustomApiUrl()">Sauvegarder</button>
+            <button class="btn-secondary" (click)="isSettingsOpen = false">Fermer</button>
+          </div>
         </div>
+      </div>
+    </div>
+  }
+
+  <!-- MAIN RACING ARENA (2D KAYAK RACE VISUALIZATION) -->
+  <main class="race-arena">
+    <!-- Top 3 Podium Live Indicator -->
+    <section class="podium-banner" *ngIf="racers.length > 0">
+      <div class="podium-title">⚡ CLASSEMENT EN DIRECT ⚡</div>
+      <div class="podium-cards">
+        @for (r of racers.slice(0, 3); track r.id; let idx = $index) {
+          <div class="podium-card" [class.gold]="idx === 0" [class.silver]="idx === 1" [class.bronze]="idx === 2">
+            <div class="medal-icon">{{ idx === 0 ? '🥇' : (idx === 1 ? '🥈' : '🥉') }}</div>
+            <div class="podium-name">{{ r.userName || r.userId }}</div>
+            <div class="podium-stats">{{ r.netDistance }} m · {{ r.avgSpeedKmh }} km/h</div>
+          </div>
+        }
       </div>
     </section>
 
-    <!-- Telemetry Display (Live or Waiting state) -->
-    <section class="live-grid">
-      <!-- Cadence Card -->
-      <div class="metric-card primary-card">
-        <div class="metric-label">Cadence (Coups/min)</div>
-        <div class="metric-value-huge">
-          {{ latestData ? (latestData.strokeRate | number:'1.1-1') : '0.0' }} 
-          <span class="unit">SPM</span>
-        </div>
-        <div class="metric-footer">
-          Total coups : <strong>{{ latestData ? (latestData.strokeCount || 0) : 0 }}</strong>
-        </div>
+    <!-- 2D Water Track / River Lanes -->
+    <section class="water-track">
+      <div class="track-header-marks">
+        <span>0m (DÉPART)</span>
+        <span>2 500m</span>
+        <span>5 000m (MI-PARCOURS)</span>
+        <span>7 500m</span>
+        <span>{{ nextRaceInfo?.race?.targetDistance || 10000 }}m (ARRIVÉE 🏁)</span>
       </div>
 
-      <!-- Power Card -->
-      <div class="metric-card">
-        <div class="metric-label">Puissance Développée</div>
-        <div class="metric-value">
-          {{ latestData ? (latestData.instantPower || 0) : 0 }} 
-          <span class="unit">Watts</span>
-        </div>
-        <div class="metric-footer">
-          Moyenne : {{ latestData ? (latestData.avgPower || 0) : 0 }} W
-        </div>
-      </div>
+      <div class="water-surface">
+        <div class="finish-line"></div>
 
-      <!-- Pace Card -->
-      <div class="metric-card">
-        <div class="metric-label">Allure Instantanée</div>
-        <div class="metric-value">
-          {{ formatPace(latestData?.instantPace) }} 
-          <span class="unit">/500m</span>
-        </div>
-        <div class="metric-footer">
-          Allure moyenne : {{ formatPace(latestData?.avgPace) }} /500m
-        </div>
-      </div>
+        <!-- Kayak Lanes -->
+        @for (racer of racers; track racer.id; let idx = $index) {
+          <div class="kayak-lane" [class.is-me]="racer.userId === activeUserId">
+            <div class="lane-racer-info">
+              <span class="lane-rank">#{{ idx + 1 }}</span>
+              <span class="lane-name">{{ racer.userName || racer.userId }}</span>
+              <span class="lane-speed">{{ racer.avgSpeedKmh }} km/h</span>
+            </div>
 
-      <!-- Distance & Time Card -->
-      <div class="metric-card">
-        <div class="metric-label">Distance Totale</div>
-        <div class="metric-value">
-          {{ latestData ? (latestData.totalDistance || 0) : 0 }} 
-          <span class="unit">m</span>
-        </div>
-        <div class="metric-footer">
-          Temps : {{ formatTime(latestData?.elapsedTime) }}
-        </div>
-      </div>
-
-      <!-- Heart Rate & Calories -->
-      <div class="metric-card">
-        <div class="metric-label">Cardio & Énergie</div>
-        <div class="metric-value-dual">
-          <div>
-            <span class="sub-val">{{ latestData?.heartRate || '--' }}</span>
-            <span class="sub-unit">BPM</span>
+            <!-- Kayak Boat sprite positioned dynamically along the course -->
+            <div class="track-channel">
+              <div class="kayak-boat" [style.left.%]="racer.progressPercent" [style.border-color]="getKayakColor(idx)">
+                <div class="wake-ripple"></div>
+                <div class="boat-hull" [style.background-color]="getKayakColor(idx)">
+                  <div class="paddle-blade left"></div>
+                  <div class="paddle-blade right"></div>
+                </div>
+                <div class="boat-distance-tooltip">{{ racer.netDistance }}m</div>
+              </div>
+            </div>
           </div>
-          <div>
-            <span class="sub-val">{{ latestData?.totalEnergy || 0 }}</span>
-            <span class="sub-unit">kCal</span>
+        } @empty {
+          <!-- Waiting / Demo Kayak lane -->
+          <div class="empty-lane-notice">
+            <div class="notice-icon">🛶</div>
+            <h3>En attente de coureurs sur la ligne de départ...</h3>
+            <p>Connectez votre montre Garmin pour rejoindre la prochaine course de {{ nextRaceInfo?.race?.targetDistance || 10000 }}m !</p>
           </div>
-        </div>
-        <div class="metric-footer">
-          Résistance : Niv. {{ latestData?.resistanceLevel || 1 }}
-        </div>
-      </div>
-
-      <!-- Device & Athlete Context Info -->
-      <div class="metric-card">
-        <div class="metric-label">Montre Garmin / Source</div>
-        <div class="metric-value small">
-          {{ latestData?.deviceId || 'Garmin Enduro 3 / Fenix 8' }}
-        </div>
-        <div class="metric-footer">
-          Athlète : {{ currentUser ? currentUser.name : 'Emma Rower Athlete' }}
-        </div>
+        }
       </div>
     </section>
 
-    <!-- Recent History Table -->
-    <section class="history-section">
-      <div class="section-header">
-        <h2>Historique des réceptions</h2>
-        <button class="btn-refresh" (click)="loadHistory()">Actualiser</button>
+    <!-- Cockpit Telemetry HUD (Personal Rower Stats) -->
+    <section class="cockpit-hud">
+      <div class="hud-card primary-card">
+        <div class="hud-label">DISTANCE NETTE</div>
+        <div class="hud-value-huge">{{ myActivity?.netDistance || 0 }} <span class="unit">M</span></div>
+        <div class="hud-sub">Départ : {{ myActivity?.initialDistance || 0 }}m · Objectif : {{ myActivity?.targetDistance || 10000 }}m</div>
       </div>
 
-      <div class="table-wrapper">
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>Heure</th>
-              <th>Montre / Périphérique</th>
-              <th>Cadence</th>
-              <th>Puissance</th>
-              <th>Allure</th>
-              <th>Distance</th>
-              <th>Cardio</th>
-              <th>Calories</th>
-            </tr>
-          </thead>
-          <tbody>
-            @for (item of history; track item.id) {
-              <tr>
-                <td>{{ item.timestamp | date:'HH:mm:ss' }}</td>
-                <td>{{ item.deviceId || 'Montre Garmin' }}</td>
-                <td><strong>{{ item.strokeRate | number:'1.1-1' }}</strong> spm</td>
-                <td>{{ item.instantPower }} W</td>
-                <td>{{ formatPace(item.instantPace) }}</td>
-                <td>{{ item.totalDistance }} m</td>
-                <td>{{ item.heartRate ? item.heartRate + ' bpm' : '--' }}</td>
-                <td>{{ item.totalEnergy }} kcal</td>
-              </tr>
-            } @empty {
-              <tr>
-                <td colspan="8" class="text-center">
-                  Aucun enregistrement en base. Connectez votre montre Garmin pour commencer le suivi en direct.
-                </td>
-              </tr>
-            }
-          </tbody>
-        </table>
+      <div class="hud-card">
+        <div class="hud-label">CADENCE</div>
+        <div class="hud-value">{{ myActivity ? (myActivity.lastStrokeRate | number:'1.1-1') : '0.0' }} <span class="unit">SPM</span></div>
+        <div class="hud-sub">Coups totaux : {{ myActivity?.totalStrokes || 0 }}</div>
+      </div>
+
+      <div class="hud-card">
+        <div class="hud-label">PUISSANCE</div>
+        <div class="hud-value">{{ myActivity?.lastPower || 0 }} <span class="unit">WATTS</span></div>
+        <div class="hud-sub">Moyenne : {{ myActivity?.avgPower || 0 }} W</div>
+      </div>
+
+      <div class="hud-card">
+        <div class="hud-label">ALLURE / 500M</div>
+        <div class="hud-value">{{ formatPace(myActivity?.lastPace) }}</div>
+        <div class="hud-sub">Moyenne : {{ formatPace(myActivity?.avgPace) }}</div>
+      </div>
+
+      <div class="hud-card">
+        <div class="hud-label">VITESSE MOYENNE</div>
+        <div class="hud-value">{{ myActivity?.avgSpeedKmh || 0 }} <span class="unit">KM/H</span></div>
+        <div class="hud-sub">Temps écoulé : {{ formatTime(myActivity?.elapsedTime) }}</div>
+      </div>
+
+      <div class="hud-card">
+        <div class="hud-label">CARDIO & CALORIES</div>
+        <div class="hud-value">{{ myActivity?.lastHeartRate || '--' }} <span class="unit">BPM</span></div>
+        <div class="hud-sub">Calories : {{ myActivity?.totalEnergy || 0 }} kcal</div>
       </div>
     </section>
   </main>

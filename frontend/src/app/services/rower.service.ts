@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
-import { RowerData, HistoryResponse } from '../models/rower-data.model';
+import { RowerData, NextRaceInfo, LeaderboardResponse } from '../models/rower-data.model';
 import { UserProfile } from '../models/user.model';
 
 @Injectable({
@@ -16,19 +16,12 @@ export class RowerService {
     if (savedUrl && savedUrl.trim().length > 0) {
       this.apiUrl = savedUrl.trim().replace(/\/$/, '');
     } else {
-      let defaultUrl = (environment.apiUrl || '').trim().replace(/\/$/, '');
-      // If defaultUrl was configured as internal Render hostname (e.g. "https://rower-api-service")
-      // which cannot be resolved by client browsers, purge it to relative path ""
-      if (defaultUrl === 'https://rower-api-service' || defaultUrl === 'http://rower-api-service' || defaultUrl === 'rower-api-service') {
-        defaultUrl = '';
-      }
-      this.apiUrl = defaultUrl;
+      this.apiUrl = (environment.apiUrl || 'https://rower-api-service.onrender.com').trim().replace(/\/$/, '');
     }
 
-    // Safety: if stored localStorage had the bad internal name, clean it up
     if (this.apiUrl === 'https://rower-api-service' || this.apiUrl === 'http://rower-api-service' || this.apiUrl === 'rower-api-service') {
-      this.apiUrl = '';
-      localStorage.removeItem('rower_backend_url');
+      this.apiUrl = 'https://rower-api-service.onrender.com';
+      localStorage.setItem('rower_backend_url', this.apiUrl);
     }
   }
 
@@ -49,28 +42,35 @@ export class RowerService {
     }
   }
 
-  getCurrentUser(): Observable<UserProfile> {
-    const endpoint = this.apiUrl ? `${this.apiUrl}/api/user/me` : '/api/user/me';
-    return this.http.get<UserProfile>(endpoint);
+  getNextRace(): Observable<NextRaceInfo> {
+    return this.http.get<NextRaceInfo>(`${this.apiUrl}/api/race/next`);
   }
 
-  updateCurrentUser(profile: Partial<UserProfile>): Observable<UserProfile> {
-    const endpoint = this.apiUrl ? `${this.apiUrl}/api/user/me` : '/api/user/me';
-    return this.http.put<UserProfile>(endpoint, profile);
+  updateRaceConfig(targetDistance: number, intervalMinutes: number): Observable<any> {
+    return this.http.put(`${this.apiUrl}/api/race/config`, { targetDistance, intervalMinutes });
   }
 
-  getLatestData(): Observable<RowerData> {
-    const endpoint = this.apiUrl ? `${this.apiUrl}/api/rower/latest` : '/api/rower/latest';
-    return this.http.get<RowerData>(endpoint);
+  getRaceLeaderboard(raceId: string): Observable<LeaderboardResponse> {
+    return this.http.get<LeaderboardResponse>(`${this.apiUrl}/api/activity/race/${raceId}/leaderboard`);
   }
 
-  getHistory(limit: number = 50, offset: number = 0): Observable<HistoryResponse> {
-    const endpoint = this.apiUrl ? `${this.apiUrl}/api/rower/history?limit=${limit}&offset=${offset}` : `/api/rower/history?limit=${limit}&offset=${offset}`;
-    return this.http.get<HistoryResponse>(endpoint);
+  getUserLatestActivity(userId: string): Observable<RowerData> {
+    return this.http.get<RowerData>(`${this.apiUrl}/api/activity/latest?userId=${userId}`);
+  }
+
+  getUserProfile(userId: string): Observable<UserProfile> {
+    return this.http.get<UserProfile>(`${this.apiUrl}/api/user/profile/${userId}`);
+  }
+
+  updateUserProfile(userId: string, profile: Partial<UserProfile>): Observable<UserProfile> {
+    return this.http.put<UserProfile>(`${this.apiUrl}/api/user/profile/${userId}`, profile);
+  }
+
+  getAllActivities(limit: number = 20): Observable<RowerData[]> {
+    return this.http.get<RowerData[]>(`${this.apiUrl}/api/activity/history?limit=${limit}`);
   }
 
   checkHealth(): Observable<{ status: string; database: string }> {
-    const endpoint = this.apiUrl ? `${this.apiUrl}/health` : '/health';
-    return this.http.get<{ status: string; database: string }>(endpoint);
+    return this.http.get<{ status: string; database: string }>(`${this.apiUrl}/health`);
   }
 }
