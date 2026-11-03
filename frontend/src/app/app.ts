@@ -44,6 +44,13 @@ export class AppComponent implements OnInit, OnDestroy {
   is3sCountdown = false;
   threeSecondsCount = 3;
 
+  // Live race gap metrics
+  myRank: number | null = null;
+  distToLeader = 0;
+  distToPrev = 0;
+  distToNext = 0;
+  totalActiveRacers = 0;
+
   // Race Config
   configTargetDistance = 10000;
   configIntervalMinutes = 15;
@@ -246,6 +253,25 @@ export class AppComponent implements OnInit, OnDestroy {
           ).subscribe((lb) => {
             this.racers = lb.leaderboard;
             this.activeRacersCount = Math.max(raceData.totalParticipants || 0, this.racers.filter(r => r.status !== 'abandoned').length);
+
+            // Calcul du classement et des écarts de distance en direct
+            const activeList = this.racers.filter(r => r.status !== 'abandoned');
+            this.totalActiveRacers = activeList.length;
+            const myIdx = activeList.findIndex(r => r.userId === this.activeUserId);
+
+            if (myIdx >= 0) {
+              this.myRank = myIdx + 1;
+              const myDist = activeList[myIdx].netDistance || 0;
+              const leaderDist = activeList[0]?.netDistance || 0;
+              this.distToLeader = Math.max(0, leaderDist - myDist);
+              this.distToPrev = myIdx > 0 ? Math.max(0, (activeList[myIdx - 1]?.netDistance || 0) - myDist) : 0;
+              this.distToNext = myIdx < activeList.length - 1 ? Math.max(0, myDist - (activeList[myIdx + 1]?.netDistance || 0)) : 0;
+            } else {
+              this.myRank = null;
+              this.distToLeader = 0;
+              this.distToPrev = 0;
+              this.distToNext = 0;
+            }
 
             // CORRECTION AFFICHAGE DONNÉES UTILISATEUR :
             // 1. Chercher d'abord dans le leaderboard de la course

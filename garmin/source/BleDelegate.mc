@@ -419,13 +419,27 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
         if (_view != null && _activityStatus.equals("in_progress")) {
             var rank = 1;
             var total = 1;
+            var dLeader = 0;
+            var dPrev = 0;
+            var dNext = 0;
+
             if (data.hasKey("rank") && data.get("rank") != null) {
                 rank = (data.get("rank") as Number);
             }
             if (data.hasKey("totalRacers") && data.get("totalRacers") != null) {
                 total = (data.get("totalRacers") as Number);
             }
-            _view.setLiveRank(rank, total);
+            if (data.hasKey("distToLeader") && data.get("distToLeader") != null) {
+                dLeader = (data.get("distToLeader") as Number);
+            }
+            if (data.hasKey("distToPrev") && data.get("distToPrev") != null) {
+                dPrev = (data.get("distToPrev") as Number);
+            }
+            if (data.hasKey("distToNext") && data.get("distToNext") != null) {
+                dNext = (data.get("distToNext") as Number);
+            }
+
+            _view.setLiveRank(rank, total, dLeader, dPrev, dNext);
         }
     }
 

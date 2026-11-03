@@ -163,7 +163,7 @@ export const syncActivity = async (req: Request, res: Response): Promise<void> =
       });
     }
 
-    // Calcul du classement
+    // Calcul du classement et des deltas de distance
     const leaderboard = await Activities.findAll({
       where: { activityId: actualActivityId },
       order: [
@@ -185,7 +185,31 @@ export const syncActivity = async (req: Request, res: Response): Promise<void> =
     });
 
     const activeRacers = leaderboard.filter((item) => item.get("status") !== "abandoned");
-    const currentRank = activeRacers.findIndex((item) => item.get("userId") === userId) + 1;
+    const myIndex = activeRacers.findIndex((item) => item.get("userId") === userId);
+    const currentRank = myIndex >= 0 ? myIndex + 1 : null;
+
+    let distToLeader = 0;
+    let distToPrev = 0;
+    let distToNext = 0;
+
+    if (myIndex >= 0 && activeRacers.length > 0) {
+      const myDist = (activeRacers[myIndex].get("netDistance") as number) || 0;
+      const leaderDist = (activeRacers[0].get("netDistance") as number) || 0;
+      distToLeader = Math.max(0, leaderDist - myDist);
+
+      if (myIndex > 0) {
+        // Joueur qui le précède (au-dessus au classement)
+        const prevDist = (activeRacers[myIndex - 1].get("netDistance") as number) || 0;
+        distToPrev = Math.max(0, prevDist - myDist);
+      }
+
+      if (myIndex < activeRacers.length - 1) {
+        // Joueur qui le suit (en dessous au classement)
+        const nextDist = (activeRacers[myIndex + 1].get("netDistance") as number) || 0;
+        distToNext = Math.max(0, myDist - nextDist);
+      }
+    }
+
     const top3 = activeRacers.slice(0, 3).map((item, index) => ({
       rank: index + 1,
       userId: item.get("userId"),
@@ -198,8 +222,11 @@ export const syncActivity = async (req: Request, res: Response): Promise<void> =
     res.status(200).json({
       success: true,
       activity,
-      rank: currentRank > 0 ? currentRank : null,
+      rank: currentRank,
       totalRacers: activeRacers.length,
+      distToLeader,
+      distToPrev,
+      distToNext,
       top3,
     });
   } catch (err: unknown) {

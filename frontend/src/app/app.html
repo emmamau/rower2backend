@@ -51,7 +51,9 @@
           {{ nextRaceInfo.status === 'in_progress' ? 'COURSE EN COURS' : 'PROCHAINE COURSE' }} ({{ nextRaceInfo.race.targetDistance }}M)
         </div>
         <div class="badge-timer">
-          <span class="timer-digits">⏱️ {{ nextRaceInfo.formattedCountdown }}</span>
+          <div class="timer-display-box">
+            <span class="timer-digits">{{ nextRaceInfo.formattedCountdown }}</span>
+          </div>
           <span class="racers-count" [class.has-players]="activeRacersCount > 0">
             <span class="pulse-dot" *ngIf="activeRacersCount > 0"></span>
             👥 {{ activeRacersCount }} en course
@@ -281,6 +283,28 @@
 
     <!-- Cockpit Telemetry HUD (Personal Rower Stats) -->
     <section class="cockpit-hud">
+      <!-- NOUVELLE CARTE POSITION & ÉCARTS AU CLASSEMENT -->
+      <div class="hud-card rank-gap-card">
+        <div class="hud-label">CLASSEMENT EN DIRECT</div>
+        <div class="hud-value-huge rank-val">
+          {{ myRank ? ('#' + myRank) : '--' }} <span class="unit">/ {{ totalActiveRacers || 1 }}</span>
+        </div>
+        <div class="gap-metrics-grid">
+          <div class="gap-col">
+            <span class="gap-title">AU 1ER</span>
+            <span class="gap-val">{{ myRank === 1 ? 'LEADER' : ('-' + distToLeader + 'm') }}</span>
+          </div>
+          <div class="gap-col">
+            <span class="gap-title">PRÉCÉDENT</span>
+            <span class="gap-val">{{ myRank && myRank > 1 ? ('-' + distToPrev + 'm') : '--' }}</span>
+          </div>
+          <div class="gap-col">
+            <span class="gap-title">SUIVANT</span>
+            <span class="gap-val">{{ myRank && myRank < totalActiveRacers ? ('+' + distToNext + 'm') : '--' }}</span>
+          </div>
+        </div>
+      </div>
+
       <div class="hud-card primary-card">
         <div class="hud-label">DISTANCE NETTE</div>
         <div class="hud-value-huge">{{ myActivity?.netDistance || 0 }} <span class="unit">M</span></div>
