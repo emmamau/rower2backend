@@ -442,5 +442,25 @@
         <div class="hud-sub">Calories : {{ myActivity?.totalEnergy || 0 }} kcal</div>
       </div>
     </section>
+
+    <!-- FOOTER PERMANENT : Conditions d'utilisation, RGPD et Informations légales -->
+    <footer class="app-footer">
+      <div class="footer-links">
+        <button class="footer-link-btn" (click)="isLegalTermsOpen = true">
+          ⚖️ Conditions Générales d'Utilisation (CGU) & Conformité RGPD
+        </button>
+        <span class="footer-sep">•</span>
+        <button class="footer-link-btn" (click)="isStandingsOpen = true">
+          🏅 Règlement & Barème des Points
+        </button>
+        <span class="footer-sep">•</span>
+        <button class="footer-link-btn" (click)="isHistoryOpen = true">
+          🏆 Palmarès Officiel
+        </button>
+      </div>
+      <div class="footer-copyright">
+        © 2026 Rower Race • Aviron Indoor Connecté • Respect strict de la vie privée (aucune donnée personnelle stockée)
+      </div>
+    </footer>
   </main>
 </div>
