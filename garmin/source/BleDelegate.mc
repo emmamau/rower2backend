@@ -12,8 +12,18 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
     // FTMS Rower Data Characteristic UUID: 0x2AD1
     private static const ROWER_DATA_CHAR_UUID = BluetoothLowEnergy.stringToUuid("00002AD1-0000-1000-8000-00805F9B34FB");
 
+    // Concept2 PM5 Custom Primary Rowing Service UUID & Characteristics
+    private static const C2_ROWING_SERVICE_UUID = BluetoothLowEnergy.stringToUuid("CE060030-43E5-11E4-916C-0800200C9A66");
+    private static const C2_ROWING_STATUS_UUID  = BluetoothLowEnergy.stringToUuid("CE060031-43E5-11E4-916C-0800200C9A66");
+    private static const C2_EXTRA_STATUS1_UUID  = BluetoothLowEnergy.stringToUuid("CE060032-43E5-11E4-916C-0800200C9A66");
+
+    // WaterRower SmartRow Custom Pulley Service UUID & Characteristics (direct connection without bridge)
+    private static const SMARTROW_SERVICE_UUID = BluetoothLowEnergy.stringToUuid("00001234-0000-1000-8000-00805F9B34FB");
+    private static const SMARTROW_NOTIFY_CHAR_UUID = BluetoothLowEnergy.stringToUuid("00001236-0000-1000-8000-00805F9B34FB");
+
     private var _view as RowerView?;
     private var _device as BluetoothLowEnergy.Device?;
+    private var _connectedProtocol as String = "FTMS"; // "FTMS", "CONCEPT2", "SMARTROW"
     private var _syncManager as RestSyncManager;
     private var _deviceName as String? = null;
 
@@ -57,7 +67,8 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
     }
 
     private function registerProfiles() as Void {
-        var profile = {
+        // 1. Profil standard Bluetooth FTMS (WaterRower S4 ComModule, Merach R11/R14/Q1, VOWVIT V-W3/V-W2, Domyos, Kingsmith, etc.)
+        var ftmsProfile = {
             :uuid => FTMS_SERVICE_UUID,
             :characteristics => [
                 {
@@ -68,7 +79,41 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
                 }
             ]
         };
-        BluetoothLowEnergy.registerProfile(profile);
+        BluetoothLowEnergy.registerProfile(ftmsProfile);
+
+        // 2. Profil Concept2 PM5 natif (Service Rowing CE060030)
+        var c2Profile = {
+            :uuid => C2_ROWING_SERVICE_UUID,
+            :characteristics => [
+                {
+                    :uuid => C2_ROWING_STATUS_UUID,
+                    :descriptors => [
+                        BluetoothLowEnergy.cccdUuid()
+                    ]
+                },
+                {
+                    :uuid => C2_EXTRA_STATUS1_UUID,
+                    :descriptors => [
+                        BluetoothLowEnergy.cccdUuid()
+                    ]
+                }
+            ]
+        };
+        BluetoothLowEnergy.registerProfile(c2Profile);
+
+        // 3. Profil WaterRower SmartRow direct (Poulie SmartRow sans broadcast FTMS)
+        var smartrowProfile = {
+            :uuid => SMARTROW_SERVICE_UUID,
+            :characteristics => [
+                {
+                    :uuid => SMARTROW_NOTIFY_CHAR_UUID,
+                    :descriptors => [
+                        BluetoothLowEnergy.cccdUuid()
+                    ]
+                }
+            ]
+        };
+        BluetoothLowEnergy.registerProfile(smartrowProfile);
     }
 
     private function startClockTimer() as Void {
@@ -108,7 +153,7 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
     function startScan() as Void {
         BluetoothLowEnergy.setScanState(BluetoothLowEnergy.SCAN_STATE_SCANNING);
         if (_view != null) {
-            _view.setStatus("Recherche Rameur FTMS...");
+            _view.setStatus("Recherche Rameur BLE...");
         }
     }
 
@@ -125,17 +170,77 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
 
     function onScanResults(scanResults as BluetoothLowEnergy.Iterator) as Void {
         for (var result = scanResults.next(); result != null; result = scanResults.next()) {
-            var iter = (result as BluetoothLowEnergy.ScanResult).getServiceUuids();
+            var scanRes = result as BluetoothLowEnergy.ScanResult;
+            var iter = scanRes.getServiceUuids();
+            var devName = scanRes.getDeviceName();
+            if (devName == null) {
+                devName = "";
+            }
+
+            // Identification par UUID de service
             for (var uuid = iter.next(); uuid != null; uuid = iter.next()) {
                 if (uuid.equals(FTMS_SERVICE_UUID)) {
+                    // FTMS Standard (WaterRower S4 ComModule, Merach, VOWVIT, etc.)
+                    _connectedProtocol = "FTMS";
                     stopScan();
-                    _deviceName = (result as BluetoothLowEnergy.ScanResult).getDeviceName();
+                    _deviceName = devName.length() > 0 ? devName : "Rameur FTMS";
                     if (_view != null) {
-                        _view.setStatus("Connexion en cours...");
+                        _view.setStatus("Connexion " + _deviceName + "...");
                     }
-                    _device = BluetoothLowEnergy.pairDevice(result as BluetoothLowEnergy.ScanResult);
+                    _device = BluetoothLowEnergy.pairDevice(scanRes);
+                    return;
+                } else if (uuid.equals(C2_ROWING_SERVICE_UUID)) {
+                    // Concept2 PM5
+                    _connectedProtocol = "CONCEPT2";
+                    stopScan();
+                    _deviceName = devName.length() > 0 ? devName : "Concept2 PM5";
+                    if (_view != null) {
+                        _view.setStatus("Connexion Concept2...");
+                    }
+                    _device = BluetoothLowEnergy.pairDevice(scanRes);
+                    return;
+                } else if (uuid.equals(SMARTROW_SERVICE_UUID)) {
+                    // WaterRower Poulie SmartRow directe
+                    _connectedProtocol = "SMARTROW";
+                    stopScan();
+                    _deviceName = devName.length() > 0 ? devName : "WaterRower SmartRow";
+                    if (_view != null) {
+                        _view.setStatus("Connexion SmartRow...");
+                    }
+                    _device = BluetoothLowEnergy.pairDevice(scanRes);
                     return;
                 }
+            }
+
+            // Détection heuristique par nom de périphérique (si le service n'est pas dans le paquet d'advertising)
+            var lowerName = devName.toLower();
+            if (lowerName.find("smartrow") != null) {
+                _connectedProtocol = "SMARTROW";
+                stopScan();
+                _deviceName = devName;
+                if (_view != null) {
+                    _view.setStatus("Connexion SmartRow...");
+                }
+                _device = BluetoothLowEnergy.pairDevice(scanRes);
+                return;
+            } else if (lowerName.find("concept") != null || lowerName.find("pm5") != null) {
+                _connectedProtocol = "CONCEPT2";
+                stopScan();
+                _deviceName = devName;
+                if (_view != null) {
+                    _view.setStatus("Connexion Concept2...");
+                }
+                _device = BluetoothLowEnergy.pairDevice(scanRes);
+                return;
+            } else if (lowerName.find("merach") != null || lowerName.find("vowvit") != null || lowerName.find("rower") != null || lowerName.find("waterrower") != null) {
+                _connectedProtocol = "FTMS";
+                stopScan();
+                _deviceName = devName;
+                if (_view != null) {
+                    _view.setStatus("Connexion " + devName + "...");
+                }
+                _device = BluetoothLowEnergy.pairDevice(scanRes);
+                return;
             }
         }
     }
@@ -143,16 +248,51 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
     function onConnectedStateChanged(device as BluetoothLowEnergy.Device, state as BluetoothLowEnergy.ConnectionState) as Void {
         if (state == BluetoothLowEnergy.CONNECTION_STATE_CONNECTED) {
             if (_view != null) {
-                _view.setStatus("Rameur Connecte !");
+                _view.setStatus(_deviceName != null ? (_deviceName + " Connecte !") : "Rameur Connecte !");
             }
-            // Subscribe to Rower Data notifications
-            var service = device.getService(FTMS_SERVICE_UUID);
-            if (service != null) {
-                var char = service.getCharacteristic(ROWER_DATA_CHAR_UUID);
-                if (char != null) {
-                    var cccd = char.getDescriptor(BluetoothLowEnergy.cccdUuid());
-                    if (cccd != null) {
-                        cccd.requestWrite([0x01, 0x00]b);
+
+            // Souscription aux notifications selon le protocole détecté
+            if (_connectedProtocol.equals("CONCEPT2")) {
+                // Souscription Concept2 PM5 (Status CE060031 et Extra Status CE060032)
+                var c2Service = device.getService(C2_ROWING_SERVICE_UUID);
+                if (c2Service != null) {
+                    var statusChar = c2Service.getCharacteristic(C2_ROWING_STATUS_UUID);
+                    if (statusChar != null) {
+                        var cccd = statusChar.getDescriptor(BluetoothLowEnergy.cccdUuid());
+                        if (cccd != null) {
+                            cccd.requestWrite([0x01, 0x00]b);
+                        }
+                    }
+                    var extraChar = c2Service.getCharacteristic(C2_EXTRA_STATUS1_UUID);
+                    if (extraChar != null) {
+                        var cccdExtra = extraChar.getDescriptor(BluetoothLowEnergy.cccdUuid());
+                        if (cccdExtra != null) {
+                            cccdExtra.requestWrite([0x01, 0x00]b);
+                        }
+                    }
+                }
+            } else if (_connectedProtocol.equals("SMARTROW")) {
+                // Souscription directe poulie WaterRower SmartRow (0x1236)
+                var srService = device.getService(SMARTROW_SERVICE_UUID);
+                if (srService != null) {
+                    var srChar = srService.getCharacteristic(SMARTROW_NOTIFY_CHAR_UUID);
+                    if (srChar != null) {
+                        var cccd = srChar.getDescriptor(BluetoothLowEnergy.cccdUuid());
+                        if (cccd != null) {
+                            cccd.requestWrite([0x01, 0x00]b);
+                        }
+                    }
+                }
+            } else {
+                // Souscription standard FTMS (WaterRower S4 ComModule, Merach, VOWVIT V-W3, etc.)
+                var service = device.getService(FTMS_SERVICE_UUID);
+                if (service != null) {
+                    var char = service.getCharacteristic(ROWER_DATA_CHAR_UUID);
+                    if (char != null) {
+                        var cccd = char.getDescriptor(BluetoothLowEnergy.cccdUuid());
+                        if (cccd != null) {
+                            cccd.requestWrite([0x01, 0x00]b);
+                        }
                     }
                 }
             }
@@ -477,9 +617,112 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
     }
 
     function onCharacteristicChanged(characteristic as BluetoothLowEnergy.Characteristic, value as ByteArray) as Void {
-        if (characteristic.getUuid().equals(ROWER_DATA_CHAR_UUID)) {
+        var charUuid = characteristic.getUuid();
+        if (charUuid.equals(ROWER_DATA_CHAR_UUID)) {
+            // Standard FTMS 0x2AD1 (WaterRower S4 ComModule, Merach, VOWVIT V-W3, etc.)
             parseRowerData(value);
+        } else if (charUuid.equals(C2_ROWING_STATUS_UUID)) {
+            // Concept2 PM5 Rowing Status (Elapsed Time, Distance)
+            parseConcept2Status(value);
+        } else if (charUuid.equals(C2_EXTRA_STATUS1_UUID)) {
+            // Concept2 PM5 Extra Status (Stroke Rate, Pace, Speed)
+            parseConcept2Extra(value);
+        } else if (charUuid.equals(SMARTROW_NOTIFY_CHAR_UUID)) {
+            // WaterRower Poulie SmartRow directe (0x1236)
+            parseSmartRowData(value);
         }
+    }
+
+    // Concept2 PM5 Status (CE060031): Bytes 0-2 = Time (ms), Bytes 3-5 = Distance (0.1m)
+    private function parseConcept2Status(bytes as ByteArray) as Void {
+        if (bytes.size() < 6) {
+            return;
+        }
+        var m = (_lastModel != null) ? (_lastModel as RowerDataModel) : new RowerDataModel();
+        var elapsedMs = (bytes[0] & 0xFF) | ((bytes[1] & 0xFF) << 8) | ((bytes[2] & 0xFF) << 16);
+        m.elapsedTime = elapsedMs / 1000;
+
+        // Distance in 0.1m units -> convert to meters
+        var rawDist = (bytes[3] & 0xFF) | ((bytes[4] & 0xFF) << 8) | ((bytes[5] & 0xFF) << 16);
+        m.totalDistance = rawDist / 10;
+
+        processDecodedModel(m);
+    }
+
+    // Concept2 PM5 Extra Status (CE060032): Byte 5 = Stroke Rate (SPM), Bytes 7-8 = Pace (0.1s/500m)
+    private function parseConcept2Extra(bytes as ByteArray) as Void {
+        if (bytes.size() < 9) {
+            return;
+        }
+        var m = (_lastModel != null) ? (_lastModel as RowerDataModel) : new RowerDataModel();
+        m.strokeRate = (bytes[5] & 0xFF) * 1.0;
+        var paceTenths = (bytes[7] & 0xFF) | ((bytes[8] & 0xFF) << 8);
+        m.instantPace = paceTenths / 10;
+
+        // Estimated power from pace: P = 2.8 / (pace/500)^3
+        if (m.instantPace > 0) {
+            var speedMs = 500.0 / m.instantPace;
+            m.instantPower = (2.8 * speedMs * speedMs * speedMs).toNumber();
+        }
+        if (bytes.size() >= 7) {
+            m.heartRate = (bytes[6] & 0xFF);
+        }
+
+        processDecodedModel(m);
+    }
+
+    // WaterRower Poulie SmartRow directe (0x1236, 17 octets ASCII / binaire)
+    private function parseSmartRowData(bytes as ByteArray) as Void {
+        if (bytes.size() < 8) {
+            return;
+        }
+        var m = (_lastModel != null) ? (_lastModel as RowerDataModel) : new RowerDataModel();
+
+        // 1. Détection format ASCII SmartRow (17 octets terminés par \r ou caractères '0'..'9')
+        if (bytes.size() >= 14 && bytes[0] >= 0x30 && bytes[0] <= 0x7A) {
+            // Lecture des mètres encodés en ASCII (octets 1 à 5)
+            var dist = 0;
+            for (var i = 1; i <= 5 && i < bytes.size(); i++) {
+                var ch = bytes[i] & 0x0F; // Démasquage nibble
+                dist = (dist * 10) + ch;
+            }
+            if (dist > 0) {
+                m.totalDistance = dist;
+            }
+
+            // SPM et Puissance dans les octets 6 à 13
+            if (bytes.size() >= 10) {
+                var spmVal = (bytes[6] & 0x0F) * 10 + (bytes[7] & 0x0F);
+                if (spmVal > 0 && spmVal < 80) {
+                    m.strokeRate = spmVal * 1.0;
+                }
+                var pVal = (bytes[8] & 0x0F) * 100 + (bytes[9] & 0x0F) * 10 + (bytes[10] & 0x0F);
+                if (pVal > 0 && pVal < 1500) {
+                    m.instantPower = pVal;
+                }
+            }
+        } else {
+            // 2. Détection binaire directe little-endian
+            var pwr = (bytes[0] & 0xFF) | ((bytes[1] & 0xFF) << 8);
+            if (pwr < 2000) {
+                m.instantPower = pwr;
+            }
+            m.strokeRate = (bytes[2] & 0xFF) * 1.0;
+            var d = (bytes[3] & 0xFF) | ((bytes[4] & 0xFF) << 8) | ((bytes[5] & 0xFF) << 16);
+            if (d > 0) {
+                m.totalDistance = d;
+            }
+        }
+
+        // Calcul allure instantanée si puissance disponible
+        if (m.instantPower > 15) {
+            var speedMs = Math.pow(m.instantPower / 2.8, 0.3333);
+            if (speedMs > 0.5) {
+                m.instantPace = (500.0 / speedMs).toNumber();
+            }
+        }
+
+        processDecodedModel(m);
     }
 
     // FTMS 0x2AD1 Rower Data parser
@@ -588,6 +831,11 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
             offset += 2;
         }
 
+        processDecodedModel(model);
+    }
+
+    // Traitement centralisé des données décodées quel que soit le protocole (FTMS, Concept2, SmartRow)
+    private function processDecodedModel(model as RowerDataModel) as Void {
         _lastModel = model;
 
         // CHECK IF ROWING IN WAITING ROOM: Show warning "Ne pas ramer" & pénalité arrêt complet
