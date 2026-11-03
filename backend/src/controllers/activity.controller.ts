@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { Op } from "sequelize";
 import db from "../models";
 import config from "../config";
 
@@ -222,16 +223,27 @@ export const getLatestUserActivity = async (req: Request, res: Response): Promis
 export const getRaceLeaderboard = async (req: Request, res: Response): Promise<void> => {
   try {
     const { activityId } = req.params;
+    const currentRace = await getOrCreateCurrentRace();
+    const targetRaceId = activityId || currentRace.id;
+
+    // Récupérer les activités rattachées à cette course OU actives dans les dernières 10 minutes
+    const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
     const list = await Activities.findAll({
-      where: { activityId },
+      where: {
+        [Op.or]: [
+          { activityId: targetRaceId },
+          { updatedAt: { [Op.gte]: tenMinutesAgo } }
+        ]
+      },
       order: [
         ["netDistance", "DESC"],
         ["elapsedTime", "ASC"],
+        ["updatedAt", "DESC"],
       ],
     });
 
     res.status(200).json({
-      activityId,
+      activityId: targetRaceId,
       totalParticipants: list.length,
       leaderboard: list,
     });

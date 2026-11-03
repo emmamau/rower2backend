@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { Op } from "sequelize";
 import db from "../models";
 import config from "../config";
 import { getOrCreateCurrentRace } from "./activity.controller";
@@ -17,8 +18,16 @@ export const getNextRace = async (_req: Request, res: Response): Promise<void> =
     const startTime = new Date(race.get("startTime") as Date);
     const secondsRemaining = Math.max(0, Math.floor((startTime.getTime() - now.getTime()) / 1000));
 
-    // Comptage des participants connectés
-    const count = await Activities.count({ where: { activityId: race.get("id") } });
+    // Comptage des participants connectés (actifs récemment ou inscrits sur le créneau)
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+    const count = await Activities.count({
+      where: {
+        [Op.or]: [
+          { activityId: race.get("id") },
+          { updatedAt: { [Op.gte]: fiveMinutesAgo } }
+        ]
+      }
+    });
     await race.update({ totalParticipants: count });
 
     res.status(200).json({

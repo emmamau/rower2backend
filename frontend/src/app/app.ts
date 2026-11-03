@@ -33,6 +33,7 @@ export class AppComponent implements OnInit, OnDestroy {
   // Next Race & Multiplayer state
   nextRaceInfo: NextRaceInfo | null = null;
   racers: RowerData[] = [];
+  activeRacersCount = 0;
   myActivity: RowerData | null = null;
   raceHistory: RowerData[] = [];
 
@@ -134,6 +135,7 @@ export class AppComponent implements OnInit, OnDestroy {
             catchError(() => of({ activityId: raceData.race.id, totalParticipants: 0, leaderboard: [] }))
           ).subscribe((lb) => {
             this.racers = lb.leaderboard;
+            this.activeRacersCount = Math.max(raceData.totalParticipants || 0, this.racers.length);
             this.myActivity = this.racers.find(r => r.userId === this.activeUserId) || null;
             this.cdr.markForCheck();
           });
@@ -210,7 +212,15 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   getKayakColor(index: number): string {
-    const colors = ['#f0883e', '#388bfd', '#3fb950', '#a371f7', '#f85149', '#ffd33d', '#2ea043'];
+    const colors = [
+      '#FF0055', // Electric Pink / Acid Magenta
+      '#00F0FF', // Cyan Turbo
+      '#39FF14', // Neon Lime
+      '#FFE600', // Acid Yellow
+      '#FF6600', // Laser Orange
+      '#B026FF', // Cyber Purple
+      '#00FF9D', // Mint Neon
+    ];
     return colors[index % colors.length];
   }
 }
