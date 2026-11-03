@@ -14,6 +14,7 @@ class RowerView extends WatchUi.View {
     public static const STATE_PAUSED = 4;
     public static const STATE_FINISHED = 5;
     public static const STATE_AUTH_PROMPT = 6; // Demande de validation connexion front web
+    public static const STATE_BOTS_PROMPT = 7; // Proposition d'affronter des bots quand le joueur est seul
 
     private var _currentState as Number = STATE_SCANNING;
     private var _statusText as String = "Recherche FTMS...";
@@ -22,6 +23,9 @@ class RowerView extends WatchUi.View {
     // Auth Prompt
     private var _authRequestId as String = "";
     private var _authLogin as String = "";
+
+    // Bots State
+    private var _hasBotsEnabled as Boolean = false;
     
     // Race details
     private var _userId as String = "";
@@ -75,6 +79,19 @@ class RowerView extends WatchUi.View {
 
     function getCountdown() as Number {
         return _nextRaceCountdown;
+    }
+
+    function getConnectedPlayers() as Number {
+        return _connectedPlayers;
+    }
+
+    function setBotsEnabled(enabled as Boolean) as Void {
+        _hasBotsEnabled = enabled;
+        WatchUi.requestUpdate();
+    }
+
+    function isBotsEnabled() as Boolean {
+        return _hasBotsEnabled;
     }
 
     function showWarning(text as String, durationSeconds as Number) as Void {
@@ -142,6 +159,8 @@ class RowerView extends WatchUi.View {
             drawFinishedScreen(dc, width, height);
         } else if (_currentState == STATE_AUTH_PROMPT) {
             drawAuthPromptScreen(dc, width, height);
+        } else if (_currentState == STATE_BOTS_PROMPT) {
+            drawBotsPromptScreen(dc, width, height);
         }
 
         // Draw Warning Overlay if active ("Ne pas ramer")
@@ -226,13 +245,23 @@ class RowerView extends WatchUi.View {
         dc.drawText(width / 2, 48, Graphics.FONT_NUMBER_HOT, timeStr, Graphics.TEXT_JUSTIFY_CENTER);
 
         dc.setColor(Graphics.COLOR_GREEN, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(width / 2, 128, Graphics.FONT_TINY, "👥 Joueurs connectes: " + _connectedPlayers, Graphics.TEXT_JUSTIFY_CENTER);
+        var playersLabel = "👥 Joueurs connectes: " + _connectedPlayers;
+        if (_hasBotsEnabled) {
+            playersLabel += " (+Bots)";
+        }
+        dc.drawText(width / 2, 128, Graphics.FONT_TINY, playersLabel, Graphics.TEXT_JUSTIFY_CENTER);
 
         dc.setColor(Graphics.COLOR_BLUE, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(width / 2, 155, Graphics.FONT_XTINY, "Course de " + _targetDistance + "m", Graphics.TEXT_JUSTIFY_CENTER);
+        dc.drawText(width / 2, 150, Graphics.FONT_XTINY, "Course de " + _targetDistance + "m", Graphics.TEXT_JUSTIFY_CENTER);
 
-        dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(width / 2, 182, Graphics.FONT_XTINY, "Joueur: " + _userId, Graphics.TEXT_JUSTIFY_CENTER);
+        // Bots status / hint button
+        if (!_hasBotsEnabled && _connectedPlayers <= 1) {
+            dc.setColor(Graphics.COLOR_YELLOW, Graphics.COLOR_TRANSPARENT);
+            dc.drawText(width / 2, 172, Graphics.FONT_XTINY, "START : Jouer vs Bots ?", Graphics.TEXT_JUSTIFY_CENTER);
+        } else {
+            dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
+            dc.drawText(width / 2, 172, Graphics.FONT_XTINY, "Joueur: " + _userId, Graphics.TEXT_JUSTIFY_CENTER);
+        }
 
         dc.setColor(Graphics.COLOR_ORANGE, Graphics.COLOR_TRANSPARENT);
         dc.drawText(width / 2, height - 26, Graphics.FONT_XTINY, "Depart automatique a 00:00", Graphics.TEXT_JUSTIFY_CENTER);
@@ -399,5 +428,32 @@ class RowerView extends WatchUi.View {
         dc.fillRoundedRectangle(30, 196, width - 60, 28, 6);
         dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
         dc.drawText(width / 2, 202, Graphics.FONT_XTINY, "DOWN : Refuser", Graphics.TEXT_JUSTIFY_CENTER);
+    }
+
+    // 9. Bots Prompt Screen (Menu si le joueur est tout seul)
+    private function drawBotsPromptScreen(dc as Graphics.Dc, width as Number, height as Number) as Void {
+        dc.setColor(Graphics.COLOR_ORANGE, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(width / 2, 15, Graphics.FONT_TINY, "JOUEURS VIRTUELS", Graphics.TEXT_JUSTIFY_CENTER);
+
+        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(width / 2, 45, Graphics.FONT_SMALL, "Vous etes seul !", Graphics.TEXT_JUSTIFY_CENTER);
+
+        dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(width / 2, 75, Graphics.FONT_XTINY, "Souhaitez-vous jouer", Graphics.TEXT_JUSTIFY_CENTER);
+        dc.drawText(width / 2, 95, Graphics.FONT_XTINY, "contre des joueurs virtuels ?", Graphics.TEXT_JUSTIFY_CENTER);
+
+        dc.setColor(Graphics.COLOR_YELLOW, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(width / 2, 122, Graphics.FONT_XTINY, "Affrontez 3 Bots Kayak !", Graphics.TEXT_JUSTIFY_CENTER);
+
+        // Buttons
+        dc.setColor(Graphics.COLOR_DK_GREEN, Graphics.COLOR_DK_GREEN);
+        dc.fillRoundedRectangle(25, 150, width - 50, 28, 6);
+        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(width / 2, 156, Graphics.FONT_XTINY, "START : OUI (Activer Bots)", Graphics.TEXT_JUSTIFY_CENTER);
+
+        dc.setColor(Graphics.COLOR_DK_GRAY, Graphics.COLOR_DK_GRAY);
+        dc.fillRoundedRectangle(25, 185, width - 50, 28, 6);
+        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(width / 2, 191, Graphics.FONT_XTINY, "DOWN : NON (Attendre/Solo)", Graphics.TEXT_JUSTIFY_CENTER);
     }
 }

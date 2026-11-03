@@ -16,6 +16,9 @@ export default (app: Application): void => {
   // PUT /api/race/config (Mise à jour distance / intervalle)
   router.put("/config", raceController.updateRaceConfig);
 
+  // POST /api/race/bots (Activer / désactiver des bots virtuels)
+  router.post("/bots", raceController.toggleBots);
+
   app.use("/api/race", router);
   app.use("/api/races", router);
 };

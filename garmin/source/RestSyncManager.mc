@@ -150,6 +150,39 @@ class RestSyncManager {
         System.println("Web login response submitted: " + responseCode);
     }
 
+    // Toggle Bot Racers in current race
+    function toggleBots(enable as Boolean, raceId as String?) as Void {
+        var endpoint = getBaseUrl() + "/api/race/bots";
+        var payload = {
+            "enable" => enable,
+            "botCount" => 3
+        };
+        if (raceId != null) {
+            payload.put("raceId", raceId);
+        }
+        var options = {
+            :method => Communications.HTTP_REQUEST_METHOD_POST,
+            :headers => {
+                "Content-Type" => Communications.REQUEST_CONTENT_TYPE_JSON
+            },
+            :responseType => Communications.HTTP_RESPONSE_CONTENT_TYPE_JSON
+        };
+
+        Communications.makeWebRequest(
+            endpoint,
+            payload,
+            options,
+            method(:onToggleBotsResponse)
+        );
+    }
+
+    function onToggleBotsResponse(responseCode as Number, data as Dictionary or String or Null) as Void {
+        System.println("Bots toggled response: " + responseCode);
+        if (_delegate != null && responseCode == 200 && data != null && data instanceof Dictionary) {
+            (_delegate as BleDelegate).onBotsToggled(data as Dictionary);
+        }
+    }
+
     // Synchronize activity progress & stroke data with backend
     function syncActivity(activityId as String, userId as String, userName as String, raceMode as String,
                           status as String, targetDistance as Number, model as RowerDataModel,

@@ -139,6 +139,30 @@ export const syncActivity = async (req: Request, res: Response): Promise<void> =
       }
     }
 
+    // Progression réaliste des bots si actifs dans la course
+    const activeBots = await Activities.findAll({
+      where: { activityId: actualActivityId, isBot: true, status: "in_progress" },
+    });
+    for (const bot of activeBots) {
+      const botPace = (bot.get("avgPace") as number) || 120; // sec per 500m
+      const botSpeedMs = 500 / botPace; // m/s
+      const botPrevTime = (bot.get("elapsedTime") as number) || 0;
+      const botNewTime = botPrevTime + 1; // 1s tick
+      const botNetDist = Math.min((bot.get("targetDistance") as number) || 10000, Math.floor(botNewTime * botSpeedMs));
+      const botTarget = (bot.get("targetDistance") as number) || 10000;
+      const botProgress = Math.min(100, Number(((botNetDist / botTarget) * 100).toFixed(1)));
+      const botFinished = botNetDist >= botTarget;
+
+      await bot.update({
+        netDistance: botNetDist,
+        currentDistance: botNetDist,
+        elapsedTime: botNewTime,
+        progressPercent: botProgress,
+        status: botFinished ? "finished" : "in_progress",
+        updatedAt: new Date(),
+      });
+    }
+
     // Calcul du classement
     const leaderboard = await Activities.findAll({
       where: { activityId: actualActivityId },

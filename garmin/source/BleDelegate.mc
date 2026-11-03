@@ -343,6 +343,37 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
         }
     }
 
+    // Bots Handlers
+    function promptBots() as Void {
+        if (_view != null) {
+            _view.setAppState(RowerView.STATE_BOTS_PROMPT);
+        }
+    }
+
+    function respondBotsPrompt(enableBots as Boolean) as Void {
+        if (enableBots) {
+            _syncManager.toggleBots(true, _activityId);
+            if (_view != null) {
+                _view.setBotsEnabled(true);
+            }
+        }
+        if (_view != null) {
+            _view.setAppState(RowerView.STATE_WAITING_START);
+        }
+    }
+
+    function onBotsToggled(data as Dictionary) as Void {
+        if (_view != null) {
+            if (data.hasKey("hasBots")) {
+                _view.setBotsEnabled(data.get("hasBots") as Boolean);
+            }
+            if (data.hasKey("totalParticipants")) {
+                var total = data.get("totalParticipants") as Number;
+                _view.setLobbyInfo(_view.getCountdown(), total, _targetDistance);
+            }
+        }
+    }
+
     function onFinalSyncResponse(data as Dictionary?) as Void {
         var rank = 1;
         var podium = [] as Array<Dictionary>;

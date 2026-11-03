@@ -33,6 +33,11 @@ class RowerDelegate extends WatchUi.BehaviorDelegate {
             _bleDelegate.joinNextRaceWaiting();
             return true;
         } else if (state == RowerView.STATE_WAITING_START) {
+            // If alone and bots are not yet enabled, propose bots prompt
+            if (_view.getConnectedPlayers() <= 1 && !_view.isBotsEnabled()) {
+                _bleDelegate.promptBots();
+                return true;
+            }
             // Cannot start prematurely in race mode!
             _view.showWarning("Ne pas ramer", 2);
             return true;
@@ -62,6 +67,10 @@ class RowerDelegate extends WatchUi.BehaviorDelegate {
             // Approve web login
             _bleDelegate.respondAuth(true);
             return true;
+        } else if (state == RowerView.STATE_BOTS_PROMPT) {
+            // Accept bots
+            _bleDelegate.respondBotsPrompt(true);
+            return true;
         }
 
         return false;
@@ -89,6 +98,10 @@ class RowerDelegate extends WatchUi.BehaviorDelegate {
         } else if (state == RowerView.STATE_AUTH_PROMPT) {
             // Reject web login
             _bleDelegate.respondAuth(false);
+            return true;
+        } else if (state == RowerView.STATE_BOTS_PROMPT) {
+            // Decline bots
+            _bleDelegate.respondBotsPrompt(false);
             return true;
         }
 

@@ -3,6 +3,7 @@ export interface RowerData {
   activityId: string;
   userId: string;
   userName?: string;
+  isBot?: boolean;
   raceMode: 'race' | 'solo';
   targetDistance: number;
   status: 'waiting' | 'in_progress' | 'paused' | 'abandoned' | 'finished';

@@ -271,9 +271,107 @@ export const updateRaceConfig = async (req: Request, res: Response): Promise<voi
   }
 };
 
+/**
+ * POST /api/race/bots
+ * Permet d'ajouter ou activer des bots virtuels quand le joueur est seul
+ */
+export const toggleBots = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { enable = true, raceId, botCount = 3 } = req.body;
+    const race = raceId ? await Races.findByPk(raceId) : await getOrCreateCurrentRace();
+    if (!race) {
+      res.status(404).json({ message: "Aucune course trouvée." });
+      return;
+    }
+
+    const actualRaceId = String(race.get("id"));
+    const targetDist = (race.get("targetDistance") as number) || 10000;
+
+    const BOT_NAMES = [
+      { id: "bot_olympic", name: "Kayaker_Thor (Bot)", pace: 110, spm: 30, power: 280 },
+      { id: "bot_shadow", name: "Cyber_Paddle (Bot)", pace: 118, spm: 28, power: 240 },
+      { id: "bot_challenger", name: "Aqua_Racer (Bot)", pace: 125, spm: 26, power: 210 },
+      { id: "bot_rookie", name: "Viking_Stream (Bot)", pace: 132, spm: 24, power: 190 },
+    ];
+
+    if (enable) {
+      const botsToAdd = BOT_NAMES.slice(0, Math.min(botCount, BOT_NAMES.length));
+      for (const b of botsToAdd) {
+        const botCompositeId = `${actualRaceId}_${b.id}`;
+        let botAct = await Activities.findByPk(botCompositeId);
+        if (!botAct) {
+          await Activities.create({
+            id: botCompositeId,
+            activityId: actualRaceId,
+            userId: b.id,
+            userName: b.name,
+            isBot: true,
+            raceMode: "race",
+            targetDistance: targetDist,
+            status: race.get("status") === "in_progress" ? "in_progress" : "waiting",
+            initialDistance: 0,
+            currentDistance: 0,
+            netDistance: 0,
+            progressPercent: 0,
+            lastStrokeRate: b.spm,
+            lastStrokeCount: 0,
+            lastPower: b.power,
+            lastPace: b.pace,
+            lastHeartRate: 155,
+            lastResistance: 4,
+            avgPower: b.power,
+            avgPace: b.pace,
+            avgStrokeRate: b.spm,
+            totalStrokes: 0,
+            totalEnergy: 0,
+            elapsedTime: 0,
+            avgSpeedKmh: Number(((500 / b.pace) * 3.6).toFixed(1)),
+          });
+        } else {
+          await botAct.update({
+            status: race.get("status") === "in_progress" ? "in_progress" : "waiting",
+            isBot: true,
+          });
+        }
+      }
+      await race.update({ hasBots: true });
+    } else {
+      // Désactiver les bots
+      await Activities.destroy({
+        where: {
+          activityId: actualRaceId,
+          isBot: true,
+        },
+      });
+      await race.update({ hasBots: false });
+    }
+
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+    const count = await Activities.count({
+      where: {
+        activityId: actualRaceId,
+        updatedAt: { [Op.gte]: fiveMinutesAgo },
+        status: { [Op.ne]: "abandoned" },
+      },
+    });
+    await race.update({ totalParticipants: count });
+
+    res.status(200).json({
+      success: true,
+      hasBots: enable,
+      totalParticipants: count,
+      message: enable ? "Joueurs virtuels engagés dans la course !" : "Joueurs virtuels retirés.",
+    });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ message: "Erreur gestion des bots: " + message });
+  }
+};
+
 export default {
   getNextRace,
   joinRace,
   getRaceHistory,
   updateRaceConfig,
+  toggleBots,
 };

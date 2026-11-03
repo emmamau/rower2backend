@@ -8,6 +8,7 @@ export interface RaceSessionAttributes {
   intervalMinutes: number;  // Interval between races (default 15 mins)
   maxDurationMinutes: number; // Durée max de la course (55 mins)
   status: string;           // 'waiting' | 'in_progress' | 'finished' | 'cancelled'
+  hasBots?: boolean;        // true si des joueurs virtuels sont engagés
   totalParticipants: number;
   winnerUserId?: string;
   winnerTimeSeconds?: number;
@@ -48,6 +49,10 @@ export default (sequelize: Sequelize, _DataTypesInstance: typeof DataTypes): Rac
       status: {
         type: DataTypes.STRING(32),
         defaultValue: "waiting",
+      },
+      hasBots: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: false,
       },
       totalParticipants: {
         type: DataTypes.INTEGER,

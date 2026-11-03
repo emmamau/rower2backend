@@ -5,6 +5,7 @@ export interface ActivityAttributes {
   activityId: string;       // identifier of the race session
   userId: string;           // identifiant de la montre
   userName?: string;        // login du joueur
+  isBot?: boolean;          // true si c'est un bot virtuel
   raceMode: string;         // 'race' | 'solo'
   targetDistance: number;   // default 10000m
   status: string;           // 'waiting' | 'in_progress' | 'paused' | 'abandoned' | 'finished'
@@ -61,6 +62,10 @@ export default (sequelize: Sequelize, _DataTypesInstance: typeof DataTypes): Act
       userName: {
         type: DataTypes.STRING(128),
         defaultValue: "Rower Athlete",
+      },
+      isBot: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: false,
       },
       raceMode: {
         type: DataTypes.STRING(16),

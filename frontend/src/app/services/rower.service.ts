@@ -50,6 +50,10 @@ export class RowerService {
     return this.http.put(`${this.apiUrl}/api/race/config`, { targetDistance, intervalMinutes });
   }
 
+  toggleBots(enable: boolean, raceId?: string): Observable<any> {
+    return this.http.post(`${this.apiUrl}/api/race/bots`, { enable, raceId });
+  }
+
   getRaceLeaderboard(raceId: string): Observable<LeaderboardResponse> {
     return this.http.get<LeaderboardResponse>(`${this.apiUrl}/api/activity/race/${raceId}/leaderboard`);
   }
