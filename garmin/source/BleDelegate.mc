@@ -390,6 +390,20 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
         }
     }
 
+    function onLiveSyncResponse(data as Dictionary) as Void {
+        if (_view != null && _activityStatus.equals("in_progress")) {
+            var rank = 1;
+            var total = 1;
+            if (data.hasKey("rank") && data.get("rank") != null) {
+                rank = (data.get("rank") as Number);
+            }
+            if (data.hasKey("totalRacers") && data.get("totalRacers") != null) {
+                total = (data.get("totalRacers") as Number);
+            }
+            _view.setLiveRank(rank, total);
+        }
+    }
+
     function onCharacteristicChanged(characteristic as BluetoothLowEnergy.Characteristic, value as ByteArray) as Void {
         if (characteristic.getUuid().equals(ROWER_DATA_CHAR_UUID)) {
             parseRowerData(value);

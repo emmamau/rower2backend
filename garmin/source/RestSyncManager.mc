@@ -238,7 +238,11 @@ class RestSyncManager {
     function onSyncResponse(responseCode as Number, data as Dictionary or String or Null) as Void {
         _isSending = false;
         _lastSyncTime = System.getTimer() / 1000;
-        if (responseCode != 200 && responseCode != 201) {
+        if (responseCode == 200 && data != null && data instanceof Dictionary) {
+            if (_delegate != null) {
+                (_delegate as BleDelegate).onLiveSyncResponse(data as Dictionary);
+            }
+        } else if (responseCode != 200 && responseCode != 201) {
             System.println("Sync HTTP non-200: " + responseCode);
         }
     }
