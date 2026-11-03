@@ -206,7 +206,7 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
         _activityStatus = "waiting";
 
         // Declare player to backend via /api/race/join
-        _syncManager.joinRace(_userId, _userId);
+        _syncManager.joinRace(_userId, _userId, "join");
 
         if (_view != null) {
             _view.setAppState(RowerView.STATE_WAITING_START);
@@ -223,6 +223,31 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
                 var total = (data.hasKey("totalParticipants")) ? (data.get("totalParticipants") as Number) : 1;
                 _view.setLobbyInfo(sec, total, _targetDistance);
             }
+
+            // Si une course est déjà in_progress et que des coureurs rament, proposer le choix d'arrivée tardive
+            if (data.hasKey("isRaceInProgress") && data.get("isRaceInProgress") == true) {
+                var total = (data.hasKey("totalParticipants")) ? (data.get("totalParticipants") as Number) : 0;
+                if (total > 0 && _activityStatus.equals("waiting")) {
+                    _view.setAppState(RowerView.STATE_LATE_CHOICE);
+                }
+            }
+        }
+    }
+
+    // Action : Rejoindre en retard une course déjà en cours
+    function joinRaceLate() as Void {
+        _raceMode = "race";
+        _syncManager.joinRace(_userId, _userId, "join_late");
+        launchSessionNow();
+    }
+
+    // Action : Attendre la fin de la course en cours pour la prochaine course (dans 1h)
+    function waitNextRaceSlot() as Void {
+        _raceMode = "race";
+        _activityStatus = "waiting";
+        _syncManager.joinRace(_userId, _userId, "wait_next");
+        if (_view != null) {
+            _view.setAppState(RowerView.STATE_WAITING_START);
         }
     }
 
@@ -518,12 +543,27 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
 
         _lastModel = model;
 
-        // CHECK IF ROWING IN WAITING ROOM: Show warning "Ne pas ramer"
+        // CHECK IF ROWING IN WAITING ROOM: Show warning "Ne pas ramer" & pénalité arrêt complet
         if (_view != null && _view.getAppState() == RowerView.STATE_WAITING_START) {
             if (model.strokeRate > 0 || model.instantPower > 10) {
+                _view.setFalseStartLocked(true);
                 _view.showWarning("Ne pas ramer", 2);
+            } else if (model.strokeRate == 0 && model.instantPower <= 5) {
+                // Vitesse revenue à 0
+                _view.setFalseStartLocked(false);
             }
             return; // Do NOT increment distance or send racing points before start
+        }
+
+        // Si le départ est donné mais que le joueur avait ramé avant le départ, il doit attendre vitesse à 0
+        if (_view != null && _view.isFalseStartLocked()) {
+            if (model.strokeRate == 0 && model.instantPower <= 5) {
+                _view.setFalseStartLocked(false);
+                _initialDistance = model.totalDistance; // reset pour partir proprement à 0
+            } else {
+                _view.showWarning("Vitesse a 0 requise", 2);
+                return; // Bloqué tant qu'il ne s'est pas arrêté
+            }
         }
 
         // Calculate Net Distance = currentDistance - initialDistance

@@ -61,12 +61,13 @@ class RestSyncManager {
         }
     }
 
-    // Join race in waiting mode
-    function joinRace(userId as String, userName as String) as Void {
+    // Join race in waiting mode or with specific action
+    function joinRace(userId as String, userName as String, action as String?) as Void {
         var endpoint = getBaseUrl() + "/api/race/join";
         var payload = {
             "userId" => userId,
-            "userName" => userName
+            "userName" => userName,
+            "action" => (action != null) ? action : "join"
         };
         var options = {
             :method => Communications.HTTP_REQUEST_METHOD_POST,

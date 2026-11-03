@@ -6,7 +6,7 @@ export interface RowerData {
   isBot?: boolean;
   raceMode: 'race' | 'solo';
   targetDistance: number;
-  status: 'waiting' | 'in_progress' | 'paused' | 'abandoned' | 'finished';
+  status: 'waiting' | 'in_progress' | 'paused' | 'abandoned' | 'finished' | 'out_of_time';
 
   initialDistance: number;
   currentDistance: number;

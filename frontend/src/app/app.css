@@ -596,6 +596,11 @@ body {
   border-radius: 4px;
 }
 
+.lane-status-badge.out-of-time {
+  background: #d97706;
+  border: 1px solid #f59e0b;
+}
+
 .lane-speed {
   margin-left: auto;
   font-size: 0.75rem;

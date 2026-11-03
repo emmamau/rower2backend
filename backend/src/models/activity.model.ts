@@ -8,7 +8,7 @@ export interface ActivityAttributes {
   isBot?: boolean;          // true si c'est un bot virtuel
   raceMode: string;         // 'race' | 'solo'
   targetDistance: number;   // default 10000m
-  status: string;           // 'waiting' | 'in_progress' | 'paused' | 'abandoned' | 'finished'
+  status: string;           // 'waiting' | 'in_progress' | 'paused' | 'abandoned' | 'finished' | 'out_of_time'
 
   // Distance computation
   initialDistance: number;  // Distance at start of activity on the rower (meters)

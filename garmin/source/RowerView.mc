@@ -15,6 +15,7 @@ class RowerView extends WatchUi.View {
     public static const STATE_FINISHED = 5;
     public static const STATE_AUTH_PROMPT = 6; // Demande de validation connexion front web
     public static const STATE_BOTS_PROMPT = 7; // Proposition d'affronter des bots quand le joueur est seul
+    public static const STATE_LATE_CHOICE = 8; // Choix si la course est déjà en cours (Rejoindre en retard / Attendre prochaine)
 
     private var _currentState as Number = STATE_SCANNING;
     private var _statusText as String = "Recherche FTMS...";
@@ -26,6 +27,9 @@ class RowerView extends WatchUi.View {
 
     // Bots State
     private var _hasBotsEnabled as Boolean = false;
+
+    // False start penalty lock
+    private var _falseStartLocked as Boolean = false;
     
     // Race details
     private var _userId as String = "";
@@ -94,6 +98,15 @@ class RowerView extends WatchUi.View {
 
     function isBotsEnabled() as Boolean {
         return _hasBotsEnabled;
+    }
+
+    function setFalseStartLocked(locked as Boolean) as Void {
+        _falseStartLocked = locked;
+        WatchUi.requestUpdate();
+    }
+
+    function isFalseStartLocked() as Boolean {
+        return _falseStartLocked;
     }
 
     function setLiveRank(rank as Number, totalRacers as Number) as Void {
@@ -169,6 +182,8 @@ class RowerView extends WatchUi.View {
             drawAuthPromptScreen(dc, width, height);
         } else if (_currentState == STATE_BOTS_PROMPT) {
             drawBotsPromptScreen(dc, width, height);
+        } else if (_currentState == STATE_LATE_CHOICE) {
+            drawLateChoiceScreen(dc, width, height);
         }
 
         // Draw Warning Overlay if active ("Ne pas ramer")
@@ -412,7 +427,8 @@ class RowerView extends WatchUi.View {
 
         // Texte blanc au milieu de l'écran
         dc.drawText(width / 2, boxY + 4, Graphics.FONT_MEDIUM, text, Graphics.TEXT_JUSTIFY_CENTER);
-        dc.drawText(width / 2, boxY + 26, Graphics.FONT_XTINY, "Attendez le départ !", Graphics.TEXT_JUSTIFY_CENTER);
+        var subText = _falseStartLocked ? "Vitesse a 0 requise !" : "Attendez le départ !";
+        dc.drawText(width / 2, boxY + 26, Graphics.FONT_XTINY, subText, Graphics.TEXT_JUSTIFY_CENTER);
     }
 
     // 8. Auth Prompt Screen (Confirmation login front web)
@@ -466,5 +482,35 @@ class RowerView extends WatchUi.View {
         dc.fillRoundedRectangle(25, 185, width - 50, 28, 6);
         dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
         dc.drawText(width / 2, 191, Graphics.FONT_XTINY, "DOWN : NON (Attendre/Solo)", Graphics.TEXT_JUSTIFY_CENTER);
+    }
+
+    // 10. Late Choice Screen (Si une course est déjà en cours)
+    private function drawLateChoiceScreen(dc as Graphics.Dc, width as Number, height as Number) as Void {
+        dc.setColor(Graphics.COLOR_YELLOW, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(width / 2, 18, Graphics.FONT_TINY, "COURSE EN COURS", Graphics.TEXT_JUSTIFY_CENTER);
+
+        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(width / 2, 48, Graphics.FONT_XTINY, "Un départ a déjà été donné !", Graphics.TEXT_JUSTIFY_CENTER);
+
+        // Option 1 : START -> Rejoindre la course en retard
+        dc.setColor(Graphics.COLOR_DK_GREEN, Graphics.COLOR_DK_GREEN);
+        dc.fillRoundedRectangle(20, 78, width - 40, 28, 6);
+        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(width / 2, 84, Graphics.FONT_XTINY, "START : Rejoindre Course", Graphics.TEXT_JUSTIFY_CENTER);
+
+        // Option 2 : DOWN -> Attendre la fin et la prochaine course (dans 1h)
+        dc.setColor(Graphics.COLOR_DK_BLUE, Graphics.COLOR_DK_BLUE);
+        dc.fillRoundedRectangle(20, 114, width - 40, 28, 6);
+        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(width / 2, 120, Graphics.FONT_XTINY, "DOWN : Attendre Prochaine", Graphics.TEXT_JUSTIFY_CENTER);
+
+        // Option 3 : BACK -> Ramer seul
+        dc.setColor(Graphics.COLOR_DK_GRAY, Graphics.COLOR_DK_GRAY);
+        dc.fillRoundedRectangle(20, 150, width - 40, 26, 6);
+        dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(width / 2, 155, Graphics.FONT_XTINY, "BACK : Ramer en Solo", Graphics.TEXT_JUSTIFY_CENTER);
+
+        dc.setColor(Graphics.COLOR_ORANGE, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(width / 2, height - 25, Graphics.FONT_XTINY, "Prochaine course : 1h après t0", Graphics.TEXT_JUSTIFY_CENTER);
     }
 }

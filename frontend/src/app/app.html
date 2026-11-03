@@ -250,7 +250,8 @@
               <span class="lane-rank">{{ racer.status === 'abandoned' ? 'AB' : ('#' + (idx + 1)) }}</span>
               <span class="lane-name">{{ racer.userName || racer.userId }}</span>
               <span class="lane-status-badge" *ngIf="racer.status === 'abandoned'">ABANDON</span>
-              <span class="lane-speed" *ngIf="racer.status !== 'abandoned'">{{ racer.avgSpeedKmh }} km/h</span>
+              <span class="lane-status-badge out-of-time" *ngIf="racer.status === 'out_of_time'">HORS LIMITE</span>
+              <span class="lane-speed" *ngIf="racer.status !== 'abandoned' && racer.status !== 'out_of_time'">{{ racer.avgSpeedKmh }} km/h</span>
             </div>
 
             <!-- Kayak Boat sprite positioned dynamically along the course -->

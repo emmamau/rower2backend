@@ -71,6 +71,10 @@ class RowerDelegate extends WatchUi.BehaviorDelegate {
             // Accept bots
             _bleDelegate.respondBotsPrompt(true);
             return true;
+        } else if (state == RowerView.STATE_LATE_CHOICE) {
+            // START : Rejoindre la course en retard
+            _bleDelegate.joinRaceLate();
+            return true;
         }
 
         return false;
@@ -103,6 +107,10 @@ class RowerDelegate extends WatchUi.BehaviorDelegate {
             // Decline bots
             _bleDelegate.respondBotsPrompt(false);
             return true;
+        } else if (state == RowerView.STATE_LATE_CHOICE) {
+            // DOWN : Attendre la prochaine course (dans 1h)
+            _bleDelegate.waitNextRaceSlot();
+            return true;
         }
 
         return false;
@@ -125,6 +133,10 @@ class RowerDelegate extends WatchUi.BehaviorDelegate {
         } else if (state == RowerView.STATE_WAITING_START) {
             // Back to lobby
             _view.setAppState(RowerView.STATE_LOBBY);
+            return true;
+        } else if (state == RowerView.STATE_LATE_CHOICE) {
+            // BACK : Ramer seul
+            _bleDelegate.startSoloSession();
             return true;
         } else if (state == RowerView.STATE_LOBBY || state == RowerView.STATE_SCANNING) {
             _bleDelegate.stopScan();
