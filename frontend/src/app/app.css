@@ -301,8 +301,9 @@ body {
 
 .btn-hud:hover {
   background: var(--neon-cyan);
-  color: #000;
-  box-shadow: 0 0 15px var(--neon-cyan);
+  color: #ffffff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+  box-shadow: 0 0 18px var(--neon-cyan);
   transform: translateY(-2px);
 }
 
@@ -313,8 +314,9 @@ body {
 
 .btn-history:hover {
   background: var(--neon-yellow);
-  color: #000;
-  box-shadow: 0 0 15px var(--neon-yellow);
+  color: #ffffff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+  box-shadow: 0 0 18px var(--neon-yellow);
 }
 
 .btn-wakelock {
@@ -331,7 +333,8 @@ body {
 
 .btn-wakelock.active {
   background: linear-gradient(135deg, #ffe600 0%, #ff6600 100%);
-  color: #000;
+  color: #ffffff;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.9);
   border-color: #ffe600;
   box-shadow: 0 0 18px rgba(255, 230, 0, 0.6);
   animation: pulseWake 2s infinite;
@@ -879,12 +882,14 @@ input[type="text"]:focus, input[type="number"]:focus {
 
 .btn-primary {
   flex: 1;
-  background: linear-gradient(135deg, var(--neon-cyan) 0%, #0099ff 100%);
-  color: #000;
+  background: linear-gradient(135deg, #00f0ff 0%, #0077ff 100%);
+  color: #ffffff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
   font-weight: 800;
   padding: 0.6rem;
   border-radius: 8px;
-  border: none;
+  border: 1px solid rgba(0, 240, 255, 0.6);
+  box-shadow: 0 0 15px rgba(0, 240, 255, 0.4);
   cursor: pointer;
   text-transform: uppercase;
   letter-spacing: 1px;
