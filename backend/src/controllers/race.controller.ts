@@ -357,12 +357,73 @@ export const updateRaceConfig = async (req: Request, res: Response): Promise<voi
 };
 
 /**
+ * Pool de prénoms variés pour les rameurs virtuels (bots).
+ * Chaque bot porte un prénom bien spécifique.
+ */
+const BOT_FIRSTNAMES = [
+  "Lucas", "Thomas", "Alexandre", "Maxime", "Antoine",
+  "Nicolas", "Julien", "Romain", "Clément", "Mathieu",
+  "Camille", "Léa", "Manon", "Chloé", "Sarah",
+  "Emma", "Hugo", "Nathan", "Gabriel", "Arthur",
+  "Théo", "Louis", "Raphaël", "Enzo", "Paul",
+  "Océane", "Juliette", "Laura", "Marie", "Lucie"
+];
+
+/**
+ * Génère des bots adaptés au niveau du joueur (établi par ses points).
+ * Les allures s'échelonnent entre 1min50s (110s) et 2min30s (150s) pour 500m.
+ */
+function generateTunedBots(playerPoints: number, botCount: number = 3) {
+  // playerPoints > 300 = Expert (allure proche 1m50 - 2m05)
+  // playerPoints 100-300 = Intermédiaire (allure proche 2m00 - 2m18)
+  // playerPoints < 100 = Débutant / Novice (allure proche 2m12 - 2m30)
+  let minPace = 110; // 1m50s
+  let maxPace = 150; // 2m30s
+
+  if (playerPoints >= 250) {
+    minPace = 110; // 1m50s
+    maxPace = 128; // 2m08s
+  } else if (playerPoints >= 80) {
+    minPace = 118; // 1m58s
+    maxPace = 138; // 2m18s
+  } else {
+    minPace = 125; // 2m05s
+    maxPace = 150; // 2m30s
+  }
+
+  // Tirage au sort de prénoms uniques
+  const shuffledNames = [...BOT_FIRSTNAMES].sort(() => 0.5 - Math.random());
+  const selectedBots = [];
+
+  for (let i = 0; i < botCount; i++) {
+    const firstName = shuffledNames[i % shuffledNames.length];
+    // Tirage d'une allure aléatoire entre minPace et maxPace
+    const pace = Math.floor(minPace + Math.random() * (maxPace - minPace));
+    // Calcul puissance et cadence cohérentes avec l'allure (ex: 110s -> ~270W/30spm, 150s -> ~140W/22spm)
+    const ratio = (150 - pace) / (150 - 110); // 0 (lent) à 1 (rapide)
+    const power = Math.round(135 + ratio * 145); // 135W à 280W
+    const spm = Math.round(22 + ratio * 9); // 22 à 31 spm
+
+    selectedBots.push({
+      id: `bot_${firstName.toLowerCase()}_${Math.floor(Math.random() * 900 + 100)}`,
+      name: `${firstName} (Bot)`,
+      pace,
+      spm,
+      power,
+    });
+  }
+
+  return selectedBots;
+}
+
+/**
  * POST /api/race/bots
  * Permet d'ajouter ou activer des bots virtuels quand le joueur est seul
+ * Les bots sont tirés au sort avec un prénom spécifique et adaptés au niveau (points) du joueur.
  */
 export const toggleBots = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { enable = true, raceId, botCount = 3 } = req.body;
+    const { enable = true, raceId, botCount = 3, userId } = req.body;
     const race = raceId ? await Races.findByPk(raceId) : await getOrCreateCurrentRace();
     if (!race) {
       res.status(404).json({ message: "Aucune course trouvée." });
@@ -372,15 +433,17 @@ export const toggleBots = async (req: Request, res: Response): Promise<void> => 
     const actualRaceId = String(race.get("id"));
     const targetDist = (race.get("targetDistance") as number) || 10000;
 
-    const BOT_NAMES = [
-      { id: "bot_olympic", name: "Kayaker_Thor (Bot)", pace: 110, spm: 30, power: 280 },
-      { id: "bot_shadow", name: "Cyber_Paddle (Bot)", pace: 118, spm: 28, power: 240 },
-      { id: "bot_challenger", name: "Aqua_Racer (Bot)", pace: 125, spm: 26, power: 210 },
-      { id: "bot_rookie", name: "Viking_Stream (Bot)", pace: 132, spm: 24, power: 190 },
-    ];
-
     if (enable) {
-      const botsToAdd = BOT_NAMES.slice(0, Math.min(botCount, BOT_NAMES.length));
+      // Déterminer les points du joueur demandeur pour calibrer les bots
+      let playerPoints = 0;
+      if (userId) {
+        const u = await Users.findByPk(userId);
+        if (u) {
+          playerPoints = (u.get("points") as number) || 0;
+        }
+      }
+
+      const botsToAdd = generateTunedBots(playerPoints, botCount);
       for (const b of botsToAdd) {
         const botCompositeId = `${actualRaceId}_${b.id}`;
         let botAct = await Activities.findByPk(botCompositeId);

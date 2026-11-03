@@ -194,6 +194,9 @@ export const getUserProfile = async (req: Request, res: Response): Promise<void>
         totalRaces: 0,
         totalWins: 0,
         podiums: 0,
+        points: 0,
+        bestRank: 0,
+        lastRank: 0,
         isAdmin: isEmmaAdmin,
       });
     } else if (isEmmaAdmin && !user.get("isAdmin")) {
@@ -208,13 +211,50 @@ export const getUserProfile = async (req: Request, res: Response): Promise<void>
       attributes: ["activityId", "targetDistance", "netDistance", "elapsedTime", "status", "finalRank", "createdAt"],
     });
 
+    // Calcul du rang général du joueur parmi tous les joueurs enregistrés (classement par points)
+    const allUsers = await Users.findAll({
+      order: [["points", "DESC"], ["totalWins", "DESC"], ["podiums", "DESC"]],
+      attributes: ["id", "points"],
+    });
+    const generalRank = allUsers.findIndex((u) => u.get("id") === userId) + 1;
+
     res.status(200).json({
       user,
+      generalRank: generalRank > 0 ? generalRank : 1,
+      totalPlayers: allUsers.length,
       history: pastActivities,
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     res.status(500).json({ message: "Erreur profil: " + message });
+  }
+};
+
+/**
+ * GET /api/user/leaderboard
+ * Retourne le classement général des joueurs basé sur les points accumulés.
+ * Respect strict RGPD : seuls le pseudo/nom, points, courses, victoires, podiums sont exposés.
+ */
+export const getGeneralLeaderboard = async (_req: Request, res: Response): Promise<void> => {
+  try {
+    const players = await Users.findAll({
+      order: [
+        ["points", "DESC"],
+        ["totalWins", "DESC"],
+        ["podiums", "DESC"],
+        ["totalRaces", "DESC"],
+      ],
+      limit: 50,
+      attributes: ["id", "name", "points", "totalRaces", "totalWins", "podiums", "bestRank", "lastRank"],
+    });
+
+    res.status(200).json({
+      success: true,
+      players,
+    });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ message: "Erreur classement général: " + message });
   }
 };
 
@@ -224,4 +264,5 @@ export default {
   getPendingLoginRequest,
   respondLoginRequest,
   getUserProfile,
+  getGeneralLeaderboard,
 };

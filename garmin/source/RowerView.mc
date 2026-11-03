@@ -48,6 +48,13 @@ class RowerView extends WatchUi.View {
     private var _progressPercent as Float = 0.0;
     private var _pauseMenuIndex as Number = 0; // 0: Reprendre, 1: Enregistrer & Quitter, 2: Abandonner
 
+    // User Career Stats (Rappel classement, points, précédent et meilleur rang)
+    private var _userPoints as Number = 0;
+    private var _userGeneralRank as Number = 1;
+    private var _userTotalPlayers as Number = 1;
+    private var _userLastRank as Number = 0;
+    private var _userBestRank as Number = 0;
+
     // Warning overlay: "Ne pas ramer"
     private var _warningText as String? = null;
     private var _warningUntilTimerMs as Number = 0;
@@ -76,6 +83,15 @@ class RowerView extends WatchUi.View {
         _nextRaceCountdown = countdownSec;
         _connectedPlayers = playersCount;
         _targetDistance = targetDist;
+        WatchUi.requestUpdate();
+    }
+
+    function setUserStats(points as Number, genRank as Number, totalPlayers as Number, lastR as Number, bestR as Number) as Void {
+        _userPoints = points;
+        _userGeneralRank = genRank;
+        _userTotalPlayers = totalPlayers;
+        _userLastRank = lastR;
+        _userBestRank = bestR;
         WatchUi.requestUpdate();
     }
 
@@ -284,23 +300,36 @@ class RowerView extends WatchUi.View {
         dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
         dc.drawText(width / 2, 40, Graphics.FONT_NUMBER_HOT, timeStr, Graphics.TEXT_JUSTIFY_CENTER);
 
+        // ENCADRÉ STATISTIQUES CARRIÈRE & RAPPEL CLASSEMENT
+        dc.setColor(Graphics.COLOR_DK_GRAY, Graphics.COLOR_DK_GRAY);
+        dc.fillRoundedRectangle(12, 98, width - 24, 38, 6);
+
+        // Ligne 1 : Rang Général & Points
+        dc.setColor(Graphics.COLOR_YELLOW, Graphics.COLOR_TRANSPARENT);
+        var genRankStr = "CLT GEN: #" + _userGeneralRank + " (" + _userPoints + " pts)";
+        dc.drawText(width / 2, 100, Graphics.FONT_XTINY, genRankStr, Graphics.TEXT_JUSTIFY_CENTER);
+
+        // Ligne 2 : Précédent classement & Meilleur classement
+        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
+        var lastRStr = (_userLastRank > 0) ? ("#" + _userLastRank) : "--";
+        var bestRStr = (_userBestRank > 0) ? ("#" + _userBestRank) : "--";
+        var statsSub = "Dernier: " + lastRStr + "  |  Record: " + bestRStr;
+        dc.drawText(width / 2, 118, Graphics.FONT_XTINY, statsSub, Graphics.TEXT_JUSTIFY_CENTER);
+
         dc.setColor(Graphics.COLOR_GREEN, Graphics.COLOR_TRANSPARENT);
-        var playersLabel = "Joueurs connectes: " + _connectedPlayers;
+        var playersLabel = "En attente: " + _connectedPlayers + " joueur(s)";
         if (_hasBotsEnabled) {
             playersLabel += " (+Bots)";
         }
-        dc.drawText(width / 2, 104, Graphics.FONT_XTINY, playersLabel, Graphics.TEXT_JUSTIFY_CENTER);
-
-        dc.setColor(Graphics.COLOR_BLUE, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(width / 2, 126, Graphics.FONT_XTINY, "Course de " + _targetDistance + "m", Graphics.TEXT_JUSTIFY_CENTER);
+        dc.drawText(width / 2, 142, Graphics.FONT_XTINY, playersLabel, Graphics.TEXT_JUSTIFY_CENTER);
 
         // Bots status / hint button
         if (!_hasBotsEnabled && _connectedPlayers <= 1) {
             dc.setColor(Graphics.COLOR_YELLOW, Graphics.COLOR_TRANSPARENT);
-            dc.drawText(width / 2, 155, Graphics.FONT_XTINY, "START : Jouer vs Bots ?", Graphics.TEXT_JUSTIFY_CENTER);
+            dc.drawText(width / 2, 162, Graphics.FONT_XTINY, "START : Jouer vs Bots ?", Graphics.TEXT_JUSTIFY_CENTER);
         } else {
-            dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
-            dc.drawText(width / 2, 155, Graphics.FONT_XTINY, "Joueur: " + _userId, Graphics.TEXT_JUSTIFY_CENTER);
+            dc.setColor(Graphics.COLOR_BLUE, Graphics.COLOR_TRANSPARENT);
+            dc.drawText(width / 2, 162, Graphics.FONT_XTINY, "Course de " + _targetDistance + "m", Graphics.TEXT_JUSTIFY_CENTER);
         }
 
         dc.setColor(Graphics.COLOR_ORANGE, Graphics.COLOR_TRANSPARENT);

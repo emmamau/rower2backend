@@ -151,8 +151,8 @@ class RestSyncManager {
         System.println("Web login response submitted: " + responseCode);
     }
 
-    // Toggle Bot Racers in current race
-    function toggleBots(enable as Boolean, raceId as String?) as Void {
+    // Toggle Bot Racers in current race (calibrated with user level)
+    function toggleBots(enable as Boolean, raceId as String?, userId as String?) as Void {
         var endpoint = getBaseUrl() + "/api/race/bots";
         var payload = {
             "enable" => enable,
@@ -160,6 +160,9 @@ class RestSyncManager {
         };
         if (raceId != null) {
             payload.put("raceId", raceId);
+        }
+        if (userId != null) {
+            payload.put("userId", userId);
         }
         var options = {
             :method => Communications.HTTP_REQUEST_METHOD_POST,
@@ -181,6 +184,28 @@ class RestSyncManager {
         System.println("Bots toggled response: " + responseCode);
         if (_delegate != null && responseCode == 200 && data != null && data instanceof Dictionary) {
             (_delegate as BleDelegate).onBotsToggled(data as Dictionary);
+        }
+    }
+
+    // Fetch user profile stats (Points, General Rank, Last Rank, Best Rank)
+    function fetchUserProfile(userId as String) as Void {
+        var endpoint = getBaseUrl() + "/api/user/profile/" + userId;
+        var options = {
+            :method => Communications.HTTP_REQUEST_METHOD_GET,
+            :responseType => Communications.HTTP_RESPONSE_CONTENT_TYPE_JSON
+        };
+
+        Communications.makeWebRequest(
+            endpoint,
+            null,
+            options,
+            method(:onUserProfileReceived)
+        );
+    }
+
+    function onUserProfileReceived(responseCode as Number, data as Dictionary or String or Null) as Void {
+        if (_delegate != null && responseCode == 200 && data != null && data instanceof Dictionary) {
+            (_delegate as BleDelegate).onUserProfileData(data as Dictionary);
         }
     }
 

@@ -208,6 +208,9 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
         // Declare player to backend via /api/race/join
         _syncManager.joinRace(_userId, _userId, "join");
 
+        // Fetch user career stats to recall ranking & points in waiting room
+        _syncManager.fetchUserProfile(_userId);
+
         if (_view != null) {
             _view.setAppState(RowerView.STATE_WAITING_START);
         }
@@ -377,7 +380,7 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
 
     function respondBotsPrompt(enableBots as Boolean) as Void {
         if (enableBots) {
-            _syncManager.toggleBots(true, _activityId);
+            _syncManager.toggleBots(true, _activityId, _userId);
             if (_view != null) {
                 _view.setBotsEnabled(true);
             }
@@ -396,6 +399,36 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
                 var total = data.get("totalParticipants") as Number;
                 _view.setLobbyInfo(_view.getCountdown(), total, _targetDistance);
             }
+        }
+    }
+
+    function onUserProfileData(data as Dictionary) as Void {
+        if (_view != null && data != null) {
+            var pts = 0;
+            var genRank = 1;
+            var totalPlayers = 1;
+            var lastR = 0;
+            var bestR = 0;
+
+            if (data.hasKey("generalRank") && data.get("generalRank") != null) {
+                genRank = data.get("generalRank") as Number;
+            }
+            if (data.hasKey("totalPlayers") && data.get("totalPlayers") != null) {
+                totalPlayers = data.get("totalPlayers") as Number;
+            }
+            if (data.hasKey("user") && data.get("user") instanceof Dictionary) {
+                var u = data.get("user") as Dictionary;
+                if (u.hasKey("points") && u.get("points") != null) {
+                    pts = u.get("points") as Number;
+                }
+                if (u.hasKey("lastRank") && u.get("lastRank") != null) {
+                    lastR = u.get("lastRank") as Number;
+                }
+                if (u.hasKey("bestRank") && u.get("bestRank") != null) {
+                    bestR = u.get("bestRank") as Number;
+                }
+            }
+            _view.setUserStats(pts, genRank, totalPlayers, lastR, bestR);
         }
     }
 

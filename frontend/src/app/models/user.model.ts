@@ -4,6 +4,9 @@ export interface UserProfile {
   totalRaces?: number;
   totalWins?: number;
   podiums?: number;
+  points?: number;
+  bestRank?: number;
+  lastRank?: number;
   isAdmin?: boolean;
   createdAt?: string;
   updatedAt?: string;
@@ -21,5 +24,12 @@ export interface UserHistoryItem {
 
 export interface UserProfileResponse {
   user: UserProfile;
+  generalRank?: number;
+  totalPlayers?: number;
   history: UserHistoryItem[];
+}
+
+export interface GeneralLeaderboardResponse {
+  success: boolean;
+  players: UserProfile[];
 }

@@ -3,7 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
 import { RowerData, NextRaceInfo, LeaderboardResponse, PastRaceResult } from '../models/rower-data.model';
-import { UserProfileResponse } from '../models/user.model';
+import { UserProfileResponse, GeneralLeaderboardResponse } from '../models/user.model';
 
 @Injectable({
   providedIn: 'root'
@@ -68,6 +68,10 @@ export class RowerService {
 
   getUserProfile(userId: string): Observable<UserProfileResponse> {
     return this.http.get<UserProfileResponse>(`${this.apiUrl}/api/user/profile/${userId}`);
+  }
+
+  getGeneralLeaderboard(): Observable<GeneralLeaderboardResponse> {
+    return this.http.get<GeneralLeaderboardResponse>(`${this.apiUrl}/api/user/leaderboard`);
   }
 
   // Demande d'authentification envoyée à la montre Garmin

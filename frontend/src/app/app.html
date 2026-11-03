@@ -71,14 +71,18 @@
         </div>
         <div class="player-info">
           <div class="player-name">{{ currentUser.name }}</div>
-          <div class="player-code">MONTRE: <span class="highlight">{{ activeUserId }}</span> · {{ currentUser.totalRaces || 0 }} courses</div>
+          <div class="player-code">
+            CLT GEN: <span class="highlight">#{{ generalUserRank }}</span> ({{ currentUser.points || 0 }} pts) · {{ currentUser.totalRaces || 0 }} courses
+          </div>
         </div>
         <button class="btn-hud" (click)="isLoginModalOpen = true">Connexion Montre</button>
       </div>
 
       <div class="hud-actions">
+        <button class="btn-hud btn-standings" (click)="isStandingsOpen = true" (click)="loadGeneralLeaderboard()">🏅 Classement Général</button>
         <button class="btn-hud btn-history" (click)="isHistoryOpen = true" (click)="loadPastRaces()">🏆 Résultats Précédents</button>
         <button class="btn-hud btn-admin" *ngIf="isUserAdmin" (click)="isConfigRaceOpen = true" title="Paramètres Administrateur">👑 Config Course</button>
+        <button class="btn-hud btn-legal" (click)="isLegalTermsOpen = true" title="Conditions d'utilisation et RGPD">⚖️ Mentions & RGPD</button>
         <button class="btn-wakelock" [class.active]="wakeLockActive" (click)="toggleWakeLock()">
           {{ wakeLockActive ? '🔆 Écran ON' : '🌙 Écran Veille' }}
         </button>
@@ -198,7 +202,102 @@
     </div>
   }
 
-  <!-- 4. API Config Modal -->
+  <!-- 4. General Standings Leaderboard Modal -->
+  @if (isStandingsOpen) {
+    <div class="modal-overlay">
+      <div class="modal-card modal-large">
+        <div class="modal-header-row">
+          <h3>🏅 CLASSEMENT GÉNÉRAL DES COUREURS</h3>
+          <button class="btn-close" (click)="isStandingsOpen = false">✕</button>
+        </div>
+        <p class="modal-desc">
+          Points attribués à chaque participation (1er: 100 pts, 2e: 70 pts, 3e: 50 pts, Finisher: 25 pts, Abandon: 5 pts).
+        </p>
+
+        <div class="standings-table-container">
+          <table class="standings-table">
+            <thead>
+              <tr>
+                <th>RANG</th>
+                <th>COUREUR</th>
+                <th>POINTS</th>
+                <th>COURSES</th>
+                <th>1ÈRES PLACES</th>
+                <th>PODIUMS</th>
+                <th>RECORD</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (player of generalLeaderboard; track player.id; let pIdx = $index) {
+                <tr [class.is-current-user]="player.id === activeUserId">
+                  <td class="col-rank">
+                    <span class="rank-medal" *ngIf="pIdx === 0">🥇</span>
+                    <span class="rank-medal" *ngIf="pIdx === 1">🥈</span>
+                    <span class="rank-medal" *ngIf="pIdx === 2">🥉</span>
+                    #{{ pIdx + 1 }}
+                  </td>
+                  <td class="col-name">{{ player.name || player.id }}</td>
+                  <td class="col-pts">{{ player.points || 0 }} pts</td>
+                  <td>{{ player.totalRaces || 0 }}</td>
+                  <td>{{ player.totalWins || 0 }}</td>
+                  <td>{{ player.podiums || 0 }}</td>
+                  <td>{{ player.bestRank ? ('#' + player.bestRank) : '--' }}</td>
+                </tr>
+              } @empty {
+                <tr>
+                  <td colspan="7" class="text-center">Aucun coureur classé pour le moment.</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- 5. Legal Terms, Conditions of Use & GDPR Modal -->
+  @if (isLegalTermsOpen) {
+    <div class="modal-overlay">
+      <div class="modal-card modal-large">
+        <div class="modal-header-row">
+          <h3>⚖️ CONDITIONS D'UTILISATION & RGPD</h3>
+          <button class="btn-close" (click)="isLegalTermsOpen = false">✕</button>
+        </div>
+        <div class="legal-content">
+          <h4>1. Objet du Service & Mentions Légales</h4>
+          <p>
+            L'application <strong>Rower Race</strong> est une plateforme sportive multijoueur connectée pour rameurs compatibles Bluetooth FTMS et montres Garmin Connect IQ. Elle propose des courses en ligne en temps réel avec classements sportifs et confrontation optionnelle contre des adversaires virtuels (bots).
+          </p>
+
+          <h4>2. Conformité au RGPD (Règlement Général sur la Protection des Données)</h4>
+          <p>
+            Dans le respect strict du principe de minimisation des données (Art. 5 du RGPD) :
+          </p>
+          <ul>
+            <li><strong>Aucune donnée personnelle sensible :</strong> Ni adresse email, ni nom de famille, ni coordonnées GPS, ni adresse IP persistante, ni mot de passe ne sont collectés ou enregistrés.</li>
+            <li><strong>Identifiant pseudonymisé :</strong> L'utilisateur est identifié uniquement par un identifiant technique aléatoire à 6 caractères généré par la montre Garmin (ex: <code>aB3_9Z</code>) et un pseudonyme de joueur choisi librement.</li>
+            <li><strong>Conservation des données :</strong> Seuls les historiques sportifs et de classement (distance parcourue, temps, cadence, points, rang d'arrivée) sont conservés dans le but d'établir le classement général et la progression de la saison sportive.</li>
+            <li><strong>Droit d'effacement et de rectification :</strong> Tout utilisateur peut réinitialiser son identifiant technique directement depuis sa montre Garmin ou demander la purge de ses statistiques sportives.</li>
+          </ul>
+
+          <h4>3. Propriété Intellectuelle & Droits d'Auteur</h4>
+          <p>
+            Tous les éléments visuels, logos, interfaces et codes sources de Rower Race sont protégés par le droit de la propriété intellectuelle. Toute reproduction ou distribution non autorisée est interdite.
+          </p>
+
+          <h4>4. Avertissement Médical et Responsabilité</h4>
+          <p>
+            La pratique de l'aviron en intérieur est une activité physique intense. Il est recommandé de consulter un médecin avant toute participation à des épreuves de haute intensité. Rower Race décline toute responsabilité en cas de blessure physique ou de malaise survenu lors de l'utilisation du matériel.
+          </p>
+        </div>
+        <div class="modal-buttons">
+          <button class="btn-primary" (click)="isLegalTermsOpen = false">J'ai compris & Fermer</button>
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- 6. API Config Modal -->
   @if (isSettingsOpen) {
     <div class="modal-overlay">
       <div class="modal-card">

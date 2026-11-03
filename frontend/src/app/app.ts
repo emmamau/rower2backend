@@ -70,6 +70,13 @@ export class AppComponent implements OnInit, OnDestroy {
   isHistoryOpen = false;
   isConfigRaceOpen = false;
   isSettingsOpen = false;
+  isLegalTermsOpen = false; // Modale Conditions d'utilisation & RGPD
+  isStandingsOpen = false;  // Modale Classement général par points
+
+  // Classement général
+  generalLeaderboard: UserProfile[] = [];
+  generalUserRank = 1;
+  generalTotalPlayers = 1;
 
   wakeLockActive = false;
   wakeLockSupported = false;
@@ -101,6 +108,7 @@ export class AppComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.loadUserProfile();
+    this.loadGeneralLeaderboard();
     this.loadPastRaces();
     this.initGameLoop();
     this.enableScreenWakeLock();
@@ -303,6 +311,19 @@ export class AppComponent implements OnInit, OnDestroy {
       if (res && res.user) {
         this.currentUser = res.user;
         this.userHistory = res.history || [];
+        this.generalUserRank = res.generalRank || 1;
+        this.generalTotalPlayers = res.totalPlayers || 1;
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  loadGeneralLeaderboard(): void {
+    this.rowerService.getGeneralLeaderboard().pipe(
+      catchError(() => of({ success: false, players: [] }))
+    ).subscribe((res) => {
+      if (res && res.players) {
+        this.generalLeaderboard = res.players;
         this.cdr.markForCheck();
       }
     });

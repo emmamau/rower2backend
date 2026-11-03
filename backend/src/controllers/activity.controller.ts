@@ -135,6 +135,37 @@ export const syncActivity = async (req: Request, res: Response): Promise<void> =
         let user = await Users.findByPk(userId);
         if (user) {
           await user.increment("totalRaces");
+
+          // Calcul des points collectés lors de cette course :
+          // 1ère place : 100 pts
+          // 2ème place : 70 pts
+          // 3ème place : 50 pts
+          // Finisher hors podium : 25 pts
+          // Abandon : 5 pts de participation
+          let ptsEarned = 25;
+          const assignedRank = (activity.get("finalRank") as number) || 1;
+          if (assignedRank === 1) {
+            ptsEarned = 100;
+            await user.increment("totalWins");
+            await user.increment("podiums");
+          } else if (assignedRank === 2) {
+            ptsEarned = 70;
+            await user.increment("podiums");
+          } else if (assignedRank === 3) {
+            ptsEarned = 50;
+            await user.increment("podiums");
+          }
+
+          const currentPts = (user.get("points") as number) || 0;
+          const newPts = currentPts + ptsEarned;
+          const bestR = (user.get("bestRank") as number) || 0;
+          const newBestRank = (bestR === 0 || assignedRank < bestR) ? assignedRank : bestR;
+
+          await user.update({
+            points: newPts,
+            lastRank: assignedRank,
+            bestRank: newBestRank,
+          });
         }
       }
     }
