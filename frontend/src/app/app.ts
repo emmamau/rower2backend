@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RowerService } from './services/rower.service';
 import { WakeLockService } from './services/wake-lock.service';
+import { I18nService, SupportedLang } from './services/i18n.service';
 import { RowerData, NextRaceInfo, PastRaceResult } from './models/rower-data.model';
 import { UserProfile, UserHistoryItem } from './models/user.model';
 import { interval, Subscription, of } from 'rxjs';
@@ -87,6 +88,7 @@ export class AppComponent implements OnInit, OnDestroy {
   constructor(
     private rowerService: RowerService,
     private wakeLockService: WakeLockService,
+    public i18n: I18nService,
     private cdr: ChangeDetectorRef
   ) {
     this.apiUrl = this.rowerService.getApiUrl();
@@ -404,5 +406,9 @@ export class AppComponent implements OnInit, OnDestroy {
       '#00FF9D', // Mint Neon
     ];
     return colors[index % colors.length];
+  }
+
+  changeLanguage(langCode: string): void {
+    this.i18n.setLang(langCode as SupportedLang);
   }
 }

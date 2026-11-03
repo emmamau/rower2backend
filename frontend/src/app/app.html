@@ -2,9 +2,9 @@
   <!-- 3 SECONDS RACE COUNTDOWN OVERLAY -->
   <div class="three-sec-overlay" *ngIf="is3sCountdown">
     <div class="three-sec-box">
-      <div class="three-sec-title">DÉPART DANS</div>
+      <div class="three-sec-title">{{ i18n.t('COUNTDOWN_TITLE') }}</div>
       <div class="three-sec-number">{{ threeSecondsCount }}</div>
-      <div class="three-sec-sub">Préparez vos rames !</div>
+      <div class="three-sec-sub">{{ i18n.t('COUNTDOWN_SUB') }}</div>
     </div>
   </div>
 
@@ -38,17 +38,17 @@
         </div>
         <div class="logo-text">
           <div class="title-row">
-            <h1 class="game-title">ROWER RACE</h1>
-            <span class="pro-racing-tag">PRO ESPORT</span>
+            <h1 class="game-title">{{ i18n.t('APP_TITLE') }}</h1>
+            <span class="pro-racing-tag">{{ i18n.t('ESPORT_BADGE') }}</span>
           </div>
-          <span class="game-subtitle">CHAMPIONNAT MULTI-JOUEURS EN DIRECT</span>
+          <span class="game-subtitle">{{ i18n.t('APP_SUBTITLE') }}</span>
         </div>
       </div>
 
       <!-- Current Race Schedule Badge -->
       <div class="race-schedule-badge" *ngIf="nextRaceInfo">
         <div class="badge-title">
-          {{ nextRaceInfo.status === 'in_progress' ? 'COURSE EN COURS' : 'PROCHAINE COURSE' }} ({{ nextRaceInfo.race.targetDistance }}M)
+          {{ nextRaceInfo.status === 'in_progress' ? i18n.t('RACE_IN_PROGRESS') : i18n.t('NEXT_RACE') }} ({{ nextRaceInfo.race.targetDistance }}M)
         </div>
         <div class="badge-timer">
           <div class="timer-display-box">
@@ -56,14 +56,29 @@
           </div>
           <span class="racers-count" [class.has-players]="activeRacersCount > 0">
             <span class="pulse-dot" *ngIf="activeRacersCount > 0"></span>
-            👥 {{ activeRacersCount }} en course
+            👥 {{ activeRacersCount }} {{ i18n.t('ACTIVE_RACERS') }}
           </span>
         </div>
       </div>
     </div>
 
-    <!-- User Profile & Action Bar -->
+    <!-- User Profile, Action Bar & Language Selector -->
     <div class="header-right">
+      <!-- Language Selector -->
+      <div class="lang-selector-bar">
+        @for (item of i18n.languages; track item.code) {
+          <button 
+            type="button"
+            class="lang-flag-btn" 
+            [class.active]="i18n.getCurrentLang() === item.code"
+            (click)="changeLanguage(item.code)"
+            [title]="item.label">
+            <span class="flag-icon">{{ item.flag }}</span>
+            <span class="lang-code">{{ item.code.toUpperCase() }}</span>
+          </button>
+        }
+      </div>
+
       <div class="player-card">
         <div class="player-avatar-box">
           <div class="player-avatar-initial">{{ currentUser.name.slice(0, 2).toUpperCase() }}</div>
@@ -72,19 +87,19 @@
         <div class="player-info">
           <div class="player-name">{{ currentUser.name }}</div>
           <div class="player-code">
-            CLT GEN: <span class="highlight">#{{ generalUserRank }}</span> ({{ currentUser.points || 0 }} pts) · {{ currentUser.totalRaces || 0 }} courses
+            {{ i18n.t('GENERAL_RANK') }}: <span class="highlight">#{{ generalUserRank }}</span> ({{ currentUser.points || 0 }} {{ i18n.t('POINTS') }}) · {{ currentUser.totalRaces || 0 }} {{ i18n.t('RACES_COUNT') }}
           </div>
         </div>
-        <button class="btn-hud" (click)="isLoginModalOpen = true">Connexion Montre</button>
+        <button class="btn-hud" (click)="isLoginModalOpen = true">{{ i18n.t('CONNECT_WATCH') }}</button>
       </div>
 
       <div class="hud-actions">
-        <button class="btn-hud btn-standings" (click)="isStandingsOpen = true" (click)="loadGeneralLeaderboard()">🏅 Classement Général</button>
-        <button class="btn-hud btn-history" (click)="isHistoryOpen = true" (click)="loadPastRaces()">🏆 Résultats Précédents</button>
-        <button class="btn-hud btn-admin" *ngIf="isUserAdmin" (click)="isConfigRaceOpen = true" title="Paramètres Administrateur">👑 Config Course</button>
-        <button class="btn-hud btn-legal" (click)="isLegalTermsOpen = true" title="Conditions d'utilisation et RGPD">⚖️ Mentions & RGPD</button>
+        <button class="btn-hud btn-standings" (click)="isStandingsOpen = true" (click)="loadGeneralLeaderboard()">{{ i18n.t('BTN_STANDINGS') }}</button>
+        <button class="btn-hud btn-history" (click)="isHistoryOpen = true" (click)="loadPastRaces()">{{ i18n.t('BTN_HISTORY') }}</button>
+        <button class="btn-hud btn-admin" *ngIf="isUserAdmin" (click)="isConfigRaceOpen = true" title="Paramètres Administrateur">{{ i18n.t('BTN_ADMIN') }}</button>
+        <button class="btn-hud btn-legal" (click)="isLegalTermsOpen = true" title="Conditions d'utilisation et RGPD">{{ i18n.t('BTN_LEGAL') }}</button>
         <button class="btn-wakelock" [class.active]="wakeLockActive" (click)="toggleWakeLock()">
-          {{ wakeLockActive ? '🔆 Écran ON' : '🌙 Écran Veille' }}
+          {{ wakeLockActive ? i18n.t('WAKELOCK_ON') : i18n.t('WAKELOCK_OFF') }}
         </button>
       </div>
     </div>
@@ -95,60 +110,61 @@
   @if (isLoginModalOpen) {
     <div class="modal-overlay">
       <div class="modal-card">
-        <h3>Connexion Sécurisée Garmin</h3>
+        <h3>{{ i18n.t('MODAL_LOGIN_TITLE') }}</h3>
         <p class="modal-desc">
-          Entrez votre pseudo ainsi que le code de votre montre. Pour des raisons de sécurité et d'absence totale de conservation de données personnelles, l'application Rower Race doit être ouverte sur votre montre pour approuver la connexion.
+          {{ i18n.t('MODAL_LOGIN_DESC') }}
         </p>
-
-        <div class="modal-form" *ngIf="!isWaitingWatchApproval">
+        <div class="modal-form">
           <div class="form-group">
-            <label>Votre Pseudo de Course</label>
-            <input type="text" [(ngModel)]="userLoginInput" placeholder="Ex: EmmaRacer" />
+            <label>{{ i18n.t('PSEUDO_LABEL') }}</label>
+            <input type="text" [(ngModel)]="userLoginInput" placeholder="ex: EmmaKayak" />
           </div>
           <div class="form-group">
-            <label>Identifiant de votre Montre Garmin (6 car.)</label>
-            <input type="text" [(ngModel)]="userIdInput" placeholder="Ex: aB3_9Z" />
+            <label>{{ i18n.t('WATCH_ID_LABEL') }}</label>
+            <input type="text" [(ngModel)]="userIdInput" placeholder="ex: aB3_9Z" />
           </div>
 
-          <div class="modal-error" *ngIf="loginErrorMessage">
+          <div class="auth-feedback" *ngIf="loginStatusMessage">
+            <div class="spinner-auth" *ngIf="isWaitingWatchApproval"></div>
+            <span>{{ loginStatusMessage }}</span>
+          </div>
+
+          <div class="auth-error" *ngIf="loginErrorMessage">
             ⚠️ {{ loginErrorMessage }}
           </div>
 
           <div class="modal-buttons">
-            <button class="btn-primary" (click)="startWebLogin()">Demander Connexion</button>
-            <button class="btn-secondary" (click)="cancelLogin()">Annuler</button>
-          </div>
-        </div>
-
-        <div class="modal-waiting" *ngIf="isWaitingWatchApproval">
-          <div class="spinner-neon"></div>
-          <p class="waiting-title">En attente de validation sur votre montre...</p>
-          <p class="waiting-desc">{{ loginStatusMessage }}</p>
-          <div class="modal-buttons">
-            <button class="btn-secondary" (click)="cancelLogin()">Annuler la demande</button>
+            <button class="btn-primary" [disabled]="isWaitingWatchApproval" (click)="startWebLogin()">
+              {{ isWaitingWatchApproval ? 'En attente...' : i18n.t('BTN_REQUEST_AUTH') }}
+            </button>
+            <button class="btn-secondary" (click)="isLoginModalOpen = false">{{ i18n.t('BTN_CLOSE') }}</button>
           </div>
         </div>
       </div>
     </div>
   }
 
-  <!-- 2. Past Races Results Modal -->
+  <!-- 2. Race Results History Modal -->
   @if (isHistoryOpen) {
     <div class="modal-overlay">
       <div class="modal-card modal-large">
         <div class="modal-header-row">
-          <h3>🏆 RÉSULTATS DES COURSES PRÉCÉDENTES</h3>
+          <h3>{{ i18n.t('MODAL_HISTORY_TITLE') }}</h3>
           <button class="btn-close" (click)="isHistoryOpen = false">✕</button>
         </div>
-        <p class="modal-desc">Historique officiel des arrivées et classements sans conservation de données personnelles.</p>
+        <p class="modal-desc">{{ i18n.t('MODAL_HISTORY_DESC') }}</p>
 
         <div class="history-list">
           @for (item of raceHistory; track item.race.id) {
-            <div class="history-card" [class.cancelled]="item.race.status === 'cancelled'">
-              <div class="history-race-head">
-                <span class="race-title">{{ item.race.title }} ({{ item.race.targetDistance }}m)</span>
+            <div class="history-race-item">
+              <div class="race-item-header">
+                <span class="race-tag">🏁 {{ i18n.t('RACE_AT') }} {{ item.race.startTime ? (item.race.startTime | date:'short') : '' }}</span>
+                <span class="race-details">
+                  {{ i18n.t('DISTANCE_LABEL') }}: <strong>{{ item.race.targetDistance }}m</strong> |
+                  {{ i18n.t('STATUS') }}: {{ item.race.status }}
+                </span>
                 <span class="race-status-tag" [class.tag-cancelled]="item.race.status === 'cancelled'">
-                  {{ item.race.status === 'cancelled' ? 'Annulée (aucun joueur)' : 'Terminée' }}
+                  {{ item.race.status === 'cancelled' ? 'Annulée' : 'Terminée' }}
                 </span>
               </div>
 
@@ -178,24 +194,24 @@
     <div class="modal-overlay">
       <div class="modal-card">
         <div class="modal-header-row">
-          <h3>👑 Administration Course Rower Race</h3>
+          <h3>{{ i18n.t('MODAL_ADMIN_TITLE') }}</h3>
           <button class="btn-close" (click)="isConfigRaceOpen = false">✕</button>
         </div>
         <p class="modal-desc">
-          Session Administrateur active ({{ currentUser.name }}). Les paramètres définis ci-dessous s'appliquent immédiatement à la prochaine course de championnat.
+          Session Administrateur active ({{ currentUser.name }}). {{ i18n.t('MODAL_ADMIN_DESC') }}
         </p>
         <div class="modal-form">
           <div class="form-group">
-            <label>Distance officielle de course (mètres)</label>
+            <label>{{ i18n.t('PARAM_DISTANCE') }}</label>
             <input type="number" [(ngModel)]="configTargetDistance" step="500" min="500" />
           </div>
           <div class="form-group">
-            <label>Fréquence de départ des courses (minutes)</label>
+            <label>{{ i18n.t('PARAM_DELAY') }}</label>
             <input type="number" [(ngModel)]="configIntervalMinutes" min="2" max="60" />
           </div>
           <div class="modal-buttons">
-            <button class="btn-primary" (click)="saveRaceConfig()">Valider & Diffuser aux Coureurs</button>
-            <button class="btn-secondary" (click)="isConfigRaceOpen = false">Fermer</button>
+            <button class="btn-primary" (click)="saveRaceConfig()">{{ i18n.t('BTN_SAVE_CONFIG') }}</button>
+            <button class="btn-secondary" (click)="isConfigRaceOpen = false">{{ i18n.t('BTN_CLOSE') }}</button>
           </div>
         </div>
       </div>
@@ -207,23 +223,23 @@
     <div class="modal-overlay">
       <div class="modal-card modal-large">
         <div class="modal-header-row">
-          <h3>🏅 CLASSEMENT GÉNÉRAL DES COUREURS</h3>
+          <h3>{{ i18n.t('MODAL_STANDINGS_TITLE') }}</h3>
           <button class="btn-close" (click)="isStandingsOpen = false">✕</button>
         </div>
         <p class="modal-desc">
-          Points attribués à chaque participation (1er: 100 pts, 2e: 70 pts, 3e: 50 pts, Finisher: 25 pts, Abandon: 5 pts).
+          {{ i18n.t('MODAL_STANDINGS_DESC') }}
         </p>
 
         <div class="standings-table-container">
           <table class="standings-table">
             <thead>
               <tr>
-                <th>RANG</th>
-                <th>COUREUR</th>
-                <th>POINTS</th>
-                <th>COURSES</th>
-                <th>1ÈRES PLACES</th>
-                <th>PODIUMS</th>
+                <th>{{ i18n.t('COL_POSITION').toUpperCase() }}</th>
+                <th>{{ i18n.t('COL_NAME').toUpperCase() }}</th>
+                <th>{{ i18n.t('COL_POINTS').toUpperCase() }}</th>
+                <th>{{ i18n.t('COL_RACES').toUpperCase() }}</th>
+                <th>{{ i18n.t('COL_WINS').toUpperCase() }}</th>
+                <th>{{ i18n.t('COL_PODIUMS').toUpperCase() }}</th>
                 <th>RECORD</th>
               </tr>
             </thead>
@@ -237,7 +253,7 @@
                     #{{ pIdx + 1 }}
                   </td>
                   <td class="col-name">{{ player.name || player.id }}</td>
-                  <td class="col-pts">{{ player.points || 0 }} pts</td>
+                  <td class="col-pts">{{ player.points || 0 }} {{ i18n.t('POINTS') }}</td>
                   <td>{{ player.totalRaces || 0 }}</td>
                   <td>{{ player.totalWins || 0 }}</td>
                   <td>{{ player.podiums || 0 }}</td>
@@ -260,7 +276,7 @@
     <div class="modal-overlay">
       <div class="modal-card modal-large">
         <div class="modal-header-row">
-          <h3>⚖️ CONDITIONS D'UTILISATION & RGPD</h3>
+          <h3>{{ i18n.t('MODAL_LEGAL_TITLE') }}</h3>
           <button class="btn-close" (click)="isLegalTermsOpen = false">✕</button>
         </div>
         <div class="legal-content">
@@ -291,23 +307,7 @@
           </p>
         </div>
         <div class="modal-buttons">
-          <button class="btn-primary" (click)="isLegalTermsOpen = false">J'ai compris & Fermer</button>
-        </div>
-      </div>
-    </div>
-  }
-
-  <!-- 6. API Config Modal -->
-  @if (isSettingsOpen) {
-    <div class="modal-overlay">
-      <div class="modal-card">
-        <h3>Configuration de l'URL Backend API</h3>
-        <div class="modal-form">
-          <input type="text" [(ngModel)]="customApiUrlInput" />
-          <div class="modal-buttons">
-            <button class="btn-primary" (click)="saveCustomApiUrl()">Sauvegarder</button>
-            <button class="btn-secondary" (click)="isSettingsOpen = false">Fermer</button>
-          </div>
+          <button class="btn-primary" (click)="isLegalTermsOpen = false">{{ i18n.t('BTN_CLOSE') }}</button>
         </div>
       </div>
     </div>
@@ -317,7 +317,7 @@
   <main class="race-arena">
     <!-- Top 3 Podium Live Indicator -->
     <section class="podium-banner" *ngIf="racers.length > 0">
-      <div class="podium-title">⚡ PODIUM EN DIRECT · {{ activeRacersCount }} PARTICIPANT(S) ENGAGÉ(S) ⚡</div>
+      <div class="podium-title">⚡ {{ i18n.t('OFFICIAL_PODIUM').toUpperCase() }} · {{ activeRacersCount }} {{ i18n.t('ACTIVE_RACERS').toUpperCase() }} ⚡</div>
       <div class="podium-cards">
         @for (r of racers.slice(0, 3); track r.id; let idx = $index) {
           <div class="podium-card" [class.gold]="idx === 0" [class.silver]="idx === 1" [class.bronze]="idx === 2" [class.abandoned]="r.status === 'abandoned'">
@@ -384,28 +384,28 @@
     <section class="cockpit-hud">
       <!-- NOUVELLE CARTE POSITION & ÉCARTS AU CLASSEMENT -->
       <div class="hud-card rank-gap-card">
-        <div class="hud-label">CLASSEMENT EN DIRECT</div>
+        <div class="hud-label">{{ i18n.t('LEADERBOARD').toUpperCase() }}</div>
         <div class="hud-value-huge rank-val">
           {{ myRank ? ('#' + myRank) : '--' }} <span class="unit">/ {{ totalActiveRacers || 1 }}</span>
         </div>
         <div class="gap-metrics-grid">
           <div class="gap-col">
-            <span class="gap-title">AU 1ER</span>
+            <span class="gap-title">{{ i18n.t('GAP_FIRST').toUpperCase() }}</span>
             <span class="gap-val">{{ myRank === 1 ? 'LEADER' : ('-' + distToLeader + 'm') }}</span>
           </div>
           <div class="gap-col">
-            <span class="gap-title">PRÉCÉDENT</span>
+            <span class="gap-title">{{ i18n.t('GAP_PREV').toUpperCase() }}</span>
             <span class="gap-val">{{ myRank && myRank > 1 ? ('-' + distToPrev + 'm') : '--' }}</span>
           </div>
           <div class="gap-col">
-            <span class="gap-title">SUIVANT</span>
+            <span class="gap-title">{{ i18n.t('GAP_NEXT').toUpperCase() }}</span>
             <span class="gap-val">{{ myRank && myRank < totalActiveRacers ? ('+' + distToNext + 'm') : '--' }}</span>
           </div>
         </div>
       </div>
 
       <div class="hud-card primary-card">
-        <div class="hud-label">DISTANCE NETTE</div>
+        <div class="hud-label">{{ i18n.t('DISTANCE').toUpperCase() }}</div>
         <div class="hud-value-huge">{{ myActivity?.netDistance || 0 }} <span class="unit">M</span></div>
         <div class="hud-sub">
           {{ myActivity?.status === 'abandoned' ? 'Course abandonnée' : ('Départ : ' + (myActivity?.initialDistance || 0) + 'm · Objectif : ' + (myActivity?.targetDistance || 10000) + 'm') }}
@@ -413,19 +413,19 @@
       </div>
 
       <div class="hud-card">
-        <div class="hud-label">CADENCE</div>
+        <div class="hud-label">{{ i18n.t('CADENCE').toUpperCase() }}</div>
         <div class="hud-value">{{ myActivity ? (myActivity.lastStrokeRate | number:'1.1-1') : '0.0' }} <span class="unit">SPM</span></div>
         <div class="hud-sub">Coups totaux : {{ myActivity?.totalStrokes || 0 }}</div>
       </div>
 
       <div class="hud-card">
-        <div class="hud-label">PUISSANCE</div>
+        <div class="hud-label">{{ i18n.t('POWER').toUpperCase() }}</div>
         <div class="hud-value">{{ myActivity?.lastPower || 0 }} <span class="unit">WATTS</span></div>
-        <div class="hud-sub">Moyenne : {{ myActivity?.avgPower || 0 }} W</div>
+        <div class="hud-sub">{{ i18n.t('AVG_POWER') }} : {{ myActivity?.avgPower || 0 }} W</div>
       </div>
 
       <div class="hud-card">
-        <div class="hud-label">ALLURE / 500M</div>
+        <div class="hud-label">{{ i18n.t('PACE_500M').toUpperCase() }}</div>
         <div class="hud-value">{{ formatPace(myActivity?.lastPace) }}</div>
         <div class="hud-sub">Moyenne : {{ formatPace(myActivity?.avgPace) }}</div>
       </div>
@@ -433,7 +433,7 @@
       <div class="hud-card">
         <div class="hud-label">VITESSE MOYENNE</div>
         <div class="hud-value">{{ myActivity?.avgSpeedKmh || 0 }} <span class="unit">KM/H</span></div>
-        <div class="hud-sub">Temps écoulé : {{ formatTime(myActivity?.elapsedTime) }}</div>
+        <div class="hud-sub">{{ i18n.t('TIME_ELAPSED') }} : {{ formatTime(myActivity?.elapsedTime) }}</div>
       </div>
 
       <div class="hud-card">
@@ -447,19 +447,19 @@
     <footer class="app-footer">
       <div class="footer-links">
         <button class="footer-link-btn" (click)="isLegalTermsOpen = true">
-          ⚖️ Conditions Générales d'Utilisation (CGU) & Conformité RGPD
+          ⚖️ {{ i18n.t('MODAL_LEGAL_TITLE') }}
         </button>
         <span class="footer-sep">•</span>
         <button class="footer-link-btn" (click)="isStandingsOpen = true">
-          🏅 Règlement & Barème des Points
+          🏅 {{ i18n.t('BTN_STANDINGS') }}
         </button>
         <span class="footer-sep">•</span>
         <button class="footer-link-btn" (click)="isHistoryOpen = true">
-          🏆 Palmarès Officiel
+          🏆 {{ i18n.t('BTN_HISTORY') }}
         </button>
       </div>
       <div class="footer-copyright">
-        © 2026 Rower Race • Aviron Indoor Connecté • Respect strict de la vie privée (aucune donnée personnelle stockée)
+        {{ i18n.t('FOOTER_RGPD') }}
       </div>
     </footer>
   </main>
