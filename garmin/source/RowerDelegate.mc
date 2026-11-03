@@ -29,8 +29,12 @@ class RowerDelegate extends WatchUi.BehaviorDelegate {
             _bleDelegate.startScan();
             return true;
         } else if (state == RowerView.STATE_LOBBY) {
-            // Join race mode
-            _bleDelegate.startRaceSession("race");
+            // Join race waiting room
+            _bleDelegate.joinNextRaceWaiting();
+            return true;
+        } else if (state == RowerView.STATE_WAITING_START) {
+            // Cannot start prematurely in race mode!
+            _view.showWarning("Ne pas ramer", 2);
             return true;
         } else if (state == RowerView.STATE_RACING) {
             // Pause activity
@@ -68,7 +72,11 @@ class RowerDelegate extends WatchUi.BehaviorDelegate {
         var state = _view.getAppState();
         if (state == RowerView.STATE_LOBBY) {
             // Option to decline multiplayer and row in Solo mode
-            _bleDelegate.startRaceSession("solo");
+            _bleDelegate.startSoloSession();
+            return true;
+        } else if (state == RowerView.STATE_WAITING_START) {
+            // Return to Lobby from waiting room
+            _view.setAppState(RowerView.STATE_LOBBY);
             return true;
         } else if (state == RowerView.STATE_PAUSED) {
             // Cycle pause menu choices
@@ -92,6 +100,10 @@ class RowerDelegate extends WatchUi.BehaviorDelegate {
             return true;
         } else if (state == RowerView.STATE_PAUSED) {
             _bleDelegate.resumeSession();
+            return true;
+        } else if (state == RowerView.STATE_WAITING_START) {
+            // Back to lobby
+            _view.setAppState(RowerView.STATE_LOBBY);
             return true;
         } else if (state == RowerView.STATE_LOBBY || state == RowerView.STATE_SCANNING) {
             _bleDelegate.stopScan();

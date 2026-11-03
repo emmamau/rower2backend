@@ -61,6 +61,39 @@ class RestSyncManager {
         }
     }
 
+    // Join race in waiting mode
+    function joinRace(userId as String, userName as String) as Void {
+        var endpoint = getBaseUrl() + "/api/race/join";
+        var payload = {
+            "userId" => userId,
+            "userName" => userName
+        };
+        var options = {
+            :method => Communications.HTTP_REQUEST_METHOD_POST,
+            :headers => {
+                "Content-Type" => Communications.REQUEST_CONTENT_TYPE_JSON
+            },
+            :responseType => Communications.HTTP_RESPONSE_CONTENT_TYPE_JSON
+        };
+
+        Communications.makeWebRequest(
+            endpoint,
+            payload,
+            options,
+            method(:onJoinRaceResponse)
+        );
+    }
+
+    function onJoinRaceResponse(responseCode as Number, data as Dictionary or String or Null) as Void {
+        if (_delegate != null) {
+            if (responseCode == 200 && data != null && data instanceof Dictionary) {
+                (_delegate as BleDelegate).onJoinRaceReceived(data as Dictionary);
+            } else {
+                (_delegate as BleDelegate).onJoinRaceReceived(null);
+            }
+        }
+    }
+
     // Synchronize activity progress & stroke data with backend
     function syncActivity(activityId as String, userId as String, userName as String, raceMode as String,
                           status as String, targetDistance as Number, model as RowerDataModel,

@@ -63,8 +63,84 @@ export const updateRaceConfig = async (req: Request, res: Response): Promise<voi
   }
 };
 
+/**
+ * POST /api/race/join
+ * Permet à un joueur de s'inscrire / se déclarer en attente pour la prochaine course
+ */
+export const joinRace = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { userId = "anonymous", userName } = req.body;
+    const race = await getOrCreateCurrentRace();
+    const actualRaceId = race.get("id");
+    const compositeId = `${actualRaceId}_${userId}`;
+
+    let activity = await Activities.findByPk(compositeId);
+    if (!activity) {
+      activity = await Activities.create({
+        id: compositeId,
+        activityId: actualRaceId,
+        userId,
+        userName: userName || `Racer_${userId.slice(-4)}`,
+        raceMode: "race",
+        targetDistance: race.get("targetDistance") || 10000,
+        status: "waiting",
+        initialDistance: 0,
+        currentDistance: 0,
+        netDistance: 0,
+        progressPercent: 0,
+        lastStrokeRate: 0,
+        lastStrokeCount: 0,
+        lastPower: 0,
+        lastPace: 0,
+        lastHeartRate: 0,
+        lastResistance: 1,
+        avgPower: 0,
+        avgPace: 0,
+        avgStrokeRate: 0,
+        totalStrokes: 0,
+        totalEnergy: 0,
+        elapsedTime: 0,
+        avgSpeedKmh: 0,
+      });
+    } else {
+      await activity.update({
+        status: "waiting",
+        userName: userName || activity.get("userName"),
+      });
+    }
+
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+    const count = await Activities.count({
+      where: {
+        [Op.or]: [
+          { activityId: actualRaceId },
+          { updatedAt: { [Op.gte]: fiveMinutesAgo } }
+        ]
+      }
+    });
+    await race.update({ totalParticipants: count });
+
+    const now = new Date();
+    const startTime = new Date(race.get("startTime") as Date);
+    const secondsRemaining = Math.max(0, Math.floor((startTime.getTime() - now.getTime()) / 1000));
+
+    res.status(200).json({
+      success: true,
+      raceId: actualRaceId,
+      race,
+      secondsRemaining,
+      totalParticipants: count,
+      activity,
+    });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ message: "Erreur inscription course: " + message });
+  }
+};
+
 export default {
   getNextRace,
   updateRaceConfig,
+  joinRace,
 };
 

@@ -7,6 +7,9 @@ export default (app: Application): void => {
   // GET /api/race/next (Prochaine course planifiée avec décompte)
   router.get("/next", raceController.getNextRace);
 
+  // POST /api/race/join (Rejoindre la prochaine course et se déclarer connecté)
+  router.post("/join", raceController.joinRace);
+
   // PUT /api/race/config (Mise à jour distance / intervalle)
   router.put("/config", raceController.updateRaceConfig);
 

@@ -3,6 +3,7 @@ import Toybox.Lang;
 import Toybox.System;
 import Toybox.ActivityRecording;
 import Toybox.Time;
+import Toybox.Timer;
 
 class BleDelegate extends BluetoothLowEnergy.BleDelegate {
 
@@ -21,18 +22,22 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
     private var _userId as String = "";
     private var _activityId as String = "";
     private var _raceMode as String = "race"; // "race" or "solo"
-    private var _activityStatus as String = "in_progress"; // "in_progress", "paused", "completed"
+    private var _activityStatus as String = "waiting"; // "waiting", "in_progress", "paused", "completed"
     private var _targetDistance as Number = 10000;
     private var _initialDistance as Number = -1; // -1 means uninitialized
     private var _netDistance as Number = 0;
     private var _progressPercent as Float = 0.0;
     private var _lastModel as RowerDataModel?;
 
+    // Second timer for countdown and lobby refresh
+    private var _countdownTimer as Timer.Timer?;
+
     function initialize() {
         BleDelegate.initialize();
         _syncManager = new RestSyncManager(self);
         _userId = UserManager.getUserId();
         registerProfiles();
+        startClockTimer();
     }
 
     function setView(view as RowerView) as Void {
@@ -64,6 +69,32 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
             ]
         };
         BluetoothLowEnergy.registerProfile(profile);
+    }
+
+    private function startClockTimer() as Void {
+        _countdownTimer = new Timer.Timer();
+        _countdownTimer.start(method(:onTimerTick), 1000, true);
+    }
+
+    function onTimerTick() as Void {
+        if (_view == null) {
+            return;
+        }
+
+        var state = _view.getAppState();
+        if (state == RowerView.STATE_WAITING_START || state == RowerView.STATE_LOBBY) {
+            _view.decrementCountdown();
+
+            // Refresh lobby stats every 10 seconds
+            if (_view.getCountdown() % 10 == 0) {
+                _syncManager.fetchNextRace();
+            }
+
+            // Auto-start race when countdown hits 0!
+            if (state == RowerView.STATE_WAITING_START && _view.getCountdown() <= 0) {
+                launchRaceFromWaiting();
+            }
+        }
     }
 
     function startScan() as Void {
@@ -134,31 +165,81 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
 
     function onLobbyDataReceived(data as Dictionary?) as Void {
         if (data != null && _view != null) {
-            var countdown = (data.hasKey("countdownSeconds")) ? (data.get("countdownSeconds") as Number) : 600;
+            var countdown = (data.hasKey("secondsRemaining")) ? (data.get("secondsRemaining") as Number) : 600;
             var players = (data.hasKey("totalParticipants")) ? (data.get("totalParticipants") as Number) : 1;
-            var dist = (data.hasKey("targetDistance")) ? (data.get("targetDistance") as Number) : 10000;
-            _targetDistance = dist;
-            _view.setLobbyInfo(countdown, players, dist);
-            _view.setAppState(RowerView.STATE_LOBBY);
-        } else if (_view != null) {
-            // Default 15m lobby fallback
+            var targetDist = 10000;
+            if (data.hasKey("race") && data.get("race") instanceof Dictionary) {
+                var rDict = data.get("race") as Dictionary;
+                if (rDict.hasKey("targetDistance")) {
+                    targetDist = rDict.get("targetDistance") as Number;
+                }
+                if (rDict.hasKey("id")) {
+                    _activityId = rDict.get("id").toString();
+                }
+            }
+            _targetDistance = targetDist;
+            _view.setLobbyInfo(countdown, players, targetDist);
+
+            var currState = _view.getAppState();
+            if (currState == RowerView.STATE_SCANNING) {
+                _view.setAppState(RowerView.STATE_LOBBY);
+            }
+        } else if (_view != null && _view.getAppState() == RowerView.STATE_SCANNING) {
             _view.setLobbyInfo(900, 1, 10000);
             _view.setAppState(RowerView.STATE_LOBBY);
         }
     }
 
-    // --- FIT Activity Recording & Race Lifecycle ---
+    // --- Race Lifecycle & Waiting Screen ---
 
-    function startRaceSession(mode as String) as Void {
-        _raceMode = mode;
+    // Action when user clicks START on Lobby -> Enter Waiting Room for next race
+    function joinNextRaceWaiting() as Void {
+        _raceMode = "race";
+        _activityStatus = "waiting";
+
+        // Declare player to backend via /api/race/join
+        _syncManager.joinRace(_userId, _userId);
+
+        if (_view != null) {
+            _view.setAppState(RowerView.STATE_WAITING_START);
+        }
+    }
+
+    function onJoinRaceReceived(data as Dictionary?) as Void {
+        if (data != null && _view != null) {
+            if (data.hasKey("raceId")) {
+                _activityId = data.get("raceId").toString();
+            }
+            if (data.hasKey("secondsRemaining")) {
+                var sec = data.get("secondsRemaining") as Number;
+                var total = (data.hasKey("totalParticipants")) ? (data.get("totalParticipants") as Number) : 1;
+                _view.setLobbyInfo(sec, total, _targetDistance);
+            }
+        }
+    }
+
+    // Direct Solo Mode
+    function startSoloSession() as Void {
+        _raceMode = "solo";
+        launchSessionNow();
+    }
+
+    // Automatic Launch when countdown hits 0
+    function launchRaceFromWaiting() as Void {
+        launchSessionNow();
+    }
+
+    private function launchSessionNow() as Void {
         _activityStatus = "in_progress";
-        _initialDistance = -1; // Will reset to first received BLE distance
+        // Reset all metrics to ZERO at start
+        _initialDistance = -1;
         _netDistance = 0;
         _progressPercent = 0.0;
-        
-        // Generate unique activity ID
-        var nowSec = Time.now().value();
-        _activityId = "act_" + nowSec;
+
+        if (_activityId.length() == 0) {
+            var nowSec = Time.now().value();
+            _activityId = "act_" + nowSec;
+        }
 
         // Start Garmin FIT Activity recording
         try {
@@ -206,7 +287,6 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
         }
         _activityStatus = "completed";
 
-        // Push final update to backend
         if (_lastModel != null) {
             _syncManager.syncActivity(_activityId, _userId, _userId, _raceMode,
                                       _activityStatus, _targetDistance, _lastModel as RowerDataModel,
@@ -237,8 +317,8 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
             if (data.hasKey("finalRank")) {
                 rank = data.get("finalRank") as Number;
             }
-            if (data.hasKey("podium") && data.get("podium") instanceof Array) {
-                podium = data.get("podium") as Array<Dictionary>;
+            if (data.hasKey("top3") && data.get("top3") instanceof Array) {
+                podium = data.get("top3") as Array<Dictionary>;
             }
         }
         if (_view != null) {
@@ -360,6 +440,14 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
 
         _lastModel = model;
 
+        // CHECK IF ROWING IN WAITING ROOM: Show warning "Ne pas ramer"
+        if (_view != null && _view.getAppState() == RowerView.STATE_WAITING_START) {
+            if (model.strokeRate > 0 || model.instantPower > 10) {
+                _view.showWarning("Ne pas ramer", 2);
+            }
+            return; // Do NOT increment distance or send racing points before start
+        }
+
         // Calculate Net Distance = currentDistance - initialDistance
         if (_initialDistance < 0) {
             _initialDistance = model.totalDistance;
@@ -385,7 +473,7 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
         }
 
         // Update the Watch UI
-        if (_view != null) {
+        if (_view != null && _view.getAppState() == RowerView.STATE_RACING) {
             _view.updateRowerData(model, _netDistance, _progressPercent);
         }
 
