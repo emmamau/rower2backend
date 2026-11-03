@@ -58,6 +58,10 @@ class RowerDelegate extends WatchUi.BehaviorDelegate {
             // Back to lobby
             _view.setAppState(RowerView.STATE_LOBBY);
             return true;
+        } else if (state == RowerView.STATE_AUTH_PROMPT) {
+            // Approve web login
+            _bleDelegate.respondAuth(true);
+            return true;
         }
 
         return false;
@@ -81,6 +85,10 @@ class RowerDelegate extends WatchUi.BehaviorDelegate {
         } else if (state == RowerView.STATE_PAUSED) {
             // Cycle pause menu choices
             _view.cyclePauseMenu();
+            return true;
+        } else if (state == RowerView.STATE_AUTH_PROMPT) {
+            // Reject web login
+            _bleDelegate.respondAuth(false);
             return true;
         }
 

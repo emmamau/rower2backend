@@ -1,45 +1,16 @@
 import { Request, Response } from "express";
 import { Op } from "sequelize";
 import db from "../models";
-import config from "../config";
+import { getOrCreateCurrentRace } from "./race.controller";
 
 const Activities = db.activities;
 const Races = db.races;
 const Users = db.users;
 
 /**
- * Helper : calcule ou récupère la prochaine course programmée (toutes les X minutes, ex: 15 min)
- */
-export async function getOrCreateCurrentRace(): Promise<any> {
-  const now = new Date();
-  const intervalMs = (config.raceIntervalMinutes || 15) * 60 * 1000;
-
-  // Calcul du slot de la prochaine course
-  const currentSlotTime = new Date(Math.floor(now.getTime() / intervalMs) * intervalMs);
-  const nextSlotTime = new Date(currentSlotTime.getTime() + intervalMs);
-
-  const raceId = `RACE_${nextSlotTime.toISOString().replace(/[-:T.]/g, "").slice(0, 12)}`;
-
-  let race = await Races.findByPk(raceId);
-  if (!race) {
-    race = await Races.create({
-      id: raceId,
-      title: `Rower Race ${nextSlotTime.getHours().toString().padStart(2, "0")}h${nextSlotTime.getMinutes().toString().padStart(2, "0")}`,
-      targetDistance: config.defaultRaceDistanceMeters || 10000,
-      startTime: nextSlotTime,
-      intervalMinutes: config.raceIntervalMinutes || 15,
-      status: "waiting",
-      totalParticipants: 0,
-    });
-  }
-
-  return race;
-}
-
-/**
  * POST /api/activity/sync
  * Met à jour OU crée l'unique ligne de l'activité en base pour cet utilisateur.
- * Gère le calcul : netDistance = currentDistance - initialDistance.
+ * Gère le statut 'abandoned' si l'utilisateur quitte avant la fin.
  */
 export const syncActivity = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -47,7 +18,6 @@ export const syncActivity = async (req: Request, res: Response): Promise<void> =
       activityId,
       userId = "anonymous",
       userName,
-      avatarUrl,
       raceMode = "race",
       targetDistance = 10000,
       status = "in_progress",
@@ -68,22 +38,22 @@ export const syncActivity = async (req: Request, res: Response): Promise<void> =
     // Récupération de l'unique ligne de cette activité
     let activity = await Activities.findByPk(compositeId);
 
+    // Détection d'abandon : si le statut envoyé est "abandoned" ou "paused" ou si abandonné
+    const isAbandoned = status === "abandoned" || status === "discarded";
+
     if (!activity) {
-      // Première mesure de l'activité : initialDistance = currentDistance reçue du rameur
-      // Ainsi, netDistance démarrera exactement à 0 mètre !
       const initialDist = Number(currentDistance) || 0;
       const netDist = 0;
-      const speedKmh = lastPace > 0 ? Number((500 / lastPace * 3.6).toFixed(1)) : 0;
+      const speedKmh = lastPace > 0 ? Number(((500 / lastPace) * 3.6).toFixed(1)) : 0;
 
       activity = await Activities.create({
         id: compositeId,
         activityId: actualActivityId,
         userId,
         userName: userName || `Racer_${userId.slice(-4)}`,
-        avatarUrl,
         raceMode,
         targetDistance: Number(targetDistance),
-        status,
+        status: isAbandoned ? "abandoned" : status,
         initialDistance: initialDist,
         currentDistance: initialDist,
         netDistance: netDist,
@@ -103,13 +73,14 @@ export const syncActivity = async (req: Request, res: Response): Promise<void> =
         avgSpeedKmh: speedKmh,
       });
 
-      // Met à jour le nombre de participants sur la course
       if (raceMode === "race") {
-        const count = await Activities.count({ where: { activityId: actualActivityId } });
+        const count = await Activities.count({
+          where: { activityId: actualActivityId, status: { [Op.ne]: "abandoned" } },
+        });
         await Races.update({ totalParticipants: count }, { where: { id: actualActivityId } });
       }
     } else {
-      // Mise à jour de l'unique ligne existante
+      // Mise à jour de la ligne existante
       const currentDistNum = Number(currentDistance);
       const initialDist = (activity.get("initialDistance") as number) || 0;
       const netDist = Math.max(0, currentDistNum - initialDist);
@@ -119,7 +90,6 @@ export const syncActivity = async (req: Request, res: Response): Promise<void> =
       const prevTime = (activity.get("elapsedTime") as number) || 1;
       const newTime = Number(elapsedTime) || prevTime;
 
-      // Calcul des moyennes cumulées
       const prevAvgPower = (activity.get("avgPower") as number) || lastPower;
       const computedAvgPower = Math.round((prevAvgPower + Number(lastPower)) / 2);
 
@@ -130,14 +100,20 @@ export const syncActivity = async (req: Request, res: Response): Promise<void> =
       const computedAvgSpm = Number(((prevAvgSpm + Number(lastStrokeRate)) / 2).toFixed(1));
 
       const speedKmh = newTime > 0 ? Number(((netDist / newTime) * 3.6).toFixed(1)) : 0;
-
       const isFinished = netDist >= targetDist || status === "finished";
+
+      let finalStatus = status;
+      if (isAbandoned) {
+        finalStatus = "abandoned";
+      } else if (isFinished) {
+        finalStatus = "finished";
+      }
 
       await activity.update({
         currentDistance: currentDistNum,
         netDistance: netDist,
         progressPercent: progress,
-        status: isFinished ? "finished" : status,
+        status: finalStatus,
         lastStrokeRate: Number(lastStrokeRate),
         lastStrokeCount: Number(lastStrokeCount),
         lastPower: Number(lastPower),
@@ -153,20 +129,40 @@ export const syncActivity = async (req: Request, res: Response): Promise<void> =
         avgSpeedKmh: speedKmh,
         finishedAt: isFinished ? new Date() : (activity.get("finishedAt") as Date),
       });
+
+      // Mettre à jour les stats du coureur s'il termine
+      if (isFinished && activity.get("status") !== "finished") {
+        let user = await Users.findByPk(userId);
+        if (user) {
+          await user.increment("totalRaces");
+        }
+      }
     }
 
-    // Calcul du classement en temps réel dans cette course
+    // Calcul du classement
     const leaderboard = await Activities.findAll({
       where: { activityId: actualActivityId },
       order: [
+        ["status", "ASC"], // in_progress & finished devant abandoned
         ["netDistance", "DESC"],
         ["elapsedTime", "ASC"],
       ],
-      attributes: ["id", "userId", "userName", "netDistance", "progressPercent", "avgSpeedKmh", "lastPower", "lastStrokeRate", "status"],
+      attributes: [
+        "id",
+        "userId",
+        "userName",
+        "netDistance",
+        "progressPercent",
+        "avgSpeedKmh",
+        "lastPower",
+        "lastStrokeRate",
+        "status",
+      ],
     });
 
-    const currentRank = leaderboard.findIndex((item) => item.get("userId") === userId) + 1;
-    const top3 = leaderboard.slice(0, 3).map((item, index) => ({
+    const activeRacers = leaderboard.filter((item) => item.get("status") !== "abandoned");
+    const currentRank = activeRacers.findIndex((item) => item.get("userId") === userId) + 1;
+    const top3 = activeRacers.slice(0, 3).map((item, index) => ({
       rank: index + 1,
       userId: item.get("userId"),
       userName: item.get("userName"),
@@ -178,19 +174,19 @@ export const syncActivity = async (req: Request, res: Response): Promise<void> =
     res.status(200).json({
       success: true,
       activity,
-      rank: currentRank,
-      totalRacers: leaderboard.length,
+      rank: currentRank > 0 ? currentRank : null,
+      totalRacers: activeRacers.length,
       top3,
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
-    res.status(500).json({ message: "Erreur lors de la synchronisation de l'activité: " + message });
+    res.status(500).json({ message: "Erreur synchronisation activité: " + message });
   }
 };
 
 /**
- * GET /api/activity/latest?userId=...&activityId=...
- * Retourne la synthèse et le dernier coup de rame pour un utilisateur
+ * GET /api/activity/latest
+ * Retourne la dernière activité d'un utilisateur par son userId
  */
 export const getLatestUserActivity = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -218,7 +214,6 @@ export const getLatestUserActivity = async (req: Request, res: Response): Promis
 
 /**
  * GET /api/activity/race/:activityId/leaderboard
- * Retourne le classement complet des coureurs engagés dans une course
  */
 export const getRaceLeaderboard = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -226,16 +221,16 @@ export const getRaceLeaderboard = async (req: Request, res: Response): Promise<v
     const currentRace = await getOrCreateCurrentRace();
     const targetRaceId = activityId || currentRace.id;
 
-    // Récupérer les activités rattachées à cette course OU actives dans les dernières 10 minutes
     const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
     const list = await Activities.findAll({
       where: {
         [Op.or]: [
           { activityId: targetRaceId },
-          { updatedAt: { [Op.gte]: tenMinutesAgo } }
-        ]
+          { updatedAt: { [Op.gte]: tenMinutesAgo } },
+        ],
       },
       order: [
+        ["status", "ASC"], // les abandons se retrouvent classés en fin de tableau
         ["netDistance", "DESC"],
         ["elapsedTime", "ASC"],
         ["updatedAt", "DESC"],
@@ -244,7 +239,7 @@ export const getRaceLeaderboard = async (req: Request, res: Response): Promise<v
 
     res.status(200).json({
       activityId: targetRaceId,
-      totalParticipants: list.length,
+      totalParticipants: list.filter((r) => r.get("status") !== "abandoned").length,
       leaderboard: list,
     });
   } catch (err: unknown) {
@@ -277,4 +272,3 @@ export default {
   getRaceLeaderboard,
   getAll,
 };
-

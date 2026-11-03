@@ -1,13 +1,6 @@
 export interface UserProfile {
-  id: string | number;
-  email?: string;
-  name: string;
-  avatarUrl?: string;
-  athleteLevel?: string;
-  weightKg?: number;
-  heightCm?: number;
-  maxHeartRate?: number;
-  vo2MaxEstimate?: number;
+  id: string; // Identifiant de la montre
+  name: string; // Login du joueur
   totalRaces?: number;
   totalWins?: number;
   podiums?: number;
@@ -15,3 +8,17 @@ export interface UserProfile {
   updatedAt?: string;
 }
 
+export interface UserHistoryItem {
+  activityId: string;
+  targetDistance: number;
+  netDistance: number;
+  elapsedTime: number;
+  status: string;
+  finalRank?: number;
+  createdAt?: string;
+}
+
+export interface UserProfileResponse {
+  user: UserProfile;
+  history: UserHistoryItem[];
+}

@@ -1,12 +1,13 @@
 import { Sequelize, DataTypes, Model, ModelStatic } from "sequelize";
 
 export interface RaceSessionAttributes {
-  id: string;               // e.g. "RACE_20261102_0815"
+  id: string;               // e.g. "RACE_20261103_1345"
   title: string;
   targetDistance: number;   // meters (default 10000m)
   startTime: Date;          // Scheduled start time
   intervalMinutes: number;  // Interval between races (default 15 mins)
-  status: string;           // 'waiting' | 'in_progress' | 'finished'
+  maxDurationMinutes: number; // Durée max de la course (55 mins)
+  status: string;           // 'waiting' | 'in_progress' | 'finished' | 'cancelled'
   totalParticipants: number;
   winnerUserId?: string;
   winnerTimeSeconds?: number;
@@ -40,6 +41,10 @@ export default (sequelize: Sequelize, _DataTypesInstance: typeof DataTypes): Rac
         type: DataTypes.INTEGER,
         defaultValue: 15,
       },
+      maxDurationMinutes: {
+        type: DataTypes.INTEGER,
+        defaultValue: 55,
+      },
       status: {
         type: DataTypes.STRING(32),
         defaultValue: "waiting",
@@ -66,4 +71,3 @@ export default (sequelize: Sequelize, _DataTypesInstance: typeof DataTypes): Rac
 
   return RaceSession;
 };
-

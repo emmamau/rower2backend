@@ -3,8 +3,8 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RowerService } from './services/rower.service';
 import { WakeLockService } from './services/wake-lock.service';
-import { RowerData, NextRaceInfo } from './models/rower-data.model';
-import { UserProfile } from './models/user.model';
+import { RowerData, NextRaceInfo, PastRaceResult } from './models/rower-data.model';
+import { UserProfile, UserHistoryItem } from './models/user.model';
 import { interval, Subscription, of } from 'rxjs';
 import { switchMap, startWith, catchError } from 'rxjs/operators';
 
@@ -18,24 +18,30 @@ import { switchMap, startWith, catchError } from 'rxjs/operators';
 export class AppComponent implements OnInit, OnDestroy {
   // Current user / player login
   activeUserId = 'aB3_9Z';
-  userLoginInput = 'aB3_9Z';
+  userLoginInput = 'EmmaRacer';
+  userIdInput = 'aB3_9Z';
 
   currentUser: UserProfile = {
     id: 'aB3_9Z',
-    name: 'Emma Kayak Racer',
-    email: 'athlete@rower-race.com',
-    avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=128&q=80',
-    athleteLevel: 'Pro Kayaker',
-    weightKg: 72.0,
-    heightCm: 178.0,
+    name: 'EmmaRacer',
+    totalRaces: 0,
+    totalWins: 0,
+    podiums: 0,
   };
+
+  userHistory: UserHistoryItem[] = [];
 
   // Next Race & Multiplayer state
   nextRaceInfo: NextRaceInfo | null = null;
   racers: RowerData[] = [];
   activeRacersCount = 0;
   myActivity: RowerData | null = null;
-  raceHistory: RowerData[] = [];
+  raceHistory: PastRaceResult[] = [];
+
+  // Countdown & 3s start sound/visual
+  countdownSeconds = 0;
+  is3sCountdown = false;
+  threeSecondsCount = 3;
 
   // Race Config
   configTargetDistance = 10000;
@@ -47,15 +53,21 @@ export class AppComponent implements OnInit, OnDestroy {
   errorMessage = '';
 
   // UI Modals
-  isEditProfileOpen = false;
-  isSettingsOpen = false;
-  isConfigRaceOpen = false;
   isLoginModalOpen = false;
+  loginPendingRequestId: string | null = null;
+  loginStatusMessage = '';
+  loginErrorMessage = '';
+  isWaitingWatchApproval = false;
+
+  isHistoryOpen = false;
+  isConfigRaceOpen = false;
+  isSettingsOpen = false;
 
   wakeLockActive = false;
   wakeLockSupported = false;
 
   private pollingSub?: Subscription;
+  private authCheckSub?: Subscription;
 
   constructor(
     private rowerService: RowerService,
@@ -66,16 +78,22 @@ export class AppComponent implements OnInit, OnDestroy {
     this.customApiUrlInput = this.apiUrl;
     this.wakeLockSupported = this.wakeLockService.isSupported();
 
-    // Check stored user code
-    const storedUser = localStorage.getItem('rower_user_id');
-    if (storedUser) {
-      this.activeUserId = storedUser;
-      this.userLoginInput = storedUser;
+    // Check stored user code and login
+    const storedUserId = localStorage.getItem('rower_user_id');
+    const storedLogin = localStorage.getItem('rower_user_login');
+    if (storedUserId) {
+      this.activeUserId = storedUserId;
+      this.userIdInput = storedUserId;
+    }
+    if (storedLogin) {
+      this.currentUser.name = storedLogin;
+      this.userLoginInput = storedLogin;
     }
   }
 
   ngOnInit(): void {
     this.loadUserProfile();
+    this.loadPastRaces();
     this.initGameLoop();
     this.enableScreenWakeLock();
   }
@@ -85,17 +103,99 @@ export class AppComponent implements OnInit, OnDestroy {
       this.pollingSub.unsubscribe();
       this.pollingSub = undefined;
     }
+    if (this.authCheckSub) {
+      this.authCheckSub.unsubscribe();
+      this.authCheckSub = undefined;
+    }
     this.wakeLockService.releaseWakeLock();
   }
 
-  changeLogin(): void {
-    if (this.userLoginInput && this.userLoginInput.trim().length > 0) {
-      this.activeUserId = this.userLoginInput.trim();
-      localStorage.setItem('rower_user_id', this.activeUserId);
-      this.isLoginModalOpen = false;
-      this.loadUserProfile();
-      this.cdr.markForCheck();
+  /**
+   * Envoi de la demande d'authentification sur le front web.
+   * La montre Garmin doit avoir lancé l'app pour valider la demande.
+   */
+  startWebLogin(): void {
+    if (!this.userIdInput || !this.userLoginInput) {
+      this.loginErrorMessage = 'Veuillez saisir votre login et le code de votre montre.';
+      return;
     }
+
+    this.loginErrorMessage = '';
+    this.loginStatusMessage = 'Vérification de la connexion avec votre montre Garmin...';
+    this.isWaitingWatchApproval = true;
+
+    this.rowerService.requestWebLogin(this.userIdInput.trim(), this.userLoginInput.trim()).subscribe({
+      next: (res) => {
+        if (res.success && res.requestId) {
+          this.loginPendingRequestId = res.requestId;
+          this.loginStatusMessage = 'Notification envoyée sur votre montre ! Veuillez accepter la connexion sur votre montre.';
+          this.pollLoginApproval(res.requestId);
+        } else {
+          this.isWaitingWatchApproval = false;
+          this.loginErrorMessage = res.message || 'Connexion refusée.';
+        }
+        this.cdr.markForCheck();
+      },
+      error: (err) => {
+        this.isWaitingWatchApproval = false;
+        if (err.error && err.error.error === 'WATCH_NOT_CONNECTED') {
+          this.loginErrorMessage = "L'application Garmin Rower Race doit être lancée sur votre montre pour vous connecter !";
+        } else {
+          this.loginErrorMessage = err.error?.message || 'Erreur lors de la demande de connexion.';
+        }
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  private pollLoginApproval(requestId: string): void {
+    if (this.authCheckSub) {
+      this.authCheckSub.unsubscribe();
+    }
+
+    this.authCheckSub = interval(1500).pipe(
+      switchMap(() => this.rowerService.checkWebLoginStatus(requestId))
+    ).subscribe({
+      next: (res) => {
+        if (res.status === 'approved') {
+          this.authCheckSub?.unsubscribe();
+          this.activeUserId = res.userId;
+          this.currentUser.id = res.userId;
+          this.currentUser.name = res.login;
+          localStorage.setItem('rower_user_id', res.userId);
+          localStorage.setItem('rower_user_login', res.login);
+
+          this.isWaitingWatchApproval = false;
+          this.isLoginModalOpen = false;
+          this.loadUserProfile();
+          this.cdr.markForCheck();
+        } else if (res.status === 'rejected') {
+          this.authCheckSub?.unsubscribe();
+          this.isWaitingWatchApproval = false;
+          this.loginErrorMessage = 'Connexion refusée depuis votre montre.';
+          this.cdr.markForCheck();
+        } else if (res.status === 'expired') {
+          this.authCheckSub?.unsubscribe();
+          this.isWaitingWatchApproval = false;
+          this.loginErrorMessage = 'La demande a expiré.';
+          this.cdr.markForCheck();
+        }
+      },
+      error: () => {
+        this.authCheckSub?.unsubscribe();
+        this.isWaitingWatchApproval = false;
+      }
+    });
+  }
+
+  cancelLogin(): void {
+    if (this.authCheckSub) {
+      this.authCheckSub.unsubscribe();
+    }
+    this.isWaitingWatchApproval = false;
+    this.isLoginModalOpen = false;
+    this.loginErrorMessage = '';
+    this.loginStatusMessage = '';
   }
 
   /**
@@ -109,7 +209,7 @@ export class AppComponent implements OnInit, OnDestroy {
       this.pollingSub.unsubscribe();
     }
 
-    this.pollingSub = interval(2000)
+    this.pollingSub = interval(1500)
       .pipe(
         startWith(0),
         switchMap(() =>
@@ -127,21 +227,67 @@ export class AppComponent implements OnInit, OnDestroy {
         if (raceData) {
           this.backendConnected = true;
           this.nextRaceInfo = raceData;
+          this.countdownSeconds = raceData.secondsRemaining;
           this.configTargetDistance = raceData.race.targetDistance;
           this.configIntervalMinutes = raceData.race.intervalMinutes;
+
+          // Décompte visuel 3 secondes avant départ
+          if (this.countdownSeconds > 0 && this.countdownSeconds <= 3) {
+            this.is3sCountdown = true;
+            this.threeSecondsCount = this.countdownSeconds;
+          } else {
+            this.is3sCountdown = false;
+          }
 
           // Fetch Live Leaderboard
           this.rowerService.getRaceLeaderboard(raceData.race.id).pipe(
             catchError(() => of({ activityId: raceData.race.id, totalParticipants: 0, leaderboard: [] }))
           ).subscribe((lb) => {
             this.racers = lb.leaderboard;
-            this.activeRacersCount = Math.max(raceData.totalParticipants || 0, this.racers.length);
-            this.myActivity = this.racers.find(r => r.userId === this.activeUserId) || null;
-            this.cdr.markForCheck();
+            this.activeRacersCount = Math.max(raceData.totalParticipants || 0, this.racers.filter(r => r.status !== 'abandoned').length);
+
+            // CORRECTION AFFICHAGE DONNÉES UTILISATEUR :
+            // 1. Chercher d'abord dans le leaderboard de la course
+            const foundInRace = this.racers.find(r => r.userId === this.activeUserId);
+            if (foundInRace) {
+              this.myActivity = foundInRace;
+              this.cdr.markForCheck();
+            } else {
+              // 2. Si pas encore dans cette course, interroger son activité récente directement par son userId
+              this.rowerService.getUserLatestActivity(this.activeUserId).pipe(
+                catchError(() => of(null))
+              ).subscribe((latest) => {
+                if (latest) {
+                  this.myActivity = latest;
+                }
+                this.cdr.markForCheck();
+              });
+            }
           });
         }
         this.cdr.markForCheck();
       });
+  }
+
+  loadUserProfile(): void {
+    this.rowerService.getUserProfile(this.activeUserId).pipe(
+      catchError(() => of(null))
+    ).subscribe((res) => {
+      if (res && res.user) {
+        this.currentUser = res.user;
+        this.userHistory = res.history || [];
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  loadPastRaces(): void {
+    this.rowerService.getRaceHistory().pipe(
+      catchError(() => of([]))
+    ).subscribe((history) => {
+      this.raceHistory = history;
+      this.cdr.markForCheck();
+    });
   }
 
   saveRaceConfig(): void {
@@ -151,28 +297,6 @@ export class AppComponent implements OnInit, OnDestroy {
         this.cdr.markForCheck();
       },
       error: (err) => console.error('Erreur config course:', err)
-    });
-  }
-
-  loadUserProfile(): void {
-    this.rowerService.getUserProfile(this.activeUserId).pipe(
-      catchError(() => of(null))
-    ).subscribe((user) => {
-      if (user) {
-        this.currentUser = user;
-        this.cdr.markForCheck();
-      }
-    });
-  }
-
-  saveProfile(): void {
-    if (!this.currentUser) return;
-    this.rowerService.updateUserProfile(this.activeUserId, this.currentUser).subscribe({
-      next: (u) => {
-        this.currentUser = u;
-        this.isEditProfileOpen = false;
-        this.cdr.markForCheck();
-      }
     });
   }
 

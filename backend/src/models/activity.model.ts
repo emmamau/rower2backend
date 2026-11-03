@@ -2,13 +2,12 @@ import { Sequelize, DataTypes, Model, ModelStatic } from "sequelize";
 
 export interface ActivityAttributes {
   id: string;               // composite unique id: `${activityId}_${userId}`
-  activityId: string;       // identifier of the race or session (e.g. race timestamp or uuid)
-  userId: string;           // athlete login / identifier (e.g. anon code or registered login)
-  userName?: string;
-  avatarUrl?: string;
+  activityId: string;       // identifier of the race session
+  userId: string;           // identifiant de la montre
+  userName?: string;        // login du joueur
   raceMode: string;         // 'race' | 'solo'
   targetDistance: number;   // default 10000m
-  status: string;           // 'waiting' | 'in_progress' | 'paused' | 'finished'
+  status: string;           // 'waiting' | 'in_progress' | 'paused' | 'abandoned' | 'finished'
 
   // Distance computation
   initialDistance: number;  // Distance at start of activity on the rower (meters)
@@ -63,10 +62,6 @@ export default (sequelize: Sequelize, _DataTypesInstance: typeof DataTypes): Act
         type: DataTypes.STRING(128),
         defaultValue: "Rower Athlete",
       },
-      avatarUrl: {
-        type: DataTypes.STRING(512),
-        allowNull: true,
-      },
       raceMode: {
         type: DataTypes.STRING(16),
         defaultValue: "race",
@@ -77,7 +72,7 @@ export default (sequelize: Sequelize, _DataTypesInstance: typeof DataTypes): Act
       },
       status: {
         type: DataTypes.STRING(32),
-        defaultValue: "in_progress",
+        defaultValue: "waiting",
       },
       initialDistance: {
         type: DataTypes.INTEGER,
@@ -170,4 +165,3 @@ export default (sequelize: Sequelize, _DataTypesInstance: typeof DataTypes): Act
 
   return Activity;
 };
-

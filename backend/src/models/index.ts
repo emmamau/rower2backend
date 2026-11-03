@@ -3,6 +3,7 @@ import { BDD } from "../config";
 import defineActivities, { ActivityModel } from "./activity.model";
 import defineRaces, { RaceSessionModel } from "./race.model";
 import defineUsers, { UserModel } from "./user.model";
+import defineLoginRequests, { LoginRequestModel } from "./login-request.model";
 
 const connectionUrl =
   process.env.DATABASE_URL ||
@@ -36,6 +37,7 @@ export interface Database {
   activities: ActivityModel;
   races: RaceSessionModel;
   users: UserModel;
+  loginRequests: LoginRequestModel;
 }
 
 export const db: Database = {
@@ -44,7 +46,7 @@ export const db: Database = {
   activities: defineActivities(sequelize, DataTypes),
   races: defineRaces(sequelize, DataTypes),
   users: defineUsers(sequelize, DataTypes),
+  loginRequests: defineLoginRequests(sequelize, DataTypes),
 };
 
 export default db;
-

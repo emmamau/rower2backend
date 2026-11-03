@@ -1,22 +1,17 @@
-import { Application, Router, Request, Response } from "express";
+import { Application, Router } from "express";
 import userController from "../controllers/user.controller";
 
 export default (app: Application): void => {
   const router = Router();
 
+  // Authentification front web sécurisée par la montre Garmin
+  router.post("/auth/request", userController.requestWebLogin);
+  router.get("/auth/status/:requestId", userController.checkWebLoginStatus);
+  router.get("/auth/pending", userController.getPendingLoginRequest);
+  router.post("/auth/respond", userController.respondLoginRequest);
+
+  // Profil et historique des courses (uniquement les classements)
   router.get("/profile/:userId", userController.getUserProfile);
-  router.put("/profile/:userId", userController.updateUserProfile);
-
-  // Alias /api/user/me
-  router.get("/me", (req: Request, res: Response) => {
-    (req.params as any).userId = (req.query.userId as string) || "anonymous";
-    userController.getUserProfile(req, res);
-  });
-
-  router.put("/me", (req: Request, res: Response) => {
-    (req.params as any).userId = (req.body.userId as string) || (req.query.userId as string) || "anonymous";
-    userController.updateUserProfile(req, res);
-  });
 
   app.use("/api/user", router);
   app.use("/api/users", router);

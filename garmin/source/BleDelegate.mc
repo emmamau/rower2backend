@@ -95,6 +95,14 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
                 launchRaceFromWaiting();
             }
         }
+
+        // Regularly poll web auth request in lobby, waiting, or scanning states (every 3s)
+        var timerSec = System.getTimer() / 1000;
+        if (timerSec % 3 == 0) {
+            if (state == RowerView.STATE_SCANNING || state == RowerView.STATE_LOBBY || state == RowerView.STATE_WAITING_START) {
+                _syncManager.checkPendingLogin(_userId);
+            }
+        }
     }
 
     function startScan() as Void {
@@ -304,8 +312,33 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
             _session = null;
             System.println("FIT Activity Session discarded.");
         }
-        _activityStatus = "discarded";
+        _activityStatus = "abandoned";
+
+        // Notify backend of abandonment
+        if (_lastModel != null && _activityId.length() > 0) {
+            _syncManager.syncActivity(_activityId, _userId, _userId, _raceMode,
+                                      _activityStatus, _targetDistance, _lastModel as RowerDataModel,
+                                      _deviceName, true);
+        }
+
         if (_view != null) {
+            _view.setAppState(RowerView.STATE_LOBBY);
+        }
+    }
+
+    // Auth Handlers for Web Login
+    function onAuthRequestReceived(requestId as String, login as String) as Void {
+        if (_view != null) {
+            _view.showAuthPrompt(requestId, login);
+        }
+    }
+
+    function respondAuth(approved as Boolean) as Void {
+        if (_view != null) {
+            var reqId = _view.getAuthRequestId();
+            if (reqId.length() > 0) {
+                _syncManager.respondWebLogin(reqId, approved);
+            }
             _view.setAppState(RowerView.STATE_LOBBY);
         }
     }

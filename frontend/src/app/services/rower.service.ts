@@ -2,8 +2,8 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
-import { RowerData, NextRaceInfo, LeaderboardResponse } from '../models/rower-data.model';
-import { UserProfile } from '../models/user.model';
+import { RowerData, NextRaceInfo, LeaderboardResponse, PastRaceResult } from '../models/rower-data.model';
+import { UserProfileResponse } from '../models/user.model';
 
 @Injectable({
   providedIn: 'root'
@@ -54,20 +54,29 @@ export class RowerService {
     return this.http.get<LeaderboardResponse>(`${this.apiUrl}/api/activity/race/${raceId}/leaderboard`);
   }
 
+  getRaceHistory(): Observable<PastRaceResult[]> {
+    return this.http.get<PastRaceResult[]>(`${this.apiUrl}/api/race/history`);
+  }
+
   getUserLatestActivity(userId: string): Observable<RowerData> {
     return this.http.get<RowerData>(`${this.apiUrl}/api/activity/latest?userId=${userId}`);
   }
 
-  getUserProfile(userId: string): Observable<UserProfile> {
-    return this.http.get<UserProfile>(`${this.apiUrl}/api/user/profile/${userId}`);
+  getUserProfile(userId: string): Observable<UserProfileResponse> {
+    return this.http.get<UserProfileResponse>(`${this.apiUrl}/api/user/profile/${userId}`);
   }
 
-  updateUserProfile(userId: string, profile: Partial<UserProfile>): Observable<UserProfile> {
-    return this.http.put<UserProfile>(`${this.apiUrl}/api/user/profile/${userId}`, profile);
+  // Demande d'authentification envoyée à la montre Garmin
+  requestWebLogin(userId: string, login: string): Observable<{ success: boolean; requestId?: string; message: string; error?: string }> {
+    return this.http.post<{ success: boolean; requestId?: string; message: string; error?: string }>(`${this.apiUrl}/api/user/auth/request`, {
+      userId,
+      login
+    });
   }
 
-  getAllActivities(limit: number = 20): Observable<RowerData[]> {
-    return this.http.get<RowerData[]>(`${this.apiUrl}/api/activity/history?limit=${limit}`);
+  // Vérification de la réponse d'acceptation de la montre
+  checkWebLoginStatus(requestId: string): Observable<{ success: boolean; status: 'pending' | 'approved' | 'rejected' | 'expired'; userId: string; login: string }> {
+    return this.http.get<{ success: boolean; status: 'pending' | 'approved' | 'rejected' | 'expired'; userId: string; login: string }>(`${this.apiUrl}/api/user/auth/status/${requestId}`);
   }
 
   checkHealth(): Observable<{ status: string; database: string }> {

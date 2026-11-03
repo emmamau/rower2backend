@@ -1,4 +1,13 @@
 <div class="game-container">
+  <!-- 3 SECONDS RACE COUNTDOWN OVERLAY -->
+  <div class="three-sec-overlay" *ngIf="is3sCountdown">
+    <div class="three-sec-box">
+      <div class="three-sec-title">DÉPART DANS</div>
+      <div class="three-sec-number">{{ threeSecondsCount }}</div>
+      <div class="three-sec-sub">Préparez vos rames !</div>
+    </div>
+  </div>
+
   <!-- HUD Header -->
   <header class="hud-header">
     <div class="header-left">
@@ -12,7 +21,9 @@
 
       <!-- Current Race Schedule Badge -->
       <div class="race-schedule-badge" *ngIf="nextRaceInfo">
-        <div class="badge-title">PROCHAINE COURSE ({{ nextRaceInfo.race.targetDistance }}M)</div>
+        <div class="badge-title">
+          {{ nextRaceInfo.status === 'in_progress' ? 'COURSE EN COURS' : 'PROCHAINE COURSE' }} ({{ nextRaceInfo.race.targetDistance }}M)
+        </div>
         <div class="badge-timer">
           <span class="timer-digits">⏱️ {{ nextRaceInfo.formattedCountdown }}</span>
           <span class="racers-count" [class.has-players]="activeRacersCount > 0">
@@ -25,19 +36,20 @@
 
     <!-- User Profile & Action Bar -->
     <div class="header-right">
-      <div class="player-card" *ngIf="currentUser">
+      <div class="player-card">
         <div class="player-avatar-box">
-          <img [src]="currentUser.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=128&q=80'" alt="Avatar" class="player-avatar" />
+          <div class="player-avatar-initial">{{ currentUser.name.slice(0, 2).toUpperCase() }}</div>
           <span class="player-status-dot"></span>
         </div>
         <div class="player-info">
           <div class="player-name">{{ currentUser.name }}</div>
-          <div class="player-code">LOGIN / CODE: <span class="highlight">{{ activeUserId }}</span></div>
+          <div class="player-code">MONTRE: <span class="highlight">{{ activeUserId }}</span> · {{ currentUser.totalRaces || 0 }} courses</div>
         </div>
-        <button class="btn-hud" (click)="isLoginModalOpen = true">Changer Login</button>
+        <button class="btn-hud" (click)="isLoginModalOpen = true">Connexion Montre</button>
       </div>
 
       <div class="hud-actions">
+        <button class="btn-hud btn-history" (click)="isHistoryOpen = true" (click)="loadPastRaces()">🏆 Résultats Précédents</button>
         <button class="btn-hud" (click)="isConfigRaceOpen = true" title="Paramètres de course">🏁 Config Course</button>
         <button class="btn-wakelock" [class.active]="wakeLockActive" (click)="toggleWakeLock()">
           {{ wakeLockActive ? '🔆 Écran ON' : '🌙 Écran Veille' }}
@@ -48,26 +60,89 @@
   </header>
 
   <!-- Modals -->
-  <!-- 1. Change Login Modal -->
+  <!-- 1. Change Login / Watch Auth Modal -->
   @if (isLoginModalOpen) {
     <div class="modal-overlay">
       <div class="modal-card">
-        <h3>Connexion / Identifiant Coureur</h3>
+        <h3>Connexion Sécurisée Garmin</h3>
         <p class="modal-desc">
-          Entrez le login ou code Base64 à 6 caractères de votre montre Garmin pour synchroniser votre kayak.
+          Entrez votre pseudo ainsi que le code de votre montre. Pour des raisons de sécurité et d'absence totale de conservation de données personnelles, l'application Rower Race doit être ouverte sur votre montre pour approuver la connexion.
         </p>
-        <div class="modal-form">
-          <input type="text" [(ngModel)]="userLoginInput" placeholder="Ex: aB3_9Z ou MonPseudo" />
+
+        <div class="modal-form" *ngIf="!isWaitingWatchApproval">
+          <div class="form-group">
+            <label>Votre Pseudo de Course</label>
+            <input type="text" [(ngModel)]="userLoginInput" placeholder="Ex: EmmaRacer" />
+          </div>
+          <div class="form-group">
+            <label>Identifiant de votre Montre Garmin (6 car.)</label>
+            <input type="text" [(ngModel)]="userIdInput" placeholder="Ex: aB3_9Z" />
+          </div>
+
+          <div class="modal-error" *ngIf="loginErrorMessage">
+            ⚠️ {{ loginErrorMessage }}
+          </div>
+
           <div class="modal-buttons">
-            <button class="btn-primary" (click)="changeLogin()">Valider</button>
-            <button class="btn-secondary" (click)="isLoginModalOpen = false">Annuler</button>
+            <button class="btn-primary" (click)="startWebLogin()">Demander Connexion</button>
+            <button class="btn-secondary" (click)="cancelLogin()">Annuler</button>
+          </div>
+        </div>
+
+        <div class="modal-waiting" *ngIf="isWaitingWatchApproval">
+          <div class="spinner-neon"></div>
+          <p class="waiting-title">En attente de validation sur votre montre...</p>
+          <p class="waiting-desc">{{ loginStatusMessage }}</p>
+          <div class="modal-buttons">
+            <button class="btn-secondary" (click)="cancelLogin()">Annuler la demande</button>
           </div>
         </div>
       </div>
     </div>
   }
 
-  <!-- 2. Race Config Modal -->
+  <!-- 2. Past Races Results Modal -->
+  @if (isHistoryOpen) {
+    <div class="modal-overlay">
+      <div class="modal-card modal-large">
+        <div class="modal-header-row">
+          <h3>🏆 RÉSULTATS DES COURSES PRÉCÉDENTES</h3>
+          <button class="btn-close" (click)="isHistoryOpen = false">✕</button>
+        </div>
+        <p class="modal-desc">Historique officiel des arrivées et classements sans conservation de données personnelles.</p>
+
+        <div class="history-list">
+          @for (item of raceHistory; track item.race.id) {
+            <div class="history-card" [class.cancelled]="item.race.status === 'cancelled'">
+              <div class="history-race-head">
+                <span class="race-title">{{ item.race.title }} ({{ item.race.targetDistance }}m)</span>
+                <span class="race-status-tag" [class.tag-cancelled]="item.race.status === 'cancelled'">
+                  {{ item.race.status === 'cancelled' ? 'Annulée (aucun joueur)' : 'Terminée' }}
+                </span>
+              </div>
+
+              <div class="podium-mini-grid" *ngIf="item.podium.length > 0">
+                @for (p of item.podium; track p.userId; let pIdx = $index) {
+                  <div class="podium-mini-item" [class.abandoned]="p.status === 'abandoned'">
+                    <span class="mini-rank">{{ p.status === 'abandoned' ? '❌' : (pIdx === 0 ? '🥇' : (pIdx === 1 ? '🥈' : '🥉')) }}</span>
+                    <span class="mini-name">{{ p.userName || p.userId }}</span>
+                    <span class="mini-dist">{{ p.status === 'abandoned' ? 'Abandonné' : (p.netDistance + ' m') }}</span>
+                  </div>
+                }
+              </div>
+              <div class="no-podium" *ngIf="item.podium.length === 0">
+                Aucun participant n'a pris le départ de cette course.
+              </div>
+            </div>
+          } @empty {
+            <div class="empty-notice">Aucune course précédente enregistrée.</div>
+          }
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- 3. Race Config Modal -->
   @if (isConfigRaceOpen) {
     <div class="modal-overlay">
       <div class="modal-card">
@@ -90,7 +165,7 @@
     </div>
   }
 
-  <!-- 3. API Config Modal -->
+  <!-- 4. API Config Modal -->
   @if (isSettingsOpen) {
     <div class="modal-overlay">
       <div class="modal-card">
@@ -113,10 +188,12 @@
       <div class="podium-title">⚡ PODIUM EN DIRECT · {{ activeRacersCount }} PARTICIPANT(S) ENGAGÉ(S) ⚡</div>
       <div class="podium-cards">
         @for (r of racers.slice(0, 3); track r.id; let idx = $index) {
-          <div class="podium-card" [class.gold]="idx === 0" [class.silver]="idx === 1" [class.bronze]="idx === 2">
-            <div class="medal-icon">{{ idx === 0 ? '🥇' : (idx === 1 ? '🥈' : '🥉') }}</div>
+          <div class="podium-card" [class.gold]="idx === 0" [class.silver]="idx === 1" [class.bronze]="idx === 2" [class.abandoned]="r.status === 'abandoned'">
+            <div class="medal-icon">{{ r.status === 'abandoned' ? '❌' : (idx === 0 ? '🥇' : (idx === 1 ? '🥈' : '🥉')) }}</div>
             <div class="podium-name">{{ r.userName || r.userId }}</div>
-            <div class="podium-stats">{{ r.netDistance }} m · {{ r.avgSpeedKmh }} km/h</div>
+            <div class="podium-stats">
+              {{ r.status === 'abandoned' ? 'ABANDONNÉ' : (r.netDistance + ' m · ' + r.avgSpeedKmh + ' km/h') }}
+            </div>
           </div>
         }
       </div>
@@ -137,22 +214,25 @@
 
         <!-- Kayak Lanes -->
         @for (racer of racers; track racer.id; let idx = $index) {
-          <div class="kayak-lane" [class.is-me]="racer.userId === activeUserId">
+          <div class="kayak-lane" [class.is-me]="racer.userId === activeUserId" [class.is-abandoned]="racer.status === 'abandoned'">
             <div class="lane-racer-info">
-              <span class="lane-rank">#{{ idx + 1 }}</span>
+              <span class="lane-rank">{{ racer.status === 'abandoned' ? 'AB' : ('#' + (idx + 1)) }}</span>
               <span class="lane-name">{{ racer.userName || racer.userId }}</span>
-              <span class="lane-speed">{{ racer.avgSpeedKmh }} km/h</span>
+              <span class="lane-status-badge" *ngIf="racer.status === 'abandoned'">ABANDON</span>
+              <span class="lane-speed" *ngIf="racer.status !== 'abandoned'">{{ racer.avgSpeedKmh }} km/h</span>
             </div>
 
             <!-- Kayak Boat sprite positioned dynamically along the course -->
             <div class="track-channel">
               <div class="kayak-boat" [style.left.%]="racer.progressPercent" [style.border-color]="getKayakColor(idx)">
-                <div class="wake-ripple"></div>
-                <div class="boat-hull" [style.background-color]="getKayakColor(idx)">
-                  <div class="paddle-blade left"></div>
-                  <div class="paddle-blade right"></div>
+                <div class="wake-ripple" *ngIf="racer.status !== 'abandoned'"></div>
+                <div class="boat-hull" [style.background-color]="racer.status === 'abandoned' ? '#64748b' : getKayakColor(idx)">
+                  <div class="paddle-blade left" *ngIf="racer.status !== 'abandoned'"></div>
+                  <div class="paddle-blade right" *ngIf="racer.status !== 'abandoned'"></div>
                 </div>
-                <div class="boat-distance-tooltip">{{ racer.netDistance }}m</div>
+                <div class="boat-distance-tooltip">
+                  {{ racer.status === 'abandoned' ? 'Abandonné' : (racer.netDistance + 'm') }}
+                </div>
               </div>
             </div>
           </div>
@@ -172,7 +252,9 @@
       <div class="hud-card primary-card">
         <div class="hud-label">DISTANCE NETTE</div>
         <div class="hud-value-huge">{{ myActivity?.netDistance || 0 }} <span class="unit">M</span></div>
-        <div class="hud-sub">Départ : {{ myActivity?.initialDistance || 0 }}m · Objectif : {{ myActivity?.targetDistance || 10000 }}m</div>
+        <div class="hud-sub">
+          {{ myActivity?.status === 'abandoned' ? 'Course abandonnée' : ('Départ : ' + (myActivity?.initialDistance || 0) + 'm · Objectif : ' + (myActivity?.targetDistance || 10000) + 'm') }}
+        </div>
       </div>
 
       <div class="hud-card">

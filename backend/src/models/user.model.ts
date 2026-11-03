@@ -1,16 +1,11 @@
 import { Sequelize, DataTypes, Model, ModelStatic } from "sequelize";
 
 export interface UserAttributes {
-  id: string;               // User login / code (e.g. "aB3_9Z" or custom username)
-  name: string;
-  email?: string;
-  avatarUrl?: string;
-  athleteLevel?: string;
-  weightKg?: number;
-  heightCm?: number;
-  totalRaces: number;
-  totalWins: number;
-  podiums: number;
+  id: string;               // User login / code (identifiant renvoyé par la montre)
+  name: string;             // Login du joueur
+  totalRaces: number;       // Nombre de courses disputées
+  totalWins: number;        // Nombre de 1ères places
+  podiums: number;          // Nombre de podiums (top 3)
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -28,26 +23,6 @@ export default (sequelize: Sequelize, _DataTypesInstance: typeof DataTypes): Use
       name: {
         type: DataTypes.STRING(128),
         allowNull: false,
-      },
-      email: {
-        type: DataTypes.STRING(128),
-        allowNull: true,
-      },
-      avatarUrl: {
-        type: DataTypes.STRING(512),
-        allowNull: true,
-      },
-      athleteLevel: {
-        type: DataTypes.STRING(32),
-        defaultValue: "Racer",
-      },
-      weightKg: {
-        type: DataTypes.FLOAT,
-        defaultValue: 75.0,
-      },
-      heightCm: {
-        type: DataTypes.FLOAT,
-        defaultValue: 180.0,
       },
       totalRaces: {
         type: DataTypes.INTEGER,
@@ -70,4 +45,3 @@ export default (sequelize: Sequelize, _DataTypesInstance: typeof DataTypes): Use
 
   return User;
 };
-

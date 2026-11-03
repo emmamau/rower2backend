@@ -94,6 +94,62 @@ class RestSyncManager {
         }
     }
 
+    // Check pending login requests from the Angular web front
+    function checkPendingLogin(userId as String) as Void {
+        var endpoint = getBaseUrl() + "/api/user/auth/pending?userId=" + userId;
+        var options = {
+            :method => Communications.HTTP_REQUEST_METHOD_GET,
+            :responseType => Communications.HTTP_RESPONSE_CONTENT_TYPE_JSON
+        };
+
+        Communications.makeWebRequest(
+            endpoint,
+            null,
+            options,
+            method(:onPendingLoginReceived)
+        );
+    }
+
+    function onPendingLoginReceived(responseCode as Number, data as Dictionary or String or Null) as Void {
+        if (_delegate != null) {
+            if (responseCode == 200 && data != null && data instanceof Dictionary) {
+                var d = data as Dictionary;
+                if (d.hasKey("hasPending") && d.get("hasPending") == true) {
+                    var reqId = d.get("requestId").toString();
+                    var login = d.get("login").toString();
+                    (_delegate as BleDelegate).onAuthRequestReceived(reqId, login);
+                }
+            }
+        }
+    }
+
+    // Respond to web login request
+    function respondWebLogin(requestId as String, approved as Boolean) as Void {
+        var endpoint = getBaseUrl() + "/api/user/auth/respond";
+        var payload = {
+            "requestId" => requestId,
+            "approved" => approved
+        };
+        var options = {
+            :method => Communications.HTTP_REQUEST_METHOD_POST,
+            :headers => {
+                "Content-Type" => Communications.REQUEST_CONTENT_TYPE_JSON
+            },
+            :responseType => Communications.HTTP_RESPONSE_CONTENT_TYPE_JSON
+        };
+
+        Communications.makeWebRequest(
+            endpoint,
+            payload,
+            options,
+            method(:onLoginResponseDone)
+        );
+    }
+
+    function onLoginResponseDone(responseCode as Number, data as Dictionary or String or Null) as Void {
+        System.println("Web login response submitted: " + responseCode);
+    }
+
     // Synchronize activity progress & stroke data with backend
     function syncActivity(activityId as String, userId as String, userName as String, raceMode as String,
                           status as String, targetDistance as Number, model as RowerDataModel,

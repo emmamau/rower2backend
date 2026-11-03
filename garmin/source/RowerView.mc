@@ -13,10 +13,15 @@ class RowerView extends WatchUi.View {
     public static const STATE_RACING = 3;
     public static const STATE_PAUSED = 4;
     public static const STATE_FINISHED = 5;
+    public static const STATE_AUTH_PROMPT = 6; // Demande de validation connexion front web
 
     private var _currentState as Number = STATE_SCANNING;
     private var _statusText as String = "Recherche FTMS...";
     private var _model as RowerDataModel?;
+    
+    // Auth Prompt
+    private var _authRequestId as String = "";
+    private var _authLogin as String = "";
     
     // Race details
     private var _userId as String = "";
@@ -78,6 +83,21 @@ class RowerView extends WatchUi.View {
         WatchUi.requestUpdate();
     }
 
+    function showAuthPrompt(requestId as String, login as String) as Void {
+        _authRequestId = requestId;
+        _authLogin = login;
+        _currentState = STATE_AUTH_PROMPT;
+        WatchUi.requestUpdate();
+    }
+
+    function getAuthRequestId() as String {
+        return _authRequestId;
+    }
+
+    function getAuthLogin() as String {
+        return _authLogin;
+    }
+
     function updateRowerData(model as RowerDataModel, netDist as Number, progress as Float) as Void {
         _model = model;
         _netDistance = netDist;
@@ -120,6 +140,8 @@ class RowerView extends WatchUi.View {
             drawPausedScreen(dc, width, height);
         } else if (_currentState == STATE_FINISHED) {
             drawFinishedScreen(dc, width, height);
+        } else if (_currentState == STATE_AUTH_PROMPT) {
+            drawAuthPromptScreen(dc, width, height);
         }
 
         // Draw Warning Overlay if active ("Ne pas ramer")
@@ -136,7 +158,7 @@ class RowerView extends WatchUi.View {
     // 1. Scanning Screen
     private function drawScanningScreen(dc as Graphics.Dc, width as Number, height as Number) as Void {
         dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(width / 2, 20, Graphics.FONT_SMALL, "ROWER RACE ULTRA", Graphics.TEXT_JUSTIFY_CENTER);
+        dc.drawText(width / 2, 20, Graphics.FONT_SMALL, "ROWER RACE", Graphics.TEXT_JUSTIFY_CENTER);
 
         dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
         dc.drawText(width / 2, height / 2 - 20, Graphics.FONT_XTINY, "Joueur: " + _userId, Graphics.TEXT_JUSTIFY_CENTER);
@@ -173,6 +195,22 @@ class RowerView extends WatchUi.View {
 
     // 3. Waiting Screen (Patience avant départ)
     private function drawWaitingStartScreen(dc as Graphics.Dc, width as Number, height as Number) as Void {
+        // Special 3-second Countdown Rendering
+        if (_nextRaceCountdown <= 3 && _nextRaceCountdown > 0) {
+            dc.setColor(Graphics.COLOR_RED, Graphics.COLOR_RED);
+            dc.fillRectangle(0, 0, width, height);
+
+            dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
+            dc.drawText(width / 2, 25, Graphics.FONT_MEDIUM, "DEPART IMMINENT", Graphics.TEXT_JUSTIFY_CENTER);
+
+            dc.setColor(Graphics.COLOR_YELLOW, Graphics.COLOR_TRANSPARENT);
+            dc.drawText(width / 2, (height / 2) - 45, Graphics.FONT_NUMBER_THAI_HOT, _nextRaceCountdown.toString(), Graphics.TEXT_JUSTIFY_CENTER);
+
+            dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
+            dc.drawText(width / 2, height - 45, Graphics.FONT_SMALL, "A VOS RAMES !", Graphics.TEXT_JUSTIFY_CENTER);
+            return;
+        }
+
         dc.setColor(Graphics.COLOR_YELLOW, Graphics.COLOR_TRANSPARENT);
         dc.drawText(width / 2, 12, Graphics.FONT_TINY, "EN ATTENTE DU DEPART", Graphics.TEXT_JUSTIFY_CENTER);
 
@@ -335,5 +373,31 @@ class RowerView extends WatchUi.View {
         // Texte blanc au milieu de l'écran
         dc.drawText(width / 2, boxY + 4, Graphics.FONT_MEDIUM, text, Graphics.TEXT_JUSTIFY_CENTER);
         dc.drawText(width / 2, boxY + 26, Graphics.FONT_XTINY, "Attendez le départ !", Graphics.TEXT_JUSTIFY_CENTER);
+    }
+
+    // 8. Auth Prompt Screen (Confirmation login front web)
+    private function drawAuthPromptScreen(dc as Graphics.Dc, width as Number, height as Number) as Void {
+        dc.setColor(Graphics.COLOR_BLUE, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(width / 2, 18, Graphics.FONT_SMALL, "CONNEXION WEB", Graphics.TEXT_JUSTIFY_CENTER);
+
+        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(width / 2, 55, Graphics.FONT_TINY, "Autoriser le joueur :", Graphics.TEXT_JUSTIFY_CENTER);
+
+        dc.setColor(Graphics.COLOR_YELLOW, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(width / 2, 85, Graphics.FONT_MEDIUM, _authLogin, Graphics.TEXT_JUSTIFY_CENTER);
+
+        dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(width / 2, 125, Graphics.FONT_XTINY, "Montre ID: " + _userId, Graphics.TEXT_JUSTIFY_CENTER);
+
+        // Action options
+        dc.setColor(Graphics.COLOR_DK_GREEN, Graphics.COLOR_DK_GREEN);
+        dc.fillRoundedRectangle(30, 160, width - 60, 28, 6);
+        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(width / 2, 166, Graphics.FONT_XTINY, "START : Accepter", Graphics.TEXT_JUSTIFY_CENTER);
+
+        dc.setColor(Graphics.COLOR_DK_RED, Graphics.COLOR_DK_RED);
+        dc.fillRoundedRectangle(30, 196, width - 60, 28, 6);
+        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(width / 2, 202, Graphics.FONT_XTINY, "DOWN : Refuser", Graphics.TEXT_JUSTIFY_CENTER);
     }
 }
