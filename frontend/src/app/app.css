@@ -114,16 +114,60 @@ body {
   gap: 1.5rem;
 }
 
+/* GAME LOGO & BRANDING */
 .game-logo {
   display: flex;
   align-items: center;
-  gap: 0.8rem;
+  gap: 1.1rem;
 }
 
-.game-icon {
-  font-size: 2.2rem;
-  filter: drop-shadow(0 0 10px var(--neon-cyan));
+.logo-emblem {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  filter: drop-shadow(0 0 16px rgba(0, 240, 255, 0.6));
   animation: floatKayak 3s ease-in-out infinite;
+}
+
+.kayak-svg-logo {
+  display: block;
+}
+
+.logo-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.pro-racing-tag {
+  background: linear-gradient(135deg, #ff0055 0%, #ff6600 100%);
+  color: #ffffff;
+  font-family: var(--font-race);
+  font-size: 0.68rem;
+  letter-spacing: 1.5px;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  box-shadow: 0 0 10px rgba(255, 0, 85, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.btn-admin {
+  border-color: #ffe600;
+  color: #ffe600;
+  background: linear-gradient(135deg, rgba(255, 230, 0, 0.15) 0%, rgba(17, 24, 39, 0.9) 100%);
+  box-shadow: 0 0 10px rgba(255, 230, 0, 0.2);
+}
+
+.btn-admin:hover {
+  background: #ffe600;
+  color: #000000;
+  box-shadow: 0 0 18px #ffe600;
 }
 
 @keyframes floatKayak {
@@ -442,13 +486,15 @@ body {
   color: #f87171;
 }
 
-/* 2D WATER TRACK */
+/* 2D WATER TRACK - PRO RACING CIRCUIT */
 .water-track {
-  background: linear-gradient(180deg, #070e1e 0%, #0c1833 50%, #060b18 100%);
-  border: 2px solid rgba(0, 240, 255, 0.35);
-  box-shadow: 0 0 30px rgba(0, 240, 255, 0.15), inset 0 0 40px rgba(0, 0, 0, 0.8);
-  border-radius: 16px;
-  padding: 1.2rem;
+  background: 
+    radial-gradient(circle at 50% 0%, rgba(0, 240, 255, 0.1) 0%, transparent 60%),
+    linear-gradient(180deg, #050b18 0%, #091733 50%, #040814 100%);
+  border: 2px solid rgba(0, 240, 255, 0.45);
+  box-shadow: 0 0 35px rgba(0, 240, 255, 0.25), inset 0 0 50px rgba(0, 0, 0, 0.85);
+  border-radius: 18px;
+  padding: 1.4rem;
   position: relative;
   overflow: hidden;
 }
@@ -456,21 +502,22 @@ body {
 .track-header-marks {
   display: flex;
   justify-content: space-between;
-  font-size: 0.72rem;
-  font-weight: 800;
+  font-family: var(--font-race);
+  font-size: 0.8rem;
+  letter-spacing: 2px;
   color: var(--neon-cyan);
-  letter-spacing: 1px;
-  border-bottom: 1px dashed rgba(0, 240, 255, 0.3);
-  padding-bottom: 0.4rem;
-  margin-bottom: 0.8rem;
+  border-bottom: 2px dashed rgba(0, 240, 255, 0.4);
+  padding-bottom: 0.5rem;
+  margin-bottom: 1rem;
+  text-shadow: 0 0 8px rgba(0, 240, 255, 0.6);
 }
 
 .water-surface {
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 1.2rem;
-  min-height: 180px;
+  gap: 1.4rem;
+  min-height: 200px;
 }
 
 .finish-line {
@@ -478,34 +525,40 @@ body {
   top: 0;
   bottom: 0;
   right: 15px;
-  width: 14px;
+  width: 16px;
   background: repeating-linear-gradient(
     45deg,
     #ffffff,
-    #ffffff 7px,
-    #000000 7px,
-    #000000 14px
+    #ffffff 8px,
+    #000000 8px,
+    #000000 16px
   );
   border-left: 2px solid var(--neon-cyan);
-  box-shadow: 0 0 15px var(--neon-cyan);
+  box-shadow: 0 0 20px var(--neon-cyan);
   z-index: 2;
-  opacity: 0.9;
+  opacity: 0.95;
 }
 
 /* KAYAK LANES */
 .kayak-lane {
-  background: rgba(15, 23, 42, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 10px;
-  padding: 0.6rem 0.8rem;
+  background: linear-gradient(90deg, rgba(15, 23, 42, 0.75) 0%, rgba(20, 30, 55, 0.6) 100%);
+  border: 1px solid rgba(0, 240, 255, 0.2);
+  border-radius: 12px;
+  padding: 0.7rem 1rem;
   position: relative;
-  transition: all 0.3s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: inset 0 0 15px rgba(0, 0, 0, 0.4);
+}
+
+.kayak-lane:hover {
+  border-color: rgba(0, 240, 255, 0.5);
+  transform: translateX(4px);
 }
 
 .kayak-lane.is-me {
-  background: rgba(0, 240, 255, 0.1);
+  background: linear-gradient(90deg, rgba(0, 240, 255, 0.18) 0%, rgba(13, 19, 33, 0.85) 100%);
   border: 2px solid var(--neon-cyan);
-  box-shadow: 0 0 20px rgba(0, 240, 255, 0.3);
+  box-shadow: 0 0 25px rgba(0, 240, 255, 0.35);
 }
 
 .kayak-lane.is-abandoned {

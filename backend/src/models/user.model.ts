@@ -6,6 +6,7 @@ export interface UserAttributes {
   totalRaces: number;       // Nombre de courses disputées
   totalWins: number;        // Nombre de 1ères places
   podiums: number;          // Nombre de podiums (top 3)
+  isAdmin?: boolean;        // Rôle administrateur pour la configuration des courses
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -35,6 +36,10 @@ export default (sequelize: Sequelize, _DataTypesInstance: typeof DataTypes): Use
       podiums: {
         type: DataTypes.INTEGER,
         defaultValue: 0,
+      },
+      isAdmin: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: false,
       },
     },
     {

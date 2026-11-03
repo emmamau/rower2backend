@@ -253,15 +253,37 @@ export const getRaceHistory = async (_req: Request, res: Response): Promise<void
 
 /**
  * PUT /api/race/config
+ * Dédié au mode administrateur
  */
 export const updateRaceConfig = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { targetDistance, intervalMinutes } = req.body;
+    const { targetDistance, intervalMinutes, adminUserId } = req.body;
+
+    if (adminUserId) {
+      const user = await Users.findByPk(adminUserId);
+      const userName = user ? String(user.get("name") || "") : "";
+      const isAdmin = user ? Boolean(user.get("isAdmin")) : false;
+      if (!user || (!isAdmin && !userName.toLowerCase().includes("emma") && !userName.toLowerCase().includes("admin"))) {
+        res.status(403).json({ message: "Action réservée aux administrateurs habilités." });
+        return;
+      }
+    }
+
     if (targetDistance) config.defaultRaceDistanceMeters = Number(targetDistance);
     if (intervalMinutes) config.raceIntervalMinutes = Number(intervalMinutes);
 
+    // Mettre également à jour la course active en attente si présente
+    const activeRace = await Races.findOne({
+      where: { status: "waiting" },
+      order: [["createdAt", "DESC"]],
+    });
+    if (activeRace) {
+      if (targetDistance) await activeRace.update({ targetDistance: Number(targetDistance) });
+      if (intervalMinutes) await activeRace.update({ intervalMinutes: Number(intervalMinutes) });
+    }
+
     res.status(200).json({
-      message: "Configuration mise à jour",
+      message: "Configuration mise à jour par l'administrateur",
       defaultRaceDistanceMeters: config.defaultRaceDistanceMeters,
       raceIntervalMinutes: config.raceIntervalMinutes,
     });

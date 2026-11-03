@@ -4,6 +4,7 @@ export interface UserProfile {
   totalRaces?: number;
   totalWins?: number;
   podiums?: number;
+  isAdmin?: boolean;
   createdAt?: string;
   updatedAt?: string;
 }

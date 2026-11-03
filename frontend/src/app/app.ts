@@ -27,6 +27,7 @@ export class AppComponent implements OnInit, OnDestroy {
     totalRaces: 0,
     totalWins: 0,
     podiums: 0,
+    isAdmin: true,
   };
 
   userHistory: UserHistoryItem[] = [];
@@ -291,12 +292,15 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   saveRaceConfig(): void {
-    this.rowerService.updateRaceConfig(this.configTargetDistance, this.configIntervalMinutes).subscribe({
+    this.rowerService.updateRaceConfig(this.configTargetDistance, this.configIntervalMinutes, this.activeUserId).subscribe({
       next: () => {
         this.isConfigRaceOpen = false;
         this.cdr.markForCheck();
       },
-      error: (err) => console.error('Erreur config course:', err)
+      error: (err) => {
+        console.error('Erreur config course:', err);
+        alert(err.error?.message || 'Action non autorisée');
+      }
     });
   }
 
@@ -333,6 +337,13 @@ export class AppComponent implements OnInit, OnDestroy {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+  }
+
+  get isUserAdmin(): boolean {
+    if (this.currentUser.isAdmin) return true;
+    const name = (this.currentUser.name || '').toLowerCase();
+    const id = (this.activeUserId || '').toLowerCase();
+    return name.includes('emma') || name.includes('admin') || id.includes('emma') || id.includes('admin');
   }
 
   getKayakColor(index: number): string {

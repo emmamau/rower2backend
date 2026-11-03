@@ -46,8 +46,8 @@ export class RowerService {
     return this.http.get<NextRaceInfo>(`${this.apiUrl}/api/race/next`);
   }
 
-  updateRaceConfig(targetDistance: number, intervalMinutes: number): Observable<any> {
-    return this.http.put(`${this.apiUrl}/api/race/config`, { targetDistance, intervalMinutes });
+  updateRaceConfig(targetDistance: number, intervalMinutes: number, adminUserId?: string): Observable<any> {
+    return this.http.put(`${this.apiUrl}/api/race/config`, { targetDistance, intervalMinutes, adminUserId });
   }
 
   toggleBots(enable: boolean, raceId?: string): Observable<any> {

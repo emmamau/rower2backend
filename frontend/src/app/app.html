@@ -12,9 +12,35 @@
   <header class="hud-header">
     <div class="header-left">
       <div class="game-logo">
-        <span class="game-icon">⚡🛶⚡</span>
-        <div>
-          <h1 class="game-title">ROWER RACE</h1>
+        <div class="logo-emblem">
+          <svg class="kayak-svg-logo" viewBox="0 0 100 100" width="48" height="48">
+            <defs>
+              <linearGradient id="logoWater" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#00f0ff"/>
+                <stop offset="100%" stop-color="#ff0055"/>
+              </linearGradient>
+              <linearGradient id="logoHull" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stop-color="#ff0055"/>
+                <stop offset="50%" stop-color="#ff6600"/>
+                <stop offset="100%" stop-color="#ffe600"/>
+              </linearGradient>
+            </defs>
+            <circle cx="50" cy="50" r="46" fill="#080e1e" stroke="url(#logoWater)" stroke-width="4"/>
+            <path d="M 16 64 C 34 58 66 58 84 64" fill="none" stroke="#00f0ff" stroke-width="3" stroke-linecap="round" opacity="0.8"/>
+            <path d="M 12 50 C 24 43 76 43 88 50 C 76 57 24 57 12 50 Z" fill="url(#logoHull)"/>
+            <ellipse cx="50" cy="50" rx="9" ry="3.5" fill="#060913" stroke="#ffe600" stroke-width="1.5"/>
+            <circle cx="50" cy="33" r="5" fill="#00f0ff" stroke="#ffffff" stroke-width="1.5"/>
+            <line x1="28" y1="26" x2="72" y2="74" stroke="#ffffff" stroke-width="3.5" stroke-linecap="round"/>
+            <ellipse cx="26" cy="24" rx="6" ry="3" transform="rotate(-35 26 24)" fill="#ff0055"/>
+            <ellipse cx="74" cy="76" rx="6" ry="3" transform="rotate(-35 74 76)" fill="#ff0055"/>
+            <polygon points="50,14 52,19 57,20 53,23 54,28 50,25 46,28 47,23 43,20 48,19" fill="#ffe600"/>
+          </svg>
+        </div>
+        <div class="logo-text">
+          <div class="title-row">
+            <h1 class="game-title">ROWER RACE</h1>
+            <span class="pro-racing-tag">PRO ESPORT</span>
+          </div>
           <span class="game-subtitle">CHAMPIONNAT MULTI-JOUEURS EN DIRECT</span>
         </div>
       </div>
@@ -50,7 +76,7 @@
 
       <div class="hud-actions">
         <button class="btn-hud btn-history" (click)="isHistoryOpen = true" (click)="loadPastRaces()">🏆 Résultats Précédents</button>
-        <button class="btn-hud" (click)="isConfigRaceOpen = true" title="Paramètres de course">🏁 Config Course</button>
+        <button class="btn-hud btn-admin" *ngIf="isUserAdmin" (click)="isConfigRaceOpen = true" title="Paramètres Administrateur">👑 Config Course</button>
         <button class="btn-wakelock" [class.active]="wakeLockActive" (click)="toggleWakeLock()">
           {{ wakeLockActive ? '🔆 Écran ON' : '🌙 Écran Veille' }}
         </button>
@@ -141,22 +167,28 @@
     </div>
   }
 
-  <!-- 3. Race Config Modal -->
+  <!-- 3. Race Config Modal (Réservé Administrateur) -->
   @if (isConfigRaceOpen) {
     <div class="modal-overlay">
       <div class="modal-card">
-        <h3>Paramètres des Courses Rower Race</h3>
+        <div class="modal-header-row">
+          <h3>👑 Administration Course Rower Race</h3>
+          <button class="btn-close" (click)="isConfigRaceOpen = false">✕</button>
+        </div>
+        <p class="modal-desc">
+          Session Administrateur active ({{ currentUser.name }}). Les paramètres définis ci-dessous s'appliquent immédiatement à la prochaine course de championnat.
+        </p>
         <div class="modal-form">
           <div class="form-group">
-            <label>Distance de course (mètres)</label>
+            <label>Distance officielle de course (mètres)</label>
             <input type="number" [(ngModel)]="configTargetDistance" step="500" min="500" />
           </div>
           <div class="form-group">
-            <label>Fréquence des courses (minutes)</label>
+            <label>Fréquence de départ des courses (minutes)</label>
             <input type="number" [(ngModel)]="configIntervalMinutes" min="2" max="60" />
           </div>
           <div class="modal-buttons">
-            <button class="btn-primary" (click)="saveRaceConfig()">Enregistrer & Appliquer</button>
+            <button class="btn-primary" (click)="saveRaceConfig()">Valider & Diffuser aux Coureurs</button>
             <button class="btn-secondary" (click)="isConfigRaceOpen = false">Fermer</button>
           </div>
         </div>

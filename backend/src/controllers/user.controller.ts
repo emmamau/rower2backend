@@ -149,6 +149,7 @@ export const respondLoginRequest = async (req: Request, res: Response): Promise<
       const uLogin = String(pending.get("login"));
 
       let user = await Users.findByPk(uId);
+      const isEmmaAdmin = uLogin.toLowerCase().includes("emma") || uLogin.toLowerCase().includes("admin");
       if (!user) {
         await Users.create({
           id: uId,
@@ -156,9 +157,13 @@ export const respondLoginRequest = async (req: Request, res: Response): Promise<
           totalRaces: 0,
           totalWins: 0,
           podiums: 0,
+          isAdmin: isEmmaAdmin,
         });
       } else {
-        await user.update({ name: uLogin });
+        await user.update({
+          name: uLogin,
+          isAdmin: Boolean(isEmmaAdmin || user.get("isAdmin")),
+        });
       }
     }
 
@@ -177,6 +182,10 @@ export const getUserProfile = async (req: Request, res: Response): Promise<void>
   try {
     const { userId } = req.params;
     let user = await Users.findByPk(userId);
+    const uName = user ? String(user.get("name") || "") : "";
+    const isEmmaAdmin = uName.toLowerCase().includes("emma") ||
+                        userId.toLowerCase().includes("emma") ||
+                        uName.toLowerCase().includes("admin");
 
     if (!user) {
       user = await Users.create({
@@ -185,7 +194,10 @@ export const getUserProfile = async (req: Request, res: Response): Promise<void>
         totalRaces: 0,
         totalWins: 0,
         podiums: 0,
+        isAdmin: isEmmaAdmin,
       });
+    } else if (isEmmaAdmin && !user.get("isAdmin")) {
+      await user.update({ isAdmin: true });
     }
 
     // Récupérer les classements passés
