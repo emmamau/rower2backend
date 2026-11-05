@@ -1,101 +1,143 @@
 import Toybox.WatchUi;
 import Toybox.Graphics;
 import Toybox.Lang;
-import Toybox.ActivityRecording;
+import Toybox.Math;
 import Toybox.System;
 import Toybox.Application.Storage;
 
 class RowerView extends WatchUi.View {
 
-    // App state machine according to specification (G1 to G9)
-    public static const STATE_SCANNING      = 0; // G1 : Scanner & Connexion FTMS
+    // Official Garmin App States (G1 to G9 + Modals)
+    public static const STATE_SCANNING      = 0; // G1 : Connexion Rameur BLE (FTMS / SmartRow)
     public static const STATE_MENU          = 1; // G2 : Menu Principal
-    public static const STATE_PIN_INPUT     = 2; // G3 : Saisie du Code PIN Salon Privé
-    public static const STATE_LOBBY         = 3; // G4 : Salle d'attente (Lobby & Ready Check)
-    public static const STATE_COUNTDOWN_5S  = 4; // G5 : Décompte synchrone 5s (Vibrations & Alertes)
-    public static const STATE_RACING        = 5; // G6 : Écran de course standard
-    public static const STATE_LATE_JOIN     = 6; // G7 : Écran de course mode Late-Join
-    public static const STATE_FINISHED      = 7; // G8 : Ligne d'arrivée & Podium
-    public static const STATE_HISTORY       = 8; // G9 : Historique local Storage
-    public static const STATE_PAUSED        = 9; // Menu de pause
-    public static const STATE_WAITING_START = 10; // Attente synchrone du T0
-    public static const STATE_LATE_CHOICE   = 11;
-    public static const STATE_BOTS_PROMPT   = 12;
+    public static const STATE_PIN_INPUT     = 2; // G3 : Saisie PIN 4 chiffres
+    public static const STATE_LOBBY         = 3; // G4 : Salle d'attente
+    public static const STATE_COUNTDOWN_5S  = 4; // G5 : Decompte synchrone 5s
+    public static const STATE_RACING        = 5; // G6 : Grille Course Garmin (2 pages)
+    public static const STATE_LATE_JOIN     = 6; // G7 : Grille Course Late-Join
+    public static const STATE_FINISHED      = 7; // G8 : Arrivee & Podium (2 pages)
+    public static const STATE_HISTORY       = 8; // G9 : Historique local
+    public static const STATE_PAUSED        = 9; // Menu Pause
+    public static const STATE_WAITING_START = 10; // Attente synchrone du depart
+    public static const STATE_LATE_CHOICE   = 11; // Choix course en cours
+    public static const STATE_BOTS_PROMPT   = 12; // Choix ajout de bots
 
+    // Garmin Pro Dark Carbon Palette (64-color MIP & AMOLED compatible)
+    private static const COL_BG        = Graphics.COLOR_BLACK;
+    private static const COL_PRIMARY   = Graphics.COLOR_WHITE;
+    private static const COL_MUTED     = Graphics.COLOR_LT_GRAY;
+    private static const COL_GRID      = Graphics.COLOR_DK_GRAY;
+    private static const COL_ACCENT    = Graphics.COLOR_YELLOW;
+    private static const COL_CYAN      = Graphics.COLOR_BLUE;
+    private static const COL_GOOD      = Graphics.COLOR_GREEN;
+    private static const COL_WARN      = Graphics.COLOR_ORANGE;
+    private static const COL_ALERT     = Graphics.COLOR_RED;
+    private static const COL_PILL_BG   = Graphics.COLOR_DK_BLUE;
+
+    private var _model as RowerDataModel;
     private var _currentState as Number = STATE_SCANNING;
-    private var _statusText as String = "Recherche FTMS...";
-    private var _model as RowerDataModel?;
-    
-    // G2 Menu Principal selection index (0: Publique, 1: Privée PIN, 2: Historique, 3: Solo)
-    private var _mainMenuIndex as Number = 0;
+
+    // Navigation & Page indices
+    private var _mainMenuIndex as Number = 0;   // 0..3
+    private var _pauseMenuIndex as Number = 0;  // 0..2
+    private var _choiceMenuIndex as Number = 0; // 0..1 (Late choice & Bots prompt)
+    private var _authMenuIndex as Number = 0;   // 0..1 (Web auth prompt)
+    private var _racePage as Number = 0;        // 0 = Main 2x2 Race Grid, 1 = Gaps & Averages 2x2 Grid
+    private var _finishPage as Number = 0;      // 0 = Finish Stats 2x2 Grid, 1 = Official Top 3 Podium
 
     // G3 PIN Input state (4 digits)
     private var _pinDigits as Array<Number> = [0, 0, 0, 0];
-    private var _pinCurrentDigitIdx as Number = 0; // 0 to 3
+    private var _pinCurrentDigitIdx as Number = 0;
 
-    // G5 5-seconds countdown
+    // G5 5-second countdown
     private var _countdown5sValue as Number = 5;
 
-    // Race details
+    // Race & Lobby state
     private var _userId as String = "";
     private var _raceMode as String = "race";
-    private var _nextRaceCountdown as Number = 0;
+    private var _nextRaceCountdown as Number = 600;
     private var _connectedPlayers as Number = 1;
-    private var _targetDistance as Number = 2000;
+    private var _targetDistance as Number = 10000;
     private var _currentRank as Number = 1;
     private var _totalRacers as Number = 1;
     private var _distToLeader as Number = 0;
     private var _distToPrev as Number = 0;
     private var _distToNext as Number = 0;
-    private var _finalRank as Number = 0;
-    private var _top3Podium as Array<Dictionary> = [];
+    private var _finalRank as Number = 1;
+    private var _top3Podium as Array<Dictionary> = [] as Array<Dictionary>;
     private var _netDistance as Number = 0;
-    private var _progressPercent as Float = 0.0;
-    private var _pauseMenuIndex as Number = 0;
+    private var _progressPercent as Float = 0.0f;
     private var _isLateJoiner as Boolean = false;
     private var _hasBotsEnabled as Boolean = false;
+
+    // Web login authorization overlay
     private var _authRequestId as String = "";
     private var _authLogin as String = "";
 
-    // Warning overlay
+    // Warning toast overlay
     private var _warningText as String? = null;
     private var _warningUntilTimerMs as Number = 0;
     private var _falseStartLocked as Boolean = false;
 
-    // User Career Stats
+    // User Career Stats (shown in Lobby G4 grid)
     private var _userPoints as Number = 0;
     private var _userGeneralRank as Number = 1;
     private var _userTotalPlayers as Number = 1;
     private var _userLastRank as Number = 0;
     private var _userBestRank as Number = 0;
 
-    function initialize() {
+    public function initialize(model as RowerDataModel) {
         View.initialize();
+        _model = model;
         _userId = UserManager.getUserId();
+        I18n.init();
     }
 
-    function setAppState(state as Number) as Void {
+    public function setAppState(state as Number) as Void {
         _currentState = state;
+        if (state == STATE_PAUSED) {
+            _pauseMenuIndex = 0;
+        } else if (state == STATE_LATE_CHOICE || state == STATE_BOTS_PROMPT) {
+            _choiceMenuIndex = 0;
+        }
         WatchUi.requestUpdate();
     }
 
-    function getAppState() as Number {
+    public function getAppState() as Number {
         return _currentState;
     }
 
-    function setStatus(text as String) as Void {
-        _statusText = text;
+    public function setRaceMode(mode as String) as Void {
+        _raceMode = mode;
+    }
+
+    public function resetRacePages() as Void {
+        _racePage = 0;
+        _finishPage = 0;
+    }
+
+    public function nextRacePage() as Void {
+        _racePage = (_racePage + 1) % 2;
         WatchUi.requestUpdate();
     }
 
-    function updateRowerData(model as RowerDataModel, netDist as Number, progress as Float) as Void {
+    public function prevRacePage() as Void {
+        _racePage = (_racePage + 1) % 2;
+        WatchUi.requestUpdate();
+    }
+
+    public function nextFinishPage() as Void {
+        _finishPage = (_finishPage + 1) % 2;
+        WatchUi.requestUpdate();
+    }
+
+    public function updateRowerData(model as RowerDataModel, netDist as Number, progress as Float) as Void {
         _model = model;
         _netDistance = netDist;
         _progressPercent = progress;
-        WatchUi.requestUpdate();
     }
 
-    function setLiveRank(rk as Number, tot as Number, dLeader as Number, dPrev as Number, dNext as Number) as Void {
+    public function setLiveRank(rk as Number, tot as Number, dLeader as Number, dPrev as Number, dNext as Number) as Void {
         _currentRank = rk;
         _totalRacers = tot;
         _distToLeader = dLeader;
@@ -104,41 +146,46 @@ class RowerView extends WatchUi.View {
         WatchUi.requestUpdate();
     }
 
-    function setLobbyInfo(countdown as Number, players as Number, targetDist as Number) as Void {
+    public function getCurrentRank() as Number {
+        return _currentRank;
+    }
+
+    public function setLobbyInfo(countdown as Number, players as Number, targetDist as Number) as Void {
         _nextRaceCountdown = countdown;
         _connectedPlayers = players;
         _targetDistance = targetDist;
         WatchUi.requestUpdate();
     }
 
-    function setFinishResults(rank as Number, podium as Array<Dictionary>) as Void {
+    public function setFinishResults(rank as Number, podium as Array<Dictionary>) as Void {
         _finalRank = rank;
         _top3Podium = podium;
+        _finishPage = 0;
         _currentState = STATE_FINISHED;
 
-        // Persist local session in Storage for G9 screen
+        // Persist compact session entry in local Storage for G9 History
         try {
             var hist = Storage.getValue("local_race_history");
-            var list = (hist != null && hist instanceof Array) ? (hist as Array<Dictionary>) : [] as Array<Dictionary>;
+            var list = (hist != null && hist instanceof Array) ? (hist as Array<Dictionary>) : ([] as Array<Dictionary>);
+            var distRecorded = (_netDistance > 0) ? _netDistance : _model.totalDistance;
             var item = {
-                "date" => "Aujourd'hui",
-                "distance" => _targetDistance,
+                "distance" => distRecorded,
                 "rank" => rank,
-                "timeSec" => (_model != null ? _model.elapsedTime : 0)
+                "timeSec" => _model.elapsedTime,
+                "avgW" => _model.avgPower
             };
             list.add(item);
             if (list.size() > 5) {
-                list = list.slice(list.size() - 5, list.size());
+                list = list.slice(list.size() - 5, list.size()) as Array<Dictionary>;
             }
             Storage.setValue("local_race_history", list);
         } catch (ex) {
-            System.println("Storage error: " + ex.getErrorMessage());
         }
 
         WatchUi.requestUpdate();
     }
 
-    function setUserStats(pts as Number, genR as Number, totalP as Number, lastR as Number, bestR as Number) as Void {
+    public function setUserStats(pts as Number, genR as Number, totalP as Number, lastR as Number, bestR as Number) as Void {
         _userPoints = pts;
         _userGeneralRank = genR;
         _userTotalPlayers = totalP;
@@ -147,366 +194,1100 @@ class RowerView extends WatchUi.View {
         WatchUi.requestUpdate();
     }
 
-    function showWarning(text as String, durationSec as Number) as Void {
+    public function showWarning(text as String, durationSec as Number) as Void {
         _warningText = text;
         _warningUntilTimerMs = System.getTimer() + (durationSec * 1000);
         WatchUi.requestUpdate();
     }
 
-    function setFalseStartLocked(locked as Boolean) as Void {
+    public function setFalseStartLocked(locked as Boolean) as Void {
         _falseStartLocked = locked;
-        WatchUi.requestUpdate();
     }
 
-    function isFalseStartLocked() as Boolean {
+    public function isFalseStartLocked() as Boolean {
         return _falseStartLocked;
     }
 
-    function setIsLateJoiner(isLate as Boolean) as Void {
+    public function setIsLateJoiner(isLate as Boolean) as Void {
         _isLateJoiner = isLate;
     }
 
-    function set5sCountdown(val as Number) as Void {
+    public function set5sCountdown(val as Number) as Void {
         _countdown5sValue = val;
-        WatchUi.requestUpdate();
     }
 
-    // G2 Menu navigation
-    function cycleMainMenu() as Void {
+    // Menu navigation helpers
+    public function nextMainMenu() as Void {
         _mainMenuIndex = (_mainMenuIndex + 1) % 4;
         WatchUi.requestUpdate();
     }
 
-    function getMainMenuIndex() as Number {
+    public function prevMainMenu() as Void {
+        _mainMenuIndex = (_mainMenuIndex + 3) % 4;
+        WatchUi.requestUpdate();
+    }
+
+    public function getMainMenuIndex() as Number {
         return _mainMenuIndex;
     }
 
-    // G3 PIN Input helpers
-    function incrementPinDigit() as Void {
+    public function nextPauseMenu() as Void {
+        _pauseMenuIndex = (_pauseMenuIndex + 1) % 3;
+        WatchUi.requestUpdate();
+    }
+
+    public function prevPauseMenu() as Void {
+        _pauseMenuIndex = (_pauseMenuIndex + 2) % 3;
+        WatchUi.requestUpdate();
+    }
+
+    public function getPauseMenuIndex() as Number {
+        return _pauseMenuIndex;
+    }
+
+    public function toggleChoiceMenu() as Void {
+        _choiceMenuIndex = (_choiceMenuIndex + 1) % 2;
+        WatchUi.requestUpdate();
+    }
+
+    public function getChoiceMenuIndex() as Number {
+        return _choiceMenuIndex;
+    }
+
+    // PIN helpers
+    public function incrementPinDigit() as Void {
         _pinDigits[_pinCurrentDigitIdx] = (_pinDigits[_pinCurrentDigitIdx] + 1) % 10;
         WatchUi.requestUpdate();
     }
 
-    function decrementPinDigit() as Void {
+    public function decrementPinDigit() as Void {
         var v = _pinDigits[_pinCurrentDigitIdx] - 1;
         _pinDigits[_pinCurrentDigitIdx] = v < 0 ? 9 : v;
         WatchUi.requestUpdate();
     }
 
-    function advancePinDigit() as Boolean {
+    public function advancePinDigit() as Boolean {
         if (_pinCurrentDigitIdx < 3) {
             _pinCurrentDigitIdx++;
             WatchUi.requestUpdate();
-            return false; // Still typing
+            return false;
         }
-        return true; // Finished 4th digit
+        return true;
     }
 
-    function backspacePinDigit() as Boolean {
+    public function backspacePinDigit() as Boolean {
         if (_pinCurrentDigitIdx > 0) {
             _pinCurrentDigitIdx--;
             WatchUi.requestUpdate();
             return false;
         }
-        return true; // Already on first digit, can exit
+        return true;
     }
 
-    function getFormattedPin() as String {
+    public function resetPinDigits() as Void {
+        _pinDigits = [0, 0, 0, 0];
+        _pinCurrentDigitIdx = 0;
+    }
+
+    public function getFormattedPin() as String {
         return "" + _pinDigits[0] + _pinDigits[1] + _pinDigits[2] + _pinDigits[3];
     }
 
-    // Pause menu navigation
-    function cyclePauseMenu() as Void {
-        _pauseMenuIndex = (_pauseMenuIndex + 1) % 3;
+    // Countdown & Lobby getters
+    public function decrementCountdown() as Void {
+        if (_nextRaceCountdown > 0) {
+            _nextRaceCountdown--;
+        }
+    }
+
+    public function getCountdown() as Number {
+        return _nextRaceCountdown;
+    }
+
+    public function getConnectedPlayers() as Number {
+        return _connectedPlayers;
+    }
+
+    public function isBotsEnabled() as Boolean {
+        return _hasBotsEnabled;
+    }
+
+    public function setBotsEnabled(enabled as Boolean) as Void {
+        _hasBotsEnabled = enabled;
         WatchUi.requestUpdate();
     }
 
-    function getPauseMenuIndex() as Number {
-        return _pauseMenuIndex;
+    // Web Auth prompt helpers
+    public function showAuthPrompt(reqId as String, login as String) as Void {
+        if (!_authRequestId.equals(reqId)) {
+            _authRequestId = reqId;
+            _authLogin = login;
+            _authMenuIndex = 0;
+            WatchUi.requestUpdate();
+        }
     }
 
-    function onUpdate(dc as Graphics.Dc) as Void {
-        var width = dc.getWidth();
-        var height = dc.getHeight();
+    public function hasPendingAuth() as Boolean {
+        return (_authRequestId.length() > 0);
+    }
 
-        dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_BLACK);
+    public function toggleAuthMenu() as Void {
+        _authMenuIndex = (_authMenuIndex + 1) % 2;
+        WatchUi.requestUpdate();
+    }
+
+    public function getAuthMenuIndex() as Number {
+        return _authMenuIndex;
+    }
+
+    public function getAuthRequestId() as String {
+        return _authRequestId;
+    }
+
+    public function clearAuthPrompt() as Void {
+        _authRequestId = "";
+        _authLogin = "";
+        WatchUi.requestUpdate();
+    }
+
+    // =========================================================================
+    // MAIN RENDER DISPATCHER
+    // =========================================================================
+    public function onUpdate(dc as Graphics.Dc) as Void {
+        var w = dc.getWidth();
+        var h = dc.getHeight();
+
+        dc.setColor(COL_BG, COL_BG);
         dc.clear();
 
-        if (_currentState == STATE_SCANNING) {
-            drawG1Scanning(dc, width, height);
-        } else if (_currentState == STATE_MENU) {
-            drawG2Menu(dc, width, height);
-        } else if (_currentState == STATE_PIN_INPUT) {
-            drawG3PinInput(dc, width, height);
-        } else if (_currentState == STATE_LOBBY || _currentState == STATE_WAITING_START) {
-            drawG4Lobby(dc, width, height);
-        } else if (_currentState == STATE_COUNTDOWN_5S) {
-            drawG5Countdown(dc, width, height);
-        } else if (_currentState == STATE_RACING) {
-            if (_isLateJoiner) {
-                drawG7LateJoin(dc, width, height);
-            } else {
-                drawG6Racing(dc, width, height);
-            }
-        } else if (_currentState == STATE_FINISHED) {
-            drawG8Finished(dc, width, height);
-        } else if (_currentState == STATE_HISTORY) {
-            drawG9History(dc, width, height);
-        } else if (_currentState == STATE_PAUSED) {
-            drawPaused(dc, width, height);
+        // Priority modal: Web Login Authorization
+        if (hasPendingAuth() && _currentState != STATE_RACING && _currentState != STATE_COUNTDOWN_5S) {
+            drawGarminMenuScreen(
+                dc,
+                I18n.getText("AUTH_TITLE"),
+                COL_ACCENT,
+                I18n.getText("AUTH_SUB") + " " + _authLogin,
+                [I18n.getText("AUTH_APPROVE"), I18n.getText("AUTH_REJECT")] as Array<String>,
+                _authMenuIndex,
+                I18n.getText("MENU_FOOTER")
+            );
+            return;
         }
 
-        // Draw Warning Overlay if active
+        if (_currentState == STATE_SCANNING) {
+            drawG1ConnectionScreen(dc, w, h);
+        } else if (_currentState == STATE_MENU) {
+            var menuItems = [
+                I18n.getText("MENU_PUBLIC"),
+                I18n.getText("MENU_PRIVATE"),
+                I18n.getText("MENU_SOLO"),
+                I18n.getText("MENU_HISTORY")
+            ] as Array<String>;
+            drawGarminMenuScreen(
+                dc,
+                I18n.getText("MENU_TITLE"),
+                COL_ACCENT,
+                getBleProtocolTag(),
+                menuItems,
+                _mainMenuIndex,
+                I18n.getText("MENU_FOOTER")
+            );
+        } else if (_currentState == STATE_PIN_INPUT) {
+            drawG3PinInput(dc, w, h);
+        } else if (_currentState == STATE_LOBBY || _currentState == STATE_WAITING_START) {
+            drawG4LobbyGrid(dc, w, h);
+        } else if (_currentState == STATE_COUNTDOWN_5S) {
+            drawG5Countdown(dc, w, h);
+        } else if (_currentState == STATE_RACING || _currentState == STATE_LATE_JOIN) {
+            drawG6RacingCockpit(dc, w, h);
+        } else if (_currentState == STATE_FINISHED) {
+            drawG8Finished(dc, w, h);
+        } else if (_currentState == STATE_HISTORY) {
+            drawG9History(dc, w, h);
+        } else if (_currentState == STATE_PAUSED) {
+            var pauseItems = [
+                I18n.getText("MENU_RESUME"),
+                I18n.getText("MENU_SAVE_EXIT"),
+                I18n.getText("MENU_ABANDON")
+            ] as Array<String>;
+            drawGarminMenuScreen(
+                dc,
+                I18n.getText("PAUSED_TITLE"),
+                COL_WARN,
+                _model.formatTime(_model.elapsedTime) + "  |  " + _netDistance + "m",
+                pauseItems,
+                _pauseMenuIndex,
+                I18n.getText("MENU_FOOTER")
+            );
+        } else if (_currentState == STATE_LATE_CHOICE) {
+            var lateItems = [
+                I18n.getText("LATE_OPT_JOIN"),
+                I18n.getText("LATE_OPT_WAIT")
+            ] as Array<String>;
+            drawGarminMenuScreen(
+                dc,
+                I18n.getText("LATE_TITLE"),
+                COL_WARN,
+                "" + _connectedPlayers + " " + I18n.getText("CELL_RACERS"),
+                lateItems,
+                _choiceMenuIndex,
+                I18n.getText("MENU_FOOTER")
+            );
+        } else if (_currentState == STATE_BOTS_PROMPT) {
+            var botItems = [
+                I18n.getText("BTN_YES_BOTS"),
+                I18n.getText("BTN_NO_SOLO")
+            ] as Array<String>;
+            drawGarminMenuScreen(
+                dc,
+                I18n.getText("BOTS_PROMPT_TITLE"),
+                COL_ACCENT,
+                "1:50 - 2:30 /500m",
+                botItems,
+                _choiceMenuIndex,
+                I18n.getText("MENU_FOOTER")
+            );
+        }
+
+        // Draw non-overlapping warning banner if active
         if (_warningText != null) {
-            var now = System.getTimer();
-            if (now < _warningUntilTimerMs) {
-                drawWarningBanner(dc, width, height, _warningText as String);
+            if (System.getTimer() < _warningUntilTimerMs) {
+                drawWarningBanner(dc, w, h, _warningText as String);
             } else {
                 _warningText = null;
             }
         }
     }
 
-    // ==========================================
-    // ÉCRANS OFFICIELS G1 À G9
-    // ==========================================
+    // =========================================================================
+    // GARMIN PROPORTIONAL GEOMETRY & ANTI-OVERLAP GRID ENGINE
+    // =========================================================================
 
-    // G1 : Scanner & Connexion FTMS
-    private function drawG1Scanning(dc as Graphics.Dc, width as Number, height as Number) as Void {
-        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(width / 2, 34, Graphics.FONT_SMALL, "ROWER LINK", Graphics.TEXT_JUSTIFY_CENTER);
-
-        dc.setColor(Graphics.COLOR_BLUE, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(width / 2, height / 2 - 25, Graphics.FONT_MEDIUM, "(( BLE ))", Graphics.TEXT_JUSTIFY_CENTER);
-
-        dc.setColor(Graphics.COLOR_YELLOW, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(width / 2, height / 2 + 10, Graphics.FONT_TINY, _statusText, Graphics.TEXT_JUSTIFY_CENTER);
-
-        dc.setColor(Graphics.COLOR_DK_GRAY, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(width / 2, height - 35, Graphics.FONT_XTINY, "Phone Link: OK", Graphics.TEXT_JUSTIFY_CENTER);
+    //! Compute safe horizontal pixel width inside circular bezel across [yTop..yBot]
+    private function getSafeWidthAtY(w as Number, h as Number, yTop as Number, yBot as Number) as Number {
+        var minDim = (w < h) ? w : h;
+        var r = (minDim / 2) - 8;
+        var cy = h / 2;
+        var dTop = (yTop > cy) ? (yTop - cy) : (cy - yTop);
+        var dBot = (yBot > cy) ? (yBot - cy) : (cy - yBot);
+        var dy = (dTop > dBot) ? dTop : dBot;
+        if (dy >= (r - 12)) {
+            return (w * 42) / 100;
+        }
+        var sq = (r * r) - (dy * dy);
+        var halfChord = Math.sqrt(sq.toFloat()).toNumber();
+        var safeW = (halfChord * 2) - 8;
+        var capW = w - 16;
+        return (safeW < capW) ? safeW : capW;
     }
 
-    // G2 : Menu Principal
-    private function drawG2Menu(dc as Graphics.Dc, width as Number, height as Number) as Void {
-        dc.setColor(Graphics.COLOR_YELLOW, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(width / 2, 22, Graphics.FONT_TINY, "SÉLECTION MODE", Graphics.TEXT_JUSTIFY_CENTER);
-
-        var menuItems = [
-            "1. Course Publique",
-            "2. Salon Privé (PIN)",
-            "3. Historique Récent",
-            "4. Ramer en Solo"
-        ];
-
-        for (var i = 0; i < 4; i++) {
-            var yPos = 55 + (i * 32);
-            if (i == _mainMenuIndex) {
-                dc.setColor(Graphics.COLOR_DK_BLUE, Graphics.COLOR_DK_BLUE);
-                dc.fillRoundedRectangle(20, yPos - 2, width - 40, 26, 6);
-                dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-                dc.drawText(width / 2, yPos, Graphics.FONT_XTINY, "> " + menuItems[i] + " <", Graphics.TEXT_JUSTIFY_CENTER);
-            } else {
-                dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
-                dc.drawText(width / 2, yPos, Graphics.FONT_XTINY, menuItems[i], Graphics.TEXT_JUSTIFY_CENTER);
+    //! True only if string contains glyphs supported by Garmin FONT_NUMBER_* fonts
+    private function isNumericFontSafe(text as String) as Boolean {
+        if (text.length() == 0) {
+            return false;
+        }
+        var chars = text.toCharArray();
+        for (var i = 0; i < chars.size(); i++) {
+            var c = chars[i];
+            var ok = ((c >= '0' && c <= '9') || c == ':' || c == '.' || c == '-' || c == '+' || c == ' ');
+            if (!ok) {
+                return false;
             }
         }
-
-        dc.setColor(Graphics.COLOR_DK_GRAY, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(width / 2, height - 25, Graphics.FONT_XTINY, "DOWN: Choisir | START: OK", Graphics.TEXT_JUSTIFY_CENTER);
+        return true;
     }
 
-    // G3 : Saisie du Code PIN Salon Privé
-    private function drawG3PinInput(dc as Graphics.Dc, width as Number, height as Number) as Void {
-        dc.setColor(Graphics.COLOR_YELLOW, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(width / 2, 22, Graphics.FONT_TINY, "SALON PRIVÉ", Graphics.TEXT_JUSTIFY_CENTER);
+    private function isNumberFont(f as Graphics.FontDefinition) as Boolean {
+        return (f == Graphics.FONT_NUMBER_MILD ||
+                f == Graphics.FONT_NUMBER_MEDIUM ||
+                f == Graphics.FONT_NUMBER_HOT ||
+                f == Graphics.FONT_NUMBER_THAI_HOT);
+    }
 
-        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(width / 2, 50, Graphics.FONT_XTINY, "Entrez le PIN (4 chiffres) :", Graphics.TEXT_JUSTIFY_CENTER);
+    //! Select largest candidate font that fits strictly inside (maxW x maxH)
+    private function fitFontToBox(
+        dc as Graphics.Dc,
+        text as String,
+        candidates as Array<Graphics.FontDefinition>,
+        maxW as Number,
+        maxH as Number
+    ) as Graphics.FontDefinition {
+        var numSafe = isNumericFontSafe(text);
+        for (var i = 0; i < candidates.size(); i++) {
+            var f = candidates[i];
+            if (isNumberFont(f) && !numSafe) {
+                continue;
+            }
+            var tw = dc.getTextWidthInPixels(text, f);
+            var th = dc.getFontHeight(f);
+            if (tw <= maxW && th <= maxH) {
+                return f;
+            }
+        }
+        return Graphics.FONT_XTINY;
+    }
 
-        // 4 Digits Boxes
-        var boxW = 32;
-        var boxH = 44;
-        var startX = (width - (4 * boxW + 3 * 8)) / 2;
-        var boxY = 85;
+    //! Truncate text cleanly so it never overflows maxW in given font
+    private function truncateToWidth(dc as Graphics.Dc, text as String, font as Graphics.FontDefinition, maxW as Number) as String {
+        if (dc.getTextWidthInPixels(text, font) <= maxW || text.length() <= 3) {
+            return text;
+        }
+        var cur = text;
+        while (cur.length() > 3 && dc.getTextWidthInPixels(cur + "..", font) > maxW) {
+            var nextSub = cur.substring(0, cur.length() - 1);
+            if (nextSub == null) {
+                break;
+            }
+            cur = nextSub;
+        }
+        return cur + "..";
+    }
+
+    //! Render a single Garmin Grid Cell with disjoint Label [top] and Value [centered in remaining height]
+    private function drawGridCell(
+        dc as Graphics.Dc,
+        cellCx as Number,
+        cellTop as Number,
+        cellW as Number,
+        cellH as Number,
+        label as String,
+        valStr as String,
+        colors as Array<Number>
+    ) as Void {
+        var lblFont = Graphics.FONT_XTINY;
+        var lblH = dc.getFontHeight(lblFont);
+        var safeLbl = truncateToWidth(dc, label, lblFont, cellW - 2);
+
+        dc.setColor(colors[0], Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cellCx, cellTop, lblFont, safeLbl, Graphics.TEXT_JUSTIFY_CENTER);
+
+        var valTop = cellTop + lblH;
+        var valH = (cellTop + cellH) - valTop;
+        if (valH < 10) {
+            valH = 10;
+        }
+        var fontCandidates = [
+            Graphics.FONT_NUMBER_MEDIUM,
+            Graphics.FONT_NUMBER_MILD,
+            Graphics.FONT_LARGE,
+            Graphics.FONT_MEDIUM,
+            Graphics.FONT_SMALL,
+            Graphics.FONT_TINY,
+            Graphics.FONT_XTINY
+        ] as Array<Graphics.FontDefinition>;
+        var valFont = fitFontToBox(dc, valStr, fontCandidates, cellW - 4, valH + 2);
+        var safeVal = valStr;
+        if (valFont == Graphics.FONT_XTINY) {
+            safeVal = truncateToWidth(dc, valStr, valFont, cellW - 2);
+        }
+
+        dc.setColor(colors[1], Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cellCx, valTop + (valH / 2), valFont, safeVal, Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+    }
+
+    //! Render a standard Garmin 2x2 Crosshair Data Grid inside [topY..botY] (4 quadrants: TL, TR, BL, BR)
+    private function drawGarminGrid2x2(
+        dc as Graphics.Dc,
+        topY as Number,
+        botY as Number,
+        labels as Array<String>,
+        values as Array<String>,
+        labelCols as Array<Number>,
+        valCols as Array<Number>
+    ) as Void {
+        var w = dc.getWidth();
+        var h = dc.getHeight();
+        var cx = w / 2;
+        var midY = topY + ((botY - topY) / 2);
+        var lineMargin = (w * 9) / 100;
+
+        // Garmin crosshair grid lines + center accent node
+        dc.setPenWidth(1);
+        dc.setColor(COL_GRID, Graphics.COLOR_TRANSPARENT);
+        dc.drawLine(lineMargin, midY, w - lineMargin, midY);
+        dc.drawLine(cx, topY + 3, cx, botY - 3);
+
+        dc.setColor(COL_ACCENT, Graphics.COLOR_TRANSPARENT);
+        dc.fillCircle(cx, midY, 3);
+
+        // Top Row Quadrants
+        var topCellTop = topY + 2;
+        var topCellH = midY - topCellTop - 2;
+        var topSafeRowW = getSafeWidthAtY(w, h, topCellTop, midY - 2) - 10;
+        var topHalfW = (topSafeRowW / 2) - 4;
+        var topLeftCx = cx - (topHalfW / 2) - 3;
+        var topRightCx = cx + (topHalfW / 2) + 3;
+
+        drawGridCell(dc, topLeftCx, topCellTop, topHalfW, topCellH, labels[0], values[0], [labelCols[0], valCols[0]] as Array<Number>);
+        drawGridCell(dc, topRightCx, topCellTop, topHalfW, topCellH, labels[1], values[1], [labelCols[1], valCols[1]] as Array<Number>);
+
+        // Bottom Row Quadrants
+        var botCellTop = midY + 2;
+        var botCellH = botY - botCellTop - 2;
+        var botSafeRowW = getSafeWidthAtY(w, h, botCellTop, botY - 2) - 10;
+        var botHalfW = (botSafeRowW / 2) - 4;
+        var botLeftCx = cx - (botHalfW / 2) - 3;
+        var botRightCx = cx + (botHalfW / 2) + 3;
+
+        drawGridCell(dc, botLeftCx, botCellTop, botHalfW, botCellH, labels[2], values[2], [labelCols[2], valCols[2]] as Array<Number>);
+        drawGridCell(dc, botRightCx, botCellTop, botHalfW, botCellH, labels[3], values[3], [labelCols[3], valCols[3]] as Array<Number>);
+    }
+
+    //! Right-edge Garmin Vertical Page Carousel Indicator (ported from rower.iq)
+    private function drawRightPageCarousel(dc as Graphics.Dc, w as Number, h as Number, totalPages as Number, activePage as Number) as Void {
+        if (totalPages <= 1) {
+            return;
+        }
+        var x = w - 8;
+        var cy = h / 2;
+        var spacing = 11;
+        var startY = cy - (((totalPages - 1) * spacing) / 2);
+
+        for (var i = 0; i < totalPages; i++) {
+            var y = startY + (i * spacing);
+            if (i == activePage) {
+                dc.setColor(COL_ACCENT, Graphics.COLOR_TRANSPARENT);
+                dc.fillRoundedRectangle(x - 2, y - 4, 5, 9, 2);
+            } else {
+                dc.setColor(COL_GRID, Graphics.COLOR_TRANSPARENT);
+                dc.fillCircle(x, y, 2);
+            }
+        }
+    }
+
+    //! Outer 240-degree Segmented Perimeter Progress Ring (210 deg clockwise to 330 deg)
+    private function drawPerimeterProgressRing(dc as Graphics.Dc, w as Number, h as Number, ratio as Float) as Void {
+        var minDim = (w < h) ? w : h;
+        var r = (minDim / 2) - 3;
+        if (r < 50) {
+            return;
+        }
+        var cx = w / 2;
+        var cy = h / 2;
+
+        dc.setPenWidth(4);
+        dc.setColor(COL_GRID, Graphics.COLOR_TRANSPARENT);
+        dc.drawArc(cx, cy, r, Graphics.ARC_CLOCKWISE, 210, 330);
+
+        var clamped = ratio;
+        if (clamped < 0.0f) { clamped = 0.0f; }
+        if (clamped > 1.0f) { clamped = 1.0f; }
+
+        if (clamped > 0.01f) {
+            var sweepDeg = (clamped * 240.0f).toNumber();
+            if (sweepDeg < 3) {
+                sweepDeg = 3;
+            }
+            var endDeg = 210 - sweepDeg;
+            if (endDeg < 0) {
+                endDeg += 360;
+            }
+            var arcCol = (clamped >= 0.85f) ? COL_GOOD : ((clamped >= 0.40f) ? COL_ACCENT : COL_CYAN);
+            dc.setPenWidth(5);
+            dc.setColor(arcCol, Graphics.COLOR_TRANSPARENT);
+            dc.drawArc(cx, cy, r, Graphics.ARC_CLOCKWISE, 210, endDeg);
+        }
+        dc.setPenWidth(1);
+    }
+
+    private function getBleProtocolTag() as String {
+        if (_model.connectionState == RowerDataModel.STATE_CONNECTED_SMARTROW) {
+            return "[SmartRow] " + _model.deviceName;
+        } else if (_model.connectionState == RowerDataModel.STATE_CONNECTED_FTMS) {
+            return "[FTMS] " + _model.deviceName;
+        } else if (_model.connectionState == RowerDataModel.STATE_CONNECTING) {
+            return "BLE... " + _model.deviceName;
+        }
+        return "BLE Scan...";
+    }
+
+    // =========================================================================
+    // G1 : CONNEXION RAMEUR BLE (Ported & Refined from rower.iq PreWorkoutScreen)
+    // =========================================================================
+    private function drawG1ConnectionScreen(dc as Graphics.Dc, w as Number, h as Number) as Void {
+        var cx = w / 2;
+        var minDim = (w < h) ? w : h;
+        var isConnected = _model.isConnected();
+
+        // 1. Top Status Bar (6%..15% h): Clock | App Title | HR
+        var topY = (h * 6) / 100;
+        var clockTime = System.getClockTime();
+        var clockStr = clockTime.hour.format("%d") + ":" + clockTime.min.format("%02d");
+
+        dc.setColor(COL_MUTED, Graphics.COLOR_TRANSPARENT);
+        dc.drawText((w * 20) / 100, topY, Graphics.FONT_XTINY, clockStr, Graphics.TEXT_JUSTIFY_LEFT);
+
+        if (_model.heartRate > 0) {
+            dc.setColor(COL_ALERT, Graphics.COLOR_TRANSPARENT);
+            dc.drawText(w - ((w * 20) / 100), topY, Graphics.FONT_XTINY, "HR " + _model.heartRate, Graphics.TEXT_JUSTIFY_RIGHT);
+        } else {
+            dc.setColor(COL_ACCENT, Graphics.COLOR_TRANSPARENT);
+            dc.drawText(w - ((w * 20) / 100), topY, Graphics.FONT_XTINY, _userId, Graphics.TEXT_JUSTIFY_RIGHT);
+        }
+
+        var divY = (h * 16) / 100;
+        dc.setColor(COL_GRID, Graphics.COLOR_TRANSPARENT);
+        dc.drawLine((w * 20) / 100, divY, w - ((w * 20) / 100), divY);
+
+        if (!isConnected) {
+            // STATE A: SCANNING / CONNECTING RADAR
+            var vY = (h * 33) / 100;
+            var voyantR = (minDim * 10) / 100;
+            var pulsePhase = (System.getTimer() / 300) % 4;
+
+            dc.setColor(COL_CYAN, Graphics.COLOR_TRANSPARENT);
+            dc.setPenWidth(3);
+            dc.drawCircle(cx, vY, voyantR);
+
+            dc.setPenWidth(2);
+            dc.setColor(COL_ACCENT, Graphics.COLOR_TRANSPARENT);
+            var sweepStart = pulsePhase * 90;
+            dc.drawArc(cx, vY, voyantR + 7, Graphics.ARC_CLOCKWISE, sweepStart, sweepStart + 70);
+
+            var dotCol = (pulsePhase % 2 == 0) ? COL_WARN : COL_CYAN;
+            dc.setColor(dotCol, Graphics.COLOR_TRANSPARENT);
+            dc.fillCircle(cx, vY, (voyantR * 5) / 10);
+            dc.setPenWidth(1);
+
+            // Title row (48..60% h)
+            var statusTitle = (_model.connectionState == RowerDataModel.STATE_CONNECTING)
+                ? I18n.getText("PRE_CONNECTING")
+                : I18n.getText("PRE_SEARCH_TITLE");
+            var titleBoxTop = (h * 48) / 100;
+            var titleBoxH = (h * 13) / 100;
+            var titleMaxW = getSafeWidthAtY(w, h, titleBoxTop, titleBoxTop + titleBoxH);
+            var titleFont = fitFontToBox(dc, statusTitle, [Graphics.FONT_SMALL, Graphics.FONT_TINY, Graphics.FONT_XTINY] as Array<Graphics.FontDefinition>, titleMaxW, titleBoxH);
+            dc.setColor(COL_PRIMARY, Graphics.COLOR_TRANSPARENT);
+            dc.drawText(cx, titleBoxTop + (titleBoxH / 2), titleFont, statusTitle, Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+
+            // Subtitle row (62..72% h)
+            var subStr = (_model.connectionState == RowerDataModel.STATE_CONNECTING)
+                ? _model.deviceName
+                : I18n.getText("PRE_SEARCH_SUB");
+            var subTop = (h * 62) / 100;
+            var subMaxW = getSafeWidthAtY(w, h, subTop, subTop + ((h * 10) / 100));
+            dc.setColor(COL_ACCENT, Graphics.COLOR_TRANSPARENT);
+            dc.drawText(cx, subTop, Graphics.FONT_XTINY, truncateToWidth(dc, subStr, Graphics.FONT_XTINY, subMaxW), Graphics.TEXT_JUSTIFY_CENTER);
+
+            // Bottom hint box (76..88% h)
+            var hintY = (h * 77) / 100;
+            var hintH = (h * 11) / 100;
+            var hintW = getSafeWidthAtY(w, h, hintY, hintY + hintH) - 8;
+            dc.setColor(COL_GRID, Graphics.COLOR_TRANSPARENT);
+            dc.drawRoundedRectangle(cx - (hintW / 2), hintY, hintW, hintH, 6);
+            dc.setColor(COL_MUTED, Graphics.COLOR_TRANSPARENT);
+            var hintStr = truncateToWidth(dc, I18n.getText("PRE_HINT_WAKE"), Graphics.FONT_XTINY, hintW - 8);
+            dc.drawText(cx, hintY + (hintH / 2), Graphics.FONT_XTINY, hintStr, Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+        } else {
+            // STATE B: ROWER DETECTED / READY (GREEN CHECKMARK + DEVICE CARD + START CTA)
+            var vY2 = (h * 27) / 100;
+            var r2 = (minDim * 9) / 100;
+
+            dc.setColor(COL_GOOD, Graphics.COLOR_TRANSPARENT);
+            dc.fillCircle(cx, vY2, r2);
+
+            dc.setColor(COL_PRIMARY, Graphics.COLOR_TRANSPARENT);
+            dc.setPenWidth(3);
+            dc.drawLine(cx - 6, vY2, cx - 2, vY2 + 4);
+            dc.drawLine(cx - 2, vY2 + 4, cx + 7, vY2 - 5);
+            dc.setPenWidth(1);
+
+            // Protocol + Ready Header (38..48% h)
+            var protoTag = (_model.connectionState == RowerDataModel.STATE_CONNECTED_SMARTROW)
+                ? "SMARTROW"
+                : "FTMS";
+            var protoStr = I18n.getText("PRE_READY_TITLE") + " (" + protoTag + ")";
+            dc.setColor(COL_GOOD, Graphics.COLOR_TRANSPARENT);
+            dc.drawText(cx, (h * 39) / 100, Graphics.FONT_XTINY, truncateToWidth(dc, protoStr, Graphics.FONT_XTINY, getSafeWidthAtY(w, h, (h * 39) / 100, (h * 47) / 100)), Graphics.TEXT_JUSTIFY_CENTER);
+
+            // Rower Name Card (48..62% h)
+            var cardY = (h * 48) / 100;
+            var cardH = (h * 14) / 100;
+            var cardW = getSafeWidthAtY(w, h, cardY, cardY + cardH) - 12;
+            dc.setColor(COL_GRID, Graphics.COLOR_TRANSPARENT);
+            dc.drawRoundedRectangle(cx - (cardW / 2), cardY, cardW, cardH, 6);
+
+            var devName = (_model.deviceName.length() > 0) ? _model.deviceName : "BLE Rower";
+            var nameFont = fitFontToBox(dc, devName, [Graphics.FONT_SMALL, Graphics.FONT_TINY, Graphics.FONT_XTINY] as Array<Graphics.FontDefinition>, cardW - 10, cardH - 4);
+            dc.setColor(COL_PRIMARY, Graphics.COLOR_TRANSPARENT);
+            dc.drawText(cx, cardY + (cardH / 2), nameFont, truncateToWidth(dc, devName, nameFont, cardW - 10), Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+
+            // Green START Button (65..79% h)
+            var btnY = (h * 65) / 100;
+            var btnH = (h * 14) / 100;
+            var btnW = getSafeWidthAtY(w, h, btnY, btnY + btnH) - 24;
+            dc.setColor(COL_GOOD, COL_GOOD);
+            dc.fillRoundedRectangle(cx - (btnW / 2), btnY, btnW, btnH, 8);
+
+            var btnLabel = "> " + I18n.getText("PRE_START_BTN") + " <";
+            var btnFont = fitFontToBox(dc, btnLabel, [Graphics.FONT_SMALL, Graphics.FONT_TINY, Graphics.FONT_XTINY] as Array<Graphics.FontDefinition>, btnW - 10, btnH - 4);
+            dc.setColor(COL_BG, Graphics.COLOR_TRANSPARENT);
+            dc.drawText(cx, btnY + (btnH / 2), btnFont, btnLabel, Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+
+            // Footer prompt (83% h)
+            var footY = (h * 83) / 100;
+            var footMaxW = getSafeWidthAtY(w, h, footY, footY + 18);
+            dc.setColor(COL_MUTED, Graphics.COLOR_TRANSPARENT);
+            dc.drawText(cx, footY, Graphics.FONT_XTINY, truncateToWidth(dc, I18n.getText("PRE_START_PROMPT"), Graphics.FONT_XTINY, footMaxW), Graphics.TEXT_JUSTIFY_CENTER);
+        }
+    }
+
+    // =========================================================================
+    // STANDARD GARMIN LIST MENU ENGINE (G2 Menu, Pause, Late Choice, Bots, Auth)
+    // =========================================================================
+    private function drawGarminMenuScreen(
+        dc as Graphics.Dc,
+        title as String,
+        titleCol as Number,
+        subtitle as String,
+        items as Array<String>,
+        selectedIdx as Number,
+        footerText as String
+    ) as Void {
+        var w = dc.getWidth();
+        var h = dc.getHeight();
+        var cx = w / 2;
+
+        // Header band (5..19% h)
+        var titleY = (h * 5) / 100;
+        var titleMaxW = getSafeWidthAtY(w, h, titleY, titleY + 18);
+        dc.setColor(titleCol, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, titleY, Graphics.FONT_XTINY, truncateToWidth(dc, title, Graphics.FONT_XTINY, titleMaxW), Graphics.TEXT_JUSTIFY_CENTER);
+
+        if (subtitle.length() > 0) {
+            var subY = (h * 12) / 100;
+            var subMaxW = getSafeWidthAtY(w, h, subY, subY + 16);
+            dc.setColor(COL_MUTED, Graphics.COLOR_TRANSPARENT);
+            dc.drawText(cx, subY, Graphics.FONT_XTINY, truncateToWidth(dc, subtitle, Graphics.FONT_XTINY, subMaxW), Graphics.TEXT_JUSTIFY_CENTER);
+        }
+
+        var divY = (h * 19) / 100;
+        dc.setColor(COL_GRID, Graphics.COLOR_TRANSPARENT);
+        dc.drawLine((w * 16) / 100, divY, w - ((w * 16) / 100), divY);
+
+        // Body list area (21..81% h)
+        var listTop = (h * 21) / 100;
+        var listBot = (h * 81) / 100;
+        var count = items.size();
+        if (count > 0) {
+            var slotH = (listBot - listTop) / count;
+            var pillH = slotH - 4;
+            if (pillH > ((h * 16) / 100)) {
+                pillH = (h * 16) / 100;
+            }
+
+            for (var i = 0; i < count; i++) {
+                var slotCenterY = listTop + (i * slotH) + (slotH / 2);
+                var pillTop = slotCenterY - (pillH / 2);
+                var safeW = getSafeWidthAtY(w, h, pillTop, pillTop + pillH) - 18;
+                var pillLeft = cx - (safeW / 2);
+                var isSel = (i == selectedIdx);
+
+                if (isSel) {
+                    dc.setColor(COL_PILL_BG, COL_PILL_BG);
+                    dc.fillRoundedRectangle(pillLeft, pillTop, safeW, pillH, 6);
+                    dc.setColor(COL_ACCENT, Graphics.COLOR_TRANSPARENT);
+                    dc.drawRoundedRectangle(pillLeft, pillTop, safeW, pillH, 6);
+                }
+
+                var itemFont = fitFontToBox(
+                    dc,
+                    items[i],
+                    [Graphics.FONT_SMALL, Graphics.FONT_TINY, Graphics.FONT_XTINY] as Array<Graphics.FontDefinition>,
+                    safeW - 14,
+                    pillH - 2
+                );
+                var itemText = truncateToWidth(dc, items[i], itemFont, safeW - 14);
+                dc.setColor(isSel ? COL_PRIMARY : COL_MUTED, Graphics.COLOR_TRANSPARENT);
+                dc.drawText(cx, slotCenterY, itemFont, itemText, Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+            }
+
+            drawRightPageCarousel(dc, w, h, count, selectedIdx);
+        }
+
+        // Footer hint (84% h)
+        var footY = (h * 84) / 100;
+        var footMaxW = getSafeWidthAtY(dc.getWidth(), dc.getHeight(), footY, footY + 16);
+        dc.setColor(COL_GRID, Graphics.COLOR_TRANSPARENT);
+        dc.drawLine((w * 22) / 100, (h * 82) / 100, w - ((w * 22) / 100), (h * 82) / 100);
+        dc.setColor(COL_MUTED, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, footY, Graphics.FONT_XTINY, truncateToWidth(dc, footerText, Graphics.FONT_XTINY, footMaxW), Graphics.TEXT_JUSTIFY_CENTER);
+    }
+
+    // =========================================================================
+    // G3 : SAISIE CODE PIN 4 CHIFFRES (100% Proportionnel)
+    // =========================================================================
+    private function drawG3PinInput(dc as Graphics.Dc, w as Number, h as Number) as Void {
+        var cx = w / 2;
+
+        dc.setColor(COL_ACCENT, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, (h * 7) / 100, Graphics.FONT_XTINY, I18n.getText("PIN_TITLE"), Graphics.TEXT_JUSTIFY_CENTER);
+
+        dc.setColor(COL_MUTED, Graphics.COLOR_TRANSPARENT);
+        var subY = (h * 16) / 100;
+        var subW = getSafeWidthAtY(w, h, subY, subY + 16);
+        dc.drawText(cx, subY, Graphics.FONT_XTINY, truncateToWidth(dc, I18n.getText("PIN_SUB"), Graphics.FONT_XTINY, subW), Graphics.TEXT_JUSTIFY_CENTER);
+
+        dc.setColor(COL_GRID, Graphics.COLOR_TRANSPARENT);
+        dc.drawLine((w * 18) / 100, (h * 25) / 100, w - ((w * 18) / 100), (h * 25) / 100);
+
+        // 4 Proportional Digit Cards in [31..61% h]
+        var boxY = (h * 31) / 100;
+        var boxH = (h * 30) / 100;
+        var availW = getSafeWidthAtY(w, h, boxY, boxY + boxH) - 16;
+        var gap = (w * 3) / 100;
+        var boxW = (availW - (3 * gap)) / 4;
+        var totalRowW = (4 * boxW) + (3 * gap);
+        var startX = cx - (totalRowW / 2);
+
+        var digitCandidates = [
+            Graphics.FONT_NUMBER_MILD,
+            Graphics.FONT_LARGE,
+            Graphics.FONT_MEDIUM,
+            Graphics.FONT_SMALL
+        ] as Array<Graphics.FontDefinition>;
 
         for (var i = 0; i < 4; i++) {
-            var bx = startX + (i * (boxW + 8));
+            var bx = startX + (i * (boxW + gap));
             var isCurrent = (i == _pinCurrentDigitIdx);
+            var dStr = _pinDigits[i].toString();
+            var dFont = fitFontToBox(dc, dStr, digitCandidates, boxW - 6, boxH - 6);
 
             if (isCurrent) {
-                dc.setColor(Graphics.COLOR_YELLOW, Graphics.COLOR_YELLOW);
+                dc.setColor(COL_ACCENT, COL_ACCENT);
                 dc.fillRoundedRectangle(bx, boxY, boxW, boxH, 6);
-                dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_TRANSPARENT);
+                dc.setColor(COL_BG, Graphics.COLOR_TRANSPARENT);
             } else {
-                dc.setColor(Graphics.COLOR_DK_GRAY, Graphics.COLOR_DK_GRAY);
+                dc.setColor(COL_GRID, COL_GRID);
                 dc.fillRoundedRectangle(bx, boxY, boxW, boxH, 6);
-                dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
+                dc.setColor(COL_PRIMARY, Graphics.COLOR_TRANSPARENT);
             }
 
-            dc.drawText(bx + boxW / 2, boxY + 6, Graphics.FONT_MEDIUM, _pinDigits[i].toString(), Graphics.TEXT_JUSTIFY_CENTER);
+            dc.drawText(bx + (boxW / 2), boxY + (boxH / 2), dFont, dStr, Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
         }
 
-        dc.setColor(Graphics.COLOR_ORANGE, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(width / 2, 145, Graphics.FONT_XTINY, "UP/DOWN: Chiffre", Graphics.TEXT_JUSTIFY_CENTER);
-        dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(width / 2, 165, Graphics.FONT_XTINY, "START: Suivant | BACK: Corrig", Graphics.TEXT_JUSTIFY_CENTER);
+        var h1Y = (h * 68) / 100;
+        var h2Y = (h * 79) / 100;
+        dc.setColor(COL_WARN, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, h1Y, Graphics.FONT_XTINY, truncateToWidth(dc, I18n.getText("PIN_HELP_1"), Graphics.FONT_XTINY, getSafeWidthAtY(w, h, h1Y, h1Y + 16)), Graphics.TEXT_JUSTIFY_CENTER);
+        dc.setColor(COL_MUTED, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, h2Y, Graphics.FONT_XTINY, truncateToWidth(dc, I18n.getText("PIN_HELP_2"), Graphics.FONT_XTINY, getSafeWidthAtY(w, h, h2Y, h2Y + 16)), Graphics.TEXT_JUSTIFY_CENTER);
     }
 
-    // G4 : Salle d'Attente (Lobby & Ready Check)
-    private function drawG4Lobby(dc as Graphics.Dc, width as Number, height as Number) as Void {
-        dc.setColor(Graphics.COLOR_GREEN, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(width / 2, 20, Graphics.FONT_XTINY, "SALON COULOIR : #01", Graphics.TEXT_JUSTIFY_CENTER);
+    // =========================================================================
+    // G4 : SALLE D'ATTENTE / LOBBY EN GRILLE GARMIN (1 Hero + Grille 2x2)
+    // =========================================================================
+    private function drawG4LobbyGrid(dc as Graphics.Dc, w as Number, h as Number) as Void {
+        var cx = w / 2;
 
-        var min = _nextRaceCountdown / 60;
-        var sec = _nextRaceCountdown % 60;
-        var timeStr = (sec < 10) ? (min + ":0" + sec) : (min + ":" + sec);
+        // 1. Header (5..16% h)
+        var hdrY = (h * 6) / 100;
+        var hdrText = (_nextRaceCountdown <= 15) ? I18n.getText("GET_READY") : I18n.getText("LOBBY_TITLE");
+        var hdrCol = (_nextRaceCountdown <= 15) ? COL_WARN : COL_ACCENT;
+        dc.setColor(hdrCol, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, hdrY, Graphics.FONT_XTINY, truncateToWidth(dc, hdrText, Graphics.FONT_XTINY, getSafeWidthAtY(w, h, hdrY, hdrY + 16)), Graphics.TEXT_JUSTIFY_CENTER);
 
-        dc.setColor(Graphics.COLOR_DK_GRAY, Graphics.COLOR_DK_GRAY);
-        dc.fillRoundedRectangle(20, 42, width - 40, 52, 10);
-        dc.setColor(Graphics.COLOR_YELLOW, Graphics.COLOR_TRANSPARENT);
-        dc.setPenWidth(2);
-        dc.drawRoundedRectangle(20, 42, width - 40, 52, 10);
+        dc.setColor(COL_GRID, Graphics.COLOR_TRANSPARENT);
+        dc.drawLine((w * 16) / 100, (h * 16) / 100, w - ((w * 16) / 100), (h * 16) / 100);
 
-        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(width / 2, 44, Graphics.FONT_NUMBER_HOT, timeStr, Graphics.TEXT_JUSTIFY_CENTER);
+        // 2. Hero Countdown Timer Band (17..42% h)
+        var heroTop = (h * 17) / 100;
+        var heroH = (h * 25) / 100;
+        var timeStr = _model.formatTime(_nextRaceCountdown);
+        var heroMaxW = getSafeWidthAtY(w, h, heroTop, heroTop + heroH) - 16;
+        var heroFont = fitFontToBox(
+            dc,
+            timeStr,
+            [Graphics.FONT_NUMBER_MEDIUM, Graphics.FONT_NUMBER_MILD, Graphics.FONT_LARGE, Graphics.FONT_MEDIUM] as Array<Graphics.FontDefinition>,
+            heroMaxW,
+            heroH
+        );
+        dc.setColor((_nextRaceCountdown <= 15) ? COL_WARN : COL_PRIMARY, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, heroTop + (heroH / 2), heroFont, timeStr, Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
 
-        dc.setColor(Graphics.COLOR_ORANGE, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(width / 2, 102, Graphics.FONT_XTINY, "AVANT DÉPART", Graphics.TEXT_JUSTIFY_CENTER);
+        // 3. Garmin 2x2 Lobby & Career Stats Grid (43..81% h)
+        var gTop = (h * 43) / 100;
+        var gBot = (h * 81) / 100;
+        dc.setColor(COL_GRID, Graphics.COLOR_TRANSPARENT);
+        dc.drawLine((w * 10) / 100, gTop, w - ((w * 10) / 100), gTop);
 
-        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(width / 2, 125, Graphics.FONT_XTINY, "" + _connectedPlayers + " Rameurs prêts", Graphics.TEXT_JUSTIFY_CENTER);
+        var racersStr = _hasBotsEnabled ? ("" + _connectedPlayers + "+B") : ("" + _connectedPlayers);
+        var targetStr = "" + _targetDistance;
+        var rankPtsStr = (_userPoints > 0)
+            ? ("#" + _userGeneralRank + " / " + _userPoints + "p")
+            : ("#" + _userGeneralRank + "/" + _userTotalPlayers);
+        var lastPart = (_userLastRank > 0) ? ("#" + _userLastRank) : "--";
+        var bestPart = (_userBestRank > 0) ? ("#" + _userBestRank) : "--";
+        var lastBestStr = lastPart + " / " + bestPart;
 
-        dc.setColor(Graphics.COLOR_BLUE, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(width / 2, 148, Graphics.FONT_XTINY, "Distance: " + _targetDistance + "m", Graphics.TEXT_JUSTIFY_CENTER);
+        drawGarminGrid2x2(
+            dc, gTop, gBot,
+            [I18n.getText("CELL_RACERS"), I18n.getText("CELL_TARGET"), I18n.getText("CELL_RANK_PTS"), I18n.getText("CELL_LAST_BEST")] as Array<String>,
+            [racersStr, targetStr, rankPtsStr, lastBestStr] as Array<String>,
+            [COL_GOOD, COL_CYAN, COL_ACCENT, COL_WARN] as Array<Number>,
+            [COL_PRIMARY, COL_PRIMARY, COL_PRIMARY, COL_PRIMARY] as Array<Number>
+        );
 
-        dc.setColor(Graphics.COLOR_DK_GRAY, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(width / 2, height - 25, Graphics.FONT_XTINY, "Départ automatique à 00:00", Graphics.TEXT_JUSTIFY_CENTER);
+        // 4. Footer (83..95% h)
+        dc.setColor(COL_GRID, Graphics.COLOR_TRANSPARENT);
+        dc.drawLine((w * 20) / 100, (h * 82) / 100, w - ((w * 20) / 100), (h * 82) / 100);
+
+        var footY = (h * 84) / 100;
+        var canToggleBots = (!_hasBotsEnabled && _connectedPlayers <= 1);
+        var footText = canToggleBots ? I18n.getText("BTN_VS_BOTS") : I18n.getText("AUTO_START_AT_ZERO");
+        dc.setColor(canToggleBots ? COL_ACCENT : COL_MUTED, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, footY, Graphics.FONT_XTINY, truncateToWidth(dc, footText, Graphics.FONT_XTINY, getSafeWidthAtY(w, h, footY, footY + 16)), Graphics.TEXT_JUSTIFY_CENTER);
     }
 
-    // G5 : Décompte Synchrone (T0 - 5 secondes)
-    private function drawG5Countdown(dc as Graphics.Dc, width as Number, height as Number) as Void {
-        dc.setColor(Graphics.COLOR_RED, Graphics.COLOR_RED);
-        dc.fillRectangle(0, 0, width, height);
+    // =========================================================================
+    // G5 : DECOMPTE SYNCHRONE 5 SECONDES (Chiffre pur dans FONT_NUMBER_*)
+    // =========================================================================
+    private function drawG5Countdown(dc as Graphics.Dc, w as Number, h as Number) as Void {
+        var cx = w / 2;
+        var cy = h / 2;
+        var minDim = (w < h) ? w : h;
 
-        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(width / 2, 30, Graphics.FONT_MEDIUM, "ATTENTION", Graphics.TEXT_JUSTIFY_CENTER);
+        // Alert bezel ring
+        dc.setPenWidth(6);
+        dc.setColor(COL_ALERT, Graphics.COLOR_TRANSPARENT);
+        dc.drawCircle(cx, cy, (minDim / 2) - 4);
+        dc.setPenWidth(1);
 
-        dc.setColor(Graphics.COLOR_YELLOW, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(width / 2, height / 2 - 40, Graphics.FONT_NUMBER_THAI_HOT, ">> " + _countdown5sValue + " <<", Graphics.TEXT_JUSTIFY_CENTER);
+        var topY = (h * 14) / 100;
+        dc.setColor(COL_WARN, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, topY, Graphics.FONT_SMALL, truncateToWidth(dc, I18n.getText("COUNTDOWN_TITLE"), Graphics.FONT_SMALL, getSafeWidthAtY(w, h, topY, topY + 24)), Graphics.TEXT_JUSTIFY_CENTER);
 
-        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(width / 2, height - 45, Graphics.FONT_SMALL, "TENIR PALONNIER", Graphics.TEXT_JUSTIFY_CENTER);
+        // Pure numeric string so FONT_NUMBER_THAI_HOT / FONT_NUMBER_HOT renders cleanly on all watches
+        var numStr = _countdown5sValue.toString();
+        var numBoxH = (h * 46) / 100;
+        var numFont = fitFontToBox(
+            dc,
+            numStr,
+            [Graphics.FONT_NUMBER_THAI_HOT, Graphics.FONT_NUMBER_HOT, Graphics.FONT_NUMBER_MEDIUM, Graphics.FONT_LARGE] as Array<Graphics.FontDefinition>,
+            (w * 60) / 100,
+            numBoxH
+        );
+        dc.setColor(COL_ACCENT, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, cy, numFont, numStr, Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+
+        var botY = (h * 79) / 100;
+        dc.setColor(COL_PRIMARY, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, botY, Graphics.FONT_XTINY, truncateToWidth(dc, I18n.getText("COUNTDOWN_HOLD"), Graphics.FONT_XTINY, getSafeWidthAtY(w, h, botY, botY + 18)), Graphics.TEXT_JUSTIFY_CENTER);
     }
 
-    // G6 : Écran de Course (In-Game Standard)
-    private function drawG6Racing(dc as Graphics.Dc, width as Number, height as Number) as Void {
-        // En-tête Rang / Total
-        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-        var rankBadge = "P " + (_currentRank < 10 ? "0" : "") + _currentRank + " / " + _totalRacers;
-        dc.drawText(width / 2, 18, Graphics.FONT_TINY, rankBadge, Graphics.TEXT_JUSTIFY_CENTER);
+    // =========================================================================
+    // G6 / G7 : COCKPIT DE COURSE EN GRILLE GARMIN (2 PAGES + ARC PERIMETRIQUE)
+    // =========================================================================
+    private function drawG6RacingCockpit(dc as Graphics.Dc, w as Number, h as Number) as Void {
+        var cx = w / 2;
 
-        dc.setColor(Graphics.COLOR_DK_GRAY, Graphics.COLOR_TRANSPARENT);
-        dc.drawLine(25, 36, width - 25, 36);
+        // 1. Outer 240 deg Perimeter Progress Ring
+        drawPerimeterProgressRing(dc, w, h, _progressPercent);
 
-        var m = (_model != null) ? (_model as RowerDataModel) : new RowerDataModel();
+        // 2. Top Sport Header Band (5..18% h): REC Dot + Rank/Mode + Chrono
+        var hdrTop = (h * 5) / 100;
+        var hdrBot = (h * 17) / 100;
+        var hdrCy = hdrTop + ((hdrBot - hdrTop) / 2);
+        var hdrMaxW = getSafeWidthAtY(w, h, hdrTop, hdrBot) - 18;
 
-        // Split instantané aux 500m
-        var paceSec = m.instantPace;
-        var pMin = paceSec / 60;
-        var pSec = paceSec % 60;
-        var paceStr = (pSec < 10) ? (pMin + ":0" + pSec) : (pMin + ":" + pSec);
-        dc.setColor(Graphics.COLOR_YELLOW, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(width / 2, 42, Graphics.FONT_MEDIUM, paceStr + " /500m", Graphics.TEXT_JUSTIFY_CENTER);
+        var modePrefix = "P" + _currentRank + "/" + _totalRacers;
+        if (_raceMode.equals("solo")) {
+            modePrefix = "SOLO";
+        } else if (_isLateJoiner) {
+            modePrefix = "LATE P" + _currentRank;
+        }
+        var headerStr = modePrefix + "  " + _model.formatTime(_model.elapsedTime);
+        var hdrFont = fitFontToBox(dc, headerStr, [Graphics.FONT_SMALL, Graphics.FONT_TINY, Graphics.FONT_XTINY] as Array<Graphics.FontDefinition>, hdrMaxW, hdrBot - hdrTop);
 
-        // Puissance (Watts)
-        dc.setColor(Graphics.COLOR_GREEN, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(width / 2, 75, Graphics.FONT_NUMBER_MEDIUM, m.instantPower.toString() + " W", Graphics.TEXT_JUSTIFY_CENTER);
+        var textW = dc.getTextWidthInPixels(headerStr, hdrFont);
+        var dotX = cx - (textW / 2) - 8;
+        dc.setColor(COL_GOOD, Graphics.COLOR_TRANSPARENT);
+        dc.fillCircle(dotX, hdrCy, 4);
 
-        dc.setColor(Graphics.COLOR_DK_GRAY, Graphics.COLOR_TRANSPARENT);
-        dc.drawLine(25, 125, width - 25, 125);
+        dc.setColor(COL_PRIMARY, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, hdrCy, hdrFont, headerStr, Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
 
-        // Distance & Écart Leader
-        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(width / 4, 132, Graphics.FONT_XTINY, "Dist:", Graphics.TEXT_JUSTIFY_CENTER);
-        dc.drawText((width * 3) / 4, 132, Graphics.FONT_XTINY, "Lead:", Graphics.TEXT_JUSTIFY_CENTER);
+        var divTopY = (h * 18) / 100;
+        var divBotY = (h * 82) / 100;
+        dc.setColor(COL_GRID, Graphics.COLOR_TRANSPARENT);
+        dc.drawLine((w * 15) / 100, divTopY, w - ((w * 15) / 100), divTopY);
 
-        dc.setColor(Graphics.COLOR_ORANGE, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(width / 4, 150, Graphics.FONT_SMALL, _netDistance + "m", Graphics.TEXT_JUSTIFY_CENTER);
+        // 3. Central 2x2 Garmin Data Grid (18..82% h)
+        if (_racePage == 0) {
+            // PAGE 1: Primary Race Grid [PACE | POWER] / [DISTANCE | GAP or REMAINING]
+            var dispPace = (_model.instantPace > 0) ? _model.instantPace : _model.avgPace;
+            var paceStr = _model.formatPace(dispPace);
+            var powerStr = _model.instantPower.format("%d");
+            var distStr = _netDistance.format("%d");
 
-        var gapStr = (_currentRank == 1) ? "1er" : ("-" + _distToLeader + "m");
-        dc.setColor(Graphics.COLOR_YELLOW, Graphics.COLOR_TRANSPARENT);
-        dc.drawText((width * 3) / 4, 150, Graphics.FONT_SMALL, gapStr, Graphics.TEXT_JUSTIFY_CENTER);
+            var brLabel = I18n.getText("GRID_GAP");
+            var brVal = "--";
+            var brValCol = COL_PRIMARY;
 
-        // Progress bar at bottom
-        var barWidth = width - 40;
-        var progressPx = (_progressPercent * barWidth).toNumber();
-        if (progressPx > barWidth) { progressPx = barWidth; }
-        dc.setColor(Graphics.COLOR_DK_GRAY, Graphics.COLOR_TRANSPARENT);
-        dc.fillRectangle(20, 198, barWidth, 6);
-        dc.setColor(Graphics.COLOR_YELLOW, Graphics.COLOR_TRANSPARENT);
-        dc.fillRectangle(20, 198, progressPx, 6);
+            if (_raceMode.equals("solo")) {
+                brLabel = I18n.getText("GRID_REM");
+                var rem = _targetDistance - _netDistance;
+                if (rem < 0) { rem = 0; }
+                brVal = rem.format("%d");
+            } else if (_currentRank <= 1 && !_isLateJoiner) {
+                brVal = I18n.getText("HUD_LEADER");
+                brValCol = COL_GOOD;
+            } else {
+                brVal = "-" + _distToLeader.format("%d");
+                brValCol = COL_WARN;
+            }
+
+            drawGarminGrid2x2(
+                dc, divTopY, divBotY,
+                [I18n.getText("GRID_PACE"), I18n.getText("GRID_POWER"), I18n.getText("GRID_DIST"), brLabel] as Array<String>,
+                [paceStr, powerStr, distStr, brVal] as Array<String>,
+                [COL_ACCENT, COL_GOOD, COL_CYAN, COL_WARN] as Array<Number>,
+                [COL_PRIMARY, COL_PRIMARY, COL_PRIMARY, brValCol] as Array<Number>
+            );
+        } else {
+            // PAGE 2: Tactical Gaps / Biomechanics & Session Averages Grid
+            var tlLbl = I18n.getText("GRID_PREV");
+            var tlVal = "--";
+            var trLbl = I18n.getText("GRID_NEXT");
+            var trVal = "--";
+
+            if (_raceMode.equals("solo")) {
+                tlLbl = I18n.getText("GRID_WORK");
+                tlVal = _model.work.format("%.0f");
+                trLbl = I18n.getText("GRID_FORCE");
+                trVal = _model.force.format("%d");
+            } else {
+                if (_currentRank > 1 && _distToPrev > 0) {
+                    tlVal = "-" + _distToPrev.format("%d");
+                }
+                if (_distToNext > 0) {
+                    trVal = "+" + _distToNext.format("%d");
+                }
+            }
+
+            var avgPaceVal = _model.formatPace(_model.getEffectiveAvgPace(_model.elapsedTime));
+            var avgPowVal = _model.avgPower.format("%d");
+
+            drawGarminGrid2x2(
+                dc, divTopY, divBotY,
+                [tlLbl, trLbl, I18n.getText("GRID_AVG_PACE"), I18n.getText("GRID_AVG_POWER")] as Array<String>,
+                [tlVal, trVal, avgPaceVal, avgPowVal] as Array<String>,
+                [COL_WARN, COL_GOOD, COL_ACCENT, COL_CYAN] as Array<Number>,
+                [COL_PRIMARY, COL_PRIMARY, COL_PRIMARY, COL_PRIMARY] as Array<Number>
+            );
+        }
+
+        // 4. Bottom Compact Telemetry Pill (82..94% h)
+        dc.setColor(COL_GRID, Graphics.COLOR_TRANSPARENT);
+        dc.drawLine((w * 20) / 100, divBotY, w - ((w * 20) / 100), divBotY);
+
+        var footTop = (h * 83) / 100;
+        var footBot = (h * 94) / 100;
+        var footMaxW = getSafeWidthAtY(w, h, footTop, footBot) - 6;
+        var footStr = "";
+        if (_racePage == 0) {
+            var spmVal = (_model.strokeRate > 0.0f) ? _model.strokeRate.format("%.0f") : "0";
+            var hrVal = (_model.heartRate > 0) ? (_model.heartRate.format("%d") + " bpm") : "-- bpm";
+            footStr = spmVal + " spm  |  " + hrVal;
+        } else {
+            footStr = _model.strokeCount.format("%d") + " " + I18n.getText("FOOT_STROKES") + "  |  " + _model.totalEnergy.format("%d") + " kcal";
+        }
+        dc.setColor(COL_MUTED, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, footTop + ((footBot - footTop) / 2), Graphics.FONT_XTINY, truncateToWidth(dc, footStr, Graphics.FONT_XTINY, footMaxW), Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+
+        // 5. Right-Edge Vertical Garmin Page Carousel (2 pages)
+        drawRightPageCarousel(dc, w, h, 2, _racePage);
     }
 
-    // G7 : Écran de Course Alternatif (Mode Late-Join)
-    private function drawG7LateJoin(dc as Graphics.Dc, width as Number, height as Number) as Void {
-        dc.setColor(Graphics.COLOR_ORANGE, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(width / 2, 18, Graphics.FONT_TINY, "LATE JOIN", Graphics.TEXT_JUSTIFY_CENTER);
+    // =========================================================================
+    // G8 : LIGNE D'ARRIVEE & PODIUM (2 Pages navigables UP/DOWN)
+    // =========================================================================
+    private function drawG8Finished(dc as Graphics.Dc, w as Number, h as Number) as Void {
+        var cx = w / 2;
 
-        dc.setColor(Graphics.COLOR_DK_GRAY, Graphics.COLOR_TRANSPARENT);
-        dc.drawLine(25, 36, width - 25, 36);
+        drawPerimeterProgressRing(dc, w, h, 1.0f);
 
-        var m = (_model != null) ? (_model as RowerDataModel) : new RowerDataModel();
+        if (_finishPage == 0) {
+            // Page 1: Finish Rank Header + 2x2 Summary Grid
+            var hdrY = (h * 6) / 100;
+            var rankTag = _raceMode.equals("solo") ? "SOLO" : ("#" + _finalRank);
+            var titleStr = I18n.getText("FINISHED_TITLE") + "  " + rankTag;
+            dc.setColor(COL_ACCENT, Graphics.COLOR_TRANSPARENT);
+            dc.drawText(cx, hdrY, Graphics.FONT_SMALL, truncateToWidth(dc, titleStr, Graphics.FONT_SMALL, getSafeWidthAtY(w, h, hdrY, hdrY + 22)), Graphics.TEXT_JUSTIFY_CENTER);
 
-        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(width / 2, 45, Graphics.FONT_SMALL, "Perso: " + _netDistance + "m", Graphics.TEXT_JUSTIFY_CENTER);
+            var gTop = (h * 19) / 100;
+            var gBot = (h * 81) / 100;
+            dc.setColor(COL_GRID, Graphics.COLOR_TRANSPARENT);
+            dc.drawLine((w * 15) / 100, gTop, w - ((w * 15) / 100), gTop);
 
-        var paceSec = m.instantPace;
-        var pMin = paceSec / 60;
-        var pSec = paceSec % 60;
-        var paceStr = (pSec < 10) ? (pMin + ":0" + pSec) : (pMin + ":" + pSec);
-        dc.setColor(Graphics.COLOR_YELLOW, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(width / 2, 75, Graphics.FONT_MEDIUM, "Split: " + paceStr, Graphics.TEXT_JUSTIFY_CENTER);
+            var distVal = ((_netDistance > 0) ? _netDistance : _model.totalDistance).format("%d");
+            var timeVal = _model.formatTime(_model.elapsedTime);
+            var avgPaceVal = _model.formatPace(_model.getEffectiveAvgPace(_model.elapsedTime));
+            var avgWattsVal = _model.avgPower.format("%d");
 
-        dc.setColor(Graphics.COLOR_DK_GRAY, Graphics.COLOR_TRANSPARENT);
-        dc.drawLine(25, 115, width - 25, 115);
+            drawGarminGrid2x2(
+                dc, gTop, gBot,
+                [I18n.getText("CELL_TIME"), I18n.getText("GRID_DIST"), I18n.getText("GRID_AVG_PACE"), I18n.getText("GRID_AVG_POWER")] as Array<String>,
+                [timeVal, distVal, avgPaceVal, avgWattsVal] as Array<String>,
+                [COL_GOOD, COL_CYAN, COL_ACCENT, COL_WARN] as Array<Number>,
+                [COL_PRIMARY, COL_PRIMARY, COL_PRIMARY, COL_PRIMARY] as Array<Number>
+            );
+        } else {
+            // Page 2: Official Top 3 Podium Rows
+            var pHdrY = (h * 7) / 100;
+            dc.setColor(COL_ACCENT, Graphics.COLOR_TRANSPARENT);
+            dc.drawText(cx, pHdrY, Graphics.FONT_XTINY, truncateToWidth(dc, I18n.getText("PODIUM_TITLE"), Graphics.FONT_XTINY, getSafeWidthAtY(w, h, pHdrY, pHdrY + 18)), Graphics.TEXT_JUSTIFY_CENTER);
 
-        dc.setColor(Graphics.COLOR_RED, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(width / 2, 125, Graphics.FONT_XTINY, "Peloton: -" + _distToLeader + "m", Graphics.TEXT_JUSTIFY_CENTER);
+            dc.setColor(COL_GRID, Graphics.COLOR_TRANSPARENT);
+            dc.drawLine((w * 16) / 100, (h * 18) / 100, w - ((w * 16) / 100), (h * 18) / 100);
 
-        var timeSec = m.elapsedTime;
-        var tMin = timeSec / 60;
-        var tSec = timeSec % 60;
-        var timeStr = (tSec < 10) ? (tMin + ":0" + tSec) : (tMin + ":" + tSec);
-        dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(width / 2, 150, Graphics.FONT_XTINY, "Session: " + timeStr, Graphics.TEXT_JUSTIFY_CENTER);
+            if (_top3Podium.size() == 0) {
+                dc.setColor(COL_MUTED, Graphics.COLOR_TRANSPARENT);
+                dc.drawText(cx, h / 2, Graphics.FONT_XTINY, truncateToWidth(dc, I18n.getText("PODIUM_EMPTY"), Graphics.FONT_XTINY, w - 32), Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+            } else {
+                var listTop = (h * 21) / 100;
+                var rowH = (h * 19) / 100;
+                for (var i = 0; i < _top3Podium.size() && i < 3; i++) {
+                    var entry = _top3Podium[i];
+                    var rTop = listTop + (i * rowH);
+                    var rW = getSafeWidthAtY(w, h, rTop, rTop + rowH - 4) - 16;
+                    var rLeft = cx - (rW / 2);
+
+                    dc.setColor(COL_GRID, Graphics.COLOR_TRANSPARENT);
+                    dc.drawRoundedRectangle(rLeft, rTop, rW, rowH - 4, 6);
+
+                    var pName = (entry.hasKey("userName") && entry.get("userName") != null)
+                        ? entry.get("userName").toString()
+                        : ((entry.hasKey("name") && entry.get("name") != null) ? entry.get("name").toString() : "Racer");
+                    var pCol = (i == 0) ? COL_ACCENT : ((i == 1) ? COL_PRIMARY : COL_WARN);
+                    var rowLabel = "#" + (i + 1) + " " + pName;
+                    dc.setColor(pCol, Graphics.COLOR_TRANSPARENT);
+                    dc.drawText(cx, rTop + ((rowH - 4) / 2), Graphics.FONT_SMALL, truncateToWidth(dc, rowLabel, Graphics.FONT_SMALL, rW - 12), Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+                }
+            }
+        }
+
+        var footY = (h * 84) / 100;
+        dc.setColor(COL_GRID, Graphics.COLOR_TRANSPARENT);
+        dc.drawLine((w * 20) / 100, (h * 82) / 100, w - ((w * 20) / 100), (h * 82) / 100);
+        dc.setColor(COL_MUTED, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, footY, Graphics.FONT_XTINY, truncateToWidth(dc, I18n.getText("FINISH_FOOTER"), Graphics.FONT_XTINY, getSafeWidthAtY(w, h, footY, footY + 16)), Graphics.TEXT_JUSTIFY_CENTER);
+
+        drawRightPageCarousel(dc, w, h, 2, _finishPage);
     }
 
-    // G8 : Ligne d'Arrivée & Podium Montre
-    private function drawG8Finished(dc as Graphics.Dc, width as Number, height as Number) as Void {
-        dc.setColor(Graphics.COLOR_YELLOW, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(width / 2, 18, Graphics.FONT_MEDIUM, "TERMINÉ !", Graphics.TEXT_JUSTIFY_CENTER);
+    // =========================================================================
+    // G9 : HISTORIQUE LOCAL EN LIGNES DE GRILLE GARMIN
+    // =========================================================================
+    private function drawG9History(dc as Graphics.Dc, w as Number, h as Number) as Void {
+        var cx = w / 2;
 
-        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(width / 2, 55, Graphics.FONT_LARGE, "[ #" + _finalRank + " ]", Graphics.TEXT_JUSTIFY_CENTER);
+        var hdrY = (h * 7) / 100;
+        dc.setColor(COL_ACCENT, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, hdrY, Graphics.FONT_XTINY, truncateToWidth(dc, I18n.getText("HIST_TITLE"), Graphics.FONT_XTINY, getSafeWidthAtY(w, h, hdrY, hdrY + 16)), Graphics.TEXT_JUSTIFY_CENTER);
 
-        var m = (_model != null) ? (_model as RowerDataModel) : new RowerDataModel();
-        var timeSec = m.elapsedTime;
-        var tMin = timeSec / 60;
-        var tSec = timeSec % 60;
-        var timeStr = (tSec < 10) ? (tMin + ":0" + tSec) : (tMin + ":" + tSec);
-
-        dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(width / 2, 105, Graphics.FONT_SMALL, "Chrono: " + timeStr, Graphics.TEXT_JUSTIFY_CENTER);
-        dc.drawText(width / 2, 130, Graphics.FONT_XTINY, "Moy: " + m.avgPower + "W | " + m.avgStrokeRate.format("%.0f") + " spm", Graphics.TEXT_JUSTIFY_CENTER);
-
-        dc.setColor(Graphics.COLOR_GREEN, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(width / 2, height - 30, Graphics.FONT_XTINY, "FIT Sauvegardé", Graphics.TEXT_JUSTIFY_CENTER);
-    }
-
-    // G9 : Consultation de l'Historique Récent au Poignet
-    private function drawG9History(dc as Graphics.Dc, width as Number, height as Number) as Void {
-        dc.setColor(Graphics.COLOR_YELLOW, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(width / 2, 18, Graphics.FONT_TINY, "HISTORIQUE RÉCENT", Graphics.TEXT_JUSTIFY_CENTER);
+        dc.setColor(COL_GRID, Graphics.COLOR_TRANSPARENT);
+        dc.drawLine((w * 16) / 100, (h * 18) / 100, w - ((w * 16) / 100), (h * 18) / 100);
 
         var historyList = [] as Array<Dictionary>;
         try {
@@ -514,105 +1295,73 @@ class RowerView extends WatchUi.View {
             if (raw != null && raw instanceof Array) {
                 historyList = raw as Array<Dictionary>;
             }
-        } catch (ex) {}
+        } catch (ex) {
+        }
 
         if (historyList.size() == 0) {
-            dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
-            dc.drawText(width / 2, height / 2, Graphics.FONT_XTINY, "Aucune course enregistrée", Graphics.TEXT_JUSTIFY_CENTER);
+            dc.setColor(COL_MUTED, Graphics.COLOR_TRANSPARENT);
+            dc.drawText(cx, h / 2, Graphics.FONT_XTINY, truncateToWidth(dc, I18n.getText("HIST_EMPTY"), Graphics.FONT_XTINY, w - 30), Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
         } else {
-            for (var i = 0; i < historyList.size() && i < 3; i++) {
-                var item = historyList[i];
-                var yPos = 55 + (i * 38);
-                dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-                var dist = item.get("distance");
-                var rk = item.get("rank");
-                var tSec = item.get("timeSec");
-                var m = (tSec as Number) / 60;
-                var s = (tSec as Number) % 60;
-                var timeStr = (s < 10) ? (m + ":0" + s) : (m + ":" + s);
+            var listTop = (h * 20) / 100;
+            var rowH = (h * 20) / 100;
+            var count = historyList.size();
+            var shown = 0;
+            // Show up to 3 most recent sessions first
+            for (var idx = count - 1; idx >= 0 && shown < 3; idx--) {
+                var item = historyList[idx];
+                var rTop = listTop + (shown * rowH);
+                var rW = getSafeWidthAtY(w, h, rTop, rTop + rowH - 3) - 14;
+                var rLeft = cx - (rW / 2);
 
-                dc.drawText(width / 2, yPos, Graphics.FONT_XTINY, "> Course " + dist + "m", Graphics.TEXT_JUSTIFY_CENTER);
-                dc.setColor(Graphics.COLOR_ORANGE, Graphics.COLOR_TRANSPARENT);
-                dc.drawText(width / 2, yPos + 16, Graphics.FONT_XTINY, "#0" + rk + " • " + timeStr, Graphics.TEXT_JUSTIFY_CENTER);
+                dc.setColor(COL_GRID, Graphics.COLOR_TRANSPARENT);
+                dc.drawRoundedRectangle(rLeft, rTop, rW, rowH - 4, 5);
+
+                var dist = (item.hasKey("distance") && item.get("distance") != null) ? (item.get("distance") as Number) : 0;
+                var rk = (item.hasKey("rank") && item.get("rank") != null) ? (item.get("rank") as Number) : 1;
+                var tSec = (item.hasKey("timeSec") && item.get("timeSec") != null) ? (item.get("timeSec") as Number) : 0;
+                var rowStr = "#" + rk + "  " + dist + "m  |  " + _model.formatTime(tSec);
+
+                var rFont = fitFontToBox(dc, rowStr, [Graphics.FONT_SMALL, Graphics.FONT_TINY, Graphics.FONT_XTINY] as Array<Graphics.FontDefinition>, rW - 10, rowH - 6);
+                dc.setColor(COL_PRIMARY, Graphics.COLOR_TRANSPARENT);
+                dc.drawText(cx, rTop + ((rowH - 4) / 2), rFont, truncateToWidth(dc, rowStr, rFont, rW - 10), Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+                shown += 1;
             }
         }
 
-        dc.setColor(Graphics.COLOR_DK_GRAY, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(width / 2, height - 25, Graphics.FONT_XTINY, "BACK: Retour Menu", Graphics.TEXT_JUSTIFY_CENTER);
+        var footY = (h * 84) / 100;
+        dc.setColor(COL_GRID, Graphics.COLOR_TRANSPARENT);
+        dc.drawLine((w * 20) / 100, (h * 82) / 100, w - ((w * 20) / 100), (h * 82) / 100);
+        dc.setColor(COL_MUTED, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, footY, Graphics.FONT_XTINY, truncateToWidth(dc, I18n.getText("HIST_FOOTER"), Graphics.FONT_XTINY, getSafeWidthAtY(w, h, footY, footY + 16)), Graphics.TEXT_JUSTIFY_CENTER);
     }
 
-    // Menu Pause
-    private function drawPaused(dc as Graphics.Dc, width as Number, height as Number) as Void {
-        dc.setColor(Graphics.COLOR_RED, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(width / 2, 20, Graphics.FONT_MEDIUM, "EN PAUSE", Graphics.TEXT_JUSTIFY_CENTER);
+    // =========================================================================
+    // PROPORTIONAL WARNING BANNER OVERLAY
+    // =========================================================================
+    private function drawWarningBanner(dc as Graphics.Dc, w as Number, h as Number, text as String) as Void {
+        var cx = w / 2;
+        var cy = h / 2;
+        var boxH = (h * 26) / 100;
+        if (boxH < 48) { boxH = 48; }
+        var boxY = cy - (boxH / 2);
+        var boxW = getSafeWidthAtY(w, h, boxY, boxY + boxH) - 12;
+        var boxX = cx - (boxW / 2);
 
-        var options = ["Reprendre", "Enregistrer & Quitter", "Abandonner"];
-        for (var i = 0; i < 3; i++) {
-            var yPos = 75 + (i * 35);
-            if (i == _pauseMenuIndex) {
-                dc.setColor(Graphics.COLOR_DK_BLUE, Graphics.COLOR_DK_BLUE);
-                dc.fillRectangle(25, yPos - 3, width - 50, 26);
-                dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-                dc.drawText(width / 2, yPos, Graphics.FONT_TINY, "> " + options[i] + " <", Graphics.TEXT_JUSTIFY_CENTER);
-            } else {
-                dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
-                dc.drawText(width / 2, yPos, Graphics.FONT_TINY, options[i], Graphics.TEXT_JUSTIFY_CENTER);
-            }
-        }
-
-        dc.setColor(Graphics.COLOR_DK_GRAY, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(width / 2, height - 30, Graphics.FONT_XTINY, "DOWN: Choisir | START: Valider", Graphics.TEXT_JUSTIFY_CENTER);
-    }
-
-    // Bannière d'alerte / faux départ
-    private function drawWarningBanner(dc as Graphics.Dc, width as Number, height as Number, text as String) as Void {
-        var boxW = width - 40;
-        var boxH = 46;
-        var boxX = 20;
-        var boxY = (height / 2) - (boxH / 2);
-
-        dc.setColor(Graphics.COLOR_RED, Graphics.COLOR_RED);
+        dc.setColor(COL_ALERT, COL_ALERT);
         dc.fillRoundedRectangle(boxX, boxY, boxW, boxH, 8);
-        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
+        dc.setColor(COL_PRIMARY, Graphics.COLOR_TRANSPARENT);
         dc.setPenWidth(2);
         dc.drawRoundedRectangle(boxX, boxY, boxW, boxH, 8);
+        dc.setPenWidth(1);
 
-        dc.drawText(width / 2, boxY + 4, Graphics.FONT_MEDIUM, text, Graphics.TEXT_JUSTIFY_CENTER);
-        var subText = _falseStartLocked ? "Vitesse à 0 requise !" : "Attendez le départ !";
-        dc.drawText(width / 2, boxY + 26, Graphics.FONT_XTINY, subText, Graphics.TEXT_JUSTIFY_CENTER);
-    }
+        var mainTop = boxY + 4;
+        var mainH = (boxH * 52) / 100;
+        var mainFont = fitFontToBox(dc, text, [Graphics.FONT_SMALL, Graphics.FONT_TINY, Graphics.FONT_XTINY] as Array<Graphics.FontDefinition>, boxW - 12, mainH);
+        dc.drawText(cx, mainTop + (mainH / 2), mainFont, truncateToWidth(dc, text, mainFont, boxW - 12), Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
 
-    function decrementCountdown() as Void {
-        if (_nextRaceCountdown > 0) {
-            _nextRaceCountdown--;
-            WatchUi.requestUpdate();
-        }
-    }
-
-    function getCountdown() as Number {
-        return _nextRaceCountdown;
-    }
-
-    function getConnectedPlayers() as Number {
-        return _connectedPlayers;
-    }
-
-    function isBotsEnabled() as Boolean {
-        return _hasBotsEnabled;
-    }
-
-    function setBotsEnabled(enabled as Boolean) as Void {
-        _hasBotsEnabled = enabled;
-        WatchUi.requestUpdate();
-    }
-
-    function showAuthPrompt(reqId as String, login as String) as Void {
-        _authRequestId = reqId;
-        _authLogin = login;
-        WatchUi.requestUpdate();
-    }
-
-    function getAuthRequestId() as String {
-        return _authRequestId;
+        var subText = _falseStartLocked ? I18n.getText("WARN_ZERO_SPEED") : I18n.getText("WARN_WAIT_START");
+        var subCy = boxY + ((boxH * 76) / 100);
+        dc.setColor(COL_ACCENT, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, subCy, Graphics.FONT_XTINY, truncateToWidth(dc, subText, Graphics.FONT_XTINY, boxW - 12), Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
     }
 }

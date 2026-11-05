@@ -1,549 +1,1187 @@
+import Toybox.Activity;
+import Toybox.Attention;
 import Toybox.BluetoothLowEnergy;
 import Toybox.Lang;
+import Toybox.StringUtil;
 import Toybox.System;
 import Toybox.ActivityRecording;
 import Toybox.Time;
-import Toybox.Timer;
+import Toybox.WatchUi;
 
 class BleDelegate extends BluetoothLowEnergy.BleDelegate {
 
-    // Bluetooth SIG standard FTMS Service UUID: 0x1826
-    private static const FTMS_SERVICE_UUID = BluetoothLowEnergy.stringToUuid("00001826-0000-1000-8000-00805F9B34FB");
-    // FTMS Rower Data Characteristic UUID: 0x2AD1
-    private static const ROWER_DATA_CHAR_UUID = BluetoothLowEnergy.stringToUuid("00002AD1-0000-1000-8000-00805F9B34FB");
+    // Standard Bluetooth SIG FTMS Service & Characteristics (0x1826, 0x2AD1, 0x2AD9)
+    // Covers Concept2 PM5, WaterRower ComModule/S4, Merach, VOWVIT, Domyos, Skillrow, EXR, RP3, etc.
+    public static const FTMS_SERVICE_UUID       = BluetoothLowEnergy.stringToUuid("00001826-0000-1000-8000-00805F9B34FB");
+    public static const FTMS_ROWER_DATA_UUID    = BluetoothLowEnergy.stringToUuid("00002AD1-0000-1000-8000-00805F9B34FB");
+    public static const FTMS_CONTROL_POINT_UUID = BluetoothLowEnergy.stringToUuid("00002AD9-0000-1000-8000-00805F9B34FB");
 
-    // Concept2 PM5 Custom Primary Rowing Service UUID & Characteristics
-    private static const C2_ROWING_SERVICE_UUID = BluetoothLowEnergy.stringToUuid("CE060030-43E5-11E4-916C-0800200C9A66");
-    private static const C2_ROWING_STATUS_UUID  = BluetoothLowEnergy.stringToUuid("CE060031-43E5-11E4-916C-0800200C9A66");
-    private static const C2_EXTRA_STATUS1_UUID  = BluetoothLowEnergy.stringToUuid("CE060032-43E5-11E4-916C-0800200C9A66");
+    // WaterRower SmartRow Direct Pulley Service & Characteristics (0x1234, 0x1235 Write, 0x1236 Notify)
+    public static const SMARTROW_SERVICE_UUID   = BluetoothLowEnergy.stringToUuid("00001234-0000-1000-8000-00805F9B34FB");
+    public static const SMARTROW_WRITE_UUID     = BluetoothLowEnergy.stringToUuid("00001235-0000-1000-8000-00805F9B34FB");
+    public static const SMARTROW_DATA_UUID      = BluetoothLowEnergy.stringToUuid("00001236-0000-1000-8000-00805F9B34FB");
 
-    // WaterRower SmartRow Custom Pulley Service UUID & Characteristics (direct connection without bridge)
-    private static const SMARTROW_SERVICE_UUID = BluetoothLowEnergy.stringToUuid("00001234-0000-1000-8000-00805F9B34FB");
-    private static const SMARTROW_NOTIFY_CHAR_UUID = BluetoothLowEnergy.stringToUuid("00001236-0000-1000-8000-00805F9B34FB");
+    private const _ftmsProfileDef = {
+        :uuid => FTMS_SERVICE_UUID,
+        :characteristics => [{
+            :uuid => FTMS_ROWER_DATA_UUID,
+            :descriptors => [BluetoothLowEnergy.cccdUuid()]
+        }, {
+            :uuid => FTMS_CONTROL_POINT_UUID
+        }]
+    };
 
+    private const _smartRowProfileDef = {
+        :uuid => SMARTROW_SERVICE_UUID,
+        :characteristics => [{
+            :uuid => SMARTROW_DATA_UUID,
+            :descriptors => [BluetoothLowEnergy.cccdUuid()]
+        }, {
+            :uuid => SMARTROW_WRITE_UUID
+        }]
+    };
+
+    private static var _profilesRegistered as Boolean = false;
+
+    private var _model as RowerDataModel;
     private var _view as RowerView?;
-    private var _device as BluetoothLowEnergy.Device?;
-    private var _connectedProtocol as String = "FTMS"; // "FTMS", "CONCEPT2", "SMARTROW"
     private var _syncManager as RestSyncManager;
-    private var _deviceName as String? = null;
 
-    // Race & Session State
+    // BLE GATT & SmartRow Direct state (ported from rower.iq)
+    private var _device as BluetoothLowEnergy.Device?;
+    private var _srWriteChar as BluetoothLowEnergy.Characteristic?;
+    private var _ftmsCtrlChar as BluetoothLowEnergy.Characteristic?;
+    private var _activeDataChar as BluetoothLowEnergy.Characteristic?;
+    private var _isManualDisconnect as Boolean = false;
+    private var _lastPairedName as String? = null;
+    private var _bleWriteBusy as Boolean = false;
+    private var _bleBusyTicks as Number = 0;
+    private var _cccdSubscribed as Boolean = false;
+    private var _secondsWithoutData as Number = 0;
+    private var _stateWatchdogTicks as Number = 0;
+    private var _pendingProfiles as Number = 0;
+    private var _profileWaitTicks as Number = 0;
+    private var _noCharTicks as Number = 0;
+
+    // SmartRow V3 handshake & TX packet queue
+    private var _srPacketQueue as Array<ByteArray> = [] as Array<ByteArray>;
+    private var _srHandshakeState as Number = 0; // 0=uninit, 1=init sent, 2=challenge requested, 3=unlocked
+    private var _srChallengeRequested as Boolean = false;
+
+    // Race & FIT Session State
     private var _session as ActivityRecording.Session?;
     private var _userId as String = "";
     private var _activityId as String = "";
     private var _raceMode as String = "race"; // "race" or "solo"
-    private var _activityStatus as String = "waiting"; // "waiting", "in_progress", "paused", "completed"
+    private var _activityStatus as String = "waiting"; // "waiting", "in_progress", "paused", "completed", "abandoned"
     private var _targetDistance as Number = 10000;
-    private var _initialDistance as Number = -1; // -1 means uninitialized
-    private var _netDistance as Number = 0;
-    private var _progressPercent as Float = 0.0;
-    private var _lastModel as RowerDataModel?;
+    private var _progressPercent as Float = 0.0f;
     private var _lastSentStrokeCount as Number = 0;
+    private var _lastFallbackSendSec as Number = 0;
+    private var _tickCounter as Number = 0;
 
-    // Second timer for countdown and lobby refresh
-    private var _countdownTimer as Timer.Timer?;
-
-    function initialize() {
+    public function initialize(model as RowerDataModel) {
         BleDelegate.initialize();
+        _model = model;
         _syncManager = new RestSyncManager(self);
         _userId = UserManager.getUserId();
-        registerProfiles();
-        startClockTimer();
     }
 
-    function setView(view as RowerView) as Void {
+    public function setView(view as RowerView) as Void {
         _view = view;
     }
 
-    function getSyncManager() as RestSyncManager {
+    public function getModel() as RowerDataModel {
+        return _model;
+    }
+
+    public function getSyncManager() as RestSyncManager {
         return _syncManager;
     }
 
-    function getRaceMode() as String {
+    public function getRaceMode() as String {
         return _raceMode;
     }
 
-    function setRaceMode(mode as String) as Void {
-        _raceMode = mode;
-    }
+    // =========================================================================
+    // 1. BLE PROFILE REGISTRATION, SCANNING & SMARTROW V3 HANDSHAKE (rower.iq)
+    // =========================================================================
 
-    private function registerProfiles() as Void {
-        // 1. Profil standard Bluetooth FTMS (WaterRower S4 ComModule, Merach R11/R14/Q1, VOWVIT V-W3/V-W2, Domyos, Kingsmith, etc.)
-        var ftmsProfile = {
-            :uuid => FTMS_SERVICE_UUID,
-            :characteristics => [
-                {
-                    :uuid => ROWER_DATA_CHAR_UUID,
-                    :descriptors => [
-                        BluetoothLowEnergy.cccdUuid()
-                    ]
-                }
-            ]
-        };
-        BluetoothLowEnergy.registerProfile(ftmsProfile);
-
-        // 2. Profil Concept2 PM5 natif (Service Rowing CE060030)
-        var c2Profile = {
-            :uuid => C2_ROWING_SERVICE_UUID,
-            :characteristics => [
-                {
-                    :uuid => C2_ROWING_STATUS_UUID,
-                    :descriptors => [
-                        BluetoothLowEnergy.cccdUuid()
-                    ]
-                },
-                {
-                    :uuid => C2_EXTRA_STATUS1_UUID,
-                    :descriptors => [
-                        BluetoothLowEnergy.cccdUuid()
-                    ]
-                }
-            ]
-        };
-        BluetoothLowEnergy.registerProfile(c2Profile);
-
-        // 3. Profil WaterRower SmartRow direct (Poulie SmartRow sans broadcast FTMS)
-        var smartrowProfile = {
-            :uuid => SMARTROW_SERVICE_UUID,
-            :characteristics => [
-                {
-                    :uuid => SMARTROW_NOTIFY_CHAR_UUID,
-                    :descriptors => [
-                        BluetoothLowEnergy.cccdUuid()
-                    ]
-                }
-            ]
-        };
-        BluetoothLowEnergy.registerProfile(smartrowProfile);
-    }
-
-    private function startClockTimer() as Void {
-        _countdownTimer = new Timer.Timer();
-        _countdownTimer.start(method(:onTimerTick), 1000, true);
-    }
-
-    function onTimerTick() as Void {
-        if (_view == null) {
+    //! Register FTMS (0x1826) and SmartRow Direct (0x1234) BLE profiles (2 profiles max)
+    public function registerProfiles() as Void {
+        if (_profilesRegistered) {
+            if (_model.connectionState == RowerDataModel.STATE_DISCONNECTED && !_isManualDisconnect) {
+                startScan();
+            }
             return;
         }
-
-        var state = _view.getAppState();
-        if (state == RowerView.STATE_WAITING_START || state == RowerView.STATE_LOBBY) {
-            _view.decrementCountdown();
-
-            // Refresh lobby stats every 10 seconds
-            if (_view.getCountdown() % 10 == 0) {
-                _syncManager.fetchNextRace();
-            }
-
-            // Auto-start race when countdown hits 0!
-            if (state == RowerView.STATE_WAITING_START && _view.getCountdown() <= 0) {
-                launchRaceFromWaiting();
-            }
+        _pendingProfiles = 2;
+        _profileWaitTicks = 0;
+        try {
+            BluetoothLowEnergy.registerProfile(_ftmsProfileDef);
+        } catch (e) {
+            System.println("BLE registerProfile FTMS error: " + e.getErrorMessage());
+            _pendingProfiles -= 1;
         }
-
-        // Regularly poll web auth request in lobby, waiting, or scanning states (every 3s)
-        var timerSec = System.getTimer() / 1000;
-        if (timerSec % 3 == 0) {
-            if (state == RowerView.STATE_SCANNING || state == RowerView.STATE_LOBBY || state == RowerView.STATE_WAITING_START) {
-                _syncManager.checkPendingLogin(_userId);
-            }
+        try {
+            BluetoothLowEnergy.registerProfile(_smartRowProfileDef);
+        } catch (e) {
+            System.println("BLE registerProfile SmartRow error: " + e.getErrorMessage());
+            _pendingProfiles -= 1;
         }
+        _profilesRegistered = true;
     }
 
-    function startScan() as Void {
-        BluetoothLowEnergy.setScanState(BluetoothLowEnergy.SCAN_STATE_SCANNING);
-        if (_view != null) {
-            _view.setStatus("Recherche Rameur BLE...");
+    //! Start scanning only after GATT profiles are registered
+    public function onProfileRegister(uuid as BluetoothLowEnergy.Uuid, status as BluetoothLowEnergy.Status) as Void {
+        if (_pendingProfiles > 0) {
+            _pendingProfiles -= 1;
         }
-    }
-
-    function stopScan() as Void {
-        BluetoothLowEnergy.setScanState(BluetoothLowEnergy.SCAN_STATE_OFF);
-    }
-
-    function disconnect() as Void {
-        if (_device != null) {
-            BluetoothLowEnergy.unpairDevice(_device as BluetoothLowEnergy.Device);
-            _device = null;
-        }
-    }
-
-    function onScanResults(scanResults as BluetoothLowEnergy.Iterator) as Void {
-        for (var result = scanResults.next(); result != null; result = scanResults.next()) {
-            var scanRes = result as BluetoothLowEnergy.ScanResult;
-            var iter = scanRes.getServiceUuids();
-            var devName = scanRes.getDeviceName();
-            if (devName == null) {
-                devName = "";
-            }
-
-            // Identification par UUID de service
-            for (var uuid = iter.next(); uuid != null; uuid = iter.next()) {
-                if (uuid.equals(FTMS_SERVICE_UUID)) {
-                    // FTMS Standard (WaterRower S4 ComModule, Merach, VOWVIT, etc.)
-                    _connectedProtocol = "FTMS";
-                    stopScan();
-                    _deviceName = devName.length() > 0 ? devName : "Rameur FTMS";
-                    if (_view != null) {
-                        _view.setStatus("Connexion " + _deviceName + "...");
-                    }
-                    _device = BluetoothLowEnergy.pairDevice(scanRes);
-                    return;
-                } else if (uuid.equals(C2_ROWING_SERVICE_UUID)) {
-                    // Concept2 PM5
-                    _connectedProtocol = "CONCEPT2";
-                    stopScan();
-                    _deviceName = devName.length() > 0 ? devName : "Concept2 PM5";
-                    if (_view != null) {
-                        _view.setStatus("Connexion Concept2...");
-                    }
-                    _device = BluetoothLowEnergy.pairDevice(scanRes);
-                    return;
-                } else if (uuid.equals(SMARTROW_SERVICE_UUID)) {
-                    // WaterRower Poulie SmartRow directe
-                    _connectedProtocol = "SMARTROW";
-                    stopScan();
-                    _deviceName = devName.length() > 0 ? devName : "WaterRower SmartRow";
-                    if (_view != null) {
-                        _view.setStatus("Connexion SmartRow...");
-                    }
-                    _device = BluetoothLowEnergy.pairDevice(scanRes);
-                    return;
-                }
-            }
-
-            // Détection heuristique par nom de périphérique (si le service n'est pas dans le paquet d'advertising)
-            var lowerName = devName.toLower();
-            if (lowerName.find("smartrow") != null) {
-                _connectedProtocol = "SMARTROW";
-                stopScan();
-                _deviceName = devName;
-                if (_view != null) {
-                    _view.setStatus("Connexion SmartRow...");
-                }
-                _device = BluetoothLowEnergy.pairDevice(scanRes);
-                return;
-            } else if (lowerName.find("concept") != null || lowerName.find("pm5") != null) {
-                _connectedProtocol = "CONCEPT2";
-                stopScan();
-                _deviceName = devName;
-                if (_view != null) {
-                    _view.setStatus("Connexion Concept2...");
-                }
-                _device = BluetoothLowEnergy.pairDevice(scanRes);
-                return;
-            } else if (lowerName.find("merach") != null || lowerName.find("vowvit") != null || lowerName.find("rower") != null || lowerName.find("waterrower") != null) {
-                _connectedProtocol = "FTMS";
-                stopScan();
-                _deviceName = devName;
-                if (_view != null) {
-                    _view.setStatus("Connexion " + devName + "...");
-                }
-                _device = BluetoothLowEnergy.pairDevice(scanRes);
-                return;
-            }
-        }
-    }
-
-    function onConnectedStateChanged(device as BluetoothLowEnergy.Device, state as BluetoothLowEnergy.ConnectionState) as Void {
-        if (state == BluetoothLowEnergy.CONNECTION_STATE_CONNECTED) {
-            if (_view != null) {
-                _view.setStatus(_deviceName != null ? (_deviceName + " Connecte !") : "Rameur Connecte !");
-            }
-
-            // Souscription aux notifications selon le protocole détecté
-            if (_connectedProtocol.equals("CONCEPT2")) {
-                // Souscription Concept2 PM5 (Status CE060031 et Extra Status CE060032)
-                var c2Service = device.getService(C2_ROWING_SERVICE_UUID);
-                if (c2Service != null) {
-                    var statusChar = c2Service.getCharacteristic(C2_ROWING_STATUS_UUID);
-                    if (statusChar != null) {
-                        var cccd = statusChar.getDescriptor(BluetoothLowEnergy.cccdUuid());
-                        if (cccd != null) {
-                            cccd.requestWrite([0x01, 0x00]b);
-                        }
-                    }
-                    var extraChar = c2Service.getCharacteristic(C2_EXTRA_STATUS1_UUID);
-                    if (extraChar != null) {
-                        var cccdExtra = extraChar.getDescriptor(BluetoothLowEnergy.cccdUuid());
-                        if (cccdExtra != null) {
-                            cccdExtra.requestWrite([0x01, 0x00]b);
-                        }
-                    }
-                }
-            } else if (_connectedProtocol.equals("SMARTROW")) {
-                // Souscription directe poulie WaterRower SmartRow (0x1236)
-                var srService = device.getService(SMARTROW_SERVICE_UUID);
-                if (srService != null) {
-                    var srChar = srService.getCharacteristic(SMARTROW_NOTIFY_CHAR_UUID);
-                    if (srChar != null) {
-                        var cccd = srChar.getDescriptor(BluetoothLowEnergy.cccdUuid());
-                        if (cccd != null) {
-                            cccd.requestWrite([0x01, 0x00]b);
-                        }
-                    }
-                }
-            } else {
-                // Souscription standard FTMS (WaterRower S4 ComModule, Merach, VOWVIT V-W3, etc.)
-                var service = device.getService(FTMS_SERVICE_UUID);
-                if (service != null) {
-                    var char = service.getCharacteristic(ROWER_DATA_CHAR_UUID);
-                    if (char != null) {
-                        var cccd = char.getDescriptor(BluetoothLowEnergy.cccdUuid());
-                        if (cccd != null) {
-                            cccd.requestWrite([0x01, 0x00]b);
-                        }
-                    }
-                }
-            }
-
-            // Fetch Next Race info from backend to initialize Lobby
-            fetchLobbyRace();
-        } else {
-            if (_view != null) {
-                _view.setStatus("Rameur Deconnecte");
-            }
+        if (_pendingProfiles <= 0 && _model.connectionState == RowerDataModel.STATE_DISCONNECTED && !_isManualDisconnect) {
             startScan();
         }
     }
 
-    function fetchLobbyRace() as Void {
+    public function startScan() as Void {
+        _isManualDisconnect = false;
+        _bleWriteBusy = false;
+        _bleBusyTicks = 0;
+        _cccdSubscribed = false;
+        _secondsWithoutData = 0;
+        _stateWatchdogTicks = 0;
+        if (_device != null) {
+            try {
+                BluetoothLowEnergy.unpairDevice(_device as BluetoothLowEnergy.Device);
+            } catch (e) {
+            }
+            _device = null;
+            _srWriteChar = null;
+            _ftmsCtrlChar = null;
+            _activeDataChar = null;
+        }
+        _model.connectionState = RowerDataModel.STATE_SCANNING;
+        _model.deviceName = I18n.getText("PRE_SEARCH_SUB");
+        try {
+            BluetoothLowEnergy.setScanState(BluetoothLowEnergy.SCAN_STATE_SCANNING);
+        } catch (e) {
+            System.println("BLE startScan error: " + e.getErrorMessage());
+        }
+        WatchUi.requestUpdate();
+    }
+
+    public function stopScan() as Void {
+        try {
+            BluetoothLowEnergy.setScanState(BluetoothLowEnergy.SCAN_STATE_OFF);
+        } catch (e) {
+        }
+    }
+
+    public function disconnect() as Void {
+        _isManualDisconnect = true;
+        _lastPairedName = null;
+        _bleWriteBusy = false;
+        _bleBusyTicks = 0;
+        _cccdSubscribed = false;
+        stopScan();
+        if (_device != null) {
+            try {
+                BluetoothLowEnergy.unpairDevice(_device as BluetoothLowEnergy.Device);
+            } catch (e) {
+            }
+            _device = null;
+            _srWriteChar = null;
+            _ftmsCtrlChar = null;
+            _activeDataChar = null;
+        }
+        _model.connectionState = RowerDataModel.STATE_DISCONNECTED;
+    }
+
+    public function onScanResults(scanResults as BluetoothLowEnergy.Iterator) as Void {
+        var firstMatch = null;
+        for (var res = scanResults.next(); res != null; res = scanResults.next()) {
+            if (res instanceof BluetoothLowEnergy.ScanResult) {
+                var sr = res as BluetoothLowEnergy.ScanResult;
+                if (isMatchingRower(sr)) {
+                    var name = sr.getDeviceName();
+                    if (_lastPairedName != null && name != null && name.equals(_lastPairedName)) {
+                        connectToScanResult(sr);
+                        return;
+                    }
+                    if (firstMatch == null) {
+                        firstMatch = sr;
+                    }
+                }
+            }
+        }
+        if (firstMatch != null) {
+            connectToScanResult(firstMatch as BluetoothLowEnergy.ScanResult);
+        }
+    }
+
+    private function connectToScanResult(sr as BluetoothLowEnergy.ScanResult) as Void {
+        stopScan();
+        var name = sr.getDeviceName();
+        _model.deviceName = (name != null && name.length() > 0) ? name : "BLE Rower";
+        _lastPairedName = _model.deviceName;
+        _model.connectionState = RowerDataModel.STATE_CONNECTING;
+        _stateWatchdogTicks = 0;
+        try {
+            _device = BluetoothLowEnergy.pairDevice(sr);
+        } catch (e) {
+            System.println("BLE pairDevice error: " + e.getErrorMessage());
+            startScan();
+        }
+        WatchUi.requestUpdate();
+    }
+
+    //! Universal BLE Rower detection (ported from rower.iq): FTMS (0x1826), SmartRow (0x1234), and 50+ brands
+    public function isMatchingRower(sr as BluetoothLowEnergy.ScanResult) as Boolean {
+        var uuids = sr.getServiceUuids();
+        if (uuids != null) {
+            for (var uuid = uuids.next(); uuid != null; uuid = uuids.next()) {
+                if (uuid instanceof BluetoothLowEnergy.Uuid) {
+                    var u = uuid as BluetoothLowEnergy.Uuid;
+                    var uStr = u.toString().toUpper();
+                    if (u.equals(FTMS_SERVICE_UUID) || u.equals(SMARTROW_SERVICE_UUID) ||
+                        uStr.find("1826") != null || uStr.find("1234") != null) {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        var name = sr.getDeviceName();
+        if (name != null) {
+            var upper = name.toUpper();
+            if (upper.find("ROW") != null ||
+                upper.find("ERG") != null ||
+                upper.find("FTMS") != null ||
+                upper.find("SMARTROW") != null ||
+                upper.find("WATERROWER") != null ||
+                upper.find("WATER") != null ||
+                upper.find("S4") != null ||
+                upper.find("PM5") != null ||
+                upper.find("CONCEPT") != null ||
+                upper.find("VOWVIT") != null ||
+                upper.find("V-W") != null ||
+                upper.find("VW3") != null ||
+                upper.find("MERACH") != null ||
+                upper.find("MRK") != null ||
+                upper.find("MR-") != null ||
+                upper.find("NOVAROW") != null ||
+                upper.find("DOMYOS") != null ||
+                upper.find("SKILLROW") != null ||
+                upper.find("EXR") != null ||
+                upper.find("FITSHOW") != null ||
+                upper.find("FS-") != null ||
+                upper.find("ICONSOLE") != null ||
+                upper.find("KINOMAP") != null ||
+                upper.find("KINO") != null ||
+                upper.find("SPAX") != null ||
+                upper.find("JOROTO") != null ||
+                upper.find("YESOUL") != null ||
+                upper.find("RP3") != null ||
+                upper.find("XEBEX") != null ||
+                upper.find("FDF") != null ||
+                upper.find("ROGUE") != null ||
+                upper.find("PIROWFLO") != null ||
+                upper.find("COXSWAIN") != null ||
+                upper.find("WHIPR") != null ||
+                upper.find("KETTLER") != null ||
+                upper.find("TUNTURI") != null ||
+                upper.find("SCHWINN") != null ||
+                upper.find("PROFORM") != null ||
+                upper.find("NORDIC") != null ||
+                upper.find("AVIRON") != null ||
+                upper.find("HYDROW") != null ||
+                upper.find("SKANDIKA") != null ||
+                upper.find("SPORTPLUS") != null ||
+                upper.find("CHRISTOPEIT") != null ||
+                upper.find("FINNLO") != null ||
+                upper.find("HAMMER") != null ||
+                upper.find("MAXXUS") != null ||
+                upper.find("TAURUS") != null ||
+                upper.find("YOSUDA") != null ||
+                upper.find("DRIPEX") != null ||
+                upper.find("KINGSMITH") != null ||
+                upper.find("MOBI") != null ||
+                upper.find("TOORX") != null ||
+                upper.find("INSPORTLINE") != null ||
+                upper.find("HEUBOZEN") != null) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public function onConnectedStateChanged(device as BluetoothLowEnergy.Device, state as BluetoothLowEnergy.ConnectionState) as Void {
+        if (state == BluetoothLowEnergy.CONNECTION_STATE_CONNECTED) {
+            stopScan();
+            _device = device;
+            _bleWriteBusy = false;
+            _bleBusyTicks = 0;
+            _cccdSubscribed = false;
+            _secondsWithoutData = 0;
+            _stateWatchdogTicks = 0;
+            _noCharTicks = 0;
+            _model.onBleConnected();
+            setupConnectedDevice(device);
+
+            // Pre-fetch next race info & user career profile
+            fetchLobbyRace();
+            _syncManager.fetchUserProfile(_userId);
+        } else {
+            _device = null;
+            _srWriteChar = null;
+            _ftmsCtrlChar = null;
+            _activeDataChar = null;
+            _bleWriteBusy = false;
+            _bleBusyTicks = 0;
+            _cccdSubscribed = false;
+            _srPacketQueue = [] as Array<ByteArray>;
+            _srHandshakeState = 0;
+            _srChallengeRequested = false;
+            _model.connectionState = RowerDataModel.STATE_DISCONNECTED;
+            if (!_isManualDisconnect) {
+                startScan();
+            }
+        }
+        WatchUi.requestUpdate();
+    }
+
+    private function setupConnectedDevice(device as BluetoothLowEnergy.Device) as Void {
+        var ftmsService = device.getService(FTMS_SERVICE_UUID);
+        var srService = device.getService(SMARTROW_SERVICE_UUID);
+
+        if (ftmsService == null || srService == null) {
+            try {
+                var services = device.getServices();
+                if (services != null) {
+                    for (var s = services.next(); s != null; s = services.next()) {
+                        if (s instanceof BluetoothLowEnergy.Service) {
+                            var srv = s as BluetoothLowEnergy.Service;
+                            var u = srv.getUuid();
+                            if (u != null) {
+                                var uStr = u.toString().toUpper();
+                                if (u.equals(FTMS_SERVICE_UUID) || uStr.find("1826") != null) {
+                                    ftmsService = srv;
+                                } else if (u.equals(SMARTROW_SERVICE_UUID) || uStr.find("1234") != null) {
+                                    srService = srv;
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (e) {
+                System.println("BLE getServices iterate error: " + e.getErrorMessage());
+            }
+        }
+
+        // 1. Process FTMS Service (0x1826)
+        if (ftmsService != null) {
+            _model.connectionState = RowerDataModel.STATE_CONNECTED_FTMS;
+            var dataChar = ftmsService.getCharacteristic(FTMS_ROWER_DATA_UUID);
+            if (dataChar == null) {
+                try {
+                    var chars = ftmsService.getCharacteristics();
+                    if (chars != null) {
+                        for (var c = chars.next(); c != null; c = chars.next()) {
+                            if (c instanceof BluetoothLowEnergy.Characteristic) {
+                                var ch = c as BluetoothLowEnergy.Characteristic;
+                                var cu = ch.getUuid();
+                                if (cu != null && (cu.equals(FTMS_ROWER_DATA_UUID) || cu.toString().toUpper().find("2AD1") != null)) {
+                                    dataChar = ch;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                } catch (e) {
+                }
+            }
+            _activeDataChar = dataChar;
+            _ftmsCtrlChar = ftmsService.getCharacteristic(FTMS_CONTROL_POINT_UUID);
+            if (_activeDataChar != null) {
+                enableDataNotifications();
+            }
+            return;
+        }
+
+        // 2. Process WaterRower SmartRow Direct Pulley Service (0x1234)
+        if (srService != null) {
+            _model.connectionState = RowerDataModel.STATE_CONNECTED_SMARTROW;
+            _srWriteChar = srService.getCharacteristic(SMARTROW_WRITE_UUID);
+            var srData = srService.getCharacteristic(SMARTROW_DATA_UUID);
+            if (srData == null || _srWriteChar == null) {
+                try {
+                    var chars2 = srService.getCharacteristics();
+                    if (chars2 != null) {
+                        for (var c2 = chars2.next(); c2 != null; c2 = chars2.next()) {
+                            if (c2 instanceof BluetoothLowEnergy.Characteristic) {
+                                var ch2 = c2 as BluetoothLowEnergy.Characteristic;
+                                var cu2 = ch2.getUuid();
+                                if (cu2 != null) {
+                                    var cuStr = cu2.toString().toUpper();
+                                    if (cu2.equals(SMARTROW_DATA_UUID) || cuStr.find("1236") != null) {
+                                        srData = ch2;
+                                    } else if (cu2.equals(SMARTROW_WRITE_UUID) || cuStr.find("1235") != null) {
+                                        _srWriteChar = ch2;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } catch (e) {
+                }
+            }
+            _activeDataChar = srData;
+            if (_activeDataChar != null) {
+                enableDataNotifications();
+            }
+            return;
+        }
+    }
+
+    private function enableDataNotifications() as Void {
+        if (_activeDataChar == null || _bleWriteBusy) {
+            return;
+        }
+        var cccd = (_activeDataChar as BluetoothLowEnergy.Characteristic).getDescriptor(BluetoothLowEnergy.cccdUuid());
+        if (cccd == null) {
+            try {
+                var descs = (_activeDataChar as BluetoothLowEnergy.Characteristic).getDescriptors();
+                if (descs != null) {
+                    for (var d = descs.next(); d != null; d = descs.next()) {
+                        if (d instanceof BluetoothLowEnergy.Descriptor) {
+                            var desc = d as BluetoothLowEnergy.Descriptor;
+                            var du = desc.getUuid();
+                            if (du != null && (du.equals(BluetoothLowEnergy.cccdUuid()) || du.toString().toUpper().find("2902") != null)) {
+                                cccd = desc;
+                                break;
+                            }
+                        }
+                    }
+                }
+            } catch (e) {
+            }
+        }
+        if (cccd != null) {
+            try {
+                _bleWriteBusy = true;
+                _bleBusyTicks = 0;
+                cccd.requestWrite([0x01, 0x00]b);
+            } catch (e) {
+                _bleWriteBusy = false;
+                System.println("CCCD write error: " + e.getErrorMessage());
+            }
+        }
+    }
+
+    public function onDescriptorWrite(descriptor as BluetoothLowEnergy.Descriptor, status as BluetoothLowEnergy.Status) as Void {
+        _bleWriteBusy = false;
+        _bleBusyTicks = 0;
+        if (status == BluetoothLowEnergy.STATUS_SUCCESS) {
+            _cccdSubscribed = true;
+            if (_model.connectionState == RowerDataModel.STATE_CONNECTED_SMARTROW) {
+                initSmartRowDirect();
+            }
+        } else {
+            _cccdSubscribed = false;
+        }
+    }
+
+    public function onCharacteristicWrite(char as BluetoothLowEnergy.Characteristic, status as BluetoothLowEnergy.Status) as Void {
+        _bleWriteBusy = false;
+        _bleBusyTicks = 0;
+        if (_srPacketQueue.size() > 0) {
+            var nextPacket = _srPacketQueue[0];
+            _srPacketQueue = _srPacketQueue.slice(1, null) as Array<ByteArray>;
+            executeSmartRowWrite(nextPacket);
+        }
+    }
+
+    private function initSmartRowDirect() as Void {
+        _srHandshakeState = 1;
+        _srChallengeRequested = false;
+        _srPacketQueue = [] as Array<ByteArray>;
+        // SmartRow INIT_COMMAND: "$\rV@\r"
+        sendSmartRowPacket([0x24, 0x0D, 0x56, 0x40, 0x0D]b);
+    }
+
+    private function sendSmartRowPacket(bytes as ByteArray) as Void {
+        if (_srWriteChar == null) {
+            return;
+        }
+        if (_bleWriteBusy) {
+            _srPacketQueue.add(bytes);
+            return;
+        }
+        executeSmartRowWrite(bytes);
+    }
+
+    private function executeSmartRowWrite(bytes as ByteArray) as Void {
+        if (_srWriteChar == null) {
+            return;
+        }
+        try {
+            _bleWriteBusy = true;
+            _bleBusyTicks = 0;
+            (_srWriteChar as BluetoothLowEnergy.Characteristic).requestWrite(bytes, {:writeType => BluetoothLowEnergy.WRITE_TYPE_DEFAULT});
+        } catch (e) {
+            _bleWriteBusy = false;
+        }
+    }
+
+    private function sendSmartRowWakePing() as Void {
+        sendSmartRowPacket([0x24]b); // '$' poll keep-alive
+    }
+
+    public function resetRowerHardware() as Void {
+        if (_model.connectionState == RowerDataModel.STATE_CONNECTED_SMARTROW && _srWriteChar != null) {
+            _bleWriteBusy = false;
+            sendSmartRowPacket([0x0D, 0x56, 0x40, 0x0D]b);
+        } else if (_model.connectionState == RowerDataModel.STATE_CONNECTED_FTMS && _ftmsCtrlChar != null && !_bleWriteBusy) {
+            try {
+                _bleWriteBusy = true;
+                _bleBusyTicks = 0;
+                (_ftmsCtrlChar as BluetoothLowEnergy.Characteristic).requestWrite([0x01]b, {:writeType => BluetoothLowEnergy.WRITE_TYPE_DEFAULT});
+            } catch (e) {
+                _bleWriteBusy = false;
+            }
+        }
+    }
+
+    public function onCharacteristicChanged(char as BluetoothLowEnergy.Characteristic, value as ByteArray) as Void {
+        _secondsWithoutData = 0;
+        _cccdSubscribed = true;
+        var uuid = char.getUuid();
+        try {
+            var uuidStr = (uuid != null) ? uuid.toString().toUpper() : "";
+            if ((uuid != null && uuid.equals(FTMS_ROWER_DATA_UUID)) || uuidStr.find("2AD1") != null) {
+                _model.parseFtmsRowerData(value);
+                onModelUpdated();
+            } else if ((uuid != null && uuid.equals(SMARTROW_DATA_UUID)) || uuidStr.find("1236") != null) {
+                handleSmartRowNotification(value);
+            }
+        } catch (e) {
+            System.println("BLE packet parse error: " + e.getErrorMessage());
+        }
+    }
+
+    private function handleSmartRowNotification(value as ByteArray) as Void {
+        var size = value.size();
+        if (size <= 0) {
+            return;
+        }
+
+        // Convert incoming value to ASCII to inspect SmartRow V3 version / KEYLOCK challenge
+        var chars = new [size] as Array<Char>;
+        var charLen = 0;
+        for (var i = 0; i < size; i++) {
+            var b = value[i];
+            if (b >= 0x20 && b <= 0x7E) {
+                chars[charLen] = b.toChar();
+                charLen++;
+            }
+        }
+        var msgStr = (charLen > 0) ? StringUtil.charArrayToString(chars.slice(0, charLen) as Array<Char>) : "";
+
+        // 1. Version reply from pulley (e.g. "SmartRow 'V3.10'") -> request KEYLOCK challenge '#'
+        if (msgStr.find("V3") != null && !_srChallengeRequested) {
+            _srChallengeRequested = true;
+            _srHandshakeState = 2;
+            sendSmartRowPacket([0x23]b);
+            return;
+        }
+
+        // 2. V3 KEYLOCK challenge (e.g. "KEYLOCK=C2D70BB1")
+        var keylockIdx = msgStr.find("KEYLOCK=");
+        if (keylockIdx != null) {
+            var challenge = msgStr.substring(keylockIdx, msgStr.length());
+            if (challenge != null) {
+                handleSmartRowKeylock(challenge);
+            }
+            return;
+        }
+
+        // 3. Regular SmartRow telemetry frames (a..f, x..z)
+        _srHandshakeState = 3;
+        _model.parseSmartRowBytes(value);
+        onModelUpdated();
+    }
+
+    private function handleSmartRowKeylock(challenge as String) as Void {
+        if (challenge.length() < 16) {
+            sendSmartRowPacket([0x23]b);
+            return;
+        }
+        var sub14 = challenge.substring(0, 14);
+        var checksumStr = challenge.substring(14, 16);
+        if (sub14 == null || checksumStr == null) {
+            sendSmartRowPacket([0x23]b);
+            return;
+        }
+        var keyChars = sub14.toCharArray();
+        var sum = 0;
+        for (var i = 0; i < keyChars.size(); i++) {
+            sum += keyChars[i].toNumber();
+        }
+        var expectedChecksum = sum & 0xFF;
+        var actualChecksum = parseHex(checksumStr);
+        if (actualChecksum != expectedChecksum) {
+            sendSmartRowPacket([0x23]b);
+            return;
+        }
+
+        var seedStr = challenge.substring(10, 14);
+        var seed = (seedStr != null) ? parseHex(seedStr) : -1;
+        if (seed < 0) {
+            sendSmartRowPacket([0x23]b);
+            return;
+        }
+
+        // V3 challenge response: ((seed * 17923) / 256) & 0xFFFF
+        var respVal = (((seed.toLong() * 17923L) / 256L).toNumber()) & 0xFFFF;
+        var r = new [4] as Array<Number>;
+        for (var j = 3; j >= 0; j--) {
+            var nib = respVal & 0x0F;
+            r[j] = (nib < 10) ? (48 + nib) : (87 + nib);
+            respVal = respVal >> 4;
+        }
+
+        _srHandshakeState = 3;
+        sendSmartRowPacket([0x0D, r[0], r[1], r[2], r[3], 0x0D]b);
+    }
+
+    private function parseHex(str as String) as Number {
+        var chars = str.toUpper().toCharArray();
+        var val = 0;
+        for (var i = 0; i < chars.size(); i++) {
+            var c = chars[i].toNumber();
+            var d = (c >= 48 && c <= 57) ? (c - 48) : ((c >= 65 && c <= 70) ? (c - 55) : -1);
+            if (d < 0) {
+                return -1;
+            }
+            val = (val << 4) | d;
+        }
+        return val;
+    }
+
+    //! 1Hz BLE health & SmartRow keep-alive watchdog (ported from rower.iq)
+    private function onBleWatchdogTick() as Void {
+        if (_bleWriteBusy) {
+            _bleBusyTicks += 1;
+            if (_bleBusyTicks >= 2) {
+                _bleWriteBusy = false;
+                _bleBusyTicks = 0;
+                if (_srPacketQueue.size() > 0) {
+                    var nextPacket = _srPacketQueue[0];
+                    _srPacketQueue = _srPacketQueue.slice(1, null) as Array<ByteArray>;
+                    executeSmartRowWrite(nextPacket);
+                }
+            }
+        }
+
+        if (_pendingProfiles > 0) {
+            _profileWaitTicks += 1;
+            if (_profileWaitTicks >= 4) {
+                _pendingProfiles = 0;
+            }
+        }
+        if (_pendingProfiles <= 0 && _profilesRegistered && _device == null && !_isManualDisconnect &&
+            _model.connectionState == RowerDataModel.STATE_DISCONNECTED) {
+            startScan();
+            return;
+        }
+
+        if (_device != null && _activeDataChar == null) {
+            setupConnectedDevice(_device as BluetoothLowEnergy.Device);
+            _noCharTicks += 1;
+            if (_noCharTicks >= 12) {
+                _noCharTicks = 0;
+                startScan();
+                return;
+            }
+        }
+
+        if (_model.connectionState == RowerDataModel.STATE_CONNECTING) {
+            _stateWatchdogTicks += 1;
+            if (_device != null) {
+                setupConnectedDevice(_device as BluetoothLowEnergy.Device);
+            }
+            if (_stateWatchdogTicks >= 15) {
+                startScan();
+            }
+            return;
+        } else if (_model.connectionState == RowerDataModel.STATE_SCANNING) {
+            _stateWatchdogTicks += 1;
+            if (_stateWatchdogTicks >= 20) {
+                _stateWatchdogTicks = 0;
+                stopScan();
+                try {
+                    BluetoothLowEnergy.setScanState(BluetoothLowEnergy.SCAN_STATE_SCANNING);
+                } catch (e) {
+                }
+            }
+            return;
+        }
+
+        if (_model.isConnected()) {
+            _secondsWithoutData += 1;
+
+            if ((_activeDataChar == null || (_model.connectionState == RowerDataModel.STATE_CONNECTED_SMARTROW && _srWriteChar == null)) && _device != null) {
+                setupConnectedDevice(_device as BluetoothLowEnergy.Device);
+            }
+
+            if (!_cccdSubscribed && _activeDataChar != null && !_bleWriteBusy) {
+                enableDataNotifications();
+            }
+
+            if (_model.connectionState == RowerDataModel.STATE_CONNECTED_SMARTROW) {
+                if (_srHandshakeState < 3) {
+                    if (_secondsWithoutData >= 2 && (_secondsWithoutData % 2 == 0) && _srPacketQueue.size() == 0 && !_bleWriteBusy) {
+                        initSmartRowDirect();
+                    }
+                } else {
+                    if (_secondsWithoutData >= 2 && (_secondsWithoutData % 2 == 0) && _srPacketQueue.size() == 0 && !_bleWriteBusy) {
+                        sendSmartRowWakePing();
+                    }
+                }
+            }
+
+            if (_cccdSubscribed && _secondsWithoutData == 4 && !_bleWriteBusy && _model.hasStartedRowing) {
+                enableDataNotifications();
+            }
+        }
+    }
+
+    // =========================================================================
+    // 2. UNIFIED 1HZ TICK, RACE ORCHESTRATION & TELEMETRY SYNC
+    // =========================================================================
+
+    public function onOneSecondTick() as Void {
+        _tickCounter += 1;
+        _model.onOneSecondTick();
+        onBleWatchdogTick();
+
+        if (_view == null) {
+            return;
+        }
+        var view = _view as RowerView;
+        var state = view.getAppState();
+
+        // Update race progress if dead-reckoning advanced distance
+        if (state == RowerView.STATE_RACING || state == RowerView.STATE_LATE_JOIN) {
+            updateProgressAndCheckFinish();
+        }
+
+        // Countdown & synchronous 5s start management
+        if (state == RowerView.STATE_LOBBY || state == RowerView.STATE_WAITING_START || state == RowerView.STATE_COUNTDOWN_5S) {
+            view.decrementCountdown();
+            var cd = view.getCountdown();
+
+            if (cd > 0 && (cd % 10 == 0)) {
+                _syncManager.fetchNextRace();
+            }
+
+            if (state == RowerView.STATE_WAITING_START && cd <= 5 && cd > 0) {
+                view.set5sCountdown(cd);
+                view.setAppState(RowerView.STATE_COUNTDOWN_5S);
+                vibrateShort();
+            } else if (state == RowerView.STATE_COUNTDOWN_5S) {
+                if (cd > 0) {
+                    view.set5sCountdown(cd);
+                    vibrateShort();
+                } else {
+                    vibrateGo();
+                    launchRaceFromWaiting();
+                }
+            } else if (state == RowerView.STATE_WAITING_START && cd <= 0) {
+                vibrateGo();
+                launchRaceFromWaiting();
+            }
+        }
+
+        // Poll pending web login authorization every 3s outside active race
+        if (_tickCounter % 3 == 0) {
+            if (state == RowerView.STATE_SCANNING || state == RowerView.STATE_MENU ||
+                state == RowerView.STATE_LOBBY || state == RowerView.STATE_WAITING_START) {
+                _syncManager.checkPendingLogin(_userId);
+            }
+        }
+
+        WatchUi.requestUpdate();
+    }
+
+    private function vibrateShort() as Void {
+        try {
+            if (Attention has :vibrate) {
+                Attention.vibrate([new Attention.VibeProfile(65, 140)]);
+            }
+        } catch (e) {
+        }
+    }
+
+    private function vibrateGo() as Void {
+        try {
+            if (Attention has :vibrate) {
+                Attention.vibrate([new Attention.VibeProfile(100, 450)]);
+            }
+        } catch (e) {
+        }
+    }
+
+    private function onModelUpdated() as Void {
+        if (_view == null) {
+            return;
+        }
+        var view = _view as RowerView;
+        var state = view.getAppState();
+
+        // 1. False-start guard while waiting in starting blocks
+        if (state == RowerView.STATE_WAITING_START || state == RowerView.STATE_COUNTDOWN_5S) {
+            if (_model.liveMovementDetected) {
+                view.setFalseStartLocked(true);
+                view.showWarning(I18n.getText("WARN_NO_ROW"), 2);
+            } else {
+                view.setFalseStartLocked(false);
+            }
+            WatchUi.requestUpdate();
+            return;
+        }
+
+        // 2. Enforce full stop penalty if player pulled before GO
+        if (view.isFalseStartLocked()) {
+            if (!_model.liveMovementDetected && (_model.strokeRate <= 0.0f && _model.instantPower <= 5)) {
+                view.setFalseStartLocked(false);
+                _model.reTareToZero();
+            } else {
+                _model.reTareToZero();
+                view.showWarning(I18n.getText("WARN_ZERO_SPEED"), 2);
+                WatchUi.requestUpdate();
+                return;
+            }
+        }
+
+        // 3. Active race progress, UI refresh & stroke-by-stroke HTTP telemetry
+        if (_activityStatus.equals("in_progress") && (state == RowerView.STATE_RACING || state == RowerView.STATE_LATE_JOIN)) {
+            if (updateProgressAndCheckFinish()) {
+                return;
+            }
+
+            if (_raceMode.equals("race") && _activityId.length() > 0) {
+                var shouldSend = false;
+                if (_model.strokeCount > _lastSentStrokeCount) {
+                    shouldSend = true;
+                    _lastSentStrokeCount = _model.strokeCount;
+                } else if (_model.strokeCount == 0 && _model.instantPower > 0 && (_tickCounter - _lastFallbackSendSec >= 3)) {
+                    shouldSend = true;
+                    _lastFallbackSendSec = _tickCounter;
+                }
+
+                if (shouldSend) {
+                    _syncManager.syncActivity(
+                        _activityId, _userId, _userId, _raceMode,
+                        _activityStatus, _targetDistance, _model,
+                        _model.deviceName, false
+                    );
+                }
+            }
+        }
+
+        WatchUi.requestUpdate();
+    }
+
+    private function updateProgressAndCheckFinish() as Boolean {
+        if (_view == null) {
+            return false;
+        }
+        var view = _view as RowerView;
+        var netDist = _model.totalDistance;
+        if (_targetDistance > 0) {
+            _progressPercent = netDist.toFloat() / _targetDistance.toFloat();
+            if (_progressPercent > 1.0f) {
+                _progressPercent = 1.0f;
+            }
+        } else {
+            _progressPercent = 0.0f;
+        }
+
+        view.updateRowerData(_model, netDist, _progressPercent);
+
+        if (_activityStatus.equals("in_progress") && _targetDistance > 0 && netDist >= _targetDistance) {
+            vibrateGo();
+            saveAndExitSession();
+            return true;
+        }
+        return false;
+    }
+
+    // =========================================================================
+    // 3. LOBBY, SOLO, PRIVATE PIN, BOTS & AUTH HANDLERS
+    // =========================================================================
+
+    public function fetchLobbyRace() as Void {
         _syncManager.fetchNextRace();
     }
 
-    function onLobbyDataReceived(data as Dictionary?) as Void {
+    public function onLobbyDataReceived(data as Dictionary?) as Void {
         if (data != null && _view != null) {
-            var countdown = (data.hasKey("secondsRemaining")) ? (data.get("secondsRemaining") as Number) : 600;
-            var players = (data.hasKey("totalParticipants")) ? (data.get("totalParticipants") as Number) : 1;
-            var targetDist = 10000;
+            var countdown = (data.hasKey("secondsRemaining") && data.get("secondsRemaining") != null)
+                ? (data.get("secondsRemaining") as Number) : 600;
+            var players = (data.hasKey("totalParticipants") && data.get("totalParticipants") != null)
+                ? (data.get("totalParticipants") as Number) : 1;
+            var targetDist = _targetDistance;
             if (data.hasKey("race") && data.get("race") instanceof Dictionary) {
                 var rDict = data.get("race") as Dictionary;
-                if (rDict.hasKey("targetDistance")) {
+                if (rDict.hasKey("targetDistance") && rDict.get("targetDistance") != null) {
                     targetDist = rDict.get("targetDistance") as Number;
                 }
-                if (rDict.hasKey("id")) {
+                if (rDict.hasKey("id") && rDict.get("id") != null) {
                     _activityId = rDict.get("id").toString();
+                }
+                if (rDict.hasKey("hasBots") && rDict.get("hasBots") instanceof Boolean) {
+                    (_view as RowerView).setBotsEnabled(rDict.get("hasBots") as Boolean);
                 }
             }
             _targetDistance = targetDist;
-            _view.setLobbyInfo(countdown, players, targetDist);
-
-            var currState = _view.getAppState();
-            if (currState == RowerView.STATE_SCANNING) {
-                _view.setAppState(RowerView.STATE_LOBBY);
-            }
-        } else if (_view != null && _view.getAppState() == RowerView.STATE_SCANNING) {
-            _view.setLobbyInfo(900, 1, 10000);
-            _view.setAppState(RowerView.STATE_LOBBY);
+            (_view as RowerView).setLobbyInfo(countdown, players, targetDist);
         }
     }
 
-    // --- Race Lifecycle & Waiting Screen ---
-
-    // Action when user clicks START on Lobby -> Enter Waiting Room for next race
-    function joinNextRaceWaiting() as Void {
+    public function joinNextRaceWaiting() as Void {
         _raceMode = "race";
         _activityStatus = "waiting";
-
-        // Declare player to backend via /api/race/join
-        _syncManager.joinRace(_userId, _userId, "join");
-
-        // Fetch user career stats to recall ranking & points in waiting room
-        _syncManager.fetchUserProfile(_userId);
-
         if (_view != null) {
-            _view.setAppState(RowerView.STATE_WAITING_START);
+            (_view as RowerView).setIsLateJoiner(false);
+            (_view as RowerView).setAppState(RowerView.STATE_WAITING_START);
         }
+        _syncManager.joinRace(_userId, _userId, "join");
+        _syncManager.fetchUserProfile(_userId);
     }
 
-    function onJoinRaceReceived(data as Dictionary?) as Void {
+    public function onJoinRaceReceived(data as Dictionary?) as Void {
         if (data != null && _view != null) {
-            if (data.hasKey("raceId")) {
+            var view = _view as RowerView;
+            if (data.hasKey("raceId") && data.get("raceId") != null) {
                 _activityId = data.get("raceId").toString();
             }
-            if (data.hasKey("secondsRemaining")) {
+            if (data.hasKey("race") && data.get("race") instanceof Dictionary) {
+                var rDict = data.get("race") as Dictionary;
+                if (rDict.hasKey("targetDistance") && rDict.get("targetDistance") != null) {
+                    _targetDistance = rDict.get("targetDistance") as Number;
+                }
+            }
+            if (data.hasKey("secondsRemaining") && data.get("secondsRemaining") != null) {
                 var sec = data.get("secondsRemaining") as Number;
-                var total = (data.hasKey("totalParticipants")) ? (data.get("totalParticipants") as Number) : 1;
-                _view.setLobbyInfo(sec, total, _targetDistance);
+                var total = (data.hasKey("totalParticipants") && data.get("totalParticipants") != null)
+                    ? (data.get("totalParticipants") as Number) : 1;
+                view.setLobbyInfo(sec, total, _targetDistance);
             }
 
-            // Si une course est déjà in_progress et que des coureurs rament, proposer le choix d'arrivée tardive
             if (data.hasKey("isRaceInProgress") && data.get("isRaceInProgress") == true) {
-                var total = (data.hasKey("totalParticipants")) ? (data.get("totalParticipants") as Number) : 0;
-                if (total > 0 && _activityStatus.equals("waiting")) {
-                    _view.setAppState(RowerView.STATE_LATE_CHOICE);
+                var total2 = (data.hasKey("totalParticipants") && data.get("totalParticipants") != null)
+                    ? (data.get("totalParticipants") as Number) : 0;
+                if (total2 > 0 && _activityStatus.equals("waiting")) {
+                    view.setAppState(RowerView.STATE_LATE_CHOICE);
                 }
             }
         }
     }
 
-    // Action : Rejoindre en retard une course déjà en cours
-    function joinRaceLate() as Void {
+    public function joinRaceLate() as Void {
         _raceMode = "race";
+        if (_view != null) {
+            (_view as RowerView).setIsLateJoiner(true);
+        }
         _syncManager.joinRace(_userId, _userId, "join_late");
         launchSessionNow();
     }
 
-    // Action : Attendre la fin de la course en cours pour la prochaine course (dans 1h)
-    function waitNextRaceSlot() as Void {
+    public function waitNextRaceSlot() as Void {
         _raceMode = "race";
         _activityStatus = "waiting";
-        _syncManager.joinRace(_userId, _userId, "wait_next");
         if (_view != null) {
-            _view.setAppState(RowerView.STATE_WAITING_START);
+            (_view as RowerView).setIsLateJoiner(false);
+            (_view as RowerView).setAppState(RowerView.STATE_WAITING_START);
         }
+        _syncManager.joinRace(_userId, _userId, "wait_next");
     }
 
-    // Direct Solo Mode
-    function startSoloSession() as Void {
+    public function startSoloSession() as Void {
         _raceMode = "solo";
+        if (_targetDistance <= 0) {
+            _targetDistance = 2000;
+        }
+        if (_view != null) {
+            (_view as RowerView).setIsLateJoiner(false);
+        }
         launchSessionNow();
     }
 
-    // Automatic Launch when countdown hits 0
-    function launchRaceFromWaiting() as Void {
+    public function launchRaceFromWaiting() as Void {
         launchSessionNow();
     }
 
     private function launchSessionNow() as Void {
         _activityStatus = "in_progress";
-        // Reset all metrics to ZERO at start
-        _initialDistance = -1;
-        _netDistance = 0;
-        _progressPercent = 0.0;
+        _progressPercent = 0.0f;
+        _lastSentStrokeCount = 0;
+        _lastFallbackSendSec = _tickCounter;
 
-        if (_activityId.length() == 0) {
+        // Tare model & send optional hardware reset command
+        _model.startWorkout();
+
+        if (_activityId.length() == 0 || _raceMode.equals("solo")) {
             var nowSec = Time.now().value();
-            _activityId = "act_" + nowSec;
+            _activityId = "solo_" + nowSec;
         }
 
-        // Start Garmin FIT Activity recording
         try {
             _session = ActivityRecording.createSession({
                 :name => "Rower Race - " + _raceMode,
-                :sport => ActivityRecording.SPORT_ROWING,
-                :subSport => ActivityRecording.SUB_SPORT_INDOOR_ROWING
+                :sport => Activity.SPORT_ROWING,
+                :subSport => Activity.SUB_SPORT_INDOOR_ROWING
             });
-            _session.start();
-            System.println("FIT Activity Session started: " + _activityId);
+            (_session as ActivityRecording.Session).start();
         } catch (ex) {
             System.println("ActivityRecording start error: " + ex.getErrorMessage());
         }
 
         if (_view != null) {
-            _view.setAppState(RowerView.STATE_RACING);
+            var view = _view as RowerView;
+            view.resetRacePages();
+            view.updateRowerData(_model, 0, 0.0f);
+            view.setAppState(RowerView.STATE_RACING);
         }
     }
 
-    function pauseSession() as Void {
-        if (_session != null && _session.isRecording()) {
-            _session.stop();
+    public function pauseSession() as Void {
+        if (_session != null && (_session as ActivityRecording.Session).isRecording()) {
+            (_session as ActivityRecording.Session).stop();
         }
+        _model.isPaused = true;
         _activityStatus = "paused";
         if (_view != null) {
-            _view.setAppState(RowerView.STATE_PAUSED);
+            (_view as RowerView).setAppState(RowerView.STATE_PAUSED);
         }
     }
 
-    function resumeSession() as Void {
-        if (_session != null && !_session.isRecording()) {
-            _session.start();
+    public function resumeSession() as Void {
+        if (_session != null && !(_session as ActivityRecording.Session).isRecording()) {
+            (_session as ActivityRecording.Session).start();
         }
+        _model.isPaused = false;
         _activityStatus = "in_progress";
         if (_view != null) {
-            _view.setAppState(RowerView.STATE_RACING);
+            (_view as RowerView).setAppState(RowerView.STATE_RACING);
         }
     }
 
-    function saveAndExitSession() as Void {
+    public function saveAndExitSession() as Void {
         if (_session != null) {
-            _session.save();
+            try {
+                if ((_session as ActivityRecording.Session).isRecording()) {
+                    (_session as ActivityRecording.Session).stop();
+                }
+                (_session as ActivityRecording.Session).save();
+            } catch (e) {
+            }
             _session = null;
-            System.println("FIT Activity Session saved to Garmin.");
         }
+        _model.workoutStarted = false;
+        _model.isPaused = false;
         _activityStatus = "completed";
 
-        if (_lastModel != null) {
-            _syncManager.syncActivity(_activityId, _userId, _userId, _raceMode,
-                                      _activityStatus, _targetDistance, _lastModel as RowerDataModel,
-                                      _deviceName, true);
-        } else {
-            if (_view != null) {
-                _view.setFinishResults(1, []);
-            }
+        if (_raceMode.equals("race") && _activityId.length() > 0) {
+            _syncManager.syncActivity(
+                _activityId, _userId, _userId, _raceMode,
+                _activityStatus, _targetDistance, _model,
+                _model.deviceName, true
+            );
+        } else if (_view != null) {
+            (_view as RowerView).setFinishResults(1, [] as Array<Dictionary>);
         }
     }
 
-    function discardSession() as Void {
+    public function discardSession() as Void {
         if (_session != null) {
-            _session.discard();
+            try {
+                if ((_session as ActivityRecording.Session).isRecording()) {
+                    (_session as ActivityRecording.Session).stop();
+                }
+                (_session as ActivityRecording.Session).discard();
+            } catch (e) {
+            }
             _session = null;
-            System.println("FIT Activity Session discarded.");
         }
+        _model.resetMetrics();
         _activityStatus = "abandoned";
 
-        // Notify backend of abandonment
-        if (_lastModel != null && _activityId.length() > 0) {
-            _syncManager.syncActivity(_activityId, _userId, _userId, _raceMode,
-                                      _activityStatus, _targetDistance, _lastModel as RowerDataModel,
-                                      _deviceName, true);
+        if (_raceMode.equals("race") && _activityId.length() > 0) {
+            _syncManager.syncActivity(
+                _activityId, _userId, _userId, _raceMode,
+                _activityStatus, _targetDistance, _model,
+                _model.deviceName, true
+            );
         }
 
         if (_view != null) {
-            _view.setAppState(RowerView.STATE_LOBBY);
-        }
-    }
-
-    // Auth Handlers for Web Login
-    function onAuthRequestReceived(requestId as String, login as String) as Void {
-        if (_view != null) {
-            _view.showAuthPrompt(requestId, login);
+            (_view as RowerView).setAppState(RowerView.STATE_MENU);
         }
     }
 
-    function respondAuth(approved as Boolean) as Void {
+    // Web Login Auth Handlers
+    public function onAuthRequestReceived(requestId as String, login as String) as Void {
         if (_view != null) {
-            var reqId = _view.getAuthRequestId();
+            (_view as RowerView).showAuthPrompt(requestId, login);
+        }
+    }
+
+    public function respondAuth(approved as Boolean) as Void {
+        if (_view != null) {
+            var view = _view as RowerView;
+            var reqId = view.getAuthRequestId();
             if (reqId.length() > 0) {
                 _syncManager.respondWebLogin(reqId, approved);
             }
-            _view.setAppState(RowerView.STATE_LOBBY);
+            view.clearAuthPrompt();
         }
     }
 
-    // Bots Handlers
-    function promptBots() as Void {
+    // Bot Racers Handlers
+    public function promptBots() as Void {
         if (_view != null) {
-            _view.setAppState(RowerView.STATE_BOTS_PROMPT);
+            (_view as RowerView).setAppState(RowerView.STATE_BOTS_PROMPT);
         }
     }
 
-    function respondBotsPrompt(enableBots as Boolean) as Void {
+    public function respondBotsPrompt(enableBots as Boolean) as Void {
         if (enableBots) {
             _syncManager.toggleBots(true, _activityId, _userId);
             if (_view != null) {
-                _view.setBotsEnabled(true);
+                (_view as RowerView).setBotsEnabled(true);
             }
         }
         if (_view != null) {
-            _view.setAppState(RowerView.STATE_WAITING_START);
+            (_view as RowerView).setAppState(RowerView.STATE_WAITING_START);
         }
     }
 
-    function onBotsToggled(data as Dictionary) as Void {
+    public function onBotsToggled(data as Dictionary) as Void {
         if (_view != null) {
-            if (data.hasKey("hasBots")) {
-                _view.setBotsEnabled(data.get("hasBots") as Boolean);
+            var view = _view as RowerView;
+            if (data.hasKey("hasBots") && data.get("hasBots") instanceof Boolean) {
+                view.setBotsEnabled(data.get("hasBots") as Boolean);
             }
-            if (data.hasKey("totalParticipants")) {
+            if (data.hasKey("totalParticipants") && data.get("totalParticipants") != null) {
                 var total = data.get("totalParticipants") as Number;
-                _view.setLobbyInfo(_view.getCountdown(), total, _targetDistance);
+                view.setLobbyInfo(view.getCountdown(), total, _targetDistance);
             }
         }
     }
 
-    function onUserProfileData(data as Dictionary) as Void {
+    public function onUserProfileData(data as Dictionary) as Void {
         if (_view != null && data != null) {
             var pts = 0;
             var genRank = 1;
@@ -569,27 +1207,29 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
                     bestR = u.get("bestRank") as Number;
                 }
             }
-            _view.setUserStats(pts, genRank, totalPlayers, lastR, bestR);
+            (_view as RowerView).setUserStats(pts, genRank, totalPlayers, lastR, bestR);
         }
     }
 
-    function onFinalSyncResponse(data as Dictionary?) as Void {
-        var rank = 1;
+    public function onFinalSyncResponse(data as Dictionary?) as Void {
+        var rank = (_view != null) ? (_view as RowerView).getCurrentRank() : 1;
         var podium = [] as Array<Dictionary>;
         if (data != null) {
-            if (data.hasKey("finalRank")) {
+            if (data.hasKey("finalRank") && data.get("finalRank") != null) {
                 rank = data.get("finalRank") as Number;
+            } else if (data.hasKey("rk") && data.get("rk") != null) {
+                rank = data.get("rk") as Number;
             }
             if (data.hasKey("top3") && data.get("top3") instanceof Array) {
                 podium = data.get("top3") as Array<Dictionary>;
             }
         }
         if (_view != null) {
-            _view.setFinishResults(rank, podium);
+            (_view as RowerView).setFinishResults(rank, podium);
         }
     }
 
-    function onLiveSyncResponse(data as Dictionary) as Void {
+    public function onLiveSyncResponse(data as Dictionary) as Void {
         if (_view != null && _activityStatus.equals("in_progress")) {
             var rank = 1;
             var total = 1;
@@ -597,17 +1237,16 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
             var dPrev = 0;
             var dNext = 0;
 
-            // Support standard compact spec ({ rk, tot, gapM, leadDistM })
             if (data.hasKey("rk") && data.get("rk") != null) {
-                rank = (data.get("rk") as Number);
+                rank = data.get("rk") as Number;
             } else if (data.hasKey("rank") && data.get("rank") != null) {
-                rank = (data.get("rank") as Number);
+                rank = data.get("rank") as Number;
             }
 
             if (data.hasKey("tot") && data.get("tot") != null) {
-                total = (data.get("tot") as Number);
+                total = data.get("tot") as Number;
             } else if (data.hasKey("totalRacers") && data.get("totalRacers") != null) {
-                total = (data.get("totalRacers") as Number);
+                total = data.get("totalRacers") as Number;
             }
 
             if (data.hasKey("gapM") && data.get("gapM") != null) {
@@ -617,331 +1256,48 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
                     dLeader = gn < 0 ? -gn : gn;
                 } else if (g instanceof Float) {
                     var gf = g as Float;
-                    dLeader = (gf < 0.0 ? -gf : gf).toNumber();
+                    dLeader = (gf < 0.0f ? -gf : gf).toNumber();
                 }
             } else if (data.hasKey("distToLeader") && data.get("distToLeader") != null) {
-                dLeader = (data.get("distToLeader") as Number);
+                dLeader = data.get("distToLeader") as Number;
             }
+
             if (data.hasKey("distToPrev") && data.get("distToPrev") != null) {
-                dPrev = (data.get("distToPrev") as Number);
+                dPrev = data.get("distToPrev") as Number;
             }
             if (data.hasKey("distToNext") && data.get("distToNext") != null) {
-                dNext = (data.get("distToNext") as Number);
+                dNext = data.get("distToNext") as Number;
             }
 
-            _view.setLiveRank(rank, total, dLeader, dPrev, dNext);
+            (_view as RowerView).setLiveRank(rank, total, dLeader, dPrev, dNext);
         }
     }
 
-    function onCharacteristicChanged(characteristic as BluetoothLowEnergy.Characteristic, value as ByteArray) as Void {
-        var charUuid = characteristic.getUuid();
-        if (charUuid.equals(ROWER_DATA_CHAR_UUID)) {
-            // Standard FTMS 0x2AD1 (WaterRower S4 ComModule, Merach, VOWVIT V-W3, etc.)
-            parseRowerData(value);
-        } else if (charUuid.equals(C2_ROWING_STATUS_UUID)) {
-            // Concept2 PM5 Rowing Status (Elapsed Time, Distance)
-            parseConcept2Status(value);
-        } else if (charUuid.equals(C2_EXTRA_STATUS1_UUID)) {
-            // Concept2 PM5 Extra Status (Stroke Rate, Pace, Speed)
-            parseConcept2Extra(value);
-        } else if (charUuid.equals(SMARTROW_NOTIFY_CHAR_UUID)) {
-            // WaterRower Poulie SmartRow directe (0x1236)
-            parseSmartRowData(value);
-        }
-    }
-
-    // Concept2 PM5 Status (CE060031): Bytes 0-2 = Time (ms), Bytes 3-5 = Distance (0.1m)
-    private function parseConcept2Status(bytes as ByteArray) as Void {
-        if (bytes.size() < 6) {
-            return;
-        }
-        var m = (_lastModel != null) ? (_lastModel as RowerDataModel) : new RowerDataModel();
-        var elapsedMs = (bytes[0] & 0xFF) | ((bytes[1] & 0xFF) << 8) | ((bytes[2] & 0xFF) << 16);
-        m.elapsedTime = elapsedMs / 1000;
-
-        // Distance in 0.1m units -> convert to meters
-        var rawDist = (bytes[3] & 0xFF) | ((bytes[4] & 0xFF) << 8) | ((bytes[5] & 0xFF) << 16);
-        m.totalDistance = rawDist / 10;
-
-        processDecodedModel(m);
-    }
-
-    // Concept2 PM5 Extra Status (CE060032): Byte 5 = Stroke Rate (SPM), Bytes 7-8 = Pace (0.1s/500m)
-    private function parseConcept2Extra(bytes as ByteArray) as Void {
-        if (bytes.size() < 9) {
-            return;
-        }
-        var m = (_lastModel != null) ? (_lastModel as RowerDataModel) : new RowerDataModel();
-        m.strokeRate = (bytes[5] & 0xFF) * 1.0;
-        var paceTenths = (bytes[7] & 0xFF) | ((bytes[8] & 0xFF) << 8);
-        m.instantPace = paceTenths / 10;
-
-        // Estimated power from pace: P = 2.8 / (pace/500)^3
-        if (m.instantPace > 0) {
-            var speedMs = 500.0 / m.instantPace;
-            m.instantPower = (2.8 * speedMs * speedMs * speedMs).toNumber();
-        }
-        if (bytes.size() >= 7) {
-            m.heartRate = (bytes[6] & 0xFF);
-        }
-
-        processDecodedModel(m);
-    }
-
-    // WaterRower Poulie SmartRow directe (0x1236, 17 octets ASCII / binaire)
-    private function parseSmartRowData(bytes as ByteArray) as Void {
-        if (bytes.size() < 8) {
-            return;
-        }
-        var m = (_lastModel != null) ? (_lastModel as RowerDataModel) : new RowerDataModel();
-
-        // 1. Détection format ASCII SmartRow (17 octets terminés par \r ou caractères '0'..'9')
-        if (bytes.size() >= 14 && bytes[0] >= 0x30 && bytes[0] <= 0x7A) {
-            // Lecture des mètres encodés en ASCII (octets 1 à 5)
-            var dist = 0;
-            for (var i = 1; i <= 5 && i < bytes.size(); i++) {
-                var ch = bytes[i] & 0x0F; // Démasquage nibble
-                dist = (dist * 10) + ch;
-            }
-            if (dist > 0) {
-                m.totalDistance = dist;
-            }
-
-            // SPM et Puissance dans les octets 6 à 13
-            if (bytes.size() >= 10) {
-                var spmVal = (bytes[6] & 0x0F) * 10 + (bytes[7] & 0x0F);
-                if (spmVal > 0 && spmVal < 80) {
-                    m.strokeRate = spmVal * 1.0;
-                }
-                var pVal = (bytes[8] & 0x0F) * 100 + (bytes[9] & 0x0F) * 10 + (bytes[10] & 0x0F);
-                if (pVal > 0 && pVal < 1500) {
-                    m.instantPower = pVal;
-                }
-            }
-        } else {
-            // 2. Détection binaire directe little-endian
-            var pwr = (bytes[0] & 0xFF) | ((bytes[1] & 0xFF) << 8);
-            if (pwr < 2000) {
-                m.instantPower = pwr;
-            }
-            m.strokeRate = (bytes[2] & 0xFF) * 1.0;
-            var d = (bytes[3] & 0xFF) | ((bytes[4] & 0xFF) << 8) | ((bytes[5] & 0xFF) << 16);
-            if (d > 0) {
-                m.totalDistance = d;
-            }
-        }
-
-        // Calcul allure instantanée si puissance disponible
-        if (m.instantPower > 15) {
-            var speedMs = Math.pow(m.instantPower / 2.8, 0.3333);
-            if (speedMs > 0.5) {
-                m.instantPace = (500.0 / speedMs).toNumber();
-            }
-        }
-
-        processDecodedModel(m);
-    }
-
-    // FTMS 0x2AD1 Rower Data parser
-    private function parseRowerData(bytes as ByteArray) as Void {
-        if (bytes.size() < 3) {
-            return;
-        }
-
-        var model = new RowerDataModel();
-        var flags = (bytes[0] & 0xFF) | ((bytes[1] & 0xFF) << 8);
-        model.rawFlags = flags;
-
-        // Mandatory fields: Stroke Rate (0.5 spm) & Stroke Count
-        model.strokeRate = (bytes[2] & 0xFF) * 0.5;
-        if (bytes.size() >= 5) {
-            model.strokeCount = (bytes[3] & 0xFF) | ((bytes[4] & 0xFF) << 8);
-        }
-
-        var offset = 5;
-
-        // Bit 1: Average Stroke Rate Present
-        if ((flags & (1 << 1)) != 0 && (offset + 1) <= bytes.size()) {
-            model.avgStrokeRate = (bytes[offset] & 0xFF) * 0.5;
-            offset += 1;
-        }
-
-        // Bit 2: Total Distance Present
-        if ((flags & (1 << 2)) != 0 && (offset + 3) <= bytes.size()) {
-            model.totalDistance = (bytes[offset] & 0xFF) |
-                                  ((bytes[offset + 1] & 0xFF) << 8) |
-                                  ((bytes[offset + 2] & 0xFF) << 16);
-            offset += 3;
-        }
-
-        // Bit 3: Instantaneous Pace Present
-        if ((flags & (1 << 3)) != 0 && (offset + 2) <= bytes.size()) {
-            model.instantPace = (bytes[offset] & 0xFF) | ((bytes[offset + 1] & 0xFF) << 8);
-            offset += 2;
-        }
-
-        // Bit 4: Average Pace Present
-        if ((flags & (1 << 4)) != 0 && (offset + 2) <= bytes.size()) {
-            model.avgPace = (bytes[offset] & 0xFF) | ((bytes[offset + 1] & 0xFF) << 8);
-            offset += 2;
-        }
-
-        // Bit 5: Instantaneous Power Present
-        if ((flags & (1 << 5)) != 0 && (offset + 2) <= bytes.size()) {
-            var rawPow = (bytes[offset] & 0xFF) | ((bytes[offset + 1] & 0xFF) << 8);
-            if (rawPow > 32767) {
-                rawPow -= 65536;
-            }
-            model.instantPower = rawPow;
-            offset += 2;
-        }
-
-        // Bit 6: Average Power Present
-        if ((flags & (1 << 6)) != 0 && (offset + 2) <= bytes.size()) {
-            var rawAvgPow = (bytes[offset] & 0xFF) | ((bytes[offset + 1] & 0xFF) << 8);
-            if (rawAvgPow > 32767) {
-                rawAvgPow -= 65536;
-            }
-            model.avgPower = rawAvgPow;
-            offset += 2;
-        }
-
-        // Bit 7: Resistance Level
-        if ((flags & (1 << 7)) != 0 && (offset + 2) <= bytes.size()) {
-            var rawRes = (bytes[offset] & 0xFF) | ((bytes[offset + 1] & 0xFF) << 8);
-            if (rawRes > 32767) {
-                rawRes -= 65536;
-            }
-            model.resistanceLevel = rawRes;
-            offset += 2;
-        }
-
-        // Bit 8: Total Energy / kcal
-        if ((flags & (1 << 8)) != 0 && (offset + 5) <= bytes.size()) {
-            model.totalEnergy = (bytes[offset] & 0xFF) | ((bytes[offset + 1] & 0xFF) << 8);
-            model.energyPerHour = (bytes[offset + 2] & 0xFF) | ((bytes[offset + 3] & 0xFF) << 8);
-            model.energyPerMinute = (bytes[offset + 4] & 0xFF);
-            offset += 5;
-        }
-
-        // Bit 9: Heart Rate
-        if ((flags & (1 << 9)) != 0 && (offset + 1) <= bytes.size()) {
-            model.heartRate = (bytes[offset] & 0xFF);
-            offset += 1;
-        }
-
-        // Bit 10: Metabolic Equivalent
-        if ((flags & (1 << 10)) != 0 && (offset + 1) <= bytes.size()) {
-            model.metabolicEq = (bytes[offset] & 0xFF) * 0.1;
-            offset += 1;
-        }
-
-        // Bit 11: Elapsed Time
-        if ((flags & (1 << 11)) != 0 && (offset + 2) <= bytes.size()) {
-            model.elapsedTime = (bytes[offset] & 0xFF) | ((bytes[offset + 1] & 0xFF) << 8);
-            offset += 2;
-        }
-
-        // Bit 12: Remaining Time
-        if ((flags & (1 << 12)) != 0 && (offset + 2) <= bytes.size()) {
-            model.remainingTime = (bytes[offset] & 0xFF) | ((bytes[offset + 1] & 0xFF) << 8);
-            offset += 2;
-        }
-
-        processDecodedModel(model);
-    }
-
-    // Traitement centralisé des données décodées quel que soit le protocole (FTMS, Concept2, SmartRow)
-    private function processDecodedModel(model as RowerDataModel) as Void {
-        _lastModel = model;
-
-        // CHECK IF ROWING IN WAITING ROOM: Show warning "Ne pas ramer" & pénalité arrêt complet
-        if (_view != null && _view.getAppState() == RowerView.STATE_WAITING_START) {
-            if (model.strokeRate > 0 || model.instantPower > 10) {
-                _view.setFalseStartLocked(true);
-                _view.showWarning("Ne pas ramer", 2);
-            } else if (model.strokeRate == 0 && model.instantPower <= 5) {
-                // Vitesse revenue à 0
-                _view.setFalseStartLocked(false);
-            }
-            return; // Do NOT increment distance or send racing points before start
-        }
-
-        // Si le départ est donné mais que le joueur avait ramé avant le départ, il doit attendre vitesse à 0
-        if (_view != null && _view.isFalseStartLocked()) {
-            if (model.strokeRate == 0 && model.instantPower <= 5) {
-                _view.setFalseStartLocked(false);
-                _initialDistance = model.totalDistance; // reset pour partir proprement à 0
-            } else {
-                _view.showWarning("Vitesse a 0 requise", 2);
-                return; // Bloqué tant qu'il ne s'est pas arrêté
-            }
-        }
-
-        // Calculate Net Distance = currentDistance - initialDistance
-        if (_initialDistance < 0) {
-            _initialDistance = model.totalDistance;
-        }
-        _netDistance = model.totalDistance - _initialDistance;
-        if (_netDistance < 0) {
-            _netDistance = 0;
-        }
-
-        if (_targetDistance > 0) {
-            _progressPercent = (_netDistance * 1.0) / _targetDistance;
-            if (_progressPercent > 1.0) {
-                _progressPercent = 1.0;
-            }
-        }
-
-        // Check race completion
-        if (_activityStatus.equals("in_progress") && _view != null && _view.getAppState() == RowerView.STATE_RACING) {
-            if (_netDistance >= _targetDistance) {
-                saveAndExitSession();
-                return;
-            }
-        }
-
-        // Update the Watch UI
-        if (_view != null && _view.getAppState() == RowerView.STATE_RACING) {
-            _view.updateRowerData(model, _netDistance, _progressPercent);
-        }
-
-        // Transmit stroke data on stroke count increment (~0.33 to 0.47 Hz)
-        if (_activityStatus.equals("in_progress") && _activityId.length() > 0) {
-            var shouldSend = false;
-            if (model.strokeCount > _lastSentStrokeCount) {
-                shouldSend = true;
-                _lastSentStrokeCount = model.strokeCount;
-            } else if (model.strokeCount == 0 && model.instantPower > 0) {
-                // Rameurs sans compteur de coups explicite (envoi régulé)
-                shouldSend = true;
-            }
-
-            if (shouldSend) {
-                _syncManager.syncActivity(_activityId, _userId, _userId, _raceMode,
-                                          _activityStatus, _targetDistance, model,
-                                          _deviceName, false);
-            }
-        }
-    }
-
-    function submitPinCode(pin as String) as Void {
+    public function submitPinCode(pin as String) as Void {
         _syncManager.checkPinCode(pin);
     }
 
-    function onPinJoinSuccess(data as Dictionary) as Void {
-        if (data.hasKey("raceId")) {
+    public function onPinJoinSuccess(data as Dictionary) as Void {
+        _raceMode = "race";
+        _activityStatus = "waiting";
+        if (data.hasKey("id") && data.get("id") != null) {
+            _activityId = data.get("id").toString();
+        } else if (data.hasKey("raceId") && data.get("raceId") != null) {
             _activityId = data.get("raceId").toString();
         }
-        if (_view != null) {
-            _view.setAppState(RowerView.STATE_WAITING_START);
+        if (data.hasKey("targetDistance") && data.get("targetDistance") != null) {
+            _targetDistance = data.get("targetDistance") as Number;
         }
+        if (_view != null) {
+            (_view as RowerView).setIsLateJoiner(false);
+            (_view as RowerView).setAppState(RowerView.STATE_WAITING_START);
+        }
+        _syncManager.fetchUserProfile(_userId);
     }
 
-    function onPinJoinFailed() as Void {
+    public function onPinJoinFailed() as Void {
         if (_view != null) {
-            _view.showWarning("PIN INVALIDE", 2);
+            (_view as RowerView).showWarning(I18n.getText("PIN_INVALID"), 2);
         }
     }
 }

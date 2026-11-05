@@ -214,8 +214,8 @@ class RestSyncManager {
                           status as String, targetDistance as Number, model as RowerDataModel,
                           deviceName as String?, isFinal as Boolean) as Void {
         var now = System.getTimer() / 1000;
-        // Throttle transmission to 1 second
-        if (_isSending || (now - _lastSyncTime < 1)) {
+        // Throttle live transmission to >= 1s, never drop final completion/abandon packet
+        if (!isFinal && (_isSending || (now - _lastSyncTime < 1))) {
             return;
         }
 
@@ -233,6 +233,9 @@ class RestSyncManager {
             "raceId" => activityId,
             "userId" => userId,
             "userName" => userName,
+            "raceMode" => raceMode,
+            "status" => status,
+            "targetDistance" => targetDistance,
             "seq" => model.strokeCount,
             "timestamp" => System.getTimer(),
             "elapsedTime" => model.elapsedTime,
