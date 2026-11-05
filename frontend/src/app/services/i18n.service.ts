@@ -525,3 +525,4 @@ export class I18nService {
     return this.translations[lang]?.[key] || this.translations['en']?.[key] || key;
   }
 }
+
