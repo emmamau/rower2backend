@@ -46,13 +46,19 @@
       </div>
 
       <!-- Current Race Schedule Badge -->
-      <div class="race-schedule-badge" *ngIf="nextRaceInfo">
+      <div class="race-schedule-badge" [class.private-mode]="!!activePrivateRoom" *ngIf="nextRaceInfo">
         <div class="badge-title">
-          {{ nextRaceInfo.status === 'in_progress' ? i18n.t('RACE_IN_PROGRESS') : i18n.t('NEXT_RACE') }} ({{ nextRaceInfo.race.targetDistance }}M)
+          @if (activePrivateRoom) {
+            🔒 {{ i18n.t('PRIVATE_ROOM_BADGE') }} · {{ activePrivateRoom.race.title }} ({{ activePrivateRoom.race.targetDistance }}M)
+          } @else {
+            {{ nextRaceInfo.status === 'in_progress' ? i18n.t('RACE_IN_PROGRESS') : i18n.t('NEXT_RACE') }} ({{ nextRaceInfo.race.targetDistance }}M)
+          }
         </div>
         <div class="badge-timer">
           <div class="timer-display-box">
-            <span class="timer-digits">{{ nextRaceInfo.formattedCountdown }}</span>
+            <span class="timer-digits">
+              {{ activePrivateRoom?.waitingForHost ? i18n.t('STATUS_WAITING_HOST') : nextRaceInfo.formattedCountdown }}
+            </span>
           </div>
           <span class="racers-count" [class.has-players]="activeRacersCount > 0">
             <span class="pulse-dot" *ngIf="activeRacersCount > 0"></span>
@@ -94,6 +100,13 @@
       </div>
 
       <div class="hud-actions">
+        <button
+          type="button"
+          class="btn-hud btn-private"
+          [class.active-private]="!!activePrivateRoom"
+          (click)="openPrivateModal()">
+          {{ i18n.t('BTN_PRIVATE_ROOMS') }}
+        </button>
         <button class="btn-hud btn-standings" (click)="isStandingsOpen = true" (click)="loadGeneralLeaderboard()">{{ i18n.t('BTN_STANDINGS') }}</button>
         <button class="btn-hud btn-history" (click)="isHistoryOpen = true" (click)="loadPastRaces()">{{ i18n.t('BTN_HISTORY') }}</button>
         <button class="btn-hud btn-admin" *ngIf="isUserAdmin" (click)="isConfigRaceOpen = true" title="Paramètres Administrateur">{{ i18n.t('BTN_ADMIN') }}</button>
@@ -315,6 +328,24 @@
 
   <!-- MAIN RACING ARENA (2D KAYAK RACE VISUALIZATION) -->
   <main class="race-arena">
+    <!-- Private Salons Banner & Modal -->
+    <app-private-room-manager
+      [isOpen]="isPrivateModalOpen"
+      [initialTab]="privateModalTab"
+      [activeRoom]="activePrivateRoom"
+      [activeUserId]="activeUserId"
+      [activeUserName]="currentUser.name"
+      [isUserAdmin]="isUserAdmin"
+      [activeRacersCount]="activeRacersCount"
+      [externalError]="privateUrlError"
+      (modalClose)="onPrivateModalClosed()"
+      (openModalRequest)="openPrivateModal($event)"
+      (roomSelected)="onPrivateRoomSelected($event)"
+      (roomUpdated)="onPrivateRoomUpdated($event)"
+      (roomClosedOrLeft)="onPrivateRoomClosedOrLeft($event)"
+      (botsToggled)="onPrivateRoomBotsToggled($event)">
+    </app-private-room-manager>
+
     <!-- Top 3 Podium Live Indicator -->
     <section class="podium-banner" *ngIf="racers.length > 0">
       <div class="podium-title">⚡ {{ i18n.t('OFFICIAL_PODIUM').toUpperCase() }} · {{ activeRacersCount }} {{ i18n.t('ACTIVE_RACERS').toUpperCase() }} ⚡</div>
@@ -355,10 +386,10 @@
     <section class="water-track">
       <div class="track-header-marks">
         <span>0m (DÉPART)</span>
-        <span>2 500m</span>
-        <span>5 000m (MI-PARCOURS)</span>
-        <span>7 500m</span>
-        <span>{{ nextRaceInfo?.race?.targetDistance || 10000 }}m (ARRIVÉE 🏁)</span>
+        <span>{{ quarterDistance }}m</span>
+        <span>{{ halfDistance }}m (MI-PARCOURS)</span>
+        <span>{{ threeQuarterDistance }}m</span>
+        <span>{{ activeTargetDistance }}m (ARRIVÉE 🏁)</span>
       </div>
 
       <div class="water-surface">
@@ -466,6 +497,10 @@
     <!-- FOOTER PERMANENT : Conditions d'utilisation, RGPD et Informations légales -->
     <footer class="app-footer">
       <div class="footer-links">
+        <button type="button" class="footer-link-btn" (click)="openPrivateModal()">
+          {{ i18n.t('BTN_PRIVATE_ROOMS') }}
+        </button>
+        <span class="footer-sep">•</span>
         <button class="footer-link-btn" (click)="isLegalTermsOpen = true">
           ⚖️ {{ i18n.t('MODAL_LEGAL_TITLE') }}
         </button>

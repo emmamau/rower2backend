@@ -29,6 +29,8 @@ export class SocketService {
   private leaderboardSubject = new Subject<LeaderboardUpdatePayload>();
   private statusSubject = new Subject<{ raceId: string; status: string; details?: any }>();
 
+  private currentRoomId: string | null = null;
+
   constructor() {
     this.initSocket();
   }
@@ -44,6 +46,9 @@ export class SocketService {
 
     this.socket.on('connect', () => {
       console.log('[SocketService] Connected to real-time server:', this.socket?.id);
+      if (this.currentRoomId) {
+        this.socket?.emit('join_race', this.currentRoomId);
+      }
     });
 
     this.socket.on('race:leaderboard_update', (data: LeaderboardUpdatePayload) => {
@@ -60,12 +65,16 @@ export class SocketService {
   }
 
   public joinRaceRoom(raceId: string): void {
+    this.currentRoomId = raceId;
     if (this.socket && this.socket.connected) {
       this.socket.emit('join_race', raceId);
     }
   }
 
   public leaveRaceRoom(raceId: string): void {
+    if (this.currentRoomId === raceId) {
+      this.currentRoomId = null;
+    }
     if (this.socket && this.socket.connected) {
       this.socket.emit('leave_race', raceId);
     }

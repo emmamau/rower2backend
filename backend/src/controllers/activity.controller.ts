@@ -308,17 +308,23 @@ export const getLatestUserActivity = async (req: Request, res: Response): Promis
 export const getRaceLeaderboard = async (req: Request, res: Response): Promise<void> => {
   try {
     const { activityId } = req.params;
-    const currentRace = await getOrCreateCurrentRace();
-    const targetRaceId = activityId || currentRace.id;
+    const isPrivate = Boolean(activityId && activityId.startsWith("PRIV_"));
+    const targetRaceId = isPrivate
+      ? activityId
+      : (activityId || (await getOrCreateCurrentRace()).id);
 
     const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
+    const whereClause = isPrivate
+      ? { activityId: targetRaceId }
+      : {
+          [Op.or]: [
+            { activityId: targetRaceId },
+            { activityId: { [Op.notLike]: "PRIV_%" }, updatedAt: { [Op.gte]: tenMinutesAgo } },
+          ],
+        };
+
     const list = await Activities.findAll({
-      where: {
-        [Op.or]: [
-          { activityId: targetRaceId },
-          { updatedAt: { [Op.gte]: tenMinutesAgo } },
-        ],
-      },
+      where: whereClause,
       order: [
         ["status", "ASC"], // les abandons se retrouvent classés en fin de tableau
         ["netDistance", "DESC"],

@@ -6,15 +6,20 @@ import { WakeLockService } from './services/wake-lock.service';
 import { I18nService, SupportedLang } from './services/i18n.service';
 import { SocketService, LiveRacerMetric } from './services/socket.service';
 import { RegattaCanvasComponent } from './components/regatta-canvas/regatta-canvas.component';
-import { RowerData, NextRaceInfo, PastRaceResult } from './models/rower-data.model';
+import {
+  PrivateRoomManagerComponent,
+  PrivateModalTab
+} from './components/private-room-manager/private-room-manager.component';
+import { RowerData, NextRaceInfo, PastRaceResult, PrivateRacePayload } from './models/rower-data.model';
+import { extractRoomFromLocation } from './utils/room-link.util';
 import { UserProfile, UserHistoryItem } from './models/user.model';
-import { interval, Subscription, of } from 'rxjs';
+import { interval, Subscription, of, Observable } from 'rxjs';
 import { switchMap, startWith, catchError } from 'rxjs/operators';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule, FormsModule, RegattaCanvasComponent],
+  imports: [CommonModule, FormsModule, RegattaCanvasComponent, PrivateRoomManagerComponent],
   templateUrl: './app.html',
   styleUrls: ['./app.css']
 })
@@ -87,7 +92,17 @@ export class AppComponent implements OnInit, OnDestroy {
   wakeLockSupported = false;
 
   private pollingSub?: Subscription;
+  // Private Salons state
+  activePrivateRoom: PrivateRacePayload | null = null;
+  isPrivateModalOpen = false;
+  privateModalTab: PrivateModalTab = 'create';
+  privateUrlError = '';
+
+
   private authCheckSub?: Subscription;
+  private socketSub?: Subscription;
+  private joinedSocketRaceId: string | null = null;
+  private readonly popstateListener = () => this.resolveRoomFromCurrentUrl();
 
   constructor(
     private rowerService: RowerService,
@@ -117,7 +132,11 @@ export class AppComponent implements OnInit, OnDestroy {
     this.loadUserProfile();
     this.loadGeneralLeaderboard();
     this.loadPastRaces();
-    this.initGameLoop();
+    if (typeof window !== 'undefined') {
+      window.addEventListener('popstate', this.popstateListener);
+    }
+    this.initSocketListeners();
+    this.resolveRoomFromCurrentUrl();
     this.enableScreenWakeLock();
   }
 
@@ -129,6 +148,17 @@ export class AppComponent implements OnInit, OnDestroy {
     if (this.authCheckSub) {
       this.authCheckSub.unsubscribe();
       this.authCheckSub = undefined;
+    }
+    if (this.socketSub) {
+      this.socketSub.unsubscribe();
+      this.socketSub = undefined;
+    }
+    if (this.joinedSocketRaceId) {
+      this.socketService.leaveRaceRoom(this.joinedSocketRaceId);
+      this.joinedSocketRaceId = null;
+    }
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('popstate', this.popstateListener);
     }
     this.wakeLockService.releaseWakeLock();
   }
@@ -236,7 +266,7 @@ export class AppComponent implements OnInit, OnDestroy {
       .pipe(
         startWith(0),
         switchMap(() =>
-          this.rowerService.getNextRace().pipe(
+          this.pollActiveRaceSource().pipe(
             catchError((err) => {
               this.backendConnected = err.status !== 0;
               this.errorMessage = err.status === 0 ? 'Connexion en attente avec le backend (' + this.apiUrl + ')' : '';
@@ -250,6 +280,10 @@ export class AppComponent implements OnInit, OnDestroy {
         if (raceData) {
           this.backendConnected = true;
           this.nextRaceInfo = raceData;
+          if (this.activePrivateRoom && raceData.race.type === 'PRIVATE_INVITE') {
+            this.activePrivateRoom = raceData as PrivateRacePayload;
+          }
+          this.syncSocketRoom(raceData.race.id);
           this.countdownSeconds = raceData.secondsRemaining;
           this.configTargetDistance = raceData.race.targetDistance;
           this.configIntervalMinutes = raceData.race.intervalMinutes;
@@ -426,5 +460,199 @@ export class AppComponent implements OnInit, OnDestroy {
 
   changeLanguage(langCode: string): void {
     this.i18n.setLang(langCode as SupportedLang);
+  }
+
+  get activeTargetDistance(): number {
+    return this.nextRaceInfo?.race?.targetDistance || 10000;
+  }
+
+  get quarterDistance(): number {
+    return Math.round(this.activeTargetDistance * 0.25);
+  }
+
+  get halfDistance(): number {
+    return Math.round(this.activeTargetDistance * 0.5);
+  }
+
+  get threeQuarterDistance(): number {
+    return Math.round(this.activeTargetDistance * 0.75);
+  }
+
+  openPrivateModal(tab?: PrivateModalTab): void {
+    this.privateModalTab = tab || (this.activePrivateRoom ? 'share' : 'create');
+    this.isPrivateModalOpen = true;
+    this.cdr.markForCheck();
+  }
+
+  onPrivateModalClosed(): void {
+    this.isPrivateModalOpen = false;
+    this.privateUrlError = '';
+    this.cdr.markForCheck();
+  }
+
+  onPrivateRoomSelected(event: { payload: PrivateRacePayload; pushUrl: boolean }): void {
+    this.activatePrivateRoom(event.payload, event.pushUrl);
+  }
+
+  onPrivateRoomUpdated(updated: PrivateRacePayload): void {
+    this.activePrivateRoom = updated;
+    this.nextRaceInfo = updated;
+    this.updateDocumentTitle();
+    this.initGameLoop();
+    this.cdr.markForCheck();
+  }
+
+  onPrivateRoomClosedOrLeft(_event: { closedOnServer: boolean; raceId?: string }): void {
+    this.exitPrivateRoomToPublic(true);
+    this.initGameLoop();
+  }
+
+  onPrivateRoomBotsToggled(enable: boolean): void {
+    if (!this.activePrivateRoom) return;
+    const raceId = this.activePrivateRoom.race.id;
+    this.rowerService.toggleBots(enable, raceId, this.activeUserId).subscribe({
+      next: () => {
+        this.initGameLoop();
+        this.cdr.markForCheck();
+      },
+      error: (err) => {
+        console.error('Erreur bots salon privé:', err);
+      }
+    });
+  }
+
+  private pollActiveRaceSource(): Observable<NextRaceInfo | null> {
+    if (this.activePrivateRoom) {
+      const identifier = this.activePrivateRoom.code || this.activePrivateRoom.race.id;
+      return this.rowerService.getPrivateRace(identifier).pipe(
+        catchError((err) => {
+          if (err?.status === 404) {
+            this.exitPrivateRoomToPublic(true, this.i18n.t('JOIN_ERR_NOT_FOUND'));
+            return this.rowerService.getNextRace();
+          }
+          throw err;
+        })
+      );
+    }
+    return this.rowerService.getNextRace();
+  }
+
+  private initSocketListeners(): void {
+    if (this.socketSub) {
+      this.socketSub.unsubscribe();
+    }
+    this.socketSub = this.socketService.onLeaderboardUpdate().subscribe((update) => {
+      if (this.nextRaceInfo && update.raceId === this.nextRaceInfo.race.id) {
+        this.liveMetricsList = update.leaderboard;
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  private syncSocketRoom(raceId: string): void {
+    if (!raceId) return;
+    if (this.joinedSocketRaceId && this.joinedSocketRaceId !== raceId) {
+      this.socketService.leaveRaceRoom(this.joinedSocketRaceId);
+    }
+    if (this.joinedSocketRaceId !== raceId) {
+      this.joinedSocketRaceId = raceId;
+      this.socketService.joinRaceRoom(raceId);
+    }
+  }
+
+  private resolveRoomFromCurrentUrl(): void {
+    if (typeof window === 'undefined') {
+      this.initGameLoop();
+      return;
+    }
+
+    const extracted = extractRoomFromLocation(window.location.pathname, window.location.search);
+    if (!extracted) {
+      if (this.activePrivateRoom) {
+        this.activePrivateRoom = null;
+        this.updateDocumentTitle();
+      }
+      this.initGameLoop();
+      return;
+    }
+
+    if (!extracted.valid) {
+      const msg =
+        extracted.reason === 'empty'
+          ? this.i18n.t('JOIN_ERR_EMPTY')
+          : this.i18n.t('JOIN_ERR_FORMAT');
+      this.exitPrivateRoomToPublic(true, msg);
+      this.initGameLoop();
+      return;
+    }
+
+    const request$ =
+      extracted.kind === 'pin'
+        ? this.rowerService.getRaceByPin(extracted.value)
+        : this.rowerService.getPrivateRace(extracted.value);
+
+    request$.subscribe({
+      next: (room) => {
+        this.activatePrivateRoom(room, false);
+      },
+      error: () => {
+        this.exitPrivateRoomToPublic(true, this.i18n.t('JOIN_ERR_NOT_FOUND'));
+        this.initGameLoop();
+      }
+    });
+  }
+
+  private activatePrivateRoom(room: PrivateRacePayload, pushHistory: boolean): void {
+    this.activePrivateRoom = room;
+    this.nextRaceInfo = room;
+    this.privateUrlError = '';
+
+    const code = room.code || room.race?.code;
+    if (typeof window !== 'undefined' && code) {
+      const targetPath = `/r/${encodeURIComponent(code)}`;
+      if (window.location.pathname !== targetPath || window.location.search) {
+        if (pushHistory) {
+          window.history.pushState({ roomCode: code }, '', targetPath);
+        } else {
+          window.history.replaceState({ roomCode: code }, '', targetPath);
+        }
+      }
+    }
+
+    if (code && this.activeUserId) {
+      this.rowerService
+        .joinPrivateRace(code, this.activeUserId, this.currentUser.name, false)
+        .pipe(catchError(() => of(null)))
+        .subscribe();
+    }
+
+    this.updateDocumentTitle();
+    this.syncSocketRoom(room.race.id);
+    this.initGameLoop();
+    this.cdr.markForCheck();
+  }
+
+  private exitPrivateRoomToPublic(resetUrl: boolean, notFoundMessage?: string): void {
+    this.activePrivateRoom = null;
+    if (resetUrl && typeof window !== 'undefined') {
+      if (window.location.pathname !== '/' || window.location.search) {
+        window.history.replaceState({}, '', '/');
+      }
+    }
+    this.updateDocumentTitle();
+    if (notFoundMessage) {
+      this.privateUrlError = notFoundMessage;
+      this.openPrivateModal('join');
+    }
+    this.cdr.markForCheck();
+  }
+
+  private updateDocumentTitle(): void {
+    if (typeof document === 'undefined') return;
+    if (this.activePrivateRoom) {
+      document.title = `🔒 ${this.activePrivateRoom.race.title} — Rower Race`;
+    } else {
+      document.title = 'Rower Race — Pro Esport Regatta';
+    }
   }
 }

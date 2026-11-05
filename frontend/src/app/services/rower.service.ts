@@ -1,8 +1,15 @@
 import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
-import { RowerData, NextRaceInfo, LeaderboardResponse, PastRaceResult } from '../models/rower-data.model';
+import {
+  RowerData,
+  NextRaceInfo,
+  LeaderboardResponse,
+  PastRaceResult,
+  CreatePrivateRaceRequest,
+  PrivateRacePayload
+} from '../models/rower-data.model';
 import { UserProfileResponse, GeneralLeaderboardResponse } from '../models/user.model';
 
 @Injectable({
@@ -50,12 +57,87 @@ export class RowerService {
     return this.http.put(`${this.apiUrl}/api/race/config`, { targetDistance, intervalMinutes, adminUserId });
   }
 
-  toggleBots(enable: boolean, raceId?: string): Observable<any> {
-    return this.http.post(`${this.apiUrl}/api/race/bots`, { enable, raceId });
+  toggleBots(enable: boolean, raceId?: string, userId?: string, botCount: number = 3): Observable<any> {
+    return this.http.post(`${this.apiUrl}/api/race/bots`, { enable, raceId, userId, botCount });
+  }
+
+  // Salons Privés : Création, consultation, codes PIN / Web et contrôle hôte
+  createPrivateRace(payload: CreatePrivateRaceRequest): Observable<PrivateRacePayload> {
+    return this.http.post<PrivateRacePayload>(`${this.apiUrl}/api/v1/races/private`, payload);
+  }
+
+  getPrivateRace(identifier: string): Observable<PrivateRacePayload> {
+    return this.http.get<PrivateRacePayload>(
+      `${this.apiUrl}/api/v1/races/private/${encodeURIComponent(identifier.trim())}`
+    );
+  }
+
+  getRaceByPin(pin: string): Observable<PrivateRacePayload> {
+    return this.http.get<PrivateRacePayload>(
+      `${this.apiUrl}/api/v1/races/pin/${encodeURIComponent(pin.trim())}`
+    );
+  }
+
+  listPrivateRaces(hostUserId?: string, codes?: string[]): Observable<{ success: boolean; races: PrivateRacePayload[] }> {
+    let params = new HttpParams();
+    if (hostUserId && hostUserId.trim()) {
+      params = params.set('hostUserId', hostUserId.trim());
+    }
+    if (codes && codes.length > 0) {
+      params = params.set('codes', codes.join(','));
+    }
+    return this.http.get<{ success: boolean; races: PrivateRacePayload[] }>(
+      `${this.apiUrl}/api/v1/races/private`,
+      { params }
+    );
+  }
+
+  joinPrivateRace(
+    identifier: string,
+    userId: string,
+    userName?: string,
+    registerLane: boolean = false
+  ): Observable<PrivateRacePayload> {
+    return this.http.post<PrivateRacePayload>(
+      `${this.apiUrl}/api/v1/races/private/${encodeURIComponent(identifier.trim())}/join`,
+      { userId, userName, registerLane }
+    );
+  }
+
+  startOrResetPrivateRace(
+    identifier: string,
+    options: { hostUserId: string; countdownSeconds?: number; reset?: boolean; targetDistance?: number }
+  ): Observable<PrivateRacePayload> {
+    return this.http.post<PrivateRacePayload>(
+      `${this.apiUrl}/api/v1/races/private/${encodeURIComponent(identifier.trim())}/start`,
+      options
+    );
+  }
+
+  regeneratePrivatePin(identifier: string, hostUserId: string): Observable<PrivateRacePayload> {
+    return this.http.post<PrivateRacePayload>(
+      `${this.apiUrl}/api/v1/races/private/${encodeURIComponent(identifier.trim())}/regenerate-pin`,
+      { hostUserId }
+    );
+  }
+
+  regeneratePrivateCode(identifier: string, hostUserId: string): Observable<PrivateRacePayload> {
+    return this.http.post<PrivateRacePayload>(
+      `${this.apiUrl}/api/v1/races/private/${encodeURIComponent(identifier.trim())}/regenerate-code`,
+      { hostUserId }
+    );
+  }
+
+  closePrivateRace(identifier: string, hostUserId: string): Observable<{ success: boolean; raceId: string }> {
+    const params = new HttpParams().set('hostUserId', hostUserId);
+    return this.http.delete<{ success: boolean; raceId: string }>(
+      `${this.apiUrl}/api/v1/races/private/${encodeURIComponent(identifier.trim())}`,
+      { params }
+    );
   }
 
   getRaceLeaderboard(raceId: string): Observable<LeaderboardResponse> {
-    return this.http.get<LeaderboardResponse>(`${this.apiUrl}/api/activity/race/${raceId}/leaderboard`);
+    return this.http.get<LeaderboardResponse>(`${this.apiUrl}/api/activity/race/${encodeURIComponent(raceId)}/leaderboard`);
   }
 
   getRaceHistory(): Observable<PastRaceResult[]> {
@@ -63,11 +145,11 @@ export class RowerService {
   }
 
   getUserLatestActivity(userId: string): Observable<RowerData> {
-    return this.http.get<RowerData>(`${this.apiUrl}/api/activity/latest?userId=${userId}`);
+    return this.http.get<RowerData>(`${this.apiUrl}/api/activity/latest?userId=${encodeURIComponent(userId)}`);
   }
 
   getUserProfile(userId: string): Observable<UserProfileResponse> {
-    return this.http.get<UserProfileResponse>(`${this.apiUrl}/api/user/profile/${userId}`);
+    return this.http.get<UserProfileResponse>(`${this.apiUrl}/api/user/profile/${encodeURIComponent(userId)}`);
   }
 
   getGeneralLeaderboard(): Observable<GeneralLeaderboardResponse> {

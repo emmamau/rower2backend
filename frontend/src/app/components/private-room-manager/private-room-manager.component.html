@@ -1,0 +1,660 @@
+<!-- INLINE ACTIVE PRIVATE SALON BANNER (visible whenever the user is inside a private room) -->
+@if (activeRoom) {
+  <section class="priv-active-banner" aria-label="Salon privé actif">
+    <div class="priv-banner-top">
+      <div class="priv-banner-identity">
+        <span class="priv-pill-lock">🔒 {{ i18n.t('PRIVATE_ROOM_BADGE') }}</span>
+        <span class="priv-role-chip" [class.is-host]="canManageActiveRoom">
+          {{ canManageActiveRoom ? i18n.t('HOST_TAG') : i18n.t('GUEST_TAG') }}
+        </span>
+        <h2 class="priv-banner-title">{{ activeRoom.race.title }}</h2>
+        <span class="priv-meta-chip">🏁 {{ activeRoom.race.targetDistance }}m</span>
+        <span class="priv-meta-chip">
+          👥 {{ activeRacersCount }} / {{ activeRoom.race.maxParticipants || 8 }}
+        </span>
+        <span class="priv-status-chip" [class.in-progress]="activeRoom.status === 'in_progress'">
+          @if (activeRoom.waitingForHost) {
+            ⏳ {{ i18n.t('STATUS_WAITING_HOST') }}
+          } @else {
+            ⏱️ {{ activeRoom.formattedCountdown }}
+          }
+        </span>
+      </div>
+
+      <div class="priv-banner-nav">
+        <button
+          type="button"
+          class="priv-btn priv-btn-cyan"
+          (click)="openModalRequest.emit('share')">
+          {{ i18n.t('BTN_MANAGE_CODES') }}
+        </button>
+        <button
+          type="button"
+          class="priv-btn priv-btn-ghost"
+          (click)="leaveToPublicRace()">
+          {{ i18n.t('BTN_BACK_PUBLIC') }}
+        </button>
+      </div>
+    </div>
+
+    <!-- Quick Share & Garmin Watch PIN Strip -->
+    <div class="priv-banner-codes">
+      <div class="priv-code-box pin-highlight">
+        <span class="priv-code-label">⌚ PIN Garmin :</span>
+        <strong class="priv-pin-inline">{{ activeRoomPin || '----' }}</strong>
+        <button
+          type="button"
+          class="priv-btn-mini"
+          (click)="copyText(activeRoomPin)"
+          [attr.aria-label]="i18n.t('BTN_COPY_PIN')">
+          {{ i18n.t('BTN_COPY_PIN') }}
+        </button>
+      </div>
+
+      <div class="priv-code-box url-highlight">
+        <span class="priv-code-label">🔗 URL :</span>
+        <code class="priv-url-inline" [title]="shareUrl">{{ shareUrl }}</code>
+        <button
+          type="button"
+          class="priv-btn-mini priv-btn-mini-primary"
+          (click)="copyText(shareUrl)">
+          {{ i18n.t('BTN_COPY_URL') }}
+        </button>
+        <button
+          type="button"
+          class="priv-btn-mini"
+          (click)="copyText(fullInviteMessage)">
+          {{ i18n.t('BTN_COPY_INVITE') }}
+        </button>
+        @if (canNativeShare) {
+          <button
+            type="button"
+            class="priv-btn-mini"
+            (click)="shareRoomNative()">
+            {{ i18n.t('BTN_NATIVE_SHARE') }}
+          </button>
+        }
+      </div>
+    </div>
+
+    <!-- Quick Action Controls (Lane registration + Host Start / Bots / Reset) -->
+    <div class="priv-banner-actions">
+      <button
+        type="button"
+        class="priv-btn priv-btn-outline"
+        [disabled]="isActionBusy"
+        (click)="registerMyLane()">
+        {{ i18n.t('BTN_REGISTER_LANE') }}
+      </button>
+
+      @if (canManageActiveRoom) {
+        @if (activeRoom.status === 'countdown') {
+          <button
+            type="button"
+            class="priv-btn priv-btn-launch"
+            [disabled]="isActionBusy"
+            (click)="triggerStart(10)">
+            {{ i18n.t('BTN_START_10S') }}
+          </button>
+          <button
+            type="button"
+            class="priv-btn priv-btn-yellow"
+            [disabled]="isActionBusy"
+            (click)="triggerStart(3)">
+            {{ i18n.t('BTN_START_3S') }}
+          </button>
+        } @else {
+          <button
+            type="button"
+            class="priv-btn priv-btn-yellow"
+            [disabled]="isActionBusy"
+            (click)="triggerResetRoom()">
+            {{ i18n.t('BTN_RESET_ROOM') }}
+          </button>
+        }
+
+        <button
+          type="button"
+          class="priv-btn priv-btn-outline"
+          [disabled]="isActionBusy"
+          (click)="onToggleBots()">
+          {{ activeRoom.race.hasBots ? i18n.t('BTN_TOGGLE_BOTS_OFF') : i18n.t('BTN_TOGGLE_BOTS_ON') }}
+        </button>
+      }
+    </div>
+
+    @if (actionError) {
+      <p class="priv-error-msg" role="alert">⚠️ {{ actionError }}</p>
+    }
+  </section>
+}
+
+<!-- Single persistent polite live region for copy / code rotation announcements -->
+<div class="priv-live-region" aria-live="polite" aria-atomic="true">
+  @if (feedbackMessage && !isOpen) {
+    <div class="priv-toast">{{ feedbackMessage }}</div>
+  }
+</div>
+
+<!-- NATIVE MODAL DIALOG FOR PRIVATE SALONS -->
+<dialog
+  #dialogEl
+  class="priv-dialog"
+  aria-labelledby="priv-dialog-title"
+  (close)="onNativeDialogClose()"
+  (click)="onBackdropClick($event)">
+  <div class="priv-dialog-shell">
+    <div class="priv-dialog-header">
+      <div>
+        <h3 id="priv-dialog-title" class="priv-dialog-title">
+          {{ i18n.t('PRIVATE_MODAL_TITLE') }}
+        </h3>
+        <p class="priv-dialog-sub">{{ i18n.t('PRIVATE_MODAL_SUB') }}</p>
+      </div>
+      <button
+        type="button"
+        class="priv-close-btn"
+        (click)="closeModal()"
+        [attr.aria-label]="i18n.t('BTN_CLOSE')">
+        ✕
+      </button>
+    </div>
+
+    <!-- Accessible Tablist -->
+    <div
+      class="priv-tablist"
+      role="tablist"
+      aria-label="Gestion des salons privés"
+      (keydown)="onTabKeydown($event)">
+      <button
+        type="button"
+        role="tab"
+        id="priv-tab-create"
+        aria-controls="priv-panel-create"
+        [attr.aria-selected]="activeTab === 'create'"
+        [attr.tabindex]="activeTab === 'create' ? 0 : -1"
+        class="priv-tab-btn"
+        [class.active]="activeTab === 'create'"
+        (click)="switchTab('create')">
+        {{ i18n.t('TAB_CREATE_ROOM') }}
+      </button>
+
+      <button
+        type="button"
+        role="tab"
+        id="priv-tab-share"
+        aria-controls="priv-panel-share"
+        [attr.aria-selected]="activeTab === 'share'"
+        [attr.tabindex]="activeTab === 'share' ? 0 : -1"
+        [disabled]="!activeRoom"
+        class="priv-tab-btn"
+        [class.active]="activeTab === 'share'"
+        (click)="switchTab('share')">
+        {{ i18n.t('TAB_SHARE_CODES') }}
+        @if (activeRoomCode) {
+          <span class="priv-tab-badge">{{ activeRoomCode }}</span>
+        }
+      </button>
+
+      <button
+        type="button"
+        role="tab"
+        id="priv-tab-join"
+        aria-controls="priv-panel-join"
+        [attr.aria-selected]="activeTab === 'join'"
+        [attr.tabindex]="activeTab === 'join' ? 0 : -1"
+        class="priv-tab-btn"
+        [class.active]="activeTab === 'join'"
+        (click)="switchTab('join')">
+        {{ i18n.t('TAB_JOIN_ROOMS') }}
+        @if (savedSalons.length > 0) {
+          <span class="priv-tab-count">{{ savedSalons.length }}</span>
+        }
+      </button>
+    </div>
+
+    <!-- Modal polite live feedback -->
+    <div class="priv-modal-live" aria-live="polite" aria-atomic="true">
+      @if (feedbackMessage && isOpen) {
+        <div class="priv-feedback-banner">{{ feedbackMessage }}</div>
+      }
+    </div>
+
+    <!-- TAB 1: CREATE PRIVATE SALON -->
+    @if (activeTab === 'create') {
+      <div
+        id="priv-panel-create"
+        role="tabpanel"
+        aria-labelledby="priv-tab-create"
+        class="priv-panel">
+        <form class="priv-form" (ngSubmit)="onCreateRoomSubmit()" novalidate>
+          <div class="priv-field">
+            <label for="priv-room-title" class="priv-label">
+              {{ i18n.t('FIELD_ROOM_TITLE') }}
+            </label>
+            <span id="priv-room-title-hint" class="priv-hint">
+              {{ i18n.t('FIELD_ROOM_TITLE_HINT') }}
+            </span>
+            <input
+              id="priv-room-title"
+              name="roomTitle"
+              type="text"
+              maxlength="60"
+              class="priv-input"
+              [(ngModel)]="roomTitle"
+              (blur)="validateCreateTitle()"
+              (input)="createTitleError = ''"
+              [attr.aria-invalid]="createTitleError ? 'true' : null"
+              [attr.aria-describedby]="createTitleError ? 'priv-room-title-hint priv-room-title-err' : 'priv-room-title-hint'"
+              required />
+            @if (createTitleError) {
+              <p id="priv-room-title-err" class="priv-error-msg" role="alert">
+                {{ createTitleError }}
+              </p>
+            }
+          </div>
+
+          <div class="priv-grid-2">
+            <div class="priv-field">
+              <label for="priv-room-dist" class="priv-label">
+                {{ i18n.t('FIELD_ROOM_DIST') }}
+              </label>
+              <div class="priv-preset-row" role="group" aria-label="Distances rapides">
+                @for (preset of distancePresets; track preset) {
+                  <button
+                    type="button"
+                    class="priv-preset-chip"
+                    [class.active]="targetDistance === preset"
+                    (click)="selectDistancePreset(preset)">
+                    {{ preset }}m
+                  </button>
+                }
+              </div>
+              <input
+                id="priv-room-dist"
+                name="targetDistance"
+                type="number"
+                min="100"
+                max="100000"
+                step="100"
+                inputmode="numeric"
+                class="priv-input"
+                [(ngModel)]="targetDistance" />
+            </div>
+
+            <div class="priv-field">
+              <label for="priv-max-players" class="priv-label">
+                {{ i18n.t('FIELD_MAX_PLAYERS') }}
+              </label>
+              <input
+                id="priv-max-players"
+                name="maxParticipants"
+                type="number"
+                min="2"
+                max="30"
+                step="1"
+                inputmode="numeric"
+                class="priv-input"
+                [(ngModel)]="maxParticipants" />
+            </div>
+          </div>
+
+          <!-- Semantic fieldset + radio buttons for 2 start modes -->
+          <fieldset class="priv-fieldset">
+            <legend class="priv-legend">{{ i18n.t('FIELD_START_MODE') }}</legend>
+            <label class="priv-radio-card" [class.selected]="startMode === 'manual'">
+              <input
+                type="radio"
+                name="startMode"
+                value="manual"
+                [(ngModel)]="startMode" />
+              <span>{{ i18n.t('START_MODE_MANUAL') }}</span>
+            </label>
+            <label class="priv-radio-card" [class.selected]="startMode === 'timer'">
+              <input
+                type="radio"
+                name="startMode"
+                value="timer"
+                [(ngModel)]="startMode" />
+              <span>{{ i18n.t('START_MODE_TIMER') }}</span>
+            </label>
+          </fieldset>
+
+          @if (startMode === 'timer') {
+            <div class="priv-field">
+              <label for="priv-countdown-min" class="priv-label">
+                {{ i18n.t('FIELD_COUNTDOWN_MIN') }}
+              </label>
+              <input
+                id="priv-countdown-min"
+                name="countdownMinutes"
+                type="number"
+                min="1"
+                max="180"
+                inputmode="numeric"
+                class="priv-input"
+                [(ngModel)]="countdownMinutes" />
+            </div>
+          }
+
+          @if (createGeneralError) {
+            <p class="priv-error-msg" role="alert">⚠️ {{ createGeneralError }}</p>
+          }
+
+          <div class="priv-form-actions">
+            <button
+              type="submit"
+              class="priv-btn priv-btn-launch priv-btn-wide"
+              [disabled]="isCreating">
+              {{ isCreating ? i18n.t('CREATING_ROOM') : i18n.t('BTN_CREATE_PRIVATE') }}
+            </button>
+          </div>
+        </form>
+      </div>
+    }
+
+    <!-- TAB 2: SHARE URL, CODES & HOST CONTROLS -->
+    @if (activeTab === 'share' && activeRoom) {
+      <div
+        id="priv-panel-share"
+        role="tabpanel"
+        aria-labelledby="priv-tab-share"
+        class="priv-panel">
+        <!-- 1. Direct Shareable Connection URL -->
+        <div class="priv-share-card">
+          <div class="priv-share-card-header">
+            <label for="priv-share-url-input" class="priv-label">
+              🔗 {{ i18n.t('SHARE_SECTION_URL') }}
+            </label>
+            <span class="priv-salon-title-tag">{{ activeRoom.race.title }} ({{ activeRoom.race.targetDistance }}m)</span>
+          </div>
+
+          <div class="priv-url-copy-row">
+            <input
+              id="priv-share-url-input"
+              name="shareUrl"
+              type="text"
+              readonly
+              autocorrect="off"
+              autocapitalize="off"
+              spellcheck="false"
+              class="priv-input priv-url-readonly"
+              [value]="shareUrl"
+              (click)="selectInputText($event)" />
+            <button
+              type="button"
+              class="priv-btn priv-btn-cyan"
+              (click)="copyText(shareUrl)">
+              {{ i18n.t('BTN_COPY_URL') }}
+            </button>
+          </div>
+
+          <div class="priv-share-btn-row">
+            <button
+              type="button"
+              class="priv-btn priv-btn-outline"
+              (click)="copyText(fullInviteMessage)">
+              {{ i18n.t('BTN_COPY_INVITE') }}
+            </button>
+            @if (canNativeShare) {
+              <button
+                type="button"
+                class="priv-btn priv-btn-outline"
+                (click)="shareRoomNative()">
+                {{ i18n.t('BTN_NATIVE_SHARE') }}
+              </button>
+            }
+            @if (canManageActiveRoom) {
+              <button
+                type="button"
+                class="priv-btn priv-btn-ghost"
+                [disabled]="isActionBusy"
+                (click)="regenerateCode()">
+                {{ i18n.t('BTN_REGEN_CODE') }}
+              </button>
+            }
+          </div>
+        </div>
+
+        <!-- 2. Garmin Watch 4-Digit PIN + Web Salon Code -->
+        <div class="priv-codes-grid">
+          <!-- Garmin PIN Card -->
+          <div class="priv-share-card priv-pin-card">
+            <div class="priv-label">⌚ {{ i18n.t('SHARE_SECTION_PIN') }}</div>
+            <p class="priv-hint">{{ i18n.t('SHARE_PIN_HELP') }}</p>
+            <div class="priv-pin-digits" aria-label="Code PIN à 4 chiffres">
+              @for (digit of activePinDigits; track $index) {
+                <span class="priv-pin-digit">{{ digit }}</span>
+              }
+            </div>
+            <div class="priv-share-btn-row">
+              <button
+                type="button"
+                class="priv-btn priv-btn-yellow"
+                (click)="copyText(activeRoomPin)">
+                {{ i18n.t('BTN_COPY_PIN') }}
+              </button>
+              @if (canManageActiveRoom) {
+                <button
+                  type="button"
+                  class="priv-btn priv-btn-ghost"
+                  [disabled]="isActionBusy"
+                  (click)="regeneratePin()">
+                  {{ i18n.t('BTN_REGEN_PIN') }}
+                </button>
+              }
+            </div>
+          </div>
+
+          <!-- Web Room Code Card -->
+          <div class="priv-share-card">
+            <div class="priv-label">🌐 {{ i18n.t('SHARE_SECTION_CODE') }}</div>
+            <p class="priv-hint">{{ i18n.t('SHARE_CODE_HELP') }}</p>
+            <div class="priv-meet-code-display">{{ activeRoomCode }}</div>
+            <div class="priv-share-btn-row">
+              <button
+                type="button"
+                class="priv-btn priv-btn-cyan"
+                (click)="copyText(activeRoomCode)">
+                {{ i18n.t('BTN_COPY_CODE') }}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Ready-to-paste Invite Message Preview -->
+        <div class="priv-field">
+          <label for="priv-invite-preview" class="priv-label">
+            ✉️ {{ i18n.t('INVITE_MSG_HEADER') }}
+          </label>
+          <textarea
+            id="priv-invite-preview"
+            name="invitePreview"
+            rows="4"
+            readonly
+            class="priv-textarea"
+            [value]="fullInviteMessage"
+            (click)="selectInputText($event)"></textarea>
+        </div>
+
+        <!-- 3. Host & Participant Controls -->
+        <div class="priv-host-box">
+          <div class="priv-label">🎛️ {{ i18n.t('HOST_CONTROLS_TITLE') }}</div>
+          <div class="priv-share-btn-row">
+            <button
+              type="button"
+              class="priv-btn priv-btn-outline"
+              [disabled]="isActionBusy"
+              (click)="registerMyLane()">
+              {{ i18n.t('BTN_REGISTER_LANE') }}
+            </button>
+
+            @if (canManageActiveRoom) {
+              @if (activeRoom.status === 'countdown') {
+                <button
+                  type="button"
+                  class="priv-btn priv-btn-launch"
+                  [disabled]="isActionBusy"
+                  (click)="triggerStart(10)">
+                  {{ i18n.t('BTN_START_10S') }}
+                </button>
+                <button
+                  type="button"
+                  class="priv-btn priv-btn-yellow"
+                  [disabled]="isActionBusy"
+                  (click)="triggerStart(3)">
+                  {{ i18n.t('BTN_START_3S') }}
+                </button>
+              } @else {
+                <button
+                  type="button"
+                  class="priv-btn priv-btn-yellow"
+                  [disabled]="isActionBusy"
+                  (click)="triggerResetRoom()">
+                  {{ i18n.t('BTN_RESET_ROOM') }}
+                </button>
+              }
+
+              <button
+                type="button"
+                class="priv-btn priv-btn-outline"
+                [disabled]="isActionBusy"
+                (click)="onToggleBots()">
+                {{ activeRoom.race.hasBots ? i18n.t('BTN_TOGGLE_BOTS_OFF') : i18n.t('BTN_TOGGLE_BOTS_ON') }}
+              </button>
+
+              <button
+                type="button"
+                class="priv-btn priv-btn-danger"
+                [disabled]="isActionBusy"
+                (click)="closeAndRevokeActiveRoom()">
+                {{ i18n.t('BTN_CLOSE_ROOM') }}
+              </button>
+            }
+
+            <button
+              type="button"
+              class="priv-btn priv-btn-ghost"
+              (click)="leaveToPublicRace()">
+              {{ i18n.t('BTN_BACK_PUBLIC') }}
+            </button>
+          </div>
+
+          @if (actionError) {
+            <p class="priv-error-msg" role="alert">⚠️ {{ actionError }}</p>
+          }
+        </div>
+      </div>
+    }
+
+    <!-- TAB 3: JOIN BY CODE / PIN / URL + MY SAVED SALONS -->
+    @if (activeTab === 'join') {
+      <div
+        id="priv-panel-join"
+        role="tabpanel"
+        aria-labelledby="priv-tab-join"
+        class="priv-panel">
+        <form class="priv-form" (ngSubmit)="onJoinSubmit()" novalidate>
+          <div class="priv-field">
+            <label for="priv-join-input" class="priv-label">
+              {{ i18n.t('JOIN_FIELD_LABEL') }}
+            </label>
+            <span id="priv-join-hint" class="priv-hint">
+              {{ i18n.t('JOIN_FIELD_HINT') }}
+            </span>
+            <div class="priv-join-row">
+              <input
+                id="priv-join-input"
+                name="roomIdentifier"
+                type="text"
+                autocorrect="off"
+                autocapitalize="off"
+                spellcheck="false"
+                placeholder="ex: krm-wzx-qpl, 4829, https://.../r/krm-wzx-qpl"
+                class="priv-input"
+                [(ngModel)]="joinInput"
+                (blur)="onJoinInputBlur()"
+                (input)="joinError = ''"
+                [attr.aria-invalid]="joinError ? 'true' : null"
+                [attr.aria-describedby]="joinError ? 'priv-join-hint priv-join-err' : 'priv-join-hint'" />
+              <button
+                type="submit"
+                class="priv-btn priv-btn-cyan"
+                [disabled]="isJoining">
+                {{ i18n.t('BTN_JOIN_ROOM') }}
+              </button>
+            </div>
+            @if (joinError) {
+              <p id="priv-join-err" class="priv-error-msg" role="alert">
+                ⚠️ {{ joinError }}
+              </p>
+            }
+          </div>
+        </form>
+
+        <!-- Saved & Active Private Salons List -->
+        <div class="priv-saved-section">
+          <div class="priv-saved-header">
+            <h4 class="priv-saved-title">{{ i18n.t('MY_ROOMS_TITLE') }}</h4>
+          </div>
+
+          @if (savedSalons.length > 0) {
+            <div class="priv-saved-list">
+              @for (salon of savedSalons; track salon.id) {
+                <div
+                  class="priv-saved-item"
+                  [class.is-current]="activeRoom?.race?.id === salon.id">
+                  <div class="priv-saved-info">
+                    <div class="priv-saved-top">
+                      <span class="priv-role-chip" [class.is-host]="salon.isHost">
+                        {{ salon.isHost ? i18n.t('HOST_TAG') : i18n.t('GUEST_TAG') }}
+                      </span>
+                      <strong class="priv-saved-name">{{ salon.title }}</strong>
+                      <span class="priv-meta-chip">{{ salon.targetDistance }}m</span>
+                    </div>
+                    <div class="priv-saved-codes">
+                      <span>Code: <code>{{ salon.code }}</code></span>
+                      @if (salon.pinCode) {
+                        <span>PIN Garmin: <strong>{{ salon.pinCode }}</strong></span>
+                      }
+                      @if (liveRoomsMap.get(salon.id); as live) {
+                        <span>👥 {{ live.totalParticipants }} / {{ live.race.maxParticipants || 8 }}</span>
+                      }
+                    </div>
+                  </div>
+
+                  <div class="priv-saved-actions">
+                    <button
+                      type="button"
+                      class="priv-btn-mini priv-btn-mini-primary"
+                      (click)="openSavedSalon(salon)">
+                      {{ i18n.t('BTN_OPEN_ROOM') }}
+                    </button>
+                    <button
+                      type="button"
+                      class="priv-btn-mini"
+                      (click)="copySavedSalonUrl(salon, $event)">
+                      {{ i18n.t('BTN_COPY_URL') }}
+                    </button>
+                    <button
+                      type="button"
+                      class="priv-btn-mini priv-btn-mini-danger"
+                      (click)="removeOrCloseSavedSalon(salon, $event)"
+                      [attr.aria-label]="salon.isHost ? i18n.t('BTN_CLOSE_ROOM') : i18n.t('BTN_CLOSE')">
+                      ✕
+                    </button>
+                  </div>
+                </div>
+              }
+            </div>
+          } @else {
+            <div class="priv-empty-rooms">
+              {{ i18n.t('MY_ROOMS_EMPTY') }}
+            </div>
+          }
+        </div>
+      </div>
+    }
+  </div>
+</dialog>
+

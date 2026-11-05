@@ -7,7 +7,7 @@
     "env": "node scripts/set-env.js",
     "build": "node scripts/set-env.js && ng build --configuration production",
     "watch": "ng build --watch --configuration development",
-    "test": "ng test"
+    "test": "node --test tests/*.test.mjs"
   },
   "private": true,
   "packageManager": "npm@10.8.3",

@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { Op } from "sequelize";
 import db from "../models";
 import config from "../config";
+import raceManager from "../services/race-manager.service";
 
 const Activities = db.activities;
 const Races = db.races;
@@ -18,9 +19,10 @@ const Users = db.users;
 export async function getOrCreateCurrentRace(): Promise<any> {
   const now = new Date();
 
-  // 1. Chercher s'il existe une course active (in_progress) ou en attente (waiting)
+  // 1. Chercher s'il existe une course publique active (in_progress) ou en attente (waiting)
   let activeRace = await Races.findOne({
     where: {
+      id: { [Op.notLike]: "PRIV_%" },
       status: { [Op.in]: ["in_progress", "waiting"] },
     },
     order: [["createdAt", "DESC"]],
@@ -77,6 +79,7 @@ export async function getOrCreateCurrentRace(): Promise<any> {
     // Si la dernière course vient de finir ou était in_progress, la prochaine course a lieu 1h après son départ
     const lastStartedRace = await Races.findOne({
       where: {
+        id: { [Op.notLike]: "PRIV_%" },
         status: { [Op.in]: ["finished", "in_progress"] },
       },
       order: [["startTime", "DESC"]],
@@ -119,13 +122,13 @@ export const getNextRace = async (_req: Request, res: Response): Promise<void> =
     const startTime = new Date(race.get("startTime") as Date);
     const secondsRemaining = Math.max(0, Math.floor((startTime.getTime() - now.getTime()) / 1000));
 
-    // Comptage des participants connectés
+    // Comptage des participants connectés (hors salons privés)
     const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
     const count = await Activities.count({
       where: {
         [Op.or]: [
           { activityId: race.get("id") },
-          { updatedAt: { [Op.gte]: fiveMinutesAgo } },
+          { activityId: { [Op.notLike]: "PRIV_%" }, updatedAt: { [Op.gte]: fiveMinutesAgo } },
         ],
         status: { [Op.ne]: "abandoned" },
       },
@@ -335,9 +338,9 @@ export const updateRaceConfig = async (req: Request, res: Response): Promise<voi
     if (targetDistance) config.defaultRaceDistanceMeters = Number(targetDistance);
     if (intervalMinutes) config.raceIntervalMinutes = Number(intervalMinutes);
 
-    // Mettre également à jour la course active en attente si présente
+    // Mettre également à jour la course publique active en attente si présente
     const activeRace = await Races.findOne({
-      where: { status: "waiting" },
+      where: { id: { [Op.notLike]: "PRIV_%" }, status: "waiting" },
       order: [["createdAt", "DESC"]],
     });
     if (activeRace) {
@@ -374,9 +377,6 @@ const BOT_FIRSTNAMES = [
  * Les allures s'échelonnent entre 1min50s (110s) et 2min30s (150s) pour 500m.
  */
 function generateTunedBots(playerPoints: number, botCount: number = 3) {
-  // playerPoints > 300 = Expert (allure proche 1m50 - 2m05)
-  // playerPoints 100-300 = Intermédiaire (allure proche 2m00 - 2m18)
-  // playerPoints < 100 = Débutant / Novice (allure proche 2m12 - 2m30)
   let minPace = 110; // 1m50s
   let maxPace = 150; // 2m30s
 
@@ -397,12 +397,10 @@ function generateTunedBots(playerPoints: number, botCount: number = 3) {
 
   for (let i = 0; i < botCount; i++) {
     const firstName = shuffledNames[i % shuffledNames.length];
-    // Tirage d'une allure aléatoire entre minPace et maxPace
     const pace = Math.floor(minPace + Math.random() * (maxPace - minPace));
-    // Calcul puissance et cadence cohérentes avec l'allure (ex: 110s -> ~270W/30spm, 150s -> ~140W/22spm)
-    const ratio = (150 - pace) / (150 - 110); // 0 (lent) à 1 (rapide)
-    const power = Math.round(135 + ratio * 145); // 135W à 280W
-    const spm = Math.round(22 + ratio * 9); // 22 à 31 spm
+    const ratio = (150 - pace) / (150 - 110);
+    const power = Math.round(135 + ratio * 145);
+    const spm = Math.round(22 + ratio * 9);
 
     selectedBots.push({
       id: `bot_${firstName.toLowerCase()}_${Math.floor(Math.random() * 900 + 100)}`,
@@ -418,23 +416,39 @@ function generateTunedBots(playerPoints: number, botCount: number = 3) {
 
 /**
  * POST /api/race/bots
- * Permet d'ajouter ou activer des bots virtuels quand le joueur est seul
- * Les bots sont tirés au sort avec un prénom spécifique et adaptés au niveau (points) du joueur.
+ * Permet d'ajouter ou activer des bots virtuels quand le joueur est seul (course publique ou salon privé)
  */
 export const toggleBots = async (req: Request, res: Response): Promise<void> => {
   try {
     const { enable = true, raceId, botCount = 3, userId } = req.body;
-    const race = raceId ? await Races.findByPk(raceId) : await getOrCreateCurrentRace();
+    const managedPrivate = raceId ? raceManager.findPrivateRace(String(raceId)) : null;
+
+    let race = raceId ? await Races.findByPk(managedPrivate ? managedPrivate.id : String(raceId)) : await getOrCreateCurrentRace();
+    if (!race && managedPrivate) {
+      race = await Races.create({
+        id: managedPrivate.id,
+        title: managedPrivate.title,
+        targetDistance: managedPrivate.targetDistance,
+        startTime: managedPrivate.lobbyEndsAt,
+        intervalMinutes: 0,
+        maxDurationMinutes: managedPrivate.maxDurationMinutes || 55,
+        status: managedPrivate.status === "RUNNING" ? "in_progress" : "waiting",
+        hasBots: Boolean(enable),
+        totalParticipants: managedPrivate.totalParticipants || 0,
+      });
+    }
+
     if (!race) {
       res.status(404).json({ message: "Aucune course trouvée." });
       return;
     }
 
     const actualRaceId = String(race.get("id"));
-    const targetDist = (race.get("targetDistance") as number) || 10000;
+    const targetDist = managedPrivate?.targetDistance || (race.get("targetDistance") as number) || 10000;
+    const isRunning = managedPrivate ? managedPrivate.status === "RUNNING" : race.get("status") === "in_progress";
+    const clampedBotCount = Math.min(12, Math.max(1, Number(botCount) || 3));
 
     if (enable) {
-      // Déterminer les points du joueur demandeur pour calibrer les bots
       let playerPoints = 0;
       if (userId) {
         const u = await Users.findByPk(userId);
@@ -443,7 +457,7 @@ export const toggleBots = async (req: Request, res: Response): Promise<void> => 
         }
       }
 
-      const botsToAdd = generateTunedBots(playerPoints, botCount);
+      const botsToAdd = generateTunedBots(playerPoints, clampedBotCount);
       for (const b of botsToAdd) {
         const botCompositeId = `${actualRaceId}_${b.id}`;
         let botAct = await Activities.findByPk(botCompositeId);
@@ -456,7 +470,7 @@ export const toggleBots = async (req: Request, res: Response): Promise<void> => 
             isBot: true,
             raceMode: "race",
             targetDistance: targetDist,
-            status: race.get("status") === "in_progress" ? "in_progress" : "waiting",
+            status: isRunning ? "in_progress" : "waiting",
             initialDistance: 0,
             currentDistance: 0,
             netDistance: 0,
@@ -477,14 +491,14 @@ export const toggleBots = async (req: Request, res: Response): Promise<void> => 
           });
         } else {
           await botAct.update({
-            status: race.get("status") === "in_progress" ? "in_progress" : "waiting",
+            status: isRunning ? "in_progress" : "waiting",
             isBot: true,
           });
         }
       }
       await race.update({ hasBots: true });
+      if (managedPrivate) managedPrivate.hasBots = true;
     } else {
-      // Désactiver les bots
       await Activities.destroy({
         where: {
           activityId: actualRaceId,
@@ -492,6 +506,7 @@ export const toggleBots = async (req: Request, res: Response): Promise<void> => 
         },
       });
       await race.update({ hasBots: false });
+      if (managedPrivate) managedPrivate.hasBots = false;
     }
 
     const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
@@ -503,10 +518,11 @@ export const toggleBots = async (req: Request, res: Response): Promise<void> => 
       },
     });
     await race.update({ totalParticipants: count });
+    if (managedPrivate) managedPrivate.totalParticipants = count;
 
     res.status(200).json({
       success: true,
-      hasBots: enable,
+      hasBots: Boolean(enable),
       totalParticipants: count,
       message: enable ? "Joueurs virtuels engagés dans la course !" : "Joueurs virtuels retirés.",
     });

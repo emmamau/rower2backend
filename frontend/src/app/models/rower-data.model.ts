@@ -33,21 +33,69 @@ export interface RowerData {
   updatedAt?: string;
 }
 
+export interface PrivateRoomParticipant {
+  userId: string;
+  userName: string;
+  joinedAt: string;
+}
+
 export interface NextRaceInfo {
   race: {
     id: string;
+    code?: string;
+    pinCode?: string;
+    type?: 'PUBLIC_HOURLY' | 'PRIVATE_INVITE';
     title: string;
     targetDistance: number;
     startTime: string;
     intervalMinutes: number;
     maxDurationMinutes: number;
+    maxParticipants?: number;
+    hostUserId?: string;
+    hostUserName?: string;
+    autoStart?: boolean;
+    hasBots?: boolean;
+    internalStatus?: string;
     status: string;
     totalParticipants: number;
+    participants?: PrivateRoomParticipant[];
+    createdAt?: string;
   };
+  code?: string;
+  pinCode?: string;
+  inviteUrl?: string;
   secondsRemaining: number;
+  elapsedSeconds?: number;
+  waitingForHost?: boolean;
   formattedCountdown: string;
   totalParticipants: number;
   status: string;
+}
+
+export interface CreatePrivateRaceRequest {
+  title: string;
+  targetDistance: number;
+  maxParticipants: number;
+  hostUserId: string;
+  hostUserName?: string;
+  countdownMinutes?: number;
+}
+
+export interface PrivateRacePayload extends NextRaceInfo {
+  success?: boolean;
+  id?: string;
+  raceId?: string;
+  lane?: number;
+}
+
+export interface SavedPrivateSalon {
+  id: string;
+  code: string;
+  pinCode?: string;
+  title: string;
+  targetDistance: number;
+  isHost: boolean;
+  savedAt: string;
 }
 
 export interface LeaderboardResponse {
