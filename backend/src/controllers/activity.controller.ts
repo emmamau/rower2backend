@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { Op } from "sequelize";
 import db from "../models";
 import { getOrCreateCurrentRace } from "./race.controller";
+import raceManager, { RaceManager } from "../services/race-manager.service";
 
 const Activities = db.activities;
 const Races = db.races;
@@ -178,29 +179,7 @@ export const syncActivity = async (req: Request, res: Response): Promise<void> =
       }
     }
 
-    // Progression réaliste des bots si actifs dans la course
-    const activeBots = await Activities.findAll({
-      where: { activityId: actualActivityId, isBot: true, status: "in_progress" },
-    });
-    for (const bot of activeBots) {
-      const botPace = (bot.get("avgPace") as number) || 120; // sec per 500m
-      const botSpeedMs = 500 / botPace; // m/s
-      const botPrevTime = (bot.get("elapsedTime") as number) || 0;
-      const botNewTime = botPrevTime + 1; // 1s tick
-      const botNetDist = Math.min((bot.get("targetDistance") as number) || 10000, Math.floor(botNewTime * botSpeedMs));
-      const botTarget = (bot.get("targetDistance") as number) || 10000;
-      const botProgress = Math.min(100, Number(((botNetDist / botTarget) * 100).toFixed(1)));
-      const botFinished = botNetDist >= botTarget;
-
-      await bot.update({
-        netDistance: botNetDist,
-        currentDistance: botNetDist,
-        elapsedTime: botNewTime,
-        progressPercent: botProgress,
-        status: botFinished ? "finished" : "in_progress",
-        updatedAt: new Date(),
-      });
-    }
+    // NB : la progression des bots est exclusivement pilotée par le RaceManager (tick 1s basé sur l'horloge).
 
     // Calcul du classement et des deltas de distance
     const leaderboard = await Activities.findAll({
@@ -308,35 +287,25 @@ export const getLatestUserActivity = async (req: Request, res: Response): Promis
 export const getRaceLeaderboard = async (req: Request, res: Response): Promise<void> => {
   try {
     const { activityId } = req.params;
-    const isPrivate = Boolean(activityId && activityId.startsWith("PRIV_"));
-    const targetRaceId = isPrivate
-      ? activityId
-      : (activityId || (await getOrCreateCurrentRace()).id);
+    const targetRaceId = activityId || (await getOrCreateCurrentRace()).id;
 
-    const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
-    const whereClause = isPrivate
-      ? { activityId: targetRaceId }
-      : {
-          [Op.or]: [
-            { activityId: targetRaceId },
-            { activityId: { [Op.notLike]: "PRIV_%" }, updatedAt: { [Op.gte]: tenMinutesAgo } },
-          ],
-        };
+    const rows = await Activities.findAll({ where: { activityId: targetRaceId } });
+    // Abandons en fin de tableau, finishers d'abord puis distance décroissante
+    const abandoned = rows.filter((r) => r.get("status") === "abandoned");
+    const ranked = RaceManager.sortRanking(rows.filter((r) => r.get("status") !== "abandoned"));
+    const list = [...ranked, ...abandoned];
 
-    const list = await Activities.findAll({
-      where: whereClause,
-      order: [
-        ["status", "ASC"], // les abandons se retrouvent classés en fin de tableau
-        ["netDistance", "DESC"],
-        ["elapsedTime", "ASC"],
-        ["updatedAt", "DESC"],
-      ],
-    });
+    const managed = raceManager.getRaceById(String(targetRaceId));
+    const timing = managed ? raceManager.getRaceTiming(managed) : null;
 
     res.status(200).json({
       activityId: targetRaceId,
-      totalParticipants: list.filter((r) => r.get("status") !== "abandoned").length,
+      totalParticipants: ranked.length,
       leaderboard: list,
+      raceStatus: managed ? managed.status : "COMPLETED",
+      remainingSeconds: timing ? timing.remainingSeconds : 0,
+      elapsedSeconds: timing ? timing.elapsedSeconds : 0,
+      maxDurationSeconds: timing ? timing.maxDurationSeconds : 55 * 60,
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);

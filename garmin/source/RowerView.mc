@@ -78,6 +78,7 @@ class RowerView extends WatchUi.View {
     private var _progressPercent as Float = 0.0f;
     private var _isLateJoiner as Boolean = false;
     private var _hasBotsEnabled as Boolean = false;
+    private var _gameRemainingSeconds as Number = 3300; // Max 55 minutes remaining timer
 
     // Web login authorization overlay
     private var _authRequestId as String = "";
@@ -164,6 +165,15 @@ class RowerView extends WatchUi.View {
         _connectedPlayers = players;
         _targetDistance = targetDist;
         WatchUi.requestUpdate();
+    }
+
+    public function setGameRemainingSeconds(remSec as Number) as Void {
+        _gameRemainingSeconds = remSec;
+        WatchUi.requestUpdate();
+    }
+
+    public function getGameRemainingSeconds() as Number {
+        return _gameRemainingSeconds;
     }
 
     public function setFinishResults(rank as Number, podium as Array<Dictionary>) as Void {
@@ -1213,7 +1223,12 @@ class RowerView extends WatchUi.View {
         } else if (_isLateJoiner) {
             modePrefix = "LATE P" + _currentRank;
         }
-        var headerStr = modePrefix + "  " + _model.formatTime(_model.elapsedTime);
+        var remSec = _gameRemainingSeconds;
+        if (_model.elapsedTime > 0 && remSec > _model.elapsedTime) {
+            remSec = remSec - _model.elapsedTime;
+        }
+        if (remSec < 0) { remSec = 0; }
+        var headerStr = modePrefix + "  " + _model.formatTime(_model.elapsedTime) + "  " + _model.formatTime(remSec);
         var hdrFont = fitFontToBox(dc, headerStr, [Graphics.FONT_SMALL, Graphics.FONT_TINY, Graphics.FONT_XTINY] as Array<Graphics.FontDefinition>, hdrMaxW, hdrBot - hdrTop);
 
         var textW = dc.getTextWidthInPixels(headerStr, hdrFont);

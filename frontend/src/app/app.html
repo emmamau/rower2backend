@@ -80,9 +80,10 @@
           }
         </div>
         <div class="badge-timer">
-          <div class="timer-display-box">
+          <div class="timer-display-box" [class.is-running]="nextRaceInfo.status === 'in_progress'">
+            <span class="timer-label-sub" *ngIf="nextRaceInfo.status === 'in_progress'">⏱️ Temps restant : </span>
             <span class="timer-digits">
-              {{ activePrivateRoom?.waitingForHost ? i18n.t('STATUS_WAITING_HOST') : nextRaceInfo.formattedCountdown }}
+              {{ activePrivateRoom?.waitingForHost ? i18n.t('STATUS_WAITING_HOST') : (nextRaceInfo.status === 'in_progress' ? formattedGameRemaining : nextRaceInfo.formattedCountdown) }}
             </span>
           </div>
           <span class="racers-count" [class.has-players]="activeRacersCount > 0">
@@ -726,7 +727,7 @@
     @if (activeViewMode === 'canvas') {
       <!-- Top 3 Podium Live Indicator -->
       <section class="podium-banner" *ngIf="racers.length > 0">
-        <div class="podium-title">⚡ {{ i18n.t('OFFICIAL_PODIUM').toUpperCase() }} · {{ activeRacersCount }} {{ i18n.t('ACTIVE_RACERS').toUpperCase() }} ⚡</div>
+        <div class="podium-title">⚡ {{ i18n.t('OFFICIAL_PODIUM').toUpperCase() }} · {{ activeRacersCount }} {{ i18n.t('ACTIVE_RACERS').toUpperCase() }} · ⏱️ {{ nextRaceInfo?.status === 'in_progress' ? ('FIN DANS ' + formattedGameRemaining) : 'COMPTE À REBOURS' }} ⚡</div>
         <div class="podium-cards">
           @for (r of racers.slice(0, 3); track r.id; let idx = $index) {
             <div class="podium-card" [class.gold]="idx === 0" [class.silver]="idx === 1" [class.bronze]="idx === 2" [class.abandoned]="r.status === 'abandoned'">
@@ -772,7 +773,7 @@
             🚣 {{ myActivity?.netDistance || 0 }}m / {{ activeTargetDistance }}m ({{ myProgressPercent }}%)
           </span>
           <span class="cockpit-prog-meta">
-            👥 {{ activeRacersCount }} · ⏱️ {{ activePrivateRoom?.waitingForHost ? i18n.t('STATUS_WAITING_HOST') : (nextRaceInfo?.formattedCountdown || '00:00') }}
+            👥 {{ activeRacersCount }} · ⏱️ {{ activePrivateRoom?.waitingForHost ? i18n.t('STATUS_WAITING_HOST') : (nextRaceInfo?.status === 'in_progress' ? ('Fin dans : ' + formattedGameRemaining) : (nextRaceInfo?.formattedCountdown || '00:00')) }}
           </span>
         </div>
         <div class="cockpit-progress-track">

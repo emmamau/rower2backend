@@ -52,6 +52,9 @@ export class AppComponent implements OnInit, OnDestroy {
 
   // Countdown & Pre-start timer sound/visual
   countdownSeconds = 0;
+  gameRemainingSeconds = 3300;
+  gameMaxDurationSeconds = 3300;
+  formattedGameRemaining = '55m 00s';
   is3sCountdown = false;
   isPreStartCountdown = false;
   threeSecondsCount = 3;
@@ -369,6 +372,11 @@ export class AppComponent implements OnInit, OnDestroy {
           }
           this.syncSocketRoom(raceData.race.id);
           this.countdownSeconds = raceData.secondsRemaining;
+          this.gameRemainingSeconds = raceData.remainingSeconds !== undefined ? raceData.remainingSeconds : 3300;
+          this.gameMaxDurationSeconds = raceData.maxDurationSeconds || 3300;
+          const remMin = Math.floor(this.gameRemainingSeconds / 60);
+          const remSec = this.gameRemainingSeconds % 60;
+          this.formattedGameRemaining = `${remMin}m ${remSec < 10 ? '0' : ''}${remSec}s`;
           this.configTargetDistance = raceData.race.targetDistance;
           this.configIntervalMinutes = raceData.race.intervalMinutes;
 

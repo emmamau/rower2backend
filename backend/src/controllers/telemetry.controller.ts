@@ -80,22 +80,22 @@ async function buildPrivateRacePayload(race: RaceState) {
   const nowMs = Date.now();
   const apiStatus = mapRaceStatusToApi(race.status);
   const waitingForHost = race.status === "LOBBY" && !race.autoStart;
+  const timing = raceManager.getRaceTiming(race, new Date(nowMs));
 
   let secondsRemaining = 0;
   if (!waitingForHost && (race.status === "LOBBY" || race.status === "COUNTDOWN")) {
-    secondsRemaining = Math.max(0, Math.ceil((race.lobbyEndsAt.getTime() - nowMs) / 1000));
+    secondsRemaining = timing.secondsUntilStart;
   }
 
-  const elapsedSeconds =
-    race.status === "RUNNING" && race.startedAt
-      ? Math.max(0, Math.floor((nowMs - race.startedAt.getTime()) / 1000))
-      : 0;
+  const elapsedSeconds = timing.elapsedSeconds;
+  const remainingSeconds = timing.remainingSeconds;
+  const maxDurationSeconds = timing.maxDurationSeconds;
 
   let formattedCountdown = `${Math.floor(secondsRemaining / 60)}m ${secondsRemaining % 60}s`;
   if (waitingForHost) {
     formattedCountdown = "PRÊT";
   } else if (race.status === "RUNNING") {
-    formattedCountdown = `${Math.floor(elapsedSeconds / 60)}m ${elapsedSeconds % 60}s`;
+    formattedCountdown = `${Math.floor(remainingSeconds / 60)}m ${remainingSeconds % 60}s`;
   } else if (race.status === "COMPLETED") {
     formattedCountdown = "TERMINÉ";
   }
@@ -139,7 +139,9 @@ async function buildPrivateRacePayload(race: RaceState) {
     pinCode: race.pinCode,
     inviteUrl: race.code ? `/r/${race.code}` : undefined,
     secondsRemaining,
+    remainingSeconds,
     elapsedSeconds,
+    maxDurationSeconds,
     waitingForHost,
     formattedCountdown,
     totalParticipants,

@@ -38,6 +38,12 @@ class RestSyncManager {
     // Poll next race status and connected participants
     function fetchNextRace() as Void {
         var endpoint = getBaseUrl() + "/api/race/next";
+        if (_delegate != null) {
+            var del = _delegate as BleDelegate;
+            if (del.isInPrivateRace()) {
+                endpoint = getBaseUrl() + "/api/v1/races/private/" + del.getActivityId();
+            }
+        }
         var options = {
             :method => Communications.HTTP_REQUEST_METHOD_GET,
             :responseType => Communications.HTTP_RESPONSE_CONTENT_TYPE_JSON

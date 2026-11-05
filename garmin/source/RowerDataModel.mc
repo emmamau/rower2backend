@@ -151,11 +151,11 @@ class RowerDataModel {
         _forceSamples = 0;
     }
 
-    //! Start active race/solo session: tare hardware counters to zero cleanly
+    //! Start active race/solo session: tare hardware counters to zero cleanly (ported from rower.iq)
     public function startWorkout() as Void {
         workoutStarted = true;
         isPaused = false;
-        hasStartedRowing = false;
+        hasStartedRowing = true;
         isHalted = false;
         liveMovementDetected = false;
         _secondsSinceLastStrokeOrDist = 0;
@@ -767,33 +767,27 @@ class RowerDataModel {
         for (var i = 0; i < size; i++) {
             var b = bytes[i];
             if (b == 0x0D || b == 0x0A) {
-                if (isRecord && frameLen >= 6) {
+                if (frameLen >= 6) {
                     var slice = frameChars.slice(0, frameLen) as Array<Char>;
                     parseSmartRowString(StringUtil.charArrayToString(slice));
                 }
                 frameLen = 0;
                 isRecord = false;
             } else {
-                if (!isRecord) {
-                    if (b == 0x61 || b == 0x62 || b == 0x63 || b == 0x64 ||
-                        b == 0x65 || b == 0x66 || b == 0x78 || b == 0x79 || b == 0x7A) {
-                        isRecord = true;
-                        frameLen = 0;
-                    } else {
-                        continue;
-                    }
-                }
-                if (frameLen >= 1 && frameLen <= 5) {
-                    // Unscramble SmartRow V3 distance digits: (b & 0x0F) | 0x30 -> ASCII '0'..'9'
+                if (frameLen == 0) {
+                    isRecord = (b == 0x61 || b == 0x62 || b == 0x63 || b == 0x64 ||
+                                b == 0x65 || b == 0x66 || b == 0x78 || b == 0x79 || b == 0x7A);
+                } else if (isRecord && frameLen >= 1 && frameLen <= 5) {
+                    // Unscramble V3 distance digits: (b & 0x0F) | 0x30 produces ASCII '0'..'9'
                     b = (b & 0x0F) | 0x30;
                 }
-                if (b >= 0x20 && b <= 0x7E && frameLen < size) {
+                if (b >= 0x20 && b <= 0x7E) {
                     frameChars[frameLen] = b.toChar();
                     frameLen += 1;
                 }
             }
         }
-        if (isRecord && frameLen >= 6) {
+        if (frameLen >= 6) {
             var slice = frameChars.slice(0, frameLen) as Array<Char>;
             parseSmartRowString(StringUtil.charArrayToString(slice));
         }
@@ -935,9 +929,7 @@ class RowerDataModel {
                 }
             }
 
-            if (isHalted && workoutStarted) {
-                instantPower = 0;
-            } else if (rawWatts > 0) {
+            if (rawWatts > 0) {
                 instantPower = rawWatts;
                 if (workoutStarted) {
                     recordSmartRowPowerSample(instantPower);
@@ -1085,9 +1077,6 @@ class RowerDataModel {
 
     //! Derive real-time mechanical power (Watts) when SmartRow V3 pulley has not yet unlocked 'c' rawWatts
     private function deriveSmartRowFallbackPower(srAvgWatts as Float) as Void {
-        if (isHalted && workoutStarted) {
-            return;
-        }
         var derived = 0;
         if (work > 0.0f && strokeRate > 0.0f) {
             // Exact SmartRow pulley mechanical identity: Power (W) = Work (J) * SPM / 60

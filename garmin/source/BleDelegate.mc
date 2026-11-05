@@ -487,26 +487,12 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
         _bleBusyTicks = 0;
         if (status == BluetoothLowEnergy.STATUS_SUCCESS) {
             _cccdSubscribed = true;
+            // Send initial SmartRow wake/init sequence once notifications are enabled (ported from rower.iq)
             if (_model.connectionState == RowerDataModel.STATE_CONNECTED_SMARTROW) {
                 initSmartRowDirect();
-            } else if (_model.connectionState == RowerDataModel.STATE_CONNECTED_FTMS) {
-                initFtmsControlPoint();
             }
         } else {
             _cccdSubscribed = false;
-        }
-    }
-
-    private function initFtmsControlPoint() as Void {
-        if (_ftmsCtrlChar != null) {
-            try {
-                // FTMS 0x00: Request Control
-                (_ftmsCtrlChar as BluetoothLowEnergy.Characteristic).requestWrite([0x00]b, {:writeType => BluetoothLowEnergy.WRITE_TYPE_DEFAULT});
-                // FTMS 0x07: Start or Resume
-                (_ftmsCtrlChar as BluetoothLowEnergy.Characteristic).requestWrite([0x07]b, {:writeType => BluetoothLowEnergy.WRITE_TYPE_DEFAULT});
-            } catch (e) {
-                System.println("FTMS control point request error: " + e.getErrorMessage());
-            }
         }
     }
 
@@ -526,9 +512,8 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
         _srRxBuffer = "";
         _srV3LockTicks = 0;
         _srPacketQueue = [] as Array<ByteArray>;
-        // SmartRow INIT_COMMANDS: "$\r" and "V@\r"
-        sendSmartRowPacket([0x24, 0x0D]b);
-        sendSmartRowPacket([0x56, 0x40, 0x0D]b);
+        // Send SmartRow INIT_COMMAND "$\rV@\r" as a single atomic BLE write (ported from rower.iq)
+        sendSmartRowPacket([0x24, 0x0D, 0x56, 0x40, 0x0D]b);
     }
 
     private function sendSmartRowPacket(bytes as ByteArray) as Void {
@@ -551,20 +536,13 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
             _bleBusyTicks = 0;
             (_srWriteChar as BluetoothLowEnergy.Characteristic).requestWrite(bytes, {:writeType => BluetoothLowEnergy.WRITE_TYPE_DEFAULT});
         } catch (e) {
-            System.println("SR write err: " + e.getErrorMessage());
-        } finally {
             _bleWriteBusy = false;
-            _bleBusyTicks = 0;
-        }
-        if (_srPacketQueue.size() > 0) {
-            var nextPacket = _srPacketQueue[0];
-            _srPacketQueue = _srPacketQueue.slice(1, null) as Array<ByteArray>;
-            executeSmartRowWrite(nextPacket);
+            System.println("SR write err: " + e.getErrorMessage());
         }
     }
 
     private function sendSmartRowWakePing() as Void {
-        sendSmartRowPacket([0x24, 0x0D]b); // "$\r" poll keep-alive
+        sendSmartRowPacket([0x24]b); // '$' single byte poll keep-alive (rower.iq)
     }
 
     public function resetRowerHardware() as Void {
@@ -682,84 +660,36 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
             return;
         }
 
-        // Accumulate printable ASCII + CR/LF across split BLE notifications so fragmented V3 / KEYLOCK= messages match reliably
+        // Convert incoming value to ASCII string to inspect for version / KEYLOCK handshake (ported from rower.iq)
         var chars = new [size] as Array<Char>;
         var charLen = 0;
-        var hasTerminator = false;
         for (var i = 0; i < size; i++) {
             var b = value[i];
             if (b >= 0x20 && b <= 0x7E) {
                 chars[charLen] = b.toChar();
                 charLen++;
-            } else if (b == 0x0D || b == 0x0A) {
-                hasTerminator = true;
             }
         }
         var msgStr = (charLen > 0) ? StringUtil.charArrayToString(chars.slice(0, charLen) as Array<Char>) : "";
-        if (msgStr.length() > 0) {
-            _srRxBuffer = _srRxBuffer + msgStr;
-            if (_srRxBuffer.length() > 96) {
-                var cut = _srRxBuffer.substring(_srRxBuffer.length() - 96, _srRxBuffer.length());
-                _srRxBuffer = (cut != null) ? cut : "";
-            }
-        }
 
-        // 1. V3 KEYLOCK challenge (e.g. "KEYLOCK=C2D70BB1") - supports fragmented BLE chunks
-        var keylockIdx = _srRxBuffer.find("KEYLOCK=");
-        if (keylockIdx != null) {
-            var rem = _srRxBuffer.substring(keylockIdx, _srRxBuffer.length());
-            if (rem != null) {
-                if (rem.length() >= 16) {
-                    var after = (rem.length() > 16) ? rem.substring(16, rem.length()) : "";
-                    _srRxBuffer = (after != null) ? after : "";
-                    handleSmartRowKeylock(rem);
-                    return;
-                } else if (!hasTerminator) {
-                    // Wait for next BLE notification chunk to complete 16-char KEYLOCK challenge
-                    return;
-                } else {
-                    _srRxBuffer = "";
-                    sendSmartRowPacket([0x23, 0x0D]b);
-                    return;
-                }
-            }
-        }
-
-        // 2. Version reply from pulley (e.g. "SmartRow 'V3.10'") -> request KEYLOCK challenge '#'
-        if (_srRxBuffer.find("V3") != null && !_srChallengeRequested) {
+        // 1. Version reply from pulley: e.g. "SmartRow 'V3.10'" -> request KEYLOCK challenge '#'
+        if (msgStr.find("V3") != null && !_srChallengeRequested) {
             _srChallengeRequested = true;
             _srHandshakeState = 2;
-            _srRxBuffer = "";
-            sendSmartRowPacket([0x23, 0x0D]b);
-            if (msgStr.find("V3") != null) {
-                return;
-            }
+            sendSmartRowPacket([0x23]b); // '#' = CHALLENGE_REQUEST
+            return;
         }
 
-        // 3. Regular SmartRow telemetry frames (a..f, x..z)
-        // Crucial: if bytes 1..5 are 0x40..0x49, pulley is STILL V3-locked! Do NOT set _srHandshakeState = 3!
-        if (isSmartRowV3LockedFrame(value)) {
-            if (!_srChallengeRequested) {
-                _srChallengeRequested = true;
-                _srHandshakeState = 2;
-                sendSmartRowPacket([0x23, 0x0D]b);
-            }
-        } else if (size >= 6) {
-            var isValidRec = false;
-            for (var k = 0; k < size && k < 4; k++) {
-                var bk = value[k];
-                if (bk == 0x61 || bk == 0x62 || bk == 0x63 || bk == 0x64 ||
-                    bk == 0x65 || bk == 0x66 || bk == 0x78 || bk == 0x79 || bk == 0x7A) {
-                    isValidRec = true;
-                    break;
-                }
-            }
-            if (isValidRec) {
-                _srHandshakeState = 3;
-                _srV3LockTicks = 0;
-            }
+        // 2. V3 KEYLOCK challenge: e.g. "KEYLOCK=C2D70BB1"
+        var keylockIdx = msgStr.find("KEYLOCK=");
+        if (keylockIdx != null) {
+            var challenge = msgStr.substring(keylockIdx, msgStr.length());
+            handleSmartRowKeylock(challenge);
+            return;
         }
 
+        // 3. Regular rowing telemetry packet (a..f, x..z)
+        _srHandshakeState = 3; // Fully unlocked
         _model.parseSmartRowBytes(value);
         onModelUpdated();
     }
@@ -767,7 +697,7 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
     private function handleSmartRowKeylock(challenge as String) as Void {
         var unlockPacket = computeSmartRowKeylockResponse(challenge);
         if (unlockPacket == null) {
-            sendSmartRowPacket([0x23, 0x0D]b);
+            sendSmartRowPacket([0x23]b); // '#' = retry challenge
             return;
         }
         _srHandshakeState = 3;
@@ -847,14 +777,8 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
 
             if (_model.connectionState == RowerDataModel.STATE_CONNECTED_SMARTROW) {
                 if (_srHandshakeState < 3) {
-                    _srV3LockTicks += 1;
                     if (_secondsWithoutData >= 2 && (_secondsWithoutData % 2 == 0) && _srPacketQueue.size() == 0 && !_bleWriteBusy) {
                         initSmartRowDirect();
-                    } else if (_srV3LockTicks >= 3 && (_srV3LockTicks % 3 == 0) && _srPacketQueue.size() == 0 && !_bleWriteBusy) {
-                        // Retry KEYLOCK '#' request even when locked telemetry is actively streaming
-                        _srChallengeRequested = true;
-                        _srHandshakeState = 2;
-                        sendSmartRowPacket([0x23, 0x0D]b);
                     }
                 } else {
                     if (_secondsWithoutData >= 2 && (_secondsWithoutData % 2 == 0) && _srPacketQueue.size() == 0 && !_bleWriteBusy) {
@@ -907,7 +831,7 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
             view.decrementCountdown();
             var cd = view.getCountdown();
 
-            if (cd > 0 && (cd % 10 == 0)) {
+            if (_tickCounter % 3 == 0) {
                 _syncManager.fetchNextRace();
             }
 
@@ -923,7 +847,7 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
                     vibrateGo();
                     launchRaceFromWaiting();
                 }
-            } else if (state == RowerView.STATE_WAITING_START && cd <= 0) {
+            } else if ((state == RowerView.STATE_WAITING_START || state == RowerView.STATE_LOBBY) && cd <= 0) {
                 vibrateGo();
                 launchRaceFromWaiting();
             }
@@ -996,9 +920,17 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
         var view = _view as RowerView;
         var state = view.getAppState();
 
-        // 1. False-start guard while waiting in starting blocks
+        // 1. If race is already running or countdown reached 0, transition immediately to racing
+        if ((_activityStatus.equals("in_progress") || view.getCountdown() <= 0) &&
+            (state == RowerView.STATE_WAITING_START || state == RowerView.STATE_COUNTDOWN_5S || state == RowerView.STATE_LOBBY)) {
+            view.setFalseStartLocked(false);
+            launchRaceFromWaiting();
+            state = view.getAppState();
+        }
+
+        // 2. False-start guard strictly while waiting in starting blocks before race begins
         if (state == RowerView.STATE_WAITING_START || state == RowerView.STATE_COUNTDOWN_5S) {
-            if (_model.liveMovementDetected) {
+            if (_model.liveMovementDetected && view.getCountdown() > 0 && !_activityStatus.equals("in_progress")) {
                 view.setFalseStartLocked(true);
                 view.showWarning(I18n.getText("WARN_NO_ROW"), 2);
             } else {
@@ -1008,7 +940,7 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
             return;
         }
 
-        // 2. Enforce false-start stop penalty strictly while waiting in starting blocks
+        // 3. Clear false start lock once race is in progress
         if (view.isFalseStartLocked()) {
             if (_activityStatus.equals("in_progress") || state == RowerView.STATE_RACING) {
                 view.setFalseStartLocked(false);
@@ -1086,6 +1018,14 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
     // 3. LOBBY, SOLO, PRIVATE PIN, BOTS & AUTH HANDLERS
     // =========================================================================
 
+    public function isInPrivateRace() as Boolean {
+        return (_activityId != null && _activityId.find("PRIV_") != null);
+    }
+
+    public function getActivityId() as String {
+        return _activityId;
+    }
+
     public function fetchLobbyRace() as Void {
         _syncManager.fetchNextRace();
     }
@@ -1097,6 +1037,15 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
             var players = (data.hasKey("totalParticipants") && data.get("totalParticipants") != null)
                 ? (data.get("totalParticipants") as Number) : 1;
             var targetDist = _targetDistance;
+            var isRunning = false;
+
+            if (data.hasKey("status") && data.get("status") != null) {
+                var st = data.get("status").toString();
+                if (st.equals("in_progress") || st.equals("RUNNING")) {
+                    isRunning = true;
+                }
+            }
+
             if (data.hasKey("race") && data.get("race") instanceof Dictionary) {
                 var rDict = data.get("race") as Dictionary;
                 if (rDict.hasKey("targetDistance") && rDict.get("targetDistance") != null) {
@@ -1108,9 +1057,30 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
                 if (rDict.hasKey("hasBots") && rDict.get("hasBots") instanceof Boolean) {
                     (_view as RowerView).setBotsEnabled(rDict.get("hasBots") as Boolean);
                 }
+                if (rDict.hasKey("status") && rDict.get("status") != null) {
+                    var rSt = rDict.get("status").toString();
+                    if (rSt.equals("in_progress") || rSt.equals("RUNNING")) {
+                        isRunning = true;
+                    }
+                }
             }
+            if (data.hasKey("isRaceInProgress") && data.get("isRaceInProgress") == true) {
+                isRunning = true;
+            }
+
+            if (data.hasKey("remainingSeconds") && data.get("remainingSeconds") != null) {
+                (_view as RowerView).setGameRemainingSeconds(data.get("remainingSeconds") as Number);
+            }
+
             _targetDistance = targetDist;
             (_view as RowerView).setLobbyInfo(countdown, players, targetDist);
+
+            var view = _view as RowerView;
+            var curState = view.getAppState();
+            if ((isRunning || countdown <= 0) && (curState == RowerView.STATE_LOBBY || curState == RowerView.STATE_WAITING_START || curState == RowerView.STATE_PENDING_APPROVAL)) {
+                vibrateGo();
+                launchRaceFromWaiting();
+            }
         }
     }
 

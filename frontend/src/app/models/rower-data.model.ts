@@ -67,6 +67,8 @@ export interface NextRaceInfo {
   pinCode?: string;
   inviteUrl?: string;
   secondsRemaining: number;
+  remainingSeconds?: number;
+  maxDurationSeconds?: number;
   elapsedSeconds?: number;
   waitingForHost?: boolean;
   formattedCountdown: string;

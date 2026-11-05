@@ -38,13 +38,37 @@ export interface RaceState {
   rejectedParticipants?: Set<string>;
 }
 
+export interface RaceTiming {
+  /** Seconds before the start (lobby / countdown only, 0 once running). */
+  secondsUntilStart: number;
+  /** Seconds since the start (0 until the race is running). */
+  elapsedSeconds: number;
+  /** Seconds left before the automatic end of the game (max duration - elapsed). */
+  remainingSeconds: number;
+  maxDurationSeconds: number;
+}
+
+export interface RaceRankingEntry {
+  rank: number;
+  userId: string;
+  userName: string;
+  netDistance: number;
+  status: string;
+  isBot: boolean;
+}
+
 export class RaceManager {
+  /** A human racer who did not send any data for this long is considered gone. */
+  private static readonly HUMAN_INACTIVE_MS = 5 * 60 * 1000;
+
   private static instance: RaceManager;
   private currentPublicRace: RaceState | null = null;
   private privateRaces: Map<string, RaceState> = new Map(); // code -> RaceState
   private privateRacesById: Map<string, RaceState> = new Map(); // raceId -> RaceState
   private pinToRaceMap: Map<string, { raceId: string; lane: number }> = new Map(); // 4 digits PIN -> race
   private loopTimer: NodeJS.Timeout | null = null;
+  private loopBusy = false;
+  private publicTickChain: Promise<void> = Promise.resolve();
 
   private constructor() {
     this.startOrchestratorLoop();
@@ -67,11 +91,14 @@ export class RaceManager {
   }
 
   /**
-   * Main state machine ticker running every 1 second
+   * Main state machine ticker running every 1 second.
+   * The loop is re-entrancy safe: a slow DB round-trip never overlaps the next tick.
    */
   private startOrchestratorLoop(): void {
     if (this.loopTimer) clearInterval(this.loopTimer);
     this.loopTimer = setInterval(async () => {
+      if (this.loopBusy) return;
+      this.loopBusy = true;
       try {
         if (this.currentPublicRace) {
           await this.tickPublicRace();
@@ -79,6 +106,8 @@ export class RaceManager {
         await this.tickPrivateRaces();
       } catch (err) {
         console.error("[RaceManager] Error in tick:", err);
+      } finally {
+        this.loopBusy = false;
       }
     }, 1000);
     if (typeof this.loopTimer.unref === "function") {
@@ -86,11 +115,188 @@ export class RaceManager {
     }
   }
 
+  // ---------------------------------------------------------------------------
+  // Shared helpers (ranking, timing, bots)
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Race timing snapshot used by every client (web, watch) to display the countdown before the start
+   * and the remaining duration of the game once it is running (max 55 minutes).
+   */
+  public getRaceTiming(race: RaceState, now: Date = new Date()): RaceTiming {
+    const maxDurationSeconds = Math.round((race.maxDurationMinutes || 55) * 60);
+    let secondsUntilStart = 0;
+    let elapsedSeconds = 0;
+    let remainingSeconds = maxDurationSeconds;
+
+    if (race.status === "LOBBY" || race.status === "COUNTDOWN") {
+      secondsUntilStart = Math.max(0, Math.ceil((race.lobbyEndsAt.getTime() - now.getTime()) / 1000));
+    } else if (race.status === "RUNNING") {
+      const startMs = (race.startedAt || now).getTime();
+      elapsedSeconds = Math.max(0, Math.floor((now.getTime() - startMs) / 1000));
+      remainingSeconds = Math.max(0, maxDurationSeconds - elapsedSeconds);
+    } else {
+      if (race.startedAt) {
+        const endMs = (race.endedAt || now).getTime();
+        elapsedSeconds = Math.max(0, Math.floor((endMs - race.startedAt.getTime()) / 1000));
+      }
+      remainingSeconds = 0;
+    }
+
+    return { secondsUntilStart, elapsedSeconds, remainingSeconds, maxDurationSeconds };
+  }
+
+  /**
+   * Official ranking: racers who crossed the line come first (earliest finish first);
+   * everybody else is ranked on the distance covered when the race ends.
+   */
+  public static sortRanking<T extends { get: (key: string) => any }>(rows: T[]): T[] {
+    const toMs = (v: any): number => {
+      if (!v) return Number.MAX_SAFE_INTEGER;
+      const t = new Date(v).getTime();
+      return Number.isFinite(t) ? t : Number.MAX_SAFE_INTEGER;
+    };
+    return [...rows].sort((a, b) => {
+      const aFin = a.get("status") === "finished" ? 0 : 1;
+      const bFin = b.get("status") === "finished" ? 0 : 1;
+      if (aFin !== bFin) return aFin - bFin;
+      if (aFin === 0) {
+        const byFinish = toMs(a.get("finishedAt")) - toMs(b.get("finishedAt"));
+        if (byFinish !== 0) return byFinish;
+        return ((a.get("elapsedTime") as number) || 0) - ((b.get("elapsedTime") as number) || 0);
+      }
+      const byDist = ((b.get("netDistance") as number) || 0) - ((a.get("netDistance") as number) || 0);
+      if (byDist !== 0) return byDist;
+      return ((a.get("elapsedTime") as number) || 0) - ((b.get("elapsedTime") as number) || 0);
+    });
+  }
+
+  public static toLiveMetrics(sortedRows: any[]): LiveRacerMetric[] {
+    return sortedRows.map((r: any, idx: number) => ({
+      lane: idx + 1,
+      userId: r.get("userId"),
+      name: r.get("userName") || r.get("userId"),
+      dist: (r.get("netDistance") as number) || 0,
+      split: (r.get("lastPace") as number) || (r.get("avgPace") as number) || 120,
+      watts: (r.get("lastPower") as number) || (r.get("avgPower") as number) || 0,
+      spm: (r.get("lastStrokeRate") as number) || (r.get("avgStrokeRate") as number) || 0,
+      heartRate: (r.get("lastHeartRate") as number) || undefined,
+      status: r.get("status") || "in_progress"
+    }));
+  }
+
+  /** A human racer still taking part in the race (not abandoned / finished, and still sending data). */
+  private isActiveHuman(row: any, now: Date): boolean {
+    if (Boolean(row.get("isBot"))) return false;
+    const status = row.get("status");
+    if (status !== "in_progress" && status !== "waiting" && status !== "paused") return false;
+    const updatedAt = row.get("updatedAt");
+    if (!updatedAt) return true;
+    const age = now.getTime() - new Date(updatedAt).getTime();
+    return !(age > RaceManager.HUMAN_INACTIVE_MS);
+  }
+
+  private async loadRaceActivities(raceId: string): Promise<any[]> {
+    try {
+      return (await Activities.findAll({ where: { activityId: raceId } })) as any[];
+    } catch {
+      return [];
+    }
+  }
+
+  /**
+   * Virtual rowers simulation. The distance is derived from the wall clock (time elapsed since the start of
+   * the race, or since the bot joined if later) so it never drifts or freezes if a tick is late.
+   */
+  private async advanceBots(race: RaceState, rows: any[], now: Date): Promise<number> {
+    if (!race.startedAt) {
+      race.startedAt = now;
+    }
+    const startMs = race.startedAt.getTime();
+    const target = race.targetDistance || 2000;
+    let advanced = 0;
+    for (const bot of rows) {
+      if (!bot.get("isBot")) continue;
+      const status = bot.get("status");
+      if (status !== "in_progress" && status !== "waiting") continue;
+
+      const createdMs = bot.get("createdAt") ? new Date(bot.get("createdAt")).getTime() : startMs;
+      const botStartMs = (createdMs <= startMs + 1000) ? startMs : createdMs;
+      const elapsedSec = Math.max(0, (now.getTime() - botStartMs) / 1000);
+      const pace = (bot.get("avgPace") as number) || (bot.get("lastPace") as number) || 120;
+      const speedMs = 500 / Math.max(60, pace);
+      const dist = Math.min(target, Math.floor(elapsedSec * speedMs));
+      const finished = dist >= target;
+      const botPower = finished ? 0 : ((bot.get("lastPower") as number) || (bot.get("avgPower") as number) || 180);
+      const botSpm = finished ? 0 : ((bot.get("lastStrokeRate") as number) || (bot.get("avgStrokeRate") as number) || 24);
+
+      try {
+        await bot.update({
+          netDistance: dist,
+          currentDistance: dist,
+          elapsedTime: Math.floor(elapsedSec),
+          progressPercent: Math.min(100, Number(((dist / target) * 100).toFixed(1))),
+          status: finished ? "finished" : "in_progress",
+          finishedAt: finished ? (bot.get("finishedAt") || now) : bot.get("finishedAt"),
+          lastPower: botPower,
+          lastStrokeRate: botSpm,
+          lastPace: finished ? 0 : pace,
+          avgSpeedKmh: Number((speedMs * 3.6).toFixed(1))
+        } as any);
+      } catch {
+        // Fallback for offline DB / test mock
+        if (typeof bot.setDataValue === "function") {
+          bot.setDataValue("netDistance", dist);
+          bot.setDataValue("currentDistance", dist);
+          bot.setDataValue("lastPower", botPower);
+          bot.setDataValue("lastStrokeRate", botSpm);
+        }
+      }
+      advanced++;
+    }
+    if (advanced > 0) race.hasBots = true;
+    return advanced;
+  }
+
+  /** Writes finalRank on every non-abandoned racer and returns the official classification. */
+  private async finalizeRanking(raceId: string): Promise<RaceRankingEntry[]> {
+    const rows = await this.loadRaceActivities(raceId);
+    const ranked = RaceManager.sortRanking(rows.filter((r: any) => r.get("status") !== "abandoned"));
+    const result: RaceRankingEntry[] = [];
+    for (let i = 0; i < ranked.length; i++) {
+      const r = ranked[i];
+      try {
+        await r.update({ finalRank: i + 1 });
+      } catch {}
+      result.push({
+        rank: i + 1,
+        userId: r.get("userId"),
+        userName: r.get("userName") || r.get("userId"),
+        netDistance: (r.get("netDistance") as number) || 0,
+        status: r.get("status"),
+        isBot: r.get("isBot") === true
+      });
+    }
+    return result;
+  }
+
   /**
    * Public Rotating Race Lifecycle
-   * LOBBY (15 min) -> If >= 1 participant -> RUNNING (max 55 min) -> COMPLETED -> Reset
+   * LOBBY (15 min) -> If >= 1 human participant -> RUNNING (max 55 min) -> COMPLETED -> new LOBBY
+   * A running race also ends when every human racer is gone (abandoned / finished / disconnected):
+   * remaining virtual rowers never keep a race alive.
+   * Calls are serialised so the 1s loop and HTTP requests never run the state machine concurrently.
    */
-  public async tickPublicRace(): Promise<RaceState> {
+  public tickPublicRace(): Promise<RaceState> {
+    const run = this.publicTickChain.then(() => this.runPublicTick());
+    this.publicTickChain = run.then(
+      () => undefined,
+      () => undefined
+    );
+    return run;
+  }
+
+  private async runPublicTick(): Promise<RaceState> {
     const now = new Date();
 
     if (!this.currentPublicRace) {
@@ -101,25 +307,44 @@ export class RaceManager {
     const race = this.currentPublicRace;
 
     if (race.status === "LOBBY") {
-      const remainingSec = Math.max(0, Math.floor((race.lobbyEndsAt.getTime() - now.getTime()) / 1000));
+      if (now.getTime() >= race.lobbyEndsAt.getTime()) {
+        let humans = 0;
+        try {
+          const rows = await this.loadRaceActivities(race.id);
+          humans = rows.filter(
+            (r: any) =>
+              !r.get("isBot") &&
+              ["waiting", "in_progress", "paused"].includes(r.get("status"))
+          ).length;
+        } catch (err) {
+          console.error("[RaceManager] Unable to count participants:", err);
+        }
 
-      if (remainingSec <= 0) {
-        const participantCount = await Activities.count({
-          where: { activityId: race.id, status: { [Op.ne]: "abandoned" } }
-        });
-
-        if (participantCount > 0) {
+        if (humans > 0) {
           race.status = "RUNNING";
           race.startedAt = new Date();
-          console.log(`[RaceManager] Public Race ${race.id} started with ${participantCount} racers!`);
-          await Races.update({ status: "in_progress", startTime: race.startedAt }, { where: { id: race.id } });
+          console.log(`[RaceManager] Public Race ${race.id} started with ${humans} racer(s)!`);
+          try {
+            await Races.update({ status: "in_progress", startTime: race.startedAt }, { where: { id: race.id } });
+            await Activities.update(
+              { status: "in_progress" },
+              { where: { activityId: race.id, status: "waiting" } }
+            );
+          } catch (err) {
+            console.error("[RaceManager] Unable to persist race start:", err);
+          }
           socketGateway.broadcastRaceStatus(race.id, "RUNNING", { startedAt: race.startedAt });
         } else {
-          console.log(`[RaceManager] 0 participants in Lobby at expiration. Silent reset 15m.`);
-          await Races.update({ status: "cancelled" }, { where: { id: race.id } });
+          console.log(`[RaceManager] 0 human participants in Lobby at expiration. Silent reset.`);
+          try {
+            await Races.update({ status: "cancelled" }, { where: { id: race.id } });
+          } catch (err) {
+            console.error("[RaceManager] Unable to cancel empty race:", err);
+          }
           if (race.pinCode) {
             this.pinToRaceMap.delete(race.pinCode);
           }
+          race.status = "ABANDONED";
           await this.initNextPublicRace(15);
         }
       }
@@ -128,66 +353,25 @@ export class RaceManager {
       const elapsedMinutes = (now.getTime() - startTime.getTime()) / (60 * 1000);
 
       if (elapsedMinutes >= (race.maxDurationMinutes || 55)) {
-        console.log(`[RaceManager] Max duration (55m) reached for race ${race.id}. Finishing.`);
-        await this.finishRace(race.id, true);
+        console.log(`[RaceManager] Max duration (${race.maxDurationMinutes || 55}m) reached for race ${race.id}. Finishing.`);
+        await this.finishRace(race.id, true, "timeout");
       } else {
         try {
-          if (race.hasBots) {
-            const activeBots = await Activities.findAll({
-              where: { activityId: race.id, isBot: true, status: { [Op.in]: ["in_progress", "waiting"] } }
-            });
-            for (const bot of activeBots) {
-              const botPace = (bot.get("avgPace") as number) || 120;
-              const botSpeedMs = 500 / botPace;
-              const botPrevTime = (bot.get("elapsedTime") as number) || 0;
-              const botNewTime = botPrevTime + 1;
-              const botTarget = race.targetDistance || 2000;
-              const botNetDist = Math.min(botTarget, Math.floor(botNewTime * botSpeedMs));
-              const botProgress = Math.min(100, Number(((botNetDist / botTarget) * 100).toFixed(1)));
-              await bot.update({
-                netDistance: botNetDist,
-                currentDistance: botNetDist,
-                elapsedTime: botNewTime,
-                progressPercent: botProgress,
-                status: botNetDist >= botTarget ? "finished" : "in_progress",
-                updatedAt: now
-              });
-            }
+          const rows = await this.loadRaceActivities(race.id);
+          await this.advanceBots(race, rows, now);
+
+          const live = RaceManager.sortRanking(rows.filter((r: any) => r.get("status") !== "abandoned"));
+          if (live.length > 0) {
+            socketGateway.broadcastLeaderboard(race.id, RaceManager.toLiveMetrics(live));
           }
 
-          const activeActivities = await Activities.findAll({
-            where: { activityId: race.id, status: { [Op.ne]: "abandoned" } },
-            order: [
-              ["status", "ASC"],
-              ["netDistance", "DESC"],
-              ["elapsedTime", "ASC"]
-            ]
-          });
-
-          if (activeActivities.length > 0) {
-            const liveList: LiveRacerMetric[] = activeActivities.map((r: any, idx: number) => ({
-              lane: idx + 1,
-              userId: r.get("userId"),
-              name: r.get("userName") || r.get("userId"),
-              dist: (r.get("netDistance") as number) || 0,
-              split: (r.get("lastPace") as number) || (r.get("avgPace") as number) || 120,
-              watts: (r.get("lastPower") as number) || (r.get("avgPower") as number) || 150,
-              spm: (r.get("lastStrokeRate") as number) || (r.get("avgStrokeRate") as number) || 24,
-              heartRate: (r.get("lastHeartRate") as number) || undefined,
-              status: r.get("status") || "in_progress"
-            }));
-            socketGateway.broadcastLeaderboard(race.id, liveList);
-
-            const allFinished = activeActivities.every(
-              (act: any) => act.get("status") === "finished" || (act.get("netDistance") as number) >= race.targetDistance
-            );
-            if (allFinished) {
-              console.log(`[RaceManager] All racers finished race ${race.id}. Closing race.`);
-              await this.finishRace(race.id, false);
-            }
+          const activeHumans = rows.filter((r: any) => this.isActiveHuman(r, now));
+          if (activeHumans.length === 0) {
+            console.log(`[RaceManager] No human racer left in race ${race.id} (only bots). Closing race.`);
+            await this.finishRace(race.id, false, "no_active_humans");
           }
-        } catch {
-          // Non-blocking in pure in-memory mode
+        } catch (err) {
+          console.error(`[RaceManager] Public race tick failed for ${race.id}:`, err);
         }
       }
     }
@@ -202,7 +386,7 @@ export class RaceManager {
     const now = new Date();
     const ttlMs = 24 * 60 * 60 * 1000;
 
-    for (const race of this.privateRacesById.values()) {
+    for (const race of Array.from(this.privateRacesById.values())) {
       if (race.createdAt && now.getTime() - race.createdAt.getTime() > ttlMs) {
         this.removePrivateRaceInternal(race);
         continue;
@@ -217,8 +401,8 @@ export class RaceManager {
             { status: "in_progress" },
             { where: { activityId: race.id, status: "waiting" } }
           );
-        } catch {
-          // In-memory state remains authoritative if DB is unavailable
+        } catch (err) {
+          console.error("[RaceManager] Unable to persist private race start:", err);
         }
         socketGateway.broadcastRaceStatus(race.id, "RUNNING", { startedAt: now });
       } else if (race.status === "RUNNING") {
@@ -226,107 +410,87 @@ export class RaceManager {
         const elapsedMinutes = (now.getTime() - startTime.getTime()) / (60 * 1000);
 
         if (elapsedMinutes >= (race.maxDurationMinutes || 55)) {
-          race.status = "COMPLETED";
-          race.endedAt = now;
-          try {
-            await Activities.update(
-              { status: "out_of_time" },
-              { where: { activityId: race.id, status: { [Op.in]: ["in_progress", "waiting", "paused"] } } }
-            );
-            await Races.update({ status: "finished" }, { where: { id: race.id } });
-          } catch {
-            // Ignore DB error in fallback mode
-          }
-          socketGateway.broadcastRaceStatus(race.id, "COMPLETED");
+          await this.finishPrivateRace(race, "timeout");
           continue;
         }
 
         try {
-          if (race.hasBots) {
-            const activeBots = await Activities.findAll({
-              where: { activityId: race.id, isBot: true, status: { [Op.in]: ["in_progress", "waiting"] } }
-            });
-            for (const bot of activeBots) {
-              const botPace = (bot.get("avgPace") as number) || 120;
-              const botSpeedMs = 500 / botPace;
-              const botPrevTime = (bot.get("elapsedTime") as number) || 0;
-              const botNewTime = botPrevTime + 1;
-              const botTarget = race.targetDistance || 2000;
-              const botNetDist = Math.min(botTarget, Math.floor(botNewTime * botSpeedMs));
-              const botProgress = Math.min(100, Number(((botNetDist / botTarget) * 100).toFixed(1)));
-              await bot.update({
-                netDistance: botNetDist,
-                currentDistance: botNetDist,
-                elapsedTime: botNewTime,
-                progressPercent: botProgress,
-                status: botNetDist >= botTarget ? "finished" : "in_progress",
-                updatedAt: now
-              });
-            }
-          }
+          const rows = await this.loadRaceActivities(race.id);
+          await this.advanceBots(race, rows, now);
 
-          const activeActivities = await Activities.findAll({
-            where: { activityId: race.id, status: { [Op.ne]: "abandoned" } },
-            order: [
-              ["status", "ASC"], // finished first
-              ["netDistance", "DESC"],
-              ["elapsedTime", "ASC"]
-            ]
-          });
+          const live = RaceManager.sortRanking(rows.filter((r: any) => r.get("status") !== "abandoned"));
+          if (live.length > 0) {
+            socketGateway.broadcastLeaderboard(race.id, RaceManager.toLiveMetrics(live));
 
-          if (activeActivities.length > 0) {
-            const liveList: LiveRacerMetric[] = activeActivities.map((r: any, idx: number) => ({
-              lane: idx + 1,
-              userId: r.get("userId"),
-              name: r.get("userName") || r.get("userId"),
-              dist: (r.get("netDistance") as number) || 0,
-              split: (r.get("lastPace") as number) || (r.get("avgPace") as number) || 120,
-              watts: (r.get("lastPower") as number) || (r.get("avgPower") as number) || 150,
-              spm: (r.get("lastStrokeRate") as number) || (r.get("avgStrokeRate") as number) || 24,
-              heartRate: (r.get("lastHeartRate") as number) || undefined,
-              status: r.get("status") || "in_progress"
-            }));
-            socketGateway.broadcastLeaderboard(race.id, liveList);
-
-            const allFinished = activeActivities.every(
-              (act: any) => act.get("status") === "finished" || (act.get("netDistance") as number) >= race.targetDistance
+            const allFinished = live.every(
+              (act: any) => act.get("status") === "finished" || ((act.get("netDistance") as number) || 0) >= race.targetDistance
             );
             if (allFinished) {
-              race.status = "COMPLETED";
-              race.endedAt = now;
-              await Races.update({ status: "finished" }, { where: { id: race.id } });
-              socketGateway.broadcastRaceStatus(race.id, "COMPLETED");
+              await this.finishPrivateRace(race, "completed");
+              continue;
             }
           }
-        } catch {
-          // Ignore DB error when running pure in-memory
+
+          const activeHumans = rows.filter((r: any) => this.isActiveHuman(r, now));
+          if (activeHumans.length === 0) {
+            console.log(`[RaceManager] No active human racer left in private race ${race.id} (only bots). Closing race.`);
+            await this.finishPrivateRace(race, "no_active_humans");
+          }
+        } catch (err) {
+          console.error(`[RaceManager] Private race tick failed for ${race.id}:`, err);
         }
       }
     }
   }
 
+  private async finishPrivateRace(race: RaceState, reason: string): Promise<void> {
+    if (race.status === "COMPLETED") return;
+    race.status = "COMPLETED";
+    race.endedAt = new Date();
+    let ranking: RaceRankingEntry[] = [];
+    try {
+      await Activities.update(
+        { status: "out_of_time" },
+        { where: { activityId: race.id, status: { [Op.in]: ["in_progress", "waiting", "paused"] } } }
+      );
+      ranking = await this.finalizeRanking(race.id);
+      await Races.update({ status: "finished" }, { where: { id: race.id } });
+    } catch (err) {
+      console.error(`[RaceManager] Unable to finalise private race ${race.id}:`, err);
+    }
+    socketGateway.broadcastRaceStatus(race.id, "COMPLETED", { reason, ranking });
+  }
+
   /**
-   * Initializes the next scheduled public race
+   * Initializes the next scheduled public race (new lobby with its countdown so players have time to connect)
    */
   public async initNextPublicRace(delayMinutes?: number): Promise<RaceState> {
     const now = new Date();
     const intervalMin = delayMinutes || config.raceIntervalMinutes || 15;
     const lobbyEndsAt = new Date(now.getTime() + intervalMin * 60 * 1000);
-    const raceId = `RACE_${lobbyEndsAt.toISOString().replace(/[-:T.]/g, "").slice(0, 12)}`;
+    let raceId = `RACE_${lobbyEndsAt.toISOString().replace(/[-:T.]/g, "").slice(0, 14)}`;
+    if (this.currentPublicRace && this.currentPublicRace.id === raceId) {
+      raceId = `${raceId}_${Math.floor(Math.random() * 900 + 100)}`;
+    }
     const pin = this.generateUniquePinCode();
 
     const title = `Régate Publique ${lobbyEndsAt.getHours().toString().padStart(2, "0")}h${lobbyEndsAt.getMinutes().toString().padStart(2, "0")}`;
+    const targetDistance = config.defaultRaceDistanceMeters || 2000;
 
-    await Races.create({
-      id: raceId,
-      title,
-      targetDistance: config.defaultRaceDistanceMeters || 2000,
-      startTime: lobbyEndsAt,
-      intervalMinutes: intervalMin,
-      maxDurationMinutes: 55,
-      status: "waiting",
-      totalParticipants: 0
-    });
+    try {
+      await Races.create({
+        id: raceId,
+        title,
+        targetDistance,
+        startTime: lobbyEndsAt,
+        intervalMinutes: intervalMin,
+        maxDurationMinutes: 55,
+        status: "waiting",
+        totalParticipants: 0
+      });
+    } catch (err) {
+      console.error(`[RaceManager] Unable to persist public race ${raceId}:`, err);
+    }
 
     if (this.currentPublicRace?.pinCode) {
       this.pinToRaceMap.delete(this.currentPublicRace.pinCode);
@@ -337,24 +501,38 @@ export class RaceManager {
       title,
       type: "PUBLIC_HOURLY",
       status: "LOBBY",
-      targetDistance: config.defaultRaceDistanceMeters || 2000,
+      targetDistance,
       maxParticipants: 20,
       maxDurationMinutes: 55,
       lobbyEndsAt,
       pinCode: pin,
+      hasBots: false,
       createdAt: now
     };
 
     this.pinToRaceMap.set(pin, { raceId, lane: 1 });
     console.log(`[RaceManager] New Public Race scheduled: ${raceId} | PIN: ${pin} | Lobby until: ${lobbyEndsAt.toISOString()}`);
+    socketGateway.broadcastRaceStatus(raceId, "LOBBY", { lobbyEndsAt });
     return this.currentPublicRace;
   }
 
   /**
-   * Finishes race and prepares the next slot
+   * Finishes a race: remaining racers are classified as out of time, the official ranking is written
+   * (finishers first, then by distance covered) and the next public lobby is prepared.
+   * Idempotent: calling it twice for the same race has no further effect.
    */
-  public async finishRace(raceId: string, timeoutTriggered: boolean): Promise<void> {
-    if (timeoutTriggered) {
+  public async finishRace(raceId: string, timeoutTriggered: boolean, reason?: string): Promise<RaceRankingEntry[]> {
+    const managed = this.getRaceById(raceId);
+    if (managed && (managed.status === "COMPLETED" || managed.status === "ABANDONED")) {
+      return [];
+    }
+    if (managed) {
+      managed.status = "COMPLETED";
+      managed.endedAt = new Date();
+    }
+
+    let ranking: RaceRankingEntry[] = [];
+    try {
       await Activities.update(
         { status: "out_of_time" },
         {
@@ -364,12 +542,21 @@ export class RaceManager {
           }
         }
       );
+      ranking = await this.finalizeRanking(raceId);
+      await Races.update({ status: "finished" }, { where: { id: raceId } });
+    } catch (err) {
+      console.error(`[RaceManager] Unable to finalise race ${raceId}:`, err);
     }
 
-    await Races.update({ status: "finished" }, { where: { id: raceId } });
-    socketGateway.broadcastRaceStatus(raceId, "COMPLETED");
+    socketGateway.broadcastRaceStatus(raceId, "COMPLETED", {
+      reason: reason || (timeoutTriggered ? "timeout" : "completed"),
+      ranking
+    });
 
-    await this.initNextPublicRace(15);
+    if (this.currentPublicRace && this.currentPublicRace.id === raceId) {
+      await this.initNextPublicRace(15);
+    }
+    return ranking;
   }
 
   /**

@@ -56,10 +56,12 @@ class RowerDelegate extends WatchUi.BehaviorDelegate {
             }
             return true;
         } else if (state == RowerView.STATE_LOBBY || state == RowerView.STATE_WAITING_START) {
-            if (!_view.isBotsEnabled() && _view.getConnectedPlayers() <= 1) {
+            if (_view.getCountdown() <= 5) {
+                _bleDelegate.launchRaceFromWaiting();
+            } else if (!_view.isBotsEnabled() && _view.getConnectedPlayers() <= 1) {
                 _bleDelegate.promptBots();
             } else {
-                _view.showWarning(I18n.getText("WARN_WAIT_START"), 2);
+                _bleDelegate.launchRaceFromWaiting();
             }
             return true;
         } else if (state == RowerView.STATE_BOTS_PROMPT) {

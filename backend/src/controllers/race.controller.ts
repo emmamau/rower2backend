@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import { Op } from "sequelize";
 import db from "../models";
 import config from "../config";
-import raceManager from "../services/race-manager.service";
+import raceManager, { RaceState } from "../services/race-manager.service";
 import { isEmmaAdminUser } from "../services/auth.service";
 import userStore from "../services/user-store.service";
 
@@ -11,107 +11,95 @@ const Races = db.races;
 const Users = db.users;
 
 /**
- * Gestion du cycle unique des courses :
- * - Une seule course active (in_progress) ou en attente (waiting) à la fois.
- * - Durée maximale de 55 minutes. Au-delà, statut 'finished' et les coureurs encore en course deviennent 'out_of_time' (hors limite).
- * - S'il n'y a personne au départ (countdown <= 0 et totalParticipants === 0) : course annulée, nouvelle course toutes les 15mn.
- * - Si des coureurs sont au départ : la course démarre ('in_progress').
- * - La prochaine course aura lieu 1h après ce départ effectif (départ à t0 -> fin max à t0+55min -> prochaine course à t0+60min).
+ * Course publique unique, pilotée par le RaceManager (source de vérité) :
+ * - Lobby (compte à rebours 15 min) -> RUNNING dès qu'au moins un joueur humain est inscrit.
+ * - Durée maximale de 55 minutes : à l'échéance la partie se termine automatiquement et le classement
+ *   est établi selon la distance parcourue pour ceux qui n'ont pas franchi la ligne.
+ * - Si tous les joueurs humains ont abandonné (il ne reste que des bots), la partie se termine et un
+ *   nouveau lobby public est ouvert avec son compte à rebours.
+ * Les contrôleurs HTTP (montre, web) lisent et alimentent cette même course, il n'existe plus de second
+ * cycle de vie concurrent côté base de données.
  */
-export async function getOrCreateCurrentRace(): Promise<any> {
-  const now = new Date();
-
-  // 1. Chercher s'il existe une course publique active (in_progress) ou en attente (waiting)
-  let activeRace = await Races.findOne({
-    where: {
-      id: { [Op.notLike]: "PRIV_%" },
-      status: { [Op.in]: ["in_progress", "waiting"] },
-    },
-    order: [["createdAt", "DESC"]],
-  });
-
-  if (activeRace) {
-    const startTime = new Date(activeRace.get("startTime") as Date);
-    const maxDurationMin = (activeRace.get("maxDurationMinutes") as number) || 55;
-    const maxEndTime = new Date(startTime.getTime() + maxDurationMin * 60 * 1000);
-
-    // Vérifier si la course en cours a dépassé les 55 minutes max
-    if (activeRace.get("status") === "in_progress" && now > maxEndTime) {
-      await activeRace.update({ status: "finished" });
-
-      // Tous les rameurs qui ne sont pas 'finished' ni 'abandoned' sont indiqués comme 'out_of_time' (hors limite)
-      await Activities.update(
-        { status: "out_of_time" },
-        {
-          where: {
-            activityId: String(activeRace.get("id")),
-            status: { [Op.in]: ["in_progress", "waiting", "paused"] },
-          },
-        }
-      );
-
-      activeRace = null;
-    } else if (activeRace.get("status") === "waiting") {
-      // Vérifier le départ de la course en attente
-      if (now >= startTime) {
-        // Compter les participants connectés
-        const fiveMinutesAgo = new Date(now.getTime() - 5 * 60 * 1000);
-        const count = (await Activities.count({
-          where: {
-            activityId: String(activeRace.get("id")),
-            updatedAt: { [Op.gte]: fiveMinutesAgo },
-            status: { [Op.ne]: "abandoned" },
-          },
-        })) as number;
-
-        if (count === 0) {
-          // Aucun joueur au départ -> la course est annulée, prochain départ dans 15 minutes
-          await activeRace.update({ status: "cancelled", totalParticipants: 0 });
-          activeRace = null;
-        } else {
-          // Des joueurs sont présents -> démarrage effectif de la course
-          await activeRace.update({ status: "in_progress", totalParticipants: count });
-        }
-      }
-    }
-  }
-
-  // 2. Si aucune course en cours ou en attente, et qu'on doit en préparer une
-  if (!activeRace) {
-    // Si la dernière course vient de finir ou était in_progress, la prochaine course a lieu 1h après son départ
-    const lastStartedRace = await Races.findOne({
-      where: {
-        id: { [Op.notLike]: "PRIV_%" },
-        status: { [Op.in]: ["finished", "in_progress"] },
-      },
-      order: [["startTime", "DESC"]],
-    });
-
-    let nextSlotTime: Date;
-    if (lastStartedRace) {
-      const lastStart = new Date(lastStartedRace.get("startTime") as Date);
-      const oneHourAfter = new Date(lastStart.getTime() + 60 * 60 * 1000);
-      nextSlotTime = now > oneHourAfter ? new Date(now.getTime() + (config.raceIntervalMinutes || 15) * 60 * 1000) : oneHourAfter;
-    } else {
-      const intervalMs = (config.raceIntervalMinutes || 15) * 60 * 1000;
-      nextSlotTime = new Date(now.getTime() + intervalMs);
-    }
-
-    const raceId = `RACE_${nextSlotTime.toISOString().replace(/[-:T.]/g, "").slice(0, 12)}`;
-
-    activeRace = await Races.create({
-      id: raceId,
-      title: `Rower Race ${nextSlotTime.getHours().toString().padStart(2, "0")}h${nextSlotTime.getMinutes().toString().padStart(2, "0")}`,
-      targetDistance: config.defaultRaceDistanceMeters || 10000,
-      startTime: nextSlotTime,
+export async function ensurePublicRaceRow(state: RaceState): Promise<any> {
+  let row = await Races.findByPk(state.id);
+  if (!row) {
+    row = await Races.create({
+      id: state.id,
+      title: state.title,
+      targetDistance: state.targetDistance,
+      startTime: state.startedAt || state.lobbyEndsAt,
       intervalMinutes: config.raceIntervalMinutes || 15,
-      maxDurationMinutes: 55,
-      status: "waiting",
+      maxDurationMinutes: state.maxDurationMinutes || 55,
+      status: state.status === "RUNNING" ? "in_progress" : "waiting",
       totalParticipants: 0,
     });
   }
+  return row;
+}
 
-  return activeRace;
+export async function getOrCreateCurrentRace(): Promise<any> {
+  const state = await raceManager.tickPublicRace();
+  return ensurePublicRaceRow(state);
+}
+
+function formatMinSec(totalSeconds: number): string {
+  const s = Math.max(0, Math.floor(totalSeconds));
+  return `${Math.floor(s / 60)}m ${s % 60}s`;
+}
+
+function mapStateToApiStatus(status: RaceState["status"]): string {
+  if (status === "RUNNING") return "in_progress";
+  if (status === "COMPLETED") return "finished";
+  if (status === "ABANDONED") return "cancelled";
+  return "waiting";
+}
+
+/**
+ * Payload commun (web + montre) décrivant la course publique courante, avec le compte à rebours
+ * de départ et le temps restant de la partie.
+ */
+export async function buildPublicRacePayload(): Promise<any> {
+  const state = await raceManager.tickPublicRace();
+  const row = await ensurePublicRaceRow(state);
+  const timing = raceManager.getRaceTiming(state);
+  const apiStatus = mapStateToApiStatus(state.status);
+
+  const count = await Activities.count({
+    where: { activityId: state.id, status: { [Op.ne]: "abandoned" } },
+  });
+  try {
+    await row.update({ totalParticipants: count });
+  } catch {
+    // Non-blocking
+  }
+
+  const plainRow = typeof row.toJSON === "function" ? row.toJSON() : row;
+  const race = {
+    ...plainRow,
+    id: state.id,
+    type: state.type,
+    title: state.title,
+    pinCode: state.pinCode,
+    targetDistance: state.targetDistance,
+    startTime: (state.startedAt || state.lobbyEndsAt).toISOString(),
+    maxDurationMinutes: state.maxDurationMinutes || 55,
+    hasBots: Boolean(state.hasBots),
+    internalStatus: state.status,
+    status: apiStatus,
+    totalParticipants: count,
+  };
+
+  return {
+    race,
+    secondsRemaining: timing.secondsUntilStart,
+    remainingSeconds: timing.remainingSeconds,
+    elapsedSeconds: timing.elapsedSeconds,
+    maxDurationSeconds: timing.maxDurationSeconds,
+    formattedCountdown: formatMinSec(state.status === "RUNNING" ? timing.remainingSeconds : timing.secondsUntilStart),
+    totalParticipants: count,
+    status: apiStatus,
+    pinCode: state.pinCode,
+  };
 }
 
 /**
@@ -119,31 +107,7 @@ export async function getOrCreateCurrentRace(): Promise<any> {
  */
 export const getNextRace = async (_req: Request, res: Response): Promise<void> => {
   try {
-    const race = await getOrCreateCurrentRace();
-    const now = new Date();
-    const startTime = new Date(race.get("startTime") as Date);
-    const secondsRemaining = Math.max(0, Math.floor((startTime.getTime() - now.getTime()) / 1000));
-
-    // Comptage des participants connectés (hors salons privés)
-    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
-    const count = await Activities.count({
-      where: {
-        [Op.or]: [
-          { activityId: race.get("id") },
-          { activityId: { [Op.notLike]: "PRIV_%" }, updatedAt: { [Op.gte]: fiveMinutesAgo } },
-        ],
-        status: { [Op.ne]: "abandoned" },
-      },
-    });
-    await race.update({ totalParticipants: count });
-
-    res.status(200).json({
-      race,
-      secondsRemaining,
-      formattedCountdown: `${Math.floor(secondsRemaining / 60)}m ${secondsRemaining % 60}s`,
-      totalParticipants: count,
-      status: race.get("status"),
-    });
+    res.status(200).json(await buildPublicRacePayload());
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     res.status(500).json({ message: "Erreur récupération prochaine course: " + message });
@@ -155,53 +119,36 @@ export const getNextRace = async (_req: Request, res: Response): Promise<void> =
  * Quand un joueur se connecte :
  * - Si une course est déjà "in_progress", il peut soit :
  *     * action="join_late" : rejoindre la course en cours et partir après le départ
- *     * action="wait_next" : attendre la fin de la course pour prendre le prochain départ (timer 1h après départ t0)
+ *     * action="wait_next" : attendre la fin de la course pour prendre le prochain départ
  *     * action="solo" : ramer en solo
  */
 export const joinRace = async (req: Request, res: Response): Promise<void> => {
   try {
     const { userId = "anonymous", userName, action = "join" } = req.body;
-    let race = await getOrCreateCurrentRace();
-
+    const state = await raceManager.tickPublicRace();
     const now = new Date();
-    const actualRaceStatus = race.get("status");
+    const isRunning = state.status === "RUNNING";
+    const timing = raceManager.getRaceTiming(state, now);
 
-    // Si la course est déjà en cours et que le joueur demande explicitement d'attendre la prochaine
-    let targetRace = race;
-    let secondsRemaining = 0;
-
-    if (actualRaceStatus === "in_progress") {
-      const startTime = new Date(race.get("startTime") as Date);
-      const nextStart = new Date(startTime.getTime() + 60 * 60 * 1000); // 1h après départ précédent
-      const nextSec = Math.max(0, Math.floor((nextStart.getTime() - now.getTime()) / 1000));
-
-      if (action === "wait_next") {
-        res.status(200).json({
-          success: true,
-          action: "wait_next",
-          currentRaceRunning: true,
-          nextStartTime: nextStart,
-          secondsRemaining: nextSec,
-          formattedCountdown: `${Math.floor(nextSec / 60)}m ${nextSec % 60}s`,
-          message: "En attente du prochain départ (1h après le départ précédent).",
-        });
-        return;
-      }
+    if (isRunning && action === "wait_next") {
+      // La prochaine partie publique démarre après la fin de celle-ci ; on indique le temps restant
+      res.status(200).json({
+        success: true,
+        action: "wait_next",
+        currentRaceRunning: true,
+        remainingSeconds: timing.remainingSeconds,
+        secondsRemaining: timing.remainingSeconds + (config.raceIntervalMinutes || 15) * 60,
+        formattedCountdown: formatMinSec(timing.remainingSeconds + (config.raceIntervalMinutes || 15) * 60),
+        message: "En attente de la fin de la partie en cours.",
+      });
+      return;
     }
 
-    // Si la course était en attente sans date ou expirée, relancer un compte à rebours dès la connexion
-    const startTime = new Date(race.get("startTime") as Date);
-    if (race.get("status") === "waiting" && now >= startTime) {
-      const intervalMs = (config.raceIntervalMinutes || 15) * 60 * 1000;
-      const newStart = new Date(now.getTime() + intervalMs);
-      await race.update({ startTime: newStart });
-    }
-
-    const actualRaceId = race.get("id");
+    const actualRaceId = state.id;
     const compositeId = `${actualRaceId}_${userId}`;
 
-    // Le statut de départ : si rejoint en retard dans une course in_progress -> in_progress immédiat
-    const playerStatus = (actualRaceStatus === "in_progress" && action === "join_late") ? "in_progress" : "waiting";
+    // Le statut de départ : si rejoint en retard dans une course en cours -> in_progress immédiat
+    const playerStatus = isRunning && action === "join_late" ? "in_progress" : "waiting";
 
     let activity = await Activities.findByPk(compositeId);
     if (!activity) {
@@ -209,9 +156,9 @@ export const joinRace = async (req: Request, res: Response): Promise<void> => {
         id: compositeId,
         activityId: actualRaceId,
         userId,
-        userName: userName || `Racer_${userId.slice(-4)}`,
+        userName: userName || `Racer_${String(userId).slice(-4)}`,
         raceMode: "race",
-        targetDistance: race.get("targetDistance") || 10000,
+        targetDistance: state.targetDistance || 10000,
         status: playerStatus,
         initialDistance: 0,
         currentDistance: 0,
@@ -239,36 +186,27 @@ export const joinRace = async (req: Request, res: Response): Promise<void> => {
     }
 
     // Inscrire/actualiser l'utilisateur sans données personnelles
-    let user = await Users.findByPk(userId);
+    const user = await Users.findByPk(userId);
     if (!user) {
       await Users.create({
         id: userId,
-        name: userName || `Racer_${userId.slice(-4)}`,
+        name: userName || `Racer_${String(userId).slice(-4)}`,
         totalRaces: 0,
         totalWins: 0,
         podiums: 0,
       });
     }
 
-    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
-    const count = await Activities.count({
-      where: {
-        activityId: actualRaceId,
-        updatedAt: { [Op.gte]: fiveMinutesAgo },
-        status: { [Op.ne]: "abandoned" },
-      },
-    });
-    await race.update({ totalParticipants: count });
-
-    secondsRemaining = Math.max(0, Math.floor((new Date(race.get("startTime") as Date).getTime() - now.getTime()) / 1000));
-
+    const payload = await buildPublicRacePayload();
     res.status(200).json({
       success: true,
       raceId: actualRaceId,
-      race,
-      isRaceInProgress: actualRaceStatus === "in_progress",
-      secondsRemaining,
-      totalParticipants: count,
+      race: payload.race,
+      isRaceInProgress: isRunning,
+      secondsRemaining: payload.secondsRemaining,
+      remainingSeconds: payload.remainingSeconds,
+      elapsedSeconds: payload.elapsedSeconds,
+      totalParticipants: payload.totalParticipants,
       activity,
     });
   } catch (err: unknown) {
@@ -452,8 +390,10 @@ export const toggleBots = async (req: Request, res: Response): Promise<void> => 
     }
 
     const actualRaceId = String(race.get("id"));
-    const targetDist = managedPrivate?.targetDistance || (race.get("targetDistance") as number) || 10000;
-    const isRunning = managedPrivate ? managedPrivate.status === "RUNNING" : race.get("status") === "in_progress";
+    // Course pilotée par le RaceManager (publique courante ou salon privé) : source de vérité de l'état
+    const managedRace = raceManager.getRaceById(actualRaceId);
+    const targetDist = managedRace?.targetDistance || (race.get("targetDistance") as number) || 10000;
+    const isRunning = managedRace ? managedRace.status === "RUNNING" : race.get("status") === "in_progress";
     const clampedBotCount = Math.min(12, Math.max(1, Number(botCount) || 3));
 
     if (enable) {
@@ -465,7 +405,8 @@ export const toggleBots = async (req: Request, res: Response): Promise<void> => 
         }
       }
 
-      const botsToAdd = generateTunedBots(playerPoints, clampedBotCount);
+      const existingBots = (await Activities.findAll({ where: { activityId: actualRaceId, isBot: true } })).length;
+      const botsToAdd = generateTunedBots(playerPoints, clampedBotCount).slice(0, Math.max(0, clampedBotCount - existingBots));
       for (const b of botsToAdd) {
         const botCompositeId = `${actualRaceId}_${b.id}`;
         let botAct = await Activities.findByPk(botCompositeId);
@@ -505,7 +446,7 @@ export const toggleBots = async (req: Request, res: Response): Promise<void> => 
         }
       }
       await race.update({ hasBots: true });
-      if (managedPrivate) managedPrivate.hasBots = true;
+      if (managedRace) managedRace.hasBots = true;
     } else {
       await Activities.destroy({
         where: {
@@ -514,19 +455,17 @@ export const toggleBots = async (req: Request, res: Response): Promise<void> => 
         },
       });
       await race.update({ hasBots: false });
-      if (managedPrivate) managedPrivate.hasBots = false;
+      if (managedRace) managedRace.hasBots = false;
     }
 
-    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
     const count = await Activities.count({
       where: {
         activityId: actualRaceId,
-        updatedAt: { [Op.gte]: fiveMinutesAgo },
         status: { [Op.ne]: "abandoned" },
       },
     });
     await race.update({ totalParticipants: count });
-    if (managedPrivate) managedPrivate.totalParticipants = count;
+    if (managedRace) managedRace.totalParticipants = count;
 
     res.status(200).json({
       success: true,
