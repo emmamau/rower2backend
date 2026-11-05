@@ -82,6 +82,15 @@ export class AppComponent implements OnInit, OnDestroy {
   loginErrorMessage = '';
   isWaitingWatchApproval = false;
 
+  // Identification directe par montre Garmin
+  isWatchConfirmed = false;
+  watchIdLoginInput = '';
+  isWatchIdLoginPending = false;
+  watchIdLoginMessage = '';
+  watchIdLoginError = '';
+  showCockpitBlockedModal = false;
+  cockpitAccessBlockedMessage = '';
+
   // Subscriber Account Management Modal
   isAccountModalOpen = false;
   accountModalTab: 'login' | 'register' | 'profile' | 'forgot' = 'login';
@@ -181,6 +190,9 @@ export class AppComponent implements OnInit, OnDestroy {
 
     const storedIsSub = typeof localStorage !== 'undefined' ? localStorage.getItem('rower_is_subscriber') === 'true' : false;
     const storedIsAdmin = typeof localStorage !== 'undefined' ? localStorage.getItem('rower_is_admin') === 'true' : false;
+    const storedWatchConfirmed = typeof localStorage !== 'undefined' ? localStorage.getItem('rower_watch_confirmed') === 'true' : false;
+    this.isWatchConfirmed = storedWatchConfirmed;
+    this.watchIdLoginInput = this.activeUserId;
 
     if (storedLogin) {
       this.currentUser.name = storedLogin;
@@ -302,8 +314,13 @@ export class AppComponent implements OnInit, OnDestroy {
           this.activeUserId = res.userId;
           this.currentUser.id = res.userId;
           this.currentUser.name = res.login;
-          localStorage.setItem('rower_user_id', res.userId);
-          localStorage.setItem('rower_user_login', res.login);
+          this.isWatchConfirmed = true;
+          this.watchIdLoginInput = res.userId;
+          try {
+            localStorage.setItem('rower_user_id', res.userId);
+            localStorage.setItem('rower_user_login', res.login);
+            localStorage.setItem('rower_watch_confirmed', 'true');
+          } catch {}
 
           this.isWaitingWatchApproval = false;
           this.isLoginModalOpen = false;
@@ -448,6 +465,11 @@ export class AppComponent implements OnInit, OnDestroy {
               });
             }
           });
+
+          // Seuls les joueurs associés à la course peuvent voir le cockpit
+          if (this.activeViewMode === 'cockpit' && !this.canAccessCockpit) {
+            this.activeViewMode = 'canvas';
+          }
         }
         this.cdr.markForCheck();
       });
@@ -879,8 +901,148 @@ export class AppComponent implements OnInit, OnDestroy {
     return this.detectTerminalViewMode();
   }
 
+  get isUserAssociatedWithRace(): boolean {
+    if (!this.activeUserId) return false;
+    if (this.activePrivateRoom) {
+      const isHost = this.activePrivateRoom.race?.hostUserId === this.activeUserId;
+      const isPart = Boolean(
+        this.activePrivateRoom.race?.participants?.some((p) => p.userId === this.activeUserId) ||
+        this.racers.some((r) => r.userId === this.activeUserId)
+      );
+      return isHost || isPart;
+    }
+    const inRacers = this.racers.some((r) => r.userId === this.activeUserId);
+    const hasActivePart = Boolean(
+      this.myActivity &&
+      this.myActivity.activityId === this.nextRaceInfo?.race?.id &&
+      this.myActivity.status !== 'abandoned'
+    );
+    return inRacers || hasActivePart;
+  }
+
+  get canAccessCockpit(): boolean {
+    return Boolean(this.isWatchConfirmed && this.isUserAssociatedWithRace);
+  }
+
+  get isFinished(): boolean {
+    return Boolean(
+      this.myActivity && (
+        this.myActivity.status === 'finished' ||
+        (this.myActivity.netDistance || 0) >= this.activeTargetDistance
+      )
+    );
+  }
+
+  get myPodiumMedal(): { icon: string; label: string; class: string } | null {
+    if (!this.myRank || this.myRank > 3) return null;
+    if (this.myRank === 1) return { icon: '🥇', label: "Médaille d'Or", class: 'gold' };
+    if (this.myRank === 2) return { icon: '🥈', label: "Médaille d'Argent", class: 'silver' };
+    if (this.myRank === 3) return { icon: '🥉', label: "Médaille de Bronze", class: 'bronze' };
+    return null;
+  }
+
+  identifyWithWatchId(): void {
+    if (!this.watchIdLoginInput || !this.watchIdLoginInput.trim()) {
+      this.watchIdLoginError = 'Veuillez saisir votre identifiant de montre Garmin (ex: EMMA01).';
+      return;
+    }
+    const watchId = this.watchIdLoginInput.trim();
+    this.watchIdLoginError = '';
+    this.watchIdLoginMessage = 'Notification envoyée sur votre montre... Veuillez confirmer sur votre montre !';
+    this.isWatchIdLoginPending = true;
+
+    this.rowerService.requestWebLogin(watchId, watchId).subscribe({
+      next: (res) => {
+        if (res.success && res.requestId) {
+          this.pollWatchIdApproval(res.requestId, watchId);
+        } else {
+          this.isWatchIdLoginPending = false;
+          this.watchIdLoginError = res.message || "Échec de la demande d'identification.";
+        }
+        this.cdr.markForCheck();
+      },
+      error: (err) => {
+        this.isWatchIdLoginPending = false;
+        if (err.error?.error === 'WATCH_NOT_CONNECTED') {
+          this.watchIdLoginError = "L'application Garmin Rower Race doit être lancée sur votre montre pour confirmer !";
+        } else {
+          this.watchIdLoginError = err.error?.message || "Erreur lors de la demande d'identification.";
+        }
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  private pollWatchIdApproval(requestId: string, watchId: string): void {
+    if (this.authCheckSub) {
+      this.authCheckSub.unsubscribe();
+    }
+    this.authCheckSub = interval(1500).pipe(
+      switchMap(() => this.rowerService.checkWebLoginStatus(requestId))
+    ).subscribe({
+      next: (res) => {
+        if (res.status === 'approved') {
+          this.authCheckSub?.unsubscribe();
+          this.isWatchIdLoginPending = false;
+          this.isWatchConfirmed = true;
+          this.activeUserId = res.userId || watchId;
+          this.currentUser.id = this.activeUserId;
+          this.currentUser.name = res.login || watchId;
+          this.userIdInput = this.activeUserId;
+          this.userLoginInput = this.currentUser.name;
+          try {
+            localStorage.setItem('rower_user_id', this.activeUserId);
+            localStorage.setItem('rower_user_login', this.currentUser.name);
+            localStorage.setItem('rower_watch_confirmed', 'true');
+          } catch {}
+          this.watchIdLoginMessage = `✓ Montre [${this.activeUserId}] confirmée avec succès !`;
+          this.loadUserProfile();
+          if (this.isUserAssociatedWithRace) {
+            this.switchViewMode('cockpit');
+          }
+          this.cdr.markForCheck();
+        } else if (res.status === 'rejected') {
+          this.authCheckSub?.unsubscribe();
+          this.isWatchIdLoginPending = false;
+          this.watchIdLoginError = 'Identification refusée depuis votre montre.';
+          this.cdr.markForCheck();
+        } else if (res.status === 'expired') {
+          this.authCheckSub?.unsubscribe();
+          this.isWatchIdLoginPending = false;
+          this.watchIdLoginError = 'La demande a expiré.';
+          this.cdr.markForCheck();
+        }
+      },
+      error: () => {
+        this.authCheckSub?.unsubscribe();
+        this.isWatchIdLoginPending = false;
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  disconnectWatch(): void {
+    this.isWatchConfirmed = false;
+    try {
+      localStorage.removeItem('rower_watch_confirmed');
+    } catch {}
+    this.watchIdLoginMessage = '';
+    this.watchIdLoginError = '';
+    this.activeViewMode = 'canvas';
+    this.cdr.markForCheck();
+  }
+
   switchViewMode(mode: 'canvas' | 'cockpit'): void {
     this.closeAllOverlayModals();
+    if (mode === 'cockpit' && !this.canAccessCockpit) {
+      this.cockpitAccessBlockedMessage = !this.isWatchConfirmed
+        ? "Pour accéder à votre cockpit, vous devez d'abord vous identifier avec votre montre Garmin sur la page d'accueil et valider la notification sur votre montre."
+        : "Votre montre est confirmée, mais vous n'êtes pas associé à la course en cours (publique ou invité dans un salon privé). Seule la vue Régate 2D est accessible aux spectateurs.";
+      this.showCockpitBlockedModal = true;
+      this.activeViewMode = 'canvas';
+      this.cdr.markForCheck();
+      return;
+    }
     this.userOverrodeViewMode = true;
     this.activeViewMode = mode;
     this.cdr.markForCheck();

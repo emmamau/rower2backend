@@ -682,6 +682,108 @@
       (requestAccountModal)="openAccountModal($event)">
     </app-private-room-manager>
 
+    <!-- BARRE D'IDENTIFICATION DIRECTE PAR MONTRE GARMIN -->
+    <section class="watch-auth-strip" aria-label="Connexion Montre Garmin">
+      <div class="watch-auth-card" [class.is-confirmed]="isWatchConfirmed">
+        <div class="watch-auth-left">
+          <span class="watch-auth-icon">⌚</span>
+          <div class="watch-auth-info">
+            <div class="watch-auth-title">
+              @if (isWatchConfirmed) {
+                <span>Montre connectée : <strong>{{ activeUserId }}</strong></span>
+                <span class="watch-badge-ok">✓ Confirmée sur la montre</span>
+              } @else {
+                <span>Identification directe par montre Garmin</span>
+              }
+            </div>
+            <div class="watch-auth-sub">
+              @if (isWatchConfirmed) {
+                @if (canAccessCockpit) {
+                  <span>Vous participez à la course · Cockpit débloqué</span>
+                } @else {
+                  <span>Montre confirmée · Rejoignez une course pour débloquer votre Cockpit (Vue Régate 2D active)</span>
+                }
+              } @else {
+                <span>Saisissez l'identifiant de votre montre Garmin pour débloquer votre Cockpit après confirmation</span>
+              }
+            </div>
+          </div>
+        </div>
+
+        <div class="watch-auth-actions">
+          @if (!isWatchConfirmed) {
+            <div class="watch-input-group">
+              <input
+                type="text"
+                class="watch-id-input"
+                placeholder="Code montre (ex: EMMA01)"
+                [(ngModel)]="watchIdLoginInput"
+                [disabled]="isWatchIdLoginPending"
+                (keyup.enter)="identifyWithWatchId()"
+                maxlength="20" />
+              <button
+                type="button"
+                class="btn-watch-connect"
+                [disabled]="isWatchIdLoginPending || !watchIdLoginInput.trim()"
+                (click)="identifyWithWatchId()">
+                {{ isWatchIdLoginPending ? '⏳ En attente de la montre...' : "S'identifier sur ma montre" }}
+              </button>
+            </div>
+          } @else {
+            <button type="button" class="btn-watch-disconnect" (click)="disconnectWatch()">
+              Changer de montre
+            </button>
+          }
+        </div>
+      </div>
+
+      <!-- Messages de feedback identification montre -->
+      <div class="watch-auth-feedback ok" *ngIf="watchIdLoginMessage">{{ watchIdLoginMessage }}</div>
+      <div class="watch-auth-feedback err" *ngIf="watchIdLoginError">{{ watchIdLoginError }}</div>
+    </section>
+
+    <!-- BANNIÈRE DE FÉLICITATIONS FIN DE COURSE (BRAVO ! TEMPS, CLASSEMENT ET MÉDAILLE) -->
+    <section class="finish-celebration-banner" *ngIf="isFinished" role="region" aria-label="Félicitations de fin de course">
+      <div class="finish-celebration-card" [class.podium-gold]="myRank === 1" [class.podium-silver]="myRank === 2" [class.podium-bronze]="myRank === 3">
+        <div class="finish-badge-header">
+          <span class="finish-confetti">🎉</span>
+          <h2 class="finish-title">BRAVO ! COURSE TERMINÉE !</h2>
+          <span class="finish-confetti">🎉</span>
+        </div>
+
+        <div class="finish-podium-spotlight" *ngIf="myPodiumMedal">
+          <span class="podium-medal-huge">{{ myPodiumMedal.icon }}</span>
+          <div class="podium-medal-text">
+            <span class="podium-medal-badge">{{ myPodiumMedal.label.toUpperCase() }}</span>
+            <span class="podium-medal-sub">Félicitations pour votre podium !</span>
+          </div>
+        </div>
+
+        <div class="finish-stats-grid">
+          <div class="finish-stat-box highlight">
+            <span class="f-lbl">CLASSEMENT</span>
+            <span class="f-val">#{{ myRank || 1 }}</span>
+          </div>
+          <div class="finish-stat-box">
+            <span class="f-lbl">TEMPS OFFICIEL</span>
+            <span class="f-val">{{ formatTime(myActivity?.elapsedTime) }}</span>
+          </div>
+          <div class="finish-stat-box">
+            <span class="f-lbl">DISTANCE</span>
+            <span class="f-val">{{ myActivity?.netDistance || activeTargetDistance }} m</span>
+          </div>
+          <div class="finish-stat-box">
+            <span class="f-lbl">ALLURE MOYENNE</span>
+            <span class="f-val">{{ formatPace(myActivity?.avgPace) }}</span>
+          </div>
+          <div class="finish-stat-box">
+            <span class="f-lbl">PUISSANCE MOY.</span>
+            <span class="f-val">{{ myActivity?.avgPower || 0 }} W</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- Ergometer & Arena Mode Switcher Bar -->
     <div class="arena-mode-bar">
       <div class="view-mode-toggle" role="group" aria-label="Mode d'affichage">
@@ -697,9 +799,14 @@
           type="button"
           class="btn-toggle-view"
           [class.active]="activeViewMode === 'cockpit'"
+          [class.locked]="!canAccessCockpit"
           (click)="switchViewMode('cockpit')">
-          📱 Mode Cockpit
-          <span class="rec-badge" *ngIf="recommendedViewMode === 'cockpit'">Mobile</span>
+          @if (!canAccessCockpit) {
+            🔒 Mode Cockpit
+          } @else {
+            📱 Mode Cockpit
+          }
+          <span class="rec-badge" *ngIf="recommendedViewMode === 'cockpit' && canAccessCockpit">Mobile</span>
         </button>
       </div>
 
@@ -885,9 +992,10 @@
       type="button"
       class="mob-nav-btn"
       [class.active]="activeViewMode === 'cockpit' && !isPrivateModalOpen && !isStandingsOpen && !isHistoryOpen"
+      [class.locked]="!canAccessCockpit"
       (click)="switchViewMode('cockpit')">
-      <span class="mob-nav-icon" aria-hidden="true">📱</span>
-      <span class="mob-nav-label">Cockpit</span>
+      <span class="mob-nav-icon" aria-hidden="true">{{ canAccessCockpit ? '📱' : '🔒' }}</span>
+      <span class="mob-nav-label">{{ canAccessCockpit ? 'Cockpit' : 'Verrouillé' }}</span>
     </button>
 
     <button
@@ -920,4 +1028,31 @@
       <span class="mob-nav-label">Courses</span>
     </button>
   </nav>
+
+  <!-- MODALE BLOCAGE ACCÈS COCKPIT -->
+  <div class="modal-overlay" *ngIf="showCockpitBlockedModal" (click)="showCockpitBlockedModal = false">
+    <div class="modal-card modal-blocked" (click)="$event.stopPropagation()">
+      <div class="modal-header-row">
+        <h3>🔒 Accès Cockpit Réservé</h3>
+        <button type="button" class="btn-close" (click)="showCockpitBlockedModal = false">✕</button>
+      </div>
+      <div class="blocked-modal-body">
+        <p class="blocked-desc">{{ cockpitAccessBlockedMessage }}</p>
+        <div class="blocked-requirements">
+          <div class="req-item" [class.ok]="isWatchConfirmed">
+            <span class="req-icon">{{ isWatchConfirmed ? '✓' : '✗' }}</span>
+            <span>Identification par montre Garmin validée</span>
+          </div>
+          <div class="req-item" [class.ok]="isUserAssociatedWithRace">
+            <span class="req-icon">{{ isUserAssociatedWithRace ? '✓' : '✗' }}</span>
+            <span>Inscrit(e) à la course en cours (publique ou invité dans un salon privé)</span>
+          </div>
+        </div>
+        <p class="spectator-hint">En tant que spectateur, vous pouvez suivre l'intégralité de la course en <strong>Vue Régate 2D</strong>.</p>
+        <div class="modal-actions-row">
+          <button type="button" class="btn-hud" (click)="showCockpitBlockedModal = false">Compris, voir la Régate</button>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>

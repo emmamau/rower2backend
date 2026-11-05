@@ -1577,3 +1577,319 @@ input[type="number"]:focus { border-color: var(--neon-cyan); box-shadow: 0 0 10p
   background: rgba(255, 77, 136, 0.15);
 }
 
+/* ========================================================================= */
+/* BARRE D'IDENTIFICATION DIRECTE PAR MONTRE GARMIN */
+/* ========================================================================= */
+.watch-auth-strip {
+  margin: 0.75rem 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.watch-auth-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  background: rgba(13, 20, 36, 0.75);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(0, 240, 255, 0.25);
+  border-radius: 12px;
+  padding: 0.75rem 1.1rem;
+  flex-wrap: wrap;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.watch-auth-card.is-confirmed {
+  border-color: rgba(57, 255, 20, 0.45);
+  box-shadow: 0 0 16px rgba(57, 255, 20, 0.15);
+  background: rgba(10, 28, 24, 0.7);
+}
+.watch-auth-left {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex: 1 1 260px;
+}
+.watch-auth-icon {
+  font-size: 1.6rem;
+  filter: drop-shadow(0 0 6px rgba(0, 240, 255, 0.5));
+}
+.watch-auth-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+.watch-auth-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.watch-badge-ok {
+  background: rgba(57, 255, 20, 0.18);
+  border: 1px solid rgba(57, 255, 20, 0.5);
+  color: #39ff14;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.15rem 0.45rem;
+  border-radius: 6px;
+  text-transform: uppercase;
+}
+.watch-auth-sub {
+  font-size: 0.78rem;
+  color: #94a3b8;
+}
+.watch-auth-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.watch-input-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.watch-id-input {
+  background: rgba(2, 6, 23, 0.85);
+  border: 1px solid rgba(0, 240, 255, 0.4);
+  color: #ffffff;
+  padding: 0.45rem 0.8rem;
+  border-radius: 8px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  inline-size: 170px;
+}
+.watch-id-input:focus {
+  outline: none;
+  border-color: var(--neon-cyan);
+  box-shadow: 0 0 10px rgba(0, 240, 255, 0.35);
+}
+.btn-watch-connect {
+  background: linear-gradient(135deg, #00f0ff 0%, #0088ff 100%);
+  color: #050a14;
+  border: none;
+  font-weight: 800;
+  font-size: 0.82rem;
+  padding: 0.5rem 0.95rem;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.btn-watch-connect:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 0 14px rgba(0, 240, 255, 0.5);
+}
+.btn-watch-connect:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.btn-watch-disconnect {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: #cbd5e1;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 0.4rem 0.75rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.btn-watch-disconnect:hover {
+  border-color: #ff4d88;
+  color: #ff4d88;
+}
+.watch-auth-feedback {
+  font-size: 0.82rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: 6px;
+  font-weight: 600;
+}
+.watch-auth-feedback.ok {
+  background: rgba(57, 255, 20, 0.15);
+  color: #39ff14;
+  border: 1px solid rgba(57, 255, 20, 0.3);
+}
+.watch-auth-feedback.err {
+  background: rgba(255, 77, 136, 0.15);
+  color: #ff4d88;
+  border: 1px solid rgba(255, 77, 136, 0.3);
+}
+
+/* ========================================================================= */
+/* BANNIÈRE DE FÉLICITATIONS FIN DE COURSE (BRAVO ! TEMPS, CLASSEMENT, PODIUM) */
+/* ========================================================================= */
+.finish-celebration-banner {
+  margin: 0.85rem 0;
+  animation: bannerFadeIn 0.4s ease-out;
+}
+@keyframes bannerFadeIn {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.finish-celebration-card {
+  background: linear-gradient(135deg, rgba(16, 26, 48, 0.95) 0%, rgba(8, 14, 28, 0.95) 100%);
+  border: 2px solid rgba(0, 240, 255, 0.6);
+  box-shadow: 0 0 28px rgba(0, 240, 255, 0.35);
+  border-radius: 14px;
+  padding: 1.1rem 1.4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  position: relative;
+  overflow: clip;
+}
+.finish-celebration-card.podium-gold {
+  border-color: #ffe600;
+  box-shadow: 0 0 32px rgba(255, 230, 0, 0.45);
+  background: linear-gradient(135deg, rgba(38, 30, 4, 0.95) 0%, rgba(18, 14, 4, 0.95) 100%);
+}
+.finish-celebration-card.podium-silver {
+  border-color: #e2e8f0;
+  box-shadow: 0 0 28px rgba(226, 232, 240, 0.35);
+}
+.finish-celebration-card.podium-bronze {
+  border-color: #ff6600;
+  box-shadow: 0 0 28px rgba(255, 102, 0, 0.35);
+}
+.finish-badge-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+}
+.finish-title {
+  font-size: clamp(1.2rem, 3.2vw, 1.8rem);
+  font-weight: 900;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  margin: 0;
+  background: linear-gradient(90deg, #ffe600 0%, #00f0ff 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-align: center;
+}
+.finish-confetti {
+  font-size: 1.6rem;
+  animation: bounce 1s infinite alternate;
+}
+@keyframes bounce {
+  from { transform: translateY(0); }
+  to { transform: translateY(-4px); }
+}
+.finish-podium-spotlight {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.85rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+  padding: 0.5rem 1rem;
+}
+.podium-medal-huge {
+  font-size: 2.4rem;
+  filter: drop-shadow(0 0 10px rgba(255, 230, 0, 0.6));
+}
+.podium-medal-text {
+  display: flex;
+  flex-direction: column;
+}
+.podium-medal-badge {
+  font-size: 1.05rem;
+  font-weight: 900;
+  color: #ffe600;
+  letter-spacing: 0.5px;
+}
+.podium-medal-sub {
+  font-size: 0.78rem;
+  color: #cbd5e1;
+}
+.finish-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 0.65rem;
+}
+.finish-stat-box {
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 0.55rem 0.75rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+.finish-stat-box.highlight {
+  border-color: rgba(0, 240, 255, 0.5);
+  background: rgba(0, 240, 255, 0.12);
+}
+.finish-stat-box .f-lbl {
+  font-size: 0.68rem;
+  color: #94a3b8;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+.finish-stat-box .f-val {
+  font-size: 1.15rem;
+  font-weight: 900;
+  color: #ffffff;
+  margin-top: 0.15rem;
+}
+
+/* ========================================================================= */
+/* BOUTON COCKPIT VERROUILLÉ & MODALE D'EXPLICATION */
+/* ========================================================================= */
+.btn-toggle-view.locked {
+  opacity: 0.75;
+  border-style: dashed;
+}
+.mob-nav-btn.locked {
+  opacity: 0.75;
+}
+
+.modal-blocked {
+  max-width: 480px;
+}
+.blocked-modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  color: #e2e8f0;
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+.blocked-requirements {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  background: rgba(15, 23, 42, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  padding: 0.75rem 0.9rem;
+}
+.req-item {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-size: 0.82rem;
+  color: #ef4444;
+}
+.req-item.ok {
+  color: #22c55e;
+}
+.req-item .req-icon {
+  font-weight: 900;
+  font-size: 0.95rem;
+}
+.spectator-hint {
+  font-size: 0.82rem;
+  color: #94a3b8;
+  margin: 0;
+}
+

@@ -913,6 +913,21 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
         }
     }
 
+    public function vibrateVictory() as Void {
+        try {
+            if (Attention has :vibrate) {
+                Attention.vibrate([
+                    new Attention.VibeProfile(100, 250),
+                    new Attention.VibeProfile(0, 100),
+                    new Attention.VibeProfile(100, 350),
+                    new Attention.VibeProfile(0, 100),
+                    new Attention.VibeProfile(100, 600)
+                ]);
+            }
+        } catch (e) {
+        }
+    }
+
     private function onModelUpdated() as Void {
         if (_view == null) {
             return;
@@ -1007,7 +1022,7 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
         view.updateRowerData(_model, netDist, _progressPercent);
 
         if (_activityStatus.equals("in_progress") && _targetDistance > 0 && netDist >= _targetDistance) {
-            vibrateGo();
+            vibrateVictory();
             saveAndExitSession();
             return true;
         }
@@ -1266,6 +1281,10 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
         if (_view != null) {
             (_view as RowerView).setAppState(RowerView.STATE_MENU);
         }
+    }
+
+    public function isSessionActive() as Boolean {
+        return _activityStatus.equals("in_progress") || _activityStatus.equals("paused");
     }
 
     // Web Login Auth Handlers

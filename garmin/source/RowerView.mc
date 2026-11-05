@@ -1290,11 +1290,15 @@ class RowerView extends WatchUi.View {
                 trLbl = I18n.getText("GRID_FORCE");
                 trVal = _model.force.format("%d");
             } else {
-                if (_currentRank > 1 && _distToPrev > 0) {
+                if (_currentRank > 1) {
                     tlVal = "-" + _distToPrev.format("%d");
+                } else {
+                    tlVal = "LEAD";
                 }
-                if (_distToNext > 0) {
+                if (_currentRank < _totalRacers) {
                     trVal = "+" + _distToNext.format("%d");
+                } else {
+                    trVal = "DERN";
                 }
             }
 
@@ -1342,10 +1346,24 @@ class RowerView extends WatchUi.View {
 
         if (_finishPage == 0) {
             // Page 1: Finish Rank Header + 2x2 Summary Grid
-            var hdrY = (h * 6) / 100;
+            var hdrY = (h * 5) / 100;
             var rankTag = _raceMode.equals("solo") ? "SOLO" : ("#" + _finalRank);
-            var titleStr = I18n.getText("FINISHED_TITLE") + "  " + rankTag;
-            dc.setColor(COL_ACCENT, Graphics.COLOR_TRANSPARENT);
+            var medalStr = "";
+            var titleCol = COL_ACCENT;
+            if (!_raceMode.equals("solo")) {
+                if (_finalRank == 1) {
+                    medalStr = "  [OR]";
+                    titleCol = COL_ACCENT;
+                } else if (_finalRank == 2) {
+                    medalStr = "  [ARGENT]";
+                    titleCol = COL_PRIMARY;
+                } else if (_finalRank == 3) {
+                    medalStr = "  [BRONZE]";
+                    titleCol = COL_WARN;
+                }
+            }
+            var titleStr = "BRAVO ! " + rankTag + medalStr;
+            dc.setColor(titleCol, Graphics.COLOR_TRANSPARENT);
             dc.drawText(cx, hdrY, Graphics.FONT_SMALL, truncateToWidth(dc, titleStr, Graphics.FONT_SMALL, getSafeWidthAtY(w, h, hdrY, hdrY + 22)), Graphics.TEXT_JUSTIFY_CENTER);
 
             var gTop = (h * 19) / 100;
@@ -1393,7 +1411,8 @@ class RowerView extends WatchUi.View {
                         ? entry.get("userName").toString()
                         : ((entry.hasKey("name") && entry.get("name") != null) ? entry.get("name").toString() : "Racer");
                     var pCol = (i == 0) ? COL_ACCENT : ((i == 1) ? COL_PRIMARY : COL_WARN);
-                    var rowLabel = "#" + (i + 1) + " " + pName;
+                    var medalTag = (i == 0) ? " [OR]" : ((i == 1) ? " [ARGENT]" : " [BRONZE]");
+                    var rowLabel = "#" + (i + 1) + " " + pName + medalTag;
                     dc.setColor(pCol, Graphics.COLOR_TRANSPARENT);
                     dc.drawText(cx, rTop + ((rowH - 4) / 2), Graphics.FONT_SMALL, truncateToWidth(dc, rowLabel, Graphics.FONT_SMALL, rW - 12), Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
                 }

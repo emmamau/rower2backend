@@ -48,6 +48,10 @@ class RowerApp extends Application.AppBase {
             Sensor.enableSensorEvents(null);
         } catch (e) {
         }
+        // Le joueur qui quitte l'application Garmin pendant le jeu a abandonne
+        if (_bleDelegate.isSessionActive()) {
+            _bleDelegate.discardSession();
+        }
         _bleDelegate.disconnect();
     }
 

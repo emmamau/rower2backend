@@ -271,31 +271,97 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
       ctx.lineTo(finishX, y + laneH / 2);
       ctx.stroke();
 
-      // Wake ripple
+      // Animation cadence des rames (aviron / kayak)
+      const nowSec = performance.now() / 1000;
+      const isMoving = (boat.spm > 0 || (boat.splitSec > 0 && boat.currentDisplayDist > 0)) &&
+        boat.currentDisplayDist < (this.targetDistance || 2000);
+      const effectiveSpm = boat.spm > 0 ? boat.spm : (isMoving ? 26 : 0);
+      const strokeFreq = effectiveSpm > 0 ? effectiveSpm / 60 : 0;
+      const laneOffset = (boat.lane || laneIdx) * 1.1;
+      const strokeAngle = isMoving
+        ? Math.sin(nowSec * strokeFreq * Math.PI * 2 + laneOffset) * 0.58
+        : 0;
+
+      const oarLen = isCompact ? 13 : 17;
+      const dxOar = Math.sin(strokeAngle) * oarLen;
+      const dyOar = Math.cos(strokeAngle) * oarLen;
+      const x1 = x - dxOar;
+      const y1 = y - dyOar;
+      const x2 = x + dxOar;
+      const y2 = y + dyOar;
+
+      // Sillage de l'eau (wake ripple)
       ctx.fillStyle = 'rgba(0, 240, 255, 0.22)';
       ctx.beginPath();
-      ctx.ellipse(Math.max(marginX, x - hullRx + 2), y, isCompact ? 9 : 12, 3.5, 0, 0, Math.PI * 2);
+      ctx.ellipse(Math.max(marginX, x - hullRx + 2), y, isCompact ? 9 : 13, 3.5, 0, 0, Math.PI * 2);
       ctx.fill();
 
-      // Kayak hull
+      // Éclaboussures d'eau au bout des pelles en phase d'attaque
+      if (isMoving && Math.abs(strokeAngle) > 0.25) {
+        ctx.fillStyle = 'rgba(0, 240, 255, 0.38)';
+        ctx.beginPath();
+        ctx.arc(x1, y1, isCompact ? 2.5 : 3.5, 0, Math.PI * 2);
+        ctx.arc(x2, y2, isCompact ? 2.5 : 3.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Rames : manche traversant le kayak
+      ctx.strokeStyle = '#e2e8f0';
+      ctx.lineWidth = isCompact ? 1.6 : 2.2;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      ctx.stroke();
+
+      // Pelles de rames animées (bâbord et tribord)
+      ctx.fillStyle = boat.color;
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1;
+
+      // Pelle bâbord (gauche / haut)
+      ctx.save();
+      ctx.translate(x1, y1);
+      ctx.rotate(-strokeAngle);
+      ctx.beginPath();
+      ctx.ellipse(0, 0, isCompact ? 3.5 : 4.8, isCompact ? 2 : 2.6, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+
+      // Pelle tribord (droite / bas)
+      ctx.save();
+      ctx.translate(x2, y2);
+      ctx.rotate(-strokeAngle);
+      ctx.beginPath();
+      ctx.ellipse(0, 0, isCompact ? 3.5 : 4.8, isCompact ? 2 : 2.6, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+
+      // Coque profilée du kayak (forme fluide et effilée)
       ctx.fillStyle = boat.color;
       ctx.beginPath();
-      ctx.ellipse(x, y, hullRx, hullRy, 0, 0, Math.PI * 2);
+      ctx.moveTo(x + hullRx, y); // Proue
+      ctx.quadraticCurveTo(x, y - hullRy, x - hullRx, y); // Flanc supérieur vers poupe
+      ctx.quadraticCurveTo(x, y + hullRy, x + hullRx, y); // Flanc inférieur vers proue
+      ctx.closePath();
       ctx.fill();
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
 
-      // Cockpit
+      // Cockpit & Rameur
       ctx.fillStyle = '#060913';
       ctx.beginPath();
-      ctx.arc(x, y, 2.8, 0, Math.PI * 2);
+      ctx.ellipse(x - 1, y, hullRx * 0.36, hullRy * 0.6, 0, 0, Math.PI * 2);
       ctx.fill();
 
-      // Paddle blades
-      ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 1.8;
+      // Tête du rameur
+      ctx.fillStyle = boat.userId === this.activeUserId ? '#ffe600' : '#fcd34d';
       ctx.beginPath();
-      ctx.moveTo(x - 4, y - 7);
-      ctx.lineTo(x + 4, y + 7);
-      ctx.stroke();
+      ctx.arc(x - hullRx * 0.12, y, isCompact ? 2.2 : 2.8, 0, Math.PI * 2);
+      ctx.fill();
 
       // Clamped Name & Distance label
       const shortName = isCompact && boat.name.length > 10 ? `${boat.name.slice(0, 9)}…` : boat.name;

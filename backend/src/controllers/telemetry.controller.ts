@@ -287,6 +287,19 @@ export class TelemetryController {
       const leaderDist = activeRacers.length > 0 ? (activeRacers[0].get("netDistance") as number) : actualDistance;
       const gapM = -Math.max(0, Number((leaderDist - actualDistance).toFixed(1)));
 
+      let distToPrev = 0;
+      let distToNext = 0;
+      if (myIdx >= 0 && activeRacers.length > 0) {
+        if (myIdx > 0) {
+          const prevDist = (activeRacers[myIdx - 1].get("netDistance") as number) || 0;
+          distToPrev = Math.max(0, Math.round(prevDist - actualDistance));
+        }
+        if (myIdx < activeRacers.length - 1) {
+          const nextDist = (activeRacers[myIdx + 1].get("netDistance") as number) || 0;
+          distToNext = Math.max(0, Math.round(actualDistance - nextDist));
+        }
+      }
+
       // Broadcast WebSocket leaderboard update to web clients
       const liveList: LiveRacerMetric[] = activeRacers.map((r: any, idx: number) => ({
         lane: idx + 1,
@@ -306,6 +319,9 @@ export class TelemetryController {
         tot: totalRacers,
         gapM,
         leadDistM: leaderDist,
+        distToLeader: Math.max(0, leaderDist - actualDistance),
+        distToPrev,
+        distToNext,
         status: (matchedRace?.status === "RUNNING" ? "RUNNING" : matchedRace?.status) || "RUNNING"
       });
     } catch (err: unknown) {
