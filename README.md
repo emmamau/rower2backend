@@ -12,7 +12,7 @@ Elle se compose de 3 couches interconnectées :
 
 ## 🏗️ Déploiement Blueprint sur Render (`render.yaml`)
 
-Le fichier [`render.yaml`](file:///c:/Users/Emma/repos/connectiq/rower2backend/render.yaml) orchestre automatiquement la chaîne complète :
+Le fichier [`render.yaml`](file:///c:/Users/Emma/repos/connectiq/rowerRace/render.yaml) orchestre automatiquement la chaîne complète :
 
 ```yaml
 databases:
@@ -58,7 +58,7 @@ services:
 
 ### Comment l'URL de l'API est transmise au frontend avant compilation :
 1. Dans `render.yaml`, la variable `API_URL` est fournie dynamiquement au frontend à partir de la propriété `host` du service backend `rower-api-service`.
-2. Lors du build Render (`npm run build`), le script [`frontend/scripts/set-env.js`](file:///c:/Users/Emma/repos/connectiq/rower2backend/frontend/scripts/set-env.js) s'exécute automatiquement **avant** `ng build`.
+2. Lors du build Render (`npm run build`), le script [`frontend/scripts/set-env.js`](file:///c:/Users/Emma/repos/connectiq/rowerRace/frontend/scripts/set-env.js) s'exécute automatiquement **avant** `ng build`.
 3. Il lit la variable d'environnement `API_URL`, formate le protocole HTTPS si nécessaire, et génère le fichier `src/environments/environment.prod.ts`.
 4. Angular compile ensuite l'application en intégrant directement l'URL d'API de Render dans les bundles de production.
 
@@ -93,6 +93,6 @@ npm start
 *Accessible sur `http://localhost:4200`.*
 
 ### 3. Application Garmin
-- Fichier binaire pour test direct (USB) : [`garmin/bin/RowerApp_fenix7.prg`](file:///c:/Users/Emma/repos/connectiq/rower2backend/garmin/bin/RowerApp_fenix7.prg).
-- Fichier de déploiement pour le store : [`garmin/bin/RowerApp.iq`](file:///c:/Users/Emma/repos/connectiq/rower2backend/garmin/bin/RowerApp.iq).
+- Fichier binaire pour test direct (USB) : [`garmin/bin/RowerApp_fenix7.prg`](file:///c:/Users/Emma/repos/connectiq/rowerRace/garmin/bin/RowerApp_fenix7.prg).
+- Fichier de déploiement pour le store : [`garmin/bin/RowerApp.iq`](file:///c:/Users/Emma/repos/connectiq/rowerRace/garmin/bin/RowerApp.iq).
 - Configuration de l'URL : modifiable à tout moment dans les réglages de l'application via Garmin Connect Mobile.

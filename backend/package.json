@@ -1,5 +1,5 @@
 {
-  "name": "rower2backend-api",
+  "name": "rowerrace-api",
   "version": "1.0.0",
   "description": "Backend API for Garmin FTMS Rower Activity Tracking",
   "main": "dist/index.js",
