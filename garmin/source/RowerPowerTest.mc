@@ -148,3 +148,111 @@ function testSmartRowV3LockDetectionAndKeylockMath(logger as Logger) as Boolean 
     return true;
 }
 
+//! Regression test 6: SmartRow pulley pull BEFORE startWorkout() (in G1 connection screen / warm-up)
+//! must parse live Watts, SPM, and Pace so athlete gets instant visual confirmation, while keeping distance at 0.
+(:test)
+function testSmartRowLivePreviewBeforeWorkoutStarted(logger as Logger) as Boolean {
+    var model = new RowerDataModel();
+    model.onBleConnected();
+
+    // Athlete pulls pulley while on connection screen (workoutStarted == false)
+    model.parseSmartRowString("b00000 3500105");
+    model.parseSmartRowString("d000002600001");
+    model.parseSmartRowString("c00000  0  441F4");
+    model.parseSmartRowString("e00000155155");
+
+    // Live metrics must be visible for connection test
+    Test.assertEqual(true, model.liveMovementDetected);
+    Test.assertEqual(26.0f, model.strokeRate);
+    Test.assertEqual(115, model.instantPace);
+    // 350.0 J * 26.0 SPM / 60 = 152 Watts
+    Test.assertEqual(152, model.instantPower);
+    // Distance must NOT start accumulating before startWorkout()
+    Test.assertEqual(0, model.totalDistance);
+    Test.assertEqual(0, model.strokeCount);
+    return true;
+}
+
+//! Regression test 7: SmartRow burst order 'b' -> 'c' (with masked rawWatts=0) -> 'd' -> 'e'
+//! during active workout must derive mechanical Watts immediately without deadlocking at 0W.
+(:test)
+function testSmartRowBurstOrderDerivesWattsWithoutDeadlock(logger as Logger) as Boolean {
+    var model = new RowerDataModel();
+    model.onBleConnected();
+    model.startWorkout();
+
+    // Pulley sends 'b' (work) first
+    model.parseSmartRowString("b00001 3200105");
+    Test.assertEqual(320.0f, model.work);
+
+    // Pulley sends 'd' (cadence = 25.0 SPM)
+    model.parseSmartRowString("d000052500002");
+    Test.assertEqual(25.0f, model.strokeRate);
+
+    // Pulley sends 'c' (locked rawWatts = 0)
+    model.parseSmartRowString("c00005  0  441F4");
+
+    // 320.0 J * 25.0 SPM / 60 = 133 Watts
+    Test.assertEqual(133, model.instantPower);
+    Test.assertEqual(true, model.hasStartedRowing);
+    Test.assertEqual(false, model.isHalted);
+    return true;
+}
+
+//! Regression test 8: Alphanumeric PIN entry (5 characters: 0..9 and A..Z)
+//! Tests character cycling, advance, backspace, and PIN string formatting.
+(:test)
+function testAlphanumericPinEntry(logger as Logger) as Boolean {
+    var model = new RowerDataModel();
+    var view = new RowerView(model);
+
+    // Initial PIN must be "00000"
+    view.resetPinDigits();
+    Test.assertEqual("00000", view.getFormattedPin());
+
+    // Increment digit 0: 0 -> 1
+    view.incrementPinDigit();
+    Test.assertEqual("10000", view.getFormattedPin());
+
+    // Decrement digit 0: 1 -> 0 -> Z (wrap around 35)
+    view.decrementPinDigit();
+    Test.assertEqual("00000", view.getFormattedPin());
+    view.decrementPinDigit();
+    Test.assertEqual("Z0000", view.getFormattedPin());
+
+    // Advance to digit 1, set to 'A' (index 10)
+    var finished = view.advancePinDigit();
+    Test.assertEqual(false, finished);
+    for (var i = 0; i < 10; i++) {
+        view.incrementPinDigit();
+    }
+    Test.assertEqual("ZA000", view.getFormattedPin());
+
+    // Advance through remaining digits
+    Test.assertEqual(false, view.advancePinDigit()); // to digit 2
+    Test.assertEqual(false, view.advancePinDigit()); // to digit 3
+    Test.assertEqual(false, view.advancePinDigit()); // to digit 4
+    Test.assertEqual(true, view.advancePinDigit());  // 5th character reached, returns true for submission!
+
+    // Backspace test
+    Test.assertEqual(false, view.backspacePinDigit()); // back to digit 3
+    return true;
+}
+
+//! Regression test 9: User login display and pending approval state constants
+(:test)
+function testUserLoginAndPendingState(logger as Logger) as Boolean {
+    var model = new RowerDataModel();
+    var view = new RowerView(model);
+
+    // User login must be non-empty
+    var login = view.getUserLogin();
+    Test.assert(login.length() > 0);
+
+    // State transition to STATE_PENDING_APPROVAL
+    view.setAppState(RowerView.STATE_PENDING_APPROVAL);
+    Test.assertEqual(RowerView.STATE_PENDING_APPROVAL, view.getAppState());
+    return true;
+}
+
+

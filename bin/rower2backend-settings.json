@@ -1,0 +1,46 @@
+{
+  "settings" : [ {
+    "key" : "backendUrl",
+    "valueType" : "string",
+    "defaultValue" : "https://rower-api-service.onrender.com",
+    "configTitle" : "BackendUrlTitle",
+    "configPrompt" : "BackendUrlPrompt",
+    "configType" : "alphaNumeric",
+    "configError" : null,
+    "configHelpUrl" : null,
+    "configReadonly" : false,
+    "configRequired" : false,
+    "configOptions" : null,
+    "configMin" : null,
+    "configMax" : null,
+    "configMaxLength" : 128
+  }, {
+    "key" : "userLogin",
+    "valueType" : "string",
+    "defaultValue" : "",
+    "configTitle" : "UserLoginTitle",
+    "configPrompt" : "UserLoginPrompt",
+    "configType" : "alphaNumeric",
+    "configError" : null,
+    "configHelpUrl" : null,
+    "configReadonly" : false,
+    "configRequired" : false,
+    "configOptions" : null,
+    "configMin" : null,
+    "configMax" : null,
+    "configMaxLength" : 32
+  } ],
+  "supportsLiveValidation" : false,
+  "languages" : {
+    "valyrian" : {
+      "StatusConnected" : "BLE: Connected",
+      "UserLoginPrompt" : "Code joueur ou pseudo (6 car. base64)",
+      "StatusDisconnected" : "BLE: Disconnected",
+      "StatusScanning" : "BLE: Scanning...",
+      "BackendUrlTitle" : "Backend API URL",
+      "AppName" : "Rower Race",
+      "BackendUrlPrompt" : "URL (e.g. https://...onrender.com)",
+      "UserLoginTitle" : "Player Login / Code"
+    }
+  }
+}

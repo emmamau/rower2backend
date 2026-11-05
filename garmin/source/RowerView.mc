@@ -21,6 +21,7 @@ class RowerView extends WatchUi.View {
     public static const STATE_WAITING_START = 10; // Attente synchrone du depart
     public static const STATE_LATE_CHOICE   = 11; // Choix course en cours
     public static const STATE_BOTS_PROMPT   = 12; // Choix ajout de bots
+    public static const STATE_PENDING_APPROVAL = 13; // En attente de validation par l'hote (salon prive)
 
     // Garmin Pro Dark Carbon Palette (64-color MIP & AMOLED compatible)
     private static const COL_BG        = Graphics.COLOR_BLACK;
@@ -34,6 +35,14 @@ class RowerView extends WatchUi.View {
     private static const COL_ALERT     = Graphics.COLOR_RED;
     private static const COL_PILL_BG   = Graphics.COLOR_DK_BLUE;
 
+    // Alphanumeric character set for 5-char PIN codes (0..9 + A..Z = 36 chars)
+    private static const PIN_CHARSET as Array<String> = [
+        "0","1","2","3","4","5","6","7","8","9",
+        "A","B","C","D","E","F","G","H","I","J",
+        "K","L","M","N","O","P","Q","R","S","T",
+        "U","V","W","X","Y","Z"
+    ];
+
     private var _model as RowerDataModel;
     private var _currentState as Number = STATE_SCANNING;
 
@@ -45,8 +54,8 @@ class RowerView extends WatchUi.View {
     private var _racePage as Number = 0;        // 0 = Main 2x2 Race Grid, 1 = Gaps & Averages 2x2 Grid
     private var _finishPage as Number = 0;      // 0 = Finish Stats 2x2 Grid, 1 = Official Top 3 Podium
 
-    // G3 PIN Input state (4 digits)
-    private var _pinDigits as Array<Number> = [0, 0, 0, 0];
+    // G3 PIN Input state (5 alphanumeric characters)
+    private var _pinIndices as Array<Number> = [0, 0, 0, 0, 0];
     private var _pinCurrentDigitIdx as Number = 0;
 
     // G5 5-second countdown
@@ -254,20 +263,24 @@ class RowerView extends WatchUi.View {
         return _choiceMenuIndex;
     }
 
-    // PIN helpers
+    public function getUserLogin() as String {
+        return _userId;
+    }
+
+    // PIN helpers (5 alphanumeric characters 0..9 and A..Z)
     public function incrementPinDigit() as Void {
-        _pinDigits[_pinCurrentDigitIdx] = (_pinDigits[_pinCurrentDigitIdx] + 1) % 10;
+        _pinIndices[_pinCurrentDigitIdx] = (_pinIndices[_pinCurrentDigitIdx] + 1) % 36;
         WatchUi.requestUpdate();
     }
 
     public function decrementPinDigit() as Void {
-        var v = _pinDigits[_pinCurrentDigitIdx] - 1;
-        _pinDigits[_pinCurrentDigitIdx] = v < 0 ? 9 : v;
+        var v = _pinIndices[_pinCurrentDigitIdx] - 1;
+        _pinIndices[_pinCurrentDigitIdx] = v < 0 ? 35 : v;
         WatchUi.requestUpdate();
     }
 
     public function advancePinDigit() as Boolean {
-        if (_pinCurrentDigitIdx < 3) {
+        if (_pinCurrentDigitIdx < 4) {
             _pinCurrentDigitIdx++;
             WatchUi.requestUpdate();
             return false;
@@ -285,12 +298,16 @@ class RowerView extends WatchUi.View {
     }
 
     public function resetPinDigits() as Void {
-        _pinDigits = [0, 0, 0, 0];
+        _pinIndices = [0, 0, 0, 0, 0];
         _pinCurrentDigitIdx = 0;
     }
 
     public function getFormattedPin() as String {
-        return "" + _pinDigits[0] + _pinDigits[1] + _pinDigits[2] + _pinDigits[3];
+        var res = "";
+        for (var i = 0; i < 5; i++) {
+            res += PIN_CHARSET[_pinIndices[i]];
+        }
+        return res;
     }
 
     // Countdown & Lobby getters
@@ -383,17 +400,23 @@ class RowerView extends WatchUi.View {
                 I18n.getText("MENU_SOLO"),
                 I18n.getText("MENU_HISTORY")
             ] as Array<String>;
+            var menuSub = getBleProtocolTag();
+            if (_userId.length() > 0) {
+                menuSub = menuSub + " | " + I18n.getText("PLAYER_LABEL") + " " + _userId;
+            }
             drawGarminMenuScreen(
                 dc,
                 I18n.getText("MENU_TITLE"),
                 COL_ACCENT,
-                getBleProtocolTag(),
+                menuSub,
                 menuItems,
                 _mainMenuIndex,
                 I18n.getText("MENU_FOOTER")
             );
         } else if (_currentState == STATE_PIN_INPUT) {
             drawG3PinInput(dc, w, h);
+        } else if (_currentState == STATE_PENDING_APPROVAL) {
+            drawPendingApprovalScreen(dc, w, h);
         } else if (_currentState == STATE_LOBBY || _currentState == STATE_WAITING_START) {
             drawG4LobbyGrid(dc, w, h);
         } else if (_currentState == STATE_COUNTDOWN_5S) {
@@ -709,20 +732,24 @@ class RowerView extends WatchUi.View {
         var minDim = (w < h) ? w : h;
         var isConnected = _model.isConnected();
 
-        // 1. Top Status Bar (6%..15% h): Clock | App Title | HR
+        // 1. Top Status Bar (6%..15% h): Clock | Athlete Login | HR / BLE
         var topY = (h * 6) / 100;
         var clockTime = System.getClockTime();
         var clockStr = clockTime.hour.format("%d") + ":" + clockTime.min.format("%02d");
 
         dc.setColor(COL_MUTED, Graphics.COLOR_TRANSPARENT);
-        dc.drawText((w * 20) / 100, topY, Graphics.FONT_XTINY, clockStr, Graphics.TEXT_JUSTIFY_LEFT);
+        dc.drawText((w * 16) / 100, topY, Graphics.FONT_XTINY, clockStr, Graphics.TEXT_JUSTIFY_LEFT);
+
+        var playerTag = _userId;
+        dc.setColor(COL_CYAN, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, topY, Graphics.FONT_XTINY, truncateToWidth(dc, playerTag, Graphics.FONT_XTINY, (w * 44) / 100), Graphics.TEXT_JUSTIFY_CENTER);
 
         if (_model.heartRate > 0) {
             dc.setColor(COL_ALERT, Graphics.COLOR_TRANSPARENT);
-            dc.drawText(w - ((w * 20) / 100), topY, Graphics.FONT_XTINY, "HR " + _model.heartRate, Graphics.TEXT_JUSTIFY_RIGHT);
+            dc.drawText(w - ((w * 16) / 100), topY, Graphics.FONT_XTINY, "HR " + _model.heartRate, Graphics.TEXT_JUSTIFY_RIGHT);
         } else {
-            dc.setColor(COL_ACCENT, Graphics.COLOR_TRANSPARENT);
-            dc.drawText(w - ((w * 20) / 100), topY, Graphics.FONT_XTINY, _userId, Graphics.TEXT_JUSTIFY_RIGHT);
+            dc.setColor(COL_GOOD, Graphics.COLOR_TRANSPARENT);
+            dc.drawText(w - ((w * 16) / 100), topY, Graphics.FONT_XTINY, "BLE", Graphics.TEXT_JUSTIFY_RIGHT);
         }
 
         var divY = (h * 16) / 100;
@@ -800,17 +827,30 @@ class RowerView extends WatchUi.View {
             dc.setColor(COL_GOOD, Graphics.COLOR_TRANSPARENT);
             dc.drawText(cx, (h * 39) / 100, Graphics.FONT_XTINY, truncateToWidth(dc, protoStr, Graphics.FONT_XTINY, getSafeWidthAtY(w, h, (h * 39) / 100, (h * 47) / 100)), Graphics.TEXT_JUSTIFY_CENTER);
 
-            // Rower Name Card (48..62% h)
+            // Rower Name Card or Live Data Preview (48..62% h)
             var cardY = (h * 48) / 100;
             var cardH = (h * 14) / 100;
             var cardW = getSafeWidthAtY(w, h, cardY, cardY + cardH) - 12;
             dc.setColor(COL_GRID, Graphics.COLOR_TRANSPARENT);
             dc.drawRoundedRectangle(cx - (cardW / 2), cardY, cardW, cardH, 6);
 
-            var devName = (_model.deviceName.length() > 0) ? _model.deviceName : "BLE Rower";
-            var nameFont = fitFontToBox(dc, devName, [Graphics.FONT_SMALL, Graphics.FONT_TINY, Graphics.FONT_XTINY] as Array<Graphics.FontDefinition>, cardW - 10, cardH - 4);
-            dc.setColor(COL_PRIMARY, Graphics.COLOR_TRANSPARENT);
-            dc.drawText(cx, cardY + (cardH / 2), nameFont, truncateToWidth(dc, devName, nameFont, cardW - 10), Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+            var hasLiveMovement = (_model.instantPower > 0 || _model.strokeRate > 0.0f || _model.instantPace > 0);
+            if (hasLiveMovement) {
+                var previewStr = _model.instantPower + "W | " + _model.strokeRate.format("%.0f") + " SPM";
+                if (_model.instantPace > 0) {
+                    var m = _model.instantPace / 60;
+                    var s = _model.instantPace % 60;
+                    previewStr = previewStr + " | " + m + ":" + s.format("%02d");
+                }
+                var prevFont = fitFontToBox(dc, previewStr, [Graphics.FONT_SMALL, Graphics.FONT_TINY, Graphics.FONT_XTINY] as Array<Graphics.FontDefinition>, cardW - 10, cardH - 4);
+                dc.setColor(COL_ACCENT, Graphics.COLOR_TRANSPARENT);
+                dc.drawText(cx, cardY + (cardH / 2), prevFont, truncateToWidth(dc, previewStr, prevFont, cardW - 10), Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+            } else {
+                var devName = (_model.deviceName.length() > 0) ? _model.deviceName : "BLE Rower";
+                var nameFont = fitFontToBox(dc, devName, [Graphics.FONT_SMALL, Graphics.FONT_TINY, Graphics.FONT_XTINY] as Array<Graphics.FontDefinition>, cardW - 10, cardH - 4);
+                dc.setColor(COL_PRIMARY, Graphics.COLOR_TRANSPARENT);
+                dc.drawText(cx, cardY + (cardH / 2), nameFont, truncateToWidth(dc, devName, nameFont, cardW - 10), Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+            }
 
             // Green START Button (65..79% h)
             var btnY = (h * 65) / 100;
@@ -915,43 +955,54 @@ class RowerView extends WatchUi.View {
     }
 
     // =========================================================================
-    // G3 : SAISIE CODE PIN 4 CHIFFRES (100% Proportionnel)
+    // G3 : SAISIE CODE PIN ALPHANUMERIQUE 5 CARACTERES (0..9 + A..Z)
     // =========================================================================
     private function drawG3PinInput(dc as Graphics.Dc, w as Number, h as Number) as Void {
         var cx = w / 2;
 
+        // Title (6% h)
         dc.setColor(COL_ACCENT, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, (h * 7) / 100, Graphics.FONT_XTINY, I18n.getText("PIN_TITLE"), Graphics.TEXT_JUSTIFY_CENTER);
+        dc.drawText(cx, (h * 5) / 100, Graphics.FONT_XTINY, I18n.getText("PIN_TITLE"), Graphics.TEXT_JUSTIFY_CENTER);
 
+        // Player Login display (12% h)
+        var playerText = I18n.getText("PLAYER_LABEL") + " " + _userId;
+        var pY = (h * 12) / 100;
+        var pW = getSafeWidthAtY(w, h, pY, pY + 16);
+        dc.setColor(COL_CYAN, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, pY, Graphics.FONT_XTINY, truncateToWidth(dc, playerText, Graphics.FONT_XTINY, pW), Graphics.TEXT_JUSTIFY_CENTER);
+
+        // Subtitle (18% h)
         dc.setColor(COL_MUTED, Graphics.COLOR_TRANSPARENT);
-        var subY = (h * 16) / 100;
+        var subY = (h * 19) / 100;
         var subW = getSafeWidthAtY(w, h, subY, subY + 16);
         dc.drawText(cx, subY, Graphics.FONT_XTINY, truncateToWidth(dc, I18n.getText("PIN_SUB"), Graphics.FONT_XTINY, subW), Graphics.TEXT_JUSTIFY_CENTER);
 
         dc.setColor(COL_GRID, Graphics.COLOR_TRANSPARENT);
-        dc.drawLine((w * 18) / 100, (h * 25) / 100, w - ((w * 18) / 100), (h * 25) / 100);
+        dc.drawLine((w * 18) / 100, (h * 27) / 100, w - ((w * 18) / 100), (h * 27) / 100);
 
-        // 4 Proportional Digit Cards in [31..61% h]
-        var boxY = (h * 31) / 100;
+        // 5 Proportional Alphanumeric Character Cards in [30..62% h]
+        var boxY = (h * 30) / 100;
         var boxH = (h * 30) / 100;
-        var availW = getSafeWidthAtY(w, h, boxY, boxY + boxH) - 16;
-        var gap = (w * 3) / 100;
-        var boxW = (availW - (3 * gap)) / 4;
-        var totalRowW = (4 * boxW) + (3 * gap);
+        var availW = getSafeWidthAtY(w, h, boxY, boxY + boxH) - 14;
+        var gap = (w * 2) / 100;
+        var boxW = (availW - (4 * gap)) / 5;
+        var totalRowW = (5 * boxW) + (4 * gap);
         var startX = cx - (totalRowW / 2);
 
-        var digitCandidates = [
-            Graphics.FONT_NUMBER_MILD,
+        // Candidate fonts for alphanumeric glyphs (never use FONT_NUMBER_* for A-Z)
+        var charCandidates = [
             Graphics.FONT_LARGE,
             Graphics.FONT_MEDIUM,
-            Graphics.FONT_SMALL
+            Graphics.FONT_SMALL,
+            Graphics.FONT_TINY
         ] as Array<Graphics.FontDefinition>;
 
-        for (var i = 0; i < 4; i++) {
+        for (var i = 0; i < 5; i++) {
             var bx = startX + (i * (boxW + gap));
             var isCurrent = (i == _pinCurrentDigitIdx);
-            var dStr = _pinDigits[i].toString();
-            var dFont = fitFontToBox(dc, dStr, digitCandidates, boxW - 6, boxH - 6);
+            var charIdx = _pinIndices[i];
+            var cStr = PIN_CHARSET[charIdx];
+            var cFont = fitFontToBox(dc, cStr, charCandidates, boxW - 4, boxH - 6);
 
             if (isCurrent) {
                 dc.setColor(COL_ACCENT, COL_ACCENT);
@@ -963,7 +1014,7 @@ class RowerView extends WatchUi.View {
                 dc.setColor(COL_PRIMARY, Graphics.COLOR_TRANSPARENT);
             }
 
-            dc.drawText(bx + (boxW / 2), boxY + (boxH / 2), dFont, dStr, Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+            dc.drawText(bx + (boxW / 2), boxY + (boxH / 2), cFont, cStr, Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
         }
 
         var h1Y = (h * 68) / 100;
@@ -975,24 +1026,90 @@ class RowerView extends WatchUi.View {
     }
 
     // =========================================================================
+    // EN ATTENTE DE VALIDATION PAR L'HÔTE (SALON PRIVÉ)
+    // =========================================================================
+    private function drawPendingApprovalScreen(dc as Graphics.Dc, w as Number, h as Number) as Void {
+        var cx = w / 2;
+        var minDim = (w < h) ? w : h;
+
+        // 1. Header (5..14% h)
+        dc.setColor(COL_ACCENT, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, (h * 5) / 100, Graphics.FONT_XTINY, I18n.getText("PIN_TITLE"), Graphics.TEXT_JUSTIFY_CENTER);
+
+        // Athlete Login display (12..19% h)
+        var userStr = I18n.getText("PLAYER_LABEL") + " " + _userId;
+        var userMaxW = getSafeWidthAtY(w, h, (h * 12) / 100, (h * 12) / 100 + 16);
+        dc.setColor(COL_CYAN, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, (h * 12) / 100, Graphics.FONT_XTINY, truncateToWidth(dc, userStr, Graphics.FONT_XTINY, userMaxW), Graphics.TEXT_JUSTIFY_CENTER);
+
+        dc.setColor(COL_GRID, Graphics.COLOR_TRANSPARENT);
+        dc.drawLine((w * 18) / 100, (h * 20) / 100, w - ((w * 18) / 100), (h * 20) / 100);
+
+        // 2. Animated Pulsing Radar Indicator (22..45% h)
+        var pulseCenterY = (h * 34) / 100;
+        var circleR = (minDim * 11) / 100;
+        var animPhase = (System.getTimer() / 250) % 6;
+
+        dc.setPenWidth(3);
+        dc.setColor(COL_GRID, Graphics.COLOR_TRANSPARENT);
+        dc.drawCircle(cx, pulseCenterY, circleR);
+
+        dc.setColor(COL_WARN, Graphics.COLOR_TRANSPARENT);
+        var arcAngle = animPhase * 60;
+        dc.drawArc(cx, pulseCenterY, circleR + 4, Graphics.ARC_CLOCKWISE, arcAngle, arcAngle + 90);
+
+        var coreR = (circleR * 4) / 10 + (animPhase % 3);
+        dc.setColor(COL_ACCENT, Graphics.COLOR_TRANSPARENT);
+        dc.fillCircle(cx, pulseCenterY, coreR);
+        dc.setPenWidth(1);
+
+        // 3. Status Title & Subtitle (49..73% h)
+        var titleY = (h * 50) / 100;
+        dc.setColor(COL_WARN, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, titleY, Graphics.FONT_MEDIUM, I18n.getText("PENDING_TITLE"), Graphics.TEXT_JUSTIFY_CENTER);
+
+        var subY = (h * 64) / 100;
+        var subMaxW = getSafeWidthAtY(w, h, subY, subY + 16);
+        dc.setColor(COL_PRIMARY, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, subY, Graphics.FONT_XTINY, truncateToWidth(dc, I18n.getText("PENDING_SUB"), Graphics.FONT_XTINY, subMaxW), Graphics.TEXT_JUSTIFY_CENTER);
+
+        var hintY = (h * 73) / 100;
+        var hintMaxW = getSafeWidthAtY(w, h, hintY, hintY + 16);
+        dc.setColor(COL_MUTED, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, hintY, Graphics.FONT_XTINY, truncateToWidth(dc, I18n.getText("PENDING_HINT"), Graphics.FONT_XTINY, hintMaxW), Graphics.TEXT_JUSTIFY_CENTER);
+
+        // 4. Footer hint (85% h)
+        var footY = (h * 85) / 100;
+        dc.setColor(COL_GRID, Graphics.COLOR_TRANSPARENT);
+        dc.drawLine((w * 22) / 100, (h * 83) / 100, w - ((w * 22) / 100), (h * 83) / 100);
+        dc.setColor(COL_MUTED, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, footY, Graphics.FONT_XTINY, "BACK : Annuler", Graphics.TEXT_JUSTIFY_CENTER);
+    }
+
+    // =========================================================================
     // G4 : SALLE D'ATTENTE / LOBBY EN GRILLE GARMIN (1 Hero + Grille 2x2)
     // =========================================================================
     private function drawG4LobbyGrid(dc as Graphics.Dc, w as Number, h as Number) as Void {
         var cx = w / 2;
 
-        // 1. Header (5..16% h)
-        var hdrY = (h * 6) / 100;
+        // 1. Header (5..17% h)
+        var hdrY = (h * 5) / 100;
         var hdrText = (_nextRaceCountdown <= 15) ? I18n.getText("GET_READY") : I18n.getText("LOBBY_TITLE");
         var hdrCol = (_nextRaceCountdown <= 15) ? COL_WARN : COL_ACCENT;
         dc.setColor(hdrCol, Graphics.COLOR_TRANSPARENT);
         dc.drawText(cx, hdrY, Graphics.FONT_XTINY, truncateToWidth(dc, hdrText, Graphics.FONT_XTINY, getSafeWidthAtY(w, h, hdrY, hdrY + 16)), Graphics.TEXT_JUSTIFY_CENTER);
 
-        dc.setColor(COL_GRID, Graphics.COLOR_TRANSPARENT);
-        dc.drawLine((w * 16) / 100, (h * 16) / 100, w - ((w * 16) / 100), (h * 16) / 100);
+        var playerText = I18n.getText("PLAYER_LABEL") + " " + _userId;
+        var playerY = (h * 11) / 100;
+        dc.setColor(COL_CYAN, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, playerY, Graphics.FONT_XTINY, truncateToWidth(dc, playerText, Graphics.FONT_XTINY, getSafeWidthAtY(w, h, playerY, playerY + 16)), Graphics.TEXT_JUSTIFY_CENTER);
 
-        // 2. Hero Countdown Timer Band (17..42% h)
-        var heroTop = (h * 17) / 100;
-        var heroH = (h * 25) / 100;
+        dc.setColor(COL_GRID, Graphics.COLOR_TRANSPARENT);
+        dc.drawLine((w * 16) / 100, (h * 17) / 100, w - ((w * 16) / 100), (h * 17) / 100);
+
+        // 2. Hero Countdown Timer Band (18..42% h)
+        var heroTop = (h * 18) / 100;
+        var heroH = (h * 24) / 100;
         var timeStr = _model.formatTime(_nextRaceCountdown);
         var heroMaxW = getSafeWidthAtY(w, h, heroTop, heroTop + heroH) - 16;
         var heroFont = fitFontToBox(

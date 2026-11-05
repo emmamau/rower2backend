@@ -45,6 +45,7 @@ export class AppComponent implements OnInit, OnDestroy {
   racers: RowerData[] = [];
   liveMetricsList: LiveRacerMetric[] = [];
   activeViewMode: 'canvas' | 'cockpit' = 'canvas';
+  userOverrodeViewMode = false;
   activeRacersCount = 0;
   myActivity: RowerData | null = null;
   raceHistory: PastRaceResult[] = [];
@@ -103,6 +104,21 @@ export class AppComponent implements OnInit, OnDestroy {
   private socketSub?: Subscription;
   private joinedSocketRaceId: string | null = null;
   private readonly popstateListener = () => this.resolveRoomFromCurrentUrl();
+  private readonly resizeListener = () => {
+    if (!this.userOverrodeViewMode) {
+      const best = this.detectTerminalViewMode();
+      if (this.activeViewMode !== best) {
+        this.activeViewMode = best;
+        this.cdr.markForCheck();
+      }
+    }
+  };
+  isFullscreen = false;
+  fullscreenSupported = false;
+  private readonly fullscreenListener = () => {
+    this.isFullscreen = Boolean(document.fullscreenElement);
+    this.cdr.markForCheck();
+  };
 
   constructor(
     private rowerService: RowerService,
@@ -129,11 +145,18 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
+    this.activeViewMode = this.detectTerminalViewMode();
     this.loadUserProfile();
     this.loadGeneralLeaderboard();
     this.loadPastRaces();
     if (typeof window !== 'undefined') {
       window.addEventListener('popstate', this.popstateListener);
+      window.addEventListener('resize', this.resizeListener);
+      window.addEventListener('orientationchange', this.resizeListener);
+    }
+    if (typeof document !== 'undefined') {
+      this.fullscreenSupported = Boolean(document.documentElement?.requestFullscreen);
+      document.addEventListener('fullscreenchange', this.fullscreenListener);
     }
     this.initSocketListeners();
     this.resolveRoomFromCurrentUrl();
@@ -159,6 +182,11 @@ export class AppComponent implements OnInit, OnDestroy {
     }
     if (typeof window !== 'undefined') {
       window.removeEventListener('popstate', this.popstateListener);
+      window.removeEventListener('resize', this.resizeListener);
+      window.removeEventListener('orientationchange', this.resizeListener);
+    }
+    if (typeof document !== 'undefined') {
+      document.removeEventListener('fullscreenchange', this.fullscreenListener);
     }
     this.wakeLockService.releaseWakeLock();
   }
@@ -476,6 +504,60 @@ export class AppComponent implements OnInit, OnDestroy {
 
   get threeQuarterDistance(): number {
     return Math.round(this.activeTargetDistance * 0.75);
+  }
+
+  get myProgressPercent(): number {
+    const dist = this.myActivity?.netDistance || 0;
+    return Math.min(100, Math.max(0, Math.round((dist / this.activeTargetDistance) * 100)));
+  }
+
+  closeAllOverlayModals(): void {
+    this.isLoginModalOpen = false;
+    this.isHistoryOpen = false;
+    this.isConfigRaceOpen = false;
+    this.isStandingsOpen = false;
+    this.isLegalTermsOpen = false;
+  }
+
+  /**
+   * Détecte automatiquement la vue la plus adaptée au terminal :
+   * - Smartphone / mobile / écran compact (< 768px ou portrait tactile) -> 'cockpit'
+   * - Ordinateur / grand écran / tablette paysage (>= 768px) -> 'canvas'
+   */
+  detectTerminalViewMode(): 'canvas' | 'cockpit' {
+    if (typeof window === 'undefined') return 'canvas';
+    const width = window.innerWidth;
+    const isMobileBreakpoint = width < 768;
+    const isMobileUserAgent = /Android|iPhone|iPod|Mobile|IEMobile/i.test(navigator.userAgent || '');
+    const isNarrowPortrait = width < 900 && (window.innerHeight > width);
+    if (isMobileBreakpoint || isMobileUserAgent || isNarrowPortrait) {
+      return 'cockpit';
+    }
+    return 'canvas';
+  }
+
+  get recommendedViewMode(): 'canvas' | 'cockpit' {
+    return this.detectTerminalViewMode();
+  }
+
+  switchViewMode(mode: 'canvas' | 'cockpit'): void {
+    this.closeAllOverlayModals();
+    this.userOverrodeViewMode = true;
+    this.activeViewMode = mode;
+    this.cdr.markForCheck();
+  }
+
+  async toggleFullscreen(): Promise<void> {
+    if (typeof document === 'undefined') return;
+    try {
+      if (!document.fullscreenElement) {
+        await document.documentElement.requestFullscreen?.();
+      } else {
+        await document.exitFullscreen?.();
+      }
+    } catch {
+      // Ignore fullscreen rejection on restricted embedded contexts
+    }
   }
 
   openPrivateModal(tab?: PrivateModalTab): void {

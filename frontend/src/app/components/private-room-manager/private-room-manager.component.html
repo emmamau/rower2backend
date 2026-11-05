@@ -337,6 +337,20 @@
             </div>
           }
 
+          <!-- Organizer Approval Checkbox (default: true) -->
+          <div class="priv-field">
+            <label class="priv-checkbox-label">
+              <input
+                type="checkbox"
+                name="requireApproval"
+                [(ngModel)]="requireApproval" />
+              <span>🛡️ Validation manuelle par l'organisateur requise (défaut)</span>
+            </label>
+            <span class="priv-hint">
+              Recommandé : les participants attendent votre validation avant d'entrer sur la ligne de départ. Décochez pour accepter automatiquement tout le monde.
+            </span>
+          </div>
+
           @if (createGeneralError) {
             <p class="priv-error-msg" role="alert">⚠️ {{ createGeneralError }}</p>
           }
@@ -416,13 +430,13 @@
           </div>
         </div>
 
-        <!-- 2. Garmin Watch 4-Digit PIN + Web Salon Code -->
+        <!-- 2. Garmin Watch Alphanumeric PIN + Web Salon Code -->
         <div class="priv-codes-grid">
           <!-- Garmin PIN Card -->
           <div class="priv-share-card priv-pin-card">
             <div class="priv-label">⌚ {{ i18n.t('SHARE_SECTION_PIN') }}</div>
-            <p class="priv-hint">{{ i18n.t('SHARE_PIN_HELP') }}</p>
-            <div class="priv-pin-digits" aria-label="Code PIN à 4 chiffres">
+            <p class="priv-hint">Code à 5 caractères alphanumériques pour montre Garmin</p>
+            <div class="priv-pin-digits" aria-label="Code PIN de connexion">
               @for (digit of activePinDigits; track $index) {
                 <span class="priv-pin-digit">{{ digit }}</span>
               }
@@ -461,6 +475,65 @@
             </div>
           </div>
         </div>
+
+        <!-- 3. Organizer Access Control & Player Validation -->
+        @if (canManageActiveRoom) {
+          <div class="priv-share-card priv-approval-card">
+            <div class="priv-label">🛡️ Contrôle d'accès des joueurs</div>
+            <div class="priv-toggle-row">
+              <label class="priv-checkbox-label">
+                <input
+                  type="checkbox"
+                  [checked]="isApprovalRequired"
+                  [disabled]="isActionBusy"
+                  (change)="onToggleApproval($event)" />
+                <span class="priv-approval-toggle-title">Validation des joueurs obligatoire</span>
+              </label>
+              <span class="priv-status-pill" [class.priv-pill-good]="!isApprovalRequired" [class.priv-pill-warn]="isApprovalRequired">
+                {{ isApprovalRequired ? 'Validation manuelle requise' : 'Acceptation automatique' }}
+              </span>
+            </div>
+            <p class="priv-hint">
+              {{ isApprovalRequired
+                ? 'Les athlètes restent en attente sur leur montre/navigateur jusqu\'à votre validation.'
+                : 'Tous les athlètes rejoignent directement la ligne de départ dès la saisie du PIN.' }}
+            </p>
+
+            @if (pendingParticipants.length > 0) {
+              <div class="priv-pending-section">
+                <div class="priv-pending-title">
+                  ⏳ Joueurs en attente de validation ({{ pendingParticipants.length }})
+                </div>
+                <div class="priv-pending-list">
+                  @for (p of pendingParticipants; track p.userId) {
+                    <div class="priv-pending-row">
+                      <div class="priv-pending-user">
+                        <span class="priv-pending-name">{{ p.userName || 'Rameur' }}</span>
+                        <span class="priv-pending-login">[{{ p.userId }}]</span>
+                      </div>
+                      <div class="priv-pending-btn-group">
+                        <button
+                          type="button"
+                          class="priv-btn priv-btn-launch priv-btn-sm"
+                          [disabled]="isActionBusy"
+                          (click)="approvePlayer(p.userId)">
+                          ✓ Valider
+                        </button>
+                        <button
+                          type="button"
+                          class="priv-btn priv-btn-danger priv-btn-sm"
+                          [disabled]="isActionBusy"
+                          (click)="rejectPlayer(p.userId)">
+                          ✕ Refuser
+                        </button>
+                      </div>
+                    </div>
+                  }
+                </div>
+              </div>
+            }
+          </div>
+        }
 
         <!-- Ready-to-paste Invite Message Preview -->
         <div class="priv-field">

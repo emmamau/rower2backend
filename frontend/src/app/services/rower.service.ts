@@ -136,6 +136,52 @@ export class RowerService {
     );
   }
 
+  toggleApprovalRequirement(
+    identifier: string,
+    hostUserId: string,
+    requireApproval: boolean
+  ): Observable<PrivateRacePayload> {
+    return this.http.post<PrivateRacePayload>(
+      `${this.apiUrl}/api/v1/races/private/${encodeURIComponent(identifier.trim())}/toggle-approval`,
+      { hostUserId, requireApproval }
+    );
+  }
+
+  approveParticipant(
+    identifier: string,
+    hostUserId: string,
+    targetUserId: string,
+    approve: boolean
+  ): Observable<PrivateRacePayload> {
+    return this.http.post<PrivateRacePayload>(
+      `${this.apiUrl}/api/v1/races/private/${encodeURIComponent(identifier.trim())}/approve-participant`,
+      { hostUserId, targetUserId, approve }
+    );
+  }
+
+  getParticipantStatus(
+    identifier: string,
+    userId: string
+  ): Observable<{
+    raceId: string;
+    status: 'approved' | 'pending' | 'rejected' | 'unknown';
+    requireApproval: boolean;
+    targetDistance?: number;
+    title?: string;
+  }> {
+    const params = new HttpParams().set('userId', userId.trim());
+    return this.http.get<{
+      raceId: string;
+      status: 'approved' | 'pending' | 'rejected' | 'unknown';
+      requireApproval: boolean;
+      targetDistance?: number;
+      title?: string;
+    }>(
+      `${this.apiUrl}/api/v1/races/private/${encodeURIComponent(identifier.trim())}/participant-status`,
+      { params }
+    );
+  }
+
   getRaceLeaderboard(raceId: string): Observable<LeaderboardResponse> {
     return this.http.get<LeaderboardResponse>(`${this.apiUrl}/api/activity/race/${encodeURIComponent(raceId)}/leaderboard`);
   }

@@ -721,9 +721,15 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
                 sendSmartRowPacket([0x23]b);
             }
         } else if (size >= 6) {
-            var firstB = value[0];
-            var isValidRec = (firstB == 0x61 || firstB == 0x62 || firstB == 0x63 || firstB == 0x64 ||
-                              firstB == 0x65 || firstB == 0x66 || firstB == 0x78 || firstB == 0x79 || firstB == 0x7A);
+            var isValidRec = false;
+            for (var k = 0; k < size && k < 4; k++) {
+                var bk = value[k];
+                if (bk == 0x61 || bk == 0x62 || bk == 0x63 || bk == 0x64 ||
+                    bk == 0x65 || bk == 0x66 || bk == 0x78 || bk == 0x79 || bk == 0x7A) {
+                    isValidRec = true;
+                    break;
+                }
+            }
             if (isValidRec) {
                 _srHandshakeState = 3;
                 _srV3LockTicks = 0;
@@ -857,13 +863,17 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
         // Update race progress if dead-reckoning advanced distance
         if (state == RowerView.STATE_RACING || state == RowerView.STATE_LATE_JOIN) {
             if (!updateProgressAndCheckFinish()) {
-                if (_pendingStrokeSync && _activityStatus.equals("in_progress") && _raceMode.equals("race") && _activityId.length() > 0) {
-                    _pendingStrokeSync = false;
-                    _syncManager.syncActivity(
-                        _activityId, _userId, _userId, _raceMode,
-                        _activityStatus, _targetDistance, _model,
-                        _model.deviceName, false
-                    );
+                if (_activityStatus.equals("in_progress") && _raceMode.equals("race") && _activityId.length() > 0) {
+                    var secSinceSend = _tickCounter - _lastFallbackSendSec;
+                    if (_pendingStrokeSync || (secSinceSend >= 2 && (_model.totalDistance > 0 || _model.instantPower > 0))) {
+                        _pendingStrokeSync = false;
+                        _lastFallbackSendSec = _tickCounter;
+                        _syncManager.syncActivity(
+                            _activityId, _userId, _userId, _raceMode,
+                            _activityStatus, _targetDistance, _model,
+                            _model.deviceName, false
+                        );
+                    }
                 }
             }
         }
@@ -903,7 +913,38 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
             }
         }
 
+        // Poll host approval status every 2s while in STATE_PENDING_APPROVAL
+        if (state == RowerView.STATE_PENDING_APPROVAL) {
+            if (_tickCounter % 2 == 0 && _activityId.length() > 0) {
+                _syncManager.checkApprovalStatus(_activityId, _userId);
+            }
+        }
+
         WatchUi.requestUpdate();
+    }
+
+    private function triggerApprovalVibe() as Void {
+        try {
+            if (Attention has :vibrate) {
+                Attention.vibrate([
+                    new Attention.VibeProfile(80, 200),
+                    new Attention.VibeProfile(0, 100),
+                    new Attention.VibeProfile(100, 350)
+                ]);
+            }
+        } catch (e) {
+        }
+    }
+
+    private function triggerRejectVibe() as Void {
+        try {
+            if (Attention has :vibrate) {
+                Attention.vibrate([
+                    new Attention.VibeProfile(100, 400)
+                ]);
+            }
+        } catch (e) {
+        }
     }
 
     private function vibrateShort() as Void {
@@ -968,10 +1009,11 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
                     _pendingStrokeSync = true;
                 }
                 var shouldSend = false;
-                if (_pendingStrokeSync && (_model.instantPower > 0 || _model.connectionState != RowerDataModel.STATE_CONNECTED_SMARTROW)) {
+                if (_pendingStrokeSync) {
                     shouldSend = true;
                     _pendingStrokeSync = false;
-                } else if (_model.strokeCount == 0 && _model.instantPower > 0 && (_tickCounter - _lastFallbackSendSec >= 3)) {
+                    _lastFallbackSendSec = _tickCounter;
+                } else if ((_model.instantPower > 0 || _model.totalDistance > 0) && (_tickCounter - _lastFallbackSendSec >= 2)) {
                     shouldSend = true;
                     _lastFallbackSendSec = _tickCounter;
                 }
@@ -1148,6 +1190,7 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
 
         if (_view != null) {
             var view = _view as RowerView;
+            view.setFalseStartLocked(false);
             view.resetRacePages();
             view.updateRowerData(_model, 0, 0.0f);
             view.setAppState(RowerView.STATE_RACING);
@@ -1372,12 +1415,11 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
     }
 
     public function submitPinCode(pin as String) as Void {
-        _syncManager.checkPinCode(pin);
+        _syncManager.checkPinCode(pin, _userId, _userId);
     }
 
     public function onPinJoinSuccess(data as Dictionary) as Void {
         _raceMode = "race";
-        _activityStatus = "waiting";
         if (data.hasKey("id") && data.get("id") != null) {
             _activityId = data.get("id").toString();
         } else if (data.hasKey("raceId") && data.get("raceId") != null) {
@@ -1386,11 +1428,59 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
         if (data.hasKey("targetDistance") && data.get("targetDistance") != null) {
             _targetDistance = data.get("targetDistance") as Number;
         }
-        if (_view != null) {
-            (_view as RowerView).setIsLateJoiner(false);
-            (_view as RowerView).setAppState(RowerView.STATE_WAITING_START);
+
+        var isPending = false;
+        if (data.hasKey("status") && data.get("status") != null && data.get("status").toString().equals("pending_approval")) {
+            isPending = true;
+        } else if (data.hasKey("approvalStatus") && data.get("approvalStatus") != null && data.get("approvalStatus").toString().equals("pending")) {
+            isPending = true;
         }
-        _syncManager.fetchUserProfile(_userId);
+
+        if (isPending) {
+            _activityStatus = "pending_approval";
+            if (_view != null) {
+                (_view as RowerView).setIsLateJoiner(false);
+                (_view as RowerView).setAppState(RowerView.STATE_PENDING_APPROVAL);
+            }
+        } else {
+            _activityStatus = "waiting";
+            if (_view != null) {
+                (_view as RowerView).setIsLateJoiner(false);
+                (_view as RowerView).setAppState(RowerView.STATE_WAITING_START);
+            }
+            _syncManager.fetchUserProfile(_userId);
+        }
+    }
+
+    public function onApprovalStatusResponse(code as Number, data as Dictionary or String or Null) as Void {
+        if (_view == null || (_view as RowerView).getAppState() != RowerView.STATE_PENDING_APPROVAL) {
+            return;
+        }
+
+        if (code == 200 && data != null && data instanceof Dictionary) {
+            var dict = data as Dictionary;
+            var st = dict.get("status");
+            if (st != null && st.toString().equals("approved")) {
+                _activityStatus = "waiting";
+                if (dict.hasKey("targetDistance") && dict.get("targetDistance") != null) {
+                    _targetDistance = dict.get("targetDistance") as Number;
+                }
+                triggerApprovalVibe();
+                (_view as RowerView).showWarning(I18n.getText("PENDING_APPROVED"), 2);
+                (_view as RowerView).setAppState(RowerView.STATE_WAITING_START);
+                _syncManager.fetchUserProfile(_userId);
+            } else if (st != null && st.toString().equals("rejected")) {
+                _activityStatus = "waiting";
+                triggerRejectVibe();
+                (_view as RowerView).showWarning(I18n.getText("PENDING_REJECTED"), 3);
+                (_view as RowerView).setAppState(RowerView.STATE_MENU);
+            }
+        } else if (code == 403) {
+            _activityStatus = "waiting";
+            triggerRejectVibe();
+            (_view as RowerView).showWarning(I18n.getText("PENDING_REJECTED"), 3);
+            (_view as RowerView).setAppState(RowerView.STATE_MENU);
+        }
     }
 
     public function onPinJoinFailed() as Void {

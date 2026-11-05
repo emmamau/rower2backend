@@ -1,9 +1,73 @@
-/* Global accessibility & contrast override */
-* {
+:root {
+  --bg-deep: #060913;
+  --panel-bg: rgba(13, 19, 33, 0.88);
+  --panel-border: rgba(0, 240, 255, 0.25);
+  --water-blue: #081226;
+  --water-wave: #0c1a38;
+  --primary-accent: #ff0055;
+  --neon-cyan: #00f0ff;
+  --neon-lime: #39ff14;
+  --neon-yellow: #ffe600;
+  --neon-orange: #ff6600;
+  --neon-purple: #b026ff;
+  --text-main: #ffffff;
+  --text-dim: #e2e8f0;
+  --font-race: 'Impact', 'Segoe UI Black', -apple-system, sans-serif;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+}
+
+*,
+*::before,
+*::after {
   box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
 }
 
-body, button, input, select, textarea, span, p, div, label, h1, h2, h3, h4, h5, h6 {
-  color: #ffffff;
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  overflow-x: clip;
+  background-color: var(--bg-deep);
 }
 
+body {
+  margin: 0;
+  min-block-size: 100dvh;
+  overflow-x: clip;
+  font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+  background-color: var(--bg-deep);
+  background-image:
+    radial-gradient(circle at 15% 15%, rgba(0, 240, 255, 0.08) 0%, transparent 40%),
+    radial-gradient(circle at 85% 85%, rgba(255, 0, 85, 0.08) 0%, transparent 40%),
+    linear-gradient(180deg, #05070e 0%, #091122 100%);
+  color: var(--text-main);
+  user-select: none;
+}
+
+button,
+a,
+input,
+select,
+textarea,
+label {
+  touch-action: manipulation;
+}
+
+input,
+textarea {
+  user-select: text;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

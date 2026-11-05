@@ -25,14 +25,17 @@ export interface RaceState {
   lobbyEndsAt: Date;
   startedAt?: Date;
   endedAt?: Date;
-  pinCode?: string; // 4 digits PIN for Garmin watch
+  pinCode?: string; // Alphanumeric PIN (5 chars) for Garmin watch & quick join
   hostUserId?: string;
   hostUserName?: string;
   autoStart?: boolean;
   hasBots?: boolean;
   totalParticipants?: number;
   createdAt?: Date;
+  requireApproval?: boolean;
   participants?: Map<string, PrivateParticipantInfo>;
+  pendingParticipants?: Map<string, PrivateParticipantInfo>;
+  rejectedParticipants?: Set<string>;
 }
 
 export class RaceManager {
@@ -307,7 +310,7 @@ export class RaceManager {
   }
 
   /**
-   * Create Private Room with Google Meet style invite code (e.g. krm-wzx-qpl) + 4-digit PIN
+   * Create Private Room with Google Meet style invite code (e.g. krm-wzx-qpl) + Alphanumeric PIN (5 chars)
    */
   public createPrivateRace(options: {
     title: string;
@@ -316,6 +319,7 @@ export class RaceManager {
     hostUserId: string;
     hostUserName?: string;
     countdownMinutes?: number;
+    requireApproval?: boolean;
   }): RaceState {
     const code = this.generateUniqueMeetCode();
     const pin = this.generateUniquePinCode();
@@ -350,7 +354,10 @@ export class RaceManager {
       ? String(options.hostUserName).trim().slice(0, 64)
       : undefined;
 
+    const requireApproval = options.requireApproval !== undefined ? Boolean(options.requireApproval) : true;
     const participants = new Map<string, PrivateParticipantInfo>();
+    const pendingParticipants = new Map<string, PrivateParticipantInfo>();
+    const rejectedParticipants = new Set<string>();
 
     const privateRace: RaceState = {
       id: raceId,
@@ -369,19 +376,22 @@ export class RaceManager {
       hasBots: false,
       totalParticipants: 0,
       createdAt: now,
-      participants
+      requireApproval,
+      participants,
+      pendingParticipants,
+      rejectedParticipants
     };
 
     this.privateRaces.set(code, privateRace);
     this.privateRacesById.set(raceId, privateRace);
-    this.pinToRaceMap.set(pin, { raceId, lane: 1 });
+    this.pinToRaceMap.set(pin.toUpperCase(), { raceId, lane: 1 });
 
     return privateRace;
   }
 
   public getRaceByPin(pin: string): { raceId: string; lane: number; race?: RaceState } | null {
     if (!pin) return null;
-    const cleanPin = String(pin).trim();
+    const cleanPin = String(pin).trim().toUpperCase();
     const matched = this.pinToRaceMap.get(cleanPin);
     if (!matched) return null;
     const race = this.getRaceById(matched.raceId) || undefined;
@@ -409,7 +419,7 @@ export class RaceManager {
   }
 
   /**
-   * Resolves a private salon by Meet code (with or without dashes, case-insensitive), raceId (PRIV_...), or 4-digit PIN
+   * Resolves a private salon by Meet code (with or without dashes, case-insensitive), raceId (PRIV_...), or Alphanumeric PIN
    */
   public findPrivateRace(identifier: string): RaceState | null {
     if (!identifier || typeof identifier !== "string") return null;
@@ -424,9 +434,9 @@ export class RaceManager {
     const byId = this.privateRacesById.get(trimmed);
     if (byId && byId.status !== "ABANDONED") return byId;
 
-    // 3. 4-digit PIN
-    if (/^\d{4}$/.test(trimmed)) {
-      const pinHit = this.pinToRaceMap.get(trimmed);
+    // 3. Alphanumeric PIN (4 to 8 characters, case-insensitive)
+    if (/^[a-zA-Z0-9]{4,8}$/.test(trimmed)) {
+      const pinHit = this.pinToRaceMap.get(trimmed.toUpperCase());
       if (pinHit) {
         const priv = this.privateRacesById.get(pinHit.raceId);
         if (priv && priv.status !== "ABANDONED") return priv;
@@ -471,7 +481,7 @@ export class RaceManager {
     identifier: string,
     userId: string,
     userName?: string
-  ): { race: RaceState; alreadyJoined: boolean } | { error: string; statusCode: number } {
+  ): { race: RaceState; alreadyJoined: boolean; pending?: boolean; rejected?: boolean } | { error: string; statusCode: number } {
     const race = this.findPrivateRace(identifier);
     if (!race) {
       return { error: "Salon privé introuvable ou expiré.", statusCode: 404 };
@@ -480,14 +490,45 @@ export class RaceManager {
     if (!race.participants) {
       race.participants = new Map();
     }
+    if (!race.pendingParticipants) {
+      race.pendingParticipants = new Map();
+    }
+    if (!race.rejectedParticipants) {
+      race.rejectedParticipants = new Set();
+    }
 
     const cleanUserId = String(userId || "anonymous").trim().slice(0, 64) || "anonymous";
     const cleanName = String(userName || `Racer_${cleanUserId.slice(-4)}`).trim().slice(0, 64);
-    const alreadyJoined = race.participants.has(cleanUserId);
 
-    if (!alreadyJoined && race.participants.size >= race.maxParticipants) {
+    if (race.rejectedParticipants.has(cleanUserId)) {
+      return { error: "Votre demande de participation a été refusée par l'hôte.", statusCode: 403, rejected: true };
+    }
+
+    const alreadyApproved = race.participants.has(cleanUserId);
+    const isHost = Boolean(cleanUserId && race.hostUserId && cleanUserId === race.hostUserId);
+
+    // If host requires approval, player is not host, and not yet approved -> put in pending queue
+    if (race.requireApproval && !isHost && !alreadyApproved) {
+      const pendingInfo: PrivateParticipantInfo = {
+        userId: cleanUserId,
+        userName: cleanName,
+        joinedAt: new Date()
+      };
+      race.pendingParticipants.set(cleanUserId, pendingInfo);
+      socketGateway.broadcastPrivateRoomUpdate(race.id, {
+        type: "PARTICIPANT_PENDING",
+        userId: cleanUserId,
+        userName: cleanName
+      });
+      return { race, alreadyJoined: false, pending: true };
+    }
+
+    if (!alreadyApproved && race.participants.size >= race.maxParticipants) {
       return { error: `Ce salon privé est complet (${race.maxParticipants} joueurs max).`, statusCode: 409 };
     }
+
+    // Moving to approved: remove from pending
+    race.pendingParticipants.delete(cleanUserId);
 
     race.participants.set(cleanUserId, {
       userId: cleanUserId,
@@ -496,7 +537,193 @@ export class RaceManager {
     });
     race.totalParticipants = Math.max(race.totalParticipants || 0, race.participants.size);
 
-    return { race, alreadyJoined };
+    return { race, alreadyJoined: alreadyApproved, pending: false };
+  }
+
+  public toggleApprovalRequirement(
+    identifier: string,
+    requireApproval: boolean,
+    hostUserId?: string,
+    isAdmin?: boolean
+  ): { race: RaceState } | { error: string; statusCode: number } {
+    const race = this.findPrivateRace(identifier);
+    if (!race) {
+      return { error: "Salon privé introuvable ou expiré.", statusCode: 404 };
+    }
+    if (!this.canManagePrivateRace(race, hostUserId, isAdmin)) {
+      return { error: "Seul le créateur du salon peut modifier les paramètres d'approbation.", statusCode: 403 };
+    }
+
+    race.requireApproval = Boolean(requireApproval);
+
+    if (!race.participants) {
+      race.participants = new Map();
+    }
+    if (!race.pendingParticipants) {
+      race.pendingParticipants = new Map();
+    }
+
+    // If approval is turned OFF, automatically accept all currently waiting players!
+    if (!race.requireApproval && race.pendingParticipants.size > 0) {
+      for (const [uid, p] of race.pendingParticipants.entries()) {
+        if (race.participants.size < race.maxParticipants) {
+          race.participants.set(uid, p);
+        }
+      }
+      race.pendingParticipants.clear();
+      race.totalParticipants = Math.max(race.totalParticipants || 0, race.participants.size);
+    }
+
+    socketGateway.broadcastPrivateRoomUpdate(race.id, {
+      type: "APPROVAL_CONFIG_CHANGED",
+      requireApproval: race.requireApproval,
+      totalParticipants: race.participants.size
+    });
+
+    return { race };
+  }
+
+  public approveParticipant(
+    identifier: string,
+    targetUserId: string,
+    approve: boolean,
+    hostUserId?: string,
+    isAdmin?: boolean
+  ): { race: RaceState; participant?: PrivateParticipantInfo } | { error: string; statusCode: number } {
+    const race = this.findPrivateRace(identifier);
+    if (!race) {
+      return { error: "Salon privé introuvable ou expiré.", statusCode: 404 };
+    }
+    if (!this.canManagePrivateRace(race, hostUserId, isAdmin)) {
+      return { error: "Seul le créateur du salon peut valider les participants.", statusCode: 403 };
+    }
+
+    if (!race.participants) {
+      race.participants = new Map();
+    }
+    if (!race.pendingParticipants) {
+      race.pendingParticipants = new Map();
+    }
+    if (!race.rejectedParticipants) {
+      race.rejectedParticipants = new Set();
+    }
+
+    const cleanTargetId = String(targetUserId || "").trim();
+    if (!cleanTargetId) {
+      return { error: "ID joueur manquant.", statusCode: 400 };
+    }
+
+    if (approve) {
+      if (race.participants.size >= race.maxParticipants) {
+        return { error: `Le salon est complet (${race.maxParticipants} max).`, statusCode: 409 };
+      }
+      const pending = race.pendingParticipants.get(cleanTargetId);
+      const participantInfo: PrivateParticipantInfo = pending || {
+        userId: cleanTargetId,
+        userName: `Racer_${cleanTargetId.slice(-4)}`,
+        joinedAt: new Date()
+      };
+      race.pendingParticipants.delete(cleanTargetId);
+      race.rejectedParticipants.delete(cleanTargetId);
+      race.participants.set(cleanTargetId, participantInfo);
+      race.totalParticipants = Math.max(race.totalParticipants || 0, race.participants.size);
+
+      socketGateway.broadcastPrivateRoomUpdate(race.id, {
+        type: "PARTICIPANT_APPROVED",
+        userId: cleanTargetId,
+        participant: participantInfo
+      });
+
+      return { race, participant: participantInfo };
+    } else {
+      // Host rejected player
+      race.pendingParticipants.delete(cleanTargetId);
+      race.participants.delete(cleanTargetId);
+      race.rejectedParticipants.add(cleanTargetId);
+      race.totalParticipants = race.participants.size;
+
+      socketGateway.broadcastPrivateRoomUpdate(race.id, {
+        type: "PARTICIPANT_REJECTED",
+        userId: cleanTargetId
+      });
+
+      return { race };
+    }
+  }
+
+  public getParticipantApprovalStatus(
+    identifier: string,
+    userId: string
+  ): {
+    raceId: string;
+    status: "approved" | "pending" | "rejected" | "unknown";
+    requireApproval: boolean;
+    targetDistance?: number;
+    title?: string;
+  } {
+    const race = this.findPrivateRace(identifier);
+    if (!race) {
+      return { raceId: "", status: "unknown", requireApproval: false };
+    }
+
+    const cleanUserId = String(userId || "").trim();
+    if (race.hostUserId && cleanUserId === race.hostUserId) {
+      return {
+        raceId: race.id,
+        status: "approved",
+        requireApproval: Boolean(race.requireApproval),
+        targetDistance: race.targetDistance,
+        title: race.title
+      };
+    }
+
+    if (race.rejectedParticipants && race.rejectedParticipants.has(cleanUserId)) {
+      return {
+        raceId: race.id,
+        status: "rejected",
+        requireApproval: Boolean(race.requireApproval),
+        targetDistance: race.targetDistance,
+        title: race.title
+      };
+    }
+
+    if (race.participants && race.participants.has(cleanUserId)) {
+      return {
+        raceId: race.id,
+        status: "approved",
+        requireApproval: Boolean(race.requireApproval),
+        targetDistance: race.targetDistance,
+        title: race.title
+      };
+    }
+
+    if (race.pendingParticipants && race.pendingParticipants.has(cleanUserId)) {
+      return {
+        raceId: race.id,
+        status: "pending",
+        requireApproval: Boolean(race.requireApproval),
+        targetDistance: race.targetDistance,
+        title: race.title
+      };
+    }
+
+    if (!race.requireApproval) {
+      return {
+        raceId: race.id,
+        status: "approved",
+        requireApproval: false,
+        targetDistance: race.targetDistance,
+        title: race.title
+      };
+    }
+
+    return {
+      raceId: race.id,
+      status: "unknown",
+      requireApproval: Boolean(race.requireApproval),
+      targetDistance: race.targetDistance,
+      title: race.title
+    };
   }
 
   public startOrResetPrivateRace(
@@ -653,13 +880,22 @@ export class RaceManager {
   }
 
   private generateUniquePinCode(avoidPin?: string): string {
+    const chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    const avoidUpper = avoidPin ? avoidPin.toUpperCase() : undefined;
     for (let attempt = 0; attempt < 200; attempt++) {
-      const candidate = Math.floor(1000 + Math.random() * 9000).toString();
-      if (candidate !== avoidPin && !this.pinToRaceMap.has(candidate)) {
+      let candidate = "";
+      for (let i = 0; i < 5; i++) {
+        candidate += chars[Math.floor(Math.random() * chars.length)];
+      }
+      if (candidate !== avoidUpper && !this.pinToRaceMap.has(candidate)) {
         return candidate;
       }
     }
-    return Math.floor(1000 + Math.random() * 9000).toString();
+    let fallback = "";
+    for (let i = 0; i < 5; i++) {
+      fallback += chars[Math.floor(Math.random() * chars.length)];
+    }
+    return fallback;
   }
 
   private generateUniqueMeetCode(): string {

@@ -199,7 +199,7 @@ class RowerDelegate extends WatchUi.BehaviorDelegate {
             return true;
         } else if (state == RowerView.STATE_LATE_CHOICE || state == RowerView.STATE_LOBBY ||
                    state == RowerView.STATE_WAITING_START || state == RowerView.STATE_HISTORY ||
-                   state == RowerView.STATE_FINISHED) {
+                   state == RowerView.STATE_FINISHED || state == RowerView.STATE_PENDING_APPROVAL) {
             _view.setAppState(RowerView.STATE_MENU);
             return true;
         } else if (state == RowerView.STATE_COUNTDOWN_5S) {

@@ -49,5 +49,10 @@ class UserManager {
         System.println("Generated default anonymous player ID: " + newId);
         return newId;
     }
+
+    // Alias for explicit user login display
+    static function getUserLogin() as String {
+        return getUserId();
+    }
 }
 

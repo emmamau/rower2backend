@@ -59,6 +59,7 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges {
   maxParticipants = 8;
   startMode: 'manual' | 'timer' = 'manual';
   countdownMinutes = 5;
+  requireApproval = true;
   readonly distancePresets = [500, 1000, 2000, 5000, 10000];
 
   createTitleError = '';
@@ -231,7 +232,15 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges {
 
   get activePinDigits(): string[] {
     const pin = this.activeRoomPin;
-    return pin.length === 4 ? pin.split('') : ['-', '-', '-', '-'];
+    return pin ? pin.split('') : ['-', '-', '-', '-', '-'];
+  }
+
+  get isApprovalRequired(): boolean {
+    return this.activeRoom?.requireApproval ?? this.activeRoom?.race?.requireApproval ?? true;
+  }
+
+  get pendingParticipants(): any[] {
+    return this.activeRoom?.pendingParticipants ?? this.activeRoom?.race?.pendingParticipants ?? [];
   }
 
   get shareUrl(): string {
@@ -291,7 +300,8 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges {
         maxParticipants: clampedMax,
         hostUserId: this.activeUserId || 'anonymous',
         hostUserName: this.activeUserName || undefined,
-        countdownMinutes: countdownMin
+        countdownMinutes: countdownMin,
+        requireApproval: this.requireApproval
       })
       .subscribe({
         next: (created) => {
@@ -305,6 +315,81 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges {
         error: (err) => {
           this.isCreating = false;
           this.createGeneralError = err?.error?.error || err?.error?.message || 'Erreur lors de la création du salon.';
+          this.cdr.markForCheck();
+        }
+      });
+  }
+
+  onToggleApproval(event: Event): void {
+    if (!this.activeRoom || this.isActionBusy) return;
+    const checkbox = event.target as HTMLInputElement;
+    const newReqVal = checkbox.checked;
+    const identifier = this.activeRoomCode || this.activeRoom.race.id;
+    this.isActionBusy = true;
+    this.actionError = '';
+
+    this.rowerService
+      .toggleApprovalRequirement(identifier, this.activeUserId, newReqVal)
+      .subscribe({
+        next: (updated) => {
+          this.isActionBusy = false;
+          this.roomUpdated.emit(updated);
+          this.showFeedback(
+            newReqVal
+              ? '✓ Validation manuelle des joueurs requise'
+              : '✓ Validation automatique : tous les joueurs acceptés'
+          );
+          this.cdr.markForCheck();
+        },
+        error: (err) => {
+          this.isActionBusy = false;
+          this.actionError = err?.error?.error || 'Impossible de modifier la validation.';
+          this.cdr.markForCheck();
+        }
+      });
+  }
+
+  approvePlayer(targetUserId: string): void {
+    if (!this.activeRoom || this.isActionBusy) return;
+    const identifier = this.activeRoomCode || this.activeRoom.race.id;
+    this.isActionBusy = true;
+    this.actionError = '';
+
+    this.rowerService
+      .approveParticipant(identifier, this.activeUserId, targetUserId, true)
+      .subscribe({
+        next: (updated) => {
+          this.isActionBusy = false;
+          this.roomUpdated.emit(updated);
+          this.showFeedback('✓ Joueur accepté dans la course !');
+          this.cdr.markForCheck();
+        },
+        error: (err) => {
+          this.isActionBusy = false;
+          this.actionError = err?.error?.error || 'Erreur validation joueur.';
+          this.cdr.markForCheck();
+        }
+      });
+  }
+
+  rejectPlayer(targetUserId: string): void {
+    if (!this.activeRoom || this.isActionBusy) return;
+    const identifier = this.activeRoomCode || this.activeRoom.race.id;
+    this.isActionBusy = true;
+    this.actionError = '';
+
+    this.rowerService
+      .approveParticipant(identifier, this.activeUserId, targetUserId, false)
+      .subscribe({
+        next: (updated) => {
+          this.isActionBusy = false;
+          this.roomUpdated.emit(updated);
+          this.showFeedback('Joueur refusé.');
+          this.cdr.markForCheck();
+        },
+        error: (err) => {
+          this.isActionBusy = false;
+          this.actionError = err?.error?.error || 'Erreur refus joueur.';
           this.cdr.markForCheck();
         }
       });

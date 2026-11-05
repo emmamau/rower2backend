@@ -1,0 +1,368 @@
+[ @file = "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\UserManager.mc"; @line = 1; @symbol_importdef<0> = [Toybox,1,7,13]; @symbol_importdef<1> = [Lang,1,14,18]; ]
+import Toybox.Lang;
+[ @file = "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\UserManager.mc"; @line = 2; @symbol_importdef<0> = [Toybox,2,7,13]; @symbol_importdef<1> = [Math,2,14,18]; ]
+import Toybox.Math;
+[ @file = "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\UserManager.mc"; @line = 3; @symbol_importdef<0> = [Toybox,3,7,13]; @symbol_importdef<1> = [Application,3,14,25]; @symbol_importdef<2> = [Storage,3,26,33]; ]
+import Toybox.Application.Storage;
+[ @file = "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\UserManager.mc"; @line = 4; @symbol_importdef<0> = [Toybox,4,7,13]; @symbol_importdef<1> = [Application,4,14,25]; @symbol_importdef<2> = [Properties,4,26,36]; ]
+import Toybox.Application.Properties;
+[ @file = "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\UserManager.mc"; @line = 5; @symbol_importdef<0> = [Toybox,5,7,13]; @symbol_importdef<1> = [System,5,14,20]; ]
+import Toybox.System;
+[ @file = "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\UserManager.mc"; @line = 7; @symbol_classdef = [UserManager,7,6,17]; ]
+class UserManager {
+    [ @file = "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\UserManager.mc"; @line = 7; ]
+    <init> {
+    }
+    [ @file = "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\UserManager.mc"; @line = 7; ]
+    static
+    <init> {
+    }
+    [ @file = "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\UserManager.mc"; @line = 8; @position = 25; @symbol_constdef = [BASE64_CHARS,8,25,37]; ]
+    private static
+    const BASE64_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+    [ @file = "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\UserManager.mc"; @line = 11; @symbol_functiondef = [generateDefaultId,11,20,37]; @symbol_return<0> = [String,11,43,49]; ]
+    static
+    function generateDefaultId() as String {
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_11_50_21_4_start:
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\UserManager.mc" 12 8 ]
+        [ "C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_11_50_21_4_start" "C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_11_50_21_4_stop" ]
+        %result.1 = local;
+        symbol [ result %result.1 12 12 18 ];
+        %tmp.1 = "";
+        lputv %result.1 %tmp.1;
+        symbol [ result %result.1 12 12 18 ];
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\UserManager.mc" 13 8 ]
+        for @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_13_8_19_8_for_test @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_13_8_19_8_for_incr @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_13_8_19_8_for_end;
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_13_8_19_8_for_init:
+        [ "C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_13_8_19_8_for_begin" "C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_13_8_19_8_for_end" ]
+        %i.2 = local;
+        symbol [ i %i.2 13 17 18 ];
+        %tmp.2 = 0;
+        lputv %i.2 %tmp.2;
+        symbol [ i %i.2 13 17 18 ];
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_13_8_19_8_for_test:
+        %tmp.3 = lgetv %i.2;
+        symbol [ i %tmp.3 13 24 25 ];
+        %tmp.4 = 6;
+        %tmp.5 = lt %tmp.3 %tmp.4;
+        bf %tmp.5 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_13_8_19_8_for_end;
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_13_8_19_8_for_begin:
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_13_36_19_8_start:
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\UserManager.mc" 14 12 ]
+        [ "C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_13_36_19_8_start" "C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_13_36_19_8_stop" ]
+        %idx.3 = local;
+        symbol [ idx %idx.3 14 16 19 ];
+        symbol [ Math %tmp.6 14 22 26 ];
+        %tmp.6 = getm $.Toybox.Math;
+        symbol [ rand %tmp.7 14 27 31 ];
+        %tmp.7 = getv function %tmp.6 :rand;
+        %tmp.8 = invoke %tmp.6 %tmp.7();
+        %tmp.9 = 64;
+        %tmp.10 = mod %tmp.8 %tmp.9;
+        lputv %idx.3 %tmp.10;
+        symbol [ idx %idx.3 14 16 19 ];
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\UserManager.mc" 15 12 ]
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_15_12_17_12_if_stmt:
+        %tmp.11 = lgetv %idx.3;
+        symbol [ idx %tmp.11 15 16 19 ];
+        %tmp.12 = 0;
+        %tmp.13 = lt %tmp.11 %tmp.12;
+        bf %tmp.13 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_15_12_17_12_if_end;
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_15_12_17_12_if_true:
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_15_25_17_12_start:
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\UserManager.mc" 16 16 ]
+        %tmp.14 = lgetv %idx.3;
+        symbol [ idx %tmp.14 16 23 26 ];
+        %tmp.15 = sub 0 %tmp.14;
+        lputv %idx.3 %tmp.15;
+        symbol [ idx %idx.3 16 16 19 ];
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_15_25_17_12_stop:
+        goto @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_15_12_17_12_if_end;
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_15_12_17_12_if_end:
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\UserManager.mc" 18 12 ]
+        %tmp.16 = lgetv %result.1;
+        symbol [ result %tmp.16 18 12 18 ];
+        symbol [ BASE64_CHARS %tmp.18 18 22 34 ];
+        %tmp.18 = getv ? :BASE64_CHARS;
+        symbol [ substring %tmp.19 18 35 44 ];
+        %tmp.19 = getv function %tmp.18 :substring;
+        %tmp.20 = lgetv %idx.3;
+        symbol [ idx %tmp.20 18 45 48 ];
+        %tmp.21 = lgetv %idx.3;
+        symbol [ idx %tmp.21 18 50 53 ];
+        %tmp.22 = 1;
+        %tmp.23 = add %tmp.21 %tmp.22;
+        %tmp.24 = invoke %tmp.18 %tmp.19(%tmp.20, %tmp.23);
+        %tmp.25 = add %tmp.16 %tmp.24;
+        lputv %result.1 %tmp.25;
+        symbol [ result %result.1 18 12 18 ];
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_13_36_19_8_stop:
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_13_8_19_8_for_incr:
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\UserManager.mc" 13 ]
+        %tmp.28 = lgetv %i.2;
+        symbol [ i %tmp.28 13 31 32 ];
+        %tmp.29 = add %tmp.28 1;
+        lputv %i.2 %tmp.29;
+        symbol [ i %i.2 13 31 32 ];
+        goto @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_13_8_19_8_for_test;
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_13_8_19_8_for_end:
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\UserManager.mc" 20 8 ]
+        %tmp.30 = lgetv %result.1;
+        symbol [ result %tmp.30 20 15 21 ];
+        ret %tmp.30;
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_11_50_21_4_stop:
+    }
+    [ @file = "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\UserManager.mc"; @line = 24; @symbol_functiondef = [getUserId,24,20,29]; @symbol_return<0> = [String,24,35,41]; ]
+    static
+    function getUserId() as String {
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_24_42_51_4_start:
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\UserManager.mc" 26 8 ]
+        try @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_26_8_33_8_beginTry @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_26_8_33_8_endTry @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_26_8_33_8_catch @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_26_8_33_8_finally;
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_26_8_33_8_beginTry:
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_26_12_31_8_start:
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\UserManager.mc" 27 12 ]
+        [ "C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_26_12_31_8_start" "C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_26_12_31_8_stop" ]
+        %propVal.1 = local;
+        symbol [ propVal %propVal.1 27 16 23 ];
+        symbol [ Properties %tmp.1 27 26 36 ];
+        %tmp.1 = getm $.Toybox.Application.Properties;
+        symbol [ getValue %tmp.2 27 37 45 ];
+        %tmp.2 = getv function %tmp.1 :getValue;
+        %tmp.3 = "userLogin";
+        %tmp.4 = invoke %tmp.1 %tmp.2(%tmp.3);
+        lputv %propVal.1 %tmp.4;
+        symbol [ propVal %propVal.1 27 16 23 ];
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\UserManager.mc" 28 12 ]
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_28_12_30_12_if_stmt:
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_28_16_28_95_begin:
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_28_16_28_54_begin:
+        %tmp.5 = lgetv %propVal.1;
+        symbol [ propVal %tmp.5 28 16 23 ];
+        %tmp.6 = null;
+        %tmp.7 = ne %tmp.5 %tmp.6;
+        bf %tmp.7 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_28_12_30_12_if_end;
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_28_35_28_54_true:
+        %tmp.8 = lgetv %propVal.1;
+        symbol [ propVal %tmp.8 28 35 42 ];
+        %tmp.9 = as %tmp.8 { (!Null) };
+        symbol [ String %tmp.11 28 54 60 ];
+        %tmp.11 = getv ? :String;
+        %tmp.12 = isa %tmp.9 %tmp.11;
+        push %tmp.12;
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_28_35_28_54_end:
+        %tmp.13 = phi [%tmp.7 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_28_16_28_54_begin] [%tmp.12 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_28_35_28_54_true] [%tmp.13 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_28_35_28_54_end];
+        bf %tmp.13 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_28_12_30_12_if_end;
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_28_64_28_95_true:
+        %tmp.14 = lgetv %propVal.1;
+        symbol [ propVal %tmp.14 28 65 72 ];
+        %tmp.15 = as %tmp.14 { (String) && (!Null) };
+        %tmp.16 = as %tmp.15 String;
+        symbol [ String %tmp.16 28 76 82 ];
+        symbol [ length %tmp.17 28 84 90 ];
+        %tmp.17 = getv function %tmp.16 :length;
+        %tmp.18 = invoke %tmp.16 %tmp.17();
+        %tmp.19 = 0;
+        %tmp.20 = gt %tmp.18 %tmp.19;
+        push %tmp.20;
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_28_64_28_95_end:
+        %tmp.21 = phi [%tmp.13 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_28_16_28_95_begin] [%tmp.20 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_28_64_28_95_true] [%tmp.21 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_28_64_28_95_end];
+        bf %tmp.21 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_28_12_30_12_if_end;
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_28_12_30_12_if_true:
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_28_98_30_12_start:
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\UserManager.mc" 29 16 ]
+        %tmp.22 = lgetv %propVal.1;
+        symbol [ propVal %tmp.22 29 23 30 ];
+        %tmp.23 = as %tmp.22 { (String) && (!Null) };
+        %tmp.24 = as %tmp.23 String;
+        symbol [ String %tmp.24 29 34 40 ];
+        jsr @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_26_8_33_8_finally;
+        ret %tmp.24;
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_28_98_30_12_stop:
+        goto @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_28_12_30_12_if_end;
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_28_12_30_12_if_end:
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_26_12_31_8_stop:
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_26_8_33_8_endTry:
+        jsr @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_26_8_33_8_finally;
+        goto @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_26_8_33_8_end;
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_26_8_33_8_catch:
+        %tmp.25 = exception;
+        push %tmp.25;
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\UserManager.mc" 31 10 ]
+        [ "C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_26_8_33_8_catch" "C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_31_10_33_8_end" ]
+        %ex.2 = local;
+        symbol [ ex %ex.2 31 17 19 ];
+        %tmp.26 = dup %tmp.25;
+        lputv %ex.2 %tmp.26;
+        symbol [ ex %ex.2 31 17 19 ];
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_31_21_33_8_start:
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\UserManager.mc" 32 12 ]
+        symbol [ System %tmp.27 32 12 18 ];
+        %tmp.27 = getm $.Toybox.System;
+        symbol [ println %tmp.28 32 19 26 ];
+        %tmp.28 = getv function %tmp.27 :println;
+        %tmp.29 = "Error reading userLogin property: ";
+        %tmp.30 = lgetv %ex.2;
+        symbol [ ex %tmp.30 32 66 68 ];
+        symbol [ getErrorMessage %tmp.31 32 69 84 ];
+        %tmp.31 = getv function %tmp.30 :getErrorMessage;
+        %tmp.32 = invoke %tmp.30 %tmp.31();
+        %tmp.33 = add %tmp.29 %tmp.32;
+        invoke %tmp.27 %tmp.28(%tmp.33);
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_31_21_33_8_stop:
+        jsr @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_26_8_33_8_finally;
+        pop;
+        goto @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_26_8_33_8_end;
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_31_10_33_8_end:
+        try @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_26_8_33_8_catch @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_31_10_33_8_end @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_31_10_33_8_end @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_26_8_33_8_finally;
+        jsr @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_26_8_33_8_finally;
+        throw %tmp.25;
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_26_8_33_8_finally:
+        jsrret;
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_26_8_33_8_end:
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\UserManager.mc" 36 8 ]
+        [ "C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_24_42_51_4_start" "C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_24_42_51_4_stop" ]
+        %storedId.3 = local;
+        symbol [ storedId %storedId.3 36 12 20 ];
+        symbol [ Storage %tmp.34 36 23 30 ];
+        %tmp.34 = getm $.Toybox.Application.Storage;
+        symbol [ getValue %tmp.35 36 31 39 ];
+        %tmp.35 = getv function %tmp.34 :getValue;
+        %tmp.36 = "userLogin";
+        %tmp.37 = invoke %tmp.34 %tmp.35(%tmp.36);
+        lputv %storedId.3 %tmp.37;
+        symbol [ storedId %storedId.3 36 12 20 ];
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\UserManager.mc" 37 8 ]
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_37_8_39_8_if_stmt:
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_37_12_37_94_begin:
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_37_12_37_52_begin:
+        %tmp.38 = lgetv %storedId.3;
+        symbol [ storedId %tmp.38 37 12 20 ];
+        %tmp.39 = null;
+        %tmp.40 = ne %tmp.38 %tmp.39;
+        bf %tmp.40 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_37_8_39_8_if_end;
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_37_32_37_52_true:
+        %tmp.41 = lgetv %storedId.3;
+        symbol [ storedId %tmp.41 37 32 40 ];
+        %tmp.42 = as %tmp.41 { (!Null) };
+        symbol [ String %tmp.44 37 52 58 ];
+        %tmp.44 = getv ? :String;
+        %tmp.45 = isa %tmp.42 %tmp.44;
+        push %tmp.45;
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_37_32_37_52_end:
+        %tmp.46 = phi [%tmp.40 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_37_12_37_52_begin] [%tmp.45 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_37_32_37_52_true] [%tmp.46 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_37_32_37_52_end];
+        bf %tmp.46 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_37_8_39_8_if_end;
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_37_62_37_94_true:
+        %tmp.47 = lgetv %storedId.3;
+        symbol [ storedId %tmp.47 37 63 71 ];
+        %tmp.48 = as %tmp.47 { (String) && (!Null) };
+        %tmp.49 = as %tmp.48 String;
+        symbol [ String %tmp.49 37 75 81 ];
+        symbol [ length %tmp.50 37 83 89 ];
+        %tmp.50 = getv function %tmp.49 :length;
+        %tmp.51 = invoke %tmp.49 %tmp.50();
+        %tmp.52 = 0;
+        %tmp.53 = gt %tmp.51 %tmp.52;
+        push %tmp.53;
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_37_62_37_94_end:
+        %tmp.54 = phi [%tmp.46 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_37_12_37_94_begin] [%tmp.53 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_37_62_37_94_true] [%tmp.54 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_37_62_37_94_end];
+        bf %tmp.54 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_37_8_39_8_if_end;
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_37_8_39_8_if_true:
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_37_97_39_8_start:
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\UserManager.mc" 38 12 ]
+        %tmp.55 = lgetv %storedId.3;
+        symbol [ storedId %tmp.55 38 19 27 ];
+        %tmp.56 = as %tmp.55 { (String) && (!Null) };
+        %tmp.57 = as %tmp.56 String;
+        symbol [ String %tmp.57 38 31 37 ];
+        ret %tmp.57;
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_37_97_39_8_stop:
+        goto @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_37_8_39_8_if_end;
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_37_8_39_8_if_end:
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\UserManager.mc" 42 8 ]
+        [ "C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_24_42_51_4_start" "C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_24_42_51_4_stop" ]
+        %newId.4 = local;
+        symbol [ newId %newId.4 42 12 17 ];
+        %tmp.58 = self;
+        symbol [ generateDefaultId %tmp.59 42 20 37 ];
+        %tmp.59 = getv function %tmp.58 :generateDefaultId;
+        %tmp.60 = invoke %tmp.58 %tmp.59();
+        lputv %newId.4 %tmp.60;
+        symbol [ newId %newId.4 42 12 17 ];
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\UserManager.mc" 43 8 ]
+        symbol [ Storage %tmp.61 43 8 15 ];
+        %tmp.61 = getm $.Toybox.Application.Storage;
+        symbol [ setValue %tmp.62 43 16 24 ];
+        %tmp.62 = getv function %tmp.61 :setValue;
+        %tmp.63 = "userLogin";
+        %tmp.64 = lgetv %newId.4;
+        symbol [ newId %tmp.64 43 38 43 ];
+        invoke %tmp.61 %tmp.62(%tmp.63, %tmp.64);
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\UserManager.mc" 44 8 ]
+        try @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_44_8_48_8_beginTry @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_44_8_48_8_endTry @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_44_8_48_8_catch @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_44_8_48_8_finally;
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_44_8_48_8_beginTry:
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_44_12_46_8_start:
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\UserManager.mc" 45 12 ]
+        symbol [ Properties %tmp.65 45 12 22 ];
+        %tmp.65 = getm $.Toybox.Application.Properties;
+        symbol [ setValue %tmp.66 45 23 31 ];
+        %tmp.66 = getv function %tmp.65 :setValue;
+        %tmp.67 = "userLogin";
+        %tmp.68 = lgetv %newId.4;
+        symbol [ newId %tmp.68 45 45 50 ];
+        invoke %tmp.65 %tmp.66(%tmp.67, %tmp.68);
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_44_12_46_8_stop:
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_44_8_48_8_endTry:
+        jsr @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_44_8_48_8_finally;
+        goto @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_44_8_48_8_end;
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_44_8_48_8_catch:
+        %tmp.69 = exception;
+        push %tmp.69;
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\UserManager.mc" 46 10 ]
+        [ "C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_44_8_48_8_catch" "C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_46_10_48_8_end" ]
+        %ex.5 = local;
+        symbol [ ex %ex.5 46 17 19 ];
+        %tmp.70 = dup %tmp.69;
+        lputv %ex.5 %tmp.70;
+        symbol [ ex %ex.5 46 17 19 ];
+        jsr @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_44_8_48_8_finally;
+        pop;
+        goto @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_44_8_48_8_end;
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_46_10_48_8_end:
+        try @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_44_8_48_8_catch @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_46_10_48_8_end @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_46_10_48_8_end @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_44_8_48_8_finally;
+        jsr @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_44_8_48_8_finally;
+        throw %tmp.69;
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_44_8_48_8_finally:
+        jsrret;
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_44_8_48_8_end:
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\UserManager.mc" 49 8 ]
+        symbol [ System %tmp.71 49 8 14 ];
+        %tmp.71 = getm $.Toybox.System;
+        symbol [ println %tmp.72 49 15 22 ];
+        %tmp.72 = getv function %tmp.71 :println;
+        %tmp.73 = "Generated default anonymous player ID: ";
+        %tmp.74 = lgetv %newId.4;
+        symbol [ newId %tmp.74 49 67 72 ];
+        %tmp.75 = add %tmp.73 %tmp.74;
+        invoke %tmp.71 %tmp.72(%tmp.75);
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\UserManager.mc" 50 8 ]
+        %tmp.76 = lgetv %newId.4;
+        symbol [ newId %tmp.76 50 15 20 ];
+        ret %tmp.76;
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_24_42_51_4_stop:
+    }
+    [ @file = "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\UserManager.mc"; @line = 54; @symbol_functiondef = [getUserLogin,54,20,32]; @symbol_return<0> = [String,54,38,44]; ]
+    static
+    function getUserLogin() as String {
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_54_45_56_4_start:
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\UserManager.mc" 55 8 ]
+        %tmp.1 = self;
+        symbol [ getUserId %tmp.2 55 15 24 ];
+        %tmp.2 = getv function %tmp.1 :getUserId;
+        %tmp.3 = invoke %tmp.1 %tmp.2();
+        ret %tmp.3;
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_UserManager_mc_54_45_56_4_stop:
+    }
+}
+[ @file = "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\UserManager.mc"; @line = 1; ]
+<init> {
+}

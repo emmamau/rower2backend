@@ -73,6 +73,9 @@ async function buildPrivateRacePayload(race: RaceState) {
   const participantsList = race.participants
     ? Array.from(race.participants.values())
     : [];
+  const pendingList = race.pendingParticipants
+    ? Array.from(race.pendingParticipants.values())
+    : [];
 
   const serializedRace = {
     id: race.id,
@@ -92,7 +95,9 @@ async function buildPrivateRacePayload(race: RaceState) {
     status: apiStatus,
     internalStatus: race.status,
     totalParticipants,
+    requireApproval: race.requireApproval !== undefined ? race.requireApproval : true,
     participants: participantsList,
+    pendingParticipants: pendingList,
     createdAt: race.createdAt ? race.createdAt.toISOString() : undefined
   };
 
@@ -107,6 +112,8 @@ async function buildPrivateRacePayload(race: RaceState) {
     waitingForHost,
     formattedCountdown,
     totalParticipants,
+    requireApproval: race.requireApproval !== undefined ? race.requireApproval : true,
+    pendingParticipants: pendingList,
     status: apiStatus
   };
 }
@@ -295,14 +302,15 @@ export class TelemetryController {
    */
   public static async createPrivateRace(req: Request, res: Response): Promise<void> {
     try {
-      const { title, targetDistance, maxParticipants, hostUserId, hostUserName, countdownMinutes } = req.body || {};
+      const { title, targetDistance, maxParticipants, hostUserId, hostUserName, countdownMinutes, requireApproval } = req.body || {};
       const race = raceManager.createPrivateRace({
         title: title || "Régate Privée",
         targetDistance: Number(targetDistance) || 2000,
         maxParticipants: Number(maxParticipants) || 8,
         hostUserId: hostUserId || "anonymous",
         hostUserName,
-        countdownMinutes: countdownMinutes !== undefined ? Number(countdownMinutes) : 0
+        countdownMinutes: countdownMinutes !== undefined ? Number(countdownMinutes) : 0,
+        requireApproval: requireApproval !== undefined ? Boolean(requireApproval) : true
       });
 
       // Best-effort persistence in PostgreSQL Races table so bots & history work seamlessly
@@ -596,30 +604,166 @@ export class TelemetryController {
   }
 
   /**
+   * POST /api/v1/races/private/:identifier/toggle-approval
+   * Host toggles mandatory organizer approval (default: true) or auto-accepts all
+   */
+  public static async toggleApprovalRequirement(req: Request, res: Response): Promise<void> {
+    try {
+      const identifier = String(req.params.identifier || "");
+      const { hostUserId, requireApproval } = req.body || {};
+      const isAdmin = await isUserAdminHelper(hostUserId);
+
+      const outcome = raceManager.toggleApprovalRequirement(
+        identifier,
+        Boolean(requireApproval),
+        hostUserId,
+        isAdmin
+      );
+
+      if ("error" in outcome) {
+        res.status(outcome.statusCode).json({ error: outcome.error });
+        return;
+      }
+
+      const payload = await buildPrivateRacePayload(outcome.race);
+      res.status(200).json(payload);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      res.status(500).json({ error: "Erreur modification validation salon: " + message });
+    }
+  }
+
+  /**
+   * POST /api/v1/races/private/:identifier/approve-participant
+   * Host approves or rejects a player waiting in the pending queue
+   */
+  public static async approveParticipant(req: Request, res: Response): Promise<void> {
+    try {
+      const identifier = String(req.params.identifier || "");
+      const { hostUserId, targetUserId, approve } = req.body || {};
+      const isAdmin = await isUserAdminHelper(hostUserId);
+
+      const outcome = raceManager.approveParticipant(
+        identifier,
+        targetUserId,
+        approve !== undefined ? Boolean(approve) : true,
+        hostUserId,
+        isAdmin
+      );
+
+      if ("error" in outcome) {
+        res.status(outcome.statusCode).json({ error: outcome.error });
+        return;
+      }
+
+      const payload = await buildPrivateRacePayload(outcome.race);
+      res.status(200).json({ ...payload, approvedParticipant: outcome.participant });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      res.status(500).json({ error: "Erreur approbation participant: " + message });
+    }
+  }
+
+  /**
+   * GET /api/v1/races/private/:identifier/participant-status
+   * Polling endpoint for watch & web to check if participant is approved, pending, or rejected
+   */
+  public static async getParticipantStatus(req: Request, res: Response): Promise<void> {
+    try {
+      const identifier = String(req.params.identifier || "");
+      const userId = String(req.query.userId || req.body?.userId || "").trim();
+
+      if (!userId) {
+        res.status(400).json({ error: "Paramètre userId manquant." });
+        return;
+      }
+
+      const result = raceManager.getParticipantApprovalStatus(identifier, userId);
+      res.status(200).json(result);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      res.status(500).json({ error: "Erreur statut participant: " + message });
+    }
+  }
+
+  /**
    * GET /api/v1/races/pin/:pin
-   * Quick join by 4-digit PIN for Garmin watch (and web lookup)
+   * Quick join by alphanumeric PIN (4-8 chars) for Garmin watch and web lookup
    */
   public static async getRaceByPin(req: Request, res: Response): Promise<void> {
-    const pin = String(req.params.pin || "").trim();
-    if (!/^\d{4}$/.test(pin)) {
+    const rawPin = String(req.params.pin || "").trim().toUpperCase();
+    if (!/^[A-Z0-9]{4,8}$/.test(rawPin)) {
       res.status(400).json({ error: "Invalid PIN format" });
       return;
     }
 
-    const matched = raceManager.getRaceByPin(pin);
+    const matched = raceManager.getRaceByPin(rawPin);
     if (!matched) {
       res.status(404).json({ error: "Invalid PIN code" });
       return;
     }
 
+    const userId = typeof req.query.userId === "string" ? req.query.userId.trim() : "";
+    const userName = typeof req.query.userName === "string" ? req.query.userName.trim() : "";
+
     if (matched.race && matched.race.type === "PRIVATE_INVITE") {
+      const race = matched.race;
+      const isHost = Boolean(userId && race.hostUserId && userId === race.hostUserId);
+
+      if (userId && !isHost) {
+        if (race.rejectedParticipants && race.rejectedParticipants.has(userId)) {
+          res.status(403).json({
+            error: "Demande de connexion refusée par l'organisateur",
+            status: "rejected",
+            approvalStatus: "rejected",
+            raceId: race.id
+          });
+          return;
+        }
+
+        const isApproved = race.participants && race.participants.has(userId);
+
+        if (race.requireApproval && !isApproved) {
+          // Register in pending participants queue
+          if (!race.pendingParticipants) {
+            race.pendingParticipants = new Map();
+          }
+          const pendingInfo = {
+            userId,
+            userName: userName || `Racer_${userId.slice(-4)}`,
+            joinedAt: new Date()
+          };
+          race.pendingParticipants.set(userId, pendingInfo);
+          socketGateway.broadcastPrivateRoomUpdate(race.id, {
+            type: "PARTICIPANT_PENDING",
+            userId,
+            userName: pendingInfo.userName
+          });
+
+          res.status(200).json({
+            success: true,
+            status: "pending_approval",
+            approvalStatus: "pending",
+            id: race.id,
+            raceId: race.id,
+            title: race.title,
+            targetDistance: race.targetDistance,
+            requireApproval: true,
+            pinCode: race.pinCode,
+            message: "En attente de validation par l'hôte"
+          });
+          return;
+        }
+      }
+
       const payload = await buildPrivateRacePayload(matched.race);
       res.status(200).json({
         ...payload,
         id: matched.raceId,
         raceId: matched.raceId,
         lane: matched.lane,
-        targetDistance: matched.race.targetDistance
+        targetDistance: matched.race.targetDistance,
+        approvalStatus: "approved"
       });
       return;
     }
@@ -634,8 +778,9 @@ export class TelemetryController {
       lane: matched.lane,
       targetDistance: pubRace?.targetDistance || 2000,
       secondsRemaining: remainingSec,
-      pinCode: pin,
-      race: pubRace
+      pinCode: rawPin,
+      race: pubRace,
+      approvalStatus: "approved"
     });
   }
 }

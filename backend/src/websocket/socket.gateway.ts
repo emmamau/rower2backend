@@ -86,6 +86,20 @@ export class SocketGateway {
     this.io.emit("race:status_change", { raceId, status, details });
   }
 
+  public broadcastPrivateRoomUpdate(raceId: string, data: any): void {
+    if (!this.io) return;
+    this.io.to(`race:${raceId}`).emit("race:private_update", {
+      raceId,
+      timestamp: Date.now(),
+      ...data
+    });
+    this.io.emit(`race:${raceId}:private_update`, {
+      raceId,
+      timestamp: Date.now(),
+      ...data
+    });
+  }
+
   public getIO(): Server | null {
     return this.io;
   }

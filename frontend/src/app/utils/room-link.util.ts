@@ -92,16 +92,16 @@ function classifySimpleToken(token: string): Extract<ParsedRoomIdentifier, { val
     return { valid: true, kind: 'raceId', value: clean };
   }
 
-  // 4-digit Garmin PIN (allows spaces between digits)
-  const digitsOnly = clean.replace(/\s+/g, '');
-  if (/^\d{4}$/.test(digitsOnly)) {
-    return { valid: true, kind: 'pin', value: digitsOnly };
-  }
-
   // Meet-style 9-letter code
   const meetCode = normalizeSalonCode(clean);
   if (meetCode) {
     return { valid: true, kind: 'code', value: meetCode };
+  }
+
+  // Alphanumeric PIN (4-8 chars, e.g. 5-character watch code)
+  const pinCandidate = clean.replace(/\s+/g, '');
+  if (/^[a-zA-Z0-9]{4,8}$/.test(pinCandidate)) {
+    return { valid: true, kind: 'pin', value: pinCandidate.toUpperCase() };
   }
 
   return null;

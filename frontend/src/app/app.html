@@ -96,7 +96,7 @@
             {{ i18n.t('GENERAL_RANK') }}: <span class="highlight">#{{ generalUserRank }}</span> ({{ currentUser.points || 0 }} {{ i18n.t('POINTS') }}) · {{ currentUser.totalRaces || 0 }} {{ i18n.t('RACES_COUNT') }}
           </div>
         </div>
-        <button class="btn-hud" (click)="isLoginModalOpen = true">{{ i18n.t('CONNECT_WATCH') }}</button>
+        <button type="button" class="btn-hud btn-connect" (click)="isLoginModalOpen = true">{{ i18n.t('CONNECT_WATCH') }}</button>
       </div>
 
       <div class="hud-actions">
@@ -107,11 +107,11 @@
           (click)="openPrivateModal()">
           {{ i18n.t('BTN_PRIVATE_ROOMS') }}
         </button>
-        <button class="btn-hud btn-standings" (click)="isStandingsOpen = true" (click)="loadGeneralLeaderboard()">{{ i18n.t('BTN_STANDINGS') }}</button>
-        <button class="btn-hud btn-history" (click)="isHistoryOpen = true" (click)="loadPastRaces()">{{ i18n.t('BTN_HISTORY') }}</button>
-        <button class="btn-hud btn-admin" *ngIf="isUserAdmin" (click)="isConfigRaceOpen = true" title="Paramètres Administrateur">{{ i18n.t('BTN_ADMIN') }}</button>
-        <button class="btn-hud btn-legal" (click)="isLegalTermsOpen = true" title="Conditions d'utilisation et RGPD">{{ i18n.t('BTN_LEGAL') }}</button>
-        <button class="btn-wakelock" [class.active]="wakeLockActive" (click)="toggleWakeLock()">
+        <button type="button" class="btn-hud btn-standings" (click)="isStandingsOpen = true; loadGeneralLeaderboard()">{{ i18n.t('BTN_STANDINGS') }}</button>
+        <button type="button" class="btn-hud btn-history" (click)="isHistoryOpen = true; loadPastRaces()">{{ i18n.t('BTN_HISTORY') }}</button>
+        <button type="button" class="btn-hud btn-admin" *ngIf="isUserAdmin" (click)="isConfigRaceOpen = true" title="Paramètres Administrateur">{{ i18n.t('BTN_ADMIN') }}</button>
+        <button type="button" class="btn-hud btn-legal" (click)="isLegalTermsOpen = true" title="Conditions d'utilisation et RGPD">{{ i18n.t('BTN_LEGAL') }}</button>
+        <button type="button" class="btn-wakelock" [class.active]="wakeLockActive" (click)="toggleWakeLock()">
           {{ wakeLockActive ? i18n.t('WAKELOCK_ON') : i18n.t('WAKELOCK_OFF') }}
         </button>
       </div>
@@ -121,20 +121,23 @@
   <!-- Modals -->
   <!-- 1. Change Login / Watch Auth Modal -->
   @if (isLoginModalOpen) {
-    <div class="modal-overlay">
-      <div class="modal-card">
-        <h3>{{ i18n.t('MODAL_LOGIN_TITLE') }}</h3>
+    <div class="modal-overlay" (click)="isLoginModalOpen = false">
+      <div class="modal-card" (click)="$event.stopPropagation()">
+        <div class="modal-header-row">
+          <h3>{{ i18n.t('MODAL_LOGIN_TITLE') }}</h3>
+          <button type="button" class="btn-close" (click)="isLoginModalOpen = false" [attr.aria-label]="i18n.t('BTN_CLOSE')">✕</button>
+        </div>
         <p class="modal-desc">
           {{ i18n.t('MODAL_LOGIN_DESC') }}
         </p>
         <div class="modal-form">
           <div class="form-group">
-            <label>{{ i18n.t('PSEUDO_LABEL') }}</label>
-            <input type="text" [(ngModel)]="userLoginInput" placeholder="ex: EmmaKayak" />
+            <label for="login-pseudo-input">{{ i18n.t('PSEUDO_LABEL') }}</label>
+            <input id="login-pseudo-input" name="userLogin" type="text" [(ngModel)]="userLoginInput" placeholder="ex: EmmaKayak" />
           </div>
           <div class="form-group">
-            <label>{{ i18n.t('WATCH_ID_LABEL') }}</label>
-            <input type="text" [(ngModel)]="userIdInput" placeholder="ex: aB3_9Z" />
+            <label for="login-watch-id-input">{{ i18n.t('WATCH_ID_LABEL') }}</label>
+            <input id="login-watch-id-input" name="watchId" type="text" autocorrect="off" autocapitalize="off" spellcheck="false" [(ngModel)]="userIdInput" placeholder="ex: aB3_9Z" />
           </div>
 
           <div class="auth-feedback" *ngIf="loginStatusMessage">
@@ -147,10 +150,10 @@
           </div>
 
           <div class="modal-buttons">
-            <button class="btn-primary" [disabled]="isWaitingWatchApproval" (click)="startWebLogin()">
+            <button type="button" class="btn-primary" [disabled]="isWaitingWatchApproval" (click)="startWebLogin()">
               {{ isWaitingWatchApproval ? 'En attente...' : i18n.t('BTN_REQUEST_AUTH') }}
             </button>
-            <button class="btn-secondary" (click)="isLoginModalOpen = false">{{ i18n.t('BTN_CLOSE') }}</button>
+            <button type="button" class="btn-secondary" (click)="isLoginModalOpen = false">{{ i18n.t('BTN_CLOSE') }}</button>
           </div>
         </div>
       </div>
@@ -159,11 +162,11 @@
 
   <!-- 2. Race Results History Modal -->
   @if (isHistoryOpen) {
-    <div class="modal-overlay">
-      <div class="modal-card modal-large">
+    <div class="modal-overlay" (click)="isHistoryOpen = false">
+      <div class="modal-card modal-large" (click)="$event.stopPropagation()">
         <div class="modal-header-row">
           <h3>{{ i18n.t('MODAL_HISTORY_TITLE') }}</h3>
-          <button class="btn-close" (click)="isHistoryOpen = false">✕</button>
+          <button type="button" class="btn-close" (click)="isHistoryOpen = false" [attr.aria-label]="i18n.t('BTN_CLOSE')">✕</button>
         </div>
         <p class="modal-desc">{{ i18n.t('MODAL_HISTORY_DESC') }}</p>
 
@@ -204,27 +207,27 @@
 
   <!-- 3. Race Config Modal (Réservé Administrateur) -->
   @if (isConfigRaceOpen) {
-    <div class="modal-overlay">
-      <div class="modal-card">
+    <div class="modal-overlay" (click)="isConfigRaceOpen = false">
+      <div class="modal-card" (click)="$event.stopPropagation()">
         <div class="modal-header-row">
           <h3>{{ i18n.t('MODAL_ADMIN_TITLE') }}</h3>
-          <button class="btn-close" (click)="isConfigRaceOpen = false">✕</button>
+          <button type="button" class="btn-close" (click)="isConfigRaceOpen = false" [attr.aria-label]="i18n.t('BTN_CLOSE')">✕</button>
         </div>
         <p class="modal-desc">
           Session Administrateur active ({{ currentUser.name }}). {{ i18n.t('MODAL_ADMIN_DESC') }}
         </p>
         <div class="modal-form">
           <div class="form-group">
-            <label>{{ i18n.t('PARAM_DISTANCE') }}</label>
-            <input type="number" [(ngModel)]="configTargetDistance" step="500" min="500" />
+            <label for="admin-dist-input">{{ i18n.t('PARAM_DISTANCE') }}</label>
+            <input id="admin-dist-input" name="configDistance" type="number" inputmode="numeric" [(ngModel)]="configTargetDistance" step="500" min="500" />
           </div>
           <div class="form-group">
-            <label>{{ i18n.t('PARAM_DELAY') }}</label>
-            <input type="number" [(ngModel)]="configIntervalMinutes" min="2" max="60" />
+            <label for="admin-delay-input">{{ i18n.t('PARAM_DELAY') }}</label>
+            <input id="admin-delay-input" name="configDelay" type="number" inputmode="numeric" [(ngModel)]="configIntervalMinutes" min="2" max="60" />
           </div>
           <div class="modal-buttons">
-            <button class="btn-primary" (click)="saveRaceConfig()">{{ i18n.t('BTN_SAVE_CONFIG') }}</button>
-            <button class="btn-secondary" (click)="isConfigRaceOpen = false">{{ i18n.t('BTN_CLOSE') }}</button>
+            <button type="button" class="btn-primary" (click)="saveRaceConfig()">{{ i18n.t('BTN_SAVE_CONFIG') }}</button>
+            <button type="button" class="btn-secondary" (click)="isConfigRaceOpen = false">{{ i18n.t('BTN_CLOSE') }}</button>
           </div>
         </div>
       </div>
@@ -233,27 +236,32 @@
 
   <!-- 4. General Standings Leaderboard Modal -->
   @if (isStandingsOpen) {
-    <div class="modal-overlay">
-      <div class="modal-card modal-large">
+    <div class="modal-overlay" (click)="isStandingsOpen = false">
+      <div class="modal-card modal-large" (click)="$event.stopPropagation()">
         <div class="modal-header-row">
-          <h3>{{ i18n.t('MODAL_STANDINGS_TITLE') }}</h3>
-          <button class="btn-close" (click)="isStandingsOpen = false">✕</button>
+          <h3 id="standings-modal-title">{{ i18n.t('MODAL_STANDINGS_TITLE') }}</h3>
+          <button type="button" class="btn-close" (click)="isStandingsOpen = false" [attr.aria-label]="i18n.t('BTN_CLOSE')">✕</button>
         </div>
         <p class="modal-desc">
           {{ i18n.t('MODAL_STANDINGS_DESC') }}
         </p>
 
-        <div class="standings-table-container">
-          <table class="standings-table">
+        <div tabindex="0" role="region" aria-labelledby="standings-modal-title" class="standings-table-container">
+          <table
+            class="standings-table"
+            [style.--lbl-pts]="i18n.t('COL_POINTS')"
+            [style.--lbl-races]="i18n.t('COL_RACES')"
+            [style.--lbl-wins]="i18n.t('COL_WINS')"
+            [style.--lbl-podiums]="i18n.t('COL_PODIUMS')">
             <thead>
               <tr>
-                <th>{{ i18n.t('COL_POSITION').toUpperCase() }}</th>
-                <th>{{ i18n.t('COL_NAME').toUpperCase() }}</th>
-                <th>{{ i18n.t('COL_POINTS').toUpperCase() }}</th>
-                <th>{{ i18n.t('COL_RACES').toUpperCase() }}</th>
-                <th>{{ i18n.t('COL_WINS').toUpperCase() }}</th>
-                <th>{{ i18n.t('COL_PODIUMS').toUpperCase() }}</th>
-                <th>RECORD</th>
+                <th scope="col">{{ i18n.t('COL_POSITION').toUpperCase() }}</th>
+                <th scope="col">{{ i18n.t('COL_NAME').toUpperCase() }}</th>
+                <th scope="col">{{ i18n.t('COL_POINTS').toUpperCase() }}</th>
+                <th scope="col">{{ i18n.t('COL_RACES').toUpperCase() }}</th>
+                <th scope="col">{{ i18n.t('COL_WINS').toUpperCase() }}</th>
+                <th scope="col">{{ i18n.t('COL_PODIUMS').toUpperCase() }}</th>
+                <th scope="col">RECORD</th>
               </tr>
             </thead>
             <tbody>
@@ -265,15 +273,15 @@
                     <span class="rank-medal" *ngIf="pIdx === 2">🥉</span>
                     #{{ pIdx + 1 }}
                   </td>
-                  <td class="col-name">{{ player.name || player.id }}</td>
-                  <td class="col-pts">{{ player.points || 0 }} {{ i18n.t('POINTS') }}</td>
-                  <td>{{ player.totalRaces || 0 }}</td>
-                  <td>{{ player.totalWins || 0 }}</td>
-                  <td>{{ player.podiums || 0 }}</td>
-                  <td>{{ player.bestRank ? ('#' + player.bestRank) : '--' }}</td>
+                  <th scope="row" class="col-name">{{ player.name || player.id }}</th>
+                  <td class="col-pts col-stat-pts">{{ player.points || 0 }} {{ i18n.t('POINTS') }}</td>
+                  <td class="col-stat-races">{{ player.totalRaces || 0 }}</td>
+                  <td class="col-stat-wins">{{ player.totalWins || 0 }}</td>
+                  <td class="col-stat-podiums">{{ player.podiums || 0 }}</td>
+                  <td class="col-stat-record">{{ player.bestRank ? ('#' + player.bestRank) : '--' }}</td>
                 </tr>
               } @empty {
-                <tr>
+                <tr class="empty-row">
                   <td colspan="7" class="text-center">Aucun coureur classé pour le moment.</td>
                 </tr>
               }
@@ -286,11 +294,11 @@
 
   <!-- 5. Legal Terms, Conditions of Use & GDPR Modal -->
   @if (isLegalTermsOpen) {
-    <div class="modal-overlay">
-      <div class="modal-card modal-large">
+    <div class="modal-overlay" (click)="isLegalTermsOpen = false">
+      <div class="modal-card modal-large" (click)="$event.stopPropagation()">
         <div class="modal-header-row">
           <h3>{{ i18n.t('MODAL_LEGAL_TITLE') }}</h3>
-          <button class="btn-close" (click)="isLegalTermsOpen = false">✕</button>
+          <button type="button" class="btn-close" (click)="isLegalTermsOpen = false" [attr.aria-label]="i18n.t('BTN_CLOSE')">✕</button>
         </div>
         <div class="legal-content">
           <h4>1. Objet du Service & Mentions Légales</h4>
@@ -320,7 +328,7 @@
           </p>
         </div>
         <div class="modal-buttons">
-          <button class="btn-primary" (click)="isLegalTermsOpen = false">{{ i18n.t('BTN_CLOSE') }}</button>
+          <button type="button" class="btn-primary" (click)="isLegalTermsOpen = false">{{ i18n.t('BTN_CLOSE') }}</button>
         </div>
       </div>
     </div>
@@ -346,153 +354,168 @@
       (botsToggled)="onPrivateRoomBotsToggled($event)">
     </app-private-room-manager>
 
-    <!-- Top 3 Podium Live Indicator -->
-    <section class="podium-banner" *ngIf="racers.length > 0">
-      <div class="podium-title">⚡ {{ i18n.t('OFFICIAL_PODIUM').toUpperCase() }} · {{ activeRacersCount }} {{ i18n.t('ACTIVE_RACERS').toUpperCase() }} ⚡</div>
-      <div class="podium-cards">
-        @for (r of racers.slice(0, 3); track r.id; let idx = $index) {
-          <div class="podium-card" [class.gold]="idx === 0" [class.silver]="idx === 1" [class.bronze]="idx === 2" [class.abandoned]="r.status === 'abandoned'">
-            <div class="medal-icon">{{ r.status === 'abandoned' ? '❌' : (idx === 0 ? '🥇' : (idx === 1 ? '🥈' : '🥉')) }}</div>
-            <div class="podium-name">{{ r.userName || r.userId }}</div>
-            <div class="podium-stats">
-              {{ r.status === 'abandoned' ? 'ABANDONNÉ' : (r.netDistance + ' m · ' + r.avgSpeedKmh + ' km/h') }}
-            </div>
-          </div>
+    <!-- Ergometer & Arena Mode Switcher Bar -->
+    <div class="arena-mode-bar">
+      <div class="view-mode-toggle" role="group" aria-label="Mode d'affichage">
+        <button
+          type="button"
+          class="btn-toggle-view"
+          [class.active]="activeViewMode === 'canvas'"
+          (click)="switchViewMode('canvas')">
+          🛶 Vue Régate 2D
+          <span class="rec-badge" *ngIf="recommendedViewMode === 'canvas'">Écran large</span>
+        </button>
+        <button
+          type="button"
+          class="btn-toggle-view"
+          [class.active]="activeViewMode === 'cockpit'"
+          (click)="switchViewMode('cockpit')">
+          📱 Mode Cockpit
+          <span class="rec-badge" *ngIf="recommendedViewMode === 'cockpit'">Mobile</span>
+        </button>
+      </div>
+
+      <div class="ergo-quick-tools">
+        <button
+          type="button"
+          class="btn-ergo-tool"
+          [class.active]="wakeLockActive"
+          (click)="toggleWakeLock()">
+          {{ wakeLockActive ? i18n.t('WAKELOCK_ON') : i18n.t('WAKELOCK_OFF') }}
+        </button>
+        @if (fullscreenSupported) {
+          <button
+            type="button"
+            class="btn-ergo-tool"
+            [class.active]="isFullscreen"
+            (click)="toggleFullscreen()">
+            {{ isFullscreen ? '✕ Quitter plein écran' : '⛶ Plein écran' }}
+          </button>
         }
       </div>
-    </section>
+    </div>
 
-    <!-- VUE RÉGATE CANVAS 2D EN DIRECT (60 FPS & DEAD RECKONING) -->
-    <section class="regatta-canvas-section">
-      <div class="view-mode-toggle">
-        <button class="btn-toggle-view" [class.active]="activeViewMode === 'canvas'" (click)="activeViewMode = 'canvas'">
-          🛶 Vue Régate 2D (60 FPS)
-        </button>
-        <button class="btn-toggle-view" [class.active]="activeViewMode === 'cockpit'" (click)="activeViewMode = 'cockpit'">
-          📱 Mode Cockpit Smartphone (W5)
-        </button>
-      </div>
-
-      <div *ngIf="activeViewMode === 'canvas'" class="canvas-display-card">
-        <app-regatta-canvas
-          [racers]="liveMetricsList"
-          [targetDistance]="nextRaceInfo?.race?.targetDistance || 2000"
-          [activeUserId]="activeUserId">
-        </app-regatta-canvas>
-      </div>
-    </section>
-
-    <!-- 2D Water Track / River Lanes -->
-    <section class="water-track">
-      <div class="track-header-marks">
-        <span>0m (DÉPART)</span>
-        <span>{{ quarterDistance }}m</span>
-        <span>{{ halfDistance }}m (MI-PARCOURS)</span>
-        <span>{{ threeQuarterDistance }}m</span>
-        <span>{{ activeTargetDistance }}m (ARRIVÉE 🏁)</span>
-      </div>
-
-      <div class="water-surface">
-        <div class="finish-line"></div>
-
-        <!-- Kayak Lanes -->
-        @for (racer of racers; track racer.id; let idx = $index) {
-          <div class="kayak-lane" [class.is-me]="racer.userId === activeUserId" [class.is-abandoned]="racer.status === 'abandoned'">
-            <div class="lane-racer-info">
-              <span class="lane-rank">{{ racer.status === 'abandoned' ? 'AB' : ('#' + (idx + 1)) }}</span>
-              <span class="lane-name">{{ racer.userName || racer.userId }}</span>
-              <span class="lane-status-badge" *ngIf="racer.status === 'abandoned'">ABANDON</span>
-              <span class="lane-status-badge out-of-time" *ngIf="racer.status === 'out_of_time'">HORS LIMITE</span>
-              <span class="lane-speed" *ngIf="racer.status !== 'abandoned' && racer.status !== 'out_of_time'">{{ racer.avgSpeedKmh }} km/h</span>
-            </div>
-
-            <!-- Kayak Boat sprite positioned dynamically along the course -->
-            <div class="track-channel">
-              <div class="kayak-boat" [style.left.%]="racer.progressPercent" [style.border-color]="getKayakColor(idx)">
-                <div class="wake-ripple" *ngIf="racer.status !== 'abandoned'"></div>
-                <div class="boat-hull" [style.background-color]="racer.status === 'abandoned' ? '#64748b' : getKayakColor(idx)">
-                  <div class="paddle-blade left" *ngIf="racer.status !== 'abandoned'"></div>
-                  <div class="paddle-blade right" *ngIf="racer.status !== 'abandoned'"></div>
-                </div>
-                <div class="boat-distance-tooltip">
-                  {{ racer.status === 'abandoned' ? 'Abandonné' : (racer.netDistance + 'm') }}
-                </div>
+    <!-- VUE 1 : RÉGATE 2D EN DIRECT (ADAPTÉE AUX ÉCRANS LARGES / PC / TABLETTES) -->
+    @if (activeViewMode === 'canvas') {
+      <!-- Top 3 Podium Live Indicator -->
+      <section class="podium-banner" *ngIf="racers.length > 0">
+        <div class="podium-title">⚡ {{ i18n.t('OFFICIAL_PODIUM').toUpperCase() }} · {{ activeRacersCount }} {{ i18n.t('ACTIVE_RACERS').toUpperCase() }} ⚡</div>
+        <div class="podium-cards">
+          @for (r of racers.slice(0, 3); track r.id; let idx = $index) {
+            <div class="podium-card" [class.gold]="idx === 0" [class.silver]="idx === 1" [class.bronze]="idx === 2" [class.abandoned]="r.status === 'abandoned'">
+              <div class="medal-icon">{{ r.status === 'abandoned' ? '❌' : (idx === 0 ? '🥇' : (idx === 1 ? '🥈' : '🥉')) }}</div>
+              <div class="podium-name">{{ r.userName || r.userId }}</div>
+              <div class="podium-stats">
+                {{ r.status === 'abandoned' ? 'ABANDONNÉ' : (r.netDistance + ' m · ' + r.avgSpeedKmh + ' km/h') }}
               </div>
             </div>
-          </div>
-        } @empty {
-          <!-- Waiting / Demo Kayak lane -->
-          <div class="empty-lane-notice">
-            <div class="notice-icon">🛶</div>
-            <h3>En attente de coureurs sur la ligne de départ...</h3>
-            <p>Connectez votre montre Garmin pour rejoindre la prochaine course de {{ nextRaceInfo?.race?.targetDistance || 10000 }}m !</p>
-          </div>
-        }
-      </div>
-    </section>
-
-    <!-- Cockpit Telemetry HUD (Personal Rower Stats) -->
-    <section class="cockpit-hud">
-      <!-- NOUVELLE CARTE POSITION & ÉCARTS AU CLASSEMENT -->
-      <div class="hud-card rank-gap-card">
-        <div class="hud-label">{{ i18n.t('LEADERBOARD').toUpperCase() }}</div>
-        <div class="hud-value-huge rank-val">
-          {{ myRank ? ('#' + myRank) : '--' }} <span class="unit">/ {{ totalActiveRacers || 1 }}</span>
+          }
         </div>
-        <div class="gap-metrics-grid">
-          <div class="gap-col">
-            <span class="gap-title">{{ i18n.t('GAP_FIRST').toUpperCase() }}</span>
-            <span class="gap-val">{{ myRank === 1 ? 'LEADER' : ('-' + distToLeader + 'm') }}</span>
+      </section>
+
+      <!-- Vue Régate Canvas 2D (60 FPS & Dead Reckoning) -->
+      <section class="regatta-canvas-section">
+        <div class="canvas-display-card">
+          <app-regatta-canvas
+            [racers]="liveMetricsList"
+            [targetDistance]="nextRaceInfo?.race?.targetDistance || 2000"
+            [activeUserId]="activeUserId">
+          </app-regatta-canvas>
+        </div>
+      </section>
+
+      <!-- Résumé télémétrique compact du coureur sous la régate 2D -->
+      @if (myActivity) {
+        <section class="regatta-user-summary" aria-label="Mes statistiques en direct">
+          <div class="regatta-summary-pill">
+            <span class="sum-rank" title="Classement dans la course">{{ myRank ? ('#' + myRank) : '--' }}</span>
+            <span class="sum-metric"><strong>{{ myActivity.netDistance || 0 }}</strong> m</span>
+            <span class="sum-metric"><strong>{{ myActivity.lastPower || 0 }}</strong> W</span>
+            <span class="sum-metric"><strong>{{ myActivity.lastStrokeRate | number:'1.1-1' }}</strong> SPM</span>
+            <span class="sum-metric"><strong>{{ formatPace(myActivity.lastPace) }}</strong> /500m</span>
           </div>
-          <div class="gap-col">
-            <span class="gap-title">{{ i18n.t('GAP_PREV').toUpperCase() }}</span>
-            <span class="gap-val">{{ myRank && myRank > 1 ? ('-' + distToPrev + 'm') : '--' }}</span>
+        </section>
+      }
+    } @else {
+      <!-- VUE 2 : MODE COCKPIT ERGOMÈTRE (ADAPTÉ AUX SMARTPHONES / MOBILES SUR SUPPORT RAMEUR) -->
+      <!-- Dedicated Ergometer Cockpit Live Progress Bar -->
+      <section class="cockpit-progress-strip" aria-label="Progression de course">
+        <div class="cockpit-progress-head">
+          <span class="cockpit-prog-title">
+            🚣 {{ myActivity?.netDistance || 0 }}m / {{ activeTargetDistance }}m ({{ myProgressPercent }}%)
+          </span>
+          <span class="cockpit-prog-meta">
+            👥 {{ activeRacersCount }} · ⏱️ {{ activePrivateRoom?.waitingForHost ? i18n.t('STATUS_WAITING_HOST') : (nextRaceInfo?.formattedCountdown || '00:00') }}
+          </span>
+        </div>
+        <div class="cockpit-progress-track">
+          <div class="cockpit-progress-fill" [style.inline-size.%]="myProgressPercent"></div>
+        </div>
+      </section>
+
+      <!-- Cockpit Telemetry HUD (Personal Rower Stats) -->
+      <section class="cockpit-hud cockpit-expanded">
+        <!-- NOUVELLE CARTE POSITION & ÉCARTS AU CLASSEMENT -->
+        <div class="hud-card rank-gap-card">
+          <div class="hud-label">{{ i18n.t('LEADERBOARD').toUpperCase() }}</div>
+          <div class="hud-value-huge rank-val">
+            {{ myRank ? ('#' + myRank) : '--' }} <span class="unit">/ {{ totalActiveRacers || 1 }}</span>
           </div>
-          <div class="gap-col">
-            <span class="gap-title">{{ i18n.t('GAP_NEXT').toUpperCase() }}</span>
-            <span class="gap-val">{{ myRank && myRank < totalActiveRacers ? ('+' + distToNext + 'm') : '--' }}</span>
+          <div class="gap-metrics-grid">
+            <div class="gap-col">
+              <span class="gap-title">{{ i18n.t('GAP_FIRST').toUpperCase() }}</span>
+              <span class="gap-val">{{ myRank === 1 ? 'LEADER' : ('-' + distToLeader + 'm') }}</span>
+            </div>
+            <div class="gap-col">
+              <span class="gap-title">{{ i18n.t('GAP_PREV').toUpperCase() }}</span>
+              <span class="gap-val">{{ myRank && myRank > 1 ? ('-' + distToPrev + 'm') : '--' }}</span>
+            </div>
+            <div class="gap-col">
+              <span class="gap-title">{{ i18n.t('GAP_NEXT').toUpperCase() }}</span>
+              <span class="gap-val">{{ myRank && myRank < totalActiveRacers ? ('+' + distToNext + 'm') : '--' }}</span>
+            </div>
           </div>
         </div>
-      </div>
 
-      <div class="hud-card primary-card">
-        <div class="hud-label">{{ i18n.t('DISTANCE').toUpperCase() }}</div>
-        <div class="hud-value-huge">{{ myActivity?.netDistance || 0 }} <span class="unit">M</span></div>
-        <div class="hud-sub">
-          {{ myActivity?.status === 'abandoned' ? 'Course abandonnée' : ('Départ : ' + (myActivity?.initialDistance || 0) + 'm · Objectif : ' + (myActivity?.targetDistance || 10000) + 'm') }}
+        <div class="hud-card primary-card">
+          <div class="hud-label">{{ i18n.t('DISTANCE').toUpperCase() }}</div>
+          <div class="hud-value-huge">{{ myActivity?.netDistance || 0 }} <span class="unit">M</span></div>
+          <div class="hud-sub">
+            {{ myActivity?.status === 'abandoned' ? 'Course abandonnée' : ('Départ : ' + (myActivity?.initialDistance || 0) + 'm · Objectif : ' + (myActivity?.targetDistance || activeTargetDistance) + 'm') }}
+          </div>
         </div>
-      </div>
 
-      <div class="hud-card">
-        <div class="hud-label">{{ i18n.t('CADENCE').toUpperCase() }}</div>
-        <div class="hud-value">{{ myActivity ? (myActivity.lastStrokeRate | number:'1.1-1') : '0.0' }} <span class="unit">SPM</span></div>
-        <div class="hud-sub">Coups totaux : {{ myActivity?.totalStrokes || 0 }}</div>
-      </div>
+        <div class="hud-card">
+          <div class="hud-label">{{ i18n.t('CADENCE').toUpperCase() }}</div>
+          <div class="hud-value">{{ myActivity ? (myActivity.lastStrokeRate | number:'1.1-1') : '0.0' }} <span class="unit">SPM</span></div>
+          <div class="hud-sub">Coups totaux : {{ myActivity?.totalStrokes || 0 }}</div>
+        </div>
 
-      <div class="hud-card">
-        <div class="hud-label">{{ i18n.t('POWER').toUpperCase() }}</div>
-        <div class="hud-value">{{ myActivity?.lastPower || 0 }} <span class="unit">WATTS</span></div>
-        <div class="hud-sub">{{ i18n.t('AVG_POWER') }} : {{ myActivity?.avgPower || 0 }} W</div>
-      </div>
+        <div class="hud-card">
+          <div class="hud-label">{{ i18n.t('POWER').toUpperCase() }}</div>
+          <div class="hud-value">{{ myActivity?.lastPower || 0 }} <span class="unit">WATTS</span></div>
+          <div class="hud-sub">{{ i18n.t('AVG_POWER') }} : {{ myActivity?.avgPower || 0 }} W</div>
+        </div>
 
-      <div class="hud-card">
-        <div class="hud-label">{{ i18n.t('PACE_500M').toUpperCase() }}</div>
-        <div class="hud-value">{{ formatPace(myActivity?.lastPace) }}</div>
-        <div class="hud-sub">Moyenne : {{ formatPace(myActivity?.avgPace) }}</div>
-      </div>
+        <div class="hud-card">
+          <div class="hud-label">{{ i18n.t('PACE_500M').toUpperCase() }}</div>
+          <div class="hud-value">{{ formatPace(myActivity?.lastPace) }}</div>
+          <div class="hud-sub">Moyenne : {{ formatPace(myActivity?.avgPace) }}</div>
+        </div>
 
-      <div class="hud-card">
-        <div class="hud-label">VITESSE MOYENNE</div>
-        <div class="hud-value">{{ myActivity?.avgSpeedKmh || 0 }} <span class="unit">KM/H</span></div>
-        <div class="hud-sub">{{ i18n.t('TIME_ELAPSED') }} : {{ formatTime(myActivity?.elapsedTime) }}</div>
-      </div>
+        <div class="hud-card">
+          <div class="hud-label">VITESSE MOYENNE</div>
+          <div class="hud-value">{{ myActivity?.avgSpeedKmh || 0 }} <span class="unit">KM/H</span></div>
+          <div class="hud-sub">{{ i18n.t('TIME_ELAPSED') }} : {{ formatTime(myActivity?.elapsedTime) }}</div>
+        </div>
 
-      <div class="hud-card">
-        <div class="hud-label">CARDIO & CALORIES</div>
-        <div class="hud-value">{{ myActivity?.lastHeartRate || '--' }} <span class="unit">BPM</span></div>
-        <div class="hud-sub">Calories : {{ myActivity?.totalEnergy || 0 }} kcal</div>
-      </div>
-    </section>
+        <div class="hud-card">
+          <div class="hud-label">CARDIO & CALORIES</div>
+          <div class="hud-value">{{ myActivity?.lastHeartRate || '--' }} <span class="unit">BPM</span></div>
+          <div class="hud-sub">Calories : {{ myActivity?.totalEnergy || 0 }} kcal</div>
+        </div>
+      </section>
+    }
 
     <!-- FOOTER PERMANENT : Conditions d'utilisation, RGPD et Informations légales -->
     <footer class="app-footer">
@@ -501,15 +524,15 @@
           {{ i18n.t('BTN_PRIVATE_ROOMS') }}
         </button>
         <span class="footer-sep">•</span>
-        <button class="footer-link-btn" (click)="isLegalTermsOpen = true">
+        <button type="button" class="footer-link-btn" (click)="isLegalTermsOpen = true">
           ⚖️ {{ i18n.t('MODAL_LEGAL_TITLE') }}
         </button>
         <span class="footer-sep">•</span>
-        <button class="footer-link-btn" (click)="isStandingsOpen = true">
+        <button type="button" class="footer-link-btn" (click)="isStandingsOpen = true; loadGeneralLeaderboard()">
           🏅 {{ i18n.t('BTN_STANDINGS') }}
         </button>
         <span class="footer-sep">•</span>
-        <button class="footer-link-btn" (click)="isHistoryOpen = true">
+        <button type="button" class="footer-link-btn" (click)="isHistoryOpen = true; loadPastRaces()">
           🏆 {{ i18n.t('BTN_HISTORY') }}
         </button>
       </div>
@@ -518,4 +541,55 @@
       </div>
     </footer>
   </main>
+
+  <!-- Thumb-Friendly Mobile Bottom Navigation Bar (< 768px) -->
+  <nav class="mobile-bottom-nav" aria-label="Navigation rapide mobile">
+    <button
+      type="button"
+      class="mob-nav-btn"
+      [class.active]="activeViewMode === 'canvas' && !isPrivateModalOpen && !isStandingsOpen && !isHistoryOpen"
+      (click)="switchViewMode('canvas')">
+      <span class="mob-nav-icon" aria-hidden="true">🛶</span>
+      <span class="mob-nav-label">Régate</span>
+    </button>
+
+    <button
+      type="button"
+      class="mob-nav-btn"
+      [class.active]="activeViewMode === 'cockpit' && !isPrivateModalOpen && !isStandingsOpen && !isHistoryOpen"
+      (click)="switchViewMode('cockpit')">
+      <span class="mob-nav-icon" aria-hidden="true">📱</span>
+      <span class="mob-nav-label">Cockpit</span>
+    </button>
+
+    <button
+      type="button"
+      class="mob-nav-btn mob-nav-private"
+      [class.active]="isPrivateModalOpen || !!activePrivateRoom"
+      (click)="closeAllOverlayModals(); openPrivateModal()">
+      <span class="mob-nav-icon" aria-hidden="true">🔒</span>
+      <span class="mob-nav-label">Salons</span>
+      @if (activePrivateRoom) {
+        <span class="mob-nav-dot" aria-hidden="true"></span>
+      }
+    </button>
+
+    <button
+      type="button"
+      class="mob-nav-btn"
+      [class.active]="isStandingsOpen"
+      (click)="closeAllOverlayModals(); isStandingsOpen = true; loadGeneralLeaderboard()">
+      <span class="mob-nav-icon" aria-hidden="true">🏅</span>
+      <span class="mob-nav-label">Saison</span>
+    </button>
+
+    <button
+      type="button"
+      class="mob-nav-btn"
+      [class.active]="isHistoryOpen"
+      (click)="closeAllOverlayModals(); isHistoryOpen = true; loadPastRaces()">
+      <span class="mob-nav-icon" aria-hidden="true">🏆</span>
+      <span class="mob-nav-label">Courses</span>
+    </button>
+  </nav>
 </div>

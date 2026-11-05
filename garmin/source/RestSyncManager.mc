@@ -293,9 +293,9 @@ class RestSyncManager {
         }
     }
 
-    // Check 4-digit PIN for private race
-    function checkPinCode(pin as String) as Void {
-        var endpoint = getBaseUrl() + "/api/v1/races/pin/" + pin;
+    // Check alphanumeric PIN for private race (passing userId and userName for organizer validation)
+    function checkPinCode(pin as String, userId as String, userName as String) as Void {
+        var endpoint = getBaseUrl() + "/api/v1/races/pin/" + pin + "?userId=" + userId + "&userName=" + userName;
         var options = {
             :method => Communications.HTTP_REQUEST_METHOD_GET,
             :responseType => Communications.HTTP_RESPONSE_CONTENT_TYPE_JSON
@@ -316,6 +316,28 @@ class RestSyncManager {
             } else {
                 (_delegate as BleDelegate).onPinJoinFailed();
             }
+        }
+    }
+
+    // Polling participant approval status from host
+    function checkApprovalStatus(raceId as String, userId as String) as Void {
+        var endpoint = getBaseUrl() + "/api/v1/races/private/" + raceId + "/participant-status?userId=" + userId;
+        var options = {
+            :method => Communications.HTTP_REQUEST_METHOD_GET,
+            :responseType => Communications.HTTP_RESPONSE_CONTENT_TYPE_JSON
+        };
+
+        Communications.makeWebRequest(
+            endpoint,
+            null,
+            options,
+            method(:onApprovalStatusReceived)
+        );
+    }
+
+    function onApprovalStatusReceived(responseCode as Number, data as Dictionary or String or Null) as Void {
+        if (_delegate != null) {
+            (_delegate as BleDelegate).onApprovalStatusResponse(responseCode, data);
         }
     }
 }

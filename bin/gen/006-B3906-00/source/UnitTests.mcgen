@@ -1,0 +1,99 @@
+import Toybox.Lang;
+import Toybox.Test;
+
+(:typecheck(false) :languageServer(do_not_complete))
+function getTestObject() as RunNoEvil {
+    return new RunNoEvil();
+}
+
+(:typecheck(false) :languageServer(do_not_complete))
+class RunNoEvil extends Test.Test {
+    private var logger as Logger;
+    private var idToName as Array;
+
+    function initialize() {
+        Test.Test.initialize();
+        logger = new Test.Logger();
+        idToName = new [9];
+        populate_test_entries_0_to_9();
+    }
+
+    function getIndexOf(name as String) as Number {
+        if (idToName has :indexOf) {
+            return idToName.indexOf(name);
+        }
+
+        var j = idToName.size();
+        for (var i = 0; i < j; ++i) {
+            if (idToName[i].equals(name)) {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+
+    function getTestName(id as Number) as String {
+        return idToName[id];
+    }
+
+    function getNumberOfTests() as Number {
+        return idToName.size();
+    }
+
+    function populate_test_entries_0_to_9() as Void {
+        idToName[0] = "testFtmsSplitContinuationPreservesWatts";
+        idToName[1] = "testFtmsZeroWattsFlagDerivesPowerFromPace";
+        idToName[2] = "testSmartRowFirstStrokeOrderPreservesWatts";
+        idToName[3] = "testSmartRowV3LockedPacketDerivesWatts";
+        idToName[4] = "testSmartRowV3LockDetectionAndKeylockMath";
+        idToName[5] = "testSmartRowLivePreviewBeforeWorkoutStarted";
+        idToName[6] = "testSmartRowBurstOrderDerivesWattsWithoutDeadlock";
+        idToName[7] = "testAlphanumericPinEntry";
+        idToName[8] = "testUserLoginAndPendingState";
+    }
+
+    function evaluate_test_entries_0_to_9(id as Number, logger as Logger) {
+        var result = false;
+        if (id == 0) {
+            result = $.testFtmsSplitContinuationPreservesWatts(logger);
+        } else if (id == 1) {
+            result = $.testFtmsZeroWattsFlagDerivesPowerFromPace(logger);
+        } else if (id == 2) {
+            result = $.testSmartRowFirstStrokeOrderPreservesWatts(logger);
+        } else if (id == 3) {
+            result = $.testSmartRowV3LockedPacketDerivesWatts(logger);
+        } else if (id == 4) {
+            result = $.testSmartRowV3LockDetectionAndKeylockMath(logger);
+        } else if (id == 5) {
+            result = $.testSmartRowLivePreviewBeforeWorkoutStarted(logger);
+        } else if (id == 6) {
+            result = $.testSmartRowBurstOrderDerivesWattsWithoutDeadlock(logger);
+        } else if (id == 7) {
+            result = $.testAlphanumericPinEntry(logger);
+        } else if (id == 8) {
+            result = $.testUserLoginAndPendingState(logger);
+        }
+
+        return result;
+    }
+
+    function runTest(test as String or Number) as Boolean {
+        var id = test;
+        if (test instanceof Lang.String) {
+            id = getIndexOf(test);
+        }
+
+        assertMessage(id >= 0, "Could not find '" + test + "'");
+        var result = false;
+        if (id < 9) {
+            result = self.evaluate_test_entries_0_to_9(id, logger);
+        }
+
+        if (result instanceof Boolean) {
+            return result;
+        }
+
+        return false;
+    }
+}

@@ -58,7 +58,9 @@ export interface NextRaceInfo {
     internalStatus?: string;
     status: string;
     totalParticipants: number;
+    requireApproval?: boolean;
     participants?: PrivateRoomParticipant[];
+    pendingParticipants?: PrivateRoomParticipant[];
     createdAt?: string;
   };
   code?: string;
@@ -69,6 +71,8 @@ export interface NextRaceInfo {
   waitingForHost?: boolean;
   formattedCountdown: string;
   totalParticipants: number;
+  requireApproval?: boolean;
+  pendingParticipants?: PrivateRoomParticipant[];
   status: string;
 }
 
@@ -79,6 +83,7 @@ export interface CreatePrivateRaceRequest {
   hostUserId: string;
   hostUserName?: string;
   countdownMinutes?: number;
+  requireApproval?: boolean;
 }
 
 export interface PrivateRacePayload extends NextRaceInfo {
@@ -86,6 +91,7 @@ export interface PrivateRacePayload extends NextRaceInfo {
   id?: string;
   raceId?: string;
   lane?: number;
+  approvalStatus?: 'approved' | 'pending' | 'rejected';
 }
 
 export interface SavedPrivateSalon {

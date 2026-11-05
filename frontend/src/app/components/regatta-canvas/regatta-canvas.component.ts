@@ -1,4 +1,13 @@
-import { Component, Input, ElementRef, ViewChild, AfterViewInit, OnDestroy, OnChanges, SimpleChanges } from '@angular/core';
+import {
+  Component,
+  Input,
+  ElementRef,
+  ViewChild,
+  AfterViewInit,
+  OnDestroy,
+  OnChanges,
+  SimpleChanges
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { LiveRacerMetric } from '../../services/socket.service';
 
@@ -6,8 +15,8 @@ interface BoatRenderState {
   userId: string;
   name: string;
   lane: number;
-  currentDisplayDist: number; // Position affichée interpolée
-  targetPacketDist: number;   // Position réelle reçue
+  currentDisplayDist: number;
+  targetPacketDist: number;
   splitSec: number;
   watts: number;
   spm: number;
@@ -20,38 +29,47 @@ interface BoatRenderState {
   standalone: true,
   imports: [CommonModule],
   template: `
-    <div class="canvas-wrapper">
+    <div #wrapperEl class="canvas-wrapper">
       <canvas #raceCanvas></canvas>
     </div>
   `,
   styles: [`
     .canvas-wrapper {
-      width: 100%;
-      height: 280px;
+      inline-size: 100%;
+      block-size: clamp(230px, 42dvh, 380px);
       position: relative;
       border-radius: 12px;
-      overflow: hidden;
+      overflow: clip;
       box-shadow: 0 0 20px rgba(0, 240, 255, 0.2), inset 0 0 15px rgba(0, 0, 0, 0.8);
       border: 1px solid rgba(0, 240, 255, 0.3);
       background: #081226;
     }
     canvas {
       display: block;
-      width: 100%;
-      height: 100%;
+      inline-size: 100%;
+      block-size: 100%;
+    }
+    @media (max-height: 500px) and (orientation: landscape) {
+      .canvas-wrapper {
+        block-size: 165px;
+      }
     }
   `]
 })
 export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChanges {
+  @ViewChild('wrapperEl', { static: true }) wrapperRef!: ElementRef<HTMLDivElement>;
   @ViewChild('raceCanvas', { static: true }) canvasRef!: ElementRef<HTMLCanvasElement>;
   @Input() racers: LiveRacerMetric[] = [];
-  @Input() targetDistance: number = 2000;
-  @Input() activeUserId: string = '';
+  @Input() targetDistance = 2000;
+  @Input() activeUserId = '';
 
   private ctx: CanvasRenderingContext2D | null = null;
   private animFrameId: number | null = null;
+  private resizeObserver: ResizeObserver | null = null;
   private lastFrameTimestamp: number = performance.now();
   private boatsMap: Map<string, BoatRenderState> = new Map();
+  private cssWidth = 900;
+  private cssHeight = 260;
 
   private readonly boatColors = [
     '#FF0055', '#00F0FF', '#39FF14', '#FFE600',
@@ -62,6 +80,11 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
     const canvas = this.canvasRef.nativeElement;
     this.ctx = canvas.getContext('2d');
     this.resizeCanvas();
+
+    if (typeof ResizeObserver !== 'undefined') {
+      this.resizeObserver = new ResizeObserver(() => this.resizeCanvas());
+      this.resizeObserver.observe(this.wrapperRef.nativeElement);
+    }
     window.addEventListener('resize', this.onResize);
     this.startRenderLoop();
   }
@@ -76,6 +99,10 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
     if (this.animFrameId) {
       cancelAnimationFrame(this.animFrameId);
     }
+    if (this.resizeObserver) {
+      this.resizeObserver.disconnect();
+      this.resizeObserver = null;
+    }
     window.removeEventListener('resize', this.onResize);
   }
 
@@ -84,14 +111,31 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
   };
 
   private resizeCanvas(): void {
-    const canvas = this.canvasRef.nativeElement;
-    canvas.width = canvas.parentElement?.clientWidth || 900;
-    canvas.height = canvas.parentElement?.clientHeight || 280;
+    const wrapper = this.wrapperRef?.nativeElement;
+    const canvas = this.canvasRef?.nativeElement;
+    if (!canvas) return;
+
+    const dpr = typeof window !== 'undefined' ? Math.min(window.devicePixelRatio || 1, 2.5) : 1;
+    const width = Math.max(260, wrapper?.clientWidth || 900);
+    const height = Math.max(150, wrapper?.clientHeight || 240);
+
+    this.cssWidth = width;
+    this.cssHeight = height;
+
+    canvas.width = Math.round(width * dpr);
+    canvas.height = Math.round(height * dpr);
+
+    if (this.ctx) {
+      this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
   }
 
   private syncRacersData(): void {
     const now = performance.now();
+    const activeIds = new Set<string>();
+
     this.racers.forEach((r, idx) => {
+      activeIds.add(r.userId);
       let boat = this.boatsMap.get(r.userId);
       if (!boat) {
         boat = {
@@ -114,19 +158,21 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
         boat.watts = r.watts;
         boat.spm = r.spm;
         boat.lastPacketTime = now;
+        boat.color = this.boatColors[idx % this.boatColors.length];
       }
     });
+
+    // Prune boats that left or belonged to a previous race/salon
+    for (const existingId of Array.from(this.boatsMap.keys())) {
+      if (!activeIds.has(existingId)) {
+        this.boatsMap.delete(existingId);
+      }
+    }
   }
 
-  /**
-   * Main 60 FPS Render Loop with Dead Reckoning (Sec. 8 of Specification)
-   * Vinst = 500 / splitSec
-   * Pos(t) = Pos(packet) + Vinst * deltaT
-   * Lerp réconciliation 10% par frame
-   */
   private startRenderLoop = () => {
     const render = (timestamp: number) => {
-      const deltaT = (timestamp - this.lastFrameTimestamp) / 1000;
+      const deltaT = Math.min(0.1, Math.max(0, (timestamp - this.lastFrameTimestamp) / 1000));
       this.lastFrameTimestamp = timestamp;
 
       this.updateBoatsPhysics(deltaT);
@@ -138,19 +184,14 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
   };
 
   private updateBoatsPhysics(deltaT: number): void {
-    this.boatsMap.forEach(boat => {
-      // 1. Dead Reckoning speed calculation
-      const vInst = boat.splitSec > 0 ? 500 / boat.splitSec : 0;
-
-      // 2. Extrapolate predicted target
+    this.boatsMap.forEach((boat) => {
+      const vInst = boat.splitSec > 0 && boat.spm > 0 ? 500 / boat.splitSec : 0;
       const predictedDist = boat.targetPacketDist + vInst * deltaT;
       boat.targetPacketDist = predictedDist;
 
-      // 3. Smooth Lerp reconciliation (10% per frame toward predicted position)
       const diff = boat.targetPacketDist - boat.currentDisplayDist;
-      boat.currentDisplayDist += diff * 0.1;
+      boat.currentDisplayDist += diff * 0.12;
 
-      // Clamp to finish
       if (boat.currentDisplayDist > this.targetDistance) {
         boat.currentDisplayDist = this.targetDistance;
       }
@@ -160,92 +201,112 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
   private drawCanvasScene(): void {
     if (!this.ctx) return;
     const ctx = this.ctx;
-    const w = this.canvasRef.nativeElement.width;
-    const h = this.canvasRef.nativeElement.height;
+    const w = this.cssWidth;
+    const h = this.cssHeight;
+    const isCompact = w < 520;
 
     // 1. Clear background water
     ctx.fillStyle = '#081226';
     ctx.fillRect(0, 0, w, h);
 
-    // 2. Draw river lines & distance marks
-    const marginX = 70;
-    const trackW = w - marginX - 40;
+    // 2. River lines & distance marks adapted to mobile/tablet width
+    const marginX = isCompact ? 22 : 52;
+    const rightPad = isCompact ? 20 : 34;
+    const trackW = Math.max(120, w - marginX - rightPad);
     const boatCount = Math.max(1, this.boatsMap.size);
-    const laneH = Math.min(45, (h - 40) / Math.max(1, Math.min(8, boatCount)));
+    const laneH = Math.min(44, (h - 36) / Math.max(1, Math.min(8, boatCount)));
 
-    // Vertical Distance grids
-    const markers = [0, 0.25, 0.5, 0.75, 1.0];
-    ctx.strokeStyle = 'rgba(0, 240, 255, 0.15)';
+    const markers = w < 380 ? [0, 0.5, 1.0] : [0, 0.25, 0.5, 0.75, 1.0];
+    ctx.strokeStyle = 'rgba(0, 240, 255, 0.16)';
     ctx.lineWidth = 1;
-    ctx.font = '10px monospace';
-    ctx.fillStyle = 'rgba(0, 240, 255, 0.6)';
+    ctx.font = isCompact ? '600 10px monospace' : '600 11px monospace';
+    ctx.fillStyle = 'rgba(0, 240, 255, 0.72)';
 
-    markers.forEach(pct => {
+    markers.forEach((pct) => {
       const x = marginX + trackW * pct;
       ctx.beginPath();
-      ctx.moveTo(x, 20);
-      ctx.lineTo(x, h - 10);
+      ctx.moveTo(x, 22);
+      ctx.lineTo(x, h - 8);
       ctx.stroke();
-      const distM = Math.round(pct * this.targetDistance);
-      ctx.fillText(`${distM}m`, x - 12, 16);
+
+      const label = `${Math.round(pct * this.targetDistance)}m`;
+      const tw = ctx.measureText(label).width;
+      const tx = Math.max(4, Math.min(w - tw - 4, x - tw / 2));
+      ctx.fillText(label, tx, 15);
     });
 
-    // Finish line checkered effect
+    // Finish line
     const finishX = marginX + trackW;
     ctx.strokeStyle = '#ffe600';
-    ctx.lineWidth = 3;
+    ctx.lineWidth = 2.5;
     ctx.beginPath();
-    ctx.moveTo(finishX, 20);
-    ctx.lineTo(finishX, h - 10);
+    ctx.moveTo(finishX, 22);
+    ctx.lineTo(finishX, h - 8);
     ctx.stroke();
 
-    // 3. Draw Kayaks / Boats
+    if (this.boatsMap.size === 0) {
+      ctx.font = isCompact ? '600 12px sans-serif' : '600 13px sans-serif';
+      ctx.fillStyle = 'rgba(226, 232, 240, 0.65)';
+      const emptyMsg = '🛶 Ligne d’eau prête — en attente des rameurs...';
+      const msgW = ctx.measureText(emptyMsg).width;
+      ctx.fillText(emptyMsg, Math.max(10, (w - msgW) / 2), h / 2 + 6);
+      return;
+    }
+
+    // 3. Draw Kayaks / Boats with non-clipping labels
     let laneIdx = 0;
-    this.boatsMap.forEach(boat => {
-      const y = 35 + laneIdx * laneH;
+    const hullRx = isCompact ? 14 : 18;
+    const hullRy = isCompact ? 4.5 : 5;
+
+    this.boatsMap.forEach((boat) => {
+      const y = 36 + laneIdx * laneH;
       const progress = Math.min(1.0, Math.max(0, boat.currentDisplayDist / (this.targetDistance || 2000)));
       const x = marginX + trackW * progress;
 
-      // Lane boundary line
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+      // Lane separator
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.06)';
+      ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.moveTo(marginX, y + laneH / 2);
       ctx.lineTo(finishX, y + laneH / 2);
       ctx.stroke();
 
-      // Boat Wake ripple
-      ctx.fillStyle = 'rgba(0, 240, 255, 0.2)';
+      // Wake ripple
+      ctx.fillStyle = 'rgba(0, 240, 255, 0.22)';
       ctx.beginPath();
-      ctx.ellipse(x - 16, y, 12, 4, 0, 0, Math.PI * 2);
+      ctx.ellipse(Math.max(marginX, x - hullRx + 2), y, isCompact ? 9 : 12, 3.5, 0, 0, Math.PI * 2);
       ctx.fill();
 
       // Kayak hull
       ctx.fillStyle = boat.color;
       ctx.beginPath();
-      ctx.ellipse(x, y, 18, 5, 0, 0, Math.PI * 2);
+      ctx.ellipse(x, y, hullRx, hullRy, 0, 0, Math.PI * 2);
       ctx.fill();
 
-      // Cockpit & Paddler
+      // Cockpit
       ctx.fillStyle = '#060913';
       ctx.beginPath();
-      ctx.arc(x, y, 3, 0, Math.PI * 2);
+      ctx.arc(x, y, 2.8, 0, Math.PI * 2);
       ctx.fill();
 
       // Paddle blades
       ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 2;
+      ctx.lineWidth = 1.8;
       ctx.beginPath();
-      ctx.moveTo(x - 5, y - 8);
-      ctx.lineTo(x + 5, y + 8);
+      ctx.moveTo(x - 4, y - 7);
+      ctx.lineTo(x + 4, y + 7);
       ctx.stroke();
 
-      // Name & distance badge
-      ctx.font = 'bold 11px sans-serif';
+      // Clamped Name & Distance label
+      const shortName = isCompact && boat.name.length > 10 ? `${boat.name.slice(0, 9)}…` : boat.name;
+      const text = `${shortName} · ${Math.round(boat.currentDisplayDist)}m`;
+      ctx.font = isCompact ? 'bold 10.5px sans-serif' : 'bold 11.5px sans-serif';
       ctx.fillStyle = boat.userId === this.activeUserId ? '#ffe600' : '#ffffff';
-      ctx.fillText(`${boat.name} (${Math.round(boat.currentDisplayDist)}m)`, x - 25, y - 9);
+      const tw = ctx.measureText(text).width;
+      const lx = Math.max(6, Math.min(w - tw - 6, x - tw / 2));
+      ctx.fillText(text, lx, y - 9);
 
       laneIdx++;
     });
   }
 }
-

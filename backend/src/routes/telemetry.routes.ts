@@ -31,6 +31,15 @@ export default (app: Application): void => {
   // POST /api/v1/races/private/:identifier/regenerate-code (Rotate Meet code & share URL)
   router.post("/races/private/:identifier/regenerate-code", TelemetryController.regeneratePrivateCode);
 
+  // POST /api/v1/races/private/:identifier/toggle-approval (Organizer toggles approval requirement)
+  router.post("/races/private/:identifier/toggle-approval", TelemetryController.toggleApprovalRequirement);
+
+  // POST /api/v1/races/private/:identifier/approve-participant (Organizer approves or rejects participant)
+  router.post("/races/private/:identifier/approve-participant", TelemetryController.approveParticipant);
+
+  // GET /api/v1/races/private/:identifier/participant-status (Participant status polling)
+  router.get("/races/private/:identifier/participant-status", TelemetryController.getParticipantStatus);
+
   // DELETE /api/v1/races/private/:identifier (Close private salon & revoke codes)
   router.delete("/races/private/:identifier", TelemetryController.closePrivateRace);
 

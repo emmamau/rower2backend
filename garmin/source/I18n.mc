@@ -155,6 +155,15 @@ module I18n {
             return "UP/DN: Select | START: OK";
         }
 
+        if (key.equals("PLAYER_LABEL")) {
+            if (_currentLang == LANG_FR) { return "Joueur :"; }
+            if (_currentLang == LANG_DE) { return "Spieler :"; }
+            if (_currentLang == LANG_ES) { return "Jugador :"; }
+            if (_currentLang == LANG_IT) { return "Giocatore :"; }
+            if (_currentLang == LANG_PT) { return "Jogador :"; }
+            return "Player :";
+        }
+
         // --- G3: PIN INPUT ---
         if (key.equals("PIN_TITLE")) {
             if (_currentLang == LANG_FR) { return "SALON PRIVE"; }
@@ -165,20 +174,20 @@ module I18n {
             return "PRIVATE ROOM";
         }
         if (key.equals("PIN_SUB")) {
-            if (_currentLang == LANG_FR) { return "Code PIN a 4 chiffres"; }
-            if (_currentLang == LANG_DE) { return "4-stelliger PIN-Code"; }
-            if (_currentLang == LANG_ES) { return "Codigo PIN 4 digitos"; }
-            if (_currentLang == LANG_IT) { return "Codice PIN 4 cifre"; }
-            if (_currentLang == LANG_PT) { return "Codigo PIN 4 digitos"; }
-            return "Enter 4-digit PIN";
+            if (_currentLang == LANG_FR) { return "Code PIN alphanumerique (5 car.)"; }
+            if (_currentLang == LANG_DE) { return "5-stelliger Alphanum-Code"; }
+            if (_currentLang == LANG_ES) { return "Codigo PIN alfanum. (5 car.)"; }
+            if (_currentLang == LANG_IT) { return "PIN alfanumerico (5 car.)"; }
+            if (_currentLang == LANG_PT) { return "PIN alfanumerico (5 car.)"; }
+            return "5-char alphanumeric PIN";
         }
         if (key.equals("PIN_HELP_1")) {
-            if (_currentLang == LANG_FR) { return "UP / DOWN : Chiffre"; }
-            if (_currentLang == LANG_DE) { return "UP / DOWN : Ziffer"; }
-            if (_currentLang == LANG_ES) { return "UP / DOWN : Digito"; }
-            if (_currentLang == LANG_IT) { return "UP / DOWN : Cifra"; }
-            if (_currentLang == LANG_PT) { return "UP / DOWN : Digito"; }
-            return "UP / DOWN : Digit";
+            if (_currentLang == LANG_FR) { return "UP / DOWN : Caractere"; }
+            if (_currentLang == LANG_DE) { return "UP / DOWN : Zeichen"; }
+            if (_currentLang == LANG_ES) { return "UP / DOWN : Caracter"; }
+            if (_currentLang == LANG_IT) { return "UP / DOWN : Carattere"; }
+            if (_currentLang == LANG_PT) { return "UP / DOWN : Caractere"; }
+            return "UP / DOWN : Character";
         }
         if (key.equals("PIN_HELP_2")) {
             if (_currentLang == LANG_FR) { return "START: Suiv | BACK: Ret"; }
@@ -195,6 +204,48 @@ module I18n {
             if (_currentLang == LANG_IT) { return "PIN NON VALIDO"; }
             if (_currentLang == LANG_PT) { return "PIN INVALIDO"; }
             return "INVALID PIN";
+        }
+
+        // --- PENDING APPROVAL SCREEN ---
+        if (key.equals("PENDING_TITLE")) {
+            if (_currentLang == LANG_FR) { return "EN ATTENTE"; }
+            if (_currentLang == LANG_DE) { return "WARTEPOSITION"; }
+            if (_currentLang == LANG_ES) { return "EN ESPERA"; }
+            if (_currentLang == LANG_IT) { return "IN ATTESA"; }
+            if (_currentLang == LANG_PT) { return "EM ESPERA"; }
+            return "PENDING";
+        }
+        if (key.equals("PENDING_SUB")) {
+            if (_currentLang == LANG_FR) { return "Validation par l'hote..."; }
+            if (_currentLang == LANG_DE) { return "Warten auf Freigabe..."; }
+            if (_currentLang == LANG_ES) { return "Validacion del anfitrion..."; }
+            if (_currentLang == LANG_IT) { return "Convalida dall'host..."; }
+            if (_currentLang == LANG_PT) { return "Validacao pelo host..."; }
+            return "Waiting host approval...";
+        }
+        if (key.equals("PENDING_HINT")) {
+            if (_currentLang == LANG_FR) { return "Patientez sur votre montre"; }
+            if (_currentLang == LANG_DE) { return "Bitte kurz warten"; }
+            if (_currentLang == LANG_ES) { return "Espere en su reloj"; }
+            if (_currentLang == LANG_IT) { return "Attendi sul tuo orologio"; }
+            if (_currentLang == LANG_PT) { return "Aguarde no seu relogio"; }
+            return "Please wait on your watch";
+        }
+        if (key.equals("PENDING_REJECTED")) {
+            if (_currentLang == LANG_FR) { return "CONNEXION REFUSEE"; }
+            if (_currentLang == LANG_DE) { return "ZUGRIFF ABGELEHNT"; }
+            if (_currentLang == LANG_ES) { return "ACCESO DENEGADO"; }
+            if (_currentLang == LANG_IT) { return "ACCESSO NEGATO"; }
+            if (_currentLang == LANG_PT) { return "ACESSO NEGADO"; }
+            return "ACCESS DENIED";
+        }
+        if (key.equals("PENDING_APPROVED")) {
+            if (_currentLang == LANG_FR) { return "ACCES VALIDE !"; }
+            if (_currentLang == LANG_DE) { return "FREIGEGEBEN !"; }
+            if (_currentLang == LANG_ES) { return "ACCESO VALIDADO !"; }
+            if (_currentLang == LANG_IT) { return "ACCESSO APPROVATO !"; }
+            if (_currentLang == LANG_PT) { return "ACESSO APROVADO !"; }
+            return "ACCESS APPROVED !";
         }
 
         // --- G4: LOBBY & WAITING ROOM ---

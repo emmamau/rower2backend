@@ -63,16 +63,21 @@ test('parseRoomInviteInput parses codes, 4-digit PINs, PRIV_ IDs, share URLs, qu
     value: 'abc-def-ghi'
   });
 
-  // 4-digit Garmin PINs (including spaced digits)
+  // Alphanumeric PINs (including 5-character watch codes and spaced characters)
   assert.deepEqual(parseRoomInviteInput('4829'), {
     valid: true,
     kind: 'pin',
     value: '4829'
   });
-  assert.deepEqual(parseRoomInviteInput(' 0 4 1 9 '), {
+  assert.deepEqual(parseRoomInviteInput('X7K2M'), {
     valid: true,
     kind: 'pin',
-    value: '0419'
+    value: 'X7K2M'
+  });
+  assert.deepEqual(parseRoomInviteInput(' x 7 k 2 m '), {
+    valid: true,
+    kind: 'pin',
+    value: 'X7K2M'
   });
 
   // Direct PRIV_ race ID
@@ -124,8 +129,9 @@ test('parseRoomInviteInput parses codes, 4-digit PINs, PRIV_ IDs, share URLs, qu
     value: 'mnq-rst-uvw'
   });
 
-  // Invalid inputs
-  assert.deepEqual(parseRoomInviteInput('12345'), { valid: false, reason: 'invalid_format' });
+  // Invalid inputs (too short, special chars)
+  assert.deepEqual(parseRoomInviteInput('12'), { valid: false, reason: 'invalid_format' });
+  assert.deepEqual(parseRoomInviteInput('X7#2M'), { valid: false, reason: 'invalid_format' });
   assert.deepEqual(parseRoomInviteInput('https://rower.app/r/bad!token'), {
     valid: false,
     reason: 'invalid_format'
