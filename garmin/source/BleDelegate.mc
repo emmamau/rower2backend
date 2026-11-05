@@ -67,6 +67,8 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
     private var _srPacketQueue as Array<ByteArray> = [] as Array<ByteArray>;
     private var _srHandshakeState as Number = 0; // 0=uninit, 1=init sent, 2=challenge requested, 3=unlocked
     private var _srChallengeRequested as Boolean = false;
+    private var _srRxBuffer as String = "";
+    private var _srV3LockTicks as Number = 0;
 
     // Race & FIT Session State
     private var _session as ActivityRecording.Session?;
@@ -77,6 +79,7 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
     private var _targetDistance as Number = 10000;
     private var _progressPercent as Float = 0.0f;
     private var _lastSentStrokeCount as Number = 0;
+    private var _pendingStrokeSync as Boolean = false;
     private var _lastFallbackSendSec as Number = 0;
     private var _tickCounter as Number = 0;
 
@@ -341,6 +344,8 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
             _srPacketQueue = [] as Array<ByteArray>;
             _srHandshakeState = 0;
             _srChallengeRequested = false;
+            _srRxBuffer = "";
+            _srV3LockTicks = 0;
             _model.connectionState = RowerDataModel.STATE_DISCONNECTED;
             if (!_isManualDisconnect) {
                 startScan();
@@ -503,6 +508,8 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
     private function initSmartRowDirect() as Void {
         _srHandshakeState = 1;
         _srChallengeRequested = false;
+        _srRxBuffer = "";
+        _srV3LockTicks = 0;
         _srPacketQueue = [] as Array<ByteArray>;
         // SmartRow INIT_COMMAND: "$\rV@\r"
         sendSmartRowPacket([0x24, 0x0D, 0x56, 0x40, 0x0D]b);
@@ -568,58 +575,40 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
         }
     }
 
-    private function handleSmartRowNotification(value as ByteArray) as Void {
-        var size = value.size();
-        if (size <= 0) {
-            return;
+    //! Detect whether a SmartRow telemetry frame still has V3-obfuscated distance bytes (0x40..0x49 '@'-'I')
+    public static function isSmartRowV3LockedFrame(bytes as ByteArray) as Boolean {
+        var size = bytes.size();
+        if (size < 6) {
+            return false;
         }
-
-        // Convert incoming value to ASCII to inspect SmartRow V3 version / KEYLOCK challenge
-        var chars = new [size] as Array<Char>;
-        var charLen = 0;
-        for (var i = 0; i < size; i++) {
-            var b = value[i];
-            if (b >= 0x20 && b <= 0x7E) {
-                chars[charLen] = b.toChar();
-                charLen++;
+        var i = 0;
+        while (i <= size - 6) {
+            var b0 = bytes[i];
+            var isRec = (b0 == 0x61 || b0 == 0x62 || b0 == 0x63 || b0 == 0x64 ||
+                         b0 == 0x65 || b0 == 0x66 || b0 == 0x78 || b0 == 0x79 || b0 == 0x7A);
+            if (isRec && (i == 0 || bytes[i - 1] == 0x0D || bytes[i - 1] == 0x0A)) {
+                for (var k = 1; k <= 5; k++) {
+                    var dk = bytes[i + k];
+                    if (dk >= 0x40 && dk <= 0x49) {
+                        return true;
+                    }
+                }
+                return false;
             }
+            i++;
         }
-        var msgStr = (charLen > 0) ? StringUtil.charArrayToString(chars.slice(0, charLen) as Array<Char>) : "";
-
-        // 1. Version reply from pulley (e.g. "SmartRow 'V3.10'") -> request KEYLOCK challenge '#'
-        if (msgStr.find("V3") != null && !_srChallengeRequested) {
-            _srChallengeRequested = true;
-            _srHandshakeState = 2;
-            sendSmartRowPacket([0x23]b);
-            return;
-        }
-
-        // 2. V3 KEYLOCK challenge (e.g. "KEYLOCK=C2D70BB1")
-        var keylockIdx = msgStr.find("KEYLOCK=");
-        if (keylockIdx != null) {
-            var challenge = msgStr.substring(keylockIdx, msgStr.length());
-            if (challenge != null) {
-                handleSmartRowKeylock(challenge);
-            }
-            return;
-        }
-
-        // 3. Regular SmartRow telemetry frames (a..f, x..z)
-        _srHandshakeState = 3;
-        _model.parseSmartRowBytes(value);
-        onModelUpdated();
+        return false;
     }
 
-    private function handleSmartRowKeylock(challenge as String) as Void {
+    //! Validate SmartRow V3 KEYLOCK=XXXXXXXX challenge checksum and compute \r<4 hex>\r unlock packet
+    public static function computeSmartRowKeylockResponse(challenge as String) as ByteArray? {
         if (challenge.length() < 16) {
-            sendSmartRowPacket([0x23]b);
-            return;
+            return null;
         }
         var sub14 = challenge.substring(0, 14);
         var checksumStr = challenge.substring(14, 16);
         if (sub14 == null || checksumStr == null) {
-            sendSmartRowPacket([0x23]b);
-            return;
+            return null;
         }
         var keyChars = sub14.toCharArray();
         var sum = 0;
@@ -629,15 +618,13 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
         var expectedChecksum = sum & 0xFF;
         var actualChecksum = parseHex(checksumStr);
         if (actualChecksum != expectedChecksum) {
-            sendSmartRowPacket([0x23]b);
-            return;
+            return null;
         }
 
         var seedStr = challenge.substring(10, 14);
         var seed = (seedStr != null) ? parseHex(seedStr) : -1;
         if (seed < 0) {
-            sendSmartRowPacket([0x23]b);
-            return;
+            return null;
         }
 
         // V3 challenge response: ((seed * 17923) / 256) & 0xFFFF
@@ -648,12 +635,10 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
             r[j] = (nib < 10) ? (48 + nib) : (87 + nib);
             respVal = respVal >> 4;
         }
-
-        _srHandshakeState = 3;
-        sendSmartRowPacket([0x0D, r[0], r[1], r[2], r[3], 0x0D]b);
+        return [0x0D, r[0], r[1], r[2], r[3], 0x0D]b;
     }
 
-    private function parseHex(str as String) as Number {
+    public static function parseHex(str as String) as Number {
         var chars = str.toUpper().toCharArray();
         var val = 0;
         for (var i = 0; i < chars.size(); i++) {
@@ -665,6 +650,99 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
             val = (val << 4) | d;
         }
         return val;
+    }
+
+    private function handleSmartRowNotification(value as ByteArray) as Void {
+        var size = value.size();
+        if (size <= 0) {
+            return;
+        }
+
+        // Accumulate printable ASCII + CR/LF across split BLE notifications so fragmented V3 / KEYLOCK= messages match reliably
+        var chars = new [size] as Array<Char>;
+        var charLen = 0;
+        var hasTerminator = false;
+        for (var i = 0; i < size; i++) {
+            var b = value[i];
+            if (b >= 0x20 && b <= 0x7E) {
+                chars[charLen] = b.toChar();
+                charLen++;
+            } else if (b == 0x0D || b == 0x0A) {
+                hasTerminator = true;
+            }
+        }
+        var msgStr = (charLen > 0) ? StringUtil.charArrayToString(chars.slice(0, charLen) as Array<Char>) : "";
+        if (msgStr.length() > 0) {
+            _srRxBuffer = _srRxBuffer + msgStr;
+            if (_srRxBuffer.length() > 96) {
+                var cut = _srRxBuffer.substring(_srRxBuffer.length() - 96, _srRxBuffer.length());
+                _srRxBuffer = (cut != null) ? cut : "";
+            }
+        }
+
+        // 1. V3 KEYLOCK challenge (e.g. "KEYLOCK=C2D70BB1") - supports fragmented BLE chunks
+        var keylockIdx = _srRxBuffer.find("KEYLOCK=");
+        if (keylockIdx != null) {
+            var rem = _srRxBuffer.substring(keylockIdx, _srRxBuffer.length());
+            if (rem != null) {
+                if (rem.length() >= 16) {
+                    var after = (rem.length() > 16) ? rem.substring(16, rem.length()) : "";
+                    _srRxBuffer = (after != null) ? after : "";
+                    handleSmartRowKeylock(rem);
+                    return;
+                } else if (!hasTerminator) {
+                    // Wait for next BLE notification chunk to complete 16-char KEYLOCK challenge
+                    return;
+                } else {
+                    _srRxBuffer = "";
+                    sendSmartRowPacket([0x23]b);
+                    return;
+                }
+            }
+        }
+
+        // 2. Version reply from pulley (e.g. "SmartRow 'V3.10'") -> request KEYLOCK challenge '#'
+        if (_srRxBuffer.find("V3") != null && !_srChallengeRequested) {
+            _srChallengeRequested = true;
+            _srHandshakeState = 2;
+            _srRxBuffer = "";
+            sendSmartRowPacket([0x23]b);
+            if (msgStr.find("V3") != null) {
+                return;
+            }
+        }
+
+        // 3. Regular SmartRow telemetry frames (a..f, x..z)
+        // Crucial: if bytes 1..5 are 0x40..0x49, pulley is STILL V3-locked! Do NOT set _srHandshakeState = 3!
+        if (isSmartRowV3LockedFrame(value)) {
+            if (!_srChallengeRequested) {
+                _srChallengeRequested = true;
+                _srHandshakeState = 2;
+                sendSmartRowPacket([0x23]b);
+            }
+        } else if (size >= 6) {
+            var firstB = value[0];
+            var isValidRec = (firstB == 0x61 || firstB == 0x62 || firstB == 0x63 || firstB == 0x64 ||
+                              firstB == 0x65 || firstB == 0x66 || firstB == 0x78 || firstB == 0x79 || firstB == 0x7A);
+            if (isValidRec) {
+                _srHandshakeState = 3;
+                _srV3LockTicks = 0;
+            }
+        }
+
+        _model.parseSmartRowBytes(value);
+        onModelUpdated();
+    }
+
+    private function handleSmartRowKeylock(challenge as String) as Void {
+        var unlockPacket = computeSmartRowKeylockResponse(challenge);
+        if (unlockPacket == null) {
+            sendSmartRowPacket([0x23]b);
+            return;
+        }
+        _srHandshakeState = 3;
+        _srV3LockTicks = 0;
+        sendSmartRowPacket(unlockPacket as ByteArray);
     }
 
     //! 1Hz BLE health & SmartRow keep-alive watchdog (ported from rower.iq)
@@ -739,8 +817,14 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
 
             if (_model.connectionState == RowerDataModel.STATE_CONNECTED_SMARTROW) {
                 if (_srHandshakeState < 3) {
+                    _srV3LockTicks += 1;
                     if (_secondsWithoutData >= 2 && (_secondsWithoutData % 2 == 0) && _srPacketQueue.size() == 0 && !_bleWriteBusy) {
                         initSmartRowDirect();
+                    } else if (_srV3LockTicks >= 3 && (_srV3LockTicks % 3 == 0) && _srPacketQueue.size() == 0 && !_bleWriteBusy) {
+                        // Retry KEYLOCK '#' request even when locked telemetry is actively streaming
+                        _srChallengeRequested = true;
+                        _srHandshakeState = 2;
+                        sendSmartRowPacket([0x23]b);
                     }
                 } else {
                     if (_secondsWithoutData >= 2 && (_secondsWithoutData % 2 == 0) && _srPacketQueue.size() == 0 && !_bleWriteBusy) {
@@ -772,7 +856,16 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
 
         // Update race progress if dead-reckoning advanced distance
         if (state == RowerView.STATE_RACING || state == RowerView.STATE_LATE_JOIN) {
-            updateProgressAndCheckFinish();
+            if (!updateProgressAndCheckFinish()) {
+                if (_pendingStrokeSync && _activityStatus.equals("in_progress") && _raceMode.equals("race") && _activityId.length() > 0) {
+                    _pendingStrokeSync = false;
+                    _syncManager.syncActivity(
+                        _activityId, _userId, _userId, _raceMode,
+                        _activityStatus, _targetDistance, _model,
+                        _model.deviceName, false
+                    );
+                }
+            }
         }
 
         // Countdown & synchronous 5s start management
@@ -870,10 +963,14 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
             }
 
             if (_raceMode.equals("race") && _activityId.length() > 0) {
-                var shouldSend = false;
                 if (_model.strokeCount > _lastSentStrokeCount) {
-                    shouldSend = true;
                     _lastSentStrokeCount = _model.strokeCount;
+                    _pendingStrokeSync = true;
+                }
+                var shouldSend = false;
+                if (_pendingStrokeSync && (_model.instantPower > 0 || _model.connectionState != RowerDataModel.STATE_CONNECTED_SMARTROW)) {
+                    shouldSend = true;
+                    _pendingStrokeSync = false;
                 } else if (_model.strokeCount == 0 && _model.instantPower > 0 && (_tickCounter - _lastFallbackSendSec >= 3)) {
                     shouldSend = true;
                     _lastFallbackSendSec = _tickCounter;
@@ -1027,6 +1124,7 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
         _activityStatus = "in_progress";
         _progressPercent = 0.0f;
         _lastSentStrokeCount = 0;
+        _pendingStrokeSync = false;
         _lastFallbackSendSec = _tickCounter;
 
         // Tare model & send optional hardware reset command

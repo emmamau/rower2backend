@@ -221,10 +221,13 @@ class RestSyncManager {
 
         var endpoint = getBaseUrl() + "/api/v1/telemetry";
 
+        var effPace = (model.instantPace > 0) ? model.instantPace : ((!model.isHalted && model.avgPace > 0) ? model.avgPace : 0);
+        var effPower = (model.instantPower > 0) ? model.instantPower : ((!model.isHalted && model.avgPower > 0) ? model.avgPower : 0);
+
         var metrics = {
             "distanceM" => model.totalDistance,
-            "splitSec" => model.instantPace,
-            "powerWatts" => model.instantPower,
+            "splitSec" => effPace,
+            "powerWatts" => effPower,
             "strokeRate" => model.strokeRate,
             "heartRate" => model.heartRate
         };
@@ -240,8 +243,8 @@ class RestSyncManager {
             "timestamp" => System.getTimer(),
             "elapsedTime" => model.elapsedTime,
             "currentDistance" => model.totalDistance,
-            "instantPower" => model.instantPower,
-            "instantPace" => model.instantPace,
+            "instantPower" => effPower,
+            "instantPace" => effPace,
             "metrics" => metrics
         };
 

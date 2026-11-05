@@ -91,7 +91,9 @@ export class TelemetryController {
         });
       } else {
         const prevAvgP = (activity.get("avgPower") as number) || actualPower;
-        const newAvgP = Math.round((prevAvgP + actualPower) / 2);
+        const newAvgP = actualPower > 0 ? Math.round((prevAvgP + actualPower) / 2) : prevAvgP;
+        const prevLastP = (activity.get("lastPower") as number) || 0;
+        const effectiveLastP = actualPower > 0 ? actualPower : (isFinished ? prevLastP : 0);
 
         const prevAvgSplit = (activity.get("avgPace") as number) || actualSplit;
         const newAvgSplit = actualSplit > 0 ? Math.round((prevAvgSplit + actualSplit) / 2) : prevAvgSplit;
@@ -102,7 +104,7 @@ export class TelemetryController {
           progressPercent: Math.min(100, Number(((actualDistance / targetDist) * 100).toFixed(1))),
           status: activityStatus,
           lastStrokeRate: actualSpm,
-          lastPower: actualPower,
+          lastPower: effectiveLastP,
           lastPace: actualSplit,
           lastHeartRate: heartRate,
           avgPower: newAvgP,

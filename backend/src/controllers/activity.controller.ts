@@ -90,17 +90,25 @@ export const syncActivity = async (req: Request, res: Response): Promise<void> =
       const prevTime = (activity.get("elapsedTime") as number) || 1;
       const newTime = Number(elapsedTime) || prevTime;
 
-      const prevAvgPower = (activity.get("avgPower") as number) || lastPower;
-      const computedAvgPower = Math.round((prevAvgPower + Number(lastPower)) / 2);
+      const numPower = Number(lastPower);
+      const numPace = Number(lastPace);
+      const derivedPower = (numPower <= 0 && numPace >= 60 && numPace < 360)
+        ? Math.round(2.80 / Math.pow(numPace / 500, 3))
+        : numPower;
 
-      const prevAvgPace = (activity.get("avgPace") as number) || lastPace;
-      const computedAvgPace = lastPace > 0 ? Math.round((prevAvgPace + Number(lastPace)) / 2) : prevAvgPace;
+      const prevAvgPower = (activity.get("avgPower") as number) || derivedPower;
+      const computedAvgPower = derivedPower > 0 ? Math.round((prevAvgPower + derivedPower) / 2) : prevAvgPower;
+
+      const prevAvgPace = (activity.get("avgPace") as number) || numPace;
+      const computedAvgPace = numPace > 0 ? Math.round((prevAvgPace + numPace) / 2) : prevAvgPace;
 
       const prevAvgSpm = (activity.get("avgStrokeRate") as number) || lastStrokeRate;
       const computedAvgSpm = Number(((prevAvgSpm + Number(lastStrokeRate)) / 2).toFixed(1));
 
       const speedKmh = newTime > 0 ? Number(((netDist / newTime) * 3.6).toFixed(1)) : 0;
       const isFinished = netDist >= targetDist || status === "finished";
+      const prevLastPower = (activity.get("lastPower") as number) || 0;
+      const effectiveLastPower = derivedPower > 0 ? derivedPower : (isFinished ? prevLastPower : 0);
 
       let finalStatus = status;
       if (isAbandoned) {
@@ -116,8 +124,8 @@ export const syncActivity = async (req: Request, res: Response): Promise<void> =
         status: finalStatus,
         lastStrokeRate: Number(lastStrokeRate),
         lastStrokeCount: Number(lastStrokeCount),
-        lastPower: Number(lastPower),
-        lastPace: Number(lastPace),
+        lastPower: effectiveLastPower,
+        lastPace: numPace,
         lastHeartRate: Number(lastHeartRate),
         lastResistance: Number(lastResistance),
         avgPower: computedAvgPower,

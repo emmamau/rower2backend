@@ -272,6 +272,17 @@ export class AppComponent implements OnInit, OnDestroy {
             // Calcul du classement et des écarts de distance en direct
             const activeList = this.racers.filter(r => r.status !== 'abandoned');
             this.totalActiveRacers = activeList.length;
+            this.liveMetricsList = activeList.map((r, idx) => ({
+              lane: idx + 1,
+              userId: r.userId,
+              name: r.userName || r.userId,
+              dist: r.netDistance || 0,
+              split: r.lastPace || r.avgPace || 120,
+              watts: r.lastPower || r.avgPower || 0,
+              spm: r.lastStrokeRate || r.avgStrokeRate || 0,
+              heartRate: r.lastHeartRate,
+              status: r.status || 'in_progress'
+            }));
             const myIdx = activeList.findIndex(r => r.userId === this.activeUserId);
 
             if (myIdx >= 0) {

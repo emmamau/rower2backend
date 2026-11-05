@@ -1117,7 +1117,8 @@ class RowerView extends WatchUi.View {
             // PAGE 1: Primary Race Grid [PACE | POWER] / [DISTANCE | GAP or REMAINING]
             var dispPace = (_model.instantPace > 0) ? _model.instantPace : _model.avgPace;
             var paceStr = _model.formatPace(dispPace);
-            var powerStr = _model.instantPower.format("%d");
+            var dispPower = (_model.instantPower > 0) ? _model.instantPower : ((!_model.isHalted && _model.avgPower > 0) ? _model.avgPower : 0);
+            var powerStr = dispPower.format("%d");
             var distStr = _netDistance.format("%d");
 
             var brLabel = I18n.getText("GRID_GAP");

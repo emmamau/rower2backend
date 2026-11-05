@@ -63,6 +63,9 @@ class RowerDataModel {
     private var _secondsSinceLastStrokeOrDist as Number = 0;
     private var _secondsSinceLastPacket as Number = 0;
     private var _sessionTimerSec as Number = 0;
+    private var _hasNativeSmartRowWatts as Boolean = false;
+    private var _lastSmartRowWork as Float = 0.0f;
+    private var _lastSmartRowHandleCm as Number = 0;
 
     // Running session average accumulators
     private var _wattsSum as Long = 0L;
@@ -133,6 +136,9 @@ class RowerDataModel {
         _secondsSinceLastStrokeOrDist = 0;
         _secondsSinceLastPacket = 0;
         _sessionTimerSec = 0;
+        _hasNativeSmartRowWatts = false;
+        _lastSmartRowWork = 0.0f;
+        _lastSmartRowHandleCm = 0;
 
         _wattsSum = 0L;
         _wattsSamples = 0;
@@ -155,6 +161,9 @@ class RowerDataModel {
         _secondsSinceLastStrokeOrDist = 0;
         _secondsSinceLastPacket = 0;
         _sessionTimerSec = 0;
+        _hasNativeSmartRowWatts = false;
+        _lastSmartRowWork = 0.0f;
+        _lastSmartRowHandleCm = 0;
 
         if (_lastRawDistance > 0) {
             _baselineRawDistance = _lastRawDistance;
@@ -240,6 +249,12 @@ class RowerDataModel {
         isHalted = false;
         _haltedByTimeout = false;
         _secondsSinceLastStrokeOrDist = 0;
+        if (work <= 0.0f && _lastSmartRowWork > 0.0f) {
+            work = _lastSmartRowWork;
+        }
+        if (handleLengthCm <= 0 && _lastSmartRowHandleCm > 0) {
+            handleLengthCm = _lastSmartRowHandleCm;
+        }
     }
 
     private function onRowingHalted(byTimeout as Boolean) as Void {
@@ -553,9 +568,15 @@ class RowerDataModel {
             }
             strokeCount = deltaStrokes + _strokesOffset;
             remainingTime = rawRemaining;
-            strokeRate = packetSpm;
-            instantPower = packetWatts;
-            instantPace = packetPace;
+            if (hasPacketSpm) {
+                strokeRate = packetSpm;
+            }
+            if (hasPacketWatts) {
+                instantPower = packetWatts;
+            }
+            if (hasPacketPace) {
+                instantPace = packetPace;
+            }
             speedCmS = (instantPace > 0) ? (50000 / instantPace).toNumber() : 0;
         } else {
             var distReset = _hasHardwareDistance && (_lastRawDistance >= 10) && (rawDistance < (_lastRawDistance - 5));
@@ -593,16 +614,36 @@ class RowerDataModel {
             remainingTime = rawRemaining;
 
             var progressed = (_hasHardwareDistance && rawDistance > _lastRawDistance) || (rawStrokes > _lastRawStrokes);
-            if (progressed || packetWatts > 10 || packetSpm > 8.0f) {
+            if (progressed || packetWatts > 10 || packetSpm > 8.0f || (hasPacketPace && packetPace > 0 && packetPace < 600 && !_haltedByTimeout)) {
                 onActiveRowingDetected();
             }
 
             _lastRawDistance = rawDistance;
             _lastRawStrokes = rawStrokes;
 
-            strokeRate = packetSpm;
-            instantPower = packetWatts;
-            instantPace = packetPace;
+            // Preserve metrics across FTMS multi-packet BLE split notifications (Bit 0 = 1 "More Data")
+            if (hasPacketSpm) {
+                strokeRate = packetSpm;
+                if (!progressed && packetSpm <= 0.0f && (!hasPacketWatts || packetWatts <= 0) && (!hasPacketPace || packetPace <= 0)) {
+                    instantPower = 0;
+                    instantPace = 0;
+                }
+            }
+            if (hasPacketWatts) {
+                if (packetWatts > 0) {
+                    instantPower = packetWatts;
+                } else if (hasPacketSpm) {
+                    // Primary stroke frame with 0W: allow cross-derivation below if Pace or SPM > 0
+                    instantPower = 0;
+                }
+            }
+            if (hasPacketPace) {
+                if (packetPace > 0) {
+                    instantPace = packetPace;
+                } else if (hasPacketSpm && (!hasPacketWatts || packetWatts <= 0)) {
+                    instantPace = 0;
+                }
+            }
             speedCmS = (instantPace > 0) ? (50000 / instantPace).toNumber() : 0;
         }
 
@@ -614,22 +655,22 @@ class RowerDataModel {
             instantPace = 0;
             speedCmS = 0;
         } else {
-            // Cross-derive Power <-> Pace for rowers omitting one field (e.g. VOWVIT V-W3, FitShow, Domyos)
-            if (!hasPacketWatts && instantPace > 0 && instantPace < 600) {
+            // Cross-derive Power <-> Pace for rowers omitting Watts or sending Bit 5 with 0 Watts
+            if (instantPower <= 0 && instantPace > 0 && instantPace < 600) {
                 var splitRatio = instantPace.toFloat() / 500.0f;
                 var denom = splitRatio * splitRatio * splitRatio;
                 if (denom > 0.0f) {
                     instantPower = ((2.80f / denom) + 0.5f).toNumber();
                 }
-            } else if (!hasPacketPace && instantPower > 0) {
+            } else if (instantPace <= 0 && instantPower > 0) {
                 var cubeRoot = Math.pow(2.80f / instantPower.toFloat(), 1.0f / 3.0f).toFloat();
                 var derivedPace = ((500.0f * cubeRoot) + 0.5f).toNumber();
                 if (derivedPace > 0 && derivedPace < 600) {
                     instantPace = derivedPace;
                     speedCmS = (50000 / instantPace).toNumber();
                 }
-            } else if (!hasPacketWatts && !hasPacketPace && effSpm > 8.0f) {
-                var estPace = (185.0f - (2.5f * effSpm)).toNumber();
+            } else if (instantPower <= 0 && instantPace <= 0 && strokeRate > 8.0f) {
+                var estPace = (185.0f - (2.5f * strokeRate)).toNumber();
                 if (estPace < 95) { estPace = 95; }
                 if (estPace > 240) { estPace = 240; }
                 instantPace = estPace;
@@ -816,62 +857,83 @@ class RowerDataModel {
         }
 
         if (msgType.equals("a") && len >= 10) {
-            totalEnergy = safeParseInt(normalized.substring(6, 10));
+            if (hasStartedRowing) {
+                totalEnergy = safeParseInt(normalized.substring(6, 10));
+            }
         } else if (msgType.equals("b") && len >= 13) {
-            work = safeParseInt(normalized.substring(7, 11)).toFloat() / 10.0f;
-            if (work > 0.0f && hasStartedRowing) {
-                onActiveRowingDetected();
-            }
+            var parsedWork = safeParseInt(normalized.substring(7, 11)).toFloat() / 10.0f;
             var endLenIdx = (len >= 14) ? 14 : len;
-            handleLengthCm = safeParseInt(normalizeSmartRowField(event.substring(11, endLenIdx)));
-            if (handleLengthCm <= 0) {
-                handleLengthCm = 105;
+            var parsedHandleCm = safeParseInt(normalizeSmartRowField(event.substring(11, endLenIdx)));
+            if (parsedHandleCm <= 0) {
+                parsedHandleCm = 105;
             }
-            var effLenM = handleLengthCm.toFloat() / 100.0f;
-            if (effLenM > 0.0f && work > 0.0f) {
-                var strokeAvgF = (work / effLenM).toNumber();
-                if (force <= 0) {
-                    force = strokeAvgF;
+            _lastSmartRowWork = parsedWork;
+            _lastSmartRowHandleCm = parsedHandleCm;
+
+            if (hasStartedRowing) {
+                work = parsedWork;
+                handleLengthCm = parsedHandleCm;
+                if (work > 0.0f) {
+                    onActiveRowingDetected();
                 }
-                if (strokeAvgF > 0) {
-                    _forceSum += strokeAvgF;
-                    _forceSamples += 1;
-                    avgForce = (_forceSum / _forceSamples).toNumber();
-                }
-            }
-        } else if (msgType.equals("c") && len >= 14) {
-            var rawWatts = safeParseInt(normalized.substring(6, 9));
-            if (rawWatts > 0 && hasStartedRowing) {
-                onActiveRowingDetected();
-            }
-            if (isHalted) {
-                instantPower = 0;
-            } else {
-                instantPower = rawWatts;
-                if (instantPower > maxPower) {
-                    maxPower = instantPower;
-                }
-                if (instantPower > 0) {
-                    _wattsSum += instantPower;
-                    _wattsSamples += 1;
-                    // Derive pace if e-frame hasn't arrived yet
-                    if (instantPace <= 0 && instantPower > 15) {
-                        var cr = Math.pow(2.80f / instantPower.toFloat(), 1.0f / 3.0f).toFloat();
-                        var dp = ((500.0f * cr) + 0.5f).toNumber();
-                        if (dp > 0 && dp < 600) {
-                            instantPace = dp;
-                            speedCmS = (50000 / instantPace).toNumber();
-                        }
+                var effLenM = handleLengthCm.toFloat() / 100.0f;
+                if (effLenM > 0.0f && work > 0.0f) {
+                    var strokeAvgF = (work / effLenM).toNumber();
+                    if (force <= 0) {
+                        force = strokeAvgF;
+                    }
+                    if (strokeAvgF > 0) {
+                        _forceSum += strokeAvgF;
+                        _forceSamples += 1;
+                        avgForce = (_forceSum / _forceSamples).toNumber();
                     }
                 }
+                if (!isHalted && !_hasNativeSmartRowWatts) {
+                    deriveSmartRowFallbackPower(0.0f);
+                }
             }
-            var srAvgWatts = safeParseInt(normalized.substring(9, 14)).toFloat() / 10.0f;
-            if (srAvgWatts > 0.0f) {
-                _avgWattsFloat = srAvgWatts;
-                avgPower = (srAvgWatts + 0.5f).toNumber();
-            } else if (_wattsSamples > 0) {
-                _avgWattsFloat = _wattsSum.toFloat() / _wattsSamples.toFloat();
-                avgPower = (_avgWattsFloat + 0.5f).toNumber();
+        } else if (msgType.equals("c") && len >= 9) {
+            var rawWatts = safeParseInt(normalized.substring(6, 9));
+            var srAvgWatts = 0.0f;
+            if (len >= 13) {
+                var endAvgIdx = (len >= 14) ? 14 : len;
+                srAvgWatts = safeParseInt(normalized.substring(9, endAvgIdx)).toFloat() / 10.0f;
+            }
+
+            if (rawWatts > 0) {
+                _hasNativeSmartRowWatts = true;
+                onActiveRowingDetected();
+            }
+
+            if (isHalted || !hasStartedRowing) {
+                instantPower = 0;
+            } else if (rawWatts > 0) {
+                instantPower = rawWatts;
+                recordSmartRowPowerSample(instantPower);
+                // Derive pace if e-frame hasn't arrived yet
+                if (instantPace <= 0 && instantPower > 15) {
+                    var cr = Math.pow(2.80f / instantPower.toFloat(), 1.0f / 3.0f).toFloat();
+                    var dp = ((500.0f * cr) + 0.5f).toNumber();
+                    if (dp > 0 && dp < 600) {
+                        instantPace = dp;
+                        speedCmS = (50000 / instantPace).toNumber();
+                    }
+                }
+            } else if (_hasNativeSmartRowWatts) {
+                instantPower = 0;
+            } else {
+                // SmartRow V3 locked 'c' frame masks rawWatts to "  0": derive exact mechanical Watts
+                deriveSmartRowFallbackPower(srAvgWatts);
+            }
+
+            if (hasStartedRowing) {
+                if (srAvgWatts > 0.0f) {
+                    _avgWattsFloat = srAvgWatts;
+                    avgPower = (srAvgWatts + 0.5f).toNumber();
+                } else if (_wattsSamples > 0) {
+                    _avgWattsFloat = _wattsSum.toFloat() / _wattsSamples.toFloat();
+                    avgPower = (_avgWattsFloat + 0.5f).toNumber();
+                }
             }
         } else if (msgType.equals("d") && len >= 13) {
             // SmartRow cadence at [6..9) is in tenths of SPM (e.g. "254" = 25.4 SPM)
@@ -898,7 +960,7 @@ class RowerDataModel {
                 }
             }
             _lastRawStrokes = rawStrokes;
-            if (isHalted) {
+            if (isHalted || !hasStartedRowing) {
                 strokeRate = 0.0f;
             } else {
                 strokeRate = rawSpm;
@@ -906,6 +968,9 @@ class RowerDataModel {
                     _spmSum += strokeRate;
                     _spmSamples += 1;
                     avgStrokeRate = _spmSum / _spmSamples.toFloat();
+                }
+                if (!_hasNativeSmartRowWatts) {
+                    deriveSmartRowFallbackPower(0.0f);
                 }
             }
         } else if (msgType.equals("e") && len >= 12) {
@@ -915,7 +980,7 @@ class RowerDataModel {
             if (paceInst > 0 && paceInst < 600 && !_haltedByTimeout && hasStartedRowing) {
                 onActiveRowingDetected();
             }
-            if (isHalted || paceInst <= 0) {
+            if (isHalted || !hasStartedRowing || paceInst <= 0) {
                 instantPace = 0;
                 speedCmS = 0;
             } else {
@@ -925,14 +990,19 @@ class RowerDataModel {
                     _paceSum += instantPace;
                     _paceSamples += 1;
                 }
+                if (!_hasNativeSmartRowWatts) {
+                    deriveSmartRowFallbackPower(0.0f);
+                }
             }
-            var avgMin = safeParseInt(normalized.substring(9, 10));
-            var avgSec = safeParseInt(normalized.substring(10, 12));
-            var srAvgPace = avgMin * 60 + avgSec;
-            if (srAvgPace > 0) {
-                avgPace = srAvgPace;
-            } else if (_paceSamples > 0) {
-                avgPace = (_paceSum / _paceSamples).toNumber();
+            if (hasStartedRowing) {
+                var avgMin = safeParseInt(normalized.substring(9, 10));
+                var avgSec = safeParseInt(normalized.substring(10, 12));
+                var srAvgPace = avgMin * 60 + avgSec;
+                if (srAvgPace > 0) {
+                    avgPace = srAvgPace;
+                } else if (_paceSamples > 0) {
+                    avgPace = (_paceSum / _paceSamples).toNumber();
+                }
             }
         } else if ((msgType.equals("f") || msgType.equals("x") || msgType.equals("y") || msgType.equals("z")) && len >= 7) {
             var fVal = 0;
@@ -945,23 +1015,63 @@ class RowerDataModel {
             if (fVal <= 0 && len >= 9) {
                 fVal = safeParseInt(normalized.substring(6, 9));
             }
-            if (fVal > 0) {
-                force = fVal;
-                _forceSum += force;
-                _forceSamples += 1;
-                avgForce = (_forceSum / _forceSamples).toNumber();
-            }
             var haltChar = (len >= 12) ? normalized.substring(11, 12) : null;
-            if (haltChar != null && haltChar.equals("!") && force == 0) {
+            if (haltChar != null && haltChar.equals("!") && fVal == 0) {
+                force = 0;
                 onRowingHalted(false);
-            } else if (hasStartedRowing && force > 0) {
-                onActiveRowingDetected();
+            } else if (fVal > 0) {
+                if (fVal > 15) {
+                    onActiveRowingDetected();
+                }
+                if (hasStartedRowing) {
+                    force = fVal;
+                    _forceSum += force;
+                    _forceSamples += 1;
+                    avgForce = (_forceSum / _forceSamples).toNumber();
+                }
             }
+        }
+    }
+
+    //! Derive real-time mechanical power (Watts) when SmartRow V3 pulley has not yet unlocked 'c' rawWatts
+    private function deriveSmartRowFallbackPower(srAvgWatts as Float) as Void {
+        if (isHalted || !hasStartedRowing) {
+            return;
+        }
+        var derived = 0;
+        if (work > 0.0f && strokeRate > 0.0f) {
+            // Exact SmartRow pulley mechanical identity: Power (W) = Work (J) * SPM / 60
+            derived = (((work * strokeRate) / 60.0f) + 0.5f).toNumber();
+        } else if (instantPace > 0 && instantPace < 600) {
+            // Standard ergometer hydrodynamic identity: Power (W) = 2.80 / (pace / 500)^3
+            var sr = instantPace.toFloat() / 500.0f;
+            var denom = sr * sr * sr;
+            if (denom > 0.0f) {
+                derived = ((2.80f / denom) + 0.5f).toNumber();
+            }
+        } else if (srAvgWatts > 0.0f) {
+            derived = (srAvgWatts + 0.5f).toNumber();
         }
 
-        if (!hasStartedRowing) {
-            applyIdleState();
+        if (derived > 0) {
+            instantPower = derived;
+            recordSmartRowPowerSample(derived);
+            if (avgPower <= 0 && _wattsSamples > 0) {
+                _avgWattsFloat = _wattsSum.toFloat() / _wattsSamples.toFloat();
+                avgPower = (_avgWattsFloat + 0.5f).toNumber();
+            }
         }
+    }
+
+    private function recordSmartRowPowerSample(wattsVal as Number) as Void {
+        if (wattsVal <= 0) {
+            return;
+        }
+        if (wattsVal > maxPower) {
+            maxPower = wattsVal;
+        }
+        _wattsSum += wattsVal;
+        _wattsSamples += 1;
     }
 
     private function normalizeSmartRowField(field as String?) as String {
