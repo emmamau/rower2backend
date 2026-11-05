@@ -331,6 +331,26 @@
       </div>
     </section>
 
+    <!-- VUE RÉGATE CANVAS 2D EN DIRECT (60 FPS & DEAD RECKONING) -->
+    <section class="regatta-canvas-section">
+      <div class="view-mode-toggle">
+        <button class="btn-toggle-view" [class.active]="activeViewMode === 'canvas'" (click)="activeViewMode = 'canvas'">
+          🛶 Vue Régate 2D (60 FPS)
+        </button>
+        <button class="btn-toggle-view" [class.active]="activeViewMode === 'cockpit'" (click)="activeViewMode = 'cockpit'">
+          📱 Mode Cockpit Smartphone (W5)
+        </button>
+      </div>
+
+      <div *ngIf="activeViewMode === 'canvas'" class="canvas-display-card">
+        <app-regatta-canvas
+          [racers]="liveMetricsList"
+          [targetDistance]="nextRaceInfo?.race?.targetDistance || 2000"
+          [activeUserId]="activeUserId">
+        </app-regatta-canvas>
+      </div>
+    </section>
+
     <!-- 2D Water Track / River Lanes -->
     <section class="water-track">
       <div class="track-header-marks">

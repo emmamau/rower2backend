@@ -38,6 +38,7 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
     private var _netDistance as Number = 0;
     private var _progressPercent as Float = 0.0;
     private var _lastModel as RowerDataModel?;
+    private var _lastSentStrokeCount as Number = 0;
 
     // Second timer for countdown and lobby refresh
     private var _countdownTimer as Timer.Timer?;
@@ -596,13 +597,29 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
             var dPrev = 0;
             var dNext = 0;
 
-            if (data.hasKey("rank") && data.get("rank") != null) {
+            // Support standard compact spec ({ rk, tot, gapM, leadDistM })
+            if (data.hasKey("rk") && data.get("rk") != null) {
+                rank = (data.get("rk") as Number);
+            } else if (data.hasKey("rank") && data.get("rank") != null) {
                 rank = (data.get("rank") as Number);
             }
-            if (data.hasKey("totalRacers") && data.get("totalRacers") != null) {
+
+            if (data.hasKey("tot") && data.get("tot") != null) {
+                total = (data.get("tot") as Number);
+            } else if (data.hasKey("totalRacers") && data.get("totalRacers") != null) {
                 total = (data.get("totalRacers") as Number);
             }
-            if (data.hasKey("distToLeader") && data.get("distToLeader") != null) {
+
+            if (data.hasKey("gapM") && data.get("gapM") != null) {
+                var g = data.get("gapM");
+                if (g instanceof Number) {
+                    var gn = g as Number;
+                    dLeader = gn < 0 ? -gn : gn;
+                } else if (g instanceof Float) {
+                    var gf = g as Float;
+                    dLeader = (gf < 0.0 ? -gf : gf).toNumber();
+                }
+            } else if (data.hasKey("distToLeader") && data.get("distToLeader") != null) {
                 dLeader = (data.get("distToLeader") as Number);
             }
             if (data.hasKey("distToPrev") && data.get("distToPrev") != null) {
@@ -890,11 +907,41 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
             _view.updateRowerData(model, _netDistance, _progressPercent);
         }
 
-        // Transmit stroke data to Render Backend API (only if session active)
+        // Transmit stroke data on stroke count increment (~0.33 to 0.47 Hz)
         if (_activityStatus.equals("in_progress") && _activityId.length() > 0) {
-            _syncManager.syncActivity(_activityId, _userId, _userId, _raceMode,
-                                      _activityStatus, _targetDistance, model,
-                                      _deviceName, false);
+            var shouldSend = false;
+            if (model.strokeCount > _lastSentStrokeCount) {
+                shouldSend = true;
+                _lastSentStrokeCount = model.strokeCount;
+            } else if (model.strokeCount == 0 && model.instantPower > 0) {
+                // Rameurs sans compteur de coups explicite (envoi régulé)
+                shouldSend = true;
+            }
+
+            if (shouldSend) {
+                _syncManager.syncActivity(_activityId, _userId, _userId, _raceMode,
+                                          _activityStatus, _targetDistance, model,
+                                          _deviceName, false);
+            }
+        }
+    }
+
+    function submitPinCode(pin as String) as Void {
+        _syncManager.checkPinCode(pin);
+    }
+
+    function onPinJoinSuccess(data as Dictionary) as Void {
+        if (data.hasKey("raceId")) {
+            _activityId = data.get("raceId").toString();
+        }
+        if (_view != null) {
+            _view.setAppState(RowerView.STATE_WAITING_START);
+        }
+    }
+
+    function onPinJoinFailed() as Void {
+        if (_view != null) {
+            _view.showWarning("PIN INVALIDE", 2);
         }
     }
 }

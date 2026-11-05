@@ -219,25 +219,27 @@ class RestSyncManager {
             return;
         }
 
-        var endpoint = getBaseUrl() + "/api/activity/sync";
+        var endpoint = getBaseUrl() + "/api/v1/telemetry";
+
+        var metrics = {
+            "distanceM" => model.totalDistance,
+            "splitSec" => model.instantPace,
+            "powerWatts" => model.instantPower,
+            "strokeRate" => model.strokeRate,
+            "heartRate" => model.heartRate
+        };
 
         var payload = {
-            "activityId" => activityId,
+            "raceId" => activityId,
             "userId" => userId,
             "userName" => userName,
-            "raceMode" => raceMode,
-            "status" => status,
-            "targetDistance" => targetDistance,
+            "seq" => model.strokeCount,
+            "timestamp" => System.getTimer(),
+            "elapsedTime" => model.elapsedTime,
             "currentDistance" => model.totalDistance,
-            "strokeRate" => model.strokeRate,
-            "strokeCount" => model.strokeCount,
             "instantPower" => model.instantPower,
-            "avgPower" => model.avgPower,
             "instantPace" => model.instantPace,
-            "avgPace" => model.avgPace,
-            "heartRate" => model.heartRate,
-            "totalEnergy" => model.totalEnergy,
-            "elapsedTime" => model.elapsedTime
+            "metrics" => metrics
         };
 
         if (deviceName != null) {
@@ -281,6 +283,32 @@ class RestSyncManager {
                 (_delegate as BleDelegate).onFinalSyncResponse(data as Dictionary);
             } else {
                 (_delegate as BleDelegate).onFinalSyncResponse(null);
+            }
+        }
+    }
+
+    // Check 4-digit PIN for private race
+    function checkPinCode(pin as String) as Void {
+        var endpoint = getBaseUrl() + "/api/v1/races/pin/" + pin;
+        var options = {
+            :method => Communications.HTTP_REQUEST_METHOD_GET,
+            :responseType => Communications.HTTP_RESPONSE_CONTENT_TYPE_JSON
+        };
+
+        Communications.makeWebRequest(
+            endpoint,
+            null,
+            options,
+            method(:onPinVerified)
+        );
+    }
+
+    function onPinVerified(responseCode as Number, data as Dictionary or String or Null) as Void {
+        if (_delegate != null) {
+            if (responseCode == 200 && data != null && data instanceof Dictionary) {
+                (_delegate as BleDelegate).onPinJoinSuccess(data as Dictionary);
+            } else {
+                (_delegate as BleDelegate).onPinJoinFailed();
             }
         }
     }

@@ -1,9 +1,16 @@
+import http from "http";
 import express, { Application, Request, Response } from "express";
 import cors, { CorsOptions } from "cors";
 import db from "./models";
 import initRoutes from "./routes";
+import socketGateway from "./websocket/socket.gateway";
+import raceManager from "./services/race-manager.service";
 
 const app: Application = express();
+const server = http.createServer(app);
+
+// Initialisation de la passerelle Socket.io
+socketGateway.init(server);
 
 const corsOptions: CorsOptions = {
   origin: "*",
@@ -18,7 +25,7 @@ app.use(express.urlencoded({ extended: true }));
 
 // Health checks
 app.get("/", (_req: Request, res: Response) => {
-  res.json({ message: "Welcome to Rower Race Multiplayer API." });
+  res.json({ message: "Welcome to Rower Race Multiplayer Real-Time API." });
 });
 
 app.get("/health", async (_req: Request, res: Response) => {
@@ -31,14 +38,16 @@ app.get("/health", async (_req: Request, res: Response) => {
   }
 });
 
-// Initialisation des routes suivant le pattern cnamWeb
+// Initialisation des routes
 initRoutes(app);
 
 // Synchronisation de la base PostgreSQL
 db.sequelize
   .sync({ alter: true })
-  .then(() => {
+  .then(async () => {
     console.log("Synced Rower Race PostgreSQL db successfully.");
+    // Démarrer la première course publique
+    await raceManager.tickPublicRace();
   })
   .catch((err: Error) => {
     console.error("Failed to sync db: " + err.message);
@@ -47,8 +56,8 @@ db.sequelize
 const PORT = Number(process.env.PORT) || 3000;
 const HOST = "0.0.0.0";
 
-app.listen(PORT, HOST, () => {
-  console.log(`Rower Race Server is running on http://${HOST}:${PORT}`);
+server.listen(PORT, HOST, () => {
+  console.log(`Rower Race Real-Time Server running on http://${HOST}:${PORT}`);
 });
 
 export default app;

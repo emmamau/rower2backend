@@ -28,52 +28,50 @@ class RowerDelegate extends WatchUi.BehaviorDelegate {
         if (state == RowerView.STATE_SCANNING) {
             _bleDelegate.startScan();
             return true;
-        } else if (state == RowerView.STATE_LOBBY) {
-            // Join race waiting room
-            _bleDelegate.joinNextRaceWaiting();
-            return true;
-        } else if (state == RowerView.STATE_WAITING_START) {
-            // If alone and bots are not yet enabled, propose bots prompt
-            if (_view.getConnectedPlayers() <= 1 && !_view.isBotsEnabled()) {
-                _bleDelegate.promptBots();
-                return true;
+        } else if (state == RowerView.STATE_MENU) {
+            var menuIdx = _view.getMainMenuIndex();
+            if (menuIdx == 0) {
+                // 1. Course Publique -> Rejoint Lobby
+                _bleDelegate.joinNextRaceWaiting();
+            } else if (menuIdx == 1) {
+                // 2. Salon Privé -> Écran de saisie PIN G3
+                _view.setAppState(RowerView.STATE_PIN_INPUT);
+            } else if (menuIdx == 2) {
+                // 3. Historique Récent G9
+                _view.setAppState(RowerView.STATE_HISTORY);
+            } else if (menuIdx == 3) {
+                // 4. Ramer en Solo
+                _bleDelegate.startSoloSession();
             }
-            // Cannot start prematurely in race mode!
-            _view.showWarning("Ne pas ramer", 2);
             return true;
-        } else if (state == RowerView.STATE_RACING) {
-            // Pause activity
+        } else if (state == RowerView.STATE_PIN_INPUT) {
+            // Validation ou passage au chiffre suivant
+            var finished = _view.advancePinDigit();
+            if (finished) {
+                var pin = _view.getFormattedPin();
+                _bleDelegate.submitPinCode(pin);
+            }
+            return true;
+        } else if (state == RowerView.STATE_LOBBY || state == RowerView.STATE_WAITING_START) {
+            // Bloqué pendant l'attente du départ
+            _view.showWarning("Attendez le départ", 2);
+            return true;
+        } else if (state == RowerView.STATE_RACING || state == RowerView.STATE_LATE_JOIN) {
+            // Pause
             _bleDelegate.pauseSession();
             return true;
         } else if (state == RowerView.STATE_PAUSED) {
-            // Validate selected pause menu item
-            var menuIdx = _view.getPauseMenuIndex();
-            if (menuIdx == 0) {
-                // Reprendre
+            var pIdx = _view.getPauseMenuIndex();
+            if (pIdx == 0) {
                 _bleDelegate.resumeSession();
-            } else if (menuIdx == 1) {
-                // Enregistrer & Quitter
+            } else if (pIdx == 1) {
                 _bleDelegate.saveAndExitSession();
-            } else if (menuIdx == 2) {
-                // Abandonner
+            } else if (pIdx == 2) {
                 _bleDelegate.discardSession();
             }
             return true;
-        } else if (state == RowerView.STATE_FINISHED) {
-            // Back to lobby
-            _view.setAppState(RowerView.STATE_LOBBY);
-            return true;
-        } else if (state == RowerView.STATE_AUTH_PROMPT) {
-            // Approve web login
-            _bleDelegate.respondAuth(true);
-            return true;
-        } else if (state == RowerView.STATE_BOTS_PROMPT) {
-            // Accept bots
-            _bleDelegate.respondBotsPrompt(true);
-            return true;
-        } else if (state == RowerView.STATE_LATE_CHOICE) {
-            // START : Rejoindre la course en retard
-            _bleDelegate.joinRaceLate();
+        } else if (state == RowerView.STATE_FINISHED || state == RowerView.STATE_HISTORY) {
+            _view.setAppState(RowerView.STATE_MENU);
             return true;
         }
 
@@ -87,29 +85,29 @@ class RowerDelegate extends WatchUi.BehaviorDelegate {
         }
 
         var state = _view.getAppState();
-        if (state == RowerView.STATE_LOBBY) {
-            // Option to decline multiplayer and row in Solo mode
-            _bleDelegate.startSoloSession();
+        if (state == RowerView.STATE_MENU) {
+            _view.cycleMainMenu();
             return true;
-        } else if (state == RowerView.STATE_WAITING_START) {
-            // Return to Lobby from waiting room
-            _view.setAppState(RowerView.STATE_LOBBY);
+        } else if (state == RowerView.STATE_PIN_INPUT) {
+            _view.decrementPinDigit();
             return true;
         } else if (state == RowerView.STATE_PAUSED) {
-            // Cycle pause menu choices
             _view.cyclePauseMenu();
             return true;
-        } else if (state == RowerView.STATE_AUTH_PROMPT) {
-            // Reject web login
-            _bleDelegate.respondAuth(false);
-            return true;
-        } else if (state == RowerView.STATE_BOTS_PROMPT) {
-            // Decline bots
-            _bleDelegate.respondBotsPrompt(false);
-            return true;
-        } else if (state == RowerView.STATE_LATE_CHOICE) {
-            // DOWN : Attendre la prochaine course (dans 1h)
-            _bleDelegate.waitNextRaceSlot();
+        }
+
+        return false;
+    }
+
+    // Handles UP / PREVIOUS_PAGE button
+    function onPreviousPage() as Boolean {
+        if (_view == null) {
+            return false;
+        }
+
+        var state = _view.getAppState();
+        if (state == RowerView.STATE_PIN_INPUT) {
+            _view.incrementPinDigit();
             return true;
         }
 
@@ -123,25 +121,21 @@ class RowerDelegate extends WatchUi.BehaviorDelegate {
         }
 
         var state = _view.getAppState();
-        if (state == RowerView.STATE_RACING) {
-            // Pressing back during racing prompts pause menu
+        if (state == RowerView.STATE_PIN_INPUT) {
+            var canExit = _view.backspacePinDigit();
+            if (canExit) {
+                _view.setAppState(RowerView.STATE_MENU);
+            }
+            return true;
+        } else if (state == RowerView.STATE_RACING || state == RowerView.STATE_LATE_JOIN) {
             _bleDelegate.pauseSession();
             return true;
         } else if (state == RowerView.STATE_PAUSED) {
             _bleDelegate.resumeSession();
             return true;
-        } else if (state == RowerView.STATE_WAITING_START) {
-            // Back to lobby
-            _view.setAppState(RowerView.STATE_LOBBY);
+        } else if (state == RowerView.STATE_LOBBY || state == RowerView.STATE_WAITING_START || state == RowerView.STATE_HISTORY) {
+            _view.setAppState(RowerView.STATE_MENU);
             return true;
-        } else if (state == RowerView.STATE_LATE_CHOICE) {
-            // BACK : Ramer seul
-            _bleDelegate.startSoloSession();
-            return true;
-        } else if (state == RowerView.STATE_LOBBY || state == RowerView.STATE_SCANNING) {
-            _bleDelegate.stopScan();
-            _bleDelegate.disconnect();
-            return false; // allow exit application
         }
 
         return false;

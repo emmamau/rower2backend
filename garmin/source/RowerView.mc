@@ -3,40 +3,45 @@ import Toybox.Graphics;
 import Toybox.Lang;
 import Toybox.ActivityRecording;
 import Toybox.System;
+import Toybox.Application.Storage;
 
 class RowerView extends WatchUi.View {
 
-    // App state machine
-    public static const STATE_SCANNING = 0;
-    public static const STATE_LOBBY = 1;
-    public static const STATE_WAITING_START = 2; // Écran de patience / attente départ de course
-    public static const STATE_RACING = 3;
-    public static const STATE_PAUSED = 4;
-    public static const STATE_FINISHED = 5;
-    public static const STATE_AUTH_PROMPT = 6; // Demande de validation connexion front web
-    public static const STATE_BOTS_PROMPT = 7; // Proposition d'affronter des bots quand le joueur est seul
-    public static const STATE_LATE_CHOICE = 8; // Choix si la course est déjà en cours (Rejoindre en retard / Attendre prochaine)
+    // App state machine according to specification (G1 to G9)
+    public static const STATE_SCANNING      = 0; // G1 : Scanner & Connexion FTMS
+    public static const STATE_MENU          = 1; // G2 : Menu Principal
+    public static const STATE_PIN_INPUT     = 2; // G3 : Saisie du Code PIN Salon Privé
+    public static const STATE_LOBBY         = 3; // G4 : Salle d'attente (Lobby & Ready Check)
+    public static const STATE_COUNTDOWN_5S  = 4; // G5 : Décompte synchrone 5s (Vibrations & Alertes)
+    public static const STATE_RACING        = 5; // G6 : Écran de course standard
+    public static const STATE_LATE_JOIN     = 6; // G7 : Écran de course mode Late-Join
+    public static const STATE_FINISHED      = 7; // G8 : Ligne d'arrivée & Podium
+    public static const STATE_HISTORY       = 8; // G9 : Historique local Storage
+    public static const STATE_PAUSED        = 9; // Menu de pause
+    public static const STATE_WAITING_START = 10; // Attente synchrone du T0
+    public static const STATE_LATE_CHOICE   = 11;
+    public static const STATE_BOTS_PROMPT   = 12;
 
     private var _currentState as Number = STATE_SCANNING;
     private var _statusText as String = "Recherche FTMS...";
     private var _model as RowerDataModel?;
     
-    // Auth Prompt
-    private var _authRequestId as String = "";
-    private var _authLogin as String = "";
+    // G2 Menu Principal selection index (0: Publique, 1: Privée PIN, 2: Historique, 3: Solo)
+    private var _mainMenuIndex as Number = 0;
 
-    // Bots State
-    private var _hasBotsEnabled as Boolean = false;
+    // G3 PIN Input state (4 digits)
+    private var _pinDigits as Array<Number> = [0, 0, 0, 0];
+    private var _pinCurrentDigitIdx as Number = 0; // 0 to 3
 
-    // False start penalty lock
-    private var _falseStartLocked as Boolean = false;
-    
+    // G5 5-seconds countdown
+    private var _countdown5sValue as Number = 5;
+
     // Race details
     private var _userId as String = "";
-    private var _raceMode as String = "race"; // "race" or "solo"
-    private var _nextRaceCountdown as Number = 0; // seconds
+    private var _raceMode as String = "race";
+    private var _nextRaceCountdown as Number = 0;
     private var _connectedPlayers as Number = 1;
-    private var _targetDistance as Number = 10000;
+    private var _targetDistance as Number = 2000;
     private var _currentRank as Number = 1;
     private var _totalRacers as Number = 1;
     private var _distToLeader as Number = 0;
@@ -46,22 +51,26 @@ class RowerView extends WatchUi.View {
     private var _top3Podium as Array<Dictionary> = [];
     private var _netDistance as Number = 0;
     private var _progressPercent as Float = 0.0;
-    private var _pauseMenuIndex as Number = 0; // 0: Reprendre, 1: Enregistrer & Quitter, 2: Abandonner
+    private var _pauseMenuIndex as Number = 0;
+    private var _isLateJoiner as Boolean = false;
+    private var _hasBotsEnabled as Boolean = false;
+    private var _authRequestId as String = "";
+    private var _authLogin as String = "";
 
-    // User Career Stats (Rappel classement, points, précédent et meilleur rang)
+    // Warning overlay
+    private var _warningText as String? = null;
+    private var _warningUntilTimerMs as Number = 0;
+    private var _falseStartLocked as Boolean = false;
+
+    // User Career Stats
     private var _userPoints as Number = 0;
     private var _userGeneralRank as Number = 1;
     private var _userTotalPlayers as Number = 1;
     private var _userLastRank as Number = 0;
     private var _userBestRank as Number = 0;
 
-    // Warning overlay: "Ne pas ramer"
-    private var _warningText as String? = null;
-    private var _warningUntilTimerMs as Number = 0;
-
     function initialize() {
         View.initialize();
-        _model = new RowerDataModel();
         _userId = UserManager.getUserId();
     }
 
@@ -74,49 +83,74 @@ class RowerView extends WatchUi.View {
         return _currentState;
     }
 
-    function setStatus(status as String) as Void {
-        _statusText = status;
+    function setStatus(text as String) as Void {
+        _statusText = text;
         WatchUi.requestUpdate();
     }
 
-    function setLobbyInfo(countdownSec as Number, playersCount as Number, targetDist as Number) as Void {
-        _nextRaceCountdown = countdownSec;
-        _connectedPlayers = playersCount;
+    function updateRowerData(model as RowerDataModel, netDist as Number, progress as Float) as Void {
+        _model = model;
+        _netDistance = netDist;
+        _progressPercent = progress;
+        WatchUi.requestUpdate();
+    }
+
+    function setLiveRank(rk as Number, tot as Number, dLeader as Number, dPrev as Number, dNext as Number) as Void {
+        _currentRank = rk;
+        _totalRacers = tot;
+        _distToLeader = dLeader;
+        _distToPrev = dPrev;
+        _distToNext = dNext;
+        WatchUi.requestUpdate();
+    }
+
+    function setLobbyInfo(countdown as Number, players as Number, targetDist as Number) as Void {
+        _nextRaceCountdown = countdown;
+        _connectedPlayers = players;
         _targetDistance = targetDist;
         WatchUi.requestUpdate();
     }
 
-    function setUserStats(points as Number, genRank as Number, totalPlayers as Number, lastR as Number, bestR as Number) as Void {
-        _userPoints = points;
-        _userGeneralRank = genRank;
-        _userTotalPlayers = totalPlayers;
+    function setFinishResults(rank as Number, podium as Array<Dictionary>) as Void {
+        _finalRank = rank;
+        _top3Podium = podium;
+        _currentState = STATE_FINISHED;
+
+        // Persist local session in Storage for G9 screen
+        try {
+            var hist = Storage.getValue("local_race_history");
+            var list = (hist != null && hist instanceof Array) ? (hist as Array<Dictionary>) : [] as Array<Dictionary>;
+            var item = {
+                "date" => "Aujourd'hui",
+                "distance" => _targetDistance,
+                "rank" => rank,
+                "timeSec" => (_model != null ? _model.elapsedTime : 0)
+            };
+            list.add(item);
+            if (list.size() > 5) {
+                list = list.slice(list.size() - 5, list.size());
+            }
+            Storage.setValue("local_race_history", list);
+        } catch (ex) {
+            System.println("Storage error: " + ex.getErrorMessage());
+        }
+
+        WatchUi.requestUpdate();
+    }
+
+    function setUserStats(pts as Number, genR as Number, totalP as Number, lastR as Number, bestR as Number) as Void {
+        _userPoints = pts;
+        _userGeneralRank = genR;
+        _userTotalPlayers = totalP;
         _userLastRank = lastR;
         _userBestRank = bestR;
         WatchUi.requestUpdate();
     }
 
-    function decrementCountdown() as Void {
-        if (_nextRaceCountdown > 0) {
-            _nextRaceCountdown -= 1;
-            WatchUi.requestUpdate();
-        }
-    }
-
-    function getCountdown() as Number {
-        return _nextRaceCountdown;
-    }
-
-    function getConnectedPlayers() as Number {
-        return _connectedPlayers;
-    }
-
-    function setBotsEnabled(enabled as Boolean) as Void {
-        _hasBotsEnabled = enabled;
+    function showWarning(text as String, durationSec as Number) as Void {
+        _warningText = text;
+        _warningUntilTimerMs = System.getTimer() + (durationSec * 1000);
         WatchUi.requestUpdate();
-    }
-
-    function isBotsEnabled() as Boolean {
-        return _hasBotsEnabled;
     }
 
     function setFalseStartLocked(locked as Boolean) as Void {
@@ -128,50 +162,60 @@ class RowerView extends WatchUi.View {
         return _falseStartLocked;
     }
 
-    function setLiveRank(rank as Number, totalRacers as Number, dLeader as Number, dPrev as Number, dNext as Number) as Void {
-        _currentRank = rank;
-        _totalRacers = totalRacers;
-        _distToLeader = dLeader;
-        _distToPrev = dPrev;
-        _distToNext = dNext;
+    function setIsLateJoiner(isLate as Boolean) as Void {
+        _isLateJoiner = isLate;
+    }
+
+    function set5sCountdown(val as Number) as Void {
+        _countdown5sValue = val;
         WatchUi.requestUpdate();
     }
 
-    function showWarning(text as String, durationSeconds as Number) as Void {
-        _warningText = text;
-        _warningUntilTimerMs = System.getTimer() + (durationSeconds * 1000);
+    // G2 Menu navigation
+    function cycleMainMenu() as Void {
+        _mainMenuIndex = (_mainMenuIndex + 1) % 4;
         WatchUi.requestUpdate();
     }
 
-    function showAuthPrompt(requestId as String, login as String) as Void {
-        _authRequestId = requestId;
-        _authLogin = login;
-        _currentState = STATE_AUTH_PROMPT;
+    function getMainMenuIndex() as Number {
+        return _mainMenuIndex;
+    }
+
+    // G3 PIN Input helpers
+    function incrementPinDigit() as Void {
+        _pinDigits[_pinCurrentDigitIdx] = (_pinDigits[_pinCurrentDigitIdx] + 1) % 10;
         WatchUi.requestUpdate();
     }
 
-    function getAuthRequestId() as String {
-        return _authRequestId;
-    }
-
-    function getAuthLogin() as String {
-        return _authLogin;
-    }
-
-    function updateRowerData(model as RowerDataModel, netDist as Number, progress as Float) as Void {
-        _model = model;
-        _netDistance = netDist;
-        _progressPercent = progress;
+    function decrementPinDigit() as Void {
+        var v = _pinDigits[_pinCurrentDigitIdx] - 1;
+        _pinDigits[_pinCurrentDigitIdx] = v < 0 ? 9 : v;
         WatchUi.requestUpdate();
     }
 
-    function setFinishResults(rank as Number, podium as Array<Dictionary>) as Void {
-        _finalRank = rank;
-        _top3Podium = podium;
-        _currentState = STATE_FINISHED;
-        WatchUi.requestUpdate();
+    function advancePinDigit() as Boolean {
+        if (_pinCurrentDigitIdx < 3) {
+            _pinCurrentDigitIdx++;
+            WatchUi.requestUpdate();
+            return false; // Still typing
+        }
+        return true; // Finished 4th digit
     }
 
+    function backspacePinDigit() as Boolean {
+        if (_pinCurrentDigitIdx > 0) {
+            _pinCurrentDigitIdx--;
+            WatchUi.requestUpdate();
+            return false;
+        }
+        return true; // Already on first digit, can exit
+    }
+
+    function getFormattedPin() as String {
+        return "" + _pinDigits[0] + _pinDigits[1] + _pinDigits[2] + _pinDigits[3];
+    }
+
+    // Pause menu navigation
     function cyclePauseMenu() as Void {
         _pauseMenuIndex = (_pauseMenuIndex + 1) % 3;
         WatchUi.requestUpdate();
@@ -182,33 +226,37 @@ class RowerView extends WatchUi.View {
     }
 
     function onUpdate(dc as Graphics.Dc) as Void {
-        dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_BLACK);
-        dc.clear();
-
         var width = dc.getWidth();
         var height = dc.getHeight();
 
+        dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_BLACK);
+        dc.clear();
+
         if (_currentState == STATE_SCANNING) {
-            drawScanningScreen(dc, width, height);
-        } else if (_currentState == STATE_LOBBY) {
-            drawLobbyScreen(dc, width, height);
-        } else if (_currentState == STATE_WAITING_START) {
-            drawWaitingStartScreen(dc, width, height);
+            drawG1Scanning(dc, width, height);
+        } else if (_currentState == STATE_MENU) {
+            drawG2Menu(dc, width, height);
+        } else if (_currentState == STATE_PIN_INPUT) {
+            drawG3PinInput(dc, width, height);
+        } else if (_currentState == STATE_LOBBY || _currentState == STATE_WAITING_START) {
+            drawG4Lobby(dc, width, height);
+        } else if (_currentState == STATE_COUNTDOWN_5S) {
+            drawG5Countdown(dc, width, height);
         } else if (_currentState == STATE_RACING) {
-            drawRacingScreen(dc, width, height);
-        } else if (_currentState == STATE_PAUSED) {
-            drawPausedScreen(dc, width, height);
+            if (_isLateJoiner) {
+                drawG7LateJoin(dc, width, height);
+            } else {
+                drawG6Racing(dc, width, height);
+            }
         } else if (_currentState == STATE_FINISHED) {
-            drawFinishedScreen(dc, width, height);
-        } else if (_currentState == STATE_AUTH_PROMPT) {
-            drawAuthPromptScreen(dc, width, height);
-        } else if (_currentState == STATE_BOTS_PROMPT) {
-            drawBotsPromptScreen(dc, width, height);
-        } else if (_currentState == STATE_LATE_CHOICE) {
-            drawLateChoiceScreen(dc, width, height);
+            drawG8Finished(dc, width, height);
+        } else if (_currentState == STATE_HISTORY) {
+            drawG9History(dc, width, height);
+        } else if (_currentState == STATE_PAUSED) {
+            drawPaused(dc, width, height);
         }
 
-        // Draw Warning Overlay if active ("Ne pas ramer")
+        // Draw Warning Overlay if active
         if (_warningText != null) {
             var now = System.getTimer();
             if (now < _warningUntilTimerMs) {
@@ -219,31 +267,100 @@ class RowerView extends WatchUi.View {
         }
     }
 
-    // 1. Scanning Screen
-    private function drawScanningScreen(dc as Graphics.Dc, width as Number, height as Number) as Void {
-        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(width / 2, 34, Graphics.FONT_SMALL, "ROWER RACE", Graphics.TEXT_JUSTIFY_CENTER);
+    // ==========================================
+    // ÉCRANS OFFICIELS G1 À G9
+    // ==========================================
 
-        dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(width / 2, height / 2 - 20, Graphics.FONT_XTINY, I18n.getText("PLAYER_LABEL") + ": " + _userId, Graphics.TEXT_JUSTIFY_CENTER);
+    // G1 : Scanner & Connexion FTMS
+    private function drawG1Scanning(dc as Graphics.Dc, width as Number, height as Number) as Void {
+        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(width / 2, 34, Graphics.FONT_SMALL, "ROWER LINK", Graphics.TEXT_JUSTIFY_CENTER);
+
+        dc.setColor(Graphics.COLOR_BLUE, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(width / 2, height / 2 - 25, Graphics.FONT_MEDIUM, "(( BLE ))", Graphics.TEXT_JUSTIFY_CENTER);
 
         dc.setColor(Graphics.COLOR_YELLOW, Graphics.COLOR_TRANSPARENT);
         dc.drawText(width / 2, height / 2 + 10, Graphics.FONT_TINY, _statusText, Graphics.TEXT_JUSTIFY_CENTER);
 
         dc.setColor(Graphics.COLOR_DK_GRAY, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(width / 2, height - 35, Graphics.FONT_XTINY, I18n.getText("BLE_SYNC_ROWER"), Graphics.TEXT_JUSTIFY_CENTER);
+        dc.drawText(width / 2, height - 35, Graphics.FONT_XTINY, "Phone Link: OK", Graphics.TEXT_JUSTIFY_CENTER);
     }
 
-    // 2. Lobby Screen (Choice between Joining Race or Solo)
-    private function drawLobbyScreen(dc as Graphics.Dc, width as Number, height as Number) as Void {
+    // G2 : Menu Principal
+    private function drawG2Menu(dc as Graphics.Dc, width as Number, height as Number) as Void {
+        dc.setColor(Graphics.COLOR_YELLOW, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(width / 2, 22, Graphics.FONT_TINY, "SÉLECTION MODE", Graphics.TEXT_JUSTIFY_CENTER);
+
+        var menuItems = [
+            "1. Course Publique",
+            "2. Salon Privé (PIN)",
+            "3. Historique Récent",
+            "4. Ramer en Solo"
+        ];
+
+        for (var i = 0; i < 4; i++) {
+            var yPos = 55 + (i * 32);
+            if (i == _mainMenuIndex) {
+                dc.setColor(Graphics.COLOR_DK_BLUE, Graphics.COLOR_DK_BLUE);
+                dc.fillRoundedRectangle(20, yPos - 2, width - 40, 26, 6);
+                dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
+                dc.drawText(width / 2, yPos, Graphics.FONT_XTINY, "> " + menuItems[i] + " <", Graphics.TEXT_JUSTIFY_CENTER);
+            } else {
+                dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
+                dc.drawText(width / 2, yPos, Graphics.FONT_XTINY, menuItems[i], Graphics.TEXT_JUSTIFY_CENTER);
+            }
+        }
+
+        dc.setColor(Graphics.COLOR_DK_GRAY, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(width / 2, height - 25, Graphics.FONT_XTINY, "DOWN: Choisir | START: OK", Graphics.TEXT_JUSTIFY_CENTER);
+    }
+
+    // G3 : Saisie du Code PIN Salon Privé
+    private function drawG3PinInput(dc as Graphics.Dc, width as Number, height as Number) as Void {
+        dc.setColor(Graphics.COLOR_YELLOW, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(width / 2, 22, Graphics.FONT_TINY, "SALON PRIVÉ", Graphics.TEXT_JUSTIFY_CENTER);
+
+        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(width / 2, 50, Graphics.FONT_XTINY, "Entrez le PIN (4 chiffres) :", Graphics.TEXT_JUSTIFY_CENTER);
+
+        // 4 Digits Boxes
+        var boxW = 32;
+        var boxH = 44;
+        var startX = (width - (4 * boxW + 3 * 8)) / 2;
+        var boxY = 85;
+
+        for (var i = 0; i < 4; i++) {
+            var bx = startX + (i * (boxW + 8));
+            var isCurrent = (i == _pinCurrentDigitIdx);
+
+            if (isCurrent) {
+                dc.setColor(Graphics.COLOR_YELLOW, Graphics.COLOR_YELLOW);
+                dc.fillRoundedRectangle(bx, boxY, boxW, boxH, 6);
+                dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_TRANSPARENT);
+            } else {
+                dc.setColor(Graphics.COLOR_DK_GRAY, Graphics.COLOR_DK_GRAY);
+                dc.fillRoundedRectangle(bx, boxY, boxW, boxH, 6);
+                dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
+            }
+
+            dc.drawText(bx + boxW / 2, boxY + 6, Graphics.FONT_MEDIUM, _pinDigits[i].toString(), Graphics.TEXT_JUSTIFY_CENTER);
+        }
+
         dc.setColor(Graphics.COLOR_ORANGE, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(width / 2, 22, Graphics.FONT_XTINY, I18n.getText("LOBBY_TITLE"), Graphics.TEXT_JUSTIFY_CENTER);
+        dc.drawText(width / 2, 145, Graphics.FONT_XTINY, "UP/DOWN: Chiffre", Graphics.TEXT_JUSTIFY_CENTER);
+        dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(width / 2, 165, Graphics.FONT_XTINY, "START: Suivant | BACK: Corrig", Graphics.TEXT_JUSTIFY_CENTER);
+    }
+
+    // G4 : Salle d'Attente (Lobby & Ready Check)
+    private function drawG4Lobby(dc as Graphics.Dc, width as Number, height as Number) as Void {
+        dc.setColor(Graphics.COLOR_GREEN, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(width / 2, 20, Graphics.FONT_XTINY, "SALON COULOIR : #01", Graphics.TEXT_JUSTIFY_CENTER);
 
         var min = _nextRaceCountdown / 60;
         var sec = _nextRaceCountdown % 60;
         var timeStr = (sec < 10) ? (min + ":0" + sec) : (min + ":" + sec);
 
-        // Timer badge bien visible et contrasté
         dc.setColor(Graphics.COLOR_DK_GRAY, Graphics.COLOR_DK_GRAY);
         dc.fillRoundedRectangle(20, 42, width - 40, 52, 10);
         dc.setColor(Graphics.COLOR_YELLOW, Graphics.COLOR_TRANSPARENT);
@@ -253,171 +370,72 @@ class RowerView extends WatchUi.View {
         dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
         dc.drawText(width / 2, 44, Graphics.FONT_NUMBER_HOT, timeStr, Graphics.TEXT_JUSTIFY_CENTER);
 
-        dc.setColor(Graphics.COLOR_GREEN, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(width / 2, 106, Graphics.FONT_XTINY, I18n.getText("CONNECTED_WAITING") + ": " + _connectedPlayers, Graphics.TEXT_JUSTIFY_CENTER);
-        dc.setColor(Graphics.COLOR_BLUE, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(width / 2, 126, Graphics.FONT_XTINY, I18n.getText("TARGET_DIST") + ": " + _targetDistance + "m", Graphics.TEXT_JUSTIFY_CENTER);
-
-        // Buttons instruction
-        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(width / 2, 160, Graphics.FONT_XTINY, I18n.getText("BTN_JOIN_RACE"), Graphics.TEXT_JUSTIFY_CENTER);
-        dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(width / 2, 184, Graphics.FONT_XTINY, I18n.getText("BTN_ROW_SOLO"), Graphics.TEXT_JUSTIFY_CENTER);
-    }
-
-    // 3. Waiting Screen (Patience avant départ)
-    private function drawWaitingStartScreen(dc as Graphics.Dc, width as Number, height as Number) as Void {
-        // Special 3-second Countdown Rendering
-        if (_nextRaceCountdown <= 3 && _nextRaceCountdown > 0) {
-            dc.setColor(Graphics.COLOR_RED, Graphics.COLOR_RED);
-            dc.fillRectangle(0, 0, width, height);
-
-            dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-            dc.drawText(width / 2, 35, Graphics.FONT_MEDIUM, I18n.getText("START_IMM"), Graphics.TEXT_JUSTIFY_CENTER);
-
-            dc.setColor(Graphics.COLOR_YELLOW, Graphics.COLOR_TRANSPARENT);
-            dc.drawText(width / 2, (height / 2) - 40, Graphics.FONT_NUMBER_THAI_HOT, _nextRaceCountdown.toString(), Graphics.TEXT_JUSTIFY_CENTER);
-
-            dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-            dc.drawText(width / 2, height - 45, Graphics.FONT_SMALL, I18n.getText("GET_READY"), Graphics.TEXT_JUSTIFY_CENTER);
-            return;
-        }
-
-        dc.setColor(Graphics.COLOR_YELLOW, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(width / 2, 20, Graphics.FONT_XTINY, I18n.getText("WAITING_TITLE"), Graphics.TEXT_JUSTIFY_CENTER);
-
-        // Timer badge très visible avec bordure jaune
-        dc.setColor(Graphics.COLOR_DK_GRAY, Graphics.COLOR_DK_GRAY);
-        dc.fillRoundedRectangle(15, 38, width - 30, 56, 10);
-        dc.setColor(Graphics.COLOR_YELLOW, Graphics.COLOR_TRANSPARENT);
-        dc.setPenWidth(2);
-        dc.drawRoundedRectangle(15, 38, width - 30, 56, 10);
-
-        var min = _nextRaceCountdown / 60;
-        var sec = _nextRaceCountdown % 60;
-        var timeStr = (sec < 10) ? (min + ":0" + sec) : (min + ":" + sec);
-
-        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(width / 2, 40, Graphics.FONT_NUMBER_HOT, timeStr, Graphics.TEXT_JUSTIFY_CENTER);
-
-        // ENCADRÉ STATISTIQUES CARRIÈRE & RAPPEL CLASSEMENT
-        dc.setColor(Graphics.COLOR_DK_GRAY, Graphics.COLOR_DK_GRAY);
-        dc.fillRoundedRectangle(12, 98, width - 24, 38, 6);
-
-        // Ligne 1 : Rang Général & Points
-        dc.setColor(Graphics.COLOR_YELLOW, Graphics.COLOR_TRANSPARENT);
-        var genRankStr = I18n.getText("CAREER_RANK") + ": #" + _userGeneralRank + " (" + _userPoints + " pts)";
-        dc.drawText(width / 2, 100, Graphics.FONT_XTINY, genRankStr, Graphics.TEXT_JUSTIFY_CENTER);
-
-        // Ligne 2 : Précédent classement & Meilleur classement
-        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-        var lastRStr = (_userLastRank > 0) ? ("#" + _userLastRank) : "--";
-        var bestRStr = (_userBestRank > 0) ? ("#" + _userBestRank) : "--";
-        var statsSub = I18n.getText("STAT_LAST") + ": " + lastRStr + "  |  " + I18n.getText("STAT_RECORD") + ": " + bestRStr;
-        dc.drawText(width / 2, 118, Graphics.FONT_XTINY, statsSub, Graphics.TEXT_JUSTIFY_CENTER);
-
-        dc.setColor(Graphics.COLOR_GREEN, Graphics.COLOR_TRANSPARENT);
-        var playersLabel = I18n.getText("CONNECTED_WAITING") + ": " + _connectedPlayers;
-        if (_hasBotsEnabled) {
-            playersLabel += " (+Bots)";
-        }
-        dc.drawText(width / 2, 142, Graphics.FONT_XTINY, playersLabel, Graphics.TEXT_JUSTIFY_CENTER);
-
-        // Bots status / hint button
-        if (!_hasBotsEnabled && _connectedPlayers <= 1) {
-            dc.setColor(Graphics.COLOR_YELLOW, Graphics.COLOR_TRANSPARENT);
-            dc.drawText(width / 2, 162, Graphics.FONT_XTINY, I18n.getText("BTN_VS_BOTS"), Graphics.TEXT_JUSTIFY_CENTER);
-        } else {
-            dc.setColor(Graphics.COLOR_BLUE, Graphics.COLOR_TRANSPARENT);
-            dc.drawText(width / 2, 162, Graphics.FONT_XTINY, I18n.getText("TARGET_DIST") + ": " + _targetDistance + "m", Graphics.TEXT_JUSTIFY_CENTER);
-        }
-
         dc.setColor(Graphics.COLOR_ORANGE, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(width / 2, height - 26, Graphics.FONT_XTINY, I18n.getText("AUTO_START_AT_ZERO"), Graphics.TEXT_JUSTIFY_CENTER);
+        dc.drawText(width / 2, 102, Graphics.FONT_XTINY, "AVANT DÉPART", Graphics.TEXT_JUSTIFY_CENTER);
+
+        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(width / 2, 125, Graphics.FONT_XTINY, "" + _connectedPlayers + " Rameurs prêts", Graphics.TEXT_JUSTIFY_CENTER);
+
+        dc.setColor(Graphics.COLOR_BLUE, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(width / 2, 148, Graphics.FONT_XTINY, "Distance: " + _targetDistance + "m", Graphics.TEXT_JUSTIFY_CENTER);
+
+        dc.setColor(Graphics.COLOR_DK_GRAY, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(width / 2, height - 25, Graphics.FONT_XTINY, "Départ automatique à 00:00", Graphics.TEXT_JUSTIFY_CENTER);
     }
 
-    // 4. Racing HUD Screen
-    private function drawRacingScreen(dc as Graphics.Dc, width as Number, height as Number) as Void {
-        // Status Bar (Top Header descendu sous la lunette)
+    // G5 : Décompte Synchrone (T0 - 5 secondes)
+    private function drawG5Countdown(dc as Graphics.Dc, width as Number, height as Number) as Void {
+        dc.setColor(Graphics.COLOR_RED, Graphics.COLOR_RED);
+        dc.fillRectangle(0, 0, width, height);
+
         dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-        var modeTitle = (_raceMode.equals("solo")) ? "SOLO" : "RACE " + _targetDistance + "M";
+        dc.drawText(width / 2, 30, Graphics.FONT_MEDIUM, "ATTENTION", Graphics.TEXT_JUSTIFY_CENTER);
 
-        // Affichage position instantanée si mode course
-        var rankBadge = (_raceMode.equals("solo")) ? ("[" + _userId + "]") : (I18n.getText("HUD_RANK") + " " + _currentRank + "/" + _totalRacers);
-        dc.drawText(width / 2, 18, Graphics.FONT_XTINY, modeTitle + "  •  " + rankBadge, Graphics.TEXT_JUSTIFY_CENTER);
+        dc.setColor(Graphics.COLOR_YELLOW, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(width / 2, height / 2 - 40, Graphics.FONT_NUMBER_THAI_HOT, ">> " + _countdown5sValue + " <<", Graphics.TEXT_JUSTIFY_CENTER);
 
-        // Ligne de séparation sous l'en-tête
+        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(width / 2, height - 45, Graphics.FONT_SMALL, "TENIR PALONNIER", Graphics.TEXT_JUSTIFY_CENTER);
+    }
+
+    // G6 : Écran de Course (In-Game Standard)
+    private function drawG6Racing(dc as Graphics.Dc, width as Number, height as Number) as Void {
+        // En-tête Rang / Total
+        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
+        var rankBadge = "P " + (_currentRank < 10 ? "0" : "") + _currentRank + " / " + _totalRacers;
+        dc.drawText(width / 2, 18, Graphics.FONT_TINY, rankBadge, Graphics.TEXT_JUSTIFY_CENTER);
+
         dc.setColor(Graphics.COLOR_DK_GRAY, Graphics.COLOR_TRANSPARENT);
-        dc.drawLine(20, 34, width - 20, 34);
-
-        // NOUVELLE DATA : Écarts de distance (Au 1er, au Précédent, au Suivant)
-        if (!_raceMode.equals("solo")) {
-            dc.setColor(Graphics.COLOR_DK_GRAY, Graphics.COLOR_DK_GRAY);
-            dc.fillRoundedRectangle(12, 38, width - 24, 28, 5);
-
-            var gap1st = (_currentRank == 1) ? I18n.getText("HUD_LEADER") : ("-" + _distToLeader + "m");
-            var gapPrev = (_currentRank <= 1) ? "--" : ("-" + _distToPrev + "m");
-            var gapNext = (_currentRank >= _totalRacers) ? "--" : ("+" + _distToNext + "m");
-
-            dc.setColor(Graphics.COLOR_YELLOW, Graphics.COLOR_TRANSPARENT);
-            dc.drawText(width / 6, 39, Graphics.FONT_XTINY, I18n.getText("HUD_LEADER") + ":", Graphics.TEXT_JUSTIFY_CENTER);
-            dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-            dc.drawText(width / 6, 51, Graphics.FONT_XTINY, gap1st, Graphics.TEXT_JUSTIFY_CENTER);
-
-            dc.setColor(Graphics.COLOR_ORANGE, Graphics.COLOR_TRANSPARENT);
-            dc.drawText(width / 2, 39, Graphics.FONT_XTINY, I18n.getText("HUD_PREV"), Graphics.TEXT_JUSTIFY_CENTER);
-            dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-            dc.drawText(width / 2, 51, Graphics.FONT_XTINY, gapPrev, Graphics.TEXT_JUSTIFY_CENTER);
-
-            dc.setColor(Graphics.COLOR_GREEN, Graphics.COLOR_TRANSPARENT);
-            dc.drawText((width * 5) / 6, 39, Graphics.FONT_XTINY, I18n.getText("HUD_NEXT"), Graphics.TEXT_JUSTIFY_CENTER);
-            dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-            dc.drawText((width * 5) / 6, 51, Graphics.FONT_XTINY, gapNext, Graphics.TEXT_JUSTIFY_CENTER);
-        } else {
-            var mSolo = (_model != null) ? (_model as RowerDataModel) : new RowerDataModel();
-            dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
-            dc.drawText(width / 2, 42, Graphics.FONT_XTINY, "STROKES: " + mSolo.strokeCount, Graphics.TEXT_JUSTIFY_CENTER);
-        }
+        dc.drawLine(25, 36, width - 25, 36);
 
         var m = (_model != null) ? (_model as RowerDataModel) : new RowerDataModel();
 
-        // Cadence (SPM) Main Metric
-        dc.setColor(Graphics.COLOR_ORANGE, Graphics.COLOR_TRANSPARENT);
-        var spmStr = m.strokeRate.format("%.1f");
-        dc.drawText(width / 2, 70, Graphics.FONT_NUMBER_MEDIUM, spmStr, Graphics.TEXT_JUSTIFY_CENTER);
-        dc.setColor(Graphics.COLOR_DK_GRAY, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(width / 2, 114, Graphics.FONT_XTINY, I18n.getText("HUD_CADENCE"), Graphics.TEXT_JUSTIFY_CENTER);
-
-        // 2nd horizontal separator line
-        dc.setColor(Graphics.COLOR_DK_GRAY, Graphics.COLOR_TRANSPARENT);
-        dc.drawLine(25, 128, width - 25, 128);
-
-        // Power (Watts) & Pace (/500m) Row
-        dc.setColor(Graphics.COLOR_GREEN, Graphics.COLOR_TRANSPARENT);
-        var powerStr = m.instantPower.toString() + " W";
-        dc.drawText(width / 4, 131, Graphics.FONT_MEDIUM, powerStr, Graphics.TEXT_JUSTIFY_CENTER);
-
+        // Split instantané aux 500m
         var paceSec = m.instantPace;
-        var paceMin = paceSec / 60;
-        var paceRemainder = paceSec % 60;
-        var paceStr = (paceRemainder < 10) ? (paceMin + ":0" + paceRemainder) : (paceMin + ":" + paceRemainder);
-        dc.setColor(Graphics.COLOR_BLUE, Graphics.COLOR_TRANSPARENT);
-        dc.drawText((width * 3) / 4, 131, Graphics.FONT_MEDIUM, paceStr + "/500m", Graphics.TEXT_JUSTIFY_CENTER);
+        var pMin = paceSec / 60;
+        var pSec = paceSec % 60;
+        var paceStr = (pSec < 10) ? (pMin + ":0" + pSec) : (pMin + ":" + pSec);
+        dc.setColor(Graphics.COLOR_YELLOW, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(width / 2, 42, Graphics.FONT_MEDIUM, paceStr + " /500m", Graphics.TEXT_JUSTIFY_CENTER);
 
-        // Labels
+        // Puissance (Watts)
+        dc.setColor(Graphics.COLOR_GREEN, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(width / 2, 75, Graphics.FONT_NUMBER_MEDIUM, m.instantPower.toString() + " W", Graphics.TEXT_JUSTIFY_CENTER);
+
         dc.setColor(Graphics.COLOR_DK_GRAY, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(width / 4, 155, Graphics.FONT_XTINY, I18n.getText("HUD_POWER"), Graphics.TEXT_JUSTIFY_CENTER);
-        dc.drawText((width * 3) / 4, 155, Graphics.FONT_XTINY, I18n.getText("HUD_PACE"), Graphics.TEXT_JUSTIFY_CENTER);
+        dc.drawLine(25, 125, width - 25, 125);
 
-        // Net Distance & Elapsed Time Row
-        var distStr = _netDistance.toString() + " / " + _targetDistance + "m";
-        var timeSec = m.elapsedTime;
-        var tMin = timeSec / 60;
-        var tSec = timeSec % 60;
-        var timeStr = (tSec < 10) ? (tMin + ":0" + tSec) : (tMin + ":" + tSec);
-
+        // Distance & Écart Leader
         dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(width / 2, 172, Graphics.FONT_SMALL, distStr + "  |  " + timeStr, Graphics.TEXT_JUSTIFY_CENTER);
+        dc.drawText(width / 4, 132, Graphics.FONT_XTINY, "Dist:", Graphics.TEXT_JUSTIFY_CENTER);
+        dc.drawText((width * 3) / 4, 132, Graphics.FONT_XTINY, "Lead:", Graphics.TEXT_JUSTIFY_CENTER);
+
+        dc.setColor(Graphics.COLOR_ORANGE, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(width / 4, 150, Graphics.FONT_SMALL, _netDistance + "m", Graphics.TEXT_JUSTIFY_CENTER);
+
+        var gapStr = (_currentRank == 1) ? "1er" : ("-" + _distToLeader + "m");
+        dc.setColor(Graphics.COLOR_YELLOW, Graphics.COLOR_TRANSPARENT);
+        dc.drawText((width * 3) / 4, 150, Graphics.FONT_SMALL, gapStr, Graphics.TEXT_JUSTIFY_CENTER);
 
         // Progress bar at bottom
         var barWidth = width - 40;
@@ -429,12 +447,106 @@ class RowerView extends WatchUi.View {
         dc.fillRectangle(20, 198, progressPx, 6);
     }
 
-    // 5. Paused Screen Menu
-    private function drawPausedScreen(dc as Graphics.Dc, width as Number, height as Number) as Void {
-        dc.setColor(Graphics.COLOR_RED, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(width / 2, 20, Graphics.FONT_MEDIUM, I18n.getText("PAUSED_TITLE"), Graphics.TEXT_JUSTIFY_CENTER);
+    // G7 : Écran de Course Alternatif (Mode Late-Join)
+    private function drawG7LateJoin(dc as Graphics.Dc, width as Number, height as Number) as Void {
+        dc.setColor(Graphics.COLOR_ORANGE, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(width / 2, 18, Graphics.FONT_TINY, "LATE JOIN", Graphics.TEXT_JUSTIFY_CENTER);
 
-        var options = [I18n.getText("MENU_RESUME"), I18n.getText("MENU_SAVE_EXIT"), I18n.getText("MENU_ABANDON")];
+        dc.setColor(Graphics.COLOR_DK_GRAY, Graphics.COLOR_TRANSPARENT);
+        dc.drawLine(25, 36, width - 25, 36);
+
+        var m = (_model != null) ? (_model as RowerDataModel) : new RowerDataModel();
+
+        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(width / 2, 45, Graphics.FONT_SMALL, "Perso: " + _netDistance + "m", Graphics.TEXT_JUSTIFY_CENTER);
+
+        var paceSec = m.instantPace;
+        var pMin = paceSec / 60;
+        var pSec = paceSec % 60;
+        var paceStr = (pSec < 10) ? (pMin + ":0" + pSec) : (pMin + ":" + pSec);
+        dc.setColor(Graphics.COLOR_YELLOW, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(width / 2, 75, Graphics.FONT_MEDIUM, "Split: " + paceStr, Graphics.TEXT_JUSTIFY_CENTER);
+
+        dc.setColor(Graphics.COLOR_DK_GRAY, Graphics.COLOR_TRANSPARENT);
+        dc.drawLine(25, 115, width - 25, 115);
+
+        dc.setColor(Graphics.COLOR_RED, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(width / 2, 125, Graphics.FONT_XTINY, "Peloton: -" + _distToLeader + "m", Graphics.TEXT_JUSTIFY_CENTER);
+
+        var timeSec = m.elapsedTime;
+        var tMin = timeSec / 60;
+        var tSec = timeSec % 60;
+        var timeStr = (tSec < 10) ? (tMin + ":0" + tSec) : (tMin + ":" + tSec);
+        dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(width / 2, 150, Graphics.FONT_XTINY, "Session: " + timeStr, Graphics.TEXT_JUSTIFY_CENTER);
+    }
+
+    // G8 : Ligne d'Arrivée & Podium Montre
+    private function drawG8Finished(dc as Graphics.Dc, width as Number, height as Number) as Void {
+        dc.setColor(Graphics.COLOR_YELLOW, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(width / 2, 18, Graphics.FONT_MEDIUM, "TERMINÉ !", Graphics.TEXT_JUSTIFY_CENTER);
+
+        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(width / 2, 55, Graphics.FONT_LARGE, "[ #" + _finalRank + " ]", Graphics.TEXT_JUSTIFY_CENTER);
+
+        var m = (_model != null) ? (_model as RowerDataModel) : new RowerDataModel();
+        var timeSec = m.elapsedTime;
+        var tMin = timeSec / 60;
+        var tSec = timeSec % 60;
+        var timeStr = (tSec < 10) ? (tMin + ":0" + tSec) : (tMin + ":" + tSec);
+
+        dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(width / 2, 105, Graphics.FONT_SMALL, "Chrono: " + timeStr, Graphics.TEXT_JUSTIFY_CENTER);
+        dc.drawText(width / 2, 130, Graphics.FONT_XTINY, "Moy: " + m.avgPower + "W | " + m.avgStrokeRate.format("%.0f") + " spm", Graphics.TEXT_JUSTIFY_CENTER);
+
+        dc.setColor(Graphics.COLOR_GREEN, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(width / 2, height - 30, Graphics.FONT_XTINY, "FIT Sauvegardé", Graphics.TEXT_JUSTIFY_CENTER);
+    }
+
+    // G9 : Consultation de l'Historique Récent au Poignet
+    private function drawG9History(dc as Graphics.Dc, width as Number, height as Number) as Void {
+        dc.setColor(Graphics.COLOR_YELLOW, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(width / 2, 18, Graphics.FONT_TINY, "HISTORIQUE RÉCENT", Graphics.TEXT_JUSTIFY_CENTER);
+
+        var historyList = [] as Array<Dictionary>;
+        try {
+            var raw = Storage.getValue("local_race_history");
+            if (raw != null && raw instanceof Array) {
+                historyList = raw as Array<Dictionary>;
+            }
+        } catch (ex) {}
+
+        if (historyList.size() == 0) {
+            dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
+            dc.drawText(width / 2, height / 2, Graphics.FONT_XTINY, "Aucune course enregistrée", Graphics.TEXT_JUSTIFY_CENTER);
+        } else {
+            for (var i = 0; i < historyList.size() && i < 3; i++) {
+                var item = historyList[i];
+                var yPos = 55 + (i * 38);
+                dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
+                var dist = item.get("distance");
+                var rk = item.get("rank");
+                var tSec = item.get("timeSec");
+                var m = (tSec as Number) / 60;
+                var s = (tSec as Number) % 60;
+                var timeStr = (s < 10) ? (m + ":0" + s) : (m + ":" + s);
+
+                dc.drawText(width / 2, yPos, Graphics.FONT_XTINY, "> Course " + dist + "m", Graphics.TEXT_JUSTIFY_CENTER);
+                dc.setColor(Graphics.COLOR_ORANGE, Graphics.COLOR_TRANSPARENT);
+                dc.drawText(width / 2, yPos + 16, Graphics.FONT_XTINY, "#0" + rk + " • " + timeStr, Graphics.TEXT_JUSTIFY_CENTER);
+            }
+        }
+
+        dc.setColor(Graphics.COLOR_DK_GRAY, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(width / 2, height - 25, Graphics.FONT_XTINY, "BACK: Retour Menu", Graphics.TEXT_JUSTIFY_CENTER);
+    }
+
+    // Menu Pause
+    private function drawPaused(dc as Graphics.Dc, width as Number, height as Number) as Void {
+        dc.setColor(Graphics.COLOR_RED, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(width / 2, 20, Graphics.FONT_MEDIUM, "EN PAUSE", Graphics.TEXT_JUSTIFY_CENTER);
+
+        var options = ["Reprendre", "Enregistrer & Quitter", "Abandonner"];
         for (var i = 0; i < 3; i++) {
             var yPos = 75 + (i * 35);
             if (i == _pauseMenuIndex) {
@@ -449,134 +561,58 @@ class RowerView extends WatchUi.View {
         }
 
         dc.setColor(Graphics.COLOR_DK_GRAY, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(width / 2, height - 30, Graphics.FONT_XTINY, "DOWN / START", Graphics.TEXT_JUSTIFY_CENTER);
+        dc.drawText(width / 2, height - 30, Graphics.FONT_XTINY, "DOWN: Choisir | START: Valider", Graphics.TEXT_JUSTIFY_CENTER);
     }
 
-    // 6. Finished Screen (Rank and Podium)
-    private function drawFinishedScreen(dc as Graphics.Dc, width as Number, height as Number) as Void {
-        dc.setColor(Graphics.COLOR_YELLOW, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(width / 2, 10, Graphics.FONT_MEDIUM, I18n.getText("FINISHED_TITLE"), Graphics.TEXT_JUSTIFY_CENTER);
-
-        var rankStr = (_finalRank > 0) ? (I18n.getText("YOUR_RANK") + ": #" + _finalRank) : "Bravo!";
-        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(width / 2, 45, Graphics.FONT_SMALL, rankStr, Graphics.TEXT_JUSTIFY_CENTER);
-
-        dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(width / 2, 80, Graphics.FONT_XTINY, I18n.getText("PODIUM_OFFICIAL"), Graphics.TEXT_JUSTIFY_CENTER);
-
-        var medals = ["1er:", "2eme:", "3eme:"];
-        for (var i = 0; i < 3; i++) {
-            var racerName = "--";
-            if (i < _top3Podium.size() && _top3Podium[i] != null) {
-                var p = _top3Podium[i] as Dictionary;
-                if (p.hasKey("userName")) {
-                    racerName = p.get("userName").toString();
-                }
-            }
-            var yPos = 105 + (i * 24);
-            dc.setColor((i == 0) ? Graphics.COLOR_YELLOW : ((i == 1) ? Graphics.COLOR_LT_GRAY : Graphics.COLOR_ORANGE), Graphics.COLOR_TRANSPARENT);
-            dc.drawText(width / 2, yPos, Graphics.FONT_TINY, medals[i] + " " + racerName, Graphics.TEXT_JUSTIFY_CENTER);
-        }
-
-        dc.setColor(Graphics.COLOR_GREEN, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(width / 2, height - 35, Graphics.FONT_XTINY, "FIT OK", Graphics.TEXT_JUSTIFY_CENTER);
-    }
-
-    // 7. Warning Box Overlay ("Ne pas ramer")
+    // Bannière d'alerte / faux départ
     private function drawWarningBanner(dc as Graphics.Dc, width as Number, height as Number, text as String) as Void {
         var boxW = width - 40;
         var boxH = 46;
         var boxX = 20;
         var boxY = (height / 2) - (boxH / 2);
 
-        // Encart fond rouge
         dc.setColor(Graphics.COLOR_RED, Graphics.COLOR_RED);
         dc.fillRoundedRectangle(boxX, boxY, boxW, boxH, 8);
-
-        // Bordure blanche
         dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
         dc.setPenWidth(2);
         dc.drawRoundedRectangle(boxX, boxY, boxW, boxH, 8);
 
-        // Texte blanc au milieu de l'écran
-        dc.drawText(width / 2, boxY + 4, Graphics.FONT_MEDIUM, I18n.getText("WARN_NO_ROW"), Graphics.TEXT_JUSTIFY_CENTER);
-        var subText = _falseStartLocked ? I18n.getText("WARN_ZERO_SPEED") : I18n.getText("WARN_WAIT_START");
+        dc.drawText(width / 2, boxY + 4, Graphics.FONT_MEDIUM, text, Graphics.TEXT_JUSTIFY_CENTER);
+        var subText = _falseStartLocked ? "Vitesse à 0 requise !" : "Attendez le départ !";
         dc.drawText(width / 2, boxY + 26, Graphics.FONT_XTINY, subText, Graphics.TEXT_JUSTIFY_CENTER);
     }
 
-    // 8. Auth Prompt Screen (Confirmation login front web)
-    private function drawAuthPromptScreen(dc as Graphics.Dc, width as Number, height as Number) as Void {
-        dc.setColor(Graphics.COLOR_BLUE, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(width / 2, 18, Graphics.FONT_SMALL, I18n.getText("AUTH_TITLE"), Graphics.TEXT_JUSTIFY_CENTER);
-
-        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(width / 2, 55, Graphics.FONT_TINY, I18n.getText("AUTH_AUTHORIZE_PLAYER"), Graphics.TEXT_JUSTIFY_CENTER);
-
-        dc.setColor(Graphics.COLOR_YELLOW, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(width / 2, 85, Graphics.FONT_MEDIUM, _authLogin, Graphics.TEXT_JUSTIFY_CENTER);
-
-        dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(width / 2, 125, Graphics.FONT_XTINY, I18n.getText("PLAYER_LABEL") + " ID: " + _userId, Graphics.TEXT_JUSTIFY_CENTER);
-
-        // Action options
-        dc.setColor(Graphics.COLOR_DK_GREEN, Graphics.COLOR_DK_GREEN);
-        dc.fillRoundedRectangle(30, 160, width - 60, 28, 6);
-        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(width / 2, 166, Graphics.FONT_XTINY, I18n.getText("AUTH_APPROVE"), Graphics.TEXT_JUSTIFY_CENTER);
-
-        dc.setColor(Graphics.COLOR_DK_RED, Graphics.COLOR_DK_RED);
-        dc.fillRoundedRectangle(30, 196, width - 60, 28, 6);
-        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(width / 2, 202, Graphics.FONT_XTINY, I18n.getText("AUTH_REJECT"), Graphics.TEXT_JUSTIFY_CENTER);
+    function decrementCountdown() as Void {
+        if (_nextRaceCountdown > 0) {
+            _nextRaceCountdown--;
+            WatchUi.requestUpdate();
+        }
     }
 
-    // 9. Bots Prompt Screen (Menu si le joueur est tout seul)
-    private function drawBotsPromptScreen(dc as Graphics.Dc, width as Number, height as Number) as Void {
-        dc.setColor(Graphics.COLOR_ORANGE, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(width / 2, 15, Graphics.FONT_TINY, I18n.getText("BOTS_PROMPT_TITLE"), Graphics.TEXT_JUSTIFY_CENTER);
-
-        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(width / 2, 45, Graphics.FONT_SMALL, I18n.getText("BOTS_PROMPT_TITLE"), Graphics.TEXT_JUSTIFY_CENTER);
-
-        dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(width / 2, 75, Graphics.FONT_XTINY, I18n.getText("BOTS_PROMPT_QUESTION"), Graphics.TEXT_JUSTIFY_CENTER);
-
-        // Buttons
-        dc.setColor(Graphics.COLOR_DK_GREEN, Graphics.COLOR_DK_GREEN);
-        dc.fillRoundedRectangle(25, 150, width - 50, 28, 6);
-        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(width / 2, 156, Graphics.FONT_XTINY, I18n.getText("BTN_YES_BOTS"), Graphics.TEXT_JUSTIFY_CENTER);
-
-        dc.setColor(Graphics.COLOR_DK_GRAY, Graphics.COLOR_DK_GRAY);
-        dc.fillRoundedRectangle(25, 185, width - 50, 28, 6);
-        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(width / 2, 191, Graphics.FONT_XTINY, I18n.getText("BTN_NO_SOLO"), Graphics.TEXT_JUSTIFY_CENTER);
+    function getCountdown() as Number {
+        return _nextRaceCountdown;
     }
 
-    // 10. Late Choice Screen (Si une course est déjà en cours)
-    private function drawLateChoiceScreen(dc as Graphics.Dc, width as Number, height as Number) as Void {
-        dc.setColor(Graphics.COLOR_YELLOW, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(width / 2, 18, Graphics.FONT_TINY, I18n.getText("LATE_TITLE"), Graphics.TEXT_JUSTIFY_CENTER);
+    function getConnectedPlayers() as Number {
+        return _connectedPlayers;
+    }
 
-        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(width / 2, 48, Graphics.FONT_XTINY, I18n.getText("LATE_TITLE"), Graphics.TEXT_JUSTIFY_CENTER);
+    function isBotsEnabled() as Boolean {
+        return _hasBotsEnabled;
+    }
 
-        // Option 1 : START -> Rejoindre la course en retard
-        dc.setColor(Graphics.COLOR_DK_GREEN, Graphics.COLOR_DK_GREEN);
-        dc.fillRoundedRectangle(20, 78, width - 40, 28, 6);
-        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(width / 2, 84, Graphics.FONT_XTINY, I18n.getText("LATE_OPT_JOIN"), Graphics.TEXT_JUSTIFY_CENTER);
+    function setBotsEnabled(enabled as Boolean) as Void {
+        _hasBotsEnabled = enabled;
+        WatchUi.requestUpdate();
+    }
 
-        // Option 2 : DOWN -> Attendre la fin et la prochaine course (dans 1h)
-        dc.setColor(Graphics.COLOR_DK_BLUE, Graphics.COLOR_DK_BLUE);
-        dc.fillRoundedRectangle(20, 114, width - 40, 28, 6);
-        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(width / 2, 120, Graphics.FONT_XTINY, I18n.getText("LATE_OPT_WAIT"), Graphics.TEXT_JUSTIFY_CENTER);
+    function showAuthPrompt(reqId as String, login as String) as Void {
+        _authRequestId = reqId;
+        _authLogin = login;
+        WatchUi.requestUpdate();
+    }
 
-        // Option 3 : BACK -> Ramer seul
-        dc.setColor(Graphics.COLOR_DK_GRAY, Graphics.COLOR_DK_GRAY);
-        dc.fillRoundedRectangle(20, 150, width - 40, 26, 6);
-        dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(width / 2, 155, Graphics.FONT_XTINY, I18n.getText("BTN_ROW_SOLO"), Graphics.TEXT_JUSTIFY_CENTER);
+    function getAuthRequestId() as String {
+        return _authRequestId;
     }
 }

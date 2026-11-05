@@ -4,6 +4,8 @@ import { FormsModule } from '@angular/forms';
 import { RowerService } from './services/rower.service';
 import { WakeLockService } from './services/wake-lock.service';
 import { I18nService, SupportedLang } from './services/i18n.service';
+import { SocketService, LiveRacerMetric } from './services/socket.service';
+import { RegattaCanvasComponent } from './components/regatta-canvas/regatta-canvas.component';
 import { RowerData, NextRaceInfo, PastRaceResult } from './models/rower-data.model';
 import { UserProfile, UserHistoryItem } from './models/user.model';
 import { interval, Subscription, of } from 'rxjs';
@@ -12,7 +14,7 @@ import { switchMap, startWith, catchError } from 'rxjs/operators';
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, RegattaCanvasComponent],
   templateUrl: './app.html',
   styleUrls: ['./app.css']
 })
@@ -36,6 +38,8 @@ export class AppComponent implements OnInit, OnDestroy {
   // Next Race & Multiplayer state
   nextRaceInfo: NextRaceInfo | null = null;
   racers: RowerData[] = [];
+  liveMetricsList: LiveRacerMetric[] = [];
+  activeViewMode: 'canvas' | 'cockpit' = 'canvas';
   activeRacersCount = 0;
   myActivity: RowerData | null = null;
   raceHistory: PastRaceResult[] = [];
@@ -89,6 +93,7 @@ export class AppComponent implements OnInit, OnDestroy {
     private rowerService: RowerService,
     private wakeLockService: WakeLockService,
     public i18n: I18nService,
+    private socketService: SocketService,
     private cdr: ChangeDetectorRef
   ) {
     this.apiUrl = this.rowerService.getApiUrl();
