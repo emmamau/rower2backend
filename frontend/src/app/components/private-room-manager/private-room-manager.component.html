@@ -355,11 +355,28 @@
             <p class="priv-error-msg" role="alert">⚠️ {{ createGeneralError }}</p>
           }
 
+          @if (!isUserAdmin && !isSubscriber) {
+            <div class="priv-sub-alert-box">
+              <div class="priv-sub-alert-title">⭐ Réservé aux abonnés</div>
+              <p class="priv-sub-alert-desc">
+                La création de salons de course privés est réservée aux abonnés. Connectez-vous avec vos identifiants ou inscrivez-vous pour débloquer la création de vos salons personnalisés.
+              </p>
+              <div class="priv-sub-alert-actions">
+                <button type="button" class="priv-btn priv-btn-cyan" (click)="requestAccountModal.emit('login')">
+                  Se connecter
+                </button>
+                <button type="button" class="priv-btn priv-btn-outline" (click)="requestAccountModal.emit('register')">
+                  Créer un compte abonné
+                </button>
+              </div>
+            </div>
+          }
+
           <div class="priv-form-actions">
             <button
               type="submit"
               class="priv-btn priv-btn-launch priv-btn-wide"
-              [disabled]="isCreating">
+              [disabled]="isCreating || (!isUserAdmin && !isSubscriber)">
               {{ isCreating ? i18n.t('CREATING_ROOM') : i18n.t('BTN_CREATE_PRIVATE') }}
             </button>
           </div>

@@ -10,7 +10,13 @@ import {
   CreatePrivateRaceRequest,
   PrivateRacePayload
 } from '../models/rower-data.model';
-import { UserProfileResponse, GeneralLeaderboardResponse } from '../models/user.model';
+import {
+  UserProfileResponse,
+  GeneralLeaderboardResponse,
+  RegisterUserDto,
+  LoginDto,
+  AuthResponse
+} from '../models/user.model';
 
 @Injectable({
   providedIn: 'root'
@@ -213,6 +219,31 @@ export class RowerService {
   // Vérification de la réponse d'acceptation de la montre
   checkWebLoginStatus(requestId: string): Observable<{ success: boolean; status: 'pending' | 'approved' | 'rejected' | 'expired'; userId: string; login: string }> {
     return this.http.get<{ success: boolean; status: 'pending' | 'approved' | 'rejected' | 'expired'; userId: string; login: string }>(`${this.apiUrl}/api/user/auth/status/${requestId}`);
+  }
+
+  // Inscription abonné
+  registerUser(data: RegisterUserDto): Observable<AuthResponse> {
+    return this.http.post<AuthResponse>(`${this.apiUrl}/api/user/register`, data);
+  }
+
+  // Connexion abonné avec mot de passe
+  loginUser(credentials: LoginDto): Observable<AuthResponse> {
+    return this.http.post<AuthResponse>(`${this.apiUrl}/api/user/login`, credentials);
+  }
+
+  // Procédure mot de passe oublié
+  forgotPassword(emailOrLogin: string): Observable<{ success: boolean; message: string }> {
+    return this.http.post<{ success: boolean; message: string }>(`${this.apiUrl}/api/user/forgot-password`, { emailOrLogin });
+  }
+
+  // Réinitialisation mot de passe avec jeton
+  resetPassword(token: string, newPassword: string): Observable<{ success: boolean; message: string }> {
+    return this.http.post<{ success: boolean; message: string }>(`${this.apiUrl}/api/user/reset-password`, { token, newPassword });
+  }
+
+  // Consultation fiche compte
+  getUserAccount(identifier: string): Observable<{ success: boolean; account: any }> {
+    return this.http.get<{ success: boolean; account: any }>(`${this.apiUrl}/api/user/account/${encodeURIComponent(identifier)}`);
   }
 
   checkHealth(): Observable<{ status: string; database: string }> {

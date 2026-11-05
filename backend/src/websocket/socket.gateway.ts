@@ -88,16 +88,14 @@ export class SocketGateway {
 
   public broadcastPrivateRoomUpdate(raceId: string, data: any): void {
     if (!this.io) return;
-    this.io.to(`race:${raceId}`).emit("race:private_update", {
+    const payload = {
       raceId,
       timestamp: Date.now(),
       ...data
-    });
-    this.io.emit(`race:${raceId}:private_update`, {
-      raceId,
-      timestamp: Date.now(),
-      ...data
-    });
+    };
+    this.io.to(`race:${raceId}`).emit("race:private_update", payload);
+    this.io.emit(`race:${raceId}:private_update`, payload);
+    this.io.emit("race:private_update", payload);
   }
 
   public getIO(): Server | null {

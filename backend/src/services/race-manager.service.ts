@@ -131,18 +131,63 @@ export class RaceManager {
         console.log(`[RaceManager] Max duration (55m) reached for race ${race.id}. Finishing.`);
         await this.finishRace(race.id, true);
       } else {
-        const activeActivities = await Activities.findAll({
-          where: { activityId: race.id, status: { [Op.ne]: "abandoned" } }
-        });
-
-        if (activeActivities.length > 0) {
-          const allFinished = activeActivities.every(
-            (act: any) => act.get("status") === "finished" || (act.get("netDistance") as number) >= race.targetDistance
-          );
-          if (allFinished) {
-            console.log(`[RaceManager] All racers finished race ${race.id}. Closing race.`);
-            await this.finishRace(race.id, false);
+        try {
+          if (race.hasBots) {
+            const activeBots = await Activities.findAll({
+              where: { activityId: race.id, isBot: true, status: { [Op.in]: ["in_progress", "waiting"] } }
+            });
+            for (const bot of activeBots) {
+              const botPace = (bot.get("avgPace") as number) || 120;
+              const botSpeedMs = 500 / botPace;
+              const botPrevTime = (bot.get("elapsedTime") as number) || 0;
+              const botNewTime = botPrevTime + 1;
+              const botTarget = race.targetDistance || 2000;
+              const botNetDist = Math.min(botTarget, Math.floor(botNewTime * botSpeedMs));
+              const botProgress = Math.min(100, Number(((botNetDist / botTarget) * 100).toFixed(1)));
+              await bot.update({
+                netDistance: botNetDist,
+                currentDistance: botNetDist,
+                elapsedTime: botNewTime,
+                progressPercent: botProgress,
+                status: botNetDist >= botTarget ? "finished" : "in_progress",
+                updatedAt: now
+              });
+            }
           }
+
+          const activeActivities = await Activities.findAll({
+            where: { activityId: race.id, status: { [Op.ne]: "abandoned" } },
+            order: [
+              ["status", "ASC"],
+              ["netDistance", "DESC"],
+              ["elapsedTime", "ASC"]
+            ]
+          });
+
+          if (activeActivities.length > 0) {
+            const liveList: LiveRacerMetric[] = activeActivities.map((r: any, idx: number) => ({
+              lane: idx + 1,
+              userId: r.get("userId"),
+              name: r.get("userName") || r.get("userId"),
+              dist: (r.get("netDistance") as number) || 0,
+              split: (r.get("lastPace") as number) || (r.get("avgPace") as number) || 120,
+              watts: (r.get("lastPower") as number) || (r.get("avgPower") as number) || 150,
+              spm: (r.get("lastStrokeRate") as number) || (r.get("avgStrokeRate") as number) || 24,
+              heartRate: (r.get("lastHeartRate") as number) || undefined,
+              status: r.get("status") || "in_progress"
+            }));
+            socketGateway.broadcastLeaderboard(race.id, liveList);
+
+            const allFinished = activeActivities.every(
+              (act: any) => act.get("status") === "finished" || (act.get("netDistance") as number) >= race.targetDistance
+            );
+            if (allFinished) {
+              console.log(`[RaceManager] All racers finished race ${race.id}. Closing race.`);
+              await this.finishRace(race.id, false);
+            }
+          }
+        } catch {
+          // Non-blocking in pure in-memory mode
         }
       }
     }
@@ -221,10 +266,28 @@ export class RaceManager {
           }
 
           const activeActivities = await Activities.findAll({
-            where: { activityId: race.id, status: { [Op.ne]: "abandoned" } }
+            where: { activityId: race.id, status: { [Op.ne]: "abandoned" } },
+            order: [
+              ["status", "ASC"], // finished first
+              ["netDistance", "DESC"],
+              ["elapsedTime", "ASC"]
+            ]
           });
 
           if (activeActivities.length > 0) {
+            const liveList: LiveRacerMetric[] = activeActivities.map((r: any, idx: number) => ({
+              lane: idx + 1,
+              userId: r.get("userId"),
+              name: r.get("userName") || r.get("userId"),
+              dist: (r.get("netDistance") as number) || 0,
+              split: (r.get("lastPace") as number) || (r.get("avgPace") as number) || 120,
+              watts: (r.get("lastPower") as number) || (r.get("avgPower") as number) || 150,
+              spm: (r.get("lastStrokeRate") as number) || (r.get("avgStrokeRate") as number) || 24,
+              heartRate: (r.get("lastHeartRate") as number) || undefined,
+              status: r.get("status") || "in_progress"
+            }));
+            socketGateway.broadcastLeaderboard(race.id, liveList);
+
             const allFinished = activeActivities.every(
               (act: any) => act.get("status") === "finished" || (act.get("netDistance") as number) >= race.targetDistance
             );
@@ -862,7 +925,7 @@ export class RaceManager {
     return { success: true, raceId: race.id };
   }
 
-  private canManagePrivateRace(race: RaceState, hostUserId?: string, isAdmin?: boolean): boolean {
+  public canManagePrivateRace(race: RaceState, hostUserId?: string, isAdmin?: boolean): boolean {
     if (isAdmin) return true;
     if (!race.hostUserId || race.hostUserId === "anonymous") return true;
     return Boolean(hostUserId && hostUserId.trim() === race.hostUserId);

@@ -823,3 +823,32 @@
   }
 }
 
+.priv-sub-alert-box {
+  margin: 1rem 0;
+  padding: 1rem;
+  background: rgba(255, 230, 0, 0.08);
+  border: 1px solid rgba(255, 230, 0, 0.35);
+  border-radius: 8px;
+}
+
+.priv-sub-alert-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #ffe600;
+  margin-bottom: 0.4rem;
+}
+
+.priv-sub-alert-desc {
+  font-size: 0.85rem;
+  color: #e2e8f0;
+  line-height: 1.4;
+  margin: 0 0 0.8rem 0;
+}
+
+.priv-sub-alert-actions {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+

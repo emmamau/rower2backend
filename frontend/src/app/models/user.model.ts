@@ -1,6 +1,16 @@
 export interface UserProfile {
-  id: string; // Identifiant de la montre
-  name: string; // Login du joueur
+  id: string; // Identifiant ou login
+  name: string; // Nom d'affichage ou login du joueur
+  login?: string; // Login unique
+  email?: string; // Email
+  lastName?: string; // Nom
+  firstName?: string; // Prénom
+  birthYear?: number; // Année de naissance
+  gender?: string; // Sexe ('M' | 'F' | 'Autre')
+  country?: string; // Pays
+  isSubscriber?: boolean; // Droit de créer des salons privés
+  isConfirmed?: boolean; // Confirmé via montre Garmin
+  watchUserId?: string; // ID de la montre Garmin
   totalRaces?: number;
   totalWins?: number;
   podiums?: number;
@@ -10,6 +20,33 @@ export interface UserProfile {
   isAdmin?: boolean;
   createdAt?: string;
   updatedAt?: string;
+}
+
+export interface RegisterUserDto {
+  nom: string;
+  prenom: string;
+  anneeNaissance: number;
+  sexe: string;
+  pays: string;
+  login: string;
+  email: string;
+  password: string;
+  watchUserId?: string;
+}
+
+export interface LoginDto {
+  login: string;
+  password: string;
+  watchUserId?: string;
+}
+
+export interface AuthResponse {
+  success: boolean;
+  message: string;
+  user: UserProfile;
+  isSubscriber?: boolean;
+  isAdmin?: boolean;
+  confirmationRequestId?: string;
 }
 
 export interface UserHistoryItem {

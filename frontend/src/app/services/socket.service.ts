@@ -21,6 +21,15 @@ export interface LeaderboardUpdatePayload {
   leaderboard: LiveRacerMetric[];
 }
 
+export interface PrivateRoomUpdatePayload {
+  raceId: string;
+  type: string;
+  userId?: string;
+  userName?: string;
+  timestamp: number;
+  [key: string]: any;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -28,6 +37,7 @@ export class SocketService {
   private socket: Socket | null = null;
   private leaderboardSubject = new Subject<LeaderboardUpdatePayload>();
   private statusSubject = new Subject<{ raceId: string; status: string; details?: any }>();
+  private privateRoomUpdateSubject = new Subject<PrivateRoomUpdatePayload>();
 
   private currentRoomId: string | null = null;
 
@@ -59,6 +69,10 @@ export class SocketService {
       this.statusSubject.next(data);
     });
 
+    this.socket.on('race:private_update', (data: PrivateRoomUpdatePayload) => {
+      this.privateRoomUpdateSubject.next(data);
+    });
+
     this.socket.on('disconnect', () => {
       console.log('[SocketService] Disconnected from real-time server');
     });
@@ -86,6 +100,10 @@ export class SocketService {
 
   public onRaceStatusChange(): Observable<{ raceId: string; status: string; details?: any }> {
     return this.statusSubject.asObservable();
+  }
+
+  public onPrivateRoomUpdate(): Observable<PrivateRoomUpdatePayload> {
+    return this.privateRoomUpdateSubject.asObservable();
   }
 }
 

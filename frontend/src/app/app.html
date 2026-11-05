@@ -8,6 +8,31 @@
     </div>
   </div>
 
+  <!-- RACE PRE-START COUNTDOWN TIMER (15s..4s) -->
+  <div class="prestart-countdown-overlay" *ngIf="isPreStartCountdown && !is3sCountdown">
+    <div class="prestart-countdown-box">
+      <div class="prestart-countdown-badge">⏱️ DÉPART DANS</div>
+      <div class="prestart-countdown-number">{{ countdownSeconds }}s</div>
+      <div class="prestart-countdown-sub">Tenez-vous prêts sur vos rameurs !</div>
+    </div>
+  </div>
+
+  <!-- ORGANIZER PENDING APPROVAL NOTIFICATION BANNER -->
+  <aside class="pending-approval-banner" *ngIf="pendingApprovalPlayers.length > 0" role="alert" aria-live="assertive">
+    <div class="pending-banner-content">
+      <span class="pending-banner-icon">🔔</span>
+      <div class="pending-banner-text">
+        <strong>{{ pendingApprovalPlayers.length }} joueur(s) en attente de validation :</strong>
+        <span *ngFor="let p of pendingApprovalPlayers" class="pending-user-pill">
+          <span class="pending-pill-name">{{ p.userName || 'Rameur' }}</span>
+          <span class="pending-pill-id">[{{ p.userId }}]</span>
+          <button type="button" class="btn-banner-approve" (click)="approvePendingPlayer(p.userId)">✓ Valider</button>
+          <button type="button" class="btn-banner-reject" (click)="rejectPendingPlayer(p.userId)">✕ Refuser</button>
+        </span>
+      </div>
+    </div>
+  </aside>
+
   <!-- HUD Header -->
   <header class="hud-header">
     <div class="header-left">
@@ -85,18 +110,32 @@
         }
       </div>
 
-      <div class="player-card">
+      <div class="player-card" (click)="openAccountModal(isSubscriber || isUserAdmin ? 'profile' : 'login')">
         <div class="player-avatar-box">
           <div class="player-avatar-initial">{{ currentUser.name.slice(0, 2).toUpperCase() }}</div>
           <span class="player-status-dot"></span>
         </div>
         <div class="player-info">
-          <div class="player-name">{{ currentUser.name }}</div>
+          <div class="player-name">
+            {{ currentUser.name }}
+            @if (isUserAdmin) {
+              <span class="badge-role-tag is-admin" title="Administratrice">👑 Admin</span>
+            } @else if (isSubscriber) {
+              <span class="badge-role-tag is-sub" title="Abonné(e)">⭐ Abonné</span>
+            } @else {
+              <span class="badge-role-tag is-guest" title="Invité(e)">Invité</span>
+            }
+          </div>
           <div class="player-code">
             {{ i18n.t('GENERAL_RANK') }}: <span class="highlight">#{{ generalUserRank }}</span> ({{ currentUser.points || 0 }} {{ i18n.t('POINTS') }}) · {{ currentUser.totalRaces || 0 }} {{ i18n.t('RACES_COUNT') }}
           </div>
         </div>
-        <button type="button" class="btn-hud btn-connect" (click)="isLoginModalOpen = true">{{ i18n.t('CONNECT_WATCH') }}</button>
+        <button
+          type="button"
+          class="btn-hud btn-connect"
+          (click)="$event.stopPropagation(); openAccountModal(isSubscriber || isUserAdmin ? 'profile' : 'login')">
+          {{ (isSubscriber || isUserAdmin) ? 'Mon Compte' : 'Connexion / Abonnement' }}
+        </button>
       </div>
 
       <div class="hud-actions">
@@ -106,10 +145,13 @@
           [class.active-private]="!!activePrivateRoom"
           (click)="openPrivateModal()">
           {{ i18n.t('BTN_PRIVATE_ROOMS') }}
+          <span class="badge-pending" *ngIf="pendingApprovalPlayers.length > 0">
+            {{ pendingApprovalPlayers.length }}
+          </span>
         </button>
         <button type="button" class="btn-hud btn-standings" (click)="isStandingsOpen = true; loadGeneralLeaderboard()">{{ i18n.t('BTN_STANDINGS') }}</button>
         <button type="button" class="btn-hud btn-history" (click)="isHistoryOpen = true; loadPastRaces()">{{ i18n.t('BTN_HISTORY') }}</button>
-        <button type="button" class="btn-hud btn-admin" *ngIf="isUserAdmin" (click)="isConfigRaceOpen = true" title="Paramètres Administrateur">{{ i18n.t('BTN_ADMIN') }}</button>
+        <button type="button" class="btn-hud btn-admin" *ngIf="canConfigureRace" (click)="isConfigRaceOpen = true" title="Paramètres de course">{{ i18n.t('BTN_ADMIN') }}</button>
         <button type="button" class="btn-hud btn-legal" (click)="isLegalTermsOpen = true" title="Conditions d'utilisation et RGPD">{{ i18n.t('BTN_LEGAL') }}</button>
         <button type="button" class="btn-wakelock" [class.active]="wakeLockActive" (click)="toggleWakeLock()">
           {{ wakeLockActive ? i18n.t('WAKELOCK_ON') : i18n.t('WAKELOCK_OFF') }}
@@ -119,43 +161,326 @@
   </header>
 
   <!-- Modals -->
-  <!-- 1. Change Login / Watch Auth Modal -->
-  @if (isLoginModalOpen) {
-    <div class="modal-overlay" (click)="isLoginModalOpen = false">
-      <div class="modal-card" (click)="$event.stopPropagation()">
+  <!-- 1. USER ACCOUNT & SUBSCRIBER MANAGEMENT MODAL -->
+  @if (isAccountModalOpen || isLoginModalOpen) {
+    <div class="modal-overlay" (click)="closeAccountModal(); isLoginModalOpen = false">
+      <div class="modal-card modal-account" (click)="$event.stopPropagation()">
         <div class="modal-header-row">
-          <h3>{{ i18n.t('MODAL_LOGIN_TITLE') }}</h3>
-          <button type="button" class="btn-close" (click)="isLoginModalOpen = false" [attr.aria-label]="i18n.t('BTN_CLOSE')">✕</button>
+          <div class="modal-title-with-badge">
+            <h3>Compte Utilisateur & Abonnés</h3>
+            @if (isUserAdmin) {
+              <span class="badge-role-tag is-admin">👑 Admin EmmaRacer</span>
+            } @else if (isSubscriber) {
+              <span class="badge-role-tag is-sub">⭐ Abonné Actif</span>
+            } @else {
+              <span class="badge-role-tag is-guest">Invité Gratuit</span>
+            }
+          </div>
+          <button type="button" class="btn-close" (click)="closeAccountModal(); isLoginModalOpen = false" [attr.aria-label]="i18n.t('BTN_CLOSE')">✕</button>
         </div>
-        <p class="modal-desc">
-          {{ i18n.t('MODAL_LOGIN_DESC') }}
-        </p>
-        <div class="modal-form">
-          <div class="form-group">
-            <label for="login-pseudo-input">{{ i18n.t('PSEUDO_LABEL') }}</label>
-            <input id="login-pseudo-input" name="userLogin" type="text" [(ngModel)]="userLoginInput" placeholder="ex: EmmaKayak" />
-          </div>
-          <div class="form-group">
-            <label for="login-watch-id-input">{{ i18n.t('WATCH_ID_LABEL') }}</label>
-            <input id="login-watch-id-input" name="watchId" type="text" autocorrect="off" autocapitalize="off" spellcheck="false" [(ngModel)]="userIdInput" placeholder="ex: aB3_9Z" />
-          </div>
 
-          <div class="auth-feedback" *ngIf="loginStatusMessage">
-            <div class="spinner-auth" *ngIf="isWaitingWatchApproval"></div>
-            <span>{{ loginStatusMessage }}</span>
-          </div>
-
-          <div class="auth-error" *ngIf="loginErrorMessage">
-            ⚠️ {{ loginErrorMessage }}
-          </div>
-
-          <div class="modal-buttons">
-            <button type="button" class="btn-primary" [disabled]="isWaitingWatchApproval" (click)="startWebLogin()">
-              {{ isWaitingWatchApproval ? 'En attente...' : i18n.t('BTN_REQUEST_AUTH') }}
+        <!-- Account Modal Tabs -->
+        <div class="modal-tabs-bar">
+          <button
+            type="button"
+            class="modal-tab-btn"
+            [class.active]="accountModalTab === 'login'"
+            (click)="accountModalTab = 'login'; accountAuthError = ''; accountAuthSuccess = ''">
+            🔑 Connexion
+          </button>
+          <button
+            type="button"
+            class="modal-tab-btn"
+            [class.active]="accountModalTab === 'register'"
+            (click)="accountModalTab = 'register'; accountAuthError = ''; accountAuthSuccess = ''">
+            ⭐ S'inscrire (Abonné)
+          </button>
+          @if (isSubscriber || isUserAdmin) {
+            <button
+              type="button"
+              class="modal-tab-btn"
+              [class.active]="accountModalTab === 'profile'"
+              (click)="accountModalTab = 'profile'; accountAuthError = ''; accountAuthSuccess = ''">
+              👤 Mon Profil
             </button>
-            <button type="button" class="btn-secondary" (click)="isLoginModalOpen = false">{{ i18n.t('BTN_CLOSE') }}</button>
-          </div>
+          }
+          <button
+            type="button"
+            class="modal-tab-btn"
+            [class.active]="accountModalTab === 'forgot'"
+            (click)="accountModalTab = 'forgot'; accountAuthError = ''; accountAuthSuccess = ''">
+            ❓ Mot de passe
+          </button>
         </div>
+
+        <!-- Feedback banners -->
+        @if (accountAuthSuccess) {
+          <div class="auth-feedback-success">
+            ✅ {{ accountAuthSuccess }}
+          </div>
+        }
+        @if (accountAuthError) {
+          <div class="auth-error">
+            ⚠️ {{ accountAuthError }}
+          </div>
+        }
+
+        <!-- TAB 1: LOGIN -->
+        @if (accountModalTab === 'login') {
+          <form class="modal-form" (ngSubmit)="submitAccountLogin()" novalidate>
+            <p class="modal-desc">
+              Connectez-vous à votre compte abonné avec votre login et votre mot de passe pour créer et animer vos salons de course privés.
+            </p>
+            <div class="form-group">
+              <label for="acc-login-input">Login ou Email</label>
+              <input
+                id="acc-login-input"
+                name="login"
+                type="text"
+                class="form-control"
+                [(ngModel)]="loginAccountInput"
+                placeholder="ex: EmmaRacer"
+                required />
+            </div>
+            <div class="form-group">
+              <label for="acc-password-input">Mot de passe</label>
+              <input
+                id="acc-password-input"
+                name="password"
+                type="password"
+                class="form-control"
+                [(ngModel)]="passwordAccountInput"
+                placeholder="Votre mot de passe"
+                required />
+            </div>
+
+            <div class="modal-buttons">
+              <button type="submit" class="btn-primary" [disabled]="isAccountSubmitting">
+                {{ isAccountSubmitting ? 'Connexion en cours...' : 'Se connecter' }}
+              </button>
+              <button type="button" class="btn-secondary" (click)="accountModalTab = 'register'">
+                Créer un compte abonné
+              </button>
+            </div>
+
+            <!-- Garmin watch sync shortcut -->
+            <div class="garmin-watch-section">
+              <div class="garmin-section-title">⌚ Synchronisation Montre Garmin</div>
+              <p class="garmin-section-desc">
+                Vous pouvez également envoyer une demande d'autorisation à votre montre Connect IQ :
+              </p>
+              <div class="garmin-sync-row">
+                <input
+                  type="text"
+                  name="watchIdInput"
+                  [(ngModel)]="userIdInput"
+                  placeholder="Code montre (ex: aB3_9Z)"
+                  class="form-control form-control-sm" />
+                <button type="button" class="btn-watch-sync" [disabled]="isWaitingWatchApproval" (click)="startWebLogin()">
+                  {{ isWaitingWatchApproval ? 'En attente montre...' : 'Vérifier montre' }}
+                </button>
+              </div>
+              @if (loginStatusMessage) {
+                <div class="auth-feedback">
+                  <div class="spinner-auth" *ngIf="isWaitingWatchApproval"></div>
+                  <span>{{ loginStatusMessage }}</span>
+                </div>
+              }
+              @if (loginErrorMessage) {
+                <div class="auth-error">⚠️ {{ loginErrorMessage }}</div>
+              }
+            </div>
+          </form>
+        }
+
+        <!-- TAB 2: REGISTER -->
+        @if (accountModalTab === 'register') {
+          <form class="modal-form modal-form-scrollable" (ngSubmit)="submitAccountRegister()" novalidate>
+            <div class="subscriber-perks-box">
+              <strong>⭐ Avantages Compte Abonné :</strong>
+              <span>Droit exclusif de créer et configurer des salons de course privés avec codes d'invitation et code PIN Garmin.</span>
+            </div>
+
+            <div class="form-row-2">
+              <div class="form-group">
+                <label for="reg-nom">Nom *</label>
+                <input id="reg-nom" name="nom" type="text" [(ngModel)]="regNom" placeholder="ex: Dupont" required />
+              </div>
+              <div class="form-group">
+                <label for="reg-prenom">Prénom *</label>
+                <input id="reg-prenom" name="prenom" type="text" [(ngModel)]="regPrenom" placeholder="ex: Jean" required />
+              </div>
+            </div>
+
+            <div class="form-row-3">
+              <div class="form-group">
+                <label for="reg-birth">Année de naissance *</label>
+                <input id="reg-birth" name="anneeNaissance" type="number" min="1920" max="2020" [(ngModel)]="regAnneeNaissance" required />
+              </div>
+              <div class="form-group">
+                <label for="reg-sexe">Sexe *</label>
+                <select id="reg-sexe" name="sexe" [(ngModel)]="regSexe">
+                  <option value="M">Homme (M)</option>
+                  <option value="F">Femme (F)</option>
+                  <option value="Autre">Autre</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="reg-pays">Pays *</label>
+                <input id="reg-pays" name="pays" type="text" [(ngModel)]="regPays" placeholder="ex: France" required />
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="reg-login">Login unique *</label>
+              <input id="reg-login" name="login" type="text" [(ngModel)]="regLogin" placeholder="ex: RameurPro75" required />
+              <span class="field-hint">Le login est unique. Il sert à confirmer votre inscription via l'application montre Garmin.</span>
+            </div>
+
+            <div class="form-group">
+              <label for="reg-email">Email *</label>
+              <input id="reg-email" name="email" type="email" [(ngModel)]="regEmail" placeholder="votre.email@exemple.com" required />
+            </div>
+
+            <div class="form-group">
+              <label for="reg-password">Mot de passe *</label>
+              <input id="reg-password" name="password" type="password" [(ngModel)]="regPassword" placeholder="Minimum 4 caractères" required />
+            </div>
+
+            <div class="form-group">
+              <label for="reg-watch-id">Code montre Garmin (optionnel)</label>
+              <input id="reg-watch-id" name="watchUserId" type="text" [(ngModel)]="regWatchUserId" placeholder="ex: aB3_9Z ou laisser vide" />
+            </div>
+
+            <div class="modal-buttons">
+              <button type="submit" class="btn-primary" [disabled]="isAccountSubmitting">
+                {{ isAccountSubmitting ? 'Création en cours...' : 'Créer mon compte abonné' }}
+              </button>
+              <button type="button" class="btn-secondary" (click)="accountModalTab = 'login'">
+                Déjà un compte ? Se connecter
+              </button>
+            </div>
+          </form>
+        }
+
+        <!-- TAB 3: PROFILE / MON COMPTE -->
+        @if (accountModalTab === 'profile') {
+          <div class="modal-form">
+            <div class="profile-details-card">
+              <div class="profile-hero">
+                <div class="profile-avatar">{{ currentUser.name.slice(0, 2).toUpperCase() }}</div>
+                <div class="profile-main-info">
+                  <h4>{{ currentUser.name }}</h4>
+                  <div class="profile-sub-status">
+                    @if (isUserAdmin) {
+                      <span class="badge-role-tag is-admin">👑 Administratrice en dur</span>
+                    } @else if (isSubscriber) {
+                      <span class="badge-role-tag is-sub">⭐ Compte Abonné Actif</span>
+                    } @else {
+                      <span class="badge-role-tag is-guest">Invité non abonné</span>
+                    }
+                  </div>
+                </div>
+              </div>
+
+              <div class="profile-fields-grid">
+                <div class="profile-field">
+                  <span class="field-name">Login unique</span>
+                  <strong class="field-val">{{ currentUser.login || currentUser.id }}</strong>
+                </div>
+                <div class="profile-field">
+                  <span class="field-name">Email</span>
+                  <strong class="field-val">{{ currentUser.email || 'Non renseigné' }}</strong>
+                </div>
+                <div class="profile-field">
+                  <span class="field-name">Création de salons privés</span>
+                  <strong class="field-val is-granted">
+                    {{ (isSubscriber || isUserAdmin) ? '✅ Autorisée' : '❌ Réservée aux abonnés' }}
+                  </strong>
+                </div>
+                <div class="profile-field">
+                  <span class="field-name">Confirmation Montre Garmin</span>
+                  <strong class="field-val">
+                    {{ currentUser.isConfirmed ? '✅ Montre confirmée' : '⏳ En attente de confirmation Garmin' }}
+                  </strong>
+                </div>
+              </div>
+            </div>
+
+            <div class="modal-buttons">
+              <button type="button" class="btn-primary" (click)="closeAccountModal(); openPrivateModal('create')">
+                🛶 Créer un salon privé
+              </button>
+              <button type="button" class="btn-danger-outline" (click)="logoutUser()">
+                Déconnexion
+              </button>
+              <button type="button" class="btn-secondary" (click)="closeAccountModal()">
+                Fermer
+              </button>
+            </div>
+          </div>
+        }
+
+        <!-- TAB 4: FORGOT PASSWORD -->
+        @if (accountModalTab === 'forgot') {
+          <form class="modal-form" (ngSubmit)="showResetFields ? submitResetPassword() : submitForgotPassword()" novalidate>
+            <p class="modal-desc">
+              Procédure de réinitialisation sécurisée de votre mot de passe utilisateur.
+            </p>
+
+            @if (!showResetFields) {
+              <div class="form-group">
+                <label for="forgot-input">Email ou Login</label>
+                <input
+                  id="forgot-input"
+                  name="emailOrLogin"
+                  type="text"
+                  [(ngModel)]="forgotEmailOrLogin"
+                  placeholder="ex: emma@rower.fr ou EmmaRacer"
+                  required />
+              </div>
+
+              <div class="modal-buttons">
+                <button type="submit" class="btn-primary" [disabled]="isAccountSubmitting">
+                  {{ isAccountSubmitting ? 'Envoi...' : 'Envoyer le lien de réinitialisation' }}
+                </button>
+                <button type="button" class="btn-secondary" (click)="accountModalTab = 'login'">
+                  Retour connexion
+                </button>
+              </div>
+            } @else {
+              <div class="form-group">
+                <label for="reset-token-input">Jeton de réinitialisation reçu</label>
+                <input
+                  id="reset-token-input"
+                  name="token"
+                  type="text"
+                  [(ngModel)]="resetToken"
+                  placeholder="Collez votre jeton de réinitialisation"
+                  required />
+              </div>
+              <div class="form-group">
+                <label for="reset-pwd-input">Nouveau mot de passe</label>
+                <input
+                  id="reset-pwd-input"
+                  name="newPassword"
+                  type="password"
+                  [(ngModel)]="resetNewPassword"
+                  placeholder="Au moins 4 caractères"
+                  required />
+              </div>
+
+              <div class="modal-buttons">
+                <button type="submit" class="btn-primary" [disabled]="isAccountSubmitting">
+                  Mettre à jour mon mot de passe
+                </button>
+                <button type="button" class="btn-secondary" (click)="showResetFields = false; accountModalTab = 'login'">
+                  Annuler
+                </button>
+              </div>
+            }
+          </form>
+        }
       </div>
     </div>
   }
@@ -344,6 +669,7 @@
       [activeUserId]="activeUserId"
       [activeUserName]="currentUser.name"
       [isUserAdmin]="isUserAdmin"
+      [isSubscriber]="isSubscriber"
       [activeRacersCount]="activeRacersCount"
       [externalError]="privateUrlError"
       (modalClose)="onPrivateModalClosed()"
@@ -351,7 +677,8 @@
       (roomSelected)="onPrivateRoomSelected($event)"
       (roomUpdated)="onPrivateRoomUpdated($event)"
       (roomClosedOrLeft)="onPrivateRoomClosedOrLeft($event)"
-      (botsToggled)="onPrivateRoomBotsToggled($event)">
+      (botsToggled)="onPrivateRoomBotsToggled($event)"
+      (requestAccountModal)="openAccountModal($event)">
     </app-private-room-manager>
 
     <!-- Ergometer & Arena Mode Switcher Bar -->

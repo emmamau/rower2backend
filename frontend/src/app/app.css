@@ -19,6 +19,147 @@
   z-index: 9999;
 }
 
+/* Pre-start countdown overlay (15s..4s before race) */
+.prestart-countdown-overlay {
+  position: fixed;
+  top: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9998;
+  pointer-events: none;
+}
+
+.prestart-countdown-box {
+  background: linear-gradient(135deg, rgba(14, 23, 42, 0.95), rgba(30, 41, 59, 0.95));
+  border: 2px solid var(--neon-cyan);
+  box-shadow: 0 0 25px rgba(0, 240, 255, 0.6), inset 0 0 15px rgba(0, 240, 255, 0.2);
+  border-radius: 16px;
+  padding: 0.75rem 2rem;
+  text-align: center;
+  animation: pulseBox 1.2s infinite alternate;
+}
+
+.prestart-countdown-badge {
+  font-family: var(--font-race);
+  font-size: 0.85rem;
+  letter-spacing: 2px;
+  color: var(--neon-yellow);
+  text-transform: uppercase;
+}
+
+.prestart-countdown-number {
+  font-family: var(--font-race);
+  font-size: clamp(2.4rem, 1.8rem + 3vw, 3.6rem);
+  line-height: 1.1;
+  color: #fff;
+  text-shadow: 0 0 20px var(--neon-cyan);
+  margin: 0.2rem 0;
+}
+
+.prestart-countdown-sub {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #94a3b8;
+}
+
+/* Organizer Pending Approvals Notification Banner */
+.pending-approval-banner {
+  background: linear-gradient(90deg, #1e1b4b, #312e81, #1e1b4b);
+  border-bottom: 2px solid #818cf8;
+  box-shadow: 0 4px 15px rgba(99, 102, 241, 0.35);
+  padding: 0.5rem 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  position: relative;
+}
+
+.pending-banner-content {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.pending-banner-icon {
+  font-size: 1.2rem;
+  animation: ringBell 1s infinite alternate;
+}
+
+@keyframes ringBell {
+  0% { transform: rotate(-15deg); }
+  100% { transform: rotate(15deg); }
+}
+
+.pending-banner-text {
+  font-size: 0.9rem;
+  color: #e2e8f0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.pending-user-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid #6366f1;
+  border-radius: 999px;
+  padding: 0.2rem 0.6rem;
+  margin-left: 0.4rem;
+}
+
+.pending-pill-name {
+  font-weight: 700;
+  color: #38bdf8;
+}
+
+.pending-pill-id {
+  font-size: 0.75rem;
+  color: #94a3b8;
+}
+
+.btn-banner-approve,
+.btn-banner-reject {
+  border: none;
+  border-radius: 6px;
+  padding: 0.15rem 0.45rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.btn-banner-approve {
+  background: #10b981;
+  color: #0f172a;
+}
+
+.btn-banner-reject {
+  background: #ef4444;
+  color: #fff;
+}
+
+.btn-banner-approve:hover,
+.btn-banner-reject:hover {
+  opacity: 0.85;
+}
+
+.badge-pending {
+  background: #ef4444;
+  color: #fff;
+  border-radius: 999px;
+  padding: 0.1rem 0.45rem;
+  font-size: 0.7rem;
+  font-weight: 800;
+  margin-left: 0.35rem;
+  animation: pulseBox 1s infinite alternate;
+}
+
 .three-sec-box {
   background: linear-gradient(135deg, rgba(255, 0, 85, 0.25), rgba(0, 240, 255, 0.25));
   border: 3px solid var(--neon-cyan);
@@ -1216,3 +1357,223 @@ input[type="number"]:focus { border-color: var(--neon-cyan); box-shadow: 0 0 10p
   .cockpit-hud .hud-card:last-child { grid-column: auto; }
   .hud-card { padding: 0.6rem 0.75rem; }
 }
+
+/* User Account & Subscription Badges */
+.badge-role-tag {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 800;
+  padding: 0.15rem 0.45rem;
+  border-radius: 9999px;
+  margin-left: 0.35rem;
+  vertical-align: middle;
+  line-height: 1.2;
+}
+.badge-role-tag.is-admin {
+  background: rgba(255, 77, 136, 0.2);
+  color: #ff4d88;
+  border: 1px solid #ff4d88;
+}
+.badge-role-tag.is-sub {
+  background: rgba(255, 230, 0, 0.18);
+  color: #ffe600;
+  border: 1px solid #ffe600;
+}
+.badge-role-tag.is-guest {
+  background: rgba(148, 163, 184, 0.15);
+  color: #94a3b8;
+  border: 1px solid #475569;
+}
+
+.modal-account {
+  max-width: 600px;
+}
+.modal-title-with-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+.modal-tabs-bar {
+  display: flex;
+  gap: 0.4rem;
+  border-bottom: 1px solid rgba(0, 240, 255, 0.25);
+  padding-bottom: 0.5rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+.modal-tab-btn {
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #94a3b8;
+  padding: 0.45rem 0.85rem;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.modal-tab-btn:hover {
+  color: #ffffff;
+  border-color: rgba(0, 240, 255, 0.4);
+}
+.modal-tab-btn.active {
+  background: rgba(0, 240, 255, 0.15);
+  color: var(--neon-cyan);
+  border-color: var(--neon-cyan);
+}
+
+.modal-form-scrollable {
+  max-height: 65vh;
+  overflow-y: auto;
+  padding-right: 0.4rem;
+}
+
+.form-row-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+.form-row-3 {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr 1fr;
+  gap: 0.6rem;
+}
+@media (max-width: 600px) {
+  .form-row-2, .form-row-3 {
+    grid-template-columns: 1fr;
+  }
+}
+
+.field-hint {
+  font-size: 0.75rem;
+  color: #94a3b8;
+  display: block;
+  margin-top: 0.25rem;
+}
+
+.subscriber-perks-box {
+  background: rgba(255, 230, 0, 0.08);
+  border: 1px solid rgba(255, 230, 0, 0.35);
+  border-radius: 8px;
+  padding: 0.65rem 0.85rem;
+  margin-bottom: 0.85rem;
+  font-size: 0.82rem;
+  color: #e2e8f0;
+  line-height: 1.35;
+}
+
+.auth-feedback-success {
+  background: rgba(0, 255, 136, 0.12);
+  border: 1px solid #00ff88;
+  color: #00ff88;
+  padding: 0.6rem 0.85rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+}
+
+.garmin-watch-section {
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+.garmin-section-title {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--neon-cyan);
+  margin-bottom: 0.25rem;
+}
+.garmin-section-desc {
+  font-size: 0.78rem;
+  color: #94a3b8;
+  margin-bottom: 0.6rem;
+}
+.garmin-sync-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+.btn-watch-sync {
+  background: rgba(0, 240, 255, 0.15);
+  border: 1px solid var(--neon-cyan);
+  color: var(--neon-cyan);
+  border-radius: 6px;
+  padding: 0.45rem 0.85rem;
+  font-weight: 700;
+  font-size: 0.8rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.profile-details-card {
+  background: rgba(15, 23, 42, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+.profile-hero {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+.profile-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--neon-cyan), #00ff88);
+  color: #050b18;
+  font-weight: 900;
+  font-size: 1.15rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.profile-main-info h4 {
+  margin: 0 0 0.25rem;
+  color: #ffffff;
+  font-size: 1.1rem;
+}
+.profile-fields-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0.85rem;
+}
+.profile-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+.profile-field .field-name {
+  font-size: 0.75rem;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.profile-field .field-val {
+  font-size: 0.9rem;
+  color: #ffffff;
+}
+.profile-field .field-val.is-granted {
+  color: #00ff88;
+}
+
+.btn-danger-outline {
+  background: transparent;
+  border: 1px solid #ff4d88;
+  color: #ff4d88;
+  padding: 0.65rem 1.15rem;
+  border-radius: 8px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.btn-danger-outline:hover {
+  background: rgba(255, 77, 136, 0.15);
+}
+

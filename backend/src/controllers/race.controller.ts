@@ -3,6 +3,8 @@ import { Op } from "sequelize";
 import db from "../models";
 import config from "../config";
 import raceManager from "../services/race-manager.service";
+import { isEmmaAdminUser } from "../services/auth.service";
+import userStore from "../services/user-store.service";
 
 const Activities = db.activities;
 const Races = db.races;
@@ -326,12 +328,13 @@ export const updateRaceConfig = async (req: Request, res: Response): Promise<voi
     const { targetDistance, intervalMinutes, adminUserId } = req.body;
 
     if (adminUserId) {
-      const user = await Users.findByPk(adminUserId);
-      const userName = user ? String(user.get("name") || "") : "";
-      const isAdmin = user ? Boolean(user.get("isAdmin")) : false;
-      if (!user || (!isAdmin && !userName.toLowerCase().includes("emma") && !userName.toLowerCase().includes("admin"))) {
-        res.status(403).json({ message: "Action réservée aux administrateurs habilités." });
-        return;
+      if (String(adminUserId).toLowerCase() !== "admin" && !isEmmaAdminUser(adminUserId)) {
+        const user = await userStore.findUser(adminUserId);
+        const isAdmin = user ? Boolean(user.isAdmin) : false;
+        if (!user || !isAdmin) {
+          res.status(403).json({ message: "Action réservée aux administrateurs habilités." });
+          return;
+        }
       }
     }
 
@@ -422,6 +425,11 @@ export const toggleBots = async (req: Request, res: Response): Promise<void> => 
   try {
     const { enable = true, raceId, botCount = 3, userId } = req.body;
     const managedPrivate = raceId ? raceManager.findPrivateRace(String(raceId)) : null;
+
+    if (managedPrivate && !raceManager.canManagePrivateRace(managedPrivate, userId)) {
+      res.status(403).json({ message: "Seul l'organisateur du salon peut configurer les bots." });
+      return;
+    }
 
     let race = raceId ? await Races.findByPk(managedPrivate ? managedPrivate.id : String(raceId)) : await getOrCreateCurrentRace();
     if (!race && managedPrivate) {

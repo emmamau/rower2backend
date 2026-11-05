@@ -8,12 +8,15 @@ import {
   OnChanges,
   SimpleChanges,
   OnInit,
+  OnDestroy,
   ChangeDetectorRef
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Subscription, interval } from 'rxjs';
 import { RowerService } from '../../services/rower.service';
 import { I18nService } from '../../services/i18n.service';
+import { SocketService } from '../../services/socket.service';
 import { PrivateRacePayload, SavedPrivateSalon } from '../../models/rower-data.model';
 import {
   parseRoomInviteInput,
@@ -32,7 +35,7 @@ const SAVED_SALONS_STORAGE_KEY = 'rower_saved_private_salons';
   templateUrl: './private-room-manager.component.html',
   styleUrls: ['./private-room-manager.component.css']
 })
-export class PrivateRoomManagerComponent implements OnInit, OnChanges {
+export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy {
   @ViewChild('dialogEl') dialogRef?: ElementRef<HTMLDialogElement>;
 
   @Input() isOpen = false;
@@ -41,6 +44,7 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges {
   @Input() activeUserId = '';
   @Input() activeUserName = '';
   @Input() isUserAdmin = false;
+  @Input() isSubscriber = false;
   @Input() activeRacersCount = 0;
   @Input() externalError = '';
 
@@ -50,6 +54,7 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges {
   @Output() roomUpdated = new EventEmitter<PrivateRacePayload>();
   @Output() roomClosedOrLeft = new EventEmitter<{ closedOnServer: boolean; raceId?: string }>();
   @Output() botsToggled = new EventEmitter<boolean>();
+  @Output() requestAccountModal = new EventEmitter<'login' | 'register'>();
 
   activeTab: PrivateModalTab = 'create';
 
@@ -83,10 +88,13 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges {
   isLoadingRooms = false;
 
   private feedbackTimer?: ReturnType<typeof setTimeout>;
+  private socketSub?: Subscription;
+  private modalPollSub?: Subscription;
 
   constructor(
     private rowerService: RowerService,
     public i18n: I18nService,
+    private socketService: SocketService,
     private cdr: ChangeDetectorRef
   ) {}
 
@@ -96,11 +104,31 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges {
     if (!this.roomTitle) {
       this.roomTitle = this.defaultRoomTitle();
     }
+    this.socketSub = this.socketService.onPrivateRoomUpdate().subscribe((update) => {
+      if (this.activeRoom && (update.raceId === this.activeRoom.race?.id || update.raceId === this.activeRoom.code)) {
+        this.refreshActiveRoom();
+      }
+    });
+  }
+
+  ngOnDestroy(): void {
+    if (this.socketSub) {
+      this.socketSub.unsubscribe();
+    }
+    if (this.modalPollSub) {
+      this.modalPollSub.unsubscribe();
+    }
+    if (this.feedbackTimer) {
+      clearTimeout(this.feedbackTimer);
+    }
   }
 
   ngOnChanges(changes: SimpleChanges): void {
-    if (changes['activeRoom'] && this.activeRoom?.race?.code) {
-      this.rememberSalon(this.activeRoom);
+    if (changes['activeRoom']) {
+      if (this.activeRoom?.race?.code) {
+        this.rememberSalon(this.activeRoom);
+      }
+      this.cdr.markForCheck();
     }
 
     if (changes['initialTab'] && this.initialTab) {
@@ -118,11 +146,43 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges {
           this.roomTitle = this.defaultRoomTitle();
         }
         this.refreshMyRooms();
+        this.refreshActiveRoom();
+        this.startModalPolling();
         this.syncDialogState(true);
       } else {
+        this.stopModalPolling();
         this.syncDialogState(false);
       }
     }
+  }
+
+  private startModalPolling(): void {
+    this.stopModalPolling();
+    this.modalPollSub = interval(2000).subscribe(() => {
+      if (this.isOpen && this.activeRoom) {
+        this.refreshActiveRoom();
+      }
+    });
+  }
+
+  private stopModalPolling(): void {
+    if (this.modalPollSub) {
+      this.modalPollSub.unsubscribe();
+      this.modalPollSub = undefined;
+    }
+  }
+
+  public refreshActiveRoom(): void {
+    const code = this.activeRoomCode;
+    if (!code) return;
+    this.rowerService.getPrivateRace(code).subscribe({
+      next: (updated) => {
+        this.activeRoom = updated;
+        this.roomUpdated.emit(updated);
+        this.cdr.markForCheck();
+      },
+      error: () => {}
+    });
   }
 
   private resolveTab(requested: PrivateModalTab): PrivateModalTab {
@@ -281,6 +341,13 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges {
 
   onCreateRoomSubmit(): void {
     if (this.isCreating) return;
+
+    if (!this.isUserAdmin && !this.isSubscriber) {
+      this.createGeneralError = "La création de salon privé est réservée aux abonnés. Connectez-vous avec votre compte abonné ou inscrivez-vous.";
+      this.cdr.markForCheck();
+      return;
+    }
+
     if (!this.validateCreateTitle()) return;
 
     this.createGeneralError = '';

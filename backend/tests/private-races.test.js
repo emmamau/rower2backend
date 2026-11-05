@@ -5,7 +5,29 @@ const express = require('express');
 
 const { RaceManager } = require('../dist/services/race-manager.service');
 const initTelemetryRoutes = require('../dist/routes/telemetry.routes').default;
+const userStore = require('../dist/services/user-store.service').default;
 const db = require('../dist/models').default;
+
+test.before(async () => {
+  await userStore.createUser({
+    id: 'host_emma',
+    login: 'host_emma',
+    name: 'Emma',
+    isSubscriber: true,
+  });
+  await userStore.createUser({
+    id: 'host_organizer',
+    login: 'host_organizer',
+    name: 'Organizer',
+    isSubscriber: true,
+  });
+  await userStore.createUser({
+    id: 'host_coach',
+    login: 'host_coach',
+    name: 'Coach',
+    isSubscriber: true,
+  });
+});
 
 test.after(async () => {
   if (db?.sequelize?.close) {
@@ -227,6 +249,7 @@ test('Boundary & invalid input handling on private race endpoints', async () => 
         title: '\u0000\u0007   ',
         targetDistance: -500,
         maxParticipants: 999,
+        hostUserId: 'host_emma',
       }),
     });
     assert.equal(res.status, 201);

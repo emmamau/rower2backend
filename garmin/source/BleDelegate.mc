@@ -489,9 +489,24 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
             _cccdSubscribed = true;
             if (_model.connectionState == RowerDataModel.STATE_CONNECTED_SMARTROW) {
                 initSmartRowDirect();
+            } else if (_model.connectionState == RowerDataModel.STATE_CONNECTED_FTMS) {
+                initFtmsControlPoint();
             }
         } else {
             _cccdSubscribed = false;
+        }
+    }
+
+    private function initFtmsControlPoint() as Void {
+        if (_ftmsCtrlChar != null) {
+            try {
+                // FTMS 0x00: Request Control
+                (_ftmsCtrlChar as BluetoothLowEnergy.Characteristic).requestWrite([0x00]b, {:writeType => BluetoothLowEnergy.WRITE_TYPE_DEFAULT});
+                // FTMS 0x07: Start or Resume
+                (_ftmsCtrlChar as BluetoothLowEnergy.Characteristic).requestWrite([0x07]b, {:writeType => BluetoothLowEnergy.WRITE_TYPE_DEFAULT});
+            } catch (e) {
+                System.println("FTMS control point request error: " + e.getErrorMessage());
+            }
         }
     }
 
@@ -511,8 +526,9 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
         _srRxBuffer = "";
         _srV3LockTicks = 0;
         _srPacketQueue = [] as Array<ByteArray>;
-        // SmartRow INIT_COMMAND: "$\rV@\r"
-        sendSmartRowPacket([0x24, 0x0D, 0x56, 0x40, 0x0D]b);
+        // SmartRow INIT_COMMANDS: "$\r" and "V@\r"
+        sendSmartRowPacket([0x24, 0x0D]b);
+        sendSmartRowPacket([0x56, 0x40, 0x0D]b);
     }
 
     private function sendSmartRowPacket(bytes as ByteArray) as Void {
@@ -535,12 +551,20 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
             _bleBusyTicks = 0;
             (_srWriteChar as BluetoothLowEnergy.Characteristic).requestWrite(bytes, {:writeType => BluetoothLowEnergy.WRITE_TYPE_DEFAULT});
         } catch (e) {
+            System.println("SR write err: " + e.getErrorMessage());
+        } finally {
             _bleWriteBusy = false;
+            _bleBusyTicks = 0;
+        }
+        if (_srPacketQueue.size() > 0) {
+            var nextPacket = _srPacketQueue[0];
+            _srPacketQueue = _srPacketQueue.slice(1, null) as Array<ByteArray>;
+            executeSmartRowWrite(nextPacket);
         }
     }
 
     private function sendSmartRowWakePing() as Void {
-        sendSmartRowPacket([0x24]b); // '$' poll keep-alive
+        sendSmartRowPacket([0x24, 0x0D]b); // "$\r" poll keep-alive
     }
 
     public function resetRowerHardware() as Void {
@@ -695,7 +719,7 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
                     return;
                 } else {
                     _srRxBuffer = "";
-                    sendSmartRowPacket([0x23]b);
+                    sendSmartRowPacket([0x23, 0x0D]b);
                     return;
                 }
             }
@@ -706,7 +730,7 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
             _srChallengeRequested = true;
             _srHandshakeState = 2;
             _srRxBuffer = "";
-            sendSmartRowPacket([0x23]b);
+            sendSmartRowPacket([0x23, 0x0D]b);
             if (msgStr.find("V3") != null) {
                 return;
             }
@@ -718,7 +742,7 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
             if (!_srChallengeRequested) {
                 _srChallengeRequested = true;
                 _srHandshakeState = 2;
-                sendSmartRowPacket([0x23]b);
+                sendSmartRowPacket([0x23, 0x0D]b);
             }
         } else if (size >= 6) {
             var isValidRec = false;
@@ -743,7 +767,7 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
     private function handleSmartRowKeylock(challenge as String) as Void {
         var unlockPacket = computeSmartRowKeylockResponse(challenge);
         if (unlockPacket == null) {
-            sendSmartRowPacket([0x23]b);
+            sendSmartRowPacket([0x23, 0x0D]b);
             return;
         }
         _srHandshakeState = 3;
@@ -830,7 +854,7 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
                         // Retry KEYLOCK '#' request even when locked telemetry is actively streaming
                         _srChallengeRequested = true;
                         _srHandshakeState = 2;
-                        sendSmartRowPacket([0x23]b);
+                        sendSmartRowPacket([0x23, 0x0D]b);
                     }
                 } else {
                     if (_secondsWithoutData >= 2 && (_secondsWithoutData % 2 == 0) && _srPacketQueue.size() == 0 && !_bleWriteBusy) {
@@ -984,9 +1008,11 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
             return;
         }
 
-        // 2. Enforce full stop penalty if player pulled before GO
+        // 2. Enforce false-start stop penalty strictly while waiting in starting blocks
         if (view.isFalseStartLocked()) {
-            if (!_model.liveMovementDetected && (_model.strokeRate <= 0.0f && _model.instantPower <= 5)) {
+            if (_activityStatus.equals("in_progress") || state == RowerView.STATE_RACING) {
+                view.setFalseStartLocked(false);
+            } else if (!_model.liveMovementDetected && (_model.strokeRate <= 0.0f && _model.instantPower <= 5)) {
                 view.setFalseStartLocked(false);
                 _model.reTareToZero();
             } else {

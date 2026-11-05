@@ -25,17 +25,17 @@ import { switchMap, startWith, catchError } from 'rxjs/operators';
 })
 export class AppComponent implements OnInit, OnDestroy {
   // Current user / player login
-  activeUserId = 'aB3_9Z';
-  userLoginInput = 'EmmaRacer';
-  userIdInput = 'aB3_9Z';
+  activeUserId = '';
+  userLoginInput = '';
+  userIdInput = '';
 
   currentUser: UserProfile = {
-    id: 'aB3_9Z',
-    name: 'EmmaRacer',
+    id: '',
+    name: 'Rameur',
     totalRaces: 0,
     totalWins: 0,
     podiums: 0,
-    isAdmin: true,
+    isAdmin: false,
   };
 
   userHistory: UserHistoryItem[] = [];
@@ -50,9 +50,10 @@ export class AppComponent implements OnInit, OnDestroy {
   myActivity: RowerData | null = null;
   raceHistory: PastRaceResult[] = [];
 
-  // Countdown & 3s start sound/visual
+  // Countdown & Pre-start timer sound/visual
   countdownSeconds = 0;
   is3sCountdown = false;
+  isPreStartCountdown = false;
   threeSecondsCount = 3;
 
   // Live race gap metrics
@@ -78,6 +79,34 @@ export class AppComponent implements OnInit, OnDestroy {
   loginErrorMessage = '';
   isWaitingWatchApproval = false;
 
+  // Subscriber Account Management Modal
+  isAccountModalOpen = false;
+  accountModalTab: 'login' | 'register' | 'profile' | 'forgot' = 'login';
+  accountAuthError = '';
+  accountAuthSuccess = '';
+  isAccountSubmitting = false;
+
+  // Login inputs
+  loginAccountInput = '';
+  passwordAccountInput = '';
+
+  // Register inputs
+  regNom = '';
+  regPrenom = '';
+  regAnneeNaissance = 1995;
+  regSexe = 'M';
+  regPays = 'France';
+  regLogin = '';
+  regEmail = '';
+  regPassword = '';
+  regWatchUserId = '';
+
+  // Forgot / Reset inputs
+  forgotEmailOrLogin = '';
+  resetToken = '';
+  resetNewPassword = '';
+  showResetFields = false;
+
   isHistoryOpen = false;
   isConfigRaceOpen = false;
   isSettingsOpen = false;
@@ -102,6 +131,7 @@ export class AppComponent implements OnInit, OnDestroy {
 
   private authCheckSub?: Subscription;
   private socketSub?: Subscription;
+  private privateUpdateSub?: Subscription;
   private joinedSocketRaceId: string | null = null;
   private readonly popstateListener = () => this.resolveRoomFromCurrentUrl();
   private readonly resizeListener = () => {
@@ -131,17 +161,39 @@ export class AppComponent implements OnInit, OnDestroy {
     this.customApiUrlInput = this.apiUrl;
     this.wakeLockSupported = this.wakeLockService.isSupported();
 
-    // Check stored user code and login
-    const storedUserId = localStorage.getItem('rower_user_id');
-    const storedLogin = localStorage.getItem('rower_user_login');
+    // Initialize or load stored user code and login
+    const storedUserId = typeof localStorage !== 'undefined' ? localStorage.getItem('rower_user_id') : null;
+    const storedLogin = typeof localStorage !== 'undefined' ? localStorage.getItem('rower_user_login') : null;
     if (storedUserId) {
       this.activeUserId = storedUserId;
       this.userIdInput = storedUserId;
+    } else {
+      const randId = Math.random().toString(36).substring(2, 8);
+      this.activeUserId = `usr_${randId}`;
+      this.userIdInput = this.activeUserId;
+      try {
+        localStorage.setItem('rower_user_id', this.activeUserId);
+      } catch {}
     }
+
+    const storedIsSub = typeof localStorage !== 'undefined' ? localStorage.getItem('rower_is_subscriber') === 'true' : false;
+    const storedIsAdmin = typeof localStorage !== 'undefined' ? localStorage.getItem('rower_is_admin') === 'true' : false;
+
     if (storedLogin) {
       this.currentUser.name = storedLogin;
       this.userLoginInput = storedLogin;
+    } else {
+      const guestName = `Racer_${this.activeUserId.slice(-4)}`;
+      this.currentUser.name = guestName;
+      this.userLoginInput = guestName;
+      try {
+        localStorage.setItem('rower_user_login', guestName);
+      } catch {}
     }
+    this.currentUser.id = this.activeUserId;
+    const isEmma = storedLogin?.toLowerCase() === 'emmaracer' || this.activeUserId?.toLowerCase() === 'emmaracer';
+    this.currentUser.isAdmin = isEmma || storedIsAdmin;
+    this.currentUser.isSubscriber = isEmma || storedIsSub;
   }
 
   ngOnInit(): void {
@@ -175,6 +227,10 @@ export class AppComponent implements OnInit, OnDestroy {
     if (this.socketSub) {
       this.socketSub.unsubscribe();
       this.socketSub = undefined;
+    }
+    if (this.privateUpdateSub) {
+      this.privateUpdateSub.unsubscribe();
+      this.privateUpdateSub = undefined;
     }
     if (this.joinedSocketRaceId) {
       this.socketService.leaveRaceRoom(this.joinedSocketRaceId);
@@ -316,12 +372,17 @@ export class AppComponent implements OnInit, OnDestroy {
           this.configTargetDistance = raceData.race.targetDistance;
           this.configIntervalMinutes = raceData.race.intervalMinutes;
 
-          // Décompte visuel 3 secondes avant départ
+          // Décompte visuel avant le départ
           if (this.countdownSeconds > 0 && this.countdownSeconds <= 3) {
             this.is3sCountdown = true;
+            this.isPreStartCountdown = false;
             this.threeSecondsCount = this.countdownSeconds;
+          } else if (this.countdownSeconds > 3 && (this.countdownSeconds <= 15 || raceData.race?.status === 'COUNTDOWN')) {
+            this.is3sCountdown = false;
+            this.isPreStartCountdown = true;
           } else {
             this.is3sCountdown = false;
+            this.isPreStartCountdown = false;
           }
 
           // Fetch Live Leaderboard
@@ -467,10 +528,280 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   get isUserAdmin(): boolean {
-    if (this.currentUser.isAdmin) return true;
-    const name = (this.currentUser.name || '').toLowerCase();
-    const id = (this.activeUserId || '').toLowerCase();
-    return name.includes('emma') || name.includes('admin') || id.includes('emma') || id.includes('admin');
+    return Boolean(
+      this.currentUser.isAdmin ||
+      this.currentUser.name?.toLowerCase() === 'emmaracer' ||
+      this.activeUserId?.toLowerCase() === 'emmaracer'
+    );
+  }
+
+  get isSubscriber(): boolean {
+    return Boolean(
+      this.isUserAdmin ||
+      this.currentUser.isSubscriber ||
+      (typeof localStorage !== 'undefined' && localStorage.getItem('rower_is_subscriber') === 'true')
+    );
+  }
+
+  openAccountModal(tab: 'login' | 'register' | 'profile' | 'forgot' = 'login'): void {
+    if (tab === 'login' && (this.isSubscriber || this.isUserAdmin)) {
+      this.accountModalTab = 'profile';
+    } else {
+      this.accountModalTab = tab;
+    }
+    this.accountAuthError = '';
+    this.accountAuthSuccess = '';
+    this.isAccountModalOpen = true;
+    this.cdr.markForCheck();
+  }
+
+  closeAccountModal(): void {
+    this.isAccountModalOpen = false;
+    this.accountAuthError = '';
+    this.accountAuthSuccess = '';
+    this.cdr.markForCheck();
+  }
+
+  submitAccountLogin(): void {
+    if (!this.loginAccountInput.trim() || !this.passwordAccountInput.trim()) {
+      this.accountAuthError = 'Veuillez saisir votre login et votre mot de passe.';
+      return;
+    }
+
+    this.isAccountSubmitting = true;
+    this.accountAuthError = '';
+    this.accountAuthSuccess = '';
+
+    this.rowerService.loginUser({
+      login: this.loginAccountInput.trim(),
+      password: this.passwordAccountInput.trim(),
+    }).subscribe({
+      next: (res) => {
+        this.isAccountSubmitting = false;
+        if (res.success && res.user) {
+          const userLogin = res.user.login || res.user.id;
+          this.activeUserId = userLogin;
+          this.userIdInput = res.user.watchUserId || userLogin;
+          this.currentUser = res.user;
+          this.userLoginInput = res.user.name || userLogin;
+
+          try {
+            localStorage.setItem('rower_user_id', userLogin);
+            localStorage.setItem('rower_user_login', res.user.name || userLogin);
+            localStorage.setItem('rower_is_subscriber', String(Boolean(res.isSubscriber)));
+            localStorage.setItem('rower_is_admin', String(Boolean(res.isAdmin)));
+          } catch {}
+
+          this.accountAuthSuccess = 'Connexion réussie ! Vous avez accès aux salons privés.';
+          this.loadUserProfile();
+          this.loadGeneralLeaderboard();
+          setTimeout(() => {
+            this.accountModalTab = 'profile';
+            this.cdr.markForCheck();
+          }, 800);
+        } else {
+          this.accountAuthError = res.message || 'Identifiants invalides.';
+        }
+        this.cdr.markForCheck();
+      },
+      error: (err) => {
+        this.isAccountSubmitting = false;
+        this.accountAuthError = err.error?.message || 'Erreur lors de la connexion. Vérifiez vos identifiants.';
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  submitAccountRegister(): void {
+    if (
+      !this.regNom.trim() ||
+      !this.regPrenom.trim() ||
+      !this.regLogin.trim() ||
+      !this.regEmail.trim() ||
+      !this.regPassword.trim() ||
+      !this.regPays.trim()
+    ) {
+      this.accountAuthError = 'Tous les champs obligatoires (nom, prénom, année, sexe, pays, login, email, mot de passe) doivent être renseignés.';
+      return;
+    }
+
+    if (this.regPassword.trim().length < 4) {
+      this.accountAuthError = 'Le mot de passe doit comporter au moins 4 caractères.';
+      return;
+    }
+
+    this.isAccountSubmitting = true;
+    this.accountAuthError = '';
+    this.accountAuthSuccess = '';
+
+    this.rowerService.registerUser({
+      nom: this.regNom.trim(),
+      prenom: this.regPrenom.trim(),
+      anneeNaissance: Number(this.regAnneeNaissance) || 1995,
+      sexe: this.regSexe,
+      pays: this.regPays.trim(),
+      login: this.regLogin.trim(),
+      email: this.regEmail.trim(),
+      password: this.regPassword.trim(),
+      watchUserId: this.regWatchUserId.trim() || undefined,
+    }).subscribe({
+      next: (res) => {
+        this.isAccountSubmitting = false;
+        if (res.success && res.user) {
+          const userLogin = res.user.login || res.user.id;
+          this.activeUserId = userLogin;
+          this.userIdInput = res.user.watchUserId || userLogin;
+          this.currentUser = res.user;
+          this.userLoginInput = res.user.name || userLogin;
+
+          try {
+            localStorage.setItem('rower_user_id', userLogin);
+            localStorage.setItem('rower_user_login', res.user.name || userLogin);
+            localStorage.setItem('rower_is_subscriber', 'true');
+            localStorage.setItem('rower_is_admin', String(Boolean(res.user.isAdmin)));
+          } catch {}
+
+          this.accountAuthSuccess = 'Compte créé avec succès ! Votre statut abonné est actif. Vous pouvez dès maintenant créer des salons privés.';
+          this.loadUserProfile();
+          this.loadGeneralLeaderboard();
+          setTimeout(() => {
+            this.accountModalTab = 'profile';
+            this.cdr.markForCheck();
+          }, 1200);
+        } else {
+          this.accountAuthError = res.message || 'Erreur lors de la création du compte.';
+        }
+        this.cdr.markForCheck();
+      },
+      error: (err) => {
+        this.isAccountSubmitting = false;
+        this.accountAuthError = err.error?.message || 'Erreur lors de l’inscription.';
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  submitForgotPassword(): void {
+    if (!this.forgotEmailOrLogin.trim()) {
+      this.accountAuthError = 'Veuillez saisir votre email ou login.';
+      return;
+    }
+
+    this.isAccountSubmitting = true;
+    this.accountAuthError = '';
+    this.accountAuthSuccess = '';
+
+    this.rowerService.forgotPassword(this.forgotEmailOrLogin.trim()).subscribe({
+      next: (res) => {
+        this.isAccountSubmitting = false;
+        this.accountAuthSuccess = res.message || 'Demande de réinitialisation envoyée.';
+        this.showResetFields = true;
+        this.cdr.markForCheck();
+      },
+      error: (err) => {
+        this.isAccountSubmitting = false;
+        this.accountAuthError = err.error?.message || 'Erreur lors de la demande de réinitialisation.';
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  submitResetPassword(): void {
+    if (!this.resetToken.trim() || !this.resetNewPassword.trim()) {
+      this.accountAuthError = 'Veuillez fournir le jeton et un nouveau mot de passe.';
+      return;
+    }
+
+    this.isAccountSubmitting = true;
+    this.accountAuthError = '';
+    this.accountAuthSuccess = '';
+
+    this.rowerService.resetPassword(this.resetToken.trim(), this.resetNewPassword.trim()).subscribe({
+      next: (res) => {
+        this.isAccountSubmitting = false;
+        this.accountAuthSuccess = res.message || 'Mot de passe réinitialisé ! Vous pouvez vous connecter.';
+        this.accountModalTab = 'login';
+        this.loginAccountInput = this.forgotEmailOrLogin;
+        this.passwordAccountInput = this.resetNewPassword;
+        this.cdr.markForCheck();
+      },
+      error: (err) => {
+        this.isAccountSubmitting = false;
+        this.accountAuthError = err.error?.message || 'Jeton invalide ou expiré.';
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  logoutUser(): void {
+    try {
+      localStorage.removeItem('rower_user_id');
+      localStorage.removeItem('rower_user_login');
+      localStorage.removeItem('rower_is_subscriber');
+      localStorage.removeItem('rower_is_admin');
+    } catch {}
+
+    const randId = Math.random().toString(36).substring(2, 8);
+    this.activeUserId = `usr_${randId}`;
+    this.userIdInput = this.activeUserId;
+    this.currentUser = {
+      id: this.activeUserId,
+      name: `Racer_${this.activeUserId.slice(-4)}`,
+      totalRaces: 0,
+      totalWins: 0,
+      podiums: 0,
+      isAdmin: false,
+      isSubscriber: false,
+    };
+    this.userLoginInput = this.currentUser.name;
+    this.accountModalTab = 'login';
+    this.accountAuthSuccess = 'Vous avez été déconnecté.';
+    this.cdr.markForCheck();
+  }
+
+  get isOrganizerOfActiveRoom(): boolean {
+    if (!this.activePrivateRoom) return false;
+    const hostId = this.activePrivateRoom.race?.hostUserId;
+    return Boolean(hostId && this.activeUserId && hostId === this.activeUserId);
+  }
+
+  get canConfigureRace(): boolean {
+    if (this.activePrivateRoom) {
+      return this.isOrganizerOfActiveRoom || this.isUserAdmin;
+    }
+    return this.isUserAdmin;
+  }
+
+  get pendingApprovalPlayers(): any[] {
+    if (!this.activePrivateRoom) return [];
+    if (!this.isOrganizerOfActiveRoom && !this.isUserAdmin) return [];
+    return this.activePrivateRoom.pendingParticipants ?? this.activePrivateRoom.race?.pendingParticipants ?? [];
+  }
+
+  approvePendingPlayer(targetUserId: string): void {
+    if (!this.activePrivateRoom || !targetUserId) return;
+    const identifier = this.activePrivateRoom.code || this.activePrivateRoom.race?.id;
+    if (!identifier) return;
+    this.rowerService.approveParticipant(identifier, this.activeUserId, targetUserId, true).subscribe({
+      next: (updated: PrivateRacePayload) => {
+        this.activePrivateRoom = updated;
+        this.nextRaceInfo = updated;
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  rejectPendingPlayer(targetUserId: string): void {
+    if (!this.activePrivateRoom || !targetUserId) return;
+    const identifier = this.activePrivateRoom.code || this.activePrivateRoom.race?.id;
+    if (!identifier) return;
+    this.rowerService.approveParticipant(identifier, this.activeUserId, targetUserId, false).subscribe({
+      next: (updated: PrivateRacePayload) => {
+        this.activePrivateRoom = updated;
+        this.nextRaceInfo = updated;
+        this.cdr.markForCheck();
+      }
+    });
   }
 
   getKayakColor(index: number): string {
@@ -627,6 +958,21 @@ export class AppComponent implements OnInit, OnDestroy {
       if (this.nextRaceInfo && update.raceId === this.nextRaceInfo.race.id) {
         this.liveMetricsList = update.leaderboard;
         this.cdr.markForCheck();
+      }
+    });
+
+    if (this.privateUpdateSub) {
+      this.privateUpdateSub.unsubscribe();
+    }
+    this.privateUpdateSub = this.socketService.onPrivateRoomUpdate().subscribe((update) => {
+      if (this.activePrivateRoom && (update.raceId === this.activePrivateRoom.race?.id || update.raceId === this.activePrivateRoom.code)) {
+        this.pollActiveRaceSource().subscribe((data) => {
+          if (data) {
+            this.activePrivateRoom = data as PrivateRacePayload;
+            this.nextRaceInfo = data;
+            this.cdr.markForCheck();
+          }
+        });
       }
     });
   }

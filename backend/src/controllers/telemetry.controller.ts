@@ -4,6 +4,8 @@ import db from "../models";
 import raceManager, { RaceState } from "../services/race-manager.service";
 import socketGateway, { LiveRacerMetric } from "../websocket/socket.gateway";
 import { TelemetryValidator } from "../services/telemetry-validator.service";
+import { isEmmaAdminUser } from "../services/auth.service";
+import userStore from "../services/user-store.service";
 
 const Activities = db.activities;
 const Races = db.races;
@@ -18,14 +20,43 @@ function mapRaceStatusToApi(status: RaceState["status"]): string {
 
 async function isUserAdminHelper(userId?: string): Promise<boolean> {
   if (!userId) return false;
-  try {
-    const u = await Users.findByPk(userId);
-    if (!u) return false;
-    const name = String(u.get("name") || "").toLowerCase();
-    return Boolean(u.get("isAdmin")) || name.includes("emma") || name.includes("admin");
-  } catch {
-    return false;
+  if (isEmmaAdminUser(userId)) return true;
+  const u = await userStore.findUser(userId);
+  if (!u) return false;
+  return Boolean(u.isAdmin);
+}
+
+async function isUserSubscriberOrAdmin(userId?: string, userName?: string): Promise<{ authorized: boolean; reason?: string }> {
+  // EmmaRacer est administratrice en dur (droits de création complets)
+  if (isEmmaAdminUser(userId, userName)) {
+    return { authorized: true };
   }
+
+  const cleanId = String(userId || "").trim();
+
+  // Les utilisateurs invités / anonymes non connectés ne peuvent pas créer de salons privés
+  if (!cleanId || cleanId === "anonymous" || cleanId.startsWith("guest_") || cleanId.startsWith("usr_")) {
+    return {
+      authorized: false,
+      reason: "La création de salon privé est réservée aux abonnés. Veuillez vous connecter avec votre compte abonné."
+    };
+  }
+
+  const user = await userStore.findUser(cleanId);
+  if (user) {
+    if (user.isAdmin || user.isSubscriber) {
+      return { authorized: true };
+    }
+    return {
+      authorized: false,
+      reason: "Votre compte n'a pas d'abonnement actif pour créer des salons privés."
+    };
+  }
+
+  return {
+    authorized: false,
+    reason: "La création de salon privé est réservée aux abonnés. Veuillez vous connecter avec votre compte abonné."
+  };
 }
 
 async function countPrivateParticipants(race: RaceState): Promise<number> {
@@ -303,6 +334,17 @@ export class TelemetryController {
   public static async createPrivateRace(req: Request, res: Response): Promise<void> {
     try {
       const { title, targetDistance, maxParticipants, hostUserId, hostUserName, countdownMinutes, requireApproval } = req.body || {};
+
+      const authCheck = await isUserSubscriberOrAdmin(hostUserId, hostUserName);
+      if (!authCheck.authorized) {
+        res.status(403).json({
+          success: false,
+          error: authCheck.reason || "La création de salon privé est réservée aux abonnés.",
+          code: "SUBSCRIBER_REQUIRED"
+        });
+        return;
+      }
+
       const race = raceManager.createPrivateRace({
         title: title || "Régate Privée",
         targetDistance: Number(targetDistance) || 2000,
