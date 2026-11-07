@@ -416,6 +416,7 @@ export class TelemetryController {
         distToLeader: Math.max(0, leaderDist - effectiveDistance),
         distToPrev,
         distToNext,
+        normDistM: effectiveDistance,
         normalized: true,
         fairnessNotice: "La distance est normalisée selon la formule Concept2 basée sur votre puissance en Watts pour garantir l'égalité sportive entre tous les modèles de rameurs.",
         watchModel,

@@ -380,6 +380,10 @@ class RowerView extends WatchUi.View {
         return _authRequestId;
     }
 
+    public function getAuthLogin() as String {
+        return _authLogin;
+    }
+
     public function clearAuthPrompt() as Void {
         _authRequestId = "";
         _authLogin = "";
@@ -1503,7 +1507,6 @@ class RowerView extends WatchUi.View {
     // =========================================================================
     private function drawPlayerIdScreen(dc as Graphics.Dc, w as Number, h as Number) as Void {
         _userId = UserManager.getUserId();
-        var prefix = UserManager.getPrefix();
         var suffix = UserManager.getSuffix();
         var cx = w / 2;
 

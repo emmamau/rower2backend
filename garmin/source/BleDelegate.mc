@@ -7,6 +7,8 @@ import Toybox.System;
 import Toybox.ActivityRecording;
 import Toybox.Time;
 import Toybox.WatchUi;
+import Toybox.Application.Storage;
+import Toybox.Application.Properties;
 
 class BleDelegate extends BluetoothLowEnergy.BleDelegate {
 
@@ -680,14 +682,11 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
         // Accumulate printable ASCII across split BLE notifications so fragmented V3 / KEYLOCK= messages match reliably
         var chars = new [size] as Array<Char>;
         var charLen = 0;
-        var hasTerminator = false;
         for (var i = 0; i < size; i++) {
             var b = value[i];
             if (b >= 0x20 && b <= 0x7E) {
                 chars[charLen] = b.toChar();
                 charLen++;
-            } else if (b == 0x0D || b == 0x0A) {
-                hasTerminator = true;
             }
         }
         var msgStr = (charLen > 0) ? StringUtil.charArrayToString(chars.slice(0, charLen) as Array<Char>) : "";
@@ -1092,9 +1091,22 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
         view.updateRowerData(_model, netDist, _progressPercent);
 
         if (_activityStatus.equals("in_progress") && _targetDistance > 0 && netDist >= _targetDistance) {
-            vibrateVictory();
-            saveAndExitSession();
-            return true;
+            // Sanity check: athlete cannot legitimately complete a race in under (_targetDistance / 10)s or < 5 strokes!
+            var minElapsed = (_targetDistance / 10);
+            if (minElapsed < 15) { minElapsed = 15; }
+            if (_model.elapsedTime >= minElapsed && _model.strokeCount >= 5) {
+                vibrateVictory();
+                saveAndExitSession();
+                return true;
+            } else {
+                // Aberrant premature finish detected: clamp distance and keep racing!
+                System.println("Prevented premature finish: netDist=" + netDist + ", elapsed=" + _model.elapsedTime + ", strokes=" + _model.strokeCount);
+                if (_model.totalDistance >= _targetDistance) {
+                    _model.totalDistance = _targetDistance > 50 ? 50 : (_targetDistance / 2);
+                    _progressPercent = _model.totalDistance.toFloat() / _targetDistance.toFloat();
+                    view.updateRowerData(_model, _model.totalDistance, _progressPercent);
+                }
+            }
         }
         return false;
     }
@@ -1384,6 +1396,23 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
             if (reqId.length() > 0) {
                 _syncManager.respondWebLogin(reqId, approved);
             }
+            if (approved) {
+                var login = view.getAuthLogin();
+                if (login != null && login.length() > 0) {
+                    var p = login;
+                    if (p.length() > 10) {
+                        p = p.substring(0, 10);
+                    }
+                    Storage.setValue("userLoginPrefix", p);
+                    try {
+                        Properties.setValue("userLoginPrefix", p);
+                    } catch (ex) {}
+                    var suffix = UserManager.getSuffix();
+                    var fullId = p + "_" + suffix;
+                    Storage.setValue("userLogin", fullId);
+                    _userId = fullId;
+                }
+            }
             view.clearAuthPrompt();
         }
     }
@@ -1507,6 +1536,13 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
             }
             if (data.hasKey("distToNext") && data.get("distToNext") != null) {
                 dNext = data.get("distToNext") as Number;
+            }
+
+            if (data.hasKey("normDistM") && data.get("normDistM") != null) {
+                var nd = data.get("normDistM") as Number;
+                if (nd > 0 && (_model.totalDistance == 0 || (nd > _model.totalDistance && (nd - _model.totalDistance) < 50))) {
+                    _model.totalDistance = nd;
+                }
             }
 
             (_view as RowerView).setLiveRank(rank, total, dLeader, dPrev, dNext);

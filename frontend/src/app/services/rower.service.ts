@@ -220,10 +220,12 @@ export class RowerService {
   }
 
   // Demande d'authentification envoyée à la montre Garmin
-  requestWebLogin(userId: string, login: string): Observable<{ success: boolean; requestId?: string; message: string; error?: string }> {
+  requestWebLogin(userId: string, login: string, prefix?: string, suffix?: string): Observable<{ success: boolean; requestId?: string; message: string; error?: string }> {
     return this.http.post<{ success: boolean; requestId?: string; message: string; error?: string }>(`${this.apiUrl}/api/user/auth/request`, {
       userId,
-      login
+      login,
+      prefix,
+      suffix
     });
   }
 

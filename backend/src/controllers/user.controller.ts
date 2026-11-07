@@ -395,52 +395,68 @@ export const getUserAccount = async (req: Request, res: Response): Promise<void>
  */
 export const requestWebLogin = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { userId, login } = req.body;
+    const { userId, login, prefix, suffix } = req.body || {};
 
-    if (!userId || !login) {
-      res.status(400).json({ success: false, message: "userId et login requis" });
+    let targetUserId = userId;
+    let targetLogin = login;
+
+    if (suffix) {
+      const cleanPrefix = String(prefix || "Rower").trim().slice(0, 10) || "Rower";
+      const cleanSuffix = String(suffix).trim();
+      targetUserId = `${cleanPrefix}_${cleanSuffix}`;
+      targetLogin = cleanPrefix;
+    }
+
+    if (!targetUserId || !targetLogin) {
+      res.status(400).json({ success: false, message: "userId et login (ou prefix et suffix) requis" });
       return;
     }
 
-    // Vérifier si la montre a lancé l'application (présence d'une activité au cours des 10 dernières minutes)
-    const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
-    let activeActivity = null;
-    try {
-      activeActivity = await Activities.findOne({
-        where: {
-          userId,
-          updatedAt: { [Op.gte]: tenMinutesAgo },
-        },
-        order: [["updatedAt", "DESC"]],
-      });
-    } catch {
-      // Tolérance test / hors-ligne
-    }
+    const isPairingAttempt = Boolean(suffix);
 
-    const inActiveRace = raceManager.isRacerActive(userId) ||
-      Boolean(raceManager.getCurrentPublicRace()?.participants?.has(userId));
+    if (!isPairingAttempt) {
+      // Vérifier si la montre a lancé l'application (présence d'une activité au cours des 10 dernières minutes)
+      const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
+      let activeActivity = null;
+      try {
+        activeActivity = await Activities.findOne({
+          where: {
+            userId: targetUserId,
+            updatedAt: { [Op.gte]: tenMinutesAgo },
+          },
+          order: [["updatedAt", "DESC"]],
+        });
+      } catch {
+        // Tolérance test / hors-ligne
+      }
 
-    if (!activeActivity && !inActiveRace && process.env.NODE_ENV !== "test" && !process.env.TEST_MODE) {
-      res.status(403).json({
-        success: false,
-        error: "WATCH_NOT_CONNECTED",
-        message: "L'application Garmin Rower Race doit être lancée sur votre montre pour vous connecter.",
-      });
-      return;
+      const inActiveRace = raceManager.isRacerActive(targetUserId) ||
+        Boolean(raceManager.getCurrentPublicRace()?.participants?.has(targetUserId));
+
+      if (!activeActivity && !inActiveRace && process.env.NODE_ENV !== "test" && !process.env.TEST_MODE) {
+        res.status(403).json({
+          success: false,
+          error: "WATCH_NOT_CONNECTED",
+          message: "L'application Garmin Rower Race doit être lancée sur votre montre pour vous connecter.",
+        });
+        return;
+      }
     }
 
     // Créer ou renouveler la demande d'authentification
     const requestId = `REQ_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     const loginReq = await userStore.createLoginRequest({
       id: requestId,
-      userId,
-      login,
+      userId: targetUserId,
+      login: targetLogin,
       status: "pending",
     });
 
     res.status(200).json({
       success: true,
       requestId: loginReq.id,
+      userId: targetUserId,
+      login: targetLogin,
       message: "Demande envoyée à votre montre. Veuillez accepter sur votre montre Garmin.",
     });
   } catch (err: unknown) {
@@ -634,6 +650,7 @@ export const getGeneralLeaderboard = async (req: Request, res: Response): Promis
     const { country, gender, ageCategory } = req.query;
     const currentYear = new Date().getFullYear();
     let all = await userStore.getAllUsersForLeaderboard();
+    all = all.filter((u) => (u.totalRaces && u.totalRaces > 0) || (u.points && u.points > 0) || (u.totalWins && u.totalWins > 0));
 
     if (country && typeof country === "string" && country.trim().toLowerCase() !== "all") {
       const targetCountry = country.trim().toLowerCase();

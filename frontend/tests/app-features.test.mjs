@@ -475,3 +475,162 @@ test('Garmin Watch app: 10-char prefix, encoded suffix, and menu positioning bef
   assert.match(userManagerMc, /BASE64_CHARS\s*=\s*"[A-Za-z0-9]+";/);
   assert.ok(!userManagerMc.includes('BASE64_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"'), 'Suffix chars should not contain underscore delimiter');
 });
+
+test('Mobile and Tablet Fullscreen display logic: only cockpit with player selection or regatta view', () => {
+  function checkIsMobileOrTablet(width, ua, touch = false) {
+    const isTouch = touch;
+    const isMobileUA = /Android|iPhone|iPad|iPod|Mobile|IEMobile|Silk|Kindle/i.test(ua || '');
+    return isMobileUA || Boolean(isTouch) || width <= 1024;
+  }
+
+  function checkIsMobileFullscreenOnly(isFullscreen, isMobileOrTablet) {
+    return Boolean(isFullscreen && isMobileOrTablet);
+  }
+
+  // Desktop (1920x1080, no touch, desktop UA) in fullscreen: not mobile fullscreen only
+  assert.equal(checkIsMobileFullscreenOnly(true, checkIsMobileOrTablet(1920, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)', false)), false);
+
+  // Smartphone (375x667, iPhone UA) in fullscreen: mobile fullscreen only
+  assert.equal(checkIsMobileFullscreenOnly(true, checkIsMobileOrTablet(375, 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X)', true)), true);
+
+  // Tablet (820x1180, iPad UA) in fullscreen: mobile fullscreen only
+  assert.equal(checkIsMobileFullscreenOnly(true, checkIsMobileOrTablet(820, 'Mozilla/5.0 (iPad; CPU OS 16_0 like Mac OS X)', true)), true);
+
+  // Smartphone not in fullscreen: false
+  assert.equal(checkIsMobileFullscreenOnly(false, checkIsMobileOrTablet(375, 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X)', true)), false);
+
+  // Read app.html to verify mobile-fullscreen-view hides header, footer, dual tables and shows only arena (cockpit or canvas)
+  const appHtml = fs.readFileSync(path.join(__dirname, '../src/app/app.html'), 'utf8');
+  assert.match(appHtml, /\[class\.mobile-fullscreen-view\]="isMobileFullscreenOnly"/);
+  assert.match(appHtml, /<header class="hud-header" \*ngIf="!isMobileFullscreenOnly">/);
+  assert.match(appHtml, /@if \(isRaceActive \|\| isMobileFullscreenOnly\)/);
+});
+
+test('Garmin Watch pairing with suffix and 10-char prefix, persistence, and clearPairing', () => {
+  // Test pairing validation
+  function validatePairingInputs(suffix, prefix) {
+    const cleanSuffix = (suffix || '').trim();
+    const cleanPrefix = (prefix || '').trim().slice(0, 10);
+    if (!cleanSuffix) return { valid: false, error: 'SUFFIX_REQUIRED' };
+    if (!cleanPrefix) return { valid: false, error: 'PREFIX_REQUIRED' };
+    return {
+      valid: true,
+      userId: `${cleanPrefix}_${cleanSuffix}`,
+      login: cleanPrefix
+    };
+  }
+
+  // Empty suffix or prefix rejected
+  assert.equal(validatePairingInputs('', 'EmmaRacer').valid, false);
+  assert.equal(validatePairingInputs('k9Yz1', '').valid, false);
+
+  // Valid inputs: truncates prefix at 10 chars, formats userId
+  const res = validatePairingInputs('k9Yz1', 'EmmaRacerSuperLong');
+  assert.equal(res.valid, true);
+  assert.equal(res.userId, 'EmmaRacerS_k9Yz1');
+  assert.equal(res.login, 'EmmaRacerS');
+
+  // Verify app.html contains pairing inputs and Lancer l'appareillage button
+  const appHtml = fs.readFileSync(path.join(__dirname, '../src/app/app.html'), 'utf8');
+  assert.match(appHtml, /id="pairing-suffix-input"/);
+  assert.match(appHtml, /id="pairing-prefix-input"/);
+  assert.match(appHtml, /maxlength="10"/);
+  assert.match(appHtml, /Lancer l'appareillage/);
+  assert.match(appHtml, /Effacer l'appareillage/);
+
+  // Verify watch app UserManager.mc stores userLoginPrefix on approval
+  const bleDelegateMc = fs.readFileSync(path.join(__dirname, '../../garmin/source/BleDelegate.mc'), 'utf8');
+  assert.match(bleDelegateMc, /Storage\.setValue\("userLoginPrefix",\s*p\)/);
+});
+
+test('Duel 1v1 Bot mode only proposed if player is paired', () => {
+  const appHtml = fs.readFileSync(path.join(__dirname, '../src/app/app.html'), 'utf8');
+  // btn-bot-duel must be conditioned on isPaired || isWatchConfirmed
+  assert.match(appHtml, /\*ngIf="isPaired \|\| isWatchConfirmed"[\s\S]*?class="btn-hud btn-bot-duel"/);
+});
+
+test('Statistiques button moved to the right of Salons Prives and displayed for identified players', () => {
+  const appHtml = fs.readFileSync(path.join(__dirname, '../src/app/app.html'), 'utf8');
+  const privateRoomIdx = appHtml.indexOf('class="btn-hud btn-private"');
+  const statsIdx = appHtml.indexOf('class="btn-hud btn-stats"');
+  const pricingIdx = appHtml.indexOf('class="btn-hud btn-pricing"');
+
+  assert.ok(privateRoomIdx > 0, 'btn-private exists');
+  assert.ok(statsIdx > privateRoomIdx, 'btn-stats is placed after btn-private');
+  assert.ok(pricingIdx > statsIdx, 'btn-pricing is placed after btn-stats');
+  assert.match(appHtml, /\*ngIf="isIdentified"[\s\S]*?class="btn-hud btn-stats"/);
+});
+
+test('Smartphone mode: full-width fullscreen button underneath next race, and modal links for standings/history', () => {
+  const appCss = fs.readFileSync(path.join(__dirname, '../src/app/app.css'), 'utf8');
+  const appHtml = fs.readFileSync(path.join(__dirname, '../src/app/app.html'), 'utf8');
+
+  // CSS for 768px smartphone: hero-schedule-cluster is flex-direction column, hero-fullscreen is full width (100%)
+  assert.match(appCss, /@media\s*\(max-width:\s*768px\)[\s\S]*?\.hero-schedule-cluster\s*\{[\s\S]*?flex-direction:\s*column/);
+  assert.match(appCss, /@media\s*\(max-width:\s*768px\)[\s\S]*?\.hero-schedule-cluster\s+\.hero-fullscreen\s*\{[\s\S]*?inline-size:\s*100%/);
+
+  // Large tables hidden on smartphone, smartphone links displayed
+  assert.match(appCss, /@media\s*\(max-width:\s*768px\)[\s\S]*?\.dual-standings-history-container\s*\{[\s\S]*?display:\s*none\s*!important/);
+  assert.match(appCss, /@media\s*\(max-width:\s*768px\)[\s\S]*?\.smartphone-table-links\s*\{[\s\S]*?display:\s*flex/);
+
+  // HTML contains smartphone links
+  assert.match(appHtml, /class="smartphone-table-links"/);
+  assert.match(appHtml, /openStandingsModal\(\)/);
+  assert.match(appHtml, /openHistoryModal\(\)/);
+});
+
+test('Leaderboard only includes players who finished a race', () => {
+  function filterLeaderboardFinishers(players) {
+    return players.filter(p => (p.totalRaces && p.totalRaces > 0) || (p.points && p.points > 0) || (p.totalWins && p.totalWins > 0));
+  }
+
+  const samplePlayers = [
+    { id: 'u1', name: 'Finisher Alice', totalRaces: 3, points: 150 },
+    { id: 'u2', name: 'New Registered Bob', totalRaces: 0, points: 0 },
+    { id: 'u3', name: 'Guest Charlie', totalRaces: 0, points: 0 },
+    { id: 'u4', name: 'Finisher David', totalRaces: 1, points: 25 }
+  ];
+
+  const filtered = filterLeaderboardFinishers(samplePlayers);
+  assert.equal(filtered.length, 2);
+  assert.deepEqual(filtered.map(p => p.id), ['u1', 'u4']);
+});
+
+test('Account creation and subscription possible without prior pairing', () => {
+  const appHtml = fs.readFileSync(path.join(__dirname, '../src/app/app.html'), 'utf8');
+  // Account modal button is available on un-paired header
+  assert.match(appHtml, /class="btn-hud btn-connect-compact"[\s\S]*?openAccountModal\('login'\)/);
+  // Watch ID is optional on registration
+  assert.match(appHtml, /Identifiant de joueur Garmin \(optionnel/);
+});
+
+test('Mobile and Tablet Fullscreen: in-cockpit player selection, bottom nav hidden, and robust state persistence', () => {
+  const appHtml = fs.readFileSync(path.join(__dirname, '../src/app/app.html'), 'utf8');
+  const appCss = fs.readFileSync(path.join(__dirname, '../src/app/app.css'), 'utf8');
+  const appTs = fs.readFileSync(path.join(__dirname, '../src/app/app.ts'), 'utf8');
+
+  // In-cockpit player selection when not yet identified
+  assert.match(appHtml, /class="cockpit-player-select-card" \*ngIf="!canAccessCockpit"/);
+  assert.match(appHtml, /Sélectionnez votre coureur pour activer votre cockpit/);
+  assert.match(appHtml, /id="cockpit-inner-select"/);
+
+  // Mobile bottom nav hidden when in mobile fullscreen
+  assert.match(appHtml, /class="mobile-bottom-nav" \*ngIf="!isMobileFullscreenOnly"/);
+  assert.match(appCss, /\.game-container\.mobile-fullscreen-view \.mobile-bottom-nav/);
+  assert.match(appCss, /\.game-container\.mobile-fullscreen-view \.mobile-bottom-nav[\s\S]*?display:\s*none\s*!important/);
+
+  // Fullscreen exit button in arena-mode-bar handles pseudo-fullscreen (iOS Safari)
+  assert.match(appHtml, /@if\s*\(fullscreenSupported\s*\|\|\s*isFullscreen\s*\|\|\s*isPseudoFullscreen\)/);
+
+  // Account modal does not propose watch identification if already paired
+  assert.match(appHtml, /@if\s*\(!isWatchConfirmed\s*&&\s*!isPaired\)\s*\{[\s\S]*?Appairer la montre[\s\S]*?\}\s*@else\s*\{[\s\S]*?Votre montre Garmin est déjà appareillée/);
+
+  // Polling loadCurrentRace does not reset cockpit view when in mobile fullscreen
+  assert.match(appTs, /this\.activeViewMode === 'cockpit' && !this\.canAccessCockpit && !this\.isMobileFullscreenOnly/);
+
+  // Bot duel method check
+  assert.match(appTs, /openBotDuelModal\(\)[\s\S]*?if\s*\(!this\.isPaired\s*&&\s*!this\.isWatchConfirmed\)/);
+
+  // clearPairing resets guest identity so isIdentified becomes false
+  assert.match(appTs, /clearPairing\(\)[\s\S]*?if\s*\(!this\.isSubscriber\s*&&\s*!this\.isUserAdmin\)[\s\S]*?this\.activeUserId = `usr_\$\{randId\}`/);
+});

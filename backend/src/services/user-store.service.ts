@@ -460,14 +460,24 @@ export class UserStoreService {
   public async findPendingLoginRequest(lookupId: string): Promise<StoredLoginRequest | null> {
     const clean = String(lookupId || "").trim().toLowerCase();
     const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000);
+    const cleanSuffix = clean.includes("_") ? clean.split("_").pop()! : clean;
 
     for (const req of this.inMemoryLoginRequests.values()) {
       if (
         req.status === "pending" &&
-        req.requestedAt >= twoMinutesAgo &&
-        (req.userId.toLowerCase() === clean || req.login.toLowerCase() === clean)
+        req.requestedAt >= twoMinutesAgo
       ) {
-        return req;
+        const reqUserId = req.userId.toLowerCase();
+        const reqLogin = req.login.toLowerCase();
+        const reqSuffix = reqUserId.includes("_") ? reqUserId.split("_").pop()! : reqUserId;
+
+        if (
+          reqUserId === clean ||
+          reqLogin === clean ||
+          (cleanSuffix.length >= 4 && reqSuffix === cleanSuffix)
+        ) {
+          return req;
+        }
       }
     }
 
@@ -534,11 +544,13 @@ export class UserStoreService {
       // Fallback mémoire
     }
 
-    return Array.from(usersMap.values()).sort((a, b) => {
-      if (b.points !== a.points) return b.points - a.points;
-      if (b.totalWins !== a.totalWins) return b.totalWins - a.totalWins;
-      return b.podiums - a.podiums;
-    });
+    return Array.from(usersMap.values())
+      .filter((u) => (u.totalRaces && u.totalRaces > 0) || (u.points && u.points > 0) || (u.totalWins && u.totalWins > 0))
+      .sort((a, b) => {
+        if (b.points !== a.points) return b.points - a.points;
+        if (b.totalWins !== a.totalWins) return b.totalWins - a.totalWins;
+        return b.podiums - a.podiums;
+      });
   }
 
   private cacheUser(user: StoredUser): void {

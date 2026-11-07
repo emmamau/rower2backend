@@ -1,4 +1,4 @@
-<div class="game-container">
+<div class="game-container" [class.mobile-fullscreen-view]="isMobileFullscreenOnly">
   <!-- 3 SECONDS RACE COUNTDOWN OVERLAY -->
   <div class="three-sec-overlay" *ngIf="is3sCountdown">
     <div class="three-sec-box">
@@ -55,7 +55,7 @@
   </aside>
 
   <!-- HUD Header -->
-  <header class="hud-header">
+  <header class="hud-header" *ngIf="!isMobileFullscreenOnly">
     <!-- LIGNE 1 : LOGO EN GROS, PROCHAINE COURSE, PLEIN ÉCRAN TRÈS ACCESSIBLE, LISTE DÉROULANTE DES LANGUES DISCRÈTE -->
     <div class="header-hero-row">
       <div class="hero-left-cluster">
@@ -152,37 +152,106 @@
       </div>
     </div>
 
-    <!-- LIGNE 2 : USER CONNECTÉ, BOUTON CONFIG/ADMIN À DROITE DU USER, SALONS PRIVÉS, ABONNEMENTS, ARRÊTER COURSE -->
+    <!-- LIGNE 2 : APPAREILLAGE / USER CONNECTÉ, CONFIG, DUEL (SI APPAIRÉ), SALONS PRIVÉS, STATISTIQUES (À DROITE DES SALONS), ABONNEMENTS -->
     <div class="header-user-row">
       <div class="user-nav-cluster">
-        <!-- Mon Compte / Profil -->
-        <div class="player-card" (click)="openAccountModal(isSubscriber || isUserAdmin ? 'profile' : 'login')">
-          <div class="player-avatar-box">
-            <div class="player-avatar-initial">{{ currentUser.name.slice(0, 2).toUpperCase() }}</div>
-            <span class="player-status-dot"></span>
-          </div>
-          <div class="player-info">
-            <div class="player-name">
-              {{ currentUser.name }}
-              @if (isUserAdmin) {
-                <span class="badge-role-tag is-admin" title="Administratrice">👑 Admin</span>
-              } @else if (isSubscriber) {
-                <span class="badge-role-tag is-sub" title="Abonné(e)">⭐ Abonné</span>
-              } @else {
-                <span class="badge-role-tag is-guest" title="Invité(e)">Invité</span>
-              }
+        <!-- GAUCHE 2EME LIGNE : Appareillage Montre Garmin OU Joueur identifié -->
+        @if (isIdentified) {
+          <div class="player-card" (click)="openAccountModal(isSubscriber || isUserAdmin ? 'profile' : 'login')">
+            <div class="player-avatar-box">
+              <div class="player-avatar-initial">{{ currentUser.name.slice(0, 2).toUpperCase() }}</div>
+              <span class="player-status-dot"></span>
             </div>
-            <div class="player-code">
-              {{ i18n.t('GENERAL_RANK') }}: <span class="highlight">#{{ generalUserRank }}</span> ({{ currentUser.points || 0 }} {{ i18n.t('POINTS') }}) · {{ currentUser.totalRaces || 0 }} {{ i18n.t('RACES_COUNT') }}
+            <div class="player-info">
+              <div class="player-name">
+                {{ currentUser.name }}
+                @if (isUserAdmin) {
+                  <span class="badge-role-tag is-admin" title="Administratrice">👑 Admin</span>
+                } @else if (isSubscriber) {
+                  <span class="badge-role-tag is-sub" title="Abonné(e)">⭐ Abonné</span>
+                } @else {
+                  <span class="badge-role-tag is-paired" title="Montre connectée">⌚ Appairé</span>
+                }
+              </div>
+              <div class="player-code">
+                {{ i18n.t('GENERAL_RANK') }}: <span class="highlight">#{{ generalUserRank }}</span> ({{ currentUser.points || 0 }} {{ i18n.t('POINTS') }}) · {{ currentUser.totalRaces || 0 }} {{ i18n.t('RACES_COUNT') }}
+              </div>
+            </div>
+            <div class="player-card-actions">
+              <button
+                type="button"
+                class="btn-hud btn-connect"
+                (click)="$event.stopPropagation(); openAccountModal(isSubscriber || isUserAdmin ? 'profile' : 'login')">
+                {{ (isSubscriber || isUserAdmin) ? 'Mon Compte' : 'Mon Compte' }}
+              </button>
+              <button
+                type="button"
+                class="btn-hud btn-reset-pairing-inline"
+                (click)="$event.stopPropagation(); clearPairing()"
+                title="Effacer l'appareillage pour changer de montre ou de pseudo">
+                Effacer l'appareillage
+              </button>
             </div>
           </div>
-          <button
-            type="button"
-            class="btn-hud btn-connect"
-            (click)="$event.stopPropagation(); openAccountModal(isSubscriber || isUserAdmin ? 'profile' : 'login')">
-            {{ (isSubscriber || isUserAdmin) ? 'Mon Compte' : 'Connexion / Abonnement' }}
-          </button>
-        </div>
+        } @else {
+          <!-- Fonction d'appareillage avec la montre Garmin à la place d'un invité aléatoire -->
+          <div class="pairing-header-box" role="region" aria-label="Appareillage avec la montre Garmin">
+            <div class="pairing-header-top">
+              <div class="pairing-title-group">
+                <span class="pairing-icon">⌚</span>
+                <span class="pairing-title">Appareillage Montre Garmin</span>
+              </div>
+              <button
+                type="button"
+                class="btn-hud btn-connect-compact"
+                (click)="openAccountModal('login')"
+                title="Créer un compte ou souscrire un abonnement sans montre">
+                Connexion / Abonnement
+              </button>
+            </div>
+            <div class="pairing-inputs-row">
+              <div class="pairing-input-wrap">
+                <input
+                  id="pairing-suffix-input"
+                  type="text"
+                  class="input-pairing input-suffix"
+                  [(ngModel)]="pairingSuffixInput"
+                  placeholder="Suffixe montre (ex: k9Yz1)"
+                  maxlength="10"
+                  title="Suffixe de 5 caractères affiché sur votre montre Garmin" />
+              </div>
+              <div class="pairing-input-wrap">
+                <input
+                  id="pairing-prefix-input"
+                  type="text"
+                  class="input-pairing input-prefix"
+                  [(ngModel)]="pairingPrefixInput"
+                  placeholder="Pseudo (10 car. max)"
+                  maxlength="10"
+                  title="Votre préfixe / pseudo de joueur (10 caractères max)" />
+              </div>
+              <button
+                type="button"
+                class="btn-hud btn-launch-pairing"
+                [disabled]="isPairingPending || !pairingSuffixInput.trim() || !pairingPrefixInput.trim()"
+                (click)="startGarminPairing()"
+                title="Envoyer la demande de confirmation sur la montre">
+                {{ isPairingPending ? '⏳ Envoi montre...' : "Lancer l'appareillage" }}
+              </button>
+            </div>
+            @if (pairingSuccessMessage) {
+              <div class="pairing-feedback ok">
+                <span class="spinner-auth" *ngIf="isPairingPending"></span>
+                {{ pairingSuccessMessage }}
+              </div>
+            }
+            @if (pairingErrorMessage) {
+              <div class="pairing-feedback err">
+                ⚠️ {{ pairingErrorMessage }}
+              </div>
+            }
+          </div>
+        }
 
         <!-- Bouton Config Course ou Admin Course placé immédiatement à droite du user connecté -->
         <button
@@ -202,17 +271,18 @@
           }
         </button>
 
-        <!-- Bouton Duel 1v1 Bot (Accessible à tous sans compte) -->
+        <!-- Bouton Duel 1v1 Bot (Proposé uniquement si le joueur est appareillé) -->
         <button
+          *ngIf="isPaired || isWatchConfirmed"
           type="button"
           class="btn-hud btn-bot-duel"
           (click)="openBotDuelModal()"
-          title="Nouveau mode : affrontez un bot de niveau aléatoire sur la distance de votre choix jusqu'à 10 000m (sans compte)">
+          title="Nouveau mode : affrontez un bot de niveau aléatoire sur la distance de votre choix jusqu'à 10 000m">
           <span class="btn-icon">🤖</span>
           Duel 1v1 Bot
         </button>
 
-        <!-- Boutons Salons Privés et Abonnements placés à droite -->
+        <!-- Boutons Salons Privés -->
         <button
           type="button"
           class="btn-hud btn-private"
@@ -226,6 +296,18 @@
           </span>
         </button>
 
+        <!-- Bouton Espace Statistiques & Analyses (Remonté à droite du bouton salons privés pour les joueurs identifiés) -->
+        <button
+          *ngIf="isIdentified"
+          type="button"
+          class="btn-hud btn-stats"
+          (click)="openStatisticsModal()"
+          title="Consulter vos statistiques et analyses de courses détaillées (Illimité pour les abonnés, 10 jours en compte gratuit)">
+          <span class="btn-icon">📊</span>
+          Statistiques
+        </button>
+
+        <!-- Bouton Abonnements -->
         <button
           type="button"
           class="btn-hud btn-pricing"
@@ -233,16 +315,6 @@
           title="Offres et abonnements Club & Élite Pro">
           <span class="btn-icon">⭐</span>
           {{ isSubscriber ? 'Mon Abonnement' : 'Abonnements' }}
-        </button>
-
-        <!-- Bouton Espace Statistiques & Analyses (Illimité abonnés / 10j gratuit) -->
-        <button
-          type="button"
-          class="btn-hud btn-stats"
-          (click)="openStatisticsModal()"
-          title="Consulter vos statistiques et analyses de courses détaillées (Illimité pour les abonnés, 10 jours en compte gratuit)">
-          <span class="btn-icon">📊</span>
-          Statistiques
         </button>
 
         <!-- Bouton Arrêter la course (visible pour l'admin ou l'organisateur pendant une course active) -->
@@ -365,28 +437,39 @@
             <!-- Garmin watch sync shortcut -->
             <div class="garmin-watch-section">
               <div class="garmin-section-title">⌚ Synchronisation & Appairage Montre Garmin</div>
-              <p class="garmin-section-desc">
-                Saisissez votre Identifiant de joueur affiché sur votre montre Garmin (menu « Mon identifiant de joueur ») pour appairer la montre à la plateforme :
-              </p>
-              <div class="garmin-sync-row">
-                <input
-                  type="text"
-                  name="watchIdInput"
-                  [(ngModel)]="userIdInput"
-                  placeholder="ex: RowABC1234_k9Yz1"
-                  class="form-control form-control-sm" />
-                <button type="button" class="btn-watch-sync" [disabled]="isWaitingWatchApproval" (click)="startWebLogin()">
-                  {{ isWaitingWatchApproval ? 'En attente montre...' : 'Appairer la montre' }}
-                </button>
-              </div>
-              @if (loginStatusMessage) {
-                <div class="auth-feedback">
-                  <div class="spinner-auth" *ngIf="isWaitingWatchApproval"></div>
-                  <span>{{ loginStatusMessage }}</span>
+              @if (!isWatchConfirmed && !isPaired) {
+                <p class="garmin-section-desc">
+                  Saisissez votre Identifiant de joueur affiché sur votre montre Garmin (menu « Mon identifiant de joueur ») pour appairer la montre à la plateforme :
+                </p>
+                <div class="garmin-sync-row">
+                  <input
+                    type="text"
+                    name="watchIdInput"
+                    [(ngModel)]="userIdInput"
+                    placeholder="ex: RowABC1234_k9Yz1"
+                    class="form-control form-control-sm" />
+                  <button type="button" class="btn-watch-sync" [disabled]="isWaitingWatchApproval" (click)="startWebLogin()">
+                    {{ isWaitingWatchApproval ? 'En attente montre...' : 'Appairer la montre' }}
+                  </button>
                 </div>
-              }
-              @if (loginErrorMessage) {
-                <div class="auth-error">⚠️ {{ loginErrorMessage }}</div>
+                @if (loginStatusMessage) {
+                  <div class="auth-feedback">
+                    <div class="spinner-auth" *ngIf="isWaitingWatchApproval"></div>
+                    <span>{{ loginStatusMessage }}</span>
+                  </div>
+                }
+                @if (loginErrorMessage) {
+                  <div class="auth-error">⚠️ {{ loginErrorMessage }}</div>
+                }
+              } @else {
+                <p class="garmin-section-desc">
+                  Votre montre Garmin est déjà appareillée et enregistrée (<strong>{{ activeUserId }}</strong>).
+                </p>
+                <div class="garmin-sync-row">
+                  <button type="button" class="btn-hud btn-clear-pairing" (click)="clearPairing()" title="Effacer l'appareillage pour changer de montre ou de pseudo">
+                    Effacer l'appareillage
+                  </button>
+                </div>
               }
             </div>
           </form>
@@ -1137,9 +1220,9 @@
       (requestAccountModal)="openAccountModal($event)">
     </app-private-room-manager>
 
-    @if (isRaceActive) {
+    @if (isRaceActive || isMobileFullscreenOnly) {
       <!-- ======================================================== -->
-      <!-- MODE COURSE ACTIF : UNIQUEMENT VUE RÉGATE OU MODE COCKPIT -->
+      <!-- MODE COURSE ACTIF OU PLEIN ÉCRAN MOBILE/TABLETTE : COCKPIT OU RÉGATE -->
       <!-- ======================================================== -->
 
       <!-- BANNIÈRE DE FÉLICITATIONS FIN DE COURSE (BRAVO ! TEMPS, CLASSEMENT ET MÉDAILLE) -->
@@ -1199,14 +1282,14 @@
             type="button"
             class="btn-toggle-view"
             [class.active]="activeViewMode === 'cockpit'"
-            [class.locked]="!canAccessCockpit"
+            [class.locked]="!canAccessCockpit && !isMobileFullscreenOnly"
             (click)="switchViewMode('cockpit')">
-            @if (!canAccessCockpit) {
+            @if (!canAccessCockpit && !isMobileFullscreenOnly) {
               🔒 Mode Cockpit
             } @else {
               📱 Mode Cockpit
             }
-            <span class="rec-badge" *ngIf="recommendedViewMode === 'cockpit' && canAccessCockpit">Mobile</span>
+            <span class="rec-badge" *ngIf="recommendedViewMode === 'cockpit' && (canAccessCockpit || isMobileFullscreenOnly)">Mobile</span>
           </button>
         </div>
 
@@ -1256,7 +1339,7 @@
         </div>
 
         <div class="ergo-quick-tools">
-          @if (fullscreenSupported) {
+          @if (fullscreenSupported || isFullscreen || isPseudoFullscreen) {
             <button
               type="button"
               class="btn-ergo-tool"
@@ -1323,6 +1406,55 @@
         }
       } @else {
         <!-- VUE 2 : MODE COCKPIT ERGOMÈTRE (ADAPTÉ AUX SMARTPHONES / MOBILES SUR SUPPORT RAMEUR) -->
+
+        <!-- SÉLECTION DU JOUEUR DANS LE COCKPIT SI PAS ENCORE IDENTIFIÉ -->
+        <section class="cockpit-player-select-card" *ngIf="!canAccessCockpit" role="region" aria-label="Sélection du joueur pour le cockpit">
+          <div class="cockpit-select-box">
+            <div class="cockpit-select-head">
+              <span class="cockpit-select-icon">⌚</span>
+              <div class="cockpit-select-titles">
+                <h4 class="cockpit-select-title">Sélectionnez votre coureur pour activer votre cockpit</h4>
+                <p class="cockpit-select-sub">Le système n'a pas encore pu vous identifier. Choisissez votre coureur parmi les participants ou validez avec votre montre Garmin :</p>
+              </div>
+            </div>
+            <div class="cockpit-select-form">
+              <div class="cockpit-select-field">
+                <label for="cockpit-inner-select" class="cockpit-field-label">Coureur :</label>
+                <select
+                  id="cockpit-inner-select"
+                  class="cockpit-race-select"
+                  [(ngModel)]="selectedCockpitPlayerId"
+                  (change)="onSelectCockpitPlayer(selectedCockpitPlayerId)">
+                  <option value="">-- Choisir mon coureur --</option>
+                  <option *ngFor="let racer of humanRacers" [value]="racer.userId">
+                    {{ racer.userName || racer.userId }} ({{ racer.userId }})
+                  </option>
+                </select>
+              </div>
+              <span class="picker-race-sep">ou</span>
+              <div class="cockpit-select-field">
+                <label for="cockpit-inner-input" class="cockpit-field-label">ID Montre :</label>
+                <input
+                  id="cockpit-inner-input"
+                  type="text"
+                  class="cockpit-race-input"
+                  placeholder="ID joueur montre (ex: RowABC1234_k9Yz1)"
+                  [(ngModel)]="watchIdLoginInput"
+                  (keyup.enter)="identifyWithWatchId()" />
+              </div>
+              <button
+                type="button"
+                class="btn-cockpit-race-submit"
+                [disabled]="isWatchIdLoginPending || (!watchIdLoginInput.trim() && !selectedCockpitPlayerId)"
+                (click)="identifyWithWatchId()">
+                {{ isWatchIdLoginPending ? '⏳ Confirmez sur la montre...' : 'Valider sur la montre' }}
+              </button>
+            </div>
+            <div *ngIf="watchIdLoginMessage" class="cockpit-picker-race-msg ok">{{ watchIdLoginMessage }}</div>
+            <div *ngIf="watchIdLoginError" class="cockpit-picker-race-msg err">{{ watchIdLoginError }}</div>
+          </div>
+        </section>
+
         <!-- Dedicated Ergometer Cockpit Live Progress Bar -->
         <section class="cockpit-progress-strip" aria-label="Progression de course">
           <div class="cockpit-progress-head">
@@ -1407,26 +1539,22 @@
       <!-- ========================================================================= -->
 
       <!-- BARRE D'IDENTIFICATION DIRECTE PAR MONTRE GARMIN -->
-      <section class="watch-auth-strip" aria-label="Connexion Montre Garmin">
-        <div class="watch-auth-card" [class.is-confirmed]="isWatchConfirmed">
+      <section class="watch-auth-strip" *ngIf="!isMobileFullscreenOnly" aria-label="Connexion Montre Garmin">
+        <div class="watch-auth-card" [class.is-confirmed]="isWatchConfirmed || isPaired">
           <div class="watch-auth-left">
             <span class="watch-auth-icon">⌚</span>
             <div class="watch-auth-info">
               <div class="watch-auth-title">
-                @if (isWatchConfirmed) {
+                @if (isWatchConfirmed || isPaired) {
                   <span>Montre connectée : <strong>{{ activeUserId }}</strong></span>
-                  <span class="watch-badge-ok">✓ Confirmée sur la montre</span>
+                  <span class="watch-badge-ok">✓ Appareillage actif</span>
                 } @else {
-                  <span>Identification directe par montre Garmin</span>
+                  <span>Appareillage direct par montre Garmin</span>
                 }
               </div>
               <div class="watch-auth-sub">
-                @if (isWatchConfirmed) {
-                  @if (canAccessCockpit) {
-                    <span>Vous participez à la course · Cockpit débloqué au départ</span>
-                  } @else {
-                    <span>Montre confirmée · Rejoignez une course pour débloquer votre Cockpit (Vue Régate 2D active)</span>
-                  }
+                @if (isWatchConfirmed || isPaired) {
+                  <span>Montre confirmée · Enregistrée et reconnue automatiquement sur la plateforme</span>
                 } @else {
                   <span>Saisissez l'identifiant de votre montre Garmin pour débloquer votre Cockpit après confirmation</span>
                 }
@@ -1435,7 +1563,7 @@
           </div>
 
           <div class="watch-auth-actions">
-            @if (!isWatchConfirmed) {
+            @if (!isWatchConfirmed && !isPaired) {
               <div class="watch-input-group">
                 <select
                   class="watch-dropdown-select"
@@ -1465,8 +1593,8 @@
                 </button>
               </div>
             } @else {
-              <button type="button" class="btn-watch-disconnect" (click)="disconnectWatch()">
-                Changer de montre
+              <button type="button" class="btn-hud btn-clear-pairing" (click)="clearPairing()" title="Effacer l'appareillage pour changer de montre ou de pseudo">
+                Effacer l'appareillage
               </button>
             }
           </div>
@@ -1491,8 +1619,33 @@
         </div>
       </section>
 
+      <!-- LIENS SMARTPHONE POUR AFFICHER LE CLASSEMENT ET L'HISTORIQUE (LISIBILITÉ MOBILE) -->
+      <section class="smartphone-table-links" *ngIf="!isMobileFullscreenOnly" aria-label="Liens Classement et Historique">
+        <button type="button" class="btn-mobile-table-link link-standings" (click)="openStandingsModal()">
+          <div class="mobile-link-left">
+            <span class="link-icon">🏅</span>
+            <div class="link-text">
+              <strong>Classement Général</strong>
+              <span>{{ generalLeaderboard.length }} rameurs classés · Consulter</span>
+            </div>
+          </div>
+          <span class="link-arrow">→</span>
+        </button>
+
+        <button type="button" class="btn-mobile-table-link link-history" (click)="openHistoryModal()">
+          <div class="mobile-link-left">
+            <span class="link-icon">🏆</span>
+            <div class="link-text">
+              <strong>Historique des Régates</strong>
+              <span>{{ raceHistory.length }} courses archivées · Consulter</span>
+            </div>
+          </div>
+          <span class="link-arrow">→</span>
+        </button>
+      </section>
+
       <!-- DEUX VUES RÉPARTIES SUR LA TOTALITÉ DE LA LARGEUR DE L'ÉCRAN AVEC ASCENSEUR -->
-      <section class="dual-standings-history-container" aria-label="Classement et Historique">
+      <section class="dual-standings-history-container" *ngIf="!isMobileFullscreenOnly" aria-label="Classement et Historique">
         <!-- VUE 1 : CLASSEMENT GÉNÉRAL AVEC ASCENSEUR -->
         <div class="dual-panel-card panel-standings">
           <div class="panel-header">
@@ -1641,7 +1794,7 @@
       </section>
 
       <!-- VUE 2D EN DESSOUS DES CLASSEMENTS ET HISTORIQUES AVEC LES LIGNES D'EAU OÙ LES JOUEURS SONT ENGAGÉS -->
-      <section class="lobby-regatta-preview-section" aria-label="Grille de départ et lignes d'eau engagées">
+      <section class="lobby-regatta-preview-section" *ngIf="!isMobileFullscreenOnly" aria-label="Grille de départ et lignes d'eau engagées">
         <div class="lobby-preview-card">
           <div class="panel-header">
             <div class="panel-title-group">
@@ -1915,7 +2068,7 @@
     </section>
 
     <!-- FOOTER PERMANENT : Conditions d'utilisation, CGU, RGPD et Mentions légales -->
-    <footer class="app-footer">
+    <footer class="app-footer" *ngIf="!isMobileFullscreenOnly">
       <div class="footer-links">
         <button type="button" class="footer-link-btn" (click)="openPrivateModal()">
           🔒 {{ i18n.t('BTN_PRIVATE_ROOMS') }}
@@ -1948,7 +2101,7 @@
   </main>
 
   <!-- Thumb-Friendly Mobile Bottom Navigation Bar (< 768px) -->
-  <nav class="mobile-bottom-nav" aria-label="Navigation rapide mobile">
+  <nav class="mobile-bottom-nav" *ngIf="!isMobileFullscreenOnly" aria-label="Navigation rapide mobile">
     <button
       type="button"
       class="mob-nav-btn"

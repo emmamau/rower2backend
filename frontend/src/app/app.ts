@@ -84,6 +84,14 @@ export class AppComponent implements OnInit, OnDestroy {
 
   // Identification directe par montre Garmin
   isWatchConfirmed = false;
+  isPaired = false;
+  pairingSuffixInput = '';
+  pairingPrefixInput = '';
+  isPairingPending = false;
+  pairingSuccessMessage = '';
+  pairingErrorMessage = '';
+  private pairingPollSub?: Subscription;
+
   watchIdLoginInput = '';
   isWatchIdLoginPending = false;
   watchIdLoginMessage = '';
@@ -279,6 +287,9 @@ export class AppComponent implements OnInit, OnDestroy {
       this.syncPseudoFullscreenClass();
     }
     this.isFullscreen = isNative || this.isPseudoFullscreen;
+    if (this.isMobileFullscreenOnly && !this.userOverrodeViewMode) {
+      this.activeViewMode = 'cockpit';
+    }
     this.cdr.markForCheck();
   };
 
@@ -326,8 +337,19 @@ export class AppComponent implements OnInit, OnDestroy {
     const storedIsSub = typeof localStorage !== 'undefined' ? localStorage.getItem('rower_is_subscriber') === 'true' : false;
     const storedIsAdmin = typeof localStorage !== 'undefined' ? localStorage.getItem('rower_is_admin') === 'true' : false;
     const storedWatchConfirmed = typeof localStorage !== 'undefined' ? localStorage.getItem('rower_watch_confirmed') === 'true' : false;
-    this.isWatchConfirmed = storedWatchConfirmed;
+    const storedIsPaired = typeof localStorage !== 'undefined' ? localStorage.getItem('rower_is_paired') === 'true' : false;
+    this.isPaired = storedIsPaired || storedWatchConfirmed;
+    this.isWatchConfirmed = this.isPaired;
     this.watchIdLoginInput = this.activeUserId;
+
+    const storedPrefix = typeof localStorage !== 'undefined' ? localStorage.getItem('rower_watch_prefix') : null;
+    const storedSuffix = typeof localStorage !== 'undefined' ? localStorage.getItem('rower_watch_suffix') : null;
+    if (storedPrefix) {
+      this.pairingPrefixInput = storedPrefix;
+    }
+    if (storedSuffix) {
+      this.pairingSuffixInput = storedSuffix;
+    }
 
     if (storedLogin) {
       this.currentUser.name = storedLogin;
@@ -414,6 +436,10 @@ export class AppComponent implements OnInit, OnDestroy {
     if (this.countdownTickerSub) {
       this.countdownTickerSub.unsubscribe();
       this.countdownTickerSub = undefined;
+    }
+    if (this.pairingPollSub) {
+      this.pairingPollSub.unsubscribe();
+      this.pairingPollSub = undefined;
     }
     if (this.joinedSocketRaceId) {
       this.socketService.leaveRaceRoom(this.joinedSocketRaceId);
@@ -648,8 +674,8 @@ export class AppComponent implements OnInit, OnDestroy {
             }
           });
 
-          // Seuls les joueurs associés à la course peuvent voir le cockpit
-          if (this.activeViewMode === 'cockpit' && !this.canAccessCockpit) {
+          // Seuls les joueurs associés à la course peuvent voir le cockpit (sauf en plein écran mobile/tablette où la sélection du joueur est affichée)
+          if (this.activeViewMode === 'cockpit' && !this.canAccessCockpit && !this.isMobileFullscreenOnly) {
             this.activeViewMode = 'canvas';
           }
         }
@@ -699,7 +725,9 @@ export class AppComponent implements OnInit, OnDestroy {
 
   get filteredGeneralLeaderboard(): UserProfile[] {
     const currentYear = new Date().getFullYear();
-    return this.generalLeaderboard.filter((player) => {
+    return this.generalLeaderboard
+      .filter((player) => (player.totalRaces && player.totalRaces > 0) || (player.points && player.points > 0) || (player.totalWins && player.totalWins > 0))
+      .filter((player) => {
       // 1. Filtrage pays
       if (this.leaderboardCountryFilter !== 'all') {
         const pCountry = (player.country || '').trim().toLowerCase();
@@ -803,6 +831,10 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   openBotDuelModal(): void {
+    if (!this.isPaired && !this.isWatchConfirmed) {
+      alert("Le mode Duel 1v1 Bot est réservé aux rameurs ayant appareillé leur montre Garmin.");
+      return;
+    }
     this.closeAllOverlayModals();
     this.isBotDuelModalOpen = true;
     this.botDuelError = '';
@@ -1540,8 +1572,37 @@ export class AppComponent implements OnInit, OnDestroy {
     return inRacers || hasActivePart;
   }
 
+  get isIdentified(): boolean {
+    return Boolean(
+      this.isPaired ||
+      this.isWatchConfirmed ||
+      this.isSubscriber ||
+      this.isUserAdmin ||
+      this.isRegisteredUser
+    );
+  }
+
+  get isMobileOrTablet(): boolean {
+    if (typeof window === 'undefined') return false;
+    const width = window.innerWidth;
+    const isTouch = typeof navigator !== 'undefined' && (((navigator as any).maxTouchPoints && (navigator as any).maxTouchPoints > 0) || 'ontouchstart' in window);
+    const isMobileUA = /Android|iPhone|iPad|iPod|Mobile|IEMobile|Silk|Kindle/i.test(navigator.userAgent || '');
+    return isMobileUA || Boolean(isTouch) || width <= 1024;
+  }
+
+  get isSmartphone(): boolean {
+    if (typeof window === 'undefined') return false;
+    const width = window.innerWidth;
+    const isMobileUA = /Android|iPhone|iPod|Mobile|IEMobile/i.test(navigator.userAgent || '');
+    return isMobileUA || width < 768;
+  }
+
+  get isMobileFullscreenOnly(): boolean {
+    return Boolean((this.isFullscreen || this.isPseudoFullscreen) && this.isMobileOrTablet);
+  }
+
   get canAccessCockpit(): boolean {
-    return Boolean(this.isWatchConfirmed && this.isUserAssociatedWithRace);
+    return Boolean((this.isWatchConfirmed || this.isPaired) && this.isUserAssociatedWithRace);
   }
 
   get isFinished(): boolean {
@@ -1823,19 +1884,162 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   disconnectWatch(): void {
+    this.clearPairing();
+    this.activeViewMode = 'canvas';
+    this.cdr.markForCheck();
+  }
+
+  clearPairing(): void {
+    this.isPaired = false;
     this.isWatchConfirmed = false;
-    try {
-      localStorage.removeItem('rower_watch_confirmed');
-    } catch {}
+    this.pairingSuccessMessage = '';
+    this.pairingErrorMessage = '';
+    this.pairingSuffixInput = '';
+    this.pairingPrefixInput = '';
     this.watchIdLoginMessage = '';
     this.watchIdLoginError = '';
-    this.activeViewMode = 'canvas';
+    this.selectedCockpitPlayerId = '';
+    try {
+      localStorage.removeItem('rower_is_paired');
+      localStorage.removeItem('rower_watch_confirmed');
+      localStorage.removeItem('rower_watch_prefix');
+      localStorage.removeItem('rower_watch_suffix');
+    } catch {}
+
+    if (!this.isSubscriber && !this.isUserAdmin) {
+      const randId = Math.random().toString(36).substring(2, 8);
+      this.activeUserId = `usr_${randId}`;
+      this.userIdInput = this.activeUserId;
+      const guestName = `Racer_${this.activeUserId.slice(-4)}`;
+      this.currentUser = {
+        id: this.activeUserId,
+        name: guestName,
+        isSubscriber: false,
+        isAdmin: false
+      };
+      this.userLoginInput = guestName;
+      try {
+        localStorage.setItem('rower_user_id', this.activeUserId);
+        localStorage.setItem('rower_user_login', guestName);
+      } catch {}
+    }
+    this.cdr.markForCheck();
+  }
+
+  startGarminPairing(): void {
+    const cleanSuffix = (this.pairingSuffixInput || '').trim();
+    const cleanPrefix = (this.pairingPrefixInput || '').trim().slice(0, 10);
+
+    if (!cleanSuffix) {
+      this.pairingErrorMessage = 'Veuillez saisir le suffixe de votre identifiant affiché sur la montre.';
+      return;
+    }
+    if (!cleanPrefix) {
+      this.pairingErrorMessage = 'Veuillez saisir votre pseudo / préfixe (10 caractères max).';
+      return;
+    }
+
+    this.isPairingPending = true;
+    this.pairingErrorMessage = '';
+    this.pairingSuccessMessage = 'Demande envoyée à votre montre... Veuillez valider sur votre montre Garmin.';
+    this.cdr.markForCheck();
+
+    const computedUserId = `${cleanPrefix}_${cleanSuffix}`;
+
+    this.rowerService.requestWebLogin(computedUserId, cleanPrefix, cleanPrefix, cleanSuffix).subscribe({
+      next: (res) => {
+        if (res && res.success && res.requestId) {
+          this.pollPairingApproval(res.requestId, cleanPrefix, cleanSuffix);
+        } else {
+          this.isPairingPending = false;
+          this.pairingErrorMessage = res?.message || "Erreur lors de l'envoi de la demande d'appareillage.";
+          this.cdr.markForCheck();
+        }
+      },
+      error: (err) => {
+        this.isPairingPending = false;
+        this.pairingErrorMessage = err?.error?.message || "Erreur de connexion lors de l'envoi à la montre.";
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  private pollPairingApproval(requestId: string, prefix: string, suffix: string): void {
+    if (this.pairingPollSub) {
+      this.pairingPollSub.unsubscribe();
+    }
+    this.pairingPollSub = interval(1500).pipe(
+      switchMap(() => this.rowerService.checkWebLoginStatus(requestId))
+    ).subscribe({
+      next: (res) => {
+        if (res.status === 'approved') {
+          this.pairingPollSub?.unsubscribe();
+          this.isPairingPending = false;
+          const fullId = res.userId || `${prefix}_${suffix}`;
+          const userName = res.login || prefix;
+          this.activeUserId = fullId;
+          this.currentUser.id = fullId;
+          this.currentUser.name = userName;
+          this.userIdInput = fullId;
+          this.userLoginInput = userName;
+          this.watchIdLoginInput = fullId;
+          this.isPaired = true;
+          this.isWatchConfirmed = true;
+          try {
+            localStorage.setItem('rower_user_id', fullId);
+            localStorage.setItem('rower_user_login', userName);
+            localStorage.setItem('rower_is_paired', 'true');
+            localStorage.setItem('rower_watch_confirmed', 'true');
+            localStorage.setItem('rower_watch_prefix', prefix);
+            localStorage.setItem('rower_watch_suffix', suffix);
+          } catch {}
+          this.pairingSuccessMessage = `✓ Appareillage réussi ! Identifiant [${fullId}] enregistré.`;
+          this.loadUserProfile();
+          this.cdr.markForCheck();
+        } else if (res.status === 'rejected') {
+          this.pairingPollSub?.unsubscribe();
+          this.isPairingPending = false;
+          this.pairingErrorMessage = "Appareillage refusé depuis votre montre.";
+          this.cdr.markForCheck();
+        } else if (res.status === 'expired') {
+          this.pairingPollSub?.unsubscribe();
+          this.isPairingPending = false;
+          this.pairingErrorMessage = "La demande d'appareillage a expiré.";
+          this.cdr.markForCheck();
+        }
+      },
+      error: () => {
+        this.pairingPollSub?.unsubscribe();
+        this.isPairingPending = false;
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  openStandingsModal(): void {
+    this.closeAllOverlayModals();
+    this.isStandingsOpen = true;
+    this.loadGeneralLeaderboard();
+    this.cdr.markForCheck();
+  }
+
+  openHistoryModal(): void {
+    this.closeAllOverlayModals();
+    this.isHistoryOpen = true;
+    this.loadPastRaces();
     this.cdr.markForCheck();
   }
 
   switchViewMode(mode: 'canvas' | 'cockpit'): void {
     this.closeAllOverlayModals();
     if (mode === 'cockpit' && !this.canAccessCockpit) {
+      if (this.isMobileFullscreenOnly) {
+        // En mode plein écran mobile/tablette, afficher le cockpit avec la sélection du joueur
+        this.userOverrodeViewMode = true;
+        this.activeViewMode = 'cockpit';
+        this.cdr.markForCheck();
+        return;
+      }
       this.cockpitAccessBlockedMessage = !this.isWatchConfirmed
         ? "Pour accéder à votre cockpit, vous devez d'abord vous identifier avec votre montre Garmin sur la page d'accueil et valider la notification sur votre montre."
         : "Votre montre est confirmée, mais vous n'êtes pas associé à la course en cours (publique ou invité dans un salon privé). Seule la vue Régate 2D est accessible aux spectateurs.";
@@ -1900,6 +2104,9 @@ export class AppComponent implements OnInit, OnDestroy {
     } finally {
       this.syncPseudoFullscreenClass();
       this.isFullscreen = this.checkIsFullscreen();
+      if (this.isMobileFullscreenOnly && !this.userOverrodeViewMode) {
+        this.activeViewMode = 'cockpit';
+      }
       // On user interaction, ensure screen wake lock is active by default
       this.enableScreenWakeLock();
       this.cdr.markForCheck();

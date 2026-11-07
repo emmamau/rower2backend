@@ -308,11 +308,17 @@ class RowerDataModel {
         // Dead-reckoning fallback when rower omits hardware distance or during transient BLE drop
         var isPacketDrop = (_secondsSinceLastPacket >= 2);
         if (!_hasHardwareDistance || totalDistance == 0 || isPacketDrop) {
+            var deltaM = 0.0f;
             if (speedCmS > 0) {
-                _accumulatedDistanceMetersFloat += (speedCmS.toFloat() / 100.0f);
-                totalDistance = _accumulatedDistanceMetersFloat.toNumber();
-            } else if (instantPace > 0 && instantPace < 600) {
-                _accumulatedDistanceMetersFloat += (500.0f / instantPace.toFloat());
+                deltaM = speedCmS.toFloat() / 100.0f;
+            } else if (instantPace >= 60 && instantPace < 600) {
+                deltaM = 500.0f / instantPace.toFloat();
+            }
+            if (deltaM > 10.0f) {
+                deltaM = 10.0f;
+            }
+            if (deltaM > 0.0f) {
+                _accumulatedDistanceMetersFloat += deltaM;
                 totalDistance = _accumulatedDistanceMetersFloat.toNumber();
             }
         }
@@ -567,10 +573,16 @@ class RowerDataModel {
         }
 
         if (!hasStartedRowing) {
-            if (_hasHardwareDistance && rawDistance < _baselineRawDistance) {
-                _baselineRawDistance = rawDistance;
+            if (_hasHardwareDistance) {
+                if (_baselineRawDistance == 0 && rawDistance > 0) {
+                    _baselineRawDistance = rawDistance;
+                } else if (rawDistance < _baselineRawDistance) {
+                    _baselineRawDistance = rawDistance;
+                }
             }
-            if (rawStrokes < _baselineRawStrokes) {
+            if (_baselineRawStrokes == 0 && rawStrokes > 0) {
+                _baselineRawStrokes = rawStrokes;
+            } else if (rawStrokes < _baselineRawStrokes) {
                 _baselineRawStrokes = rawStrokes;
             }
             var deltaDist = _hasHardwareDistance ? (rawDistance - _baselineRawDistance) : 0;
@@ -609,24 +621,30 @@ class RowerDataModel {
             }
             speedCmS = (instantPace > 0) ? (50000 / instantPace).toNumber() : 0;
         } else {
-            var distReset = _hasHardwareDistance && (_lastRawDistance >= 10) && (rawDistance < (_lastRawDistance - 5));
-            var strokesReset = (_lastRawStrokes >= 4) && (rawStrokes < (_lastRawStrokes - 2));
+            // True reset only occurs when the hardware counter goes back to near zero (<= 5m) from an active count
+            var distReset = _hasHardwareDistance && (_lastRawDistance >= 20) && (rawDistance <= 5);
+            var strokesReset = (_lastRawStrokes >= 10) && (rawStrokes <= 2);
 
             if (distReset || strokesReset) {
                 if (distReset) {
-                    _distanceOffset += (_lastRawDistance >= _baselineRawDistance) ? (_lastRawDistance - _baselineRawDistance) : _lastRawDistance;
-                    _baselineRawDistance = 0;
+                    _distanceOffset += (_lastRawDistance >= _baselineRawDistance) ? (_lastRawDistance - _baselineRawDistance) : 0;
+                    _baselineRawDistance = rawDistance;
                 }
                 if (strokesReset) {
-                    _strokesOffset += (_lastRawStrokes >= _baselineRawStrokes) ? (_lastRawStrokes - _baselineRawStrokes) : _lastRawStrokes;
-                    _baselineRawStrokes = 0;
+                    _strokesOffset += (_lastRawStrokes >= _baselineRawStrokes) ? (_lastRawStrokes - _baselineRawStrokes) : 0;
+                    _baselineRawStrokes = rawStrokes;
                 }
             }
 
             var curRelD = (rawDistance >= _baselineRawDistance) ? (rawDistance - _baselineRawDistance) : 0;
             var curRelS = (rawStrokes >= _baselineRawStrokes) ? (rawStrokes - _baselineRawStrokes) : 0;
             if (_hasHardwareDistance) {
-                totalDistance = _distanceOffset + curRelD;
+                var candDist = _distanceOffset + curRelD;
+                // Protection against aberrant distance jumps (> 15m in a single update/stroke)
+                if (totalDistance > 0 && candDist > totalDistance + 15) {
+                    candDist = totalDistance + 10;
+                }
+                totalDistance = candDist;
                 _accumulatedDistanceMetersFloat = totalDistance.toFloat();
             } else if (strokeCount != (_strokesOffset + curRelS)) {
                 var dS = (_strokesOffset + curRelS) - strokeCount;
@@ -860,6 +878,9 @@ class RowerDataModel {
                     _distanceOffset = totalDistance;
                 }
             } else if (!hasStartedRowing) {
+                if (_baselineRawDistance == 0 && rawDistance > 0) {
+                    _baselineRawDistance = rawDistance;
+                }
                 if (rawDistance > _baselineRawDistance) {
                     onActiveRowingDetected();
                     totalDistance = rawDistance - _baselineRawDistance + _distanceOffset;
@@ -871,13 +892,17 @@ class RowerDataModel {
                 _lastRawDistance = rawDistance;
                 _hasHardwareDistance = true;
             } else {
-                var distReset = (_lastRawDistance >= 10) && (rawDistance < (_lastRawDistance - 5));
+                var distReset = (_lastRawDistance >= 20) && (rawDistance <= 5);
                 if (distReset) {
-                    _distanceOffset += (_lastRawDistance >= _baselineRawDistance) ? (_lastRawDistance - _baselineRawDistance) : _lastRawDistance;
-                    _baselineRawDistance = 0;
+                    _distanceOffset += (_lastRawDistance >= _baselineRawDistance) ? (_lastRawDistance - _baselineRawDistance) : 0;
+                    _baselineRawDistance = rawDistance;
                 }
                 var curRelD = (rawDistance >= _baselineRawDistance) ? (rawDistance - _baselineRawDistance) : 0;
-                totalDistance = _distanceOffset + curRelD;
+                var candDist = _distanceOffset + curRelD;
+                if (totalDistance > 0 && candDist > totalDistance + 15) {
+                    candDist = totalDistance + 10;
+                }
+                totalDistance = candDist;
                 _accumulatedDistanceMetersFloat = totalDistance.toFloat();
                 _hasHardwareDistance = true;
                 if (rawDistance > _lastRawDistance) {

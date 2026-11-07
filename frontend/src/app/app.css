@@ -2989,22 +2989,38 @@ input[type="number"]:focus { border-color: var(--neon-cyan); box-shadow: 0 0 10p
   }
   .hero-schedule-cluster {
     inline-size: 100%;
+    width: 100%;
     display: flex;
-    flex-direction: row;
+    flex-direction: column;
     align-items: stretch;
-    gap: 0.5rem;
+    gap: 0.6rem;
   }
   .hero-schedule-cluster .race-schedule-badge {
-    flex: 1 1 auto;
-    inline-size: auto;
+    inline-size: 100%;
+    width: 100%;
     min-inline-size: 0;
   }
   .hero-schedule-cluster .hero-fullscreen {
-    flex: 0 0 auto;
-    min-block-size: 44px;
-    padding: 0.45rem 0.85rem;
-    font-size: 0.78rem;
-    gap: 0.4rem;
+    inline-size: 100%;
+    width: 100%;
+    min-block-size: 48px;
+    padding: 0.6rem 1rem;
+    font-size: 0.88rem;
+    font-weight: 700;
+    gap: 0.5rem;
+    justify-content: center;
+    border-radius: 10px;
+    box-shadow: 0 4px 14px rgba(0, 240, 255, 0.22);
+  }
+  .dual-standings-history-container {
+    display: none !important;
+  }
+  .smartphone-table-links {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    inline-size: 100%;
+    margin-block: 0.75rem;
   }
   .lang-dropdown-wrapper {
     margin-left: 0;
@@ -3781,5 +3797,275 @@ input[type="number"]:focus { border-color: var(--neon-cyan); box-shadow: 0 0 10p
 }
 .stats-error-action {
   margin-top: 0.75rem;
+}
+
+/* ==========================================================================
+   GARMIN WATCH PAIRING & SMARTPHONE ERGONOMICS
+   ========================================================================== */
+.pairing-header-box {
+  background: rgba(17, 24, 39, 0.9);
+  border: 1px solid rgba(0, 240, 255, 0.4);
+  border-radius: 12px;
+  padding: 0.5rem 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  box-shadow: 0 4px 16px rgba(0, 240, 255, 0.12);
+  min-inline-size: 280px;
+}
+.pairing-header-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.pairing-title-group {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.pairing-icon {
+  font-size: 1.1rem;
+}
+.pairing-title {
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: #00f0ff;
+  letter-spacing: 0.5px;
+}
+.pairing-inputs-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+.pairing-input-wrap {
+  flex: 1 1 110px;
+  min-inline-size: 0;
+}
+.input-pairing {
+  inline-size: 100%;
+  padding: 0.35rem 0.55rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  background: rgba(10, 15, 30, 0.85);
+  color: #fff;
+  font-size: 0.82rem;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.input-pairing:focus {
+  border-color: #00f0ff;
+  box-shadow: 0 0 8px rgba(0, 240, 255, 0.35);
+}
+.btn-launch-pairing {
+  background: linear-gradient(135deg, #00f0ff, #0077ff);
+  color: #080e1e;
+  font-weight: 700;
+  font-size: 0.82rem;
+  padding: 0.38rem 0.75rem;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: opacity 0.2s, transform 0.1s;
+}
+.btn-launch-pairing:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.btn-launch-pairing:not(:disabled):hover {
+  opacity: 0.92;
+  transform: translateY(-1px);
+}
+.btn-connect-compact {
+  font-size: 0.72rem;
+  padding: 0.25rem 0.5rem;
+  border-color: rgba(255, 255, 255, 0.25);
+  color: #e2e8f0;
+}
+.pairing-feedback {
+  font-size: 0.75rem;
+  padding: 0.25rem 0.4rem;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.pairing-feedback.ok {
+  background: rgba(34, 197, 94, 0.15);
+  color: #4ade80;
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+.pairing-feedback.err {
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.player-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-left: auto;
+}
+.btn-reset-pairing-inline,
+.btn-clear-pairing {
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  color: #fca5a5;
+  font-size: 0.72rem;
+  padding: 0.25rem 0.55rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+.btn-reset-pairing-inline:hover,
+.btn-clear-pairing:hover {
+  background: rgba(239, 68, 68, 0.3);
+  color: #fff;
+}
+.badge-role-tag.is-paired {
+  background: rgba(0, 240, 255, 0.2);
+  color: #00f0ff;
+  border: 1px solid rgba(0, 240, 255, 0.5);
+}
+
+/* Smartphone Table Links */
+.smartphone-table-links {
+  display: none;
+}
+.btn-mobile-table-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(17, 24, 39, 0.88);
+  border: 1px solid rgba(0, 240, 255, 0.3);
+  border-radius: 12px;
+  padding: 0.85rem 1rem;
+  color: #fff;
+  cursor: pointer;
+  text-align: left;
+  transition: transform 0.15s, border-color 0.2s, box-shadow 0.2s;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+.btn-mobile-table-link:hover,
+.btn-mobile-table-link:active {
+  transform: translateY(-2px);
+  border-color: #00f0ff;
+  box-shadow: 0 6px 18px rgba(0, 240, 255, 0.2);
+}
+.btn-mobile-table-link.link-history {
+  border-color: rgba(255, 230, 0, 0.3);
+}
+.btn-mobile-table-link.link-history:hover,
+.btn-mobile-table-link.link-history:active {
+  border-color: #ffe600;
+  box-shadow: 0 6px 18px rgba(255, 230, 0, 0.2);
+}
+.mobile-link-left {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.mobile-link-left .link-icon {
+  font-size: 1.6rem;
+}
+.mobile-link-left .link-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+.mobile-link-left .link-text strong {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #fff;
+}
+.mobile-link-left .link-text span {
+  font-size: 0.75rem;
+  color: #94a3b8;
+}
+.link-arrow {
+  font-size: 1.2rem;
+  color: #00f0ff;
+  font-weight: 700;
+}
+.btn-mobile-table-link.link-history .link-arrow {
+  color: #ffe600;
+}
+
+/* Mobile & Tablet Fullscreen Minimalist View */
+.game-container.mobile-fullscreen-view {
+  padding: 0.25rem !important;
+  margin: 0 !important;
+  width: 100vw !important;
+  max-width: 100vw !important;
+  min-height: 100vh !important;
+  height: 100vh !important;
+  overflow-y: auto !important;
+}
+.game-container.mobile-fullscreen-view .hud-header,
+.game-container.mobile-fullscreen-view .dual-standings-history-container,
+.game-container.mobile-fullscreen-view .smartphone-table-links,
+.game-container.mobile-fullscreen-view .lobby-regatta-preview-section,
+.game-container.mobile-fullscreen-view .concept2-fairness-banner,
+.game-container.mobile-fullscreen-view .watch-auth-strip,
+.game-container.mobile-fullscreen-view .mobile-bottom-nav,
+.game-container.mobile-fullscreen-view .app-footer {
+  display: none !important;
+}
+.game-container.mobile-fullscreen-view .arena-mode-bar {
+  margin-top: 0.25rem;
+  margin-bottom: 0.5rem;
+}
+.game-container.mobile-fullscreen-view .cockpit-hud {
+  min-height: calc(100vh - 80px);
+}
+
+.cockpit-player-select-card {
+  margin-block-end: 0.85rem;
+  background: rgba(15, 23, 42, 0.94);
+  border: 1px solid rgba(0, 240, 255, 0.45);
+  border-radius: 12px;
+  padding: 0.85rem 1rem;
+  box-shadow: 0 4px 20px rgba(0, 240, 255, 0.16);
+}
+.cockpit-select-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-block-end: 0.5rem;
+}
+.cockpit-select-icon {
+  font-size: 1.3rem;
+}
+.cockpit-select-title {
+  margin: 0;
+  font-size: 0.95rem;
+  color: #00f0ff;
+  font-weight: 700;
+}
+.cockpit-select-sub {
+  margin: 0.2rem 0 0 0;
+  font-size: 0.78rem;
+  color: #94a3b8;
+}
+.cockpit-select-form {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.cockpit-select-field {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex: 1 1 180px;
+}
+.cockpit-field-label {
+  font-size: 0.76rem;
+  color: #cbd5e1;
+  white-space: nowrap;
 }
 
