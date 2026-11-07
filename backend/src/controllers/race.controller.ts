@@ -550,6 +550,59 @@ export const updatePublicRaceAdminConfig = async (req: Request, res: Response): 
   }
 };
 
+/**
+ * POST /api/race/stop
+ * L'organisateur d'un salon ou l'administrateur peut arrêter la course en direct.
+ * Le classement officiel final est immédiatement établi selon la position des coureurs.
+ */
+export const stopRace = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { raceId, userId } = req.body;
+    if (!raceId || !userId) {
+      res.status(400).json({ success: false, message: "raceId et userId requis pour arrêter la course." });
+      return;
+    }
+
+    const cleanRaceId = String(raceId).trim();
+    const cleanUserId = String(userId).trim();
+
+    const managedPrivate = raceManager.findPrivateRace(cleanRaceId);
+    const managedPublic = raceManager.getCurrentPublicRace();
+    const user = await Users.findByPk(cleanUserId);
+    const isAdmin = Boolean(
+      cleanUserId.toLowerCase() === "emmaracer" ||
+      user?.get("isAdmin") === true ||
+      (user as any)?.role === "admin"
+    );
+
+    const isHostOfPrivate = Boolean(managedPrivate && managedPrivate.hostUserId === cleanUserId);
+
+    if (!isAdmin && !isHostOfPrivate) {
+      res.status(403).json({
+        success: false,
+        message: "Action non autorisée. Seul l'organisateur du salon ou un administrateur peut arrêter la course."
+      });
+      return;
+    }
+
+    const targetRaceId = managedPrivate
+      ? managedPrivate.id
+      : (managedPublic && managedPublic.id === cleanRaceId ? managedPublic.id : cleanRaceId);
+
+    console.log(`[RaceController] Stopping race ${targetRaceId} requested by ${cleanUserId} (isAdmin=${isAdmin}, isHost=${isHostOfPrivate})`);
+    const ranking = await raceManager.finishRace(targetRaceId, false, "organizer_stopped");
+
+    res.status(200).json({
+      success: true,
+      message: "La course a été arrêtée. Le classement officiel a été établi selon la position des rameurs.",
+      ranking
+    });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ success: false, message: "Erreur arrêt course: " + message });
+  }
+};
+
 export default {
   getNextRace,
   joinRace,
@@ -558,4 +611,5 @@ export default {
   toggleBots,
   getPublicRaceAdminConfig,
   updatePublicRaceAdminConfig,
+  stopRace,
 };

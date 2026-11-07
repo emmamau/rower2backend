@@ -78,6 +78,7 @@ class RowerView extends WatchUi.View {
     private var _progressPercent as Float = 0.0f;
     private var _isLateJoiner as Boolean = false;
     private var _hasBotsEnabled as Boolean = false;
+    private var _isAbandoned as Boolean = false;
     private var _gameRemainingSeconds as Number = 3300; // Max 55 minutes remaining timer
 
     // Web login authorization overlay
@@ -177,9 +178,14 @@ class RowerView extends WatchUi.View {
     }
 
     public function setFinishResults(rank as Number, podium as Array<Dictionary>) as Void {
+        setFinishResultsEx(rank, podium, false);
+    }
+
+    public function setFinishResultsEx(rank as Number, podium as Array<Dictionary>, isAbandoned as Boolean) as Void {
         _finalRank = rank;
         _top3Podium = podium;
         _finishPage = 0;
+        _isAbandoned = isAbandoned;
         _currentState = STATE_FINISHED;
 
         // Persist compact session entry in local Storage for G9 History
@@ -1347,7 +1353,13 @@ class RowerView extends WatchUi.View {
                     titleCol = COL_WARN;
                 }
             }
-            var titleStr = "BRAVO ! " + rankTag + medalStr;
+            var titleStr = "";
+            if (_isAbandoned) {
+                titleStr = "A BIENTOT !";
+                titleCol = COL_WARN;
+            } else {
+                titleStr = "BRAVO ! " + rankTag + medalStr;
+            }
             dc.setColor(titleCol, Graphics.COLOR_TRANSPARENT);
             dc.drawText(cx, hdrY, Graphics.FONT_SMALL, truncateToWidth(dc, titleStr, Graphics.FONT_SMALL, getSafeWidthAtY(w, h, hdrY, hdrY + 22)), Graphics.TEXT_JUSTIFY_CENTER);
 

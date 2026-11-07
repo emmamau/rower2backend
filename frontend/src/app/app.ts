@@ -110,6 +110,8 @@ export class AppComponent implements OnInit, OnDestroy {
 
   // Admin configuration de la course publique
   isAdminConfigOpen = false;
+  isUnifiedConfigOpen = false;
+  unifiedConfigActiveTab: 'public' | 'active' = 'public';
   adminConfig = {
     targetDistance: 2000,
     maxParticipants: 20,
@@ -174,7 +176,9 @@ export class AppComponent implements OnInit, OnDestroy {
 
   private authCheckSub?: Subscription;
   private socketSub?: Subscription;
+  private statusSub?: Subscription;
   private privateUpdateSub?: Subscription;
+  private countdownTickerSub?: Subscription;
   private joinedSocketRaceId: string | null = null;
   private readonly popstateListener = () => this.resolveRoomFromCurrentUrl();
   private readonly resizeListener = () => {
@@ -257,6 +261,7 @@ export class AppComponent implements OnInit, OnDestroy {
       document.addEventListener('fullscreenchange', this.fullscreenListener);
     }
     this.initSocketListeners();
+    this.initCountdownTicker();
     this.resolveRoomFromCurrentUrl();
     this.enableScreenWakeLock();
   }
@@ -274,9 +279,17 @@ export class AppComponent implements OnInit, OnDestroy {
       this.socketSub.unsubscribe();
       this.socketSub = undefined;
     }
+    if (this.statusSub) {
+      this.statusSub.unsubscribe();
+      this.statusSub = undefined;
+    }
     if (this.privateUpdateSub) {
       this.privateUpdateSub.unsubscribe();
       this.privateUpdateSub = undefined;
+    }
+    if (this.countdownTickerSub) {
+      this.countdownTickerSub.unsubscribe();
+      this.countdownTickerSub = undefined;
     }
     if (this.joinedSocketRaceId) {
       this.socketService.leaveRaceRoom(this.joinedSocketRaceId);
@@ -428,17 +441,23 @@ export class AppComponent implements OnInit, OnDestroy {
           this.configTargetDistance = raceData.race.targetDistance;
           this.configIntervalMinutes = raceData.race.intervalMinutes;
 
-          // Décompte visuel avant le départ
-          if (this.countdownSeconds > 0 && this.countdownSeconds <= 3) {
-            this.is3sCountdown = true;
-            this.isPreStartCountdown = false;
-            this.threeSecondsCount = this.countdownSeconds;
-          } else if (this.countdownSeconds > 3 && (this.countdownSeconds <= 15 || raceData.race?.status === 'COUNTDOWN')) {
+          // Décompte visuel synchronisé avec le backend et la montre
+          const isRunning = raceData.status === 'in_progress' ||
+                            raceData.race?.status === 'RUNNING' ||
+                            raceData.race?.status === 'in_progress';
+          if (isRunning) {
+            this.countdownSeconds = 0;
             this.is3sCountdown = false;
-            this.isPreStartCountdown = true;
+            this.isPreStartCountdown = false;
           } else {
-            this.is3sCountdown = false;
-            this.isPreStartCountdown = false;
+            const serverRemaining = raceData.secondsRemaining;
+            if (serverRemaining !== undefined && serverRemaining !== null) {
+              // Réconciliation douce : n'écrase pas le décompte local actif sauf si reset/nouveau joueur (diff > 3s)
+              if (this.countdownSeconds <= 0 || Math.abs(this.countdownSeconds - serverRemaining) > 3) {
+                this.countdownSeconds = serverRemaining;
+              }
+            }
+            this.syncCountdownUI();
           }
 
           // Fetch Live Leaderboard
@@ -602,6 +621,11 @@ export class AppComponent implements OnInit, OnDestroy {
       this.currentUser.isSubscriber ||
       (typeof localStorage !== 'undefined' && localStorage.getItem('rower_is_subscriber') === 'true')
     );
+  }
+
+  get currentSubscriberTier(): string {
+    if (this.isUserAdmin) return 'admin';
+    return this.currentUser?.subscriptionTier || (this.isSubscriber ? 'club' : 'free');
   }
 
   openAccountModal(tab: 'login' | 'register' | 'profile' | 'forgot' = 'login'): void {
@@ -826,6 +850,47 @@ export class AppComponent implements OnInit, OnDestroy {
     return Boolean(hostId && this.activeUserId && hostId === this.activeUserId);
   }
 
+  get isRaceActive(): boolean {
+    return Boolean(
+      this.nextRaceInfo?.status === 'in_progress' ||
+      this.nextRaceInfo?.race?.status === 'RUNNING' ||
+      this.nextRaceInfo?.race?.status === 'in_progress'
+    );
+  }
+
+  get canStopRace(): boolean {
+    if (!this.isRaceActive) return false;
+    return this.isUserAdmin || this.isOrganizerOfActiveRoom;
+  }
+
+  stopActiveRace(): void {
+    if (!this.canStopRace || !this.nextRaceInfo) return;
+    const confirmed = window.confirm(
+      "Voulez-vous vraiment arrêter la course en cours ? Le classement officiel final sera immédiatement établi selon la position des coureurs."
+    );
+    if (!confirmed) return;
+    const raceId = this.nextRaceInfo.race?.id;
+    if (!raceId) return;
+
+    this.rowerService.stopRace(raceId, this.activeUserId).subscribe({
+      next: (res) => {
+        alert(res.message || "Course arrêtée ! Le classement a été établi.");
+        this.initGameLoop();
+        this.cdr.markForCheck();
+      },
+      error: (err) => {
+        alert(err.error?.message || "Erreur lors de l'arrêt de la course.");
+      }
+    });
+  }
+
+  onLanguageSelectChange(event: Event): void {
+    const select = event.target as HTMLSelectElement;
+    if (select && select.value) {
+      this.changeLanguage(select.value);
+    }
+  }
+
   get canConfigureRace(): boolean {
     if (this.activePrivateRoom) {
       return this.isOrganizerOfActiveRoom || this.isUserAdmin;
@@ -907,6 +972,8 @@ export class AppComponent implements OnInit, OnDestroy {
     this.isLoginModalOpen = false;
     this.isHistoryOpen = false;
     this.isConfigRaceOpen = false;
+    this.isAdminConfigOpen = false;
+    this.isUnifiedConfigOpen = false;
     this.isStandingsOpen = false;
     this.isLegalTermsOpen = false;
   }
@@ -1060,23 +1127,35 @@ export class AppComponent implements OnInit, OnDestroy {
     });
   }
 
-  openAdminConfigModal(): void {
-    this.isAdminConfigOpen = true;
+  openUnifiedConfigModal(): void {
+    this.isUnifiedConfigOpen = true;
     this.adminConfigMessage = '';
     this.adminConfigError = '';
-    this.rowerService.getPublicRaceAdminConfig().subscribe({
-      next: (res) => {
-        if (res.success && res.config) {
-          this.adminConfig = { ...res.config };
+    if (this.isUserAdmin) {
+      this.unifiedConfigActiveTab = 'public';
+      this.rowerService.getPublicRaceAdminConfig().subscribe({
+        next: (res) => {
+          if (res.success && res.config) {
+            this.adminConfig = { ...res.config };
+          }
+          this.cdr.markForCheck();
         }
-        this.cdr.markForCheck();
-      }
-    });
+      });
+    }
+    this.cdr.markForCheck();
+  }
+
+  closeUnifiedConfigModal(): void {
+    this.isUnifiedConfigOpen = false;
+    this.cdr.markForCheck();
+  }
+
+  openAdminConfigModal(): void {
+    this.openUnifiedConfigModal();
   }
 
   closeAdminConfigModal(): void {
-    this.isAdminConfigOpen = false;
-    this.cdr.markForCheck();
+    this.closeUnifiedConfigModal();
   }
 
   saveAdminConfig(): void {
@@ -1301,6 +1380,33 @@ export class AppComponent implements OnInit, OnDestroy {
       }
     });
 
+    if (this.statusSub) {
+      this.statusSub.unsubscribe();
+    }
+    this.statusSub = this.socketService.onRaceStatusChange().subscribe((update) => {
+      if (this.nextRaceInfo && (update.raceId === this.nextRaceInfo.race?.id || !update.raceId)) {
+        if (update.status === 'COUNTDOWN') {
+          const sec = update.details?.countdownSeconds ?? update.details?.secondsUntilStart ?? 15;
+          this.countdownSeconds = sec;
+          if (this.nextRaceInfo.race) {
+            this.nextRaceInfo.race.status = 'COUNTDOWN';
+          }
+          this.syncCountdownUI();
+        } else if (update.status === 'RUNNING') {
+          this.countdownSeconds = 0;
+          this.is3sCountdown = false;
+          this.isPreStartCountdown = false;
+          if (this.nextRaceInfo) {
+            this.nextRaceInfo.status = 'in_progress';
+            if (this.nextRaceInfo.race) {
+              this.nextRaceInfo.race.status = 'RUNNING';
+            }
+          }
+        }
+        this.cdr.markForCheck();
+      }
+    });
+
     if (this.privateUpdateSub) {
       this.privateUpdateSub.unsubscribe();
     }
@@ -1315,6 +1421,50 @@ export class AppComponent implements OnInit, OnDestroy {
         });
       }
     });
+  }
+
+  private initCountdownTicker(): void {
+    if (this.countdownTickerSub) {
+      this.countdownTickerSub.unsubscribe();
+    }
+    this.countdownTickerSub = interval(1000).subscribe(() => {
+      const isRunning = this.nextRaceInfo?.status === 'in_progress' ||
+                        this.nextRaceInfo?.race?.status === 'RUNNING' ||
+                        this.nextRaceInfo?.race?.status === 'in_progress';
+      if (!isRunning && this.countdownSeconds > 0) {
+        this.countdownSeconds--;
+        this.syncCountdownUI();
+        if (this.countdownSeconds === 0) {
+          if (this.nextRaceInfo) {
+            this.nextRaceInfo.status = 'in_progress';
+            if (this.nextRaceInfo.race) {
+              this.nextRaceInfo.race.status = 'RUNNING';
+            }
+          }
+        }
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  private syncCountdownUI(): void {
+    const isRunning = this.nextRaceInfo?.status === 'in_progress' ||
+                      this.nextRaceInfo?.race?.status === 'RUNNING' ||
+                      this.nextRaceInfo?.race?.status === 'in_progress';
+    if (isRunning || this.countdownSeconds <= 0) {
+      this.is3sCountdown = false;
+      this.isPreStartCountdown = false;
+      return;
+    }
+
+    if (this.countdownSeconds <= 3) {
+      this.is3sCountdown = true;
+      this.isPreStartCountdown = false;
+      this.threeSecondsCount = this.countdownSeconds;
+    } else {
+      this.is3sCountdown = false;
+      this.isPreStartCountdown = true;
+    }
   }
 
   private syncSocketRoom(raceId: string): void {

@@ -319,7 +319,7 @@ export class RaceManager {
 
     const race = this.currentPublicRace;
 
-    if (race.status === "LOBBY") {
+    if (race.status === "LOBBY" || race.status === "COUNTDOWN") {
       if (now.getTime() >= race.lobbyEndsAt.getTime()) {
         let humans = 0;
         try {
@@ -333,10 +333,11 @@ export class RaceManager {
           console.error("[RaceManager] Unable to count participants:", err);
         }
 
-        if (humans > 0) {
+        const participantHumans = race.participants ? Array.from(race.participants.values()).length : 0;
+        if (humans > 0 || participantHumans > 0) {
           race.status = "RUNNING";
           race.startedAt = new Date();
-          console.log(`[RaceManager] Public Race ${race.id} started with ${humans} racer(s)!`);
+          console.log(`[RaceManager] Public Race ${race.id} started with ${Math.max(humans, participantHumans)} racer(s)!`);
           try {
             await Races.update({ status: "in_progress", startTime: race.startedAt }, { where: { id: race.id } });
             await Activities.update(
@@ -556,8 +557,22 @@ export class RaceManager {
   }
 
   public notifyPlayerJoinedPublic(userId: string): void {
-    if (!this.currentPublicRace) return;
+    if (!this.currentPublicRace || !userId) return;
     if (this.currentPublicRace.status === "LOBBY" || this.currentPublicRace.status === "COUNTDOWN") {
+      if (!this.currentPublicRace.participants) {
+        this.currentPublicRace.participants = new Map();
+      }
+      const alreadyJoined = this.currentPublicRace.participants.has(userId);
+      if (alreadyJoined && this.currentPublicRace.status === "COUNTDOWN") {
+        // Le joueur a déjà rejoint ce salon, ne pas réinitialiser le compte à rebours à chaque paquet télémétrie ou poll
+        return;
+      }
+      this.currentPublicRace.participants.set(userId, {
+        userId,
+        userName: `Racer_${userId.slice(-4)}`,
+        joinedAt: new Date()
+      });
+
       const now = new Date();
       const countdownSec = this.adminPublicRaceConfig.countdownAfterLastJoinSeconds || 15;
       this.currentPublicRace.status = "COUNTDOWN";

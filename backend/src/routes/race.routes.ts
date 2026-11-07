@@ -23,6 +23,9 @@ export default (app: Application): void => {
   // POST /api/race/bots (Activer / désactiver des bots virtuels)
   router.post("/bots", raceController.toggleBots);
 
+  // POST /api/race/stop (Arrêt de la course par l'organisateur ou l'administrateur avec classement immédiat)
+  router.post("/stop", raceController.stopRace);
+
   app.use("/api/race", router);
   app.use("/api/races", router);
 };

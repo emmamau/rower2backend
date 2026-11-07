@@ -225,21 +225,21 @@ export class TelemetryController {
       const isFinished = effectiveDistance >= targetDist;
       const activityStatus = body.status === "abandoned" ? "abandoned" : (isFinished ? "finished" : "in_progress");
 
-      if (matchedRace && matchedRace.type === "PRIVATE_INVITE" && userId !== "anonymous") {
+      if (matchedRace && userId !== "anonymous") {
         if (!matchedRace.participants) {
           matchedRace.participants = new Map();
         }
-        if (!matchedRace.participants.has(userId)) {
+        const isNewParticipant = !matchedRace.participants.has(userId);
+        if (isNewParticipant) {
           matchedRace.participants.set(userId, {
             userId,
             userName: body.userName || `Racer_${userId.slice(-4)}`,
             joinedAt: new Date()
           });
+          if (matchedRace.type === "PUBLIC_HOURLY" && (matchedRace.status === "LOBBY" || matchedRace.status === "COUNTDOWN")) {
+            raceManager.notifyPlayerJoinedPublic(userId);
+          }
         }
-      }
-
-      if (matchedRace?.type === "PUBLIC_HOURLY" && (matchedRace.status === "LOBBY" || matchedRace.status === "COUNTDOWN")) {
-        raceManager.notifyPlayerJoinedPublic(userId);
       }
 
       if (!activity) {

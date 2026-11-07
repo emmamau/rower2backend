@@ -63,6 +63,13 @@ export class RowerService {
     return this.http.put(`${this.apiUrl}/api/race/config`, { targetDistance, intervalMinutes, adminUserId });
   }
 
+  stopRace(raceId: string, userId: string): Observable<{ success: boolean; message: string; ranking: any[] }> {
+    return this.http.post<{ success: boolean; message: string; ranking: any[] }>(`${this.apiUrl}/api/race/stop`, {
+      raceId,
+      userId
+    });
+  }
+
   toggleBots(enable: boolean, raceId?: string, userId?: string, botCount: number = 3): Observable<any> {
     return this.http.post(`${this.apiUrl}/api/race/bots`, { enable, raceId, userId, botCount });
   }

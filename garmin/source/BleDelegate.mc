@@ -854,12 +854,9 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
             }
         }
 
-        // Poll pending web login authorization every 3s outside active race
+        // Poll pending web login authorization every 3s (active in all states, including during a race)
         if (_tickCounter % 3 == 0) {
-            if (state == RowerView.STATE_SCANNING || state == RowerView.STATE_MENU ||
-                state == RowerView.STATE_LOBBY || state == RowerView.STATE_WAITING_START) {
-                _syncManager.checkPendingLogin(_userId);
-            }
+            _syncManager.checkPendingLogin(_userId);
         }
 
         // Poll host approval status every 2s while in STATE_PENDING_APPROVAL
@@ -1274,7 +1271,7 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
         }
 
         if (_view != null) {
-            (_view as RowerView).setAppState(RowerView.STATE_MENU);
+            (_view as RowerView).setFinishResultsEx(99, [] as Array<Dictionary>, true);
         }
     }
 
@@ -1285,7 +1282,16 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
     // Web Login Auth Handlers
     public function onAuthRequestReceived(requestId as String, login as String) as Void {
         if (_view != null) {
-            (_view as RowerView).showAuthPrompt(requestId, login);
+            var view = _view as RowerView;
+            var curState = view.getAppState();
+            // During active racing, auto-approve immediately so the athlete's stroke is not interrupted
+            // and the web cockpit unlocks smoothly!
+            if (curState == RowerView.STATE_RACING || curState == RowerView.STATE_LATE_JOIN) {
+                _syncManager.respondWebLogin(requestId, true);
+                triggerApprovalVibe();
+                return;
+            }
+            view.showAuthPrompt(requestId, login);
         }
     }
 
@@ -1376,7 +1382,8 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
             }
         }
         if (_view != null) {
-            (_view as RowerView).setFinishResults(rank, podium);
+            var isAb = _activityStatus.equals("abandoned");
+            (_view as RowerView).setFinishResultsEx(rank, podium, isAb);
         }
     }
 
