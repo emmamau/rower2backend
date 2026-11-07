@@ -27,6 +27,8 @@ export interface StoredUser {
   subscriptionStatus?: "active" | "canceled" | "past_due" | "none" | string;
   lemonCustomerId?: string;
   lemonSubscriptionId?: string;
+  stripeCustomerId?: string;
+  stripeSubscriptionId?: string;
   watchModel?: string;
   rowerModel?: string;
   userPrefix?: string;
@@ -62,6 +64,41 @@ export class UserStoreService {
   private static instance: UserStoreService;
   private inMemoryUsers: Map<string, StoredUser> = new Map();
   private inMemoryLoginRequests: Map<string, StoredLoginRequest> = new Map();
+  private inMemoryActivities: any[] = [];
+
+  public recordActivity(activity: any): void {
+    const act = {
+      ...activity,
+      createdAt: activity.createdAt ? new Date(activity.createdAt) : new Date(),
+      updatedAt: activity.updatedAt ? new Date(activity.updatedAt) : new Date(),
+      get: (field: string) => (activity as any)[field],
+    };
+    this.inMemoryActivities.push(act);
+  }
+
+  public findActivitiesForUser(userId: string, additionalIds: string[] = []): any[] {
+    if (!userId) return [];
+    const valid = new Set([
+      userId.trim().toLowerCase(),
+      ...additionalIds.map((id) => String(id || '').trim().toLowerCase()).filter(Boolean),
+    ]);
+    return this.inMemoryActivities.filter((a) => {
+      const u = String(a.userId || '').toLowerCase();
+      return valid.has(u);
+    });
+  }
+
+  public purgeUserActivities(userId: string, additionalIds: string[] = []): void {
+    if (!userId) return;
+    const targets = new Set([
+      userId.trim().toLowerCase(),
+      ...additionalIds.map((id) => String(id || '').trim().toLowerCase()).filter(Boolean),
+    ]);
+    this.inMemoryActivities = this.inMemoryActivities.filter((a) => {
+      const u = String(a.userId || '').toLowerCase();
+      return !targets.has(u);
+    });
+  }
 
   private constructor() {
     this.seedEmmaRacer();
@@ -183,6 +220,32 @@ export class UserStoreService {
     return null;
   }
 
+  public async findUserByStripeCustomerId(stripeCustomerId: string): Promise<StoredUser | null> {
+    if (!stripeCustomerId) return null;
+    const clean = stripeCustomerId.trim();
+
+    for (const u of this.inMemoryUsers.values()) {
+      if (u.stripeCustomerId && u.stripeCustomerId === clean) {
+        return u;
+      }
+    }
+
+    try {
+      const dbUser = await Users.findOne({
+        where: { stripeCustomerId: clean }
+      });
+      if (dbUser) {
+        const plain = dbUser.toJSON() as StoredUser;
+        this.cacheUser(plain);
+        return plain;
+      }
+    } catch {
+      // Tolérance hors-ligne
+    }
+
+    return null;
+  }
+
   public async createUser(data: Partial<StoredUser>): Promise<StoredUser> {
     const now = new Date();
     const login = String(data.login || data.id || "").trim();
@@ -212,6 +275,12 @@ export class UserStoreService {
       passwordHash: data.passwordHash,
       passwordSalt: data.passwordSalt,
       isSubscriber: isEmma ? true : (data.isSubscriber !== undefined ? Boolean(data.isSubscriber) : false),
+      subscriptionTier: data.subscriptionTier,
+      subscriptionStatus: data.subscriptionStatus,
+      stripeCustomerId: data.stripeCustomerId,
+      stripeSubscriptionId: data.stripeSubscriptionId,
+      lemonCustomerId: data.lemonCustomerId,
+      lemonSubscriptionId: data.lemonSubscriptionId,
       isConfirmed: isEmma ? true : Boolean(data.isConfirmed),
       watchUserId: data.watchUserId,
       resetPasswordToken: data.resetPasswordToken,
@@ -311,6 +380,36 @@ export class UserStoreService {
     }
 
     return null;
+  }
+
+  public async deleteUser(identifier: string): Promise<boolean> {
+    const existing = await this.findUser(identifier);
+    if (!existing) return false;
+    if (isEmmaAdminUser(existing.id, existing.name)) {
+      throw new Error("Le compte administratrice EmmaRacer ne peut pas être supprimé.");
+    }
+    const cleanId = existing.id.toLowerCase();
+    const cleanLogin = existing.login.toLowerCase();
+    this.inMemoryUsers.delete(cleanId);
+    this.inMemoryUsers.delete(cleanLogin);
+    if (existing.watchUserId) {
+      this.inMemoryUsers.delete(existing.watchUserId.toLowerCase());
+    }
+    try {
+      await Users.destroy({
+        where: {
+          [Op.or]: [{ id: existing.id }, { login: existing.login }]
+        }
+      });
+      await LoginRequests.destroy({
+        where: {
+          [Op.or]: [{ userId: existing.id }, { login: existing.login }]
+        }
+      });
+    } catch {
+      // Best-effort
+    }
+    return true;
   }
 
   public async createLoginRequest(data: {

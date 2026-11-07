@@ -851,4 +851,21 @@
   flex-wrap: wrap;
 }
 
+.priv-bot-duel-restriction-box {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.5rem 0.75rem;
+  background: rgba(15, 23, 42, 0.9);
+  border: 1px dashed rgba(0, 240, 255, 0.4);
+  border-radius: 8px;
+  font-size: 0.8rem;
+  color: #cbd5e1;
+}
+
+.priv-hint-text {
+  font-size: 0.78rem;
+  color: #94a3b8;
+}
+
 

@@ -5,14 +5,14 @@ import Toybox.Application.Properties;
 import Toybox.System;
 
 class UserManager {
-    private static const BASE64_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+    private static const BASE64_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
     private static const ALPHA_NUM = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
-    // Generates a 5-character random base64 string for immutable unique system suffix
+    // Generates a 5-character random base62 string for immutable unique system suffix (without delimiter collisions)
     static function generateSuffix5() as String {
         var result = "";
         for (var i = 0; i < 5; i++) {
-            var idx = Math.rand() % 64;
+            var idx = Math.rand() % 62;
             if (idx < 0) {
                 idx = -idx;
             }
@@ -21,10 +21,10 @@ class UserManager {
         return result;
     }
 
-    // Generates random 4-char prefix on install (customizable by subscribers)
+    // Generates 10-character free prefix on install (customizable by player in app settings)
     static function generateDefaultPrefix() as String {
         var result = "Row";
-        for (var i = 0; i < 3; i++) {
+        for (var i = 0; i < 7; i++) {
             var idx = Math.rand() % 32;
             if (idx < 0) {
                 idx = -idx;
@@ -34,10 +34,10 @@ class UserManager {
         return result;
     }
 
-    // Retrieves or creates the immutable 5-character base64 system suffix
+    // Retrieves or creates the immutable 5-character base62 system suffix
     static function getSuffix() as String {
         var suffix = Storage.getValue("userUniqueSuffix");
-        if (suffix != null && suffix instanceof String && (suffix as String).length() == 5) {
+        if (suffix != null && suffix instanceof String && (suffix as String).length() == 5 && (suffix as String).find("_") == null) {
             return suffix as String;
         }
         var newSuffix = generateSuffix5();
@@ -45,18 +45,43 @@ class UserManager {
         return newSuffix;
     }
 
-    // Retrieves the user customizable prefix (or default generated on installation)
+    // Retrieves the 10-character user customizable prefix (or default generated on installation)
     static function getPrefix() as String {
         try {
             var propVal = Properties.getValue("userLoginPrefix");
             if (propVal != null && propVal instanceof String && (propVal as String).length() > 0) {
-                return propVal as String;
+                var p = (propVal as String);
+                if (p.length() > 10) {
+                    p = p.substring(0, 10);
+                }
+                return p;
+            }
+        } catch (ex) {
+        }
+        try {
+            var loginVal = Properties.getValue("userLogin");
+            if (loginVal != null && loginVal instanceof String && (loginVal as String).length() > 0) {
+                var l = (loginVal as String);
+                var sepIdx = l.find("_");
+                if (sepIdx != null && sepIdx > 0) {
+                    l = l.substring(0, sepIdx);
+                }
+                if (l.length() > 10) {
+                    l = l.substring(0, 10);
+                }
+                if (l.length() > 0) {
+                    return l;
+                }
             }
         } catch (ex) {
         }
         var storedPrefix = Storage.getValue("userLoginPrefix");
         if (storedPrefix != null && storedPrefix instanceof String && (storedPrefix as String).length() > 0) {
-            return storedPrefix as String;
+            var sp = storedPrefix as String;
+            if (sp.length() > 10) {
+                sp = sp.substring(0, 10);
+            }
+            return sp;
         }
         var newPrefix = generateDefaultPrefix();
         Storage.setValue("userLoginPrefix", newPrefix);

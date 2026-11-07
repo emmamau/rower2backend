@@ -45,6 +45,7 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
   @Input() activeUserName = '';
   @Input() isUserAdmin = false;
   @Input() isSubscriber = false;
+  @Input() isRegisteredUser = false;
   @Input() activeRacersCount = 0;
   @Input() externalError = '';
 
@@ -610,6 +611,11 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
 
   onToggleBots(): void {
     if (!this.activeRoom) return;
+    if (this.activeRoom.race.isBotDuel && !this.isRegisteredUser) {
+      this.actionError = "En mode duel 1v1 contre un bot, seul un utilisateur inscrit avec un compte peut ajouter ou retirer un bot.";
+      this.cdr.markForCheck();
+      return;
+    }
     const nextState = !this.activeRoom.race.hasBots;
     this.botsToggled.emit(nextState);
   }

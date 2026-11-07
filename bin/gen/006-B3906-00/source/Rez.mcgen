@@ -10,8 +10,10 @@ module Rez {
     } // Drawables
 
     module Strings {
+        (:initialized) var UserLoginPrefixPrompt as ResourceId;
         (:initialized) var StatusConnected as ResourceId;
         (:initialized) var UserLoginPrompt as ResourceId;
+        (:initialized) var UserLoginPrefixTitle as ResourceId;
         (:initialized) var StatusDisconnected as ResourceId;
         (:initialized) var StatusScanning as ResourceId;
         (:initialized) var BackendUrlTitle as ResourceId;

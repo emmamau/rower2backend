@@ -59,6 +59,7 @@ export interface NextRaceInfo {
     botMaxPace?: number;
     autoStart?: boolean;
     hasBots?: boolean;
+    isBotDuel?: boolean;
     internalStatus?: string;
     status: string;
     totalParticipants: number;

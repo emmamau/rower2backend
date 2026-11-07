@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Garmin Store Banner Dynamic</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #060913;
+      font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+      color: #ffffff;
+    }
+    .dynamic-container {
+      width: 100vw;
+      height: 100vh;
+      position: relative;
+      background: radial-gradient(circle at 50% 25%, #0c1a38 0%, #081226 50%, #03060f 100%);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    /* Ambient lighting */
+    .glow-cyan-top {
+      position: absolute;
+      top: -120px;
+      left: 15%;
+      width: 700px;
+      height: 350px;
+      background: radial-gradient(ellipse, rgba(0, 240, 255, 0.22) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .glow-magenta-bottom {
+      position: absolute;
+      bottom: -120px;
+      right: 15%;
+      width: 700px;
+      height: 350px;
+      background: radial-gradient(ellipse, rgba(255, 0, 85, 0.22) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .cyber-grid {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-image:
+        linear-gradient(rgba(0, 240, 255, 0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 240, 255, 0.04) 1px, transparent 1px);
+      background-size: 32px 32px;
+      pointer-events: none;
+    }
+
+    /* TOP HUD HEADER */
+    .top-hud {
+      height: 13.5%;
+      min-height: 56px;
+      padding: 0 clamp(20px, 3vw, 40px);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(8, 14, 28, 0.94);
+      border-bottom: 2px solid rgba(0, 240, 255, 0.35);
+      backdrop-filter: blur(10px);
+      z-index: 10;
+      position: relative;
+    }
+    .hud-brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .hud-title {
+      font-family: 'Impact', 'Segoe UI Black', sans-serif;
+      font-size: clamp(22px, 2.4vw, 34px);
+      letter-spacing: 2.5px;
+      background: linear-gradient(180deg, #ffffff 20%, #00f0ff 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      line-height: 1;
+    }
+    .hud-badge {
+      background: #ff0055;
+      color: #ffffff;
+      font-family: 'Impact', sans-serif;
+      font-size: clamp(10px, 1vw, 14px);
+      letter-spacing: 1.5px;
+      padding: 3px 9px;
+      border-radius: 6px;
+      box-shadow: 0 0 12px rgba(255, 0, 85, 0.7);
+    }
+    .hud-center-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: rgba(0, 240, 255, 0.12);
+      border: 1.5px solid rgba(0, 240, 255, 0.5);
+      padding: clamp(4px, 0.8vh, 8px) clamp(12px, 1.5vw, 24px);
+      border-radius: 20px;
+      font-size: clamp(11.5px, 1.1vw, 16px);
+      font-weight: 800;
+      letter-spacing: 1.5px;
+      color: #ffe600;
+      text-transform: uppercase;
+      box-shadow: 0 0 20px rgba(0, 240, 255, 0.25);
+    }
+    .hud-right-stats {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: clamp(11.5px, 1.1vw, 15px);
+      font-weight: 700;
+    }
+    .live-dot {
+      width: clamp(8px, 0.8vw, 12px);
+      height: clamp(8px, 0.8vw, 12px);
+      background: #ff0055;
+      border-radius: 50%;
+      box-shadow: 0 0 10px #ff0055;
+    }
+    .race-time {
+      font-family: monospace;
+      font-size: clamp(14px, 1.4vw, 20px);
+      font-weight: 900;
+      color: #00f0ff;
+      letter-spacing: 1px;
+    }
+
+    /* CENTER REGATTA BASIN */
+    .regatta-basin {
+      flex: 1;
+      position: relative;
+      margin: clamp(8px, 1.2vh, 16px) clamp(18px, 2.2vw, 36px);
+      border-radius: 16px;
+      background: #081226;
+      border: 2px solid rgba(0, 240, 255, 0.4);
+      box-shadow: 0 0 35px rgba(0, 240, 255, 0.25), inset 0 0 30px rgba(0, 0, 0, 0.9);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-around;
+      padding: clamp(22px, 3vh, 36px) 0 clamp(14px, 2vh, 22px) 0;
+    }
+
+    /* Water Distance Grid & Finish Line */
+    .distance-markers {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+    .dist-mark {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 1.5px;
+      background: rgba(0, 240, 255, 0.2);
+    }
+    .dist-label {
+      position: absolute;
+      top: clamp(4px, 0.8vh, 8px);
+      font-family: monospace;
+      font-size: clamp(10px, 1vw, 14px);
+      font-weight: 800;
+      color: rgba(0, 240, 255, 0.85);
+      transform: translateX(-50%);
+    }
+    .finish-gate {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      right: 7%;
+      width: 4px;
+      background: linear-gradient(180deg, #ffe600 0%, #ff5500 50%, #ffe600 100%);
+      box-shadow: 0 0 22px #ffe600;
+      z-index: 4;
+    }
+    .finish-banner {
+      position: absolute;
+      top: clamp(4px, 0.8vh, 8px);
+      right: 3.5%;
+      font-family: 'Impact', sans-serif;
+      font-size: clamp(10.5px, 1.1vw, 15px);
+      letter-spacing: 2px;
+      color: #ffe600;
+      background: rgba(0, 0, 0, 0.92);
+      padding: 3px 10px;
+      border-radius: 6px;
+      border: 1px solid #ffe600;
+      box-shadow: 0 0 12px rgba(255, 230, 0, 0.6);
+      transform: translateX(35%);
+    }
+
+    /* Lanes and Boats */
+    .lane-row {
+      position: relative;
+      height: clamp(52px, 7vh, 84px);
+      display: flex;
+      align-items: center;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.09);
+      padding-left: clamp(16px, 2vw, 32px);
+      z-index: 3;
+    }
+    .lane-label {
+      font-family: monospace;
+      font-size: clamp(12px, 1.2vw, 17px);
+      font-weight: 800;
+      color: rgba(0, 240, 255, 0.85);
+      width: clamp(34px, 3.5vw, 50px);
+      flex-shrink: 0;
+    }
+    .lane-label.active {
+      color: #ffe600;
+      font-weight: 900;
+    }
+
+    /* Boat Assembly */
+    .boat-container {
+      position: absolute;
+      display: flex;
+      align-items: center;
+      transform: translateY(-2px);
+    }
+    /* Wake Ripple behind boat */
+    .wake-ripple {
+      position: absolute;
+      right: 85px;
+      width: clamp(120px, 14vw, 200px);
+      height: clamp(20px, 2.5vh, 32px);
+      background: radial-gradient(ellipse at 85% 50%, rgba(0, 240, 255, 0.4) 0%, rgba(0, 240, 255, 0.12) 50%, transparent 80%);
+      border-radius: 50%;
+      pointer-events: none;
+    }
+    /* Boat SVG */
+    .boat-svg {
+      width: clamp(80px, 8vw, 120px);
+      height: clamp(32px, 3.5vh, 48px);
+      filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.85));
+    }
+
+    /* Floating Racer HUD Tag */
+    .racer-tag {
+      position: absolute;
+      left: clamp(85px, 8.5vw, 130px);
+      top: clamp(-14px, -1.5vh, -10px);
+      display: flex;
+      align-items: center;
+      gap: clamp(6px, 0.7vw, 10px);
+      background: rgba(10, 18, 36, 0.94);
+      border: 1.5px solid rgba(0, 240, 255, 0.45);
+      padding: clamp(3px, 0.5vh, 6px) clamp(8px, 0.9vw, 14px);
+      border-radius: 7px;
+      font-size: clamp(10px, 1vw, 14px);
+      font-weight: 800;
+      white-space: nowrap;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.8);
+    }
+    .racer-tag.user-highlight {
+      background: linear-gradient(90deg, rgba(14, 30, 60, 0.98), rgba(22, 48, 96, 0.98));
+      border: 2px solid #ffe600;
+      box-shadow: 0 0 20px rgba(255, 230, 0, 0.5);
+      color: #ffffff;
+    }
+    .racer-rank {
+      font-weight: 900;
+      font-size: clamp(10px, 1vw, 14px);
+    }
+    .racer-name {
+      color: #ffffff;
+      letter-spacing: 0.5px;
+    }
+    .racer-metric {
+      font-family: monospace;
+      font-weight: 800;
+      font-size: clamp(10px, 1vw, 14px);
+    }
+    .metric-split { color: #00f0ff; }
+    .metric-watts { color: #39ff14; }
+    .metric-spm { color: #ffe600; }
+
+    /* BOTTOM LIVE TELEMETRY BAR */
+    .bottom-hud {
+      height: 12%;
+      min-height: 50px;
+      padding: 0 clamp(20px, 3vw, 40px);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(8, 14, 28, 0.94);
+      border-top: 2px solid rgba(0, 240, 255, 0.35);
+      backdrop-filter: blur(10px);
+      z-index: 10;
+    }
+    .bottom-left-status {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: clamp(10.5px, 1.1vw, 15px);
+      font-weight: 700;
+      color: #94a3b8;
+      white-space: nowrap;
+    }
+    .status-dot {
+      width: clamp(8px, 0.8vw, 12px);
+      height: clamp(8px, 0.8vw, 12px);
+      border-radius: 50%;
+      background: #39ff14;
+      box-shadow: 0 0 10px #39ff14;
+    }
+    .bottom-pills {
+      display: flex;
+      align-items: center;
+      gap: clamp(8px, 1.2vw, 20px);
+    }
+    .stat-pill {
+      display: flex;
+      align-items: center;
+      gap: clamp(6px, 0.7vw, 10px);
+      background: rgba(14, 23, 42, 0.9);
+      border: 1px solid rgba(0, 240, 255, 0.3);
+      padding: clamp(3px, 0.6vh, 6px) clamp(8px, 1vw, 16px);
+      border-radius: 8px;
+      white-space: nowrap;
+    }
+    .stat-pill-label {
+      color: #94a3b8;
+      font-weight: 700;
+      font-size: clamp(9px, 0.9vw, 13px);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .stat-pill-val {
+      font-family: 'Impact', 'Segoe UI Black', sans-serif;
+      font-size: clamp(14px, 1.4vw, 21px);
+      font-weight: 900;
+      letter-spacing: 1px;
+      white-space: nowrap;
+    }
+    .bottom-right-brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      white-space: nowrap;
+    }
+    .brand-garmin-badge {
+      background: rgba(0, 240, 255, 0.16);
+      border: 1.5px solid rgba(0, 240, 255, 0.6);
+      padding: clamp(4px, 0.6vh, 7px) clamp(8px, 1vw, 16px);
+      border-radius: 7px;
+      font-size: clamp(10.5px, 1vw, 14px);
+      font-weight: 800;
+      color: #00f0ff;
+      letter-spacing: 1px;
+      box-shadow: 0 0 10px rgba(0, 240, 255, 0.3);
+      white-space: nowrap;
+    }
+  </style>
+</head>
+<body>
+  <div class="dynamic-container">
+    <div class="glow-cyan-top"></div>
+    <div class="glow-magenta-bottom"></div>
+    <div class="cyber-grid"></div>
+
+    <!-- TOP HEADER -->
+    <header class="top-hud">
+      <div class="hud-brand">
+        <span class="hud-title">ROWER RACE</span>
+        <span class="hud-badge">PRO ESPORT</span>
+      </div>
+
+      <div class="hud-center-title">
+        <span>🏁 BASSIN DE COURSE VIRTUEL EN DIRECT · 2000M</span>
+      </div>
+
+      <div class="hud-right-stats">
+        <div class="live-dot"></div>
+        <span>EN COURSE</span>
+        <span class="race-time">03:48.2</span>
+      </div>
+    </header>
+
+    <!-- CENTER REGATTA BASIN -->
+    <div class="regatta-basin">
+      <!-- Distance Markers -->
+      <div class="distance-markers">
+        <div class="dist-mark" style="left: 12%;"><span class="dist-label">250m</span></div>
+        <div class="dist-mark" style="left: 28%;"><span class="dist-label">500m</span></div>
+        <div class="dist-mark" style="left: 48%;"><span class="dist-label">1000m</span></div>
+        <div class="dist-mark" style="left: 68%;"><span class="dist-label">1500m</span></div>
+        <div class="finish-gate"></div>
+        <div class="finish-banner">ARRIVÉE 2000M</div>
+      </div>
+
+      <!-- LANE 1 : THOMAS -->
+      <div class="lane-row">
+        <span class="lane-label">L1</span>
+        <div class="boat-container" style="left: 58%;">
+          <div class="wake-ripple"></div>
+          <svg class="boat-svg" viewBox="0 0 100 40">
+            <path d="M 5 20 C 20 13 80 13 95 20 C 80 27 20 27 5 20 Z" fill="#ff0055" stroke="#ffffff" stroke-width="1.5"/>
+            <ellipse cx="50" cy="20" rx="9" ry="3.2" fill="#060913" stroke="#ffe600" stroke-width="1.2"/>
+            <line x1="28" y1="5" x2="72" y2="35" stroke="#ffffff" stroke-width="2.6" stroke-linecap="round"/>
+            <ellipse cx="26" cy="4" rx="5" ry="2.2" transform="rotate(-35 26 4)" fill="#ff0055" stroke="#ffffff" stroke-width="0.8"/>
+            <ellipse cx="74" cy="36" rx="5" ry="2.2" transform="rotate(-35 74 36)" fill="#ff0055" stroke="#ffffff" stroke-width="0.8"/>
+            <circle cx="50" cy="18" r="4.2" fill="#00f0ff" stroke="#ffffff" stroke-width="1.2"/>
+          </svg>
+          <div class="racer-tag">
+            <span class="racer-rank" style="color:#ffe600">🥇 1</span>
+            <span class="racer-name">THOMAS</span>
+            <span class="racer-metric metric-split">1:44.2</span>
+            <span class="racer-metric metric-watts">295 W</span>
+            <span class="racer-metric metric-spm">32 SPM</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- LANE 2 : USER WITH GARMIN -->
+      <div class="lane-row">
+        <span class="lane-label active">L2</span>
+        <div class="boat-container" style="left: 50%;">
+          <div class="wake-ripple" style="width: 170px; background: radial-gradient(ellipse at 85% 50%, rgba(0, 240, 255, 0.55) 0%, rgba(0, 240, 255, 0.18) 50%, transparent 80%);"></div>
+          <svg class="boat-svg" viewBox="0 0 100 40" style="filter: drop-shadow(0 0 12px rgba(0, 240, 255, 0.8));">
+            <defs>
+              <linearGradient id="userHull2" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stop-color="#ff0055"/>
+                <stop offset="50%" stop-color="#ff6600"/>
+                <stop offset="100%" stop-color="#ffe600"/>
+              </linearGradient>
+            </defs>
+            <path d="M 5 20 C 20 13 80 13 95 20 C 80 27 20 27 5 20 Z" fill="url(#userHull2)" stroke="#ffffff" stroke-width="1.8"/>
+            <ellipse cx="50" cy="20" rx="9.5" ry="3.5" fill="#060913" stroke="#00f0ff" stroke-width="1.5"/>
+            <line x1="28" y1="5" x2="72" y2="35" stroke="#ffffff" stroke-width="2.8" stroke-linecap="round"/>
+            <ellipse cx="26" cy="4" rx="5.5" ry="2.4" transform="rotate(-35 26 4)" fill="#00f0ff" stroke="#ffffff" stroke-width="1"/>
+            <ellipse cx="74" cy="36" rx="5.5" ry="2.4" transform="rotate(-35 74 36)" fill="#00f0ff" stroke="#ffffff" stroke-width="1"/>
+            <circle cx="50" cy="18" r="4.4" fill="#00f0ff" stroke="#ffffff" stroke-width="1.4"/>
+          </svg>
+          <div class="racer-tag user-highlight">
+            <span class="racer-rank" style="color:#ffe600">🥈 2</span>
+            <span class="racer-name" style="color:#ffe600">VOUS (MONTRE GARMIN)</span>
+            <span class="racer-metric metric-split">1:45.5</span>
+            <span class="racer-metric metric-watts">284 W</span>
+            <span class="racer-metric metric-spm">30 SPM</span>
+            <span style="color:#00f0ff;font-size:10.5px">[-6m]</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- LANE 3 : JULIEN -->
+      <div class="lane-row">
+        <span class="lane-label">L3</span>
+        <div class="boat-container" style="left: 38%;">
+          <div class="wake-ripple"></div>
+          <svg class="boat-svg" viewBox="0 0 100 40">
+            <path d="M 5 20 C 20 13 80 13 95 20 C 80 27 20 27 5 20 Z" fill="#39ff14" stroke="#ffffff" stroke-width="1.5"/>
+            <ellipse cx="50" cy="20" rx="9" ry="3.2" fill="#060913" stroke="#ffe600" stroke-width="1.2"/>
+            <line x1="28" y1="5" x2="72" y2="35" stroke="#ffffff" stroke-width="2.6" stroke-linecap="round"/>
+            <ellipse cx="26" cy="4" rx="5" ry="2.2" transform="rotate(-35 26 4)" fill="#39ff14" stroke="#ffffff" stroke-width="0.8"/>
+            <ellipse cx="74" cy="36" rx="5" ry="2.2" transform="rotate(-35 74 36)" fill="#39ff14" stroke="#ffffff" stroke-width="0.8"/>
+            <circle cx="50" cy="18" r="4.2" fill="#00f0ff" stroke="#ffffff" stroke-width="1.2"/>
+          </svg>
+          <div class="racer-tag">
+            <span class="racer-rank" style="color:#e2e8f0">🥉 3</span>
+            <span class="racer-name">JULIEN</span>
+            <span class="racer-metric metric-split">1:47.8</span>
+            <span class="racer-metric metric-watts">260 W</span>
+            <span class="racer-metric metric-spm">28 SPM</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- LANE 4 : SOPHIE -->
+      <div class="lane-row" style="border-bottom: none;">
+        <span class="lane-label">L4</span>
+        <div class="boat-container" style="left: 26%;">
+          <div class="wake-ripple"></div>
+          <svg class="boat-svg" viewBox="0 0 100 40">
+            <path d="M 5 20 C 20 13 80 13 95 20 C 80 27 20 27 5 20 Z" fill="#ffe600" stroke="#ffffff" stroke-width="1.5"/>
+            <ellipse cx="50" cy="20" rx="9" ry="3.2" fill="#060913" stroke="#ff0055" stroke-width="1.2"/>
+            <line x1="28" y1="5" x2="72" y2="35" stroke="#ffffff" stroke-width="2.6" stroke-linecap="round"/>
+            <ellipse cx="26" cy="4" rx="5" ry="2.2" transform="rotate(-35 26 4)" fill="#ffe600" stroke="#ffffff" stroke-width="0.8"/>
+            <ellipse cx="74" cy="36" rx="5" ry="2.2" transform="rotate(-35 74 36)" fill="#ffe600" stroke="#ffffff" stroke-width="0.8"/>
+            <circle cx="50" cy="18" r="4.2" fill="#00f0ff" stroke="#ffffff" stroke-width="1.2"/>
+          </svg>
+          <div class="racer-tag">
+            <span class="racer-rank" style="color:#94a3b8">4</span>
+            <span class="racer-name">SOPHIE</span>
+            <span class="racer-metric metric-split">1:50.1</span>
+            <span class="racer-metric metric-watts">235 W</span>
+            <span class="racer-metric metric-spm">26 SPM</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- BOTTOM HUD BAR -->
+    <footer class="bottom-hud">
+      <div class="bottom-left-status">
+        <div class="status-dot"></div>
+        <span>BLE SYNCHRO RAMEUR ACTIF</span>
+      </div>
+
+      <div class="bottom-pills">
+        <div class="stat-pill">
+          <span class="stat-pill-label">ALLURE</span>
+          <span class="stat-pill-val" style="color:#00f0ff">1:45.5</span>
+        </div>
+        <div class="stat-pill">
+          <span class="stat-pill-label">PUISSANCE</span>
+          <span class="stat-pill-val" style="color:#39ff14">284 W</span>
+        </div>
+        <div class="stat-pill">
+          <span class="stat-pill-label">CADENCE</span>
+          <span class="stat-pill-val" style="color:#ffe600">30 SPM</span>
+        </div>
+        <div class="stat-pill">
+          <span class="stat-pill-label">DISTANCE</span>
+          <span class="stat-pill-val" style="color:#ffffff">1760 M</span>
+        </div>
+      </div>
+
+      <div class="bottom-right-brand">
+        <div class="brand-garmin-badge">GARMIN CONNECT IQ™</div>
+      </div>
+    </footer>
+  </div>
+</body>
+</html>

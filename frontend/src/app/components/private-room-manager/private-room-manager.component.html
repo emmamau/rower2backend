@@ -646,13 +646,22 @@
                 </button>
               }
 
-              <button
-                type="button"
-                class="priv-btn priv-btn-outline"
-                [disabled]="isActionBusy"
-                (click)="onToggleBots()">
-                {{ activeRoom.race.hasBots ? i18n.t('BTN_TOGGLE_BOTS_OFF') : i18n.t('BTN_TOGGLE_BOTS_ON') }}
-              </button>
+              @if (activeRoom.race.isBotDuel && !isRegisteredUser) {
+                <div class="priv-bot-duel-restriction-box" role="status">
+                  <span class="priv-hint-text">🤖 Duel 1v1 Bot : seuls les utilisateurs inscrits avec un compte peuvent ajouter ou retirer un bot.</span>
+                  <button type="button" class="priv-btn priv-btn-cyan priv-btn-sm" (click)="requestAccountModal.emit('login')">
+                    Se connecter avec un compte
+                  </button>
+                </div>
+              } @else {
+                <button
+                  type="button"
+                  class="priv-btn priv-btn-outline"
+                  [disabled]="isActionBusy"
+                  (click)="onToggleBots()">
+                  {{ activeRoom.race.hasBots ? i18n.t('BTN_TOGGLE_BOTS_OFF') : i18n.t('BTN_TOGGLE_BOTS_ON') }}
+                </button>
+              }
 
               <button
                 type="button"

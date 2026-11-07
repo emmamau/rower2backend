@@ -260,10 +260,22 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
             if (upper.find("ROW") != null ||
                 upper.find("ERG") != null ||
                 upper.find("FTMS") != null ||
-                upper.find("SMARTROW") != null ||
-                upper.find("WATERROWER") != null ||
+                upper.find("SMART") != null ||
                 upper.find("WATER") != null ||
                 upper.find("S4") != null ||
+                upper.find("COMMODULE") != null ||
+                upper.find("SR") == 0 ||
+                upper.find("WR") == 0 ||
+                upper.find("SR-") != null ||
+                upper.find("SR_") != null ||
+                upper.find("SR ") != null ||
+                upper.find("WR-") != null ||
+                upper.find("WR_") != null ||
+                upper.find("WR ") != null ||
+                upper.find("PULLEY") != null ||
+                upper.find("POULIE") != null ||
+                upper.equals("SR") ||
+                upper.equals("WR") ||
                 upper.find("PM5") != null ||
                 upper.find("CONCEPT") != null ||
                 upper.find("VOWVIT") != null ||
@@ -444,7 +456,7 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
             if (_activeDataChar != null) {
                 enableDataNotifications();
             }
-            if (_cccdSubscribed && _srWriteChar != null && _srHandshakeState == 0) {
+            if (_srWriteChar != null && _srHandshakeState == 0) {
                 initSmartRowDirect();
             }
             return;
@@ -516,8 +528,9 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
         _srRxBuffer = "";
         _srV3LockTicks = 0;
         _srPacketQueue = [] as Array<ByteArray>;
-        // Send SmartRow INIT_COMMAND "$\rV@\r" as a single atomic BLE write (ported from rower.iq)
-        sendSmartRowPacket([0x24, 0x0D, 0x56, 0x40, 0x0D]b);
+        // Send SmartRow INIT_COMMANDS: "$\r" wake ping followed by "V@\r" version inquiry
+        sendSmartRowPacket([0x24, 0x0D]b);
+        sendSmartRowPacket([0x56, 0x40, 0x0D]b);
     }
 
     private function sendSmartRowPacket(bytes as ByteArray) as Void {
@@ -696,7 +709,7 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
                     _srRxBuffer = (after != null) ? after : "";
                     handleSmartRowKeylock(rem);
                     return;
-                } else if (!hasTerminator) {
+                } else if (rem.find("\r") == null && rem.find("\n") == null) {
                     // Wait for next BLE notification chunk to complete 16-char KEYLOCK challenge
                     return;
                 } else {
@@ -837,10 +850,11 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
             if (_model.connectionState == RowerDataModel.STATE_CONNECTED_SMARTROW) {
                 if (_srHandshakeState < 3) {
                     _srV3LockTicks += 1;
-                    if (_secondsWithoutData >= 2 && (_secondsWithoutData % 2 == 0) && _srPacketQueue.size() == 0 && !_bleWriteBusy) {
+                    if (_secondsWithoutData >= 3 && (_secondsWithoutData % 3 == 0) && _srPacketQueue.size() == 0 && !_bleWriteBusy) {
+                        // Re-initialize SmartRow if no telemetry frames have arrived yet
                         initSmartRowDirect();
                     } else if (_srV3LockTicks >= 3 && (_srV3LockTicks % 3 == 0) && _srPacketQueue.size() == 0 && !_bleWriteBusy) {
-                        // Retry KEYLOCK '#' request even when locked telemetry is actively streaming
+                        // Retry KEYLOCK '#' request without wiping buffer
                         _srChallengeRequested = true;
                         _srHandshakeState = 2;
                         sendSmartRowPacket([0x23]b);

@@ -22,6 +22,8 @@ export interface UserAttributes {
   subscriptionStatus?: string; // 'active' | 'cancelled' | 'expired' | 'none'
   lemonCustomerId?: string;
   lemonSubscriptionId?: string;
+  stripeCustomerId?: string;
+  stripeSubscriptionId?: string;
   isConfirmed?: boolean;    // Confirmation de l'inscription via montre Garmin
   watchUserId?: string;     // Identifiant renvoyé par la montre Garmin
   watchModel?: string;      // Modèle de montre Garmin (ex: Fenix 7, Forerunner 965...)
@@ -129,6 +131,14 @@ export default (sequelize: Sequelize, _DataTypesInstance: typeof DataTypes): Use
         allowNull: true,
       },
       lemonSubscriptionId: {
+        type: DataTypes.STRING(64),
+        allowNull: true,
+      },
+      stripeCustomerId: {
+        type: DataTypes.STRING(64),
+        allowNull: true,
+      },
+      stripeSubscriptionId: {
         type: DataTypes.STRING(64),
         allowNull: true,
       },

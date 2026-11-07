@@ -750,6 +750,242 @@ export const updateUserPrefix = async (req: Request, res: Response): Promise<voi
   }
 };
 
+/**
+ * POST /api/user/unsubscribe
+ * Permet à un utilisateur abonné de résilier son abonnement et de repasser en offre gratuite.
+ */
+export const unsubscribeUser = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { userId } = req.body || {};
+    const cleanId = String(userId || "").trim();
+    if (!cleanId) {
+      res.status(400).json({ success: false, message: "L'identifiant utilisateur est requis." });
+      return;
+    }
+
+    const user = await userStore.findUser(cleanId);
+    if (!user) {
+      res.status(404).json({ success: false, message: "Utilisateur introuvable." });
+      return;
+    }
+
+    const isEmma = isEmmaAdminUser(user.id, user.name);
+    const updated = await userStore.updateUser(user.id, {
+      isSubscriber: isEmma ? true : false,
+      subscriptionTier: isEmma ? "premium" : "free",
+      subscriptionStatus: isEmma ? "active" : "canceled",
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Abonnement résilié avec succès. Vous conservez votre compte en offre gratuite avec accès aux 10 derniers jours de statistiques.",
+      user: sanitizeUser(updated || user),
+    });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ success: false, message: "Erreur résiliation abonnement: " + message });
+  }
+};
+
+/**
+ * DELETE /api/user/account
+ * DELETE /api/user/account/:userId
+ * Suppression définitive du compte utilisateur et de ses données associées (Conformité RGPD Art. 17).
+ */
+export const deleteUserAccount = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const userId = req.body?.userId || req.params?.userId || req.query?.userId;
+    const cleanId = String(userId || "").trim();
+    if (!cleanId) {
+      res.status(400).json({ success: false, message: "L'identifiant utilisateur est requis pour la suppression." });
+      return;
+    }
+
+    const user = await userStore.findUser(cleanId);
+    if (!user) {
+      res.status(404).json({ success: false, message: "Utilisateur introuvable." });
+      return;
+    }
+
+    if (isEmmaAdminUser(user.id, user.name)) {
+      res.status(403).json({ success: false, message: "Le compte administratrice EmmaRacer ne peut pas être supprimé." });
+      return;
+    }
+
+    // Purge de l'historique d'activités associé
+    userStore.purgeUserActivities(user.id, [user.login, user.watchUserId || ""]);
+    try {
+      await Activities.destroy({
+        where: {
+          [Op.or]: [
+            { userId: user.id },
+            { userId: user.login },
+            ...(user.watchUserId ? [{ userId: user.watchUserId }] : [])
+          ]
+        }
+      });
+    } catch {
+      // Tolérance
+    }
+
+    await userStore.deleteUser(user.id);
+
+    res.status(200).json({
+      success: true,
+      message: "Votre compte et l'ensemble de vos données personnelles et sportives ont été définitivement supprimés.",
+    });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ success: false, message: "Erreur suppression de compte: " + message });
+  }
+};
+
+const getActField = (act: any, field: string): any => {
+  if (!act) return undefined;
+  if (typeof act.get === "function") {
+    return act.get(field);
+  }
+  return act[field];
+};
+
+/**
+ * GET /api/user/statistics
+ * GET /api/user/statistics/:userId
+ * Espace statistiques et analyses de courses :
+ * - Utilisateur abonné : historique complet illimité de toutes les précédentes courses
+ * - Utilisateur avec un compte mais non-abonné (gratuit) : limité aux 10 derniers jours
+ */
+export const getUserStatistics = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const userId = req.params?.userId || req.query?.userId;
+    const cleanId = String(userId || "").trim();
+    if (!cleanId) {
+      res.status(400).json({ success: false, message: "L'identifiant utilisateur est requis." });
+      return;
+    }
+
+    const user = await userStore.findUser(cleanId);
+    if (!user) {
+      res.status(404).json({ success: false, message: "Utilisateur introuvable. Veuillez vous connecter avec votre compte." });
+      return;
+    }
+
+    const isEmma = isEmmaAdminUser(user.id, user.name);
+    const isSubscriber = Boolean(isEmma || user.isAdmin || user.isSubscriber || user.subscriptionTier === "intermediate" || user.subscriptionTier === "premium");
+
+    let allUserActivities: any[] = [];
+    try {
+      allUserActivities = await Activities.findAll({
+        where: {
+          [Op.or]: [
+            { userId: user.id },
+            { userId: user.login },
+            ...(user.watchUserId ? [{ userId: user.watchUserId }] : [])
+          ],
+          isBot: false,
+        },
+        order: [["createdAt", "DESC"]]
+      });
+    } catch {
+      allUserActivities = [];
+    }
+
+    if (allUserActivities.length === 0) {
+      allUserActivities = userStore.findActivitiesForUser(user.id, [user.login, user.watchUserId || ""]);
+    }
+
+    const tenDaysAgo = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000);
+    const totalRacesAvailable = allUserActivities.length;
+
+    let filteredActivities = allUserActivities;
+    let olderRacesLocked = 0;
+
+    if (!isSubscriber) {
+      filteredActivities = allUserActivities.filter((act) => {
+        const d = new Date(getActField(act, "createdAt") || getActField(act, "updatedAt") || Date.now());
+        return d >= tenDaysAgo;
+      });
+      olderRacesLocked = totalRacesAvailable - filteredActivities.length;
+    }
+
+    let totalDist = 0;
+    let totalSec = 0;
+    let sumWatts = 0;
+    let wattsCount = 0;
+    let bestPace = 0;
+    let wins = 0;
+    let podiums = 0;
+
+    const mapped = filteredActivities.map((act) => {
+      const netDist = Number(getActField(act, "netDistance")) || 0;
+      const targetDist = Number(getActField(act, "targetDistance")) || 0;
+      const elSec = Number(getActField(act, "elapsedTime")) || 0;
+      const pwr = Number(getActField(act, "avgPower") || getActField(act, "lastPower")) || 0;
+      const pace = Number(getActField(act, "avgPace") || getActField(act, "lastPace")) || 0;
+      const spm = Number(getActField(act, "avgStrokeRate") || getActField(act, "lastStrokeRate")) || 0;
+      const strokes = Number(getActField(act, "totalStrokes") || getActField(act, "lastStrokeCount")) || 0;
+      const energy = Number(getActField(act, "totalEnergy")) || 0;
+      const rawRank = getActField(act, "finalRank");
+      const rank = rawRank !== undefined && rawRank !== null ? Number(rawRank) : undefined;
+      const status = String(getActField(act, "status") || "finished");
+
+      totalDist += netDist;
+      totalSec += elSec;
+      if (pwr > 0) {
+        sumWatts += pwr;
+        wattsCount++;
+      }
+      if (pace > 0 && (bestPace === 0 || pace < bestPace)) {
+        bestPace = pace;
+      }
+      if (rank === 1) wins++;
+      if (rank && rank <= 3) podiums++;
+
+      return {
+        id: getActField(act, "id"),
+        activityId: getActField(act, "activityId"),
+        createdAt: getActField(act, "createdAt"),
+        netDistance: netDist,
+        targetDistance: targetDist,
+        elapsedTime: elSec,
+        avgPower: pwr,
+        avgPace: pace,
+        avgStrokeRate: spm,
+        totalStrokes: strokes,
+        totalEnergy: energy,
+        finalRank: rank,
+        status,
+        watchModel: getActField(act, "watchModel"),
+        rowerModel: getActField(act, "rowerModel"),
+      };
+    });
+
+    const avgPower = wattsCount > 0 ? Math.round(sumWatts / wattsCount) : 0;
+
+    res.status(200).json({
+      success: true,
+      isSubscriber,
+      subscriptionTier: user.subscriptionTier || (isSubscriber ? "intermediate" : "free"),
+      historyDaysLimit: isSubscriber ? null : 10,
+      totalRacesAvailable,
+      olderRacesLocked,
+      summary: {
+        totalRaces: filteredActivities.length,
+        totalDistanceMeters: totalDist,
+        totalDurationSeconds: totalSec,
+        avgPowerWatts: avgPower,
+        bestPaceSec: bestPace,
+        totalWins: wins,
+        podiums,
+      },
+      activities: mapped,
+    });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ success: false, message: "Erreur récupération statistiques: " + message });
+  }
+};
+
 export default {
   registerUser,
   loginUser,
@@ -763,4 +999,7 @@ export default {
   getUserProfile,
   getGeneralLeaderboard,
   updateUserPrefix,
+  unsubscribeUser,
+  deleteUserAccount,
+  getUserStatistics,
 };

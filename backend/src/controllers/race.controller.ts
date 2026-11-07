@@ -390,102 +390,146 @@ export const toggleBots = async (req: Request, res: Response): Promise<void> => 
       return;
     }
 
-    let race = raceId ? await Races.findByPk(managedPrivate ? managedPrivate.id : String(raceId)) : await getOrCreateCurrentRace();
-    if (!race && managedPrivate) {
-      race = await Races.create({
-        id: managedPrivate.id,
-        title: managedPrivate.title,
-        targetDistance: managedPrivate.targetDistance,
-        startTime: managedPrivate.lobbyEndsAt,
-        intervalMinutes: 0,
-        maxDurationMinutes: managedPrivate.maxDurationMinutes || 55,
-        status: managedPrivate.status === "RUNNING" ? "in_progress" : "waiting",
-        hasBots: Boolean(enable),
-        totalParticipants: managedPrivate.totalParticipants || 0,
-      });
+    if (managedPrivate && managedPrivate.isBotDuel) {
+      let isRegisteredUser = false;
+      if (userId) {
+        const cleanId = String(userId).trim();
+        if (cleanId && cleanId !== "anonymous" && !cleanId.startsWith("guest_")) {
+          const userObj = await userStore.findUser(cleanId);
+          if (userObj) {
+            isRegisteredUser = true;
+          }
+        }
+      }
+      if (!isRegisteredUser) {
+        res.status(403).json({
+          success: false,
+          message: "En mode duel 1v1 contre un bot, seul un utilisateur inscrit avec un compte peut ajouter ou retirer un bot."
+        });
+        return;
+      }
     }
 
-    if (!race) {
-      res.status(404).json({ message: "Aucune course trouvée." });
-      return;
+    let race: any = null;
+    try {
+      race = raceId ? await Races.findByPk(managedPrivate ? managedPrivate.id : String(raceId)) : await getOrCreateCurrentRace();
+      if (!race && managedPrivate) {
+        race = await Races.create({
+          id: managedPrivate.id,
+          title: managedPrivate.title,
+          targetDistance: managedPrivate.targetDistance,
+          startTime: managedPrivate.lobbyEndsAt,
+          intervalMinutes: 0,
+          maxDurationMinutes: managedPrivate.maxDurationMinutes || 55,
+          status: managedPrivate.status === "RUNNING" ? "in_progress" : "waiting",
+          hasBots: Boolean(enable),
+          totalParticipants: managedPrivate.totalParticipants || 0,
+        });
+      }
+    } catch {
+      // Tolérance DB hors-ligne (pilotage en mémoire par RaceManager)
     }
 
-    const actualRaceId = String(race.get("id"));
+    const actualRaceId = race ? String(race.get("id")) : (raceId ? String(raceId) : "RACE_DEFAULT");
     // Course pilotée par le RaceManager (publique courante ou salon privé) : source de vérité de l'état
     const managedRace = raceManager.getRaceById(actualRaceId);
-    const targetDist = managedRace?.targetDistance || (race.get("targetDistance") as number) || 10000;
-    const isRunning = managedRace ? managedRace.status === "RUNNING" : race.get("status") === "in_progress";
-    const clampedBotCount = Math.min(12, Math.max(1, Number(botCount) || 3));
+    const targetDist = managedRace?.targetDistance || (race ? (race.get("targetDistance") as number) : 10000) || 10000;
+    const isRunning = managedRace ? managedRace.status === "RUNNING" : (race ? race.get("status") === "in_progress" : false);
+    const clampedBotCount = managedPrivate?.isBotDuel ? 1 : Math.min(12, Math.max(1, Number(botCount) || 3));
 
     if (enable) {
       let playerPoints = 0;
       if (userId) {
-        const u = await Users.findByPk(userId);
-        if (u) {
-          playerPoints = (u.get("points") as number) || 0;
+        try {
+          const u = await Users.findByPk(userId);
+          if (u) {
+            playerPoints = (u.get("points") as number) || 0;
+          }
+        } catch {
+          const uMem = await userStore.findUser(userId);
+          if (uMem) playerPoints = uMem.points || 0;
         }
       }
 
-      const existingBots = (await Activities.findAll({ where: { activityId: actualRaceId, isBot: true } })).length;
-      const botsToAdd = generateTunedBots(playerPoints, clampedBotCount).slice(0, Math.max(0, clampedBotCount - existingBots));
-      for (const b of botsToAdd) {
-        const botCompositeId = `${actualRaceId}_${b.id}`;
-        let botAct = await Activities.findByPk(botCompositeId);
-        if (!botAct) {
-          await Activities.create({
-            id: botCompositeId,
-            activityId: actualRaceId,
-            userId: b.id,
-            userName: b.name,
-            isBot: true,
-            raceMode: "race",
-            targetDistance: targetDist,
-            status: isRunning ? "in_progress" : "waiting",
-            initialDistance: 0,
-            currentDistance: 0,
-            netDistance: 0,
-            progressPercent: 0,
-            lastStrokeRate: b.spm,
-            lastStrokeCount: 0,
-            lastPower: b.power,
-            lastPace: b.pace,
-            lastHeartRate: 155,
-            lastResistance: 4,
-            avgPower: b.power,
-            avgPace: b.pace,
-            avgStrokeRate: b.spm,
-            totalStrokes: 0,
-            totalEnergy: 0,
-            elapsedTime: 0,
-            avgSpeedKmh: Number(((500 / b.pace) * 3.6).toFixed(1)),
-          });
-        } else {
-          await botAct.update({
-            status: isRunning ? "in_progress" : "waiting",
-            isBot: true,
-          });
+      try {
+        const existingBots = (await Activities.findAll({ where: { activityId: actualRaceId, isBot: true } })).length;
+        const botsToAdd = generateTunedBots(playerPoints, clampedBotCount).slice(0, Math.max(0, clampedBotCount - existingBots));
+        for (const b of botsToAdd) {
+          const botCompositeId = `${actualRaceId}_${b.id}`;
+          let botAct = await Activities.findByPk(botCompositeId);
+          if (!botAct) {
+            await Activities.create({
+              id: botCompositeId,
+              activityId: actualRaceId,
+              userId: b.id,
+              userName: b.name,
+              isBot: true,
+              raceMode: "race",
+              targetDistance: targetDist,
+              status: isRunning ? "in_progress" : "waiting",
+              initialDistance: 0,
+              currentDistance: 0,
+              netDistance: 0,
+              progressPercent: 0,
+              lastStrokeRate: b.spm,
+              lastStrokeCount: 0,
+              lastPower: b.power,
+              lastPace: b.pace,
+              lastHeartRate: 155,
+              lastResistance: 4,
+              avgPower: b.power,
+              avgPace: b.pace,
+              avgStrokeRate: b.spm,
+              totalStrokes: 0,
+              totalEnergy: 0,
+              elapsedTime: 0,
+              avgSpeedKmh: Number(((500 / b.pace) * 3.6).toFixed(1)),
+            });
+          } else {
+            await botAct.update({
+              status: isRunning ? "in_progress" : "waiting",
+              isBot: true,
+            });
+          }
         }
+        if (race) await race.update({ hasBots: true });
+      } catch {
+        // Tolérance DB
       }
-      await race.update({ hasBots: true });
-      if (managedRace) managedRace.hasBots = true;
+      if (managedRace) {
+        managedRace.hasBots = true;
+        managedRace.botCount = managedPrivate?.isBotDuel ? 1 : clampedBotCount;
+      }
     } else {
-      await Activities.destroy({
-        where: {
-          activityId: actualRaceId,
-          isBot: true,
-        },
-      });
-      await race.update({ hasBots: false });
-      if (managedRace) managedRace.hasBots = false;
+      try {
+        await Activities.destroy({
+          where: {
+            activityId: actualRaceId,
+            isBot: true,
+          },
+        });
+        if (race) await race.update({ hasBots: false });
+      } catch {
+        // Tolérance DB
+      }
+      if (managedRace) {
+        managedRace.hasBots = false;
+        managedRace.botCount = 0;
+      }
     }
 
-    const count = await Activities.count({
-      where: {
-        activityId: actualRaceId,
-        status: { [Op.ne]: "abandoned" },
-      },
-    });
-    await race.update({ totalParticipants: count });
+    let count = 0;
+    try {
+      count = await Activities.count({
+        where: {
+          activityId: actualRaceId,
+          status: { [Op.ne]: "abandoned" },
+        },
+      });
+      if (race) await race.update({ totalParticipants: count });
+    } catch {
+      count = managedRace?.participants ? managedRace.participants.size : 1;
+    }
     if (managedRace) managedRace.totalParticipants = count;
 
     res.status(200).json({

@@ -6,6 +6,7 @@ const express = require('express');
 const { RaceManager } = require('../dist/services/race-manager.service');
 const initTelemetryRoutes = require('../dist/routes/telemetry.routes').default;
 const initUserRoutes = require('../dist/routes/user.routes').default;
+const initRaceRoutes = require('../dist/routes/race.routes').default;
 const userStore = require('../dist/services/user-store.service').default;
 const { IpGeoService } = require('../dist/services/ip-geo.service');
 const db = require('../dist/models').default;
@@ -15,6 +16,7 @@ function createTestServer() {
   app.use(express.json());
   initTelemetryRoutes(app);
   initUserRoutes(app);
+  initRaceRoutes(app);
   const server = http.createServer(app);
   return new Promise((resolve) => {
     server.listen(0, '127.0.0.1', () => {
@@ -282,6 +284,101 @@ test('In-race web cockpit login authorization flow', async () => {
     assert.equal(resStatus.status, 200);
     const statusData = await resStatus.json();
     assert.equal(statusData.status, 'approved');
+  } finally {
+    await close();
+  }
+});
+
+test('1v1 Bot Duel bot toggle rule: unauthenticated guest cannot add or remove bot, registered user can', async () => {
+  const { baseUrl, close } = await createTestServer();
+  try {
+    // 1. Guest creates 1v1 Bot Duel
+    const resGuestDuel = await fetch(`${baseUrl}/api/v1/races/private`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        isBotDuel: true,
+        targetDistance: 2000,
+        hostUserId: 'guest_athlete_42',
+        hostUserName: 'Guest42'
+      })
+    });
+    assert.equal(resGuestDuel.status, 201);
+    const guestData = await resGuestDuel.json();
+    const guestRaceId = guestData.race?.id || guestData.id;
+
+    // 2. Guest attempts to toggle/remove bot -> MUST BE REJECTED 403
+    const resGuestToggleOff = await fetch(`${baseUrl}/api/race/bots`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        raceId: guestRaceId,
+        userId: 'guest_athlete_42',
+        enable: false
+      })
+    });
+    assert.equal(resGuestToggleOff.status, 403, 'Guest must NOT be allowed to remove bot in 1v1 bot duel');
+    const guestErr = await resGuestToggleOff.json();
+    assert.match(guestErr.message, /seul un utilisateur inscrit/i);
+
+    // 3. Registered user creates/hosts 1v1 Bot Duel
+    const regLogin = `reg_challenger_${Date.now()}`;
+    await userStore.createUser({
+      id: regLogin,
+      login: regLogin,
+      name: 'Registered Challenger',
+      isSubscriber: false,
+      subscriptionTier: 'free',
+      totalRaces: 0,
+      totalWins: 0,
+      podiums: 0,
+      points: 0,
+      bestRank: 0,
+      lastRank: 0
+    });
+
+    const resRegDuel = await fetch(`${baseUrl}/api/v1/races/private`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        isBotDuel: true,
+        targetDistance: 2000,
+        hostUserId: regLogin,
+        hostUserName: 'Registered Challenger'
+      })
+    });
+    assert.equal(resRegDuel.status, 201);
+    const regDuelData = await resRegDuel.json();
+    const regRaceId = regDuelData.race?.id || regDuelData.id;
+
+    // 4. Registered user removes bot -> MUST SUCCEED (enable: false)
+    const resRegToggleOff = await fetch(`${baseUrl}/api/race/bots`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        raceId: regRaceId,
+        userId: regLogin,
+        enable: false
+      })
+    });
+    assert.equal(resRegToggleOff.status, 200, 'Registered user must be allowed to remove bot');
+    const toggleOffData = await resRegToggleOff.json();
+    assert.equal(toggleOffData.hasBots, false);
+
+    // 5. Registered user re-adds bot -> MUST SUCCEED (enable: true)
+    const resRegToggleOn = await fetch(`${baseUrl}/api/race/bots`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        raceId: regRaceId,
+        userId: regLogin,
+        enable: true,
+        botCount: 1
+      })
+    });
+    assert.equal(resRegToggleOn.status, 200, 'Registered user must be allowed to re-add bot');
+    const toggleOnData = await resRegToggleOn.json();
+    assert.equal(toggleOnData.hasBots, true);
   } finally {
     await close();
   }

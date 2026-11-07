@@ -281,6 +281,23 @@ export class RowerService {
     );
   }
 
+  // Espace statistiques & Analyses de courses (abonnés = illimité, comptes gratuits = 10 jours)
+  getUserStatistics(userId: string): Observable<any> {
+    return this.http.get<any>(`${this.apiUrl}/api/user/statistics/${encodeURIComponent(userId.trim())}`);
+  }
+
+  // Résiliation abonnement (repasse en offre gratuite)
+  unsubscribeUser(userId: string): Observable<{ success: boolean; message: string; user?: any }> {
+    return this.http.post<{ success: boolean; message: string; user?: any }>(`${this.apiUrl}/api/user/unsubscribe`, {
+      userId: userId.trim()
+    });
+  }
+
+  // Suppression définitive de compte RGPD Art. 17
+  deleteUserAccount(userId: string): Observable<{ success: boolean; message: string }> {
+    return this.http.delete<{ success: boolean; message: string }>(`${this.apiUrl}/api/user/account/${encodeURIComponent(userId.trim())}`);
+  }
+
   // Configuration admin course publique
   getPublicRaceAdminConfig(): Observable<{ success: boolean; config: any }> {
     return this.http.get<{ success: boolean; config: any }>(`${this.apiUrl}/api/race/admin/config`);

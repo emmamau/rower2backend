@@ -8,9 +8,30 @@
     </div>
   </div>
 
-  <!-- RACE PRE-START COUNTDOWN TIMER (15s..4s) -->
-  <div class="prestart-countdown-overlay" *ngIf="isPreStartCountdown && !is3sCountdown">
-    <div class="prestart-countdown-box">
+  <!-- RACE PRE-START COUNTDOWN TIMER (15s..4s) - DRAGGABLE -->
+  <div class="prestart-countdown-overlay" [class.has-custom-pos]="!!timerPosition" *ngIf="isPreStartCountdown && !is3sCountdown">
+    <div
+      class="prestart-countdown-box"
+      [class.is-custom-pos]="!!timerPosition"
+      [class.is-dragging]="isDraggingTimer"
+      [style.left.px]="timerPosition ? timerPosition.x : null"
+      [style.top.px]="timerPosition ? timerPosition.y : null"
+      (pointerdown)="onTimerPointerDown($event)"
+      (pointermove)="onTimerPointerMove($event)"
+      (pointerup)="onTimerPointerUp($event)"
+      (pointercancel)="onTimerPointerUp($event)"
+      title="Glissez pour déplacer le compte à rebours où vous le souhaitez">
+      <div class="prestart-drag-bar">
+        <span class="prestart-drag-handle">⋮⋮ Glisser</span>
+        <button
+          *ngIf="timerPosition"
+          type="button"
+          class="btn-reset-timer-pos"
+          (click)="resetTimerPosition($event)"
+          title="Recentrer le compte à rebours">
+          ↺ Recentrer
+        </button>
+      </div>
       <div class="prestart-countdown-badge">⏱️ DÉPART DANS</div>
       <div class="prestart-countdown-number">{{ formattedPreRaceCountdown }}</div>
       <div class="prestart-countdown-sub">Tenez-vous prêts sur vos rameurs !</div>
@@ -35,7 +56,7 @@
 
   <!-- HUD Header -->
   <header class="hud-header">
-    <!-- LIGNE 1 : LOGO EN GROS, PROCHAINE COURSE, ÉCRAN ON EN GROS, LISTE DÉROULANTE DES LANGUES DISCRÈTE -->
+    <!-- LIGNE 1 : LOGO EN GROS, PROCHAINE COURSE, PLEIN ÉCRAN TRÈS ACCESSIBLE, LISTE DÉROULANTE DES LANGUES DISCRÈTE -->
     <div class="header-hero-row">
       <div class="hero-left-cluster">
         <!-- Logo en gros -->
@@ -73,39 +94,44 @@
           </div>
         </div>
 
-        <!-- Prochaine Course -->
-        <div class="race-schedule-badge hero-schedule" [class.private-mode]="!!activePrivateRoom" *ngIf="nextRaceInfo">
-          <div class="badge-title">
-            @if (activePrivateRoom) {
-              🔒 {{ i18n.t('PRIVATE_ROOM_BADGE') }} · {{ activePrivateRoom.race.title }} ({{ activePrivateRoom.race.targetDistance }}M)
-            } @else {
-              {{ nextRaceInfo.status === 'in_progress' ? i18n.t('RACE_IN_PROGRESS') : i18n.t('NEXT_RACE') }} ({{ nextRaceInfo.race.targetDistance }}M)
-            }
-          </div>
-          <div class="badge-timer">
-            <div class="timer-display-box" [class.is-running]="nextRaceInfo.status === 'in_progress'">
-              <span class="timer-label-sub" *ngIf="nextRaceInfo.status === 'in_progress'">⏱️ Temps restant : </span>
-              <span class="timer-digits">
-                {{ activePrivateRoom?.waitingForHost ? i18n.t('STATUS_WAITING_HOST') : (nextRaceInfo.status === 'in_progress' ? formattedGameRemaining : formattedPreRaceCountdown) }}
+        <!-- Groupe Prochaine Course + Bouton Plein Écran très accessible juste à sa droite -->
+        <div class="hero-schedule-cluster">
+          <!-- Prochaine Course -->
+          <div class="race-schedule-badge hero-schedule" [class.private-mode]="!!activePrivateRoom" *ngIf="nextRaceInfo">
+            <div class="badge-title">
+              @if (activePrivateRoom) {
+                🔒 {{ i18n.t('PRIVATE_ROOM_BADGE') }} · {{ activePrivateRoom.race.title }} ({{ activePrivateRoom.race.targetDistance }}M)
+              } @else {
+                {{ nextRaceInfo.status === 'in_progress' ? i18n.t('RACE_IN_PROGRESS') : i18n.t('NEXT_RACE') }} ({{ nextRaceInfo.race.targetDistance }}M)
+              }
+            </div>
+            <div class="badge-timer">
+              <div class="timer-display-box" [class.is-running]="nextRaceInfo.status === 'in_progress'">
+                <span class="timer-label-sub" *ngIf="nextRaceInfo.status === 'in_progress'">⏱️ Temps restant : </span>
+                <span class="timer-digits">
+                  {{ activePrivateRoom?.waitingForHost ? i18n.t('STATUS_WAITING_HOST') : (nextRaceInfo.status === 'in_progress' ? formattedGameRemaining : formattedPreRaceCountdown) }}
+                </span>
+              </div>
+              <span class="racers-count" [class.has-players]="activeRacersCount > 0">
+                <span class="pulse-dot" *ngIf="activeRacersCount > 0"></span>
+                👥 {{ activeRacersCount }} {{ i18n.t('ACTIVE_RACERS') }}
               </span>
             </div>
-            <span class="racers-count" [class.has-players]="activeRacersCount > 0">
-              <span class="pulse-dot" *ngIf="activeRacersCount > 0"></span>
-              👥 {{ activeRacersCount }} {{ i18n.t('ACTIVE_RACERS') }}
-            </span>
           </div>
-        </div>
 
-        <!-- Bouton Écran ON en gros placé immédiatement à droite de la prochaine course -->
-        <button
-          type="button"
-          class="btn-wakelock hero-wakelock"
-          [class.active]="wakeLockActive"
-          (click)="toggleWakeLock()"
-          title="Garder l'écran allumé pendant l'effort sur le rameur">
-          <span class="wakelock-icon">{{ wakeLockActive ? '💡' : '🌙' }}</span>
-          <span class="wakelock-label">{{ wakeLockActive ? i18n.t('WAKELOCK_ON') : i18n.t('WAKELOCK_OFF') }}</span>
-        </button>
+          <!-- Bouton Plein écran très accessible juste à droite du compteur de course -->
+          <button
+            type="button"
+            class="btn-fullscreen hero-fullscreen"
+            [class.active]="isFullscreen"
+            (click)="toggleFullscreen()"
+            [title]="isFullscreen ? i18n.t('FULLSCREEN_EXIT') : i18n.t('FULLSCREEN_ENTER')"
+            [attr.aria-label]="isFullscreen ? i18n.t('FULLSCREEN_EXIT') : i18n.t('FULLSCREEN_ENTER')"
+            [attr.aria-pressed]="isFullscreen">
+            <span class="fullscreen-icon" aria-hidden="true">{{ isFullscreen ? '✕' : '⛶' }}</span>
+            <span class="fullscreen-label">{{ isFullscreen ? i18n.t('FULLSCREEN_EXIT_LABEL') : i18n.t('FULLSCREEN_ENTER_LABEL') }}</span>
+          </button>
+        </div>
       </div>
 
       <!-- Liste déroulante des langues discrète -->
@@ -207,6 +233,16 @@
           title="Offres et abonnements Club & Élite Pro">
           <span class="btn-icon">⭐</span>
           {{ isSubscriber ? 'Mon Abonnement' : 'Abonnements' }}
+        </button>
+
+        <!-- Bouton Espace Statistiques & Analyses (Illimité abonnés / 10j gratuit) -->
+        <button
+          type="button"
+          class="btn-hud btn-stats"
+          (click)="openStatisticsModal()"
+          title="Consulter vos statistiques et analyses de courses détaillées (Illimité pour les abonnés, 10 jours en compte gratuit)">
+          <span class="btn-icon">📊</span>
+          Statistiques
         </button>
 
         <!-- Bouton Arrêter la course (visible pour l'admin ou l'organisateur pendant une course active) -->
@@ -328,19 +364,19 @@
 
             <!-- Garmin watch sync shortcut -->
             <div class="garmin-watch-section">
-              <div class="garmin-section-title">⌚ Synchronisation Montre Garmin</div>
+              <div class="garmin-section-title">⌚ Synchronisation & Appairage Montre Garmin</div>
               <p class="garmin-section-desc">
-                Vous pouvez également envoyer une demande d'autorisation à votre montre Connect IQ :
+                Saisissez votre Identifiant de joueur affiché sur votre montre Garmin (menu « Mon identifiant de joueur ») pour appairer la montre à la plateforme :
               </p>
               <div class="garmin-sync-row">
                 <input
                   type="text"
                   name="watchIdInput"
                   [(ngModel)]="userIdInput"
-                  placeholder="Code montre (ex: aB3_9Z)"
+                  placeholder="ex: RowABC1234_k9Yz1"
                   class="form-control form-control-sm" />
                 <button type="button" class="btn-watch-sync" [disabled]="isWaitingWatchApproval" (click)="startWebLogin()">
-                  {{ isWaitingWatchApproval ? 'En attente montre...' : 'Vérifier montre' }}
+                  {{ isWaitingWatchApproval ? 'En attente montre...' : 'Appairer la montre' }}
                 </button>
               </div>
               @if (loginStatusMessage) {
@@ -434,8 +470,8 @@
             </div>
 
             <div class="form-group">
-              <label for="reg-watch-id">Code montre Garmin (optionnel)</label>
-              <input id="reg-watch-id" name="watchUserId" type="text" [(ngModel)]="regWatchUserId" placeholder="ex: aB3_9Z ou laisser vide" />
+              <label for="reg-watch-id">Identifiant de joueur Garmin (optionnel - 10 car. libres + suffixe)</label>
+              <input id="reg-watch-id" name="watchUserId" type="text" [(ngModel)]="regWatchUserId" placeholder="ex: RowABC1234_k9Yz1 ou laisser vide" />
             </div>
 
             <div class="modal-buttons">
@@ -532,6 +568,35 @@
                 <div class="prefix-feedback err" *ngIf="prefixUpdateError">{{ prefixUpdateError }}</div>
               </div>
             </div>
+
+              <!-- Actions d'abonnement & Suppression de compte RGPD -->
+              <div class="profile-account-management-box">
+                <h5>⚙️ Gestion de l'abonnement & Données personnelles</h5>
+                <div class="profile-account-actions-row">
+                  <button type="button" class="btn-stat-link" (click)="openStatisticsModal()">
+                    📊 Accéder à mon Espace Statistiques
+                  </button>
+                  <button
+                    *ngIf="isSubscriber && !isUserAdmin"
+                    type="button"
+                    class="btn-unsubscribe"
+                    [disabled]="isUnsubscribing"
+                    (click)="unsubscribeUser()">
+                    {{ isUnsubscribing ? 'Résiliation en cours...' : 'Résilier mon abonnement' }}
+                  </button>
+                  <button
+                    *ngIf="!isUserAdmin"
+                    type="button"
+                    class="btn-delete-account"
+                    [disabled]="isDeletingAccount"
+                    (click)="deleteUserAccount()">
+                    {{ isDeletingAccount ? 'Suppression en cours...' : '🗑️ Supprimer mon compte (RGPD)' }}
+                  </button>
+                </div>
+                <div class="account-action-feedback ok" *ngIf="unsubscribeMessage">{{ unsubscribeMessage }}</div>
+                <div class="account-action-feedback err" *ngIf="unsubscribeError">{{ unsubscribeError }}</div>
+                <div class="account-action-feedback err" *ngIf="deleteAccountError">{{ deleteAccountError }}</div>
+              </div>
 
             <div class="modal-buttons">
               <button type="button" class="btn-cyan" (click)="openSubscriptionModal()">
@@ -989,28 +1054,57 @@
         <div class="legal-content">
           <h4>1. Objet du Service & Mentions Légales</h4>
           <p>
-            L'application <strong>Rower Race</strong> est une plateforme sportive multijoueur connectée pour rameurs compatibles Bluetooth FTMS et montres Garmin Connect IQ. Elle propose des courses en ligne en temps réel avec classements sportifs et confrontation optionnelle contre des adversaires virtuels (bots).
+            L'application <strong>Rower Race</strong> est une plateforme sportive et esportive connectée dédiée à l'aviron en salle (indoor rowing). Elle connecte en direct les ergomètres équipés de capteurs Bluetooth FTMS, Concept2 PM5 et WaterRower SmartRow aux montres Garmin Connect IQ, offrant des courses multijoueurs en temps réel, des classements de saison, des salons privés et des duels contre des bots virtuels.
+          </p>
+          <p>
+            <strong>Contact officiel & Support :</strong> Pour toute question relative à l'utilisation du service, aux abonnements ou à vos données personnelles, vous pouvez contacter l'équipe à l'adresse officielle : <a href="mailto:contact@rowerrace.com" class="legal-link">contact@rowerrace.com</a>.
           </p>
 
-          <h4>2. Conformité au RGPD (Règlement Général sur la Protection des Données)</h4>
+          <h4>2. Comptes Utilisateurs & Abonnements (Lemon Squeezy)</h4>
           <p>
-            Dans le respect strict du principe de minimisation des données (Art. 5 du RGPD) :
+            Rower Race propose plusieurs niveaux d'accès adaptés à la pratique sportive :
           </p>
           <ul>
-            <li><strong>Aucune donnée personnelle sensible :</strong> Ni adresse email, ni nom de famille, ni coordonnées GPS, ni adresse IP persistante, ni mot de passe ne sont collectés ou enregistrés.</li>
-            <li><strong>Identifiant pseudonymisé :</strong> L'utilisateur est identifié uniquement par un identifiant technique aléatoire à 6 caractères généré par la montre Garmin (ex: <code>aB3_9Z</code>) et un pseudonyme de joueur choisi librement.</li>
-            <li><strong>Conservation des données :</strong> Seuls les historiques sportifs et de classement (distance parcourue, temps, cadence, points, rang d'arrivée) sont conservés dans le but d'établir le classement général et la progression de la saison sportive.</li>
-            <li><strong>Droit d'effacement et de rectification :</strong> Tout utilisateur peut réinitialiser son identifiant technique directement depuis sa montre Garmin ou demander la purge de ses statistiques sportives.</li>
+            <li><strong>Compte Invité / Gratuit :</strong> Accès aux courses publiques, au mode duel 1v1 contre un bot, et création de salons privés jusqu'à 2 coureurs et 2 000 m. L'historique et les statistiques d'analyses de courses sont conservés pendant <strong>10 jours</strong>.</li>
+            <li><strong>Abonnement Club (5,99 € / mois) :</strong> Salons privés jusqu'à 5 coureurs et 5 000 m, jusqu'à 3 bots configurables, <strong>historique et analyses statistiques illimités</strong>, et personnalisation de l'identifiant joueur unifié.</li>
+            <li><strong>Abonnement Élite Pro (8,99 € / mois) :</strong> Salons privés jusqu'à 10 coureurs et 10 000 m, jusqu'à 5 bots avec régulation de cadence/puissance, historique illimité, personnalisation d'identifiant et support prioritaire.</li>
           </ul>
-
-          <h4>3. Propriété Intellectuelle & Droits d'Auteur</h4>
           <p>
-            Tous les éléments visuels, logos, interfaces et codes sources de Rower Race sont protégés par le droit de la propriété intellectuelle. Toute reproduction ou distribution non autorisée est interdite.
+            Les transactions et renouvellements sont opérés de façon sécurisée par Lemon Squeezy. Vous pouvez <strong>résilier votre abonnement à tout moment</strong> d'un simple clic dans votre profil utilisateur ou en écrivant à <a href="mailto:contact@rowerrace.com" class="legal-link">contact@rowerrace.com</a>. La résiliation prend effet à la fin de la période en cours, et votre compte redevient un compte gratuit.
           </p>
 
-          <h4>4. Avertissement Médical et Responsabilité</h4>
+          <h4>3. Données Enregistrées & Télémétrie Sportive</h4>
           <p>
-            La pratique de l'aviron en intérieur est une activité physique intense. Il est recommandé de consulter un médecin avant toute participation à des épreuves de haute intensité. Rower Race décline toute responsabilité en cas de blessure physique ou de malaise survenu lors de l'utilisation du matériel.
+            Dans le cadre du déroulement des régates et de l'espace statistiques, Rower Race collecte et traite les données suivantes :
+          </p>
+          <ul>
+            <li><strong>Télémétrie de performance en direct :</strong> Puissance développée (Watts), allure instantanée et moyenne (/500m), cadence de rame (SPM), distance nette parcourue, temps écoulé, fréquence cardiaque (BPM), calories et énergie totale dépensée (kcal), nombre de coups d'aviron.</li>
+            <li><strong>Données matérielles :</strong> Modèle de rameur (Concept2 PM5, WaterRower SmartRow, rameur compatible Bluetooth FTMS) et modèle de montre Garmin Connect IQ.</li>
+            <li><strong>Données de profil sportif :</strong> Pseudonyme de coureur, pays de représentation, sexe et catégorie d'âge (année de naissance pour les classements U19, Senior, Master).</li>
+            <li><strong>Durée de conservation :</strong> 10 jours pour les utilisateurs gratuits ; illimitée dans le temps pour les abonnés actifs Club et Élite Pro.</li>
+          </ul>
+
+          <h4>4. Salons Privés & Règles Spécifiques du Mode Duel 1v1 Bot</h4>
+          <p>
+            Le mode Duel 1v1 contre un bot permet de lancer une course d'entraînement personnalisée. Afin de garantir l'intégrité de la session et conformément aux règles de la plateforme :
+          </p>
+          <ul>
+            <li>En mode duel 1v1 contre un bot, <strong>seul un utilisateur inscrit avec un compte peut ajouter ou retirer un bot</strong> virtuel de son salon.</li>
+            <li>Les utilisateurs non connectés ou invités peuvent affronter le bot généré automatiquement mais ne peuvent pas modifier la présence du bot sans créer ou se connecter à un compte.</li>
+          </ul>
+
+          <h4>5. Droit à l'Effacement, Désabonnement & RGPD (Art. 17)</h4>
+          <p>
+            Conformément au Règlement Général sur la Protection des Données (RGPD) :
+          </p>
+          <ul>
+            <li><strong>Suppression définitive du compte :</strong> Tout utilisateur peut à tout moment supprimer son compte et l'intégralité de ses données sportives et personnelles directement depuis l'onglet « Mon Compte » de l'application ou par simple demande par courriel à <a href="mailto:contact@rowerrace.com" class="legal-link">contact@rowerrace.com</a>.</li>
+            <li><strong>Droit d'accès et rectification :</strong> Vous pouvez consulter l'ensemble de vos données dans votre Espace Statistiques ou solliciter leur rectification auprès de notre support.</li>
+          </ul>
+
+          <h4>6. Avertissement Médical et Responsabilité</h4>
+          <p>
+            L'aviron sur ergomètre est un sport intense mobilisant 85% de la masse musculaire. Il est vivement conseillé de consulter un médecin avant toute participation à des épreuves de haute intensité. Rower Race décline toute responsabilité en cas de blessure ou malaise lors de l'effort.
           </p>
         </div>
         <div class="modal-buttons">
@@ -1031,6 +1125,7 @@
       [activeUserName]="currentUser.name"
       [isUserAdmin]="isUserAdmin"
       [isSubscriber]="isSubscriber"
+      [isRegisteredUser]="isRegisteredUser"
       [activeRacersCount]="activeRacersCount"
       [externalError]="privateUrlError"
       (modalClose)="onPrivateModalClosed()"
@@ -1135,7 +1230,7 @@
               <input
                 type="text"
                 class="cockpit-race-input"
-                placeholder="ID montre (ex: RowX_12)"
+                placeholder="ID joueur montre (ex: RowABC1234_k9Yz1)"
                 [(ngModel)]="watchIdLoginInput"
                 (keyup.enter)="identifyWithWatchId()" />
               <button
@@ -1161,20 +1256,16 @@
         </div>
 
         <div class="ergo-quick-tools">
-          <button
-            type="button"
-            class="btn-ergo-tool"
-            [class.active]="wakeLockActive"
-            (click)="toggleWakeLock()">
-            {{ wakeLockActive ? i18n.t('WAKELOCK_ON') : i18n.t('WAKELOCK_OFF') }}
-          </button>
           @if (fullscreenSupported) {
             <button
               type="button"
               class="btn-ergo-tool"
               [class.active]="isFullscreen"
-              (click)="toggleFullscreen()">
-              {{ isFullscreen ? '✕ Quitter plein écran' : '⛶ Plein écran' }}
+              (click)="toggleFullscreen()"
+              [title]="isFullscreen ? i18n.t('FULLSCREEN_EXIT') : i18n.t('FULLSCREEN_ENTER')"
+              [attr.aria-label]="isFullscreen ? i18n.t('FULLSCREEN_EXIT') : i18n.t('FULLSCREEN_ENTER')"
+              [attr.aria-pressed]="isFullscreen">
+              <span aria-hidden="true">{{ isFullscreen ? '✕ ' : '⛶ ' }}</span>{{ isFullscreen ? i18n.t('FULLSCREEN_EXIT_LABEL') : i18n.t('FULLSCREEN_ENTER_LABEL') }}
             </button>
           }
           @if (canStopRace) {
@@ -1562,6 +1653,28 @@
               <span class="panel-badge">{{ liveMetricsList.length }} Rameurs engagés</span>
             </div>
           </div>
+
+          <!-- BANNIÈRE OFFICIELLE : COURSE EN COURS AVEC TOP 3 ET DURÉE RESTANTE DANS LE HAUT DU TABLEAU DES RAMEURS ENGAGÉS -->
+          <div class="lobby-live-race-banner" *ngIf="isRaceActive || nextRaceInfo?.status === 'in_progress'">
+            <div class="live-banner-headline">
+              <span class="live-pulse-badge">🔴 Course en cours</span>
+              <span class="live-remaining-timer">⏱️ Temps restant : <strong>{{ formattedGameRemaining }}</strong></span>
+            </div>
+            <div class="live-top3-strip">
+              <span class="live-top3-label">🏆 Top 3 en tête :</span>
+              <div class="live-top3-pills" *ngIf="topThreeLiveRacers.length > 0; else noTop3Yet">
+                <span class="top3-pill" *ngFor="let racer of topThreeLiveRacers; let idx = index" [class.gold]="idx === 0" [class.silver]="idx === 1" [class.bronze]="idx === 2">
+                  <span class="top3-medal">{{ idx === 0 ? '🥇 1er' : (idx === 1 ? '🥈 2e' : '🥉 3e') }}</span>
+                  <strong class="top3-name">{{ racer.name }}</strong>
+                  <span class="top3-dist">({{ racer.dist }} m)</span>
+                </span>
+              </div>
+              <ng-template #noTop3Yet>
+                <span class="top3-waiting">Course lancée, acquisition de la télémétrie...</span>
+              </ng-template>
+            </div>
+          </div>
+
           <p class="panel-subdesc">
             Visualisez en direct chaque rameur et bot sur sa ligne d'eau (L1, L2, L3...) prêt pour le départ de la régate.
           </p>
@@ -1577,6 +1690,230 @@
       </section>
     }
 
+    <!-- ESPACE DE CONTENU SEO MULTILINGUE & RÉFÉRENCEMENT INTERNATIONAL -->
+    <section class="seo-hub-section" id="seo-guides" aria-label="Guide Aviron Indoor, Télémétrie et Régates Connectées">
+      <div class="seo-container">
+        <header class="seo-header">
+          <div class="seo-title-group">
+            <span class="seo-tag">🌐 ESPORT ROWING & GUIDE CONNECTÉ</span>
+            <h2 class="seo-title">Rower Race — Plateforme Aviron Indoor & Régates Multijoueur</h2>
+            <p class="seo-lead">
+              Transformez chaque séance sur rameur Concept2, WaterRower SmartRow ou ergomètre FTMS en une véritable compétition d'aviron connectée synchronisée avec votre montre Garmin.
+            </p>
+          </div>
+          <!-- Sélecteur de langue SEO -->
+          <div class="seo-lang-tabs" role="tablist" aria-label="Langues de documentation SEO">
+            <button
+              type="button"
+              role="tab"
+              class="seo-lang-tab"
+              [class.active]="activeSeoLang === 'fr'"
+              (click)="setSeoLang('fr')">
+              🇫🇷 Français
+            </button>
+            <button
+              type="button"
+              role="tab"
+              class="seo-lang-tab"
+              [class.active]="activeSeoLang === 'en'"
+              (click)="setSeoLang('en')">
+              🇬🇧 English
+            </button>
+            <button
+              type="button"
+              role="tab"
+              class="seo-lang-tab"
+              [class.active]="activeSeoLang === 'de'"
+              (click)="setSeoLang('de')">
+              🇩🇪 Deutsch
+            </button>
+            <button
+              type="button"
+              role="tab"
+              class="seo-lang-tab"
+              [class.active]="activeSeoLang === 'es'"
+              (click)="setSeoLang('es')">
+              🇪🇸 Español
+            </button>
+            <button
+              type="button"
+              role="tab"
+              class="seo-lang-tab"
+              [class.active]="activeSeoLang === 'it'"
+              (click)="setSeoLang('it')">
+              🇮🇹 Italiano
+            </button>
+          </div>
+        </header>
+
+        <!-- CONTENU FR -->
+        <article class="seo-article" *ngIf="activeSeoLang === 'fr'" lang="fr">
+          <h3>Comment connecter votre rameur Concept2, WaterRower SmartRow et votre montre Garmin ?</h3>
+          <p>
+            Rower Race est la première application sportive permettant une synchronisation totale entre les capteurs de poulie <strong>WaterRower SmartRow</strong>, les moniteurs <strong>Concept2 PM5</strong>, les rameurs Bluetooth standardisés <strong>FTMS</strong> (Fitness Machine Service) et l'application <strong>Garmin Connect IQ</strong>.
+          </p>
+          <div class="seo-features-grid">
+            <div class="seo-card">
+              <h4>🚣 Régates Virtuelles 2D en Temps Réel</h4>
+              <p>Participez à des courses sur 500m, 1 000m, 2 000m jusqu'à 10 000m. Visualisez chaque coureur sur sa ligne d'eau grâce à notre moteur physique Dead Reckoning fluide à 60 FPS.</p>
+            </div>
+            <div class="seo-card">
+              <h4>🤖 Mode Duel 1v1 contre un Bot</h4>
+              <p>Entraînez-vous à tout moment en défiant un bot virtuel de niveau aléatoire ou calibré. Les utilisateurs inscrits avec un compte peuvent ajouter ou retirer le bot à leur guise pour adapter leur séance.</p>
+            </div>
+            <div class="seo-card">
+              <h4>📊 Espace Statistiques & Analyses Détaillées</h4>
+              <p>Retrouvez vos courbes de puissance en Watts, votre allure moyenne aux 500m, votre cadence (SPM), votre fréquence cardiaque et vos calories. Accès sur 10 jours en compte gratuit, et <strong>analyses historiques illimitées</strong> pour les abonnés Club et Élite Pro.</p>
+            </div>
+            <div class="seo-card">
+              <h4>⌚ Compatibilité Garmin Connect IQ & WaterRower</h4>
+              <p>Reconnexion automatique et appairage instantané aux poulies WaterRower SmartRow (SR, WR, ComModule) et rameurs FTMS via BLE sécurisé avec identification instantanée.</p>
+            </div>
+          </div>
+
+          <div class="seo-faq-section">
+            <h4>Foire Aux Questions (FAQ)</h4>
+            <details class="seo-faq-item">
+              <summary>Quels rameurs sont compatibles avec Rower Race ?</summary>
+              <p>Tous les rameurs équipés du protocole Bluetooth FTMS, les moniteurs Concept2 PM5, ainsi que les rameurs à eau WaterRower équipés du boîtier ou de la poulie SmartRow.</p>
+            </details>
+            <details class="seo-faq-item">
+              <summary>Combien coûte l'abonnement et comment résilier ?</summary>
+              <p>L'accès de base est gratuit avec 10 jours d'historique. Les formules Club (5,99 €/mois) et Élite Pro (8,99 €/mois) offrent des salons jusqu'à 10 joueurs et un historique illimité. La résiliation s'effectue en 1 clic dans votre profil ou en écrivant à contact@rowerrace.com.</p>
+            </details>
+            <details class="seo-faq-item">
+              <summary>Comment supprimer définitivement mes données ?</summary>
+              <p>Conformément au RGPD (Art. 17), un bouton de suppression définitive de compte est disponible dans votre profil. Vous pouvez aussi envoyer votre demande à contact@rowerrace.com.</p>
+            </details>
+          </div>
+          <div class="seo-contact-box">
+            <span>Une question technique, un partenariat club ou une demande RGPD ? Écrivez-nous à :</span>
+            <a href="mailto:contact@rowerrace.com" class="seo-email-link">contact@rowerrace.com</a>
+          </div>
+        </article>
+
+        <!-- CONTENU EN -->
+        <article class="seo-article" *ngIf="activeSeoLang === 'en'" lang="en">
+          <h3>Connected Indoor Rowing & Live Multiplayer Regatta Platform</h3>
+          <p>
+            Rower Race connects your <strong>Concept2 PM5</strong>, <strong>WaterRower SmartRow pulley</strong>, and <strong>FTMS Bluetooth ergometers</strong> directly to your <strong>Garmin Connect IQ</strong> smartwatch for competitive real-time 2D racing.
+          </p>
+          <div class="seo-features-grid">
+            <div class="seo-card">
+              <h4>🚣 Real-Time Live Regatta</h4>
+              <p>Race with athletes worldwide from 500m up to 10,000m with dead-reckoning 60 FPS physics and split second ranking.</p>
+            </div>
+            <div class="seo-card">
+              <h4>🤖 1v1 Bot Duel Mode</h4>
+              <p>Race solo against AI opponents with adaptive pacing. Registered account users can freely toggle bots to customize their workouts.</p>
+            </div>
+            <div class="seo-card">
+              <h4>📊 Workout Analytics & Race History</h4>
+              <p>Analyze power in Watts, 500m split pace, stroke rate (SPM), heart rate, and calories. Free accounts enjoy 10 days of history, while Club & Elite Pro subscribers get unlimited race archives.</p>
+            </div>
+            <div class="seo-card">
+              <h4>⌚ Garmin Smartwatch & SmartRow Pulley Sync</h4>
+              <p>Seamless BLE pairing for Garmin Fenix, Forerunner, Venu, Epix with WaterRower SmartRow pulleys and PM5 consoles.</p>
+            </div>
+          </div>
+          <div class="seo-contact-box">
+            <span>Support & partnership inquiries:</span>
+            <a href="mailto:contact@rowerrace.com" class="seo-email-link">contact@rowerrace.com</a>
+          </div>
+        </article>
+
+        <!-- CONTENU DE -->
+        <article class="seo-article" *ngIf="activeSeoLang === 'de'" lang="de">
+          <h3>Vernetze Indoor-Rudern & Virtuelle Live-Regatta Plattform</h3>
+          <p>
+            Rower Race verbindet <strong>Concept2 PM5</strong>, <strong>WaterRower SmartRow</strong> und <strong>Bluetooth FTMS Rudergeräte</strong> mit Ihrer <strong>Garmin Connect IQ</strong> Smartwatch für packende Echtzeit-Wettkämpfe auf dem Wasser.
+          </p>
+          <div class="seo-features-grid">
+            <div class="seo-card">
+              <h4>🚣 2D Echtzeit-Regatta</h4>
+              <p>Treten Sie auf 500m bis 10.000m gegen andere Ruderer an. Präzise Auswertung von Leistung in Watt, 500m-Schnitt und Schlagfrequenz.</p>
+            </div>
+            <div class="seo-card">
+              <h4>🤖 1v1 Bot-Duell</h4>
+              <p>Spontane Rennen gegen virtuelle Bots. Registrierte Benutzer mit Benutzerkonto können Bots jederzeit hinzufügen oder entfernen.</p>
+            </div>
+            <div class="seo-card">
+              <h4>📊 Statistiken & Trainingsanalysen</h4>
+              <p>Kostenlose Konten erhalten Zugriff auf 10 Tage Rennstatistiken. Abonnenten profitieren von einem unbegrenzten Rennarchiv.</p>
+            </div>
+            <div class="seo-card">
+              <h4>⌚ Garmin & SmartRow Optimierung</h4>
+              <p>Schnelle und stabile Bluetooth-Verbindung für WaterRower-Riemenscheiben und Garmin-Uhren.</p>
+            </div>
+          </div>
+          <div class="seo-contact-box">
+            <span>Offizieller Kontakt & Support:</span>
+            <a href="mailto:contact@rowerrace.com" class="seo-email-link">contact@rowerrace.com</a>
+          </div>
+        </article>
+
+        <!-- CONTENU ES -->
+        <article class="seo-article" *ngIf="activeSeoLang === 'es'" lang="es">
+          <h3>Plataforma de Remo Indoor y Regatas Virtuales en Directo</h3>
+          <p>
+            Rower Race sincroniza su remo <strong>Concept2 PM5</strong>, la polea <strong>WaterRower SmartRow</strong> y remos compatibles <strong>FTMS Bluetooth</strong> con su reloj inteligente <strong>Garmin Connect IQ</strong>.
+          </p>
+          <div class="seo-features-grid">
+            <div class="seo-card">
+              <h4>🚣 Regatas Multijugador en Tiempo Real</h4>
+              <p>Compite en distancias desde 500m hasta 10.000m con telemetría en directo de vatios, ritmo cada 500m y paladas por minuto.</p>
+            </div>
+            <div class="seo-card">
+              <h4>🤖 Duelo 1v1 contra Bot</h4>
+              <p>Entrenamiento individual contra oponentes virtuales. Los usuarios registrados con una cuenta pueden añadir o quitar bots a voluntad.</p>
+            </div>
+            <div class="seo-card">
+              <h4>📊 Espacio de Estadísticas y Rendimiento</h4>
+              <p>Análisis de carreras de los últimos 10 días para cuentas gratuitas, e historial ilimitado para suscriptores Club y Elite Pro.</p>
+            </div>
+            <div class="seo-card">
+              <h4>⌚ Conexión Garmin y Polea WaterRower</h4>
+              <p>Conexión inalámbrica fiable con la polea SmartRow y las pantallas Concept2 PM5.</p>
+            </div>
+          </div>
+          <div class="seo-contact-box">
+            <span>Contacto oficial y soporte:</span>
+            <a href="mailto:contact@rowerrace.com" class="seo-email-link">contact@rowerrace.com</a>
+          </div>
+        </article>
+
+        <!-- CONTENU IT -->
+        <article class="seo-article" *ngIf="activeSeoLang === 'it'" lang="it">
+          <h3>Piattaforma di Canottaggio Indoor e Regate Connesse in Tempo Reale</h3>
+          <p>
+            Rower Race connette il tuo vogatore <strong>Concept2 PM5</strong>, la puleggia <strong>WaterRower SmartRow</strong> e i vogatori <strong>Bluetooth FTMS</strong> al tuo smartwatch <strong>Garmin Connect IQ</strong>.
+          </p>
+          <div class="seo-features-grid">
+            <div class="seo-card">
+              <h4>🚣 Regate 2D in Tempo Reale</h4>
+              <p>Gareggia da 500m a 10.000m con tracciamento istantaneo di potenza (Watt), passo sui 500m e colpi al minuto.</p>
+            </div>
+            <div class="seo-card">
+              <h4>🤖 Duello 1v1 contro Bot</h4>
+              <p>Sfide individuali contro avversari virtuali. Solo gli utenti registrati con un account possono aggiungere o rimuovere bot.</p>
+            </div>
+            <div class="seo-card">
+              <h4>📊 Spazio Statistiche e Analisi Gare</h4>
+              <p>10 giorni di statistiche per account gratuiti, storico e analisi complete senza limiti per gli abbonati Club ed Elite Pro.</p>
+            </div>
+            <div class="seo-card">
+              <h4>⌚ Sincronizzazione Garmin & SmartRow</h4>
+              <p>Connessione Bluetooth a bassa energia rapida per pulegge SmartRow WaterRower e orologi Garmin.</p>
+            </div>
+          </div>
+          <div class="seo-contact-box">
+            <span>Contatto ufficiale e assistenza:</span>
+            <a href="mailto:contact@rowerrace.com" class="seo-email-link">contact@rowerrace.com</a>
+          </div>
+        </article>
+      </div>
+    </section>
+
     <!-- FOOTER PERMANENT : Conditions d'utilisation, CGU, RGPD et Mentions légales -->
     <footer class="app-footer">
       <div class="footer-links">
@@ -1588,6 +1925,10 @@
           ⭐ Abonnements & Tarifs
         </button>
         <span class="footer-sep">•</span>
+        <button type="button" class="footer-link-btn" (click)="openStatisticsModal()">
+          📊 Espace Statistiques
+        </button>
+        <span class="footer-sep">•</span>
         <button type="button" class="footer-link-btn" (click)="isLegalTermsOpen = true">
           ⚖️ {{ i18n.t('MODAL_LEGAL_TITLE') }}
         </button>
@@ -1595,9 +1936,13 @@
         <button type="button" class="footer-link-btn" (click)="isLegalTermsOpen = true">
           📜 Conditions Générales d'Utilisation (CGU) & RGPD
         </button>
+        <span class="footer-sep">•</span>
+        <a href="mailto:contact@rowerrace.com" class="footer-link-btn footer-email">
+          ✉️ contact@rowerrace.com
+        </a>
       </div>
       <div class="footer-copyright">
-        {{ i18n.t('FOOTER_RGPD') }} — Données sportives pseudonymisées conformes au RGPD.
+        {{ i18n.t('FOOTER_RGPD') }} — Données sportives et télémétrie traitées selon le RGPD (Art. 17 droit à l'oubli). Contact officiel : contact@rowerrace.com.
       </div>
     </footer>
   </main>
@@ -1682,7 +2027,7 @@
             <input
               type="text"
               class="watch-id-input"
-              placeholder="ID montre (ex: RowX_12)"
+              placeholder="ID joueur montre (ex: RowABC1234_k9Yz1)"
               [(ngModel)]="watchIdLoginInput"
               [disabled]="isWatchIdLoginPending"
               (keyup.enter)="identifyWithWatchId()"
@@ -1841,9 +2186,9 @@
           <button
             type="button"
             class="btn-pricing btn-club"
-            (click)="subscribeToTier('intermediate')"
-            [disabled]="subscriptionLoading">
-            {{ subscriptionLoading ? 'Redirection Lemon Squeezy...' : "S'abonner (5,99 €/mois)" }}
+            [disabled]="true"
+            title="Abonnement payant non activable pour le moment">
+            Bientôt disponible (5,99 €/mois)
           </button>
         </div>
 
@@ -1865,9 +2210,9 @@
           <button
             type="button"
             class="btn-pricing btn-pro"
-            (click)="subscribeToTier('premium')"
-            [disabled]="subscriptionLoading">
-            {{ subscriptionLoading ? 'Redirection Lemon Squeezy...' : "S'abonner (8,99 €/mois)" }}
+            [disabled]="true"
+            title="Abonnement payant non activable pour le moment">
+            Bientôt disponible (8,99 €/mois)
           </button>
         </div>
       </div>
@@ -1875,6 +2220,156 @@
       <div class="pricing-messages" *ngIf="subscriptionSuccessMessage || subscriptionError">
         <div class="pricing-feedback ok" *ngIf="subscriptionSuccessMessage">{{ subscriptionSuccessMessage }}</div>
         <div class="pricing-feedback err" *ngIf="subscriptionError">{{ subscriptionError }}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODALE ESPACE STATISTIQUES & ANALYSES DE COURSES (Abonnés = Illimité, Gratuit = 10j) -->
+  <div class="modal-overlay" *ngIf="isStatisticsModalOpen" (click)="closeStatisticsModal()">
+    <div class="modal-card modal-large modal-statistics" (click)="$event.stopPropagation()">
+      <div class="modal-header-row">
+        <div class="modal-title-with-badge">
+          <h3>📊 Espace Statistiques & Analyses de Course</h3>
+          @if (userStatisticsData?.isSubscriber) {
+            <span class="badge-role-tag is-sub">
+              ⭐ Abonné ({{ userStatisticsData?.subscriptionTier === 'premium' ? 'Élite Pro' : 'Club' }}) · Historique Illimité
+            </span>
+          } @else {
+            <span class="badge-role-tag is-guest">
+              ⏳ Compte Gratuit · Limité à 10 Jours
+            </span>
+          }
+        </div>
+        <button type="button" class="btn-close" (click)="closeStatisticsModal()" [attr.aria-label]="i18n.t('BTN_CLOSE')">✕</button>
+      </div>
+
+      <!-- Alerte de limitation 10 jours pour les comptes gratuits -->
+      @if (userStatisticsData && !userStatisticsData.isSubscriber && userStatisticsData.olderRacesLocked > 0) {
+        <div class="stats-upgrade-banner">
+          <div class="stats-upgrade-text">
+            <strong>🔒 {{ userStatisticsData.olderRacesLocked }} course(s) plus ancienne(s) archivée(s) :</strong>
+            <span>L'offre gratuite donne accès aux 10 derniers jours de télémétrie. Passez à l'abonnement Club ou Élite Pro pour débloquer l'intégralité de vos archives sportives.</span>
+          </div>
+          <button type="button" class="btn-upgrade-stats" (click)="openSubscriptionModal()">
+            ⭐ Débloquer l'historique complet
+          </button>
+        </div>
+      }
+
+      @if (isLoadingStatistics) {
+        <div class="stats-loading-state">
+          <div class="spinner-auth"></div>
+          <span>Chargement et analyse de vos données de courses...</span>
+        </div>
+      } @else if (statisticsError) {
+        <div class="modal-error-box">
+          ⚠️ {{ statisticsError }}
+          <div class="stats-error-action" *ngIf="!isRegisteredUser">
+            <button type="button" class="btn-primary" (click)="openAccountModal('login')">
+              Se connecter avec votre compte
+            </button>
+          </div>
+        </div>
+      } @else if (userStatisticsData) {
+        <!-- KPIs Résumés -->
+        <div class="stats-summary-grid">
+          <div class="stats-kpi-card highlight">
+            <span class="kpi-label">COURSES ANALYSÉES</span>
+            <span class="kpi-value">{{ userStatisticsData.summary?.totalRaces || 0 }}</span>
+            <span class="kpi-sub">
+              {{ userStatisticsData.isSubscriber ? 'Historique total' : 'Sur les 10 derniers jours' }}
+            </span>
+          </div>
+          <div class="stats-kpi-card">
+            <span class="kpi-label">DISTANCE TOTALE</span>
+            <span class="kpi-value">{{ ((userStatisticsData.summary?.totalDistanceMeters || 0) / 1000) | number:'1.1-2' }} <span class="unit">KM</span></span>
+            <span class="kpi-sub">{{ userStatisticsData.summary?.totalDistanceMeters || 0 }} mètres</span>
+          </div>
+          <div class="stats-kpi-card">
+            <span class="kpi-label">DURÉE CUMULÉE</span>
+            <span class="kpi-value">{{ formatTime(userStatisticsData.summary?.totalDurationSeconds) }}</span>
+            <span class="kpi-sub">Temps d'effort officiel</span>
+          </div>
+          <div class="stats-kpi-card">
+            <span class="kpi-label">PUISSANCE MOY.</span>
+            <span class="kpi-value">{{ userStatisticsData.summary?.avgPowerWatts || 0 }} <span class="unit">WATTS</span></span>
+            <span class="kpi-sub">Puissance développée</span>
+          </div>
+          <div class="stats-kpi-card">
+            <span class="kpi-label">MEILLEURE ALLURE</span>
+            <span class="kpi-value">{{ formatPace(userStatisticsData.summary?.bestPaceSec) }}</span>
+            <span class="kpi-sub">Record /500m</span>
+          </div>
+          <div class="stats-kpi-card">
+            <span class="kpi-label">VICTOIRES / PODIUMS</span>
+            <span class="kpi-value">🥇 {{ userStatisticsData.summary?.totalWins || 0 }} <span class="kpi-sub-podiums">({{ userStatisticsData.summary?.podiums || 0 }} top 3)</span></span>
+            <span class="kpi-sub">Régates officielles</span>
+          </div>
+        </div>
+
+        <!-- Tableau des courses précédentes détaillées -->
+        <div class="stats-activities-section">
+          <h4>Historique détaillé des courses enregistrées</h4>
+          <div class="stats-table-wrapper" tabindex="0">
+            <table class="stats-table">
+              <thead>
+                <tr>
+                  <th scope="col">DATE</th>
+                  <th scope="col">DISTANCE</th>
+                  <th scope="col">TEMPS</th>
+                  <th scope="col">ALLURE MOY.</th>
+                  <th scope="col">PUISSANCE</th>
+                  <th scope="col">CADENCE</th>
+                  <th scope="col">COUPS</th>
+                  <th scope="col">ÉNERGIE</th>
+                  <th scope="col">RANG</th>
+                  <th scope="col">MATÉRIEL</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (act of userStatisticsData.activities; track act.id) {
+                  <tr>
+                    <td class="col-date">{{ act.createdAt | date:'short' }}</td>
+                    <td class="col-dist"><strong>{{ act.netDistance }} m</strong> / {{ act.targetDistance }} m</td>
+                    <td class="col-time">{{ formatTime(act.elapsedTime) }}</td>
+                    <td class="col-pace">{{ formatPace(act.avgPace) }} /500m</td>
+                    <td class="col-power"><span class="power-badge">{{ act.avgPower }} W</span></td>
+                    <td class="col-spm">{{ act.avgStrokeRate }} SPM</td>
+                    <td class="col-strokes">{{ act.totalStrokes || '--' }}</td>
+                    <td class="col-kcal">{{ act.totalEnergy ? (act.totalEnergy + ' kcal') : '--' }}</td>
+                    <td class="col-rank">
+                      @if (act.finalRank === 1) { 🥇 1er }
+                      @else if (act.finalRank === 2) { 🥈 2e }
+                      @else if (act.finalRank === 3) { 🥉 3e }
+                      @else if (act.finalRank) { #{{ act.finalRank }} }
+                      @else { -- }
+                    </td>
+                    <td class="col-hardware">
+                      <span class="hw-tag" [title]="act.rowerModel || 'Rameur FTMS / Concept2 / SmartRow'">
+                        🚣 {{ act.rowerModel || 'Rameur' }}
+                      </span>
+                    </td>
+                  </tr>
+                } @empty {
+                  <tr>
+                    <td colspan="10" class="empty-state">
+                      Aucune course enregistrée dans cette période. Participez à votre première régate ou duel contre un bot !
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </div>
+      }
+
+      <div class="modal-buttons">
+        <button type="button" class="btn-cyan" (click)="openSubscriptionModal()">
+          ⭐ {{ userStatisticsData?.isSubscriber ? 'Gérer mon abonnement' : 'Débloquer l\'illimité (Abonnements)' }}
+        </button>
+        <button type="button" class="btn-secondary" (click)="closeStatisticsModal()">
+          Fermer
+        </button>
       </div>
     </div>
   </div>

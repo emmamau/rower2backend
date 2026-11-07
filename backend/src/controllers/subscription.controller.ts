@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import crypto from "crypto";
 import userStore from "../services/user-store.service";
 import { isEmmaAdminUser } from "../services/auth.service";
+import stripeService from "../services/stripe.service";
 
 export interface SubscriptionTierConfig {
   id: "free" | "intermediate" | "premium";
@@ -117,6 +118,8 @@ export const getUserSubscriptionStatus = async (req: Request, res: Response): Pr
       limits: tierConfig,
       lemonCustomerId: user?.lemonCustomerId || null,
       lemonSubscriptionId: user?.lemonSubscriptionId || null,
+      stripeCustomerId: user?.stripeCustomerId || null,
+      stripeSubscriptionId: user?.stripeSubscriptionId || null,
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
@@ -165,15 +168,39 @@ export const createCheckoutSession = async (req: Request, res: Response): Promis
       return;
     }
 
+    const successRedirectUrl =
+      returnUrl || `${req.protocol}://${req.get("host")}/?subscription=success&tier=${cleanTier}&session_id={CHECKOUT_SESSION_ID}`;
+
+    // Si Stripe est configuré (priorité officielle Stripe)
+    if (stripeService.isConfigured()) {
+      try {
+        const session = await stripeService.createCheckoutSession({
+          userId: user.id,
+          tier: cleanTier as "intermediate" | "premium",
+          customerEmail: user.email,
+          customerName: user.name || user.login,
+          successUrl: successRedirectUrl,
+          cancelUrl: `${req.protocol}://${req.get("host")}/?subscription=canceled`,
+        });
+
+        res.status(200).json({
+          success: true,
+          checkoutUrl: session.url,
+          sessionId: session.sessionId,
+          mode: "live",
+        });
+        return;
+      } catch (stripeErr) {
+        console.warn("Stripe Checkout Session fallback:", stripeErr);
+      }
+    }
+
     const apiKey = process.env.LEMON_SQUEEZY_API_KEY;
     const storeId = process.env.LEMON_SQUEEZY_STORE_ID;
     const variantId =
       cleanTier === "premium"
         ? process.env.LEMON_SQUEEZY_VARIANT_PREMIUM
         : process.env.LEMON_SQUEEZY_VARIANT_INTERMEDIATE;
-
-    const successRedirectUrl =
-      returnUrl || `${req.protocol}://${req.get("host")}/?subscription=success&tier=${cleanTier}`;
 
     // Si les clés d'API Lemon Squeezy sont configurées en production
     if (apiKey && storeId && variantId) {
@@ -338,6 +365,293 @@ export const handleLemonSqueezyWebhook = async (req: Request, res: Response): Pr
   }
 };
 
+/**
+ * POST /api/v1/subscriptions/stripe/checkout
+ * Crée une session Stripe Checkout officielle pour s'abonner
+ */
+export const createStripeCheckoutSession = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { userId, tier, returnUrl, successUrl, cancelUrl } = req.body || {};
+    const cleanUserId = String(userId || "").trim();
+    const cleanTier = String(tier || "intermediate").toLowerCase();
+
+    if (!cleanUserId) {
+      res.status(400).json({ success: false, message: "L'identifiant utilisateur est obligatoire." });
+      return;
+    }
+
+    if (!["intermediate", "premium", "free"].includes(cleanTier)) {
+      res.status(400).json({ success: false, message: "Offre invalide (free, intermediate ou premium)." });
+      return;
+    }
+
+    const user = await userStore.findUser(cleanUserId);
+    if (!user) {
+      res.status(404).json({ success: false, message: "Utilisateur non trouvé." });
+      return;
+    }
+
+    if (cleanTier === "free") {
+      await userStore.updateUser(user.id, {
+        subscriptionTier: "free",
+        subscriptionStatus: "active",
+        isSubscriber: false,
+      });
+      res.status(200).json({
+        success: true,
+        message: "Passage au plan gratuit effectué.",
+        tier: "free",
+      });
+      return;
+    }
+
+    const host = req.get("host") || "www.rowerrace.com";
+    const protocol = req.protocol || "https";
+    const defaultSuccessUrl =
+      successUrl ||
+      returnUrl ||
+      `${protocol}://${host}/?subscription=success&tier=${cleanTier}&session_id={CHECKOUT_SESSION_ID}`;
+    const defaultCancelUrl = cancelUrl || `${protocol}://${host}/?subscription=canceled`;
+
+    if (stripeService.isConfigured()) {
+      const session = await stripeService.createCheckoutSession({
+        userId: user.id,
+        tier: cleanTier as "intermediate" | "premium",
+        customerEmail: user.email,
+        customerName: user.name || user.login,
+        successUrl: defaultSuccessUrl,
+        cancelUrl: defaultCancelUrl,
+      });
+
+      res.status(200).json({
+        success: true,
+        checkoutUrl: session.url,
+        sessionId: session.sessionId,
+        mode: "live",
+      });
+      return;
+    }
+
+    // Mode simulation si clés Stripe non encore renseignées
+    const mockCheckoutUrl = `${protocol}://${host}/api/v1/subscriptions/simulate-checkout?userId=${encodeURIComponent(
+      user.id
+    )}&tier=${cleanTier}&redirect=${encodeURIComponent(defaultSuccessUrl.replace("{CHECKOUT_SESSION_ID}", "sim_stripe_123"))}`;
+
+    res.status(200).json({
+      success: true,
+      checkoutUrl: mockCheckoutUrl,
+      mode: "simulation",
+      message: "Session Stripe simulée (configurez STRIPE_SECRET_KEY pour le mode réel).",
+    });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ success: false, message: "Erreur checkout Stripe: " + message });
+  }
+};
+
+/**
+ * POST /api/v1/subscriptions/stripe/portal
+ * Ouvre le portail client Stripe pour la gestion en libre-service
+ */
+export const createStripePortalSession = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { userId, customerId, returnUrl } = req.body || {};
+    let resolvedCustomerId = customerId;
+
+    if (!resolvedCustomerId && userId) {
+      const user = await userStore.findUser(String(userId).trim());
+      resolvedCustomerId = user?.stripeCustomerId;
+    }
+
+    if (!resolvedCustomerId) {
+      res.status(400).json({
+        success: false,
+        message: "Identifiant client Stripe introuvable pour cet utilisateur.",
+      });
+      return;
+    }
+
+    const host = req.get("host") || "www.rowerrace.com";
+    const protocol = req.protocol || "https";
+    const redirectUrl = returnUrl || `${protocol}://${host}/`;
+
+    if (stripeService.isConfigured()) {
+      const portal = await stripeService.createPortalSession(resolvedCustomerId, redirectUrl);
+      res.status(200).json({
+        success: true,
+        url: portal.url,
+      });
+      return;
+    }
+
+    res.status(200).json({
+      success: true,
+      url: redirectUrl,
+      mode: "simulation",
+      message: "Portail client Stripe simulé (configurez STRIPE_SECRET_KEY pour le portail en direct).",
+    });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ success: false, message: "Erreur portail Stripe: " + message });
+  }
+};
+
+/**
+ * POST /api/v1/subscriptions/stripe/webhook
+ * Traitement sécurisé des webhooks Stripe avec vérification de signature
+ */
+export const handleStripeWebhook = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const sig = req.get("stripe-signature") || "";
+    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+    let event: any;
+    if (webhookSecret && sig) {
+      try {
+        const rawPayload = (req as any).rawBody || (typeof req.body === "string" ? req.body : JSON.stringify(req.body));
+        event = stripeService.constructWebhookEvent(rawPayload, sig, webhookSecret);
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.error("Erreur validation signature Stripe webhook:", msg);
+        res.status(400).json({ success: false, message: `Webhook signature error: ${msg}` });
+        return;
+      }
+    } else {
+      event = req.body;
+    }
+
+    const eventType = event?.type;
+    const dataObj = event?.data?.object || {};
+
+    switch (eventType) {
+      case "checkout.session.completed":
+      case "checkout.session.async_payment_succeeded": {
+        const session = dataObj;
+        const userId = session.client_reference_id || session.metadata?.userId;
+        const tier = session.metadata?.tier || "intermediate";
+        const customerId = typeof session.customer === "string" ? session.customer : session.customer?.id;
+        const subscriptionId =
+          typeof session.subscription === "string" ? session.subscription : session.subscription?.id;
+
+        if (userId) {
+          await userStore.updateUser(userId, {
+            subscriptionTier: tier,
+            subscriptionStatus: "active",
+            isSubscriber: true,
+            stripeCustomerId: customerId || undefined,
+            stripeSubscriptionId: subscriptionId || undefined,
+          });
+        }
+        break;
+      }
+
+      case "customer.subscription.created":
+      case "customer.subscription.updated": {
+        const sub = dataObj;
+        const userId = sub.metadata?.userId;
+        const tier = sub.metadata?.tier || "intermediate";
+        const customerId = typeof sub.customer === "string" ? sub.customer : sub.customer?.id;
+        const targetUser = userId
+          ? await userStore.findUser(userId)
+          : (customerId ? await userStore.findUserByStripeCustomerId(customerId) : null);
+
+        if (targetUser) {
+          if (sub.status === "active") {
+            await userStore.updateUser(targetUser.id, {
+              subscriptionTier: tier,
+              subscriptionStatus: "active",
+              isSubscriber: true,
+              stripeCustomerId: customerId || undefined,
+              stripeSubscriptionId: sub.id,
+            });
+          } else if (sub.status === "canceled") {
+            await userStore.updateUser(targetUser.id, {
+              subscriptionTier: "free",
+              subscriptionStatus: "canceled",
+              isSubscriber: false,
+            });
+          } else if (sub.status === "past_due" || sub.status === "unpaid") {
+            await userStore.updateUser(targetUser.id, {
+              subscriptionStatus: "past_due",
+            });
+          }
+        }
+        break;
+      }
+
+      case "customer.subscription.deleted": {
+        const sub = dataObj;
+        const customerId = typeof sub.customer === "string" ? sub.customer : sub.customer?.id;
+        const targetUser = sub.metadata?.userId
+          ? await userStore.findUser(sub.metadata.userId)
+          : (customerId ? await userStore.findUserByStripeCustomerId(customerId) : null);
+
+        if (targetUser) {
+          await userStore.updateUser(targetUser.id, {
+            subscriptionTier: "free",
+            subscriptionStatus: "canceled",
+            isSubscriber: false,
+          });
+        }
+        break;
+      }
+
+      case "invoice.paid": {
+        const invoice = dataObj;
+        const customerId = typeof invoice.customer === "string" ? invoice.customer : invoice.customer?.id;
+        const targetUser = customerId ? await userStore.findUserByStripeCustomerId(customerId) : null;
+        if (targetUser) {
+          await userStore.updateUser(targetUser.id, {
+            subscriptionStatus: "active",
+            isSubscriber: true,
+          });
+        }
+        break;
+      }
+
+      case "invoice.payment_failed": {
+        const invoice = dataObj;
+        const customerId = typeof invoice.customer === "string" ? invoice.customer : invoice.customer?.id;
+        const targetUser = customerId ? await userStore.findUserByStripeCustomerId(customerId) : null;
+        if (targetUser) {
+          await userStore.updateUser(targetUser.id, {
+            subscriptionStatus: "past_due",
+          });
+        }
+        break;
+      }
+
+      case "charge.dispute.created": {
+        const dispute = dataObj;
+        console.warn(`[Stripe Dispute] Litige reçu: ${dispute.id} montant: ${dispute.amount}`);
+        break;
+      }
+
+      case "charge.refunded": {
+        const charge = dataObj;
+        const customerId = typeof charge.customer === "string" ? charge.customer : charge.customer?.id;
+        const targetUser = customerId ? await userStore.findUserByStripeCustomerId(customerId) : null;
+        if (targetUser) {
+          await userStore.updateUser(targetUser.id, {
+            subscriptionTier: "free",
+            subscriptionStatus: "canceled",
+            isSubscriber: false,
+          });
+        }
+        break;
+      }
+
+      default:
+        break;
+    }
+
+    res.status(200).json({ received: true });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ success: false, message: "Erreur webhook Stripe: " + message });
+  }
+};
+
 export default {
   SUBSCRIPTION_TIERS,
   getSubscriptionTiers,
@@ -345,4 +659,7 @@ export default {
   createCheckoutSession,
   simulateCheckout,
   handleLemonSqueezyWebhook,
+  createStripeCheckoutSession,
+  createStripePortalSession,
+  handleStripeWebhook,
 };

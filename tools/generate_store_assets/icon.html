@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Garmin Store Icon 500x500</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    html, body {
+      width: 500px;
+      height: 500px;
+      overflow: hidden;
+      background: transparent;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Impact', 'Segoe UI Black', -apple-system, sans-serif;
+    }
+    .icon-container {
+      width: 500px;
+      height: 500px;
+      position: relative;
+      border-radius: 105px;
+      background: radial-gradient(circle at 50% 30%, #0d1e3d 0%, #081226 55%, #03060d 100%);
+      box-shadow: inset 0 0 45px rgba(0, 240, 255, 0.3), inset 0 0 100px rgba(0, 0, 0, 0.85);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      border: 3.5px solid rgba(0, 240, 255, 0.45);
+    }
+    /* Subtle cyber regatta grid */
+    .grid-bg {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-image: 
+        linear-gradient(rgba(0, 240, 255, 0.07) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 240, 255, 0.07) 1px, transparent 1px);
+      background-size: 25px 25px;
+      pointer-events: none;
+    }
+    .water-vignette {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      background: radial-gradient(ellipse at 50% 80%, rgba(0, 240, 255, 0.15) 0%, transparent 60%);
+      pointer-events: none;
+    }
+    .glow-cyan {
+      position: absolute;
+      top: -40px;
+      left: -40px;
+      width: 260px;
+      height: 260px;
+      background: radial-gradient(circle, rgba(0, 240, 255, 0.28) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .glow-magenta {
+      position: absolute;
+      bottom: -40px;
+      right: -40px;
+      width: 260px;
+      height: 260px;
+      background: radial-gradient(circle, rgba(255, 0, 85, 0.28) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .emblem-wrapper {
+      position: relative;
+      z-index: 2;
+      margin-top: -18px;
+      filter: drop-shadow(0 12px 28px rgba(0, 240, 255, 0.45));
+    }
+    .branding {
+      position: absolute;
+      bottom: 28px;
+      z-index: 3;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 5px;
+    }
+    .app-title {
+      font-size: 40px;
+      font-weight: 900;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      background: linear-gradient(180deg, #ffffff 20%, #d5f7ff 60%, #00f0ff 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      filter: drop-shadow(0 3px 10px rgba(0, 0, 0, 0.95)) drop-shadow(0 0 15px rgba(0, 240, 255, 0.4));
+      line-height: 1;
+    }
+    .badge-esport {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 16px;
+      border-radius: 20px;
+      background: linear-gradient(90deg, #ff0055 0%, #ff5500 50%, #ffe600 100%);
+      color: #ffffff;
+      font-size: 13.5px;
+      font-weight: 900;
+      letter-spacing: 2.5px;
+      text-transform: uppercase;
+      box-shadow: 0 0 15px rgba(255, 0, 85, 0.7), inset 0 1px 1px rgba(255, 255, 255, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.6);
+      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+    }
+  </style>
+</head>
+<body>
+  <div class="icon-container">
+    <div class="grid-bg"></div>
+    <div class="water-vignette"></div>
+    <div class="glow-cyan"></div>
+    <div class="glow-magenta"></div>
+
+    <div class="emblem-wrapper">
+      <svg viewBox="0 0 100 100" width="315" height="315">
+        <defs>
+          <radialGradient id="waterBg" cx="50%" cy="45%" r="50%">
+            <stop offset="0%" stop-color="#122a54"/>
+            <stop offset="65%" stop-color="#08152b"/>
+            <stop offset="100%" stop-color="#01040a"/>
+          </radialGradient>
+          <linearGradient id="hullGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="#ff0055"/>
+            <stop offset="48%" stop-color="#ff5500"/>
+            <stop offset="100%" stop-color="#ffe600"/>
+          </linearGradient>
+          <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#00f0ff"/>
+            <stop offset="40%" stop-color="#00b4ff"/>
+            <stop offset="70%" stop-color="#ff0055"/>
+            <stop offset="100%" stop-color="#ffe600"/>
+          </linearGradient>
+          <linearGradient id="paddleBladeGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#ff0055"/>
+            <stop offset="100%" stop-color="#ff3377"/>
+          </linearGradient>
+          <filter id="neonGlow" x="-30%" y="-30%" width="160%" height="160%">
+            <feGaussianBlur stdDeviation="1.8" result="blur"/>
+            <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+          </filter>
+        </defs>
+
+        <!-- Outer Glowing Ring -->
+        <circle cx="50" cy="50" r="46.5" fill="url(#waterBg)" stroke="url(#ringGrad)" stroke-width="3.5" filter="url(#neonGlow)"/>
+
+        <!-- Water wake ripple curves (dynamic regatta waves) -->
+        <path d="M 15 65 C 33 58 67 58 85 65" fill="none" stroke="#00f0ff" stroke-width="3" stroke-linecap="round" opacity="0.9"/>
+        <path d="M 23 73 C 37 68 63 68 77 73" fill="none" stroke="#00f0ff" stroke-width="2.2" stroke-linecap="round" opacity="0.65"/>
+        <path d="M 31 81 C 41 78 59 78 69 81" fill="none" stroke="#00f0ff" stroke-width="1.5" stroke-linecap="round" opacity="0.35"/>
+
+        <!-- Kayak Hull (Aerodynamic racing shell) -->
+        <path d="M 10 50 C 23 42 77 42 90 50 C 77 58 23 58 10 50 Z" fill="url(#hullGrad)" stroke="#ffffff" stroke-width="1.6"/>
+
+        <!-- Cockpit Interior -->
+        <ellipse cx="50" cy="49" rx="11" ry="4" fill="#060913" stroke="#ffe600" stroke-width="1.6"/>
+
+        <!-- Paddler Torso & Athletic Shoulders sitting in kayak -->
+        <path d="M 43 47 C 44 38 46 36 50 36 C 54 36 56 38 57 47 Z" fill="#ffffff" stroke="#08152b" stroke-width="0.8"/>
+
+        <!-- Paddler Helmet with neon cyan reflection -->
+        <circle cx="50" cy="30.5" r="5.5" fill="#00f0ff" stroke="#ffffff" stroke-width="1.5"/>
+        <path d="M 47.5 29.5 Q 50 28 52.5 29.5" stroke="#ffffff" stroke-width="1.2" stroke-linecap="round" fill="none"/>
+
+        <!-- Kayak Double Paddle (Diagonal) -->
+        <line x1="24" y1="21" x2="76" y2="79" stroke="#ffffff" stroke-width="3.6" stroke-linecap="round"/>
+        <!-- Top Left Blade -->
+        <ellipse cx="22" cy="19" rx="7" ry="3.4" transform="rotate(-38 22 19)" fill="url(#paddleBladeGrad)" stroke="#ffffff" stroke-width="1.2"/>
+        <!-- Bottom Right Blade -->
+        <ellipse cx="78" cy="81" rx="7" ry="3.4" transform="rotate(-38 78 81)" fill="url(#paddleBladeGrad)" stroke="#ffffff" stroke-width="1.2"/>
+
+        <!-- Energy / Speed Sparkle Star -->
+        <polygon points="50,9 52.5,15 58.5,16 54,20 55.5,26 50,22.5 44.5,26 46,20 41.5,16 47.5,15" fill="#ffe600" stroke="#ffffff" stroke-width="0.8"/>
+      </svg>
+    </div>
+
+    <div class="branding">
+      <div class="app-title">ROWER RACE</div>
+      <div class="badge-esport">PRO ESPORT</div>
+    </div>
+  </div>
+</body>
+</html>

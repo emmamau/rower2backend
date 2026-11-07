@@ -172,6 +172,29 @@ export class AppComponent implements OnInit, OnDestroy {
   isCreatingBotDuel = false;
   botDuelError = '';
 
+  // Timer pré-course déplaçable (Draggable Pre-start countdown)
+  timerPosition: { x: number; y: number } | null = null;
+  isDraggingTimer = false;
+  private dragStartPointer = { x: 0, y: 0 };
+  private dragStartTimerPos = { x: 0, y: 0 };
+
+  // Espace Statistiques & Analyses de courses (abonnés = illimité, comptes gratuits = 10 jours)
+  isStatisticsModalOpen = false;
+  userStatisticsData: any = null;
+  isLoadingStatistics = false;
+  statisticsError = '';
+
+  // Résiliation d'abonnement & Suppression de compte RGPD
+  isUnsubscribing = false;
+  unsubscribeMessage = '';
+  unsubscribeError = '';
+  isDeletingAccount = false;
+  deleteAccountError = '';
+
+  // Espace de contenu SEO multilingue
+  activeSeoLang: 'fr' | 'en' | 'de' | 'es' | 'it' = 'fr';
+  isSeoSectionExpanded = false;
+
   // Classement général
   generalLeaderboard: UserProfile[] = [];
   generalUserRank = 1;
@@ -206,9 +229,72 @@ export class AppComponent implements OnInit, OnDestroy {
   };
   isFullscreen = false;
   fullscreenSupported = false;
+  isPseudoFullscreen = false;
+
+  checkNativeFullscreen(): boolean {
+    if (typeof document === 'undefined') return false;
+    const doc = document as any;
+    return Boolean(
+      doc.fullscreenElement ||
+      doc.webkitFullscreenElement ||
+      doc.mozFullScreenElement ||
+      doc.msFullscreenElement
+    );
+  }
+
+  checkIsFullscreen(): boolean {
+    return this.checkNativeFullscreen() || this.isPseudoFullscreen;
+  }
+
+  checkFullscreenSupported(): boolean {
+    if (typeof document === 'undefined') return false;
+    const doc = document as any;
+    const docEl = document.documentElement as any;
+    return Boolean(
+      docEl?.requestFullscreen ||
+      docEl?.webkitRequestFullscreen ||
+      docEl?.mozRequestFullScreen ||
+      docEl?.msRequestFullscreen ||
+      doc?.fullscreenEnabled ||
+      doc?.webkitFullscreenEnabled ||
+      doc?.mozFullScreenEnabled ||
+      doc?.msFullscreenEnabled ||
+      true // Pseudo-fullscreen fallback is supported across all browser viewports
+    );
+  }
+
+  private syncPseudoFullscreenClass(): void {
+    if (typeof document === 'undefined') return;
+    if (this.isPseudoFullscreen) {
+      document.body?.classList.add('app-pseudo-fullscreen');
+    } else {
+      document.body?.classList.remove('app-pseudo-fullscreen');
+    }
+  }
+
   private readonly fullscreenListener = () => {
-    this.isFullscreen = Boolean(document.fullscreenElement);
+    const isNative = this.checkNativeFullscreen();
+    if (!isNative && this.isPseudoFullscreen) {
+      this.isPseudoFullscreen = false;
+      this.syncPseudoFullscreenClass();
+    }
+    this.isFullscreen = isNative || this.isPseudoFullscreen;
     this.cdr.markForCheck();
+  };
+
+  private readonly escapeKeyFullscreenHandler = (event: KeyboardEvent) => {
+    if (event.key === 'Escape' && this.isPseudoFullscreen) {
+      this.isPseudoFullscreen = false;
+      this.syncPseudoFullscreenClass();
+      this.isFullscreen = this.checkIsFullscreen();
+      this.cdr.markForCheck();
+    }
+  };
+
+  private readonly userInteractionWakeLockHandler = () => {
+    if (!this.wakeLockService.isLockActive() && this.wakeLockService.isSupported()) {
+      this.enableScreenWakeLock();
+    }
   };
 
   constructor(
@@ -269,15 +355,39 @@ export class AppComponent implements OnInit, OnDestroy {
       window.addEventListener('popstate', this.popstateListener);
       window.addEventListener('resize', this.resizeListener);
       window.addEventListener('orientationchange', this.resizeListener);
+      window.addEventListener('pointerdown', this.userInteractionWakeLockHandler, { passive: true });
+      window.addEventListener('touchstart', this.userInteractionWakeLockHandler, { passive: true });
+      window.addEventListener('keydown', this.escapeKeyFullscreenHandler);
     }
     if (typeof document !== 'undefined') {
-      this.fullscreenSupported = Boolean(document.documentElement?.requestFullscreen);
+      this.fullscreenSupported = this.checkFullscreenSupported();
+      this.isFullscreen = this.checkIsFullscreen();
       document.addEventListener('fullscreenchange', this.fullscreenListener);
+      document.addEventListener('webkitfullscreenchange', this.fullscreenListener);
+      document.addEventListener('mozfullscreenchange', this.fullscreenListener);
+      document.addEventListener('MSFullscreenChange', this.fullscreenListener);
     }
+    this.wakeLockService.onStateChange = (isActive: boolean) => {
+      this.wakeLockActive = isActive;
+      this.cdr.markForCheck();
+    };
     this.initSocketListeners();
     this.initCountdownTicker();
     this.resolveRoomFromCurrentUrl();
     this.enableScreenWakeLock();
+    try {
+      if (typeof localStorage !== 'undefined') {
+        const savedX = localStorage.getItem('rower_timer_pos_x');
+        const savedY = localStorage.getItem('rower_timer_pos_y');
+        if (savedX && savedY) {
+          const parsedX = Number(savedX);
+          const parsedY = Number(savedY);
+          if (!isNaN(parsedX) && !isNaN(parsedY)) {
+            this.timerPosition = { x: parsedX, y: parsedY };
+          }
+        }
+      }
+    } catch {}
   }
 
   ngOnDestroy(): void {
@@ -313,10 +423,18 @@ export class AppComponent implements OnInit, OnDestroy {
       window.removeEventListener('popstate', this.popstateListener);
       window.removeEventListener('resize', this.resizeListener);
       window.removeEventListener('orientationchange', this.resizeListener);
+      window.removeEventListener('pointerdown', this.userInteractionWakeLockHandler);
+      window.removeEventListener('touchstart', this.userInteractionWakeLockHandler);
+      window.removeEventListener('keydown', this.escapeKeyFullscreenHandler);
     }
     if (typeof document !== 'undefined') {
       document.removeEventListener('fullscreenchange', this.fullscreenListener);
+      document.removeEventListener('webkitfullscreenchange', this.fullscreenListener);
+      document.removeEventListener('mozfullscreenchange', this.fullscreenListener);
+      document.removeEventListener('MSFullscreenChange', this.fullscreenListener);
     }
+    this.isPseudoFullscreen = false;
+    this.syncPseudoFullscreenClass();
     this.wakeLockService.releaseWakeLock();
   }
 
@@ -823,6 +941,16 @@ export class AppComponent implements OnInit, OnDestroy {
     );
   }
 
+  get isRegisteredUser(): boolean {
+    if (this.isSubscriber || this.isUserAdmin) return true;
+    const email = this.currentUser?.email?.trim();
+    const login = this.currentUser?.login?.trim();
+    const name = this.currentUser?.name?.trim();
+    const isGuest = !login || login.startsWith('guest_') || login.startsWith('usr_');
+    const isAnonymousRacer = !name || name.startsWith('Racer_');
+    return Boolean((email && email.length > 0) || (!isGuest && !isAnonymousRacer));
+  }
+
   get currentSubscriberTier(): string {
     if (this.isUserAdmin) return 'admin';
     return this.currentUser?.subscriptionTier || (this.isSubscriber ? 'club' : 'free');
@@ -1189,6 +1317,187 @@ export class AppComponent implements OnInit, OnDestroy {
     this.isLegalTermsOpen = false;
     this.isBotDuelModalOpen = false;
     this.showCockpitBlockedModal = false;
+    this.isStatisticsModalOpen = false;
+  }
+
+  // --------------------------------------------------------------------------
+  // TIMER PRÉ-COURSE DÉPLAÇABLE (DRAGGABLE COUNTDOWN)
+  // --------------------------------------------------------------------------
+  onTimerPointerDown(event: PointerEvent): void {
+    const target = event.target as HTMLElement;
+    if (target?.closest('button')) return;
+    this.isDraggingTimer = true;
+    const box = (event.currentTarget as HTMLElement);
+    const rect = box.getBoundingClientRect();
+    if (!this.timerPosition) {
+      this.timerPosition = { x: rect.left, y: rect.top };
+    }
+    this.dragStartPointer = { x: event.clientX, y: event.clientY };
+    this.dragStartTimerPos = { x: this.timerPosition.x, y: this.timerPosition.y };
+    try {
+      box.setPointerCapture(event.pointerId);
+    } catch {}
+    event.preventDefault();
+  }
+
+  onTimerPointerMove(event: PointerEvent): void {
+    if (!this.isDraggingTimer) return;
+    const dx = event.clientX - this.dragStartPointer.x;
+    const dy = event.clientY - this.dragStartPointer.y;
+    const maxX = Math.max(10, (typeof window !== 'undefined' ? window.innerWidth : 800) - 200);
+    const maxY = Math.max(10, (typeof window !== 'undefined' ? window.innerHeight : 600) - 100);
+    const nextX = Math.min(Math.max(10, this.dragStartTimerPos.x + dx), maxX);
+    const nextY = Math.min(Math.max(10, this.dragStartTimerPos.y + dy), maxY);
+    this.timerPosition = { x: Math.round(nextX), y: Math.round(nextY) };
+    this.cdr.markForCheck();
+  }
+
+  onTimerPointerUp(event: PointerEvent): void {
+    if (!this.isDraggingTimer) return;
+    this.isDraggingTimer = false;
+    const box = (event.currentTarget as HTMLElement);
+    try {
+      if (box.hasPointerCapture(event.pointerId)) {
+        box.releasePointerCapture(event.pointerId);
+      }
+    } catch {}
+    if (this.timerPosition && typeof localStorage !== 'undefined') {
+      try {
+        localStorage.setItem('rower_timer_pos_x', String(this.timerPosition.x));
+        localStorage.setItem('rower_timer_pos_y', String(this.timerPosition.y));
+      } catch {}
+    }
+    this.cdr.markForCheck();
+  }
+
+  resetTimerPosition(event?: Event): void {
+    if (event) event.stopPropagation();
+    this.timerPosition = null;
+    this.isDraggingTimer = false;
+    if (typeof localStorage !== 'undefined') {
+      try {
+        localStorage.removeItem('rower_timer_pos_x');
+        localStorage.removeItem('rower_timer_pos_y');
+      } catch {}
+    }
+    this.cdr.markForCheck();
+  }
+
+  // --------------------------------------------------------------------------
+  // ESPACE STATISTIQUES & ANALYSES DE COURSES
+  // --------------------------------------------------------------------------
+  openStatisticsModal(): void {
+    this.closeAllOverlayModals();
+    this.isStatisticsModalOpen = true;
+    this.loadUserStatistics();
+    this.cdr.markForCheck();
+  }
+
+  closeStatisticsModal(): void {
+    this.isStatisticsModalOpen = false;
+    this.cdr.markForCheck();
+  }
+
+  loadUserStatistics(): void {
+    this.isLoadingStatistics = true;
+    this.statisticsError = '';
+    const userIdToQuery = String(this.activeUserId || this.currentUser?.id || this.currentUser?.login || '').trim();
+    if (!userIdToQuery) {
+      this.isLoadingStatistics = false;
+      this.statisticsError = "Identifiant utilisateur manquant.";
+      this.cdr.markForCheck();
+      return;
+    }
+    this.rowerService.getUserStatistics(userIdToQuery).subscribe({
+      next: (res) => {
+        this.isLoadingStatistics = false;
+        this.userStatisticsData = res;
+        this.cdr.markForCheck();
+      },
+      error: (err) => {
+        this.isLoadingStatistics = false;
+        this.statisticsError = err?.error?.message || "Impossible de charger vos analyses de course. Vérifiez votre compte.";
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  // --------------------------------------------------------------------------
+  // RÉSILIATION ABONNEMENT & SUPPRESSION DE COMPTE (RGPD ART. 17)
+  // --------------------------------------------------------------------------
+  unsubscribeUser(): void {
+    if (this.isUserAdmin) {
+      alert("Le compte administratrice EmmaRacer ne peut pas résilier son accès.");
+      return;
+    }
+    const confirmed = window.confirm(
+      "Voulez-vous vraiment résilier votre abonnement ? Vous conserverez votre compte et passerez en offre gratuite avec accès aux 10 derniers jours de statistiques."
+    );
+    if (!confirmed) return;
+
+    this.isUnsubscribing = true;
+    this.unsubscribeMessage = '';
+    this.unsubscribeError = '';
+    this.rowerService.unsubscribeUser(this.activeUserId).subscribe({
+      next: (res) => {
+        this.isUnsubscribing = false;
+        this.unsubscribeMessage = res.message || "Abonnement résilié avec succès.";
+        if (res.user) {
+          this.currentUser = { ...this.currentUser, ...res.user, isSubscriber: false };
+        }
+        try {
+          localStorage.setItem('rower_is_subscriber', 'false');
+        } catch {}
+        this.loadUserProfile();
+        this.cdr.markForCheck();
+      },
+      error: (err) => {
+        this.isUnsubscribing = false;
+        this.unsubscribeError = err?.error?.message || "Erreur lors de la résiliation de l'abonnement.";
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  deleteUserAccount(): void {
+    if (this.isUserAdmin) {
+      alert("Le compte administratrice EmmaRacer ne peut pas être supprimé.");
+      return;
+    }
+    const confirmed = window.confirm(
+      "ATTENTION : Cette action est irréversible. Votre compte, vos identifiants et l'ensemble de vos données sportives seront définitivement supprimés (conformité RGPD Art. 17). Voulez-vous continuer ?"
+    );
+    if (!confirmed) return;
+
+    this.isDeletingAccount = true;
+    this.deleteAccountError = '';
+    this.rowerService.deleteUserAccount(this.activeUserId).subscribe({
+      next: (res) => {
+        this.isDeletingAccount = false;
+        alert(res.message || "Votre compte et vos données ont été définitivement supprimés.");
+        this.logoutUser();
+        this.closeAccountModal();
+        this.cdr.markForCheck();
+      },
+      error: (err) => {
+        this.isDeletingAccount = false;
+        this.deleteAccountError = err?.error?.message || "Erreur lors de la suppression du compte.";
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  // --------------------------------------------------------------------------
+  // ESPACE CONTENU SEO MULTILINGUE
+  // --------------------------------------------------------------------------
+  toggleSeoSection(): void {
+    this.isSeoSectionExpanded = !this.isSeoSectionExpanded;
+    this.cdr.markForCheck();
+  }
+
+  setSeoLang(lang: 'fr' | 'en' | 'de' | 'es' | 'it'): void {
+    this.activeSeoLang = lang;
+    this.cdr.markForCheck();
   }
 
   /**
@@ -1246,6 +1555,30 @@ export class AppComponent implements OnInit, OnDestroy {
 
   get humanRacers(): RowerData[] {
     return this.racers.filter(r => !r.userId.startsWith('bot_'));
+  }
+
+  get topThreeLiveRacers(): { rank: number; name: string; dist: number }[] {
+    const list = [...((this.racers && this.racers.length > 0)
+      ? this.racers.filter(r => r.status !== 'abandoned')
+      : (this.liveMetricsList || []).filter(r => r.status !== 'abandoned'))];
+    list.sort((a: any, b: any) => {
+      const isFinA = a.status === 'finished' ? 1 : 0;
+      const isFinB = b.status === 'finished' ? 1 : 0;
+      if (isFinA !== isFinB) return isFinB - isFinA;
+      const distA = Number(a.netDistance != null ? a.netDistance : (a.dist != null ? a.dist : 0));
+      const distB = Number(b.netDistance != null ? b.netDistance : (b.dist != null ? b.dist : 0));
+      return distB - distA;
+    });
+    return list.slice(0, 3).map((r, i) => {
+      const racerObj = r as any;
+      const rawName = racerObj.userName || racerObj.name || racerObj.userId || `Rameur ${i + 1}`;
+      const rawDist = Math.round(Number(racerObj.netDistance != null ? racerObj.netDistance : (racerObj.dist != null ? racerObj.dist : 0)));
+      return {
+        rank: i + 1,
+        name: rawName,
+        dist: rawDist
+      };
+    });
   }
 
   get fullPlayerId(): string {
@@ -1318,6 +1651,11 @@ export class AppComponent implements OnInit, OnDestroy {
 
   subscribeToTier(tierId: string): void {
     if (!this.activeUserId) return;
+    if (tierId !== 'free') {
+      this.subscriptionError = "Les abonnements payants ne sont pas encore activables.";
+      this.cdr.markForCheck();
+      return;
+    }
     this.subscriptionLoading = true;
     this.subscriptionError = '';
     this.rowerService.createSubscriptionCheckout(this.activeUserId, tierId).subscribe({
@@ -1513,14 +1851,58 @@ export class AppComponent implements OnInit, OnDestroy {
 
   async toggleFullscreen(): Promise<void> {
     if (typeof document === 'undefined') return;
+    const doc = document as any;
+    const docEl = document.documentElement as any;
+    const hasNativeFullscreen = Boolean(
+      docEl?.requestFullscreen ||
+      docEl?.webkitRequestFullscreen ||
+      docEl?.mozRequestFullScreen ||
+      docEl?.msRequestFullscreen
+    );
+
     try {
-      if (!document.fullscreenElement) {
-        await document.documentElement.requestFullscreen?.();
+      if (hasNativeFullscreen) {
+        if (!this.checkNativeFullscreen()) {
+          if (docEl.requestFullscreen) {
+            await docEl.requestFullscreen();
+          } else if (docEl.webkitRequestFullscreen) {
+            await docEl.webkitRequestFullscreen();
+          } else if (docEl.mozRequestFullScreen) {
+            await docEl.mozRequestFullScreen();
+          } else if (docEl.msRequestFullscreen) {
+            await docEl.msRequestFullscreen();
+          }
+          this.isPseudoFullscreen = false;
+        } else {
+          if (doc.exitFullscreen) {
+            await doc.exitFullscreen();
+          } else if (doc.webkitExitFullscreen) {
+            await doc.webkitExitFullscreen();
+          } else if (doc.mozCancelFullScreen) {
+            await doc.mozCancelFullScreen();
+          } else if (doc.msExitFullscreen) {
+            await doc.msExitFullscreen();
+          }
+          this.isPseudoFullscreen = false;
+        }
       } else {
-        await document.exitFullscreen?.();
+        // Fallback for devices without native Element.requestFullscreen (e.g. mobile Safari on iOS iPhones)
+        this.isPseudoFullscreen = !this.isPseudoFullscreen;
+        if (typeof window !== 'undefined') {
+          try {
+            window.scrollTo(0, 1);
+          } catch {}
+        }
       }
     } catch {
-      // Ignore fullscreen rejection on restricted embedded contexts
+      // If native requestFullscreen throws/is rejected (embedded iframe, iOS restriction), switch to pseudo-fullscreen fallback
+      this.isPseudoFullscreen = !this.isPseudoFullscreen;
+    } finally {
+      this.syncPseudoFullscreenClass();
+      this.isFullscreen = this.checkIsFullscreen();
+      // On user interaction, ensure screen wake lock is active by default
+      this.enableScreenWakeLock();
+      this.cdr.markForCheck();
     }
   }
 
@@ -1660,6 +2042,12 @@ export class AppComponent implements OnInit, OnDestroy {
             }
           }
         }
+        this.cdr.markForCheck();
+      } else if (isRunning && this.gameRemainingSeconds > 0) {
+        this.gameRemainingSeconds--;
+        const remMin = Math.floor(this.gameRemainingSeconds / 60);
+        const remSec = this.gameRemainingSeconds % 60;
+        this.formattedGameRemaining = `${remMin}m ${remSec < 10 ? '0' : ''}${remSec}s`;
         this.cdr.markForCheck();
       }
     });

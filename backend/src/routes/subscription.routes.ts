@@ -10,6 +10,11 @@ export default (app: Application): void => {
   router.get("/simulate-checkout", subscriptionController.simulateCheckout);
   router.post("/webhook", subscriptionController.handleLemonSqueezyWebhook);
 
+  // Routes officielles Stripe
+  router.post("/stripe/checkout", subscriptionController.createStripeCheckoutSession);
+  router.post("/stripe/portal", subscriptionController.createStripePortalSession);
+  router.post("/stripe/webhook", subscriptionController.handleStripeWebhook);
+
   app.use("/api/v1/subscriptions", router);
   app.use("/api/subscriptions", router);
 };

@@ -22,6 +22,7 @@ class RowerView extends WatchUi.View {
     public static const STATE_LATE_CHOICE   = 11; // Choix course en cours
     public static const STATE_BOTS_PROMPT   = 12; // Choix ajout de bots
     public static const STATE_PENDING_APPROVAL = 13; // En attente de validation par l'hote (salon prive)
+    public static const STATE_PLAYER_ID        = 14; // Mon identifiant de joueur (appairage web)
 
     // Garmin Pro Dark Carbon Palette (64-color MIP & AMOLED compatible)
     private static const COL_BG        = Graphics.COLOR_BLACK;
@@ -244,12 +245,12 @@ class RowerView extends WatchUi.View {
 
     // Menu navigation helpers
     public function nextMainMenu() as Void {
-        _mainMenuIndex = (_mainMenuIndex + 1) % 4;
+        _mainMenuIndex = (_mainMenuIndex + 1) % 5;
         WatchUi.requestUpdate();
     }
 
     public function prevMainMenu() as Void {
-        _mainMenuIndex = (_mainMenuIndex + 3) % 4;
+        _mainMenuIndex = (_mainMenuIndex + 4) % 5;
         WatchUi.requestUpdate();
     }
 
@@ -422,6 +423,7 @@ class RowerView extends WatchUi.View {
                 I18n.getText("MENU_PUBLIC"),
                 I18n.getText("MENU_PRIVATE"),
                 I18n.getText("MENU_SOLO"),
+                I18n.getText("MENU_PLAYER_ID"),
                 I18n.getText("MENU_HISTORY")
             ] as Array<String>;
             var menuSub = getBleProtocolTag();
@@ -441,6 +443,8 @@ class RowerView extends WatchUi.View {
             drawG3PinInput(dc, w, h);
         } else if (_currentState == STATE_PENDING_APPROVAL) {
             drawPendingApprovalScreen(dc, w, h);
+        } else if (_currentState == STATE_PLAYER_ID) {
+            drawPlayerIdScreen(dc, w, h);
         } else if (_currentState == STATE_LOBBY || _currentState == STATE_WAITING_START) {
             drawG4LobbyGrid(dc, w, h);
         } else if (_currentState == STATE_COUNTDOWN_5S) {
@@ -1492,6 +1496,77 @@ class RowerView extends WatchUi.View {
         dc.drawLine((w * 20) / 100, (h * 82) / 100, w - ((w * 20) / 100), (h * 82) / 100);
         dc.setColor(COL_MUTED, Graphics.COLOR_TRANSPARENT);
         dc.drawText(cx, footY, Graphics.FONT_XTINY, truncateToWidth(dc, I18n.getText("HIST_FOOTER"), Graphics.FONT_XTINY, getSafeWidthAtY(w, h, footY, footY + 16)), Graphics.TEXT_JUSTIFY_CENTER);
+    }
+
+    // =========================================================================
+    // ECRAN IDENTIFIANT JOUEUR (APPAIRAGE PLATEFORME WEB & MONTRE)
+    // =========================================================================
+    private function drawPlayerIdScreen(dc as Graphics.Dc, w as Number, h as Number) as Void {
+        _userId = UserManager.getUserId();
+        var prefix = UserManager.getPrefix();
+        var suffix = UserManager.getSuffix();
+        var cx = w / 2;
+
+        // Header band (5..18% h)
+        var hdrY = (h * 5) / 100;
+        var hdrMaxW = getSafeWidthAtY(w, h, hdrY, hdrY + 18);
+        dc.setColor(COL_ACCENT, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, hdrY, Graphics.FONT_XTINY, truncateToWidth(dc, I18n.getText("ID_SCREEN_TITLE"), Graphics.FONT_XTINY, hdrMaxW), Graphics.TEXT_JUSTIFY_CENTER);
+
+        var subY = (h * 12) / 100;
+        var subMaxW = getSafeWidthAtY(w, h, subY, subY + 16);
+        dc.setColor(COL_MUTED, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, subY, Graphics.FONT_XTINY, truncateToWidth(dc, I18n.getText("ID_SCREEN_SUB"), Graphics.FONT_XTINY, subMaxW), Graphics.TEXT_JUSTIFY_CENTER);
+
+        var divY = (h * 19) / 100;
+        dc.setColor(COL_GRID, Graphics.COLOR_TRANSPARENT);
+        dc.drawLine((w * 16) / 100, divY, w - ((w * 16) / 100), divY);
+
+        // Center card with Full Player ID (23..56% h)
+        var cardTop = (h * 23) / 100;
+        var cardH = (h * 32) / 100;
+        var safeW = getSafeWidthAtY(w, h, cardTop, cardTop + cardH) - 16;
+        var cardLeft = cx - (safeW / 2);
+
+        dc.setColor(COL_PILL_BG, COL_PILL_BG);
+        dc.fillRoundedRectangle(cardLeft, cardTop, safeW, cardH, 8);
+        dc.setColor(COL_ACCENT, Graphics.COLOR_TRANSPARENT);
+        dc.drawRoundedRectangle(cardLeft, cardTop, safeW, cardH, 8);
+
+        // ID text centered in card
+        var idFont = fitFontToBox(
+            dc,
+            _userId,
+            [Graphics.FONT_SMALL, Graphics.FONT_TINY, Graphics.FONT_XTINY] as Array<Graphics.FontDefinition>,
+            safeW - 12,
+            (cardH * 45) / 100
+        );
+        dc.setColor(COL_PRIMARY, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, cardTop + (cardH / 3), idFont, _userId, Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+
+        // Sub label inside card: 10 free chars block + encoded suffix
+        dc.setColor(COL_GOOD, Graphics.COLOR_TRANSPARENT);
+        var tagText = "10 car. | " + suffix;
+        dc.drawText(cx, cardTop + ((cardH * 73) / 100), Graphics.FONT_XTINY, truncateToWidth(dc, tagText, Graphics.FONT_XTINY, safeW - 10), Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+
+        // Detail text below card
+        var infoY1 = (h * 59) / 100;
+        dc.setColor(COL_CYAN, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, infoY1, Graphics.FONT_XTINY, truncateToWidth(dc, I18n.getText("ID_SCREEN_PREFIX_HINT"), Graphics.FONT_XTINY, getSafeWidthAtY(w, h, infoY1, infoY1 + 16)), Graphics.TEXT_JUSTIFY_CENTER);
+
+        var infoY2 = (h * 68) / 100;
+        dc.setColor(COL_MUTED, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, infoY2, Graphics.FONT_XTINY, truncateToWidth(dc, I18n.getText("ID_SCREEN_SETTINGS_HINT"), Graphics.FONT_XTINY, getSafeWidthAtY(w, h, infoY2, infoY2 + 16)), Graphics.TEXT_JUSTIFY_CENTER);
+
+        // Footer hint (84% h)
+        var footDivY = (h * 81) / 100;
+        dc.setColor(COL_GRID, Graphics.COLOR_TRANSPARENT);
+        dc.drawLine((w * 20) / 100, footDivY, w - ((w * 20) / 100), footDivY);
+
+        var footY = (h * 85) / 100;
+        var footMaxW = getSafeWidthAtY(w, h, footY, footY + 16);
+        dc.setColor(COL_MUTED, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, footY, Graphics.FONT_XTINY, truncateToWidth(dc, I18n.getText("ID_SCREEN_FOOTER"), Graphics.FONT_XTINY, footMaxW), Graphics.TEXT_JUSTIFY_CENTER);
     }
 
     // =========================================================================

@@ -22,6 +22,15 @@ export default (app: Application): void => {
   router.put("/prefix", userController.updateUserPrefix);
   router.get("/leaderboard", userController.getGeneralLeaderboard);
 
+  // Espace Statistiques & Analyses de courses (abonnés = illimité, gratuits = 10 jours)
+  router.get("/statistics", userController.getUserStatistics);
+  router.get("/statistics/:userId", userController.getUserStatistics);
+
+  // Gestion de l'abonnement & Conformité RGPD (résiliation et suppression de compte)
+  router.post("/unsubscribe", userController.unsubscribeUser);
+  router.delete("/account", userController.deleteUserAccount);
+  router.delete("/account/:userId", userController.deleteUserAccount);
+
   app.use("/api/user", router);
   app.use("/api/users", router);
 };

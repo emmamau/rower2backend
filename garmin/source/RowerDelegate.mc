@@ -45,7 +45,10 @@ class RowerDelegate extends WatchUi.BehaviorDelegate {
                 _view.setRaceMode("solo");
                 _bleDelegate.startSoloSession();
             } else if (menuIdx == 3) {
-                // 4. Historique local (G9)
+                // 4. Mon identifiant de joueur
+                _view.setAppState(RowerView.STATE_PLAYER_ID);
+            } else if (menuIdx == 4) {
+                // 5. Historique local (G9)
                 _view.setAppState(RowerView.STATE_HISTORY);
             }
             return true;
@@ -80,7 +83,7 @@ class RowerDelegate extends WatchUi.BehaviorDelegate {
                 _bleDelegate.discardSession();
             }
             return true;
-        } else if (state == RowerView.STATE_FINISHED || state == RowerView.STATE_HISTORY) {
+        } else if (state == RowerView.STATE_FINISHED || state == RowerView.STATE_HISTORY || state == RowerView.STATE_PLAYER_ID) {
             _view.setAppState(RowerView.STATE_MENU);
             return true;
         }
@@ -159,7 +162,7 @@ class RowerDelegate extends WatchUi.BehaviorDelegate {
     // Handles touchscreen tap (on Venu / Epix / Forerunner / Fenix touch) without pausing race on water drops
     public function onTap(clickEvent as ClickEvent) as Boolean {
         var state = _view.getAppState();
-        if (state == RowerView.STATE_SCANNING && _bleDelegate.getModel().isConnected()) {
+        if ((state == RowerView.STATE_SCANNING && _bleDelegate.getModel().isConnected()) || state == RowerView.STATE_PLAYER_ID) {
             _view.setAppState(RowerView.STATE_MENU);
             return true;
         }
@@ -189,6 +192,7 @@ class RowerDelegate extends WatchUi.BehaviorDelegate {
             return true;
         } else if (state == RowerView.STATE_LATE_CHOICE || state == RowerView.STATE_LOBBY ||
                    state == RowerView.STATE_WAITING_START || state == RowerView.STATE_HISTORY ||
+                   state == RowerView.STATE_PLAYER_ID ||
                    state == RowerView.STATE_FINISHED || state == RowerView.STATE_PENDING_APPROVAL) {
             _view.setAppState(RowerView.STATE_MENU);
             return true;

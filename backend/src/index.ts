@@ -20,7 +20,13 @@ const corsOptions: CorsOptions = {
 };
 
 app.use(cors(corsOptions));
-app.use(express.json());
+app.use(
+  express.json({
+    verify: (req: any, _res, buf) => {
+      req.rawBody = buf;
+    },
+  })
+);
 app.use(express.urlencoded({ extended: true }));
 
 // Health checks

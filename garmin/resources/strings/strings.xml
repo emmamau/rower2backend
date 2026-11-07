@@ -2,6 +2,8 @@
     <string id="AppName">Rower Race</string>
     <string id="BackendUrlTitle">Backend API URL</string>
     <string id="BackendUrlPrompt">URL (e.g. https://...onrender.com)</string>
+    <string id="UserLoginPrefixTitle">Mon Identifiant (10 car. libres)</string>
+    <string id="UserLoginPrefixPrompt">Personnalisez vos 10 caracteres libres</string>
     <string id="UserLoginTitle">Player Login / Code</string>
     <string id="UserLoginPrompt">Code joueur ou pseudo (6 car. base64)</string>
     <string id="StatusDisconnected">BLE: Disconnected</string>

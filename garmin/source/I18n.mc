@@ -138,6 +138,14 @@ module I18n {
             if (_currentLang == LANG_PT) { return "Remar Solo"; }
             return "Row Solo";
         }
+        if (key.equals("MENU_PLAYER_ID")) {
+            if (_currentLang == LANG_FR) { return "Mon identifiant de joueur"; }
+            if (_currentLang == LANG_DE) { return "Meine Spieler-ID"; }
+            if (_currentLang == LANG_ES) { return "Mi ID de jugador"; }
+            if (_currentLang == LANG_IT) { return "Il mio ID giocatore"; }
+            if (_currentLang == LANG_PT) { return "Meu ID de jogador"; }
+            return "My Player ID";
+        }
         if (key.equals("MENU_HISTORY")) {
             if (_currentLang == LANG_FR) { return "Historique Local"; }
             if (_currentLang == LANG_DE) { return "Verlauf Lokal"; }
@@ -162,6 +170,48 @@ module I18n {
             if (_currentLang == LANG_IT) { return "Giocatore :"; }
             if (_currentLang == LANG_PT) { return "Jogador :"; }
             return "Player :";
+        }
+
+        // --- ID PLAYER SCREEN (APPAIRAGE WEB) ---
+        if (key.equals("ID_SCREEN_TITLE")) {
+            if (_currentLang == LANG_FR) { return "MON IDENTIFIANT"; }
+            if (_currentLang == LANG_DE) { return "MEINE SPIELER-ID"; }
+            if (_currentLang == LANG_ES) { return "MI ID DE JUGADOR"; }
+            if (_currentLang == LANG_IT) { return "IL MIO ID GIOCATORE"; }
+            if (_currentLang == LANG_PT) { return "MEU ID DE JOGADOR"; }
+            return "MY PLAYER ID";
+        }
+        if (key.equals("ID_SCREEN_SUB")) {
+            if (_currentLang == LANG_FR) { return "A saisir sur le site web :"; }
+            if (_currentLang == LANG_DE) { return "Im Web eingeben:"; }
+            if (_currentLang == LANG_ES) { return "Introducir en la web:"; }
+            if (_currentLang == LANG_IT) { return "Inserisci sul web:"; }
+            if (_currentLang == LANG_PT) { return "Inserir no site:"; }
+            return "Enter on web platform:";
+        }
+        if (key.equals("ID_SCREEN_PREFIX_HINT")) {
+            if (_currentLang == LANG_FR) { return "10 car. libres + suffixe lie"; }
+            if (_currentLang == LANG_DE) { return "10 Zeichen + verknupftes Suffix"; }
+            if (_currentLang == LANG_ES) { return "10 car. libres + sufijo"; }
+            if (_currentLang == LANG_IT) { return "10 car. liberi + suffisso"; }
+            if (_currentLang == LANG_PT) { return "10 car. livres + sufixo"; }
+            return "10 free chars + linked suffix";
+        }
+        if (key.equals("ID_SCREEN_SETTINGS_HINT")) {
+            if (_currentLang == LANG_FR) { return "Reglage: Parametres montre"; }
+            if (_currentLang == LANG_DE) { return "Einstellung: App-Optionen"; }
+            if (_currentLang == LANG_ES) { return "Ajuste: Ajustes de App"; }
+            if (_currentLang == LANG_IT) { return "Modifica: Impostazioni App"; }
+            if (_currentLang == LANG_PT) { return "Modificar: Ajustes App"; }
+            return "Custom: Watch App Settings";
+        }
+        if (key.equals("ID_SCREEN_FOOTER")) {
+            if (_currentLang == LANG_FR) { return "START / BACK : Retour"; }
+            if (_currentLang == LANG_DE) { return "START / BACK : Zuruck"; }
+            if (_currentLang == LANG_ES) { return "START / BACK : Volver"; }
+            if (_currentLang == LANG_IT) { return "START / BACK : Indietro"; }
+            if (_currentLang == LANG_PT) { return "START / BACK : Voltar"; }
+            return "START / BACK : Return";
         }
 
         // --- G3: PIN INPUT ---

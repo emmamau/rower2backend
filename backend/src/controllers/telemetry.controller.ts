@@ -318,6 +318,24 @@ export class TelemetryController {
         } catch {}
       }
 
+      try {
+        userStore.recordActivity({
+          id: compositeId,
+          activityId: raceId,
+          userId,
+          userName: body.userName || `Racer_${userId.slice(-4)}`,
+          targetDistance: targetDist,
+          netDistance: effectiveDistance,
+          elapsedTime: currentElapsed,
+          avgPower: actualPower,
+          avgPace: actualSplit,
+          avgStrokeRate: actualSpm,
+          status: activityStatus,
+          rowerModel,
+          watchModel,
+        });
+      } catch {}
+
       // Sync equipment to user profile if user exists
       if (userId && userId !== "anonymous") {
         try {

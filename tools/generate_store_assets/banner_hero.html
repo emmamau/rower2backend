@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Garmin Store Banner Hero</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #060913;
+      font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+      color: #ffffff;
+    }
+    .banner-container {
+      width: 100vw;
+      height: 100vh;
+      position: relative;
+      background: radial-gradient(circle at 75% 40%, #0d2247 0%, #081226 50%, #04070f 100%);
+      overflow: hidden;
+      display: flex;
+    }
+    /* Cyber grid overlay */
+    .cyber-grid {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-image:
+        linear-gradient(rgba(0, 240, 255, 0.06) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 240, 255, 0.06) 1px, transparent 1px);
+      background-size: 32px 32px;
+      pointer-events: none;
+    }
+    /* Perspective water track lines on right side */
+    .perspective-water {
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 58%;
+      height: 100%;
+      perspective: 450px;
+      overflow: hidden;
+      pointer-events: none;
+    }
+    .water-plane {
+      position: absolute;
+      width: 130%;
+      height: 140%;
+      top: -20%;
+      left: -15%;
+      transform: rotateX(45deg);
+      background: 
+        repeating-linear-gradient(0deg, transparent 0px, transparent 40px, rgba(0, 240, 255, 0.12) 41px, transparent 42px),
+        repeating-linear-gradient(90deg, transparent 0px, transparent 80px, rgba(0, 240, 255, 0.18) 81px, transparent 82px);
+      mask-image: radial-gradient(circle at 60% 50%, black 20%, transparent 80%);
+      -webkit-mask-image: radial-gradient(circle at 60% 50%, black 20%, transparent 80%);
+    }
+    /* Glowing ambient blobs */
+    .glow-cyan {
+      position: absolute;
+      top: -80px;
+      left: -80px;
+      width: 450px;
+      height: 450px;
+      background: radial-gradient(circle, rgba(0, 240, 255, 0.22) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .glow-magenta {
+      position: absolute;
+      bottom: -100px;
+      left: 30%;
+      width: 500px;
+      height: 500px;
+      background: radial-gradient(circle, rgba(255, 0, 85, 0.22) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .glow-watch {
+      position: absolute;
+      top: 15%;
+      right: 10%;
+      width: 420px;
+      height: 420px;
+      background: radial-gradient(circle, rgba(0, 240, 255, 0.28) 0%, transparent 65%);
+      pointer-events: none;
+    }
+
+    /* LEFT HERO BRAND COLUMN */
+    .hero-content {
+      width: 56%;
+      height: 100%;
+      padding: clamp(35px, 6vh, 65px) 0 clamp(35px, 6vh, 65px) clamp(45px, 5vw, 85px);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      position: relative;
+      z-index: 5;
+    }
+    .brand-header {
+      display: flex;
+      align-items: center;
+      gap: clamp(16px, 2vw, 28px);
+      margin-bottom: 12px;
+    }
+    .logo-badge {
+      width: clamp(86px, 9vw, 130px);
+      height: clamp(86px, 9vw, 130px);
+      flex-shrink: 0;
+      filter: drop-shadow(0 0 20px rgba(0, 240, 255, 0.6));
+    }
+    .title-group {
+      display: flex;
+      flex-direction: column;
+    }
+    .brand-title {
+      font-family: 'Impact', 'Segoe UI Black', sans-serif;
+      font-size: clamp(52px, 5.5vw, 82px);
+      line-height: 0.95;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      background: linear-gradient(180deg, #ffffff 15%, #c8f5ff 60%, #00f0ff 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      filter: drop-shadow(0 4px 15px rgba(0, 0, 0, 0.9));
+    }
+    .badges-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-top: 8px;
+    }
+    .badge-esport {
+      background: linear-gradient(90deg, #ff0055 0%, #ff5500 100%);
+      color: #ffffff;
+      font-family: 'Impact', 'Segoe UI Black', sans-serif;
+      font-size: clamp(12px, 1.2vw, 17px);
+      letter-spacing: 2px;
+      padding: 4px 14px;
+      border-radius: 12px;
+      box-shadow: 0 0 14px rgba(255, 0, 85, 0.7);
+      border: 1px solid rgba(255, 255, 255, 0.6);
+    }
+    .badge-garmin {
+      background: rgba(0, 240, 255, 0.16);
+      color: #00f0ff;
+      font-size: clamp(11.5px, 1.1vw, 16px);
+      font-weight: 800;
+      letter-spacing: 1.5px;
+      padding: 4px 12px;
+      border-radius: 12px;
+      border: 1px solid rgba(0, 240, 255, 0.55);
+      box-shadow: 0 0 12px rgba(0, 240, 255, 0.3);
+    }
+
+    .tagline {
+      font-family: 'Impact', 'Segoe UI Black', sans-serif;
+      font-size: clamp(21px, 2.2vw, 32px);
+      letter-spacing: 1.5px;
+      color: #ffe600;
+      text-transform: uppercase;
+      margin-top: 10px;
+      margin-bottom: clamp(14px, 2vh, 24px);
+      text-shadow: 0 0 15px rgba(255, 230, 0, 0.4);
+    }
+    .features-list {
+      display: flex;
+      flex-direction: column;
+      gap: clamp(8px, 1.4vh, 16px);
+      margin-bottom: clamp(18px, 2.5vh, 32px);
+    }
+    .feature-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: clamp(14px, 1.3vw, 19px);
+      font-weight: 600;
+      color: #e2e8f0;
+      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+    }
+    .feature-icon {
+      width: clamp(26px, 2.5vw, 36px);
+      height: clamp(26px, 2.5vw, 36px);
+      border-radius: 8px;
+      background: rgba(0, 240, 255, 0.15);
+      border: 1px solid rgba(0, 240, 255, 0.4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #00f0ff;
+      font-size: clamp(13px, 1.3vw, 18px);
+      flex-shrink: 0;
+    }
+    .protocol-chips {
+      display: flex;
+      gap: clamp(8px, 1vw, 14px);
+    }
+    .protocol-chip {
+      background: rgba(13, 19, 33, 0.92);
+      border: 1px solid rgba(0, 240, 255, 0.35);
+      border-radius: 8px;
+      padding: clamp(5px, 0.9vh, 9px) clamp(10px, 1.1vw, 18px);
+      font-size: clamp(11.5px, 1.1vw, 16px);
+      font-weight: 700;
+      color: #00f0ff;
+      letter-spacing: 1px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+      white-space: nowrap;
+    }
+
+    /* RIGHT SIDE WATCH SHOWCASE */
+    .watch-showcase {
+      width: 44%;
+      height: 100%;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 5;
+    }
+    .watch-case {
+      width: clamp(310px, 32vw, 450px);
+      height: clamp(310px, 32vw, 450px);
+      border-radius: 50%;
+      background: radial-gradient(circle, #2b303a 60%, #15181f 90%, #0c0e12 100%);
+      box-shadow: 
+        0 15px 50px rgba(0, 0, 0, 0.95),
+        0 0 40px rgba(0, 240, 255, 0.35),
+        inset 0 0 15px rgba(255, 255, 255, 0.2);
+      border: 4px solid #3c424e;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .watch-screw {
+      position: absolute;
+      width: clamp(8px, 0.8vw, 12px);
+      height: clamp(8px, 0.8vw, 12px);
+      border-radius: 50%;
+      background: #505663;
+      border: 1px solid #23272e;
+    }
+    .screw-1 { top: 12px; left: 50%; transform: translateX(-50%); }
+    .screw-2 { bottom: 12px; left: 50%; transform: translateX(-50%); }
+    .screw-3 { top: 50%; left: 12px; transform: translateY(-50%); }
+    .screw-4 { top: 50%; right: 12px; transform: translateY(-50%); }
+
+    /* AMOLED Screen */
+    .watch-screen {
+      width: 88%;
+      height: 88%;
+      border-radius: 50%;
+      background: #000000;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      padding: 7% 5% 6% 5%;
+      border: 2px solid #11141a;
+      box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.95);
+    }
+    .screen-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 76%;
+      margin-top: 2px;
+    }
+    .screen-rank {
+      background: #ffe600;
+      color: #000000;
+      font-weight: 900;
+      font-size: clamp(10px, 1.1vw, 15px);
+      padding: 2px 8px;
+      border-radius: 6px;
+    }
+    .screen-title {
+      font-size: clamp(10px, 1vw, 14px);
+      font-weight: 800;
+      color: #00f0ff;
+      letter-spacing: 1px;
+    }
+    .screen-battery {
+      font-size: clamp(9px, 0.9vw, 13px);
+      color: #39ff14;
+      font-weight: 700;
+    }
+
+    .telemetry-grid {
+      width: 90%;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      grid-gap: clamp(6px, 0.8vw, 12px);
+      margin: 4px 0;
+    }
+    .telem-cell {
+      background: rgba(14, 23, 42, 0.88);
+      border: 1px solid rgba(0, 240, 255, 0.28);
+      border-radius: 10px;
+      padding: clamp(5px, 0.8vh, 10px) 6px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .telem-label {
+      font-size: clamp(8px, 0.8vw, 12px);
+      font-weight: 800;
+      color: #94a3b8;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+    .telem-val {
+      font-family: 'Impact', 'Segoe UI Black', sans-serif;
+      font-size: clamp(24px, 2.7vw, 38px);
+      line-height: 1.05;
+      font-weight: 900;
+    }
+    .val-split { color: #00f0ff; }
+    .val-watts { color: #39ff14; }
+    .val-spm { color: #ffe600; }
+    .val-dist { color: #ffffff; }
+
+    .screen-footer {
+      width: 80%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      margin-bottom: 2px;
+    }
+    .progress-bar-bg {
+      width: 100%;
+      height: clamp(5px, 0.6vh, 8px);
+      background: #1e293b;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .progress-bar-fill {
+      width: 72%;
+      height: 100%;
+      background: linear-gradient(90deg, #00f0ff, #ffe600);
+      border-radius: 4px;
+    }
+    .screen-footer-text {
+      font-size: clamp(9px, 0.9vw, 13px);
+      color: #cbd5e1;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+    }
+
+    /* Floating Web Regatta Preview Card */
+    .floating-regatta-card {
+      position: absolute;
+      top: clamp(20px, 3vh, 35px);
+      right: clamp(20px, 2vw, 35px);
+      width: clamp(210px, 20vw, 300px);
+      background: rgba(6, 12, 26, 0.88);
+      border: 1px solid rgba(0, 240, 255, 0.4);
+      border-radius: 10px;
+      padding: clamp(8px, 1vh, 14px);
+      backdrop-filter: blur(8px);
+      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.85);
+      z-index: 2;
+      opacity: 0.9;
+    }
+    .card-title {
+      font-size: clamp(9.5px, 0.9vw, 13px);
+      font-weight: 800;
+      color: #00f0ff;
+      letter-spacing: 1px;
+      margin-bottom: 6px;
+      display: flex;
+      justify-content: space-between;
+    }
+    .mini-lane {
+      height: clamp(13px, 1.5vh, 20px);
+      display: flex;
+      align-items: center;
+      position: relative;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      font-size: clamp(8.5px, 0.8vw, 12px);
+      font-weight: 700;
+    }
+    .mini-boat {
+      width: clamp(14px, 1.4vw, 22px);
+      height: clamp(5px, 0.5vh, 8px);
+      border-radius: 4px;
+      position: absolute;
+    }
+  </style>
+</head>
+<body>
+  <div class="banner-container">
+    <div class="cyber-grid"></div>
+    <div class="perspective-water">
+      <div class="water-plane"></div>
+    </div>
+    <div class="glow-cyan"></div>
+    <div class="glow-magenta"></div>
+    <div class="glow-watch"></div>
+
+    <!-- Floating Background Regatta Widget -->
+    <div class="floating-regatta-card">
+      <div class="card-title">
+        <span>RÉGATE LIVE 2000M</span>
+        <span style="color:#ffe600">EN DIRECT</span>
+      </div>
+      <div class="mini-lane">
+        <span style="color:#94a3b8;width:24px">L1</span>
+        <div class="mini-boat" style="left:55%;background:#ff0055;box-shadow:0 0 6px #ff0055;"></div>
+      </div>
+      <div class="mini-lane">
+        <span style="color:#ffe600;width:24px">L2</span>
+        <div class="mini-boat" style="left:68%;background:#00f0ff;box-shadow:0 0 6px #00f0ff;"></div>
+      </div>
+      <div class="mini-lane">
+        <span style="color:#94a3b8;width:24px">L3</span>
+        <div class="mini-boat" style="left:46%;background:#39ff14;box-shadow:0 0 6px #39ff14;"></div>
+      </div>
+    </div>
+
+    <!-- LEFT COLUMN: BRAND HERO -->
+    <div class="hero-content">
+      <div class="brand-header">
+        <svg class="logo-badge" viewBox="0 0 100 100">
+          <defs>
+            <radialGradient id="bWaterBg" cx="50%" cy="45%" r="50%">
+              <stop offset="0%" stop-color="#122a54"/>
+              <stop offset="65%" stop-color="#08152b"/>
+              <stop offset="100%" stop-color="#01040a"/>
+            </radialGradient>
+            <linearGradient id="bHullGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stop-color="#ff0055"/>
+              <stop offset="50%" stop-color="#ff5500"/>
+              <stop offset="100%" stop-color="#ffe600"/>
+            </linearGradient>
+            <linearGradient id="bRingGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#00f0ff"/>
+              <stop offset="60%" stop-color="#ff0055"/>
+              <stop offset="100%" stop-color="#ffe600"/>
+            </linearGradient>
+          </defs>
+          <circle cx="50" cy="50" r="46" fill="url(#bWaterBg)" stroke="url(#bRingGrad)" stroke-width="3.5"/>
+          <path d="M 15 65 C 33 58 67 58 85 65" fill="none" stroke="#00f0ff" stroke-width="3" stroke-linecap="round" opacity="0.9"/>
+          <path d="M 23 73 C 37 68 63 68 77 73" fill="none" stroke="#00f0ff" stroke-width="2" stroke-linecap="round" opacity="0.6"/>
+          <path d="M 10 50 C 23 42 77 42 90 50 C 77 58 23 58 10 50 Z" fill="url(#bHullGrad)" stroke="#ffffff" stroke-width="1.6"/>
+          <ellipse cx="50" cy="49" rx="10" ry="3.5" fill="#060913" stroke="#ffe600" stroke-width="1.5"/>
+          <path d="M 43 47 C 44 38 46 36 50 36 C 54 36 56 38 57 47 Z" fill="#ffffff"/>
+          <circle cx="50" cy="30.5" r="5.2" fill="#00f0ff" stroke="#ffffff" stroke-width="1.5"/>
+          <line x1="24" y1="21" x2="76" y2="79" stroke="#ffffff" stroke-width="3.6" stroke-linecap="round"/>
+          <ellipse cx="22" cy="19" rx="7" ry="3.4" transform="rotate(-38 22 19)" fill="#ff0055" stroke="#ffffff" stroke-width="1.2"/>
+          <ellipse cx="78" cy="81" rx="7" ry="3.4" transform="rotate(-38 78 81)" fill="#ff0055" stroke="#ffffff" stroke-width="1.2"/>
+          <polygon points="50,9 52.5,15 58.5,16 54,20 55.5,26 50,22.5 44.5,26 46,20 41.5,16 47.5,15" fill="#ffe600" stroke="#ffffff" stroke-width="0.8"/>
+        </svg>
+
+        <div class="title-group">
+          <h1 class="brand-title">ROWER RACE</h1>
+          <div class="badges-row">
+            <span class="badge-esport">PRO ESPORT</span>
+            <span class="badge-garmin">GARMIN CONNECT IQ™</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="tagline">CHAMPIONNAT MULTI-JOUEURS EN DIRECT</div>
+
+      <div class="features-list">
+        <div class="feature-item">
+          <div class="feature-icon">⚡</div>
+          <span>Connexion Bluetooth native rameurs (FTMS & SmartRow)</span>
+        </div>
+        <div class="feature-item">
+          <div class="feature-icon">🌐</div>
+          <span>Course synchronisée en temps réel sur arène web</span>
+        </div>
+        <div class="feature-item">
+          <div class="feature-icon">📊</div>
+          <span>Télémétrie complète : Allure /500m, Watts, SPM & Départs groupés</span>
+        </div>
+      </div>
+
+      <div class="protocol-chips">
+        <div class="protocol-chip">
+          <span style="color:#39ff14">●</span> BLUETOOTH BLE
+        </div>
+        <div class="protocol-chip">
+          <span style="color:#00f0ff">●</span> FTMS STANDARD
+        </div>
+        <div class="protocol-chip">
+          <span style="color:#ffe600">●</span> WATERROWER / SMARTROW
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT COLUMN: WATCH MOCKUP SHOWCASE -->
+    <div class="watch-showcase">
+      <div class="watch-case">
+        <div class="watch-screw screw-1"></div>
+        <div class="watch-screw screw-2"></div>
+        <div class="watch-screw screw-3"></div>
+        <div class="watch-screw screw-4"></div>
+
+        <div class="watch-screen">
+          <div class="screen-header">
+            <span class="screen-rank">🥇 1ER / 8</span>
+            <span class="screen-title">COURSE 2000M</span>
+            <span class="screen-battery">98%</span>
+          </div>
+
+          <div class="telemetry-grid">
+            <div class="telem-cell">
+              <span class="telem-label">ALLURE /500M</span>
+              <span class="telem-val val-split">1:48.2</span>
+            </div>
+            <div class="telem-cell">
+              <span class="telem-label">PUISSANCE</span>
+              <span class="telem-val val-watts">248 W</span>
+            </div>
+            <div class="telem-cell">
+              <span class="telem-label">CADENCE SPM</span>
+              <span class="telem-val val-spm">28</span>
+            </div>
+            <div class="telem-cell">
+              <span class="telem-label">DISTANCE</span>
+              <span class="telem-val val-dist">1420 M</span>
+            </div>
+          </div>
+
+          <div class="screen-footer">
+            <div class="progress-bar-bg">
+              <div class="progress-bar-fill"></div>
+            </div>
+            <span class="screen-footer-text">AVANCE : +24M · RESTE : 580M</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
