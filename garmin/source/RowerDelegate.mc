@@ -56,16 +56,7 @@ class RowerDelegate extends WatchUi.BehaviorDelegate {
             }
             return true;
         } else if (state == RowerView.STATE_LOBBY || state == RowerView.STATE_WAITING_START) {
-            if (_view.getCountdown() <= 5) {
-                _bleDelegate.launchRaceFromWaiting();
-            } else if (!_view.isBotsEnabled() && _view.getConnectedPlayers() <= 1) {
-                _bleDelegate.promptBots();
-            } else {
-                _bleDelegate.launchRaceFromWaiting();
-            }
-            return true;
-        } else if (state == RowerView.STATE_BOTS_PROMPT) {
-            _bleDelegate.respondBotsPrompt(_view.getChoiceMenuIndex() == 0);
+            _bleDelegate.launchRaceFromWaiting();
             return true;
         } else if (state == RowerView.STATE_LATE_CHOICE) {
             if (_view.getChoiceMenuIndex() == 0) {
@@ -116,7 +107,7 @@ class RowerDelegate extends WatchUi.BehaviorDelegate {
         } else if (state == RowerView.STATE_PIN_INPUT) {
             _view.decrementPinDigit();
             return true;
-        } else if (state == RowerView.STATE_BOTS_PROMPT || state == RowerView.STATE_LATE_CHOICE) {
+        } else if (state == RowerView.STATE_LATE_CHOICE) {
             _view.toggleChoiceMenu();
             return true;
         } else if (state == RowerView.STATE_RACING || state == RowerView.STATE_LATE_JOIN) {
@@ -148,7 +139,7 @@ class RowerDelegate extends WatchUi.BehaviorDelegate {
         } else if (state == RowerView.STATE_PIN_INPUT) {
             _view.incrementPinDigit();
             return true;
-        } else if (state == RowerView.STATE_BOTS_PROMPT || state == RowerView.STATE_LATE_CHOICE) {
+        } else if (state == RowerView.STATE_LATE_CHOICE) {
             _view.toggleChoiceMenu();
             return true;
         } else if (state == RowerView.STATE_RACING || state == RowerView.STATE_LATE_JOIN) {
@@ -195,9 +186,6 @@ class RowerDelegate extends WatchUi.BehaviorDelegate {
             if (canExit) {
                 _view.setAppState(RowerView.STATE_MENU);
             }
-            return true;
-        } else if (state == RowerView.STATE_BOTS_PROMPT) {
-            _view.setAppState(RowerView.STATE_WAITING_START);
             return true;
         } else if (state == RowerView.STATE_LATE_CHOICE || state == RowerView.STATE_LOBBY ||
                    state == RowerView.STATE_WAITING_START || state == RowerView.STATE_HISTORY ||

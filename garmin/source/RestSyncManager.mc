@@ -256,7 +256,9 @@ class RestSyncManager {
 
         if (deviceName != null) {
             payload.put("deviceName", deviceName);
+            payload.put("rowerModel", deviceName);
         }
+        payload.put("watchModel", UserManager.getWatchModel());
 
         var options = {
             :method => Communications.HTTP_REQUEST_METHOD_POST,

@@ -16,6 +16,10 @@ export default (app: Application): void => {
   // PUT /api/race/config (Mise à jour distance / intervalle)
   router.put("/config", raceController.updateRaceConfig);
 
+  // Configuration admin de la course publique (distance, max participants, bots, durée)
+  router.get("/admin/config", raceController.getPublicRaceAdminConfig);
+  router.put("/admin/config", raceController.updatePublicRaceAdminConfig);
+
   // POST /api/race/bots (Activer / désactiver des bots virtuels)
   router.post("/bots", raceController.toggleBots);
 

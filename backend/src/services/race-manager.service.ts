@@ -28,6 +28,10 @@ export interface RaceState {
   pinCode?: string; // Alphanumeric PIN (5 chars) for Garmin watch & quick join
   hostUserId?: string;
   hostUserName?: string;
+  startMode?: "manual" | "scheduled";
+  scheduledStartTime?: Date;
+  botCount?: number;
+  botMaxPace?: number;
   autoStart?: boolean;
   hasBots?: boolean;
   totalParticipants?: number;
@@ -69,6 +73,15 @@ export class RaceManager {
   private loopTimer: NodeJS.Timeout | null = null;
   private loopBusy = false;
   private publicTickChain: Promise<void> = Promise.resolve();
+
+  public adminPublicRaceConfig = {
+    targetDistance: 2000,
+    maxParticipants: 20,
+    maxDurationMinutes: 55,
+    defaultBotsCount: 3,
+    defaultBotsPace: 120, // 2:00 / 500m
+    countdownAfterLastJoinSeconds: 15,
+  };
 
   private constructor() {
     this.startOrchestratorLoop();
@@ -393,6 +406,18 @@ export class RaceManager {
       }
 
       if ((race.status === "COUNTDOWN" || (race.status === "LOBBY" && race.autoStart)) && now >= race.lobbyEndsAt) {
+        // En mode programmé, départ automatique uniquement s'il y a des participants connectés ou validés
+        if (race.status === "LOBBY" && race.autoStart) {
+          const rows = await this.loadRaceActivities(race.id);
+          const hasParticipants =
+            (race.participants && race.participants.size > 0) ||
+            rows.some((r: any) => !r.get("isBot") && ["waiting", "in_progress"].includes(r.get("status")));
+          if (!hasParticipants) {
+            // Pas encore de participant, on laisse le lobby ouvert
+            continue;
+          }
+        }
+
         race.status = "RUNNING";
         race.startedAt = now;
         try {
@@ -475,7 +500,9 @@ export class RaceManager {
     const pin = this.generateUniquePinCode();
 
     const title = `Régate Publique ${lobbyEndsAt.getHours().toString().padStart(2, "0")}h${lobbyEndsAt.getMinutes().toString().padStart(2, "0")}`;
-    const targetDistance = config.defaultRaceDistanceMeters || 2000;
+    const targetDistance = this.adminPublicRaceConfig.targetDistance || 2000;
+    const maxParticipants = this.adminPublicRaceConfig.maxParticipants || 20;
+    const maxDurationMinutes = this.adminPublicRaceConfig.maxDurationMinutes || 55;
 
     try {
       await Races.create({
@@ -484,9 +511,10 @@ export class RaceManager {
         targetDistance,
         startTime: lobbyEndsAt,
         intervalMinutes: intervalMin,
-        maxDurationMinutes: 55,
+        maxDurationMinutes,
         status: "waiting",
-        totalParticipants: 0
+        totalParticipants: 0,
+        hasBots: this.adminPublicRaceConfig.defaultBotsCount > 0
       });
     } catch (err) {
       console.error(`[RaceManager] Unable to persist public race ${raceId}:`, err);
@@ -502,18 +530,117 @@ export class RaceManager {
       type: "PUBLIC_HOURLY",
       status: "LOBBY",
       targetDistance,
-      maxParticipants: 20,
-      maxDurationMinutes: 55,
+      maxParticipants,
+      maxDurationMinutes,
       lobbyEndsAt,
       pinCode: pin,
-      hasBots: false,
+      hasBots: this.adminPublicRaceConfig.defaultBotsCount > 0,
       createdAt: now
     };
 
     this.pinToRaceMap.set(pin, { raceId, lane: 1 });
-    console.log(`[RaceManager] New Public Race scheduled: ${raceId} | PIN: ${pin} | Lobby until: ${lobbyEndsAt.toISOString()}`);
+
+    // Injecter automatiquement les bots configurés pour la course publique
+    if (this.adminPublicRaceConfig.defaultBotsCount > 0) {
+      this.ensureDefaultPublicBots(
+        raceId,
+        this.adminPublicRaceConfig.defaultBotsCount,
+        this.adminPublicRaceConfig.defaultBotsPace,
+        targetDistance
+      ).catch(() => {});
+    }
+
+    console.log(`[RaceManager] New Public Race scheduled: ${raceId} | PIN: ${pin} | Target: ${targetDistance}m | Lobby until: ${lobbyEndsAt.toISOString()}`);
     socketGateway.broadcastRaceStatus(raceId, "LOBBY", { lobbyEndsAt });
     return this.currentPublicRace;
+  }
+
+  public notifyPlayerJoinedPublic(userId: string): void {
+    if (!this.currentPublicRace) return;
+    if (this.currentPublicRace.status === "LOBBY" || this.currentPublicRace.status === "COUNTDOWN") {
+      const now = new Date();
+      const countdownSec = this.adminPublicRaceConfig.countdownAfterLastJoinSeconds || 15;
+      this.currentPublicRace.status = "COUNTDOWN";
+      this.currentPublicRace.lobbyEndsAt = new Date(now.getTime() + countdownSec * 1000);
+      socketGateway.broadcastRaceStatus(this.currentPublicRace.id, "COUNTDOWN", {
+        lobbyEndsAt: this.currentPublicRace.lobbyEndsAt,
+        secondsUntilStart: countdownSec,
+        countdownSeconds: countdownSec,
+        lastJoinedUserId: userId
+      });
+    }
+  }
+
+  public updatePublicRaceConfig(newCfg: Partial<typeof this.adminPublicRaceConfig>): typeof this.adminPublicRaceConfig {
+    if (newCfg.targetDistance !== undefined && Number.isFinite(Number(newCfg.targetDistance))) {
+      this.adminPublicRaceConfig.targetDistance = Math.min(100000, Math.max(500, Math.round(Number(newCfg.targetDistance))));
+    }
+    if (newCfg.maxParticipants !== undefined && Number.isFinite(Number(newCfg.maxParticipants))) {
+      this.adminPublicRaceConfig.maxParticipants = Math.min(100, Math.max(2, Math.round(Number(newCfg.maxParticipants))));
+    }
+    if (newCfg.maxDurationMinutes !== undefined && Number.isFinite(Number(newCfg.maxDurationMinutes))) {
+      this.adminPublicRaceConfig.maxDurationMinutes = Math.min(180, Math.max(5, Math.round(Number(newCfg.maxDurationMinutes))));
+    }
+    if (newCfg.defaultBotsCount !== undefined && Number.isFinite(Number(newCfg.defaultBotsCount))) {
+      this.adminPublicRaceConfig.defaultBotsCount = Math.min(20, Math.max(0, Math.round(Number(newCfg.defaultBotsCount))));
+    }
+    if (newCfg.defaultBotsPace !== undefined && Number.isFinite(Number(newCfg.defaultBotsPace))) {
+      this.adminPublicRaceConfig.defaultBotsPace = Math.min(300, Math.max(60, Math.round(Number(newCfg.defaultBotsPace))));
+    }
+    if (newCfg.countdownAfterLastJoinSeconds !== undefined && Number.isFinite(Number(newCfg.countdownAfterLastJoinSeconds))) {
+      this.adminPublicRaceConfig.countdownAfterLastJoinSeconds = Math.min(300, Math.max(5, Math.round(Number(newCfg.countdownAfterLastJoinSeconds))));
+    }
+    if (this.currentPublicRace && (this.currentPublicRace.status === "LOBBY" || this.currentPublicRace.status === "COUNTDOWN")) {
+      this.currentPublicRace.targetDistance = this.adminPublicRaceConfig.targetDistance;
+      this.currentPublicRace.maxParticipants = this.adminPublicRaceConfig.maxParticipants;
+      this.currentPublicRace.maxDurationMinutes = this.adminPublicRaceConfig.maxDurationMinutes;
+    }
+    return this.adminPublicRaceConfig;
+  }
+
+  private async ensureDefaultPublicBots(raceId: string, count: number, pace: number, targetDistance: number): Promise<void> {
+    if (count <= 0) return;
+    const names = ["Bot Argonaut", "Bot Poseidon", "Bot Nautilus", "Bot Triton", "Bot Thalassa"];
+    for (let i = 0; i < count; i++) {
+      const botId = `bot_pub_${i + 1}`;
+      const compositeId = `${raceId}_${botId}`;
+      const name = names[i % names.length];
+      const botPace = pace + (i * 3);
+      const speedMs = 500 / botPace;
+      const power = Math.round(2.80 * Math.pow(speedMs, 3));
+      try {
+        await Activities.findOrCreate({
+          where: { id: compositeId },
+          defaults: {
+            id: compositeId,
+            activityId: raceId,
+            userId: botId,
+            userName: name,
+            isBot: true,
+            raceMode: "race",
+            targetDistance,
+            status: "waiting",
+            initialDistance: 0,
+            currentDistance: 0,
+            netDistance: 0,
+            progressPercent: 0,
+            lastStrokeRate: 26,
+            lastStrokeCount: 0,
+            lastHeartRate: 155,
+            lastResistance: 4,
+            totalStrokes: 0,
+            totalEnergy: 0,
+            lastPower: power,
+            lastPace: botPace,
+            avgPower: power,
+            avgPace: botPace,
+            avgStrokeRate: 26,
+            elapsedTime: 0,
+            avgSpeedKmh: Number((speedMs * 3.6).toFixed(1)),
+          }
+        });
+      } catch {}
+    }
   }
 
   /**
@@ -568,8 +695,12 @@ export class RaceManager {
     maxParticipants?: number;
     hostUserId: string;
     hostUserName?: string;
+    startMode?: "manual" | "scheduled";
+    scheduledStartTime?: Date | string;
     countdownMinutes?: number;
     requireApproval?: boolean;
+    botCount?: number;
+    botMaxPace?: number;
   }): RaceState {
     const code = this.generateUniqueMeetCode();
     const pin = this.generateUniquePinCode();
@@ -591,13 +722,33 @@ export class RaceManager {
       ? Math.min(30, Math.max(2, Math.round(rawMax)))
       : 8;
 
-    const rawCountdownMin = Number(options.countdownMinutes);
-    const hasScheduledStart = Number.isFinite(rawCountdownMin) && rawCountdownMin > 0;
-    const clampedCountdownMin = hasScheduledStart ? Math.min(180, rawCountdownMin) : 0;
+    const startMode: "manual" | "scheduled" = options.startMode === "scheduled" ? "scheduled" : "manual";
+    let scheduledDate: Date | undefined;
+    let autoStart = false;
+    let lobbyEndsAt: Date;
 
-    const lobbyEndsAt = hasScheduledStart
-      ? new Date(now.getTime() + clampedCountdownMin * 60 * 1000)
-      : new Date(now.getTime() + 24 * 60 * 60 * 1000);
+    if (startMode === "scheduled" && options.scheduledStartTime) {
+      scheduledDate = new Date(options.scheduledStartTime);
+      if (Number.isFinite(scheduledDate.getTime()) && scheduledDate.getTime() > now.getTime()) {
+        lobbyEndsAt = scheduledDate;
+        autoStart = true;
+      } else {
+        lobbyEndsAt = new Date(now.getTime() + 10 * 60 * 1000); // 10 min par défaut
+        autoStart = true;
+      }
+    } else {
+      const rawCountdownMin = Number(options.countdownMinutes);
+      const hasCountdown = Number.isFinite(rawCountdownMin) && rawCountdownMin > 0;
+      if (hasCountdown) {
+        const clampedCountdownMin = Math.min(180, rawCountdownMin);
+        lobbyEndsAt = new Date(now.getTime() + clampedCountdownMin * 60 * 1000);
+        autoStart = true;
+      } else {
+        // Mode manuel : L'organisateur donne le top départ quand il le décide
+        lobbyEndsAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+        autoStart = false;
+      }
+    }
 
     const hostUserId = String(options.hostUserId || "anonymous").trim().slice(0, 64) || "anonymous";
     const hostUserName = options.hostUserName
@@ -608,6 +759,9 @@ export class RaceManager {
     const participants = new Map<string, PrivateParticipantInfo>();
     const pendingParticipants = new Map<string, PrivateParticipantInfo>();
     const rejectedParticipants = new Set<string>();
+
+    const botCount = Math.min(10, Math.max(0, Number(options.botCount) || 0));
+    const botMaxPace = Math.min(300, Math.max(60, Number(options.botMaxPace) || 120));
 
     const privateRace: RaceState = {
       id: raceId,
@@ -622,8 +776,12 @@ export class RaceManager {
       pinCode: pin,
       hostUserId,
       hostUserName,
-      autoStart: hasScheduledStart,
-      hasBots: false,
+      startMode,
+      scheduledStartTime: scheduledDate,
+      botCount,
+      botMaxPace,
+      autoStart,
+      hasBots: botCount > 0,
       totalParticipants: 0,
       createdAt: now,
       requireApproval,
@@ -636,7 +794,55 @@ export class RaceManager {
     this.privateRacesById.set(raceId, privateRace);
     this.pinToRaceMap.set(pin.toUpperCase(), { raceId, lane: 1 });
 
+    if (botCount > 0) {
+      this.ensureSalonBots(raceId, botCount, botMaxPace, targetDistance).catch(() => {});
+    }
+
     return privateRace;
+  }
+
+  private async ensureSalonBots(raceId: string, botCount: number, botMaxPace: number, targetDistance: number): Promise<void> {
+    const names = ["Bot Challenger", "Bot Pacer", "Bot Tempo", "Bot Shadow", "Bot Swift"];
+    for (let i = 0; i < botCount; i++) {
+      const botId = `bot_salon_${i + 1}`;
+      const compositeId = `${raceId}_${botId}`;
+      const name = names[i % names.length];
+      const botPace = botMaxPace + (i * 2);
+      const speedMs = 500 / botPace;
+      const power = Math.round(2.80 * Math.pow(speedMs, 3));
+      try {
+        await Activities.findOrCreate({
+          where: { id: compositeId },
+          defaults: {
+            id: compositeId,
+            activityId: raceId,
+            userId: botId,
+            userName: name,
+            isBot: true,
+            raceMode: "race",
+            targetDistance,
+            status: "waiting",
+            initialDistance: 0,
+            currentDistance: 0,
+            netDistance: 0,
+            progressPercent: 0,
+            lastStrokeRate: 26,
+            lastStrokeCount: 0,
+            lastHeartRate: 155,
+            lastResistance: 4,
+            totalStrokes: 0,
+            totalEnergy: 0,
+            lastPower: power,
+            lastPace: botPace,
+            avgPower: power,
+            avgPace: botPace,
+            avgStrokeRate: 26,
+            elapsedTime: 0,
+            avgSpeedKmh: Number((speedMs * 3.6).toFixed(1)),
+          }
+        });
+      } catch {}
+    }
   }
 
   public getRaceByPin(pin: string): { raceId: string; lane: number; race?: RaceState } | null {

@@ -62,7 +62,10 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
   roomTitle = '';
   targetDistance = 2000;
   maxParticipants = 8;
-  startMode: 'manual' | 'timer' = 'manual';
+  startMode: 'manual' | 'scheduled' = 'manual';
+  scheduledDateTime = '';
+  botCount = 0;
+  botMaxPace = 120; // 2:00 / 500m
   countdownMinutes = 5;
   requireApproval = true;
   readonly distancePresets = [500, 1000, 2000, 5000, 10000];
@@ -355,10 +358,6 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
 
     const clampedDist = Math.min(100000, Math.max(100, Math.round(Number(this.targetDistance) || 2000)));
     const clampedMax = Math.min(30, Math.max(2, Math.round(Number(this.maxParticipants) || 8)));
-    const countdownMin =
-      this.startMode === 'timer'
-        ? Math.min(180, Math.max(1, Math.round(Number(this.countdownMinutes) || 5)))
-        : 0;
 
     this.rowerService
       .createPrivateRace({
@@ -367,7 +366,10 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
         maxParticipants: clampedMax,
         hostUserId: this.activeUserId || 'anonymous',
         hostUserName: this.activeUserName || undefined,
-        countdownMinutes: countdownMin,
+        startMode: this.startMode,
+        scheduledStartTime: this.startMode === 'scheduled' && this.scheduledDateTime ? this.scheduledDateTime : undefined,
+        botCount: Number(this.botCount) || 0,
+        botMaxPace: Number(this.botMaxPace) || 120,
         requireApproval: this.requireApproval
       })
       .subscribe({

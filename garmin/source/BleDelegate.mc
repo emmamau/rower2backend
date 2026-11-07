@@ -82,6 +82,7 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
     private var _pendingStrokeSync as Boolean = false;
     private var _lastFallbackSendSec as Number = 0;
     private var _tickCounter as Number = 0;
+    private var _lastVibeSecond as Number = -1;
 
     public function initialize(model as RowerDataModel) {
         BleDelegate.initialize();
@@ -838,17 +839,17 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
             if (state == RowerView.STATE_WAITING_START && cd <= 5 && cd > 0) {
                 view.set5sCountdown(cd);
                 view.setAppState(RowerView.STATE_COUNTDOWN_5S);
-                vibrateShort();
+                vibrateSingleTick(false);
             } else if (state == RowerView.STATE_COUNTDOWN_5S) {
                 if (cd > 0) {
                     view.set5sCountdown(cd);
-                    vibrateShort();
+                    vibrateSingleTick(false);
                 } else {
-                    vibrateGo();
+                    vibrateSingleTick(true);
                     launchRaceFromWaiting();
                 }
             } else if ((state == RowerView.STATE_WAITING_START || state == RowerView.STATE_LOBBY) && cd <= 0) {
-                vibrateGo();
+                vibrateSingleTick(true);
                 launchRaceFromWaiting();
             }
         }
@@ -892,6 +893,19 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
                 ]);
             }
         } catch (e) {
+        }
+    }
+
+    private function vibrateSingleTick(isGo as Boolean) as Void {
+        var nowSec = System.getTimer() / 1000;
+        if (nowSec == _lastVibeSecond) {
+            return;
+        }
+        _lastVibeSecond = nowSec;
+        if (isGo) {
+            vibrateGo();
+        } else {
+            vibrateShort();
         }
     }
 
@@ -943,31 +957,12 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
             state = view.getAppState();
         }
 
-        // 2. False-start guard strictly while waiting in starting blocks before race begins
-        if (state == RowerView.STATE_WAITING_START || state == RowerView.STATE_COUNTDOWN_5S) {
-            if (_model.liveMovementDetected && view.getCountdown() > 0 && !_activityStatus.equals("in_progress")) {
-                view.setFalseStartLocked(true);
-                view.showWarning(I18n.getText("WARN_NO_ROW"), 2);
-            } else {
-                view.setFalseStartLocked(false);
-            }
+        // 2. Pre-start: tare distance to zero and do not accumulate race distance before green light
+        if (state == RowerView.STATE_WAITING_START || state == RowerView.STATE_COUNTDOWN_5S || state == RowerView.STATE_LOBBY) {
+            view.setFalseStartLocked(false);
+            _model.reTareToZero();
             WatchUi.requestUpdate();
             return;
-        }
-
-        // 3. Clear false start lock once race is in progress
-        if (view.isFalseStartLocked()) {
-            if (_activityStatus.equals("in_progress") || state == RowerView.STATE_RACING) {
-                view.setFalseStartLocked(false);
-            } else if (!_model.liveMovementDetected && (_model.strokeRate <= 0.0f && _model.instantPower <= 5)) {
-                view.setFalseStartLocked(false);
-                _model.reTareToZero();
-            } else {
-                _model.reTareToZero();
-                view.showWarning(I18n.getText("WARN_ZERO_SPEED"), 2);
-                WatchUi.requestUpdate();
-                return;
-            }
         }
 
         // 3. Active race progress, UI refresh & stroke-by-stroke HTTP telemetry

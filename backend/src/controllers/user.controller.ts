@@ -651,6 +651,64 @@ export const getGeneralLeaderboard = async (_req: Request, res: Response): Promi
   }
 };
 
+/**
+ * PUT /api/user/prefix
+ * Permet aux utilisateurs abonnés de personnaliser la première partie de leur identifiant joueur.
+ */
+export const updateUserPrefix = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { userId, userPrefix } = req.body || {};
+    const cleanUserId = String(userId || "").trim();
+    const cleanPrefix = String(userPrefix || "").trim();
+
+    if (!cleanUserId) {
+      res.status(400).json({ success: false, message: "L'identifiant utilisateur est obligatoire." });
+      return;
+    }
+
+    if (!cleanPrefix || !/^[a-zA-Z0-9]{3,12}$/.test(cleanPrefix)) {
+      res.status(400).json({
+        success: false,
+        message: "Le préfixe doit comporter entre 3 et 12 caractères alphanumériques (sans espaces ni caractères spéciaux)."
+      });
+      return;
+    }
+
+    const user = await userStore.findUser(cleanUserId);
+    if (!user) {
+      res.status(404).json({ success: false, message: "Utilisateur introuvable." });
+      return;
+    }
+
+    const isEmma = isEmmaAdminUser(user.login || user.id, user.name);
+    if (!user.isSubscriber && !user.isAdmin && !isEmma) {
+      res.status(403).json({
+        success: false,
+        message: "Seuls les abonnés actifs ont le privilège de personnaliser leur préfixe d'identifiant joueur."
+      });
+      return;
+    }
+
+    const suffix = user.userSuffix || "IQ" + Math.random().toString(36).substring(2, 5).toUpperCase();
+    const updated = await userStore.updateUser(user.id, {
+      userPrefix: cleanPrefix,
+      userSuffix: suffix
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Préfixe mis à jour avec succès.",
+      userPrefix: cleanPrefix,
+      userSuffix: suffix,
+      fullPlayerId: `${cleanPrefix}_${suffix}`,
+      user: sanitizeUser(updated || user)
+    });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ success: false, message: "Erreur mise à jour préfixe: " + message });
+  }
+};
+
 export default {
   registerUser,
   loginUser,
@@ -663,4 +721,5 @@ export default {
   respondLoginRequest,
   getUserProfile,
   getGeneralLeaderboard,
+  updateUserPrefix,
 };

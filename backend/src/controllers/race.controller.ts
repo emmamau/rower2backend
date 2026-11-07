@@ -147,6 +147,18 @@ export const joinRace = async (req: Request, res: Response): Promise<void> => {
     const actualRaceId = state.id;
     const compositeId = `${actualRaceId}_${userId}`;
 
+    const currentCount = await Activities.count({
+      where: { activityId: actualRaceId, status: { [Op.ne]: "abandoned" }, isBot: false },
+    });
+    const maxAllowed = state.maxParticipants || 20;
+    if (currentCount >= maxAllowed && !(await Activities.findByPk(compositeId))) {
+      res.status(409).json({
+        success: false,
+        message: `La course publique est complète (${maxAllowed} participants maximum).`,
+      });
+      return;
+    }
+
     // Le statut de départ : si rejoint en retard dans une course en cours -> in_progress immédiat
     const playerStatus = isRunning && action === "join_late" ? "in_progress" : "waiting";
 
@@ -183,6 +195,10 @@ export const joinRace = async (req: Request, res: Response): Promise<void> => {
         status: playerStatus,
         userName: userName || activity.get("userName"),
       });
+    }
+
+    if (!isRunning && (state.status === "LOBBY" || state.status === "COUNTDOWN")) {
+      raceManager.notifyPlayerJoinedPublic(userId);
     }
 
     // Inscrire/actualiser l'utilisateur sans données personnelles
@@ -479,10 +495,67 @@ export const toggleBots = async (req: Request, res: Response): Promise<void> => 
   }
 };
 
+/**
+ * GET /api/race/admin/config
+ * Consultation de la configuration des courses publiques
+ */
+export const getPublicRaceAdminConfig = async (_req: Request, res: Response): Promise<void> => {
+  res.status(200).json({
+    success: true,
+    config: raceManager.adminPublicRaceConfig,
+  });
+};
+
+/**
+ * PUT /api/race/admin/config
+ * Configuration des courses publiques par l'administrateur
+ * Nombre et niveau des bots par défaut, nombre max de joueur, durée et distance de la course.
+ */
+export const updatePublicRaceAdminConfig = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const {
+      userId,
+      targetDistance,
+      maxParticipants,
+      maxDurationMinutes,
+      defaultBotsCount,
+      defaultBotsPace,
+      countdownAfterLastJoinSeconds,
+    } = req.body || {};
+
+    const user = await userStore.findUser(userId);
+    const isEmma = isEmmaAdminUser(userId, user?.name);
+    if (!isEmma && !user?.isAdmin) {
+      res.status(403).json({ success: false, message: "Action réservée aux administrateurs." });
+      return;
+    }
+
+    const updated = raceManager.updatePublicRaceConfig({
+      targetDistance,
+      maxParticipants,
+      maxDurationMinutes,
+      defaultBotsCount,
+      defaultBotsPace,
+      countdownAfterLastJoinSeconds,
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Configuration des courses publiques mise à jour avec succès.",
+      config: updated,
+    });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ success: false, message: "Erreur config publique: " + message });
+  }
+};
+
 export default {
   getNextRace,
   joinRace,
   getRaceHistory,
   updateRaceConfig,
   toggleBots,
+  getPublicRaceAdminConfig,
+  updatePublicRaceAdminConfig,
 };

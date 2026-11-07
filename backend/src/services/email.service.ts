@@ -23,14 +23,44 @@ export class EmailService {
   }
 
   /**
-   * Envoi d'un courriel (stub / mock prêt pour intégration SMTP / SendGrid / AWS SES)
+   * Envoi d'un courriel via Resend (API / SMTP) avec fallback mock/test
    */
   public async sendEmail(payload: EmailPayload): Promise<{ success: boolean; messageId: string }> {
     const messageId = `msg_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     this.sentEmailsLog.push(payload);
 
-    if (process.env.NODE_ENV !== "test") {
-      console.log(`[EmailService] Simulation envoi courriel à: ${payload.to} | Sujet: ${payload.subject}`);
+    const resendApiKey = process.env.RESEND_API_KEY;
+    const fromEmail = process.env.EMAIL_FROM || "Rower Race <onboarding@resend.dev>";
+
+    if (resendApiKey && process.env.NODE_ENV !== "test") {
+      try {
+        const response = await fetch("https://api.resend.com/emails", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${resendApiKey}`,
+          },
+          body: JSON.stringify({
+            from: fromEmail,
+            to: payload.to,
+            subject: payload.subject,
+            text: payload.text,
+            html: payload.html || payload.text.replace(/\n/g, "<br>"),
+          }),
+        });
+
+        if (response.ok) {
+          const data = (await response.json()) as any;
+          return { success: true, messageId: data.id || messageId };
+        } else {
+          const errText = await response.text();
+          console.error(`[EmailService/Resend] Erreur envoi: ${response.status} - ${errText}`);
+        }
+      } catch (err) {
+        console.error("[EmailService/Resend] Exception envoi courriel:", err);
+      }
+    } else if (process.env.NODE_ENV !== "test") {
+      console.log(`[EmailService] Simulation/SMTP Resend vers: ${payload.to} | Sujet: ${payload.subject}`);
     }
 
     return { success: true, messageId };

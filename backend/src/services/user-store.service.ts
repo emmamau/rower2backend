@@ -23,6 +23,14 @@ export interface StoredUser {
   passwordHash?: string;
   passwordSalt?: string;
   isSubscriber: boolean;
+  subscriptionTier?: "free" | "intermediate" | "premium" | string;
+  subscriptionStatus?: "active" | "canceled" | "past_due" | "none" | string;
+  lemonCustomerId?: string;
+  lemonSubscriptionId?: string;
+  watchModel?: string;
+  rowerModel?: string;
+  userPrefix?: string;
+  userSuffix?: string;
   isConfirmed: boolean;
   watchUserId?: string;
   resetPasswordToken?: string;
@@ -89,6 +97,10 @@ export class UserStoreService {
       passwordHash: defaultPassword.hash,
       passwordSalt: defaultPassword.salt,
       isSubscriber: true,
+      subscriptionTier: "premium",
+      subscriptionStatus: "active",
+      userPrefix: "Emma",
+      userSuffix: "RCR01",
       isAdmin: true,
       isConfirmed: true,
       totalRaces: 0,

@@ -299,43 +299,84 @@
             </div>
           </div>
 
-          <!-- Semantic fieldset + radio buttons for 2 start modes -->
+          <!-- Choix des 2 modes de départ pour l'organisateur -->
           <fieldset class="priv-fieldset">
-            <legend class="priv-legend">{{ i18n.t('FIELD_START_MODE') }}</legend>
+            <legend class="priv-legend">Mode de départ de la course</legend>
             <label class="priv-radio-card" [class.selected]="startMode === 'manual'">
               <input
                 type="radio"
                 name="startMode"
                 value="manual"
                 [(ngModel)]="startMode" />
-              <span>{{ i18n.t('START_MODE_MANUAL') }}</span>
+              <div>
+                <strong>🚀 Top départ manuel</strong>
+                <p class="priv-radio-desc">L'organisateur donne le départ quand tous les participants sont prêts et acceptés.</p>
+              </div>
             </label>
-            <label class="priv-radio-card" [class.selected]="startMode === 'timer'">
+            <label class="priv-radio-card" [class.selected]="startMode === 'scheduled'">
               <input
                 type="radio"
                 name="startMode"
-                value="timer"
+                value="scheduled"
                 [(ngModel)]="startMode" />
-              <span>{{ i18n.t('START_MODE_TIMER') }}</span>
+              <div>
+                <strong>⏰ Départ programmé automatique</strong>
+                <p class="priv-radio-desc">L'heure de départ est fixée à l'avance et le départ est automatique s'il y a des participants.</p>
+              </div>
             </label>
           </fieldset>
 
-          @if (startMode === 'timer') {
+          @if (startMode === 'scheduled') {
             <div class="priv-field">
-              <label for="priv-countdown-min" class="priv-label">
-                {{ i18n.t('FIELD_COUNTDOWN_MIN') }}
+              <label for="priv-scheduled-dt" class="priv-label">
+                Date et heure du départ programmé
               </label>
               <input
-                id="priv-countdown-min"
-                name="countdownMinutes"
-                type="number"
-                min="1"
-                max="180"
-                inputmode="numeric"
+                id="priv-scheduled-dt"
+                name="scheduledDateTime"
+                type="datetime-local"
                 class="priv-input"
-                [(ngModel)]="countdownMinutes" />
+                [(ngModel)]="scheduledDateTime" />
             </div>
           }
+
+          <!-- Configuration des bots d'entraînement virtuels par l'organisateur -->
+          <div class="priv-grid-2">
+            <div class="priv-field">
+              <label for="priv-bot-count" class="priv-label">
+                🤖 Bots virtuels (organisateur)
+              </label>
+              <select
+                id="priv-bot-count"
+                name="botCount"
+                class="priv-input"
+                [(ngModel)]="botCount">
+                <option [ngValue]="0">Aucun bot (humains uniquement)</option>
+                <option [ngValue]="1">1 bot d'entraînement</option>
+                <option [ngValue]="2">2 bots d'entraînement</option>
+                <option [ngValue]="3">3 bots d'entraînement</option>
+                <option [ngValue]="4">4 bots d'entraînement</option>
+                <option [ngValue]="5">5 bots d'entraînement (Max)</option>
+              </select>
+            </div>
+
+            <div class="priv-field" *ngIf="botCount > 0">
+              <label for="priv-bot-pace" class="priv-label">
+                ⚡ Niveau des bots (Allure max / 500m)
+              </label>
+              <select
+                id="priv-bot-pace"
+                name="botMaxPace"
+                class="priv-input"
+                [(ngModel)]="botMaxPace">
+                <option [ngValue]="105">1:45 / 500m (Niveau Élite)</option>
+                <option [ngValue]="115">1:55 / 500m (Niveau Avancé)</option>
+                <option [ngValue]="120">2:00 / 500m (Niveau Régulier - Défaut)</option>
+                <option [ngValue]="135">2:15 / 500m (Niveau Endurance)</option>
+                <option [ngValue]="150">2:30 / 500m (Niveau Loisir)</option>
+              </select>
+            </div>
+          </div>
 
           <!-- Organizer Approval Checkbox (default: true) -->
           <div class="priv-field">

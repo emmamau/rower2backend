@@ -150,6 +150,12 @@
             {{ pendingApprovalPlayers.length }}
           </span>
         </button>
+        <button type="button" class="btn-hud btn-pricing" (click)="openSubscriptionModal()" title="Offres d'abonnement">
+          ⭐ Abonnements
+        </button>
+        <button type="button" class="btn-hud btn-admin-cfg" *ngIf="isUserAdmin" (click)="openAdminConfigModal()" title="Configuration globale de la régate publique">
+          ⚙️ Admin Courses
+        </button>
         <button type="button" class="btn-hud btn-standings" (click)="isStandingsOpen = true; loadGeneralLeaderboard()">{{ i18n.t('BTN_STANDINGS') }}</button>
         <button type="button" class="btn-hud btn-history" (click)="isHistoryOpen = true; loadPastRaces()">{{ i18n.t('BTN_HISTORY') }}</button>
         <button type="button" class="btn-hud btn-admin" *ngIf="canConfigureRace" (click)="isConfigRaceOpen = true" title="Paramètres de course">{{ i18n.t('BTN_ADMIN') }}</button>
@@ -386,12 +392,30 @@
 
               <div class="profile-fields-grid">
                 <div class="profile-field">
+                  <span class="field-name">Identifiant Joueur Unifié</span>
+                  <strong class="field-val font-mono highlight">{{ fullPlayerId }}</strong>
+                </div>
+                <div class="profile-field">
                   <span class="field-name">Login unique</span>
                   <strong class="field-val">{{ currentUser.login || currentUser.id }}</strong>
                 </div>
                 <div class="profile-field">
+                  <span class="field-name">⌚ Montre Garmin</span>
+                  <strong class="field-val">{{ currentUser.watchModel || 'Garmin ConnectIQ' }}</strong>
+                </div>
+                <div class="profile-field">
+                  <span class="field-name">🚣 Rameur connecté</span>
+                  <strong class="field-val">{{ currentUser.rowerModel || 'Concept2 PM5 / SmartRow / FTMS' }}</strong>
+                </div>
+                <div class="profile-field">
                   <span class="field-name">Email</span>
                   <strong class="field-val">{{ currentUser.email || 'Non renseigné' }}</strong>
+                </div>
+                <div class="profile-field">
+                  <span class="field-name">Formule d'abonnement</span>
+                  <strong class="field-val highlight">
+                    {{ isUserAdmin ? '👑 Admin Illimité' : (currentUser.subscriptionTier === 'premium' ? '💎 Élite Pro (8,99€)' : (currentUser.subscriptionTier === 'intermediate' || isSubscriber ? '⭐ Club (5,99€)' : 'Gratuit')) }}
+                  </strong>
                 </div>
                 <div class="profile-field">
                   <span class="field-name">Création de salons privés</span>
@@ -406,9 +430,34 @@
                   </strong>
                 </div>
               </div>
+
+              <!-- Personnalisation du préfixe identifiant pour les abonnés -->
+              <div class="profile-prefix-customizer" *ngIf="isSubscriber || isUserAdmin">
+                <h5>🎨 Personnaliser mon identifiant joueur</h5>
+                <p class="field-hint">
+                  En tant qu'abonné, vous pouvez choisir votre préfixe personnalisé. Votre suffixe de sécurité base64 garantit l'unicité mondiale.
+                </p>
+                <div class="prefix-input-row">
+                  <input
+                    type="text"
+                    [(ngModel)]="customPrefixInput"
+                    placeholder="ex: Emma, RowHero, Viking"
+                    maxlength="12"
+                    class="prefix-text-input" />
+                  <span class="suffix-badge">_{{ currentUser.userSuffix || 'IQ01' }}</span>
+                  <button type="button" class="btn-prefix-save" (click)="saveCustomPrefix()" [disabled]="isSavingPrefix">
+                    {{ isSavingPrefix ? 'Sauvegarde...' : 'Enregistrer mon préfixe' }}
+                  </button>
+                </div>
+                <div class="prefix-feedback ok" *ngIf="prefixUpdateMessage">{{ prefixUpdateMessage }}</div>
+                <div class="prefix-feedback err" *ngIf="prefixUpdateError">{{ prefixUpdateError }}</div>
+              </div>
             </div>
 
             <div class="modal-buttons">
+              <button type="button" class="btn-cyan" (click)="openSubscriptionModal()">
+                ⭐ Gérer mon abonnement (Lemon Squeezy)
+              </button>
               <button type="button" class="btn-primary" (click)="closeAccountModal(); openPrivateModal('create')">
                 🛶 Créer un salon privé
               </button>
@@ -713,20 +762,31 @@
         <div class="watch-auth-actions">
           @if (!isWatchConfirmed) {
             <div class="watch-input-group">
+              <select
+                class="watch-dropdown-select"
+                [(ngModel)]="selectedCockpitPlayerId"
+                (change)="onSelectCockpitPlayer(selectedCockpitPlayerId)"
+                title="Choisir dans la liste des coureurs">
+                <option value="">-- Choisir mon coureur --</option>
+                <option *ngFor="let racer of humanRacers" [value]="racer.userId">
+                  {{ racer.userName || racer.userId }} ({{ racer.userId }})
+                </option>
+              </select>
+              <span class="watch-or-separator">ou</span>
               <input
                 type="text"
                 class="watch-id-input"
-                placeholder="Code montre (ex: EMMA01)"
+                placeholder="ID montre (ex: RowX7A_k9Z2Q)"
                 [(ngModel)]="watchIdLoginInput"
                 [disabled]="isWatchIdLoginPending"
                 (keyup.enter)="identifyWithWatchId()"
-                maxlength="20" />
+                maxlength="32" />
               <button
                 type="button"
                 class="btn-watch-connect"
-                [disabled]="isWatchIdLoginPending || !watchIdLoginInput.trim()"
+                [disabled]="isWatchIdLoginPending || (!watchIdLoginInput.trim() && !selectedCockpitPlayerId)"
                 (click)="identifyWithWatchId()">
-                {{ isWatchIdLoginPending ? '⏳ En attente de la montre...' : "S'identifier sur ma montre" }}
+                {{ isWatchIdLoginPending ? '⏳ Attente montre...' : "Ouvrir mon cockpit" }}
               </button>
             </div>
           } @else {
@@ -740,6 +800,20 @@
       <!-- Messages de feedback identification montre -->
       <div class="watch-auth-feedback ok" *ngIf="watchIdLoginMessage">{{ watchIdLoginMessage }}</div>
       <div class="watch-auth-feedback err" *ngIf="watchIdLoginError">{{ watchIdLoginError }}</div>
+
+      <!-- BANNIÈRE ÉGALITÉ SPORTIVE CONCEPT2 / CALCUL EN WATTS -->
+      <div class="concept2-fairness-banner">
+        <div class="fairness-content">
+          <span class="fairness-icon">⚖️</span>
+          <div class="fairness-text">
+            <strong>Égalité sportive garantie :</strong>
+            <span>
+              Les données FTMS de distance variant selon les modèles de rameurs, la distance parcourue est calculée en temps réel selon l'algorithme officiel Concept2 basé sur votre puissance en Watts (<span class="code-math">v = (Watts / 2.80)<sup>1/3</sup></span>).
+              Cette distance normalisée garantit une parfaite équité sportive entre tous les compétiteurs et peut légèrement différer de celle affichée sur votre console de rameur.
+            </span>
+          </div>
+        </div>
+      </div>
     </section>
 
     <!-- BANNIÈRE DE FÉLICITATIONS FIN DE COURSE (BRAVO ! TEMPS, CLASSEMENT ET MÉDAILLE) -->
@@ -1053,6 +1127,167 @@
           <button type="button" class="btn-hud" (click)="showCockpitBlockedModal = false">Compris, voir la Régate</button>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- MODALE ABONNEMENTS & TARIFS LEMON SQUEEZY -->
+  <div class="modal-overlay" *ngIf="isSubscriptionModalOpen" (click)="closeSubscriptionModal()">
+    <div class="modal-card modal-pricing" (click)="$event.stopPropagation()">
+      <div class="modal-header-row">
+        <div class="modal-title-with-badge">
+          <h3>🛶 Offres d'Abonnement Rower Race</h3>
+          <span class="badge-role-tag is-sub">Paiements Lemon Squeezy</span>
+        </div>
+        <button type="button" class="btn-close" (click)="closeSubscriptionModal()">✕</button>
+      </div>
+
+      <p class="modal-desc">
+        Choisissez l'offre qui correspond à votre pratique. Les paiements récurrents et la facturation sont gérés de manière sécurisée par Lemon Squeezy.
+      </p>
+
+      <div class="subscription-tiers-grid">
+        <!-- 1. Offre Gratuite -->
+        <div class="pricing-card free-tier" [class.current-tier]="subscriptionStatus?.tier === 'free'">
+          <div class="pricing-header">
+            <h4>Offre Gratuite</h4>
+            <div class="pricing-price">0 €</div>
+            <span class="pricing-period">Pour s'entraîner</span>
+          </div>
+          <ul class="pricing-features">
+            <li>✓ 1 joueur invité en salon privé (2 coureurs max)</li>
+            <li>✓ Courses jusqu'à 2 000 m (2 km)</li>
+            <li>✓ 1 bot d'entraînement virtuel</li>
+            <li>✓ Historique des courses sur 10 jours</li>
+            <li>✓ Cockpit et classements publics</li>
+          </ul>
+          <button
+            type="button"
+            class="btn-pricing btn-free"
+            (click)="subscribeToTier('free')"
+            [disabled]="subscriptionLoading || subscriptionStatus?.tier === 'free'">
+            {{ subscriptionStatus?.tier === 'free' ? 'Forfait actuel' : 'Sélectionner' }}
+          </button>
+        </div>
+
+        <!-- 2. Offre Intermédiaire (5,99 €) -->
+        <div class="pricing-card club-tier popular" [class.current-tier]="subscriptionStatus?.tier === 'intermediate'">
+          <div class="popular-ribbon">⭐ Recommandé</div>
+          <div class="pricing-header">
+            <h4>Offre Club</h4>
+            <div class="pricing-price">5,99 €</div>
+            <span class="pricing-period">par mois</span>
+          </div>
+          <ul class="pricing-features">
+            <li>✓ <strong>Jusqu'à 5 joueurs</strong> en salon privé</li>
+            <li>✓ Courses jusqu'à <strong>5 000 m (5 km)</strong></li>
+            <li>✓ <strong>Jusqu'à 3 bots</strong> configurables</li>
+            <li>✓ <strong>Historique illimité</strong> des courses</li>
+            <li>✓ <strong>Personnalisation</strong> de votre identifiant</li>
+            <li>✓ Départ manuel ou <strong>programmé à l'heure</strong></li>
+          </ul>
+          <button
+            type="button"
+            class="btn-pricing btn-club"
+            (click)="subscribeToTier('intermediate')"
+            [disabled]="subscriptionLoading">
+            {{ subscriptionLoading ? 'Redirection Lemon Squeezy...' : "S'abonner (5,99 €/mois)" }}
+          </button>
+        </div>
+
+        <!-- 3. Offre Premium (8,99 €) -->
+        <div class="pricing-card pro-tier" [class.current-tier]="subscriptionStatus?.tier === 'premium'">
+          <div class="pricing-header">
+            <h4>Élite Pro</h4>
+            <div class="pricing-price">8,99 €</div>
+            <span class="pricing-period">par mois</span>
+          </div>
+          <ul class="pricing-features">
+            <li>✓ <strong>Jusqu'à 10 joueurs</strong> en salon privé</li>
+            <li>✓ Courses longues jusqu'à <strong>10 000 m (10 km)</strong></li>
+            <li>✓ <strong>Jusqu'à 5 bots</strong> avec allure max</li>
+            <li>✓ <strong>Historique illimité</strong> & export</li>
+            <li>✓ Identifiant personnalisé mondial</li>
+            <li>✓ Support prioritaire & nouveautés</li>
+          </ul>
+          <button
+            type="button"
+            class="btn-pricing btn-pro"
+            (click)="subscribeToTier('premium')"
+            [disabled]="subscriptionLoading">
+            {{ subscriptionLoading ? 'Redirection Lemon Squeezy...' : "S'abonner (8,99 €/mois)" }}
+          </button>
+        </div>
+      </div>
+
+      <div class="pricing-messages" *ngIf="subscriptionSuccessMessage || subscriptionError">
+        <div class="pricing-feedback ok" *ngIf="subscriptionSuccessMessage">{{ subscriptionSuccessMessage }}</div>
+        <div class="pricing-feedback err" *ngIf="subscriptionError">{{ subscriptionError }}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODALE CONFIGURATION ADMIN DE LA COURSE PUBLIQUE -->
+  <div class="modal-overlay" *ngIf="isAdminConfigOpen" (click)="closeAdminConfigModal()">
+    <div class="modal-card modal-admin-cfg" (click)="$event.stopPropagation()">
+      <div class="modal-header-row">
+        <h3>⚙️ Configuration Course Publique (Admin)</h3>
+        <button type="button" class="btn-close" (click)="closeAdminConfigModal()">✕</button>
+      </div>
+
+      <p class="modal-desc">
+        Configurez les paramètres par défaut des courses publiques régulières pour tous les rameurs connectés.
+      </p>
+
+      <form class="modal-form" (ngSubmit)="saveAdminConfig()">
+        <div class="form-row-2">
+          <div class="form-group">
+            <label for="admin-target-dist">Distance de la course (mètres) :</label>
+            <input id="admin-target-dist" type="number" [(ngModel)]="adminConfig.targetDistance" name="targetDist" min="500" max="50000" step="500" />
+            <span class="field-hint">Défaut : 2000 m (2 KM)</span>
+          </div>
+          <div class="form-group">
+            <label for="admin-max-players">Nombre max de participants :</label>
+            <input id="admin-max-players" type="number" [(ngModel)]="adminConfig.maxParticipants" name="maxPart" min="2" max="50" />
+            <span class="field-hint">Défaut : 20 participants max</span>
+          </div>
+        </div>
+
+        <div class="form-row-2">
+          <div class="form-group">
+            <label for="admin-bots-count">Nombre de bots par défaut :</label>
+            <input id="admin-bots-count" type="number" [(ngModel)]="adminConfig.defaultBotsCount" name="botsCount" min="0" max="10" />
+            <span class="field-hint">Défaut : 3 bots virtuels</span>
+          </div>
+          <div class="form-group">
+            <label for="admin-bots-pace">Allure des bots (sec / 500m) :</label>
+            <input id="admin-bots-pace" type="number" [(ngModel)]="adminConfig.defaultBotsPace" name="botsPace" min="60" max="240" step="5" />
+            <span class="field-hint">Défaut : 120s (2:00 / 500m)</span>
+          </div>
+        </div>
+
+        <div class="form-row-2">
+          <div class="form-group">
+            <label for="admin-countdown">Délai départ après dernière connexion (sec) :</label>
+            <input id="admin-countdown" type="number" [(ngModel)]="adminConfig.countdownAfterLastJoinSeconds" name="cdSec" min="5" max="120" />
+            <span class="field-hint">Défaut : 15 secondes</span>
+          </div>
+          <div class="form-group">
+            <label for="admin-duration">Durée maximale de la partie (minutes) :</label>
+            <input id="admin-duration" type="number" [(ngModel)]="adminConfig.maxDurationMinutes" name="durationMin" min="10" max="180" />
+            <span class="field-hint">Défaut : 55 minutes</span>
+          </div>
+        </div>
+
+        <div class="feedback-msg ok" *ngIf="adminConfigMessage">{{ adminConfigMessage }}</div>
+        <div class="feedback-msg err" *ngIf="adminConfigError">{{ adminConfigError }}</div>
+
+        <div class="modal-buttons">
+          <button type="submit" class="btn-primary" [disabled]="isAdminConfigSubmitting">
+            {{ isAdminConfigSubmitting ? 'Sauvegarde...' : 'Enregistrer la configuration' }}
+          </button>
+          <button type="button" class="btn-secondary" (click)="closeAdminConfigModal()">Fermer</button>
+        </div>
+      </form>
     </div>
   </div>
 </div>

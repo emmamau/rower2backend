@@ -282,7 +282,8 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
         ? Math.sin(nowSec * strokeFreq * Math.PI * 2 + laneOffset) * 0.58
         : 0;
 
-      const oarLen = isCompact ? 13 : 17;
+      // Rames plus courtes et proportionnées au kayak
+      const oarLen = isCompact ? 7 : 9;
       const dxOar = Math.sin(strokeAngle) * oarLen;
       const dyOar = Math.cos(strokeAngle) * oarLen;
       const x1 = x - dxOar;
@@ -300,14 +301,14 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
       if (isMoving && Math.abs(strokeAngle) > 0.25) {
         ctx.fillStyle = 'rgba(0, 240, 255, 0.38)';
         ctx.beginPath();
-        ctx.arc(x1, y1, isCompact ? 2.5 : 3.5, 0, Math.PI * 2);
-        ctx.arc(x2, y2, isCompact ? 2.5 : 3.5, 0, Math.PI * 2);
+        ctx.arc(x1, y1, isCompact ? 1.8 : 2.4, 0, Math.PI * 2);
+        ctx.arc(x2, y2, isCompact ? 1.8 : 2.4, 0, Math.PI * 2);
         ctx.fill();
       }
 
       // Rames : manche traversant le kayak
       ctx.strokeStyle = '#e2e8f0';
-      ctx.lineWidth = isCompact ? 1.6 : 2.2;
+      ctx.lineWidth = isCompact ? 1.4 : 1.8;
       ctx.lineCap = 'round';
       ctx.beginPath();
       ctx.moveTo(x1, y1);
@@ -324,7 +325,7 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
       ctx.translate(x1, y1);
       ctx.rotate(-strokeAngle);
       ctx.beginPath();
-      ctx.ellipse(0, 0, isCompact ? 3.5 : 4.8, isCompact ? 2 : 2.6, 0, 0, Math.PI * 2);
+      ctx.ellipse(0, 0, isCompact ? 2.5 : 3.2, isCompact ? 1.5 : 2.0, 0, 0, Math.PI * 2);
       ctx.fill();
       ctx.stroke();
       ctx.restore();
@@ -334,7 +335,7 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
       ctx.translate(x2, y2);
       ctx.rotate(-strokeAngle);
       ctx.beginPath();
-      ctx.ellipse(0, 0, isCompact ? 3.5 : 4.8, isCompact ? 2 : 2.6, 0, 0, Math.PI * 2);
+      ctx.ellipse(0, 0, isCompact ? 2.5 : 3.2, isCompact ? 1.5 : 2.0, 0, 0, Math.PI * 2);
       ctx.fill();
       ctx.stroke();
       ctx.restore();

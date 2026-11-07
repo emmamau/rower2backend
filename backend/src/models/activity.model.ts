@@ -37,6 +37,10 @@ export interface ActivityAttributes {
   finalRank?: number;
   finishedAt?: Date;
 
+  // Equipment telemetry
+  watchModel?: string;
+  rowerModel?: string;
+
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -153,6 +157,14 @@ export default (sequelize: Sequelize, _DataTypesInstance: typeof DataTypes): Act
       },
       finishedAt: {
         type: DataTypes.DATE,
+        allowNull: true,
+      },
+      watchModel: {
+        type: DataTypes.STRING(64),
+        allowNull: true,
+      },
+      rowerModel: {
+        type: DataTypes.STRING(64),
         allowNull: true,
       },
     },

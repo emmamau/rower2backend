@@ -9,8 +9,14 @@ export interface UserProfile {
   gender?: string; // Sexe ('M' | 'F' | 'Autre')
   country?: string; // Pays
   isSubscriber?: boolean; // Droit de créer des salons privés
+  subscriptionTier?: string;
+  subscriptionStatus?: string;
   isConfirmed?: boolean; // Confirmé via montre Garmin
   watchUserId?: string; // ID de la montre Garmin
+  watchModel?: string;
+  rowerModel?: string;
+  userPrefix?: string;
+  userSuffix?: string;
   totalRaces?: number;
   totalWins?: number;
   podiums?: number;

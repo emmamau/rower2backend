@@ -91,6 +91,37 @@ export class AppComponent implements OnInit, OnDestroy {
   showCockpitBlockedModal = false;
   cockpitAccessBlockedMessage = '';
 
+  // Sélection joueur cockpit dans la course
+  selectedCockpitPlayerId = '';
+
+  // Personnalisation préfixe identifiant joueur (abonnés)
+  customPrefixInput = '';
+  prefixUpdateMessage = '';
+  prefixUpdateError = '';
+  isSavingPrefix = false;
+
+  // Offres d'abonnement & Lemon Squeezy
+  isSubscriptionModalOpen = false;
+  subscriptionTiers: any[] = [];
+  subscriptionStatus: any = null;
+  subscriptionLoading = false;
+  subscriptionError = '';
+  subscriptionSuccessMessage = '';
+
+  // Admin configuration de la course publique
+  isAdminConfigOpen = false;
+  adminConfig = {
+    targetDistance: 2000,
+    maxParticipants: 20,
+    maxDurationMinutes: 55,
+    defaultBotsCount: 3,
+    defaultBotsPace: 120,
+    countdownAfterLastJoinSeconds: 15,
+  };
+  adminConfigMessage = '';
+  adminConfigError = '';
+  isAdminConfigSubmitting = false;
+
   // Subscriber Account Management Modal
   isAccountModalOpen = false;
   accountModalTab: 'login' | 'register' | 'profile' | 'forgot' = 'login';
@@ -931,6 +962,145 @@ export class AppComponent implements OnInit, OnDestroy {
         (this.myActivity.netDistance || 0) >= this.activeTargetDistance
       )
     );
+  }
+
+  get humanRacers(): RowerData[] {
+    return this.racers.filter(r => !r.userId.startsWith('bot_'));
+  }
+
+  get fullPlayerId(): string {
+    const prefix = this.currentUser?.userPrefix || 'Row';
+    const suffix = this.currentUser?.userSuffix || 'IQ01';
+    return `${prefix}_${suffix}`;
+  }
+
+  onSelectCockpitPlayer(userId: string): void {
+    if (!userId) return;
+    this.selectedCockpitPlayerId = userId;
+    this.watchIdLoginInput = userId;
+    if (this.isWatchConfirmed && this.activeUserId === userId) {
+      this.switchViewMode('cockpit');
+    } else {
+      this.identifyWithWatchId();
+    }
+  }
+
+  saveCustomPrefix(): void {
+    if (!this.customPrefixInput || !this.customPrefixInput.trim()) {
+      this.prefixUpdateError = 'Veuillez saisir un préfixe de 3 à 12 caractères alphanumériques.';
+      return;
+    }
+    this.prefixUpdateError = '';
+    this.prefixUpdateMessage = '';
+    this.isSavingPrefix = true;
+    this.rowerService.updateUserPrefix(this.activeUserId, this.customPrefixInput.trim()).subscribe({
+      next: (res) => {
+        this.isSavingPrefix = false;
+        if (res.success) {
+          this.prefixUpdateMessage = '✓ Préfixe mis à jour avec succès !';
+          this.currentUser.userPrefix = res.userPrefix;
+          this.currentUser.userSuffix = res.userSuffix;
+        }
+        this.cdr.markForCheck();
+      },
+      error: (err) => {
+        this.isSavingPrefix = false;
+        this.prefixUpdateError = err.error?.message || 'Erreur mise à jour préfixe.';
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  openSubscriptionModal(): void {
+    this.isSubscriptionModalOpen = true;
+    this.subscriptionError = '';
+    this.subscriptionSuccessMessage = '';
+    this.rowerService.getSubscriptionTiers().subscribe({
+      next: (res) => {
+        if (res.success) this.subscriptionTiers = res.tiers;
+        this.cdr.markForCheck();
+      }
+    });
+    if (this.activeUserId) {
+      this.rowerService.getUserSubscriptionStatus(this.activeUserId).subscribe({
+        next: (status) => {
+          this.subscriptionStatus = status;
+          this.cdr.markForCheck();
+        }
+      });
+    }
+  }
+
+  closeSubscriptionModal(): void {
+    this.isSubscriptionModalOpen = false;
+    this.cdr.markForCheck();
+  }
+
+  subscribeToTier(tierId: string): void {
+    if (!this.activeUserId) return;
+    this.subscriptionLoading = true;
+    this.subscriptionError = '';
+    this.rowerService.createSubscriptionCheckout(this.activeUserId, tierId).subscribe({
+      next: (res) => {
+        this.subscriptionLoading = false;
+        if (res.checkoutUrl) {
+          window.location.href = res.checkoutUrl;
+        } else if (res.success) {
+          this.subscriptionSuccessMessage = res.message || 'Abonnement activé avec succès !';
+          this.currentUser.isSubscriber = tierId !== 'free';
+          this.currentUser.subscriptionTier = tierId;
+          this.cdr.markForCheck();
+        }
+      },
+      error: (err) => {
+        this.subscriptionLoading = false;
+        this.subscriptionError = err.error?.message || "Erreur lors de l'accès au paiement Lemon Squeezy.";
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  openAdminConfigModal(): void {
+    this.isAdminConfigOpen = true;
+    this.adminConfigMessage = '';
+    this.adminConfigError = '';
+    this.rowerService.getPublicRaceAdminConfig().subscribe({
+      next: (res) => {
+        if (res.success && res.config) {
+          this.adminConfig = { ...res.config };
+        }
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  closeAdminConfigModal(): void {
+    this.isAdminConfigOpen = false;
+    this.cdr.markForCheck();
+  }
+
+  saveAdminConfig(): void {
+    this.isAdminConfigSubmitting = true;
+    this.adminConfigMessage = '';
+    this.adminConfigError = '';
+    this.rowerService.updatePublicRaceAdminConfig({
+      userId: this.activeUserId,
+      ...this.adminConfig
+    }).subscribe({
+      next: (res) => {
+        this.isAdminConfigSubmitting = false;
+        if (res.success) {
+          this.adminConfigMessage = '✓ Configuration publique enregistrée avec succès !';
+          this.adminConfig = res.config;
+        }
+        this.cdr.markForCheck();
+      },
+      error: (err) => {
+        this.isAdminConfigSubmitting = false;
+        this.adminConfigError = err.error?.message || 'Erreur lors de la sauvegarde.';
+        this.cdr.markForCheck();
+      }
+    });
   }
 
   get myPodiumMedal(): { icon: string; label: string; class: string } | null {

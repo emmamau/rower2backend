@@ -6,6 +6,7 @@ import socketGateway, { LiveRacerMetric } from "../websocket/socket.gateway";
 import { TelemetryValidator } from "../services/telemetry-validator.service";
 import { isEmmaAdminUser } from "../services/auth.service";
 import userStore from "../services/user-store.service";
+import { SUBSCRIPTION_TIERS } from "./subscription.controller";
 
 const Activities = db.activities;
 const Races = db.races;
@@ -121,6 +122,10 @@ async function buildPrivateRacePayload(race: RaceState) {
     maxParticipants: race.maxParticipants,
     hostUserId: race.hostUserId,
     hostUserName: race.hostUserName,
+    startMode: race.startMode || "manual",
+    scheduledStartTime: race.scheduledStartTime ? race.scheduledStartTime.toISOString() : undefined,
+    botCount: race.botCount || 0,
+    botMaxPace: race.botMaxPace || 120,
     autoStart: Boolean(race.autoStart),
     hasBots: Boolean(race.hasBots),
     status: apiStatus,
@@ -199,9 +204,25 @@ export class TelemetryController {
       const actualSplit = validation.sanitizedSplit;
       const actualSpm = validation.sanitizedSpm;
 
+      const watchModel = String(body.watchModel || "Garmin Connect IQ").slice(0, 64);
+      const rowerModel = String(body.rowerModel || body.deviceName || "FTMS / SmartRow").slice(0, 64);
+
+      // Algorithme Concept2 officiel basé sur la puissance en Watts :
+      // Vitesse (m/s) = (Watts / 2.80)^(1/3)
+      let effectiveDistance = actualDistance;
+      const currentElapsed = Number(body.elapsedTime || (activity ? Number(activity.get("elapsedTime")) + 1 : 1));
+      const prevElapsed = activity ? Number(activity.get("elapsedTime") || 0) : 0;
+      const deltaSec = Math.max(0, Math.min(10, currentElapsed - prevElapsed));
+
+      if (actualPower > 0 && deltaSec > 0 && deltaSec <= 10) {
+        const c2Speed = Math.cbrt(actualPower / 2.80);
+        const prevNetDist = activity ? Number(activity.get("netDistance") || 0) : 0;
+        effectiveDistance = Math.round(prevNetDist + (c2Speed * deltaSec));
+      }
+
       const matchedRace = raceManager.getRaceById(raceId) || raceManager.getCurrentPublicRace();
       const targetDist = matchedRace?.targetDistance || Number(body.targetDistance) || 2000;
-      const isFinished = actualDistance >= targetDist;
+      const isFinished = effectiveDistance >= targetDist;
       const activityStatus = body.status === "abandoned" ? "abandoned" : (isFinished ? "finished" : "in_progress");
 
       if (matchedRace && matchedRace.type === "PRIVATE_INVITE" && userId !== "anonymous") {
@@ -217,6 +238,10 @@ export class TelemetryController {
         }
       }
 
+      if (matchedRace?.type === "PUBLIC_HOURLY" && (matchedRace.status === "LOBBY" || matchedRace.status === "COUNTDOWN")) {
+        raceManager.notifyPlayerJoinedPublic(userId);
+      }
+
       if (!activity) {
         activity = await Activities.create({
           id: compositeId,
@@ -228,8 +253,8 @@ export class TelemetryController {
           status: activityStatus,
           initialDistance: 0,
           currentDistance: actualDistance,
-          netDistance: actualDistance,
-          progressPercent: Math.min(100, Number(((actualDistance / targetDist) * 100).toFixed(1))),
+          netDistance: effectiveDistance,
+          progressPercent: Math.min(100, Number(((effectiveDistance / targetDist) * 100).toFixed(1))),
           lastStrokeRate: actualSpm,
           lastPower: actualPower,
           lastPace: actualSplit,
@@ -238,11 +263,13 @@ export class TelemetryController {
           avgPace: actualSplit,
           avgStrokeRate: actualSpm,
           totalStrokes: Number(body.seq || 1),
-          elapsedTime: Number(body.elapsedTime || 1),
+          elapsedTime: currentElapsed,
           lastStrokeCount: Number(body.seq || 1),
           lastResistance: 1,
           totalEnergy: 0,
-          avgSpeedKmh: actualSplit > 0 ? Number(((500 / actualSplit) * 3.6).toFixed(1)) : 0
+          avgSpeedKmh: actualSplit > 0 ? Number(((500 / actualSplit) * 3.6).toFixed(1)) : 0,
+          watchModel,
+          rowerModel
         });
       } else {
         const prevAvgP = (activity.get("avgPower") as number) || actualPower;
@@ -255,8 +282,8 @@ export class TelemetryController {
 
         await activity.update({
           currentDistance: actualDistance,
-          netDistance: actualDistance,
-          progressPercent: Math.min(100, Number(((actualDistance / targetDist) * 100).toFixed(1))),
+          netDistance: effectiveDistance,
+          progressPercent: Math.min(100, Number(((effectiveDistance / targetDist) * 100).toFixed(1))),
           status: activityStatus,
           lastStrokeRate: actualSpm,
           lastPower: effectiveLastP,
@@ -265,10 +292,22 @@ export class TelemetryController {
           avgPower: newAvgP,
           avgPace: newAvgSplit,
           totalStrokes: Number(body.seq || (activity.get("totalStrokes") as number) + 1),
-          elapsedTime: Number(body.elapsedTime || (activity.get("elapsedTime") as number) + 2),
+          elapsedTime: currentElapsed,
           avgSpeedKmh: actualSplit > 0 ? Number(((500 / actualSplit) * 3.6).toFixed(1)) : 0,
-          finishedAt: isFinished ? new Date() : (activity.get("finishedAt") as Date)
+          finishedAt: isFinished ? new Date() : (activity.get("finishedAt") as Date),
+          watchModel,
+          rowerModel
         });
+      }
+
+      // Sync equipment to user profile if user exists
+      if (userId && userId !== "anonymous") {
+        try {
+          await Users.update(
+            { watchModel, rowerModel },
+            { where: { [Op.or]: [{ id: userId }, { login: userId }, { watchUserId: userId }] } }
+          );
+        } catch {}
       }
 
       // Compute rank & gaps
@@ -319,9 +358,13 @@ export class TelemetryController {
         tot: totalRacers,
         gapM,
         leadDistM: leaderDist,
-        distToLeader: Math.max(0, leaderDist - actualDistance),
+        distToLeader: Math.max(0, leaderDist - effectiveDistance),
         distToPrev,
         distToNext,
+        normalized: true,
+        fairnessNotice: "La distance est normalisée selon la formule Concept2 basée sur votre puissance en Watts pour garantir l'égalité sportive entre tous les modèles de rameurs.",
+        watchModel,
+        rowerModel,
         status: (matchedRace?.status === "RUNNING" ? "RUNNING" : matchedRace?.status) || "RUNNING"
       });
     } catch (err: unknown) {
@@ -351,7 +394,19 @@ export class TelemetryController {
    */
   public static async createPrivateRace(req: Request, res: Response): Promise<void> {
     try {
-      const { title, targetDistance, maxParticipants, hostUserId, hostUserName, countdownMinutes, requireApproval } = req.body || {};
+      const {
+        title,
+        targetDistance,
+        maxParticipants,
+        hostUserId,
+        hostUserName,
+        countdownMinutes,
+        requireApproval,
+        startMode,
+        scheduledStartTime,
+        botCount,
+        botMaxPace
+      } = req.body || {};
 
       const authCheck = await isUserSubscriberOrAdmin(hostUserId, hostUserName);
       if (!authCheck.authorized) {
@@ -363,14 +418,44 @@ export class TelemetryController {
         return;
       }
 
+      // Valider et borner les quotas selon le forfait d'abonnement
+      const user = await userStore.findUser(hostUserId);
+      const isEmma = isEmmaAdminUser(hostUserId, hostUserName);
+
+      let maxAllowed = 30;
+      let distAllowed = 100000;
+      let botsAllowed = 5;
+
+      if (user && !isEmma && !user.isAdmin && user.subscriptionTier) {
+        const tierId: string = user.subscriptionTier;
+        const limits = SUBSCRIPTION_TIERS[tierId] || SUBSCRIPTION_TIERS.intermediate;
+        maxAllowed = limits.maxParticipants;
+        distAllowed = limits.maxDistance;
+        botsAllowed = limits.maxBots;
+      }
+
+      const rawDist = Number(targetDistance) || 2000;
+      const finalDist = Math.min(distAllowed, Math.max(100, rawDist));
+
+      const rawMax = Number(maxParticipants) || maxAllowed;
+      const finalMax = Math.min(maxAllowed, Math.max(2, rawMax));
+
+      const rawBots = Number(botCount) || 0;
+      const finalBots = Math.min(botsAllowed, Math.max(0, rawBots));
+      const finalBotPace = Math.min(300, Math.max(60, Number(botMaxPace) || 120));
+
       const race = raceManager.createPrivateRace({
         title: title || "Régate Privée",
-        targetDistance: Number(targetDistance) || 2000,
-        maxParticipants: Number(maxParticipants) || 8,
+        targetDistance: finalDist,
+        maxParticipants: finalMax,
         hostUserId: hostUserId || "anonymous",
         hostUserName,
+        startMode: startMode === "scheduled" ? "scheduled" : "manual",
+        scheduledStartTime,
         countdownMinutes: countdownMinutes !== undefined ? Number(countdownMinutes) : 0,
-        requireApproval: requireApproval !== undefined ? Boolean(requireApproval) : true
+        requireApproval: requireApproval !== undefined ? Boolean(requireApproval) : true,
+        botCount: finalBots,
+        botMaxPace: finalBotPace
       });
 
       // Best-effort persistence in PostgreSQL Races table so bots & history work seamlessly

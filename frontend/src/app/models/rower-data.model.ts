@@ -53,6 +53,10 @@ export interface NextRaceInfo {
     maxParticipants?: number;
     hostUserId?: string;
     hostUserName?: string;
+    startMode?: 'manual' | 'scheduled';
+    scheduledStartTime?: string;
+    botCount?: number;
+    botMaxPace?: number;
     autoStart?: boolean;
     hasBots?: boolean;
     internalStatus?: string;
@@ -86,6 +90,10 @@ export interface CreatePrivateRaceRequest {
   hostUserName?: string;
   countdownMinutes?: number;
   requireApproval?: boolean;
+  startMode?: 'manual' | 'scheduled';
+  scheduledStartTime?: string;
+  botCount?: number;
+  botMaxPace?: number;
 }
 
 export interface PrivateRacePayload extends NextRaceInfo {

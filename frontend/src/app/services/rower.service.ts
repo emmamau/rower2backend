@@ -246,6 +246,39 @@ export class RowerService {
     return this.http.get<{ success: boolean; account: any }>(`${this.apiUrl}/api/user/account/${encodeURIComponent(identifier)}`);
   }
 
+  // Mise à jour personnalisée du préfixe identifiant (réservé aux abonnés)
+  updateUserPrefix(userId: string, userPrefix: string): Observable<{ success: boolean; userPrefix: string; userSuffix: string; fullPlayerId: string; user: any; message?: string }> {
+    return this.http.put<{ success: boolean; userPrefix: string; userSuffix: string; fullPlayerId: string; user: any; message?: string }>(
+      `${this.apiUrl}/api/user/prefix`,
+      { userId, userPrefix }
+    );
+  }
+
+  // Abonnements Lemon Squeezy (3 offres)
+  getSubscriptionTiers(): Observable<{ success: boolean; tiers: any[] }> {
+    return this.http.get<{ success: boolean; tiers: any[] }>(`${this.apiUrl}/api/v1/subscriptions/tiers`);
+  }
+
+  getUserSubscriptionStatus(userId: string): Observable<any> {
+    return this.http.get<any>(`${this.apiUrl}/api/v1/subscriptions/status/${encodeURIComponent(userId)}`);
+  }
+
+  createSubscriptionCheckout(userId: string, tier: string, returnUrl?: string): Observable<{ success: boolean; checkoutUrl?: string; mode?: string; message?: string }> {
+    return this.http.post<{ success: boolean; checkoutUrl?: string; mode?: string; message?: string }>(
+      `${this.apiUrl}/api/v1/subscriptions/checkout`,
+      { userId, tier, returnUrl }
+    );
+  }
+
+  // Configuration admin course publique
+  getPublicRaceAdminConfig(): Observable<{ success: boolean; config: any }> {
+    return this.http.get<{ success: boolean; config: any }>(`${this.apiUrl}/api/race/admin/config`);
+  }
+
+  updatePublicRaceAdminConfig(config: any): Observable<{ success: boolean; message: string; config: any }> {
+    return this.http.put<{ success: boolean; message: string; config: any }>(`${this.apiUrl}/api/race/admin/config`, config);
+  }
+
   checkHealth(): Observable<{ status: string; database: string }> {
     return this.http.get<{ status: string; database: string }>(`${this.apiUrl}/health`);
   }

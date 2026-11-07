@@ -1893,3 +1893,327 @@ input[type="number"]:focus { border-color: var(--neon-cyan); box-shadow: 0 0 10p
   margin: 0;
 }
 
+/* ==========================================================================
+   WATCH AUTH DROPDOWN SELECTOR & CONCEPT2 FAIRNESS BANNER
+   ========================================================================== */
+.watch-dropdown-select {
+  background: rgba(10, 18, 36, 0.95);
+  border: 1px solid rgba(0, 240, 255, 0.4);
+  color: #00f0ff;
+  border-radius: 8px;
+  padding: 0.55rem 0.85rem;
+  font-size: 0.85rem;
+  font-family: inherit;
+  font-weight: 600;
+  outline: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  max-width: 260px;
+}
+.watch-dropdown-select:focus {
+  border-color: #00f0ff;
+  box-shadow: 0 0 12px rgba(0, 240, 255, 0.35);
+}
+.watch-or-separator {
+  color: #64748b;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0 0.2rem;
+}
+
+/* BANNIÈRE ÉGALITÉ SPORTIVE CONCEPT2 */
+.concept2-fairness-banner {
+  background: linear-gradient(90deg, rgba(16, 185, 129, 0.12) 0%, rgba(6, 182, 212, 0.08) 100%);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  border-radius: 10px;
+  padding: 0.65rem 0.95rem;
+  margin-top: 0.5rem;
+}
+.fairness-content {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+}
+.fairness-icon {
+  font-size: 1.25rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.fairness-text {
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: #cbd5e1;
+}
+.fairness-text strong {
+  color: #34d399;
+  margin-right: 0.35rem;
+}
+.code-math {
+  font-family: 'SF Mono', Consolas, Monaco, monospace;
+  background: rgba(0, 0, 0, 0.4);
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+  color: #00f0ff;
+  font-size: 0.78rem;
+}
+
+/* ==========================================================================
+   PRÉFIXE JOUEUR PERSONNALISABLE (ABONNÉS)
+   ========================================================================== */
+.profile-prefix-customizer {
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  padding: 0.85rem;
+  margin-top: 0.75rem;
+}
+.profile-prefix-customizer h5 {
+  margin: 0 0 0.35rem;
+  color: #00f0ff;
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+.prefix-input-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  flex-wrap: wrap;
+}
+.prefix-text-input {
+  background: #060913;
+  border: 1px solid rgba(0, 240, 255, 0.4);
+  color: #ffffff;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  max-width: 160px;
+}
+.suffix-badge {
+  background: rgba(0, 240, 255, 0.15);
+  border: 1px solid rgba(0, 240, 255, 0.3);
+  color: #00f0ff;
+  font-family: 'SF Mono', Consolas, monospace;
+  font-weight: 800;
+  padding: 0.45rem 0.65rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
+}
+.btn-prefix-save {
+  background: linear-gradient(135deg, #00f0ff 0%, #0077b6 100%);
+  border: none;
+  color: #060913;
+  font-weight: 800;
+  padding: 0.5rem 0.95rem;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.btn-prefix-save:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 0 12px rgba(0, 240, 255, 0.5);
+}
+.prefix-feedback {
+  font-size: 0.8rem;
+  margin-top: 0.4rem;
+  font-weight: 600;
+}
+.prefix-feedback.ok {
+  color: #22c55e;
+}
+.prefix-feedback.err {
+  color: #ef4444;
+}
+
+/* ==========================================================================
+   MODALE DES ABONNEMENTS (LEMON SQUEEZY)
+   ========================================================================== */
+.modal-pricing {
+  max-width: 880px;
+  width: 95vw;
+}
+.subscription-tiers-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1.25rem;
+  margin-top: 1.25rem;
+}
+.pricing-card {
+  background: rgba(15, 23, 42, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  padding: 1.5rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.pricing-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(0, 240, 255, 0.4);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+.pricing-card.popular {
+  border-color: #00f0ff;
+  background: linear-gradient(180deg, rgba(0, 240, 255, 0.08) 0%, rgba(15, 23, 42, 0.85) 100%);
+  box-shadow: 0 0 25px rgba(0, 240, 255, 0.2);
+}
+.pricing-card.current-tier {
+  border-color: #22c55e;
+  box-shadow: 0 0 20px rgba(34, 197, 94, 0.25);
+}
+.popular-ribbon {
+  position: absolute;
+  top: -12px;
+  right: 18px;
+  background: linear-gradient(135deg, #00f0ff 0%, #ff0055 100%);
+  color: #ffffff;
+  font-size: 0.72rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.25rem 0.65rem;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+.pricing-header h4 {
+  margin: 0 0 0.35rem;
+  font-size: 1.15rem;
+  color: #f8fafc;
+  font-weight: 800;
+}
+.pricing-price {
+  font-size: 2rem;
+  font-weight: 900;
+  color: #00f0ff;
+  line-height: 1.1;
+}
+.pricing-period {
+  font-size: 0.75rem;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  display: block;
+  margin-bottom: 1rem;
+}
+.pricing-features {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  font-size: 0.85rem;
+  color: #cbd5e1;
+  flex-grow: 1;
+}
+.pricing-features li strong {
+  color: #ffffff;
+}
+.btn-pricing {
+  width: 100%;
+  padding: 0.75rem;
+  border-radius: 8px;
+  font-weight: 800;
+  font-size: 0.88rem;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s ease;
+}
+.btn-pricing.btn-free {
+  background: rgba(255, 255, 255, 0.08);
+  color: #e2e8f0;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+.btn-pricing.btn-free:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.15);
+}
+.btn-pricing.btn-club {
+  background: linear-gradient(135deg, #00f0ff 0%, #0077b6 100%);
+  color: #060913;
+  box-shadow: 0 4px 14px rgba(0, 240, 255, 0.4);
+}
+.btn-pricing.btn-club:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 240, 255, 0.6);
+}
+.btn-pricing.btn-pro {
+  background: linear-gradient(135deg, #ff0055 0%, #b026ff 100%);
+  color: #ffffff;
+  box-shadow: 0 4px 14px rgba(255, 0, 85, 0.4);
+}
+.btn-pricing.btn-pro:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(255, 0, 85, 0.6);
+}
+.pricing-messages {
+  margin-top: 1rem;
+}
+.pricing-feedback {
+  padding: 0.65rem 0.95rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.pricing-feedback.ok {
+  background: rgba(34, 197, 94, 0.15);
+  border: 1px solid rgba(34, 197, 94, 0.35);
+  color: #22c55e;
+}
+.pricing-feedback.err {
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  color: #ef4444;
+}
+
+/* MODALE ADMIN CONFIG */
+.modal-admin-cfg {
+  max-width: 620px;
+}
+.feedback-msg {
+  padding: 0.6rem 0.85rem;
+  border-radius: 6px;
+  font-size: 0.84rem;
+  margin: 0.75rem 0;
+  font-weight: 600;
+}
+.feedback-msg.ok {
+  background: rgba(34, 197, 94, 0.15);
+  color: #22c55e;
+}
+.feedback-msg.err {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+}
+
+/* ==========================================================================
+   TABLET & MOBILE RESPONSIVE TWEAKS (SPORT ESPORT POLISH)
+   ========================================================================== */
+@media (max-width: 768px) {
+  .watch-dropdown-select {
+    max-width: 100%;
+    width: 100%;
+  }
+  .watch-or-separator {
+    display: none;
+  }
+  .subscription-tiers-grid {
+    grid-template-columns: 1fr;
+  }
+  .prefix-input-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .prefix-text-input {
+    max-width: 100%;
+  }
+  .fairness-content {
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+}
+

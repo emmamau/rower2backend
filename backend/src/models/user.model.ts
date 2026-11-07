@@ -18,8 +18,16 @@ export interface UserAttributes {
   passwordHash?: string;    // Hash du mot de passe
   passwordSalt?: string;    // Sel cryptographique du mot de passe
   isSubscriber?: boolean;   // Statut abonné (droit de créer des salons privés)
+  subscriptionTier?: 'free' | 'intermediate' | 'premium'; // 'free' (gratuit) | 'intermediate' (5.99€) | 'premium' (8.99€)
+  subscriptionStatus?: string; // 'active' | 'cancelled' | 'expired' | 'none'
+  lemonCustomerId?: string;
+  lemonSubscriptionId?: string;
   isConfirmed?: boolean;    // Confirmation de l'inscription via montre Garmin
   watchUserId?: string;     // Identifiant renvoyé par la montre Garmin
+  watchModel?: string;      // Modèle de montre Garmin (ex: Fenix 7, Forerunner 965...)
+  rowerModel?: string;      // Modèle de rameur connecté (ex: SmartRow, Concept2 PM5, FTMS...)
+  userPrefix?: string;      // Préfixe personnalisable (abonnés uniquement)
+  userSuffix?: string;      // Suffixe unique 5 caractères base64 généré par le système
   resetPasswordToken?: string;   // Token de réinitialisation de mot de passe
   resetPasswordExpires?: Date;   // Expiration du token de réinitialisation
   totalRaces?: number;      // Nombre de courses disputées
@@ -107,6 +115,38 @@ export default (sequelize: Sequelize, _DataTypesInstance: typeof DataTypes): Use
       isSubscriber: {
         type: DataTypes.BOOLEAN,
         defaultValue: false,
+      },
+      subscriptionTier: {
+        type: DataTypes.STRING(32),
+        defaultValue: "free",
+      },
+      subscriptionStatus: {
+        type: DataTypes.STRING(32),
+        defaultValue: "none",
+      },
+      lemonCustomerId: {
+        type: DataTypes.STRING(64),
+        allowNull: true,
+      },
+      lemonSubscriptionId: {
+        type: DataTypes.STRING(64),
+        allowNull: true,
+      },
+      watchModel: {
+        type: DataTypes.STRING(64),
+        allowNull: true,
+      },
+      rowerModel: {
+        type: DataTypes.STRING(64),
+        allowNull: true,
+      },
+      userPrefix: {
+        type: DataTypes.STRING(32),
+        allowNull: true,
+      },
+      userSuffix: {
+        type: DataTypes.STRING(16),
+        allowNull: true,
       },
       isConfirmed: {
         type: DataTypes.BOOLEAN,

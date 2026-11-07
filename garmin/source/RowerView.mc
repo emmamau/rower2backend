@@ -466,20 +466,6 @@ class RowerView extends WatchUi.View {
                 _choiceMenuIndex,
                 I18n.getText("MENU_FOOTER")
             );
-        } else if (_currentState == STATE_BOTS_PROMPT) {
-            var botItems = [
-                I18n.getText("BTN_YES_BOTS"),
-                I18n.getText("BTN_NO_SOLO")
-            ] as Array<String>;
-            drawGarminMenuScreen(
-                dc,
-                I18n.getText("BOTS_PROMPT_TITLE"),
-                COL_ACCENT,
-                "1:50 - 2:30 /500m",
-                botItems,
-                _choiceMenuIndex,
-                I18n.getText("MENU_FOOTER")
-            );
         }
 
         // Draw non-overlapping warning banner if active
@@ -1160,9 +1146,8 @@ class RowerView extends WatchUi.View {
         dc.drawLine((w * 20) / 100, (h * 82) / 100, w - ((w * 20) / 100), (h * 82) / 100);
 
         var footY = (h * 84) / 100;
-        var canToggleBots = (!_hasBotsEnabled && _connectedPlayers <= 1);
-        var footText = canToggleBots ? I18n.getText("BTN_VS_BOTS") : I18n.getText("AUTO_START_AT_ZERO");
-        dc.setColor(canToggleBots ? COL_ACCENT : COL_MUTED, Graphics.COLOR_TRANSPARENT);
+        var footText = I18n.getText("AUTO_START_AT_ZERO");
+        dc.setColor(COL_MUTED, Graphics.COLOR_TRANSPARENT);
         dc.drawText(cx, footY, Graphics.FONT_XTINY, truncateToWidth(dc, footText, Graphics.FONT_XTINY, getSafeWidthAtY(w, h, footY, footY + 16)), Graphics.TEXT_JUSTIFY_CENTER);
     }
 
