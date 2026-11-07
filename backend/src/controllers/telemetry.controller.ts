@@ -7,6 +7,7 @@ import { TelemetryValidator } from "../services/telemetry-validator.service";
 import { isEmmaAdminUser } from "../services/auth.service";
 import userStore from "../services/user-store.service";
 import { SUBSCRIPTION_TIERS } from "./subscription.controller";
+import { IpGeoService } from "../services/ip-geo.service";
 
 const Activities = db.activities;
 const Races = db.races;
@@ -182,7 +183,12 @@ export class TelemetryController {
       const heartRate = Number(body.metrics?.heartRate ?? body.heartRate ?? 0);
 
       const compositeId = `${raceId}_${userId}`;
-      let activity = await Activities.findByPk(compositeId);
+      let activity: any = null;
+      try {
+        activity = await Activities.findByPk(compositeId);
+      } catch {
+        // Tolerant to offline DB
+      }
 
       const prevDistance = activity ? (activity.get("currentDistance") as number) : 0;
       const prevTime = activity ? (activity.get("elapsedTime") as number) : 0;
@@ -225,6 +231,9 @@ export class TelemetryController {
       const isFinished = effectiveDistance >= targetDist;
       const activityStatus = body.status === "abandoned" ? "abandoned" : (isFinished ? "finished" : "in_progress");
 
+      const user = await userStore.findUser(String(userId));
+      const country = user?.country || user?.pays || (await IpGeoService.resolveCountryFromRequest(req));
+
       if (matchedRace && userId !== "anonymous") {
         if (!matchedRace.participants) {
           matchedRace.participants = new Map();
@@ -234,7 +243,8 @@ export class TelemetryController {
           matchedRace.participants.set(userId, {
             userId,
             userName: body.userName || `Racer_${userId.slice(-4)}`,
-            joinedAt: new Date()
+            joinedAt: new Date(),
+            country
           });
           if (matchedRace.type === "PUBLIC_HOURLY" && (matchedRace.status === "LOBBY" || matchedRace.status === "COUNTDOWN")) {
             raceManager.notifyPlayerJoinedPublic(userId);
@@ -243,61 +253,69 @@ export class TelemetryController {
       }
 
       if (!activity) {
-        activity = await Activities.create({
-          id: compositeId,
-          activityId: raceId,
-          userId,
-          userName: body.userName || `Racer_${userId.slice(-4)}`,
-          raceMode: "race",
-          targetDistance: targetDist,
-          status: activityStatus,
-          initialDistance: 0,
-          currentDistance: actualDistance,
-          netDistance: effectiveDistance,
-          progressPercent: Math.min(100, Number(((effectiveDistance / targetDist) * 100).toFixed(1))),
-          lastStrokeRate: actualSpm,
-          lastPower: actualPower,
-          lastPace: actualSplit,
-          lastHeartRate: heartRate,
-          avgPower: actualPower,
-          avgPace: actualSplit,
-          avgStrokeRate: actualSpm,
-          totalStrokes: Number(body.seq || 1),
-          elapsedTime: currentElapsed,
-          lastStrokeCount: Number(body.seq || 1),
-          lastResistance: 1,
-          totalEnergy: 0,
-          avgSpeedKmh: actualSplit > 0 ? Number(((500 / actualSplit) * 3.6).toFixed(1)) : 0,
-          watchModel,
-          rowerModel
-        });
+        try {
+          activity = await Activities.create({
+            id: compositeId,
+            activityId: raceId,
+            userId,
+            userName: body.userName || `Racer_${userId.slice(-4)}`,
+            country,
+            raceMode: "race",
+            targetDistance: targetDist,
+            status: activityStatus,
+            initialDistance: 0,
+            currentDistance: actualDistance,
+            netDistance: effectiveDistance,
+            progressPercent: Math.min(100, Number(((effectiveDistance / targetDist) * 100).toFixed(1))),
+            lastStrokeRate: actualSpm,
+            lastPower: actualPower,
+            lastPace: actualSplit,
+            lastHeartRate: heartRate,
+            avgPower: actualPower,
+            avgPace: actualSplit,
+            avgStrokeRate: actualSpm,
+            totalStrokes: Number(body.seq || 1),
+            elapsedTime: currentElapsed,
+            lastStrokeCount: Number(body.seq || 1),
+            lastResistance: 1,
+            totalEnergy: 0,
+            avgSpeedKmh: actualSplit > 0 ? Number(((500 / actualSplit) * 3.6).toFixed(1)) : 0,
+            watchModel,
+            rowerModel
+          });
+        } catch {}
       } else {
-        const prevAvgP = (activity.get("avgPower") as number) || actualPower;
-        const newAvgP = actualPower > 0 ? Math.round((prevAvgP + actualPower) / 2) : prevAvgP;
-        const prevLastP = (activity.get("lastPower") as number) || 0;
-        const effectiveLastP = actualPower > 0 ? actualPower : (isFinished ? prevLastP : 0);
+        try {
+          if (!activity.get("country") && country) {
+            await activity.update({ country } as any);
+          }
+          const prevAvgP = (activity.get("avgPower") as number) || actualPower;
+          const newAvgP = actualPower > 0 ? Math.round((prevAvgP + actualPower) / 2) : prevAvgP;
+          const prevLastP = (activity.get("lastPower") as number) || 0;
+          const effectiveLastP = actualPower > 0 ? actualPower : (isFinished ? prevLastP : 0);
 
-        const prevAvgSplit = (activity.get("avgPace") as number) || actualSplit;
-        const newAvgSplit = actualSplit > 0 ? Math.round((prevAvgSplit + actualSplit) / 2) : prevAvgSplit;
+          const prevAvgSplit = (activity.get("avgPace") as number) || actualSplit;
+          const newAvgSplit = actualSplit > 0 ? Math.round((prevAvgSplit + actualSplit) / 2) : prevAvgSplit;
 
-        await activity.update({
-          currentDistance: actualDistance,
-          netDistance: effectiveDistance,
-          progressPercent: Math.min(100, Number(((effectiveDistance / targetDist) * 100).toFixed(1))),
-          status: activityStatus,
-          lastStrokeRate: actualSpm,
-          lastPower: effectiveLastP,
-          lastPace: actualSplit,
-          lastHeartRate: heartRate,
-          avgPower: newAvgP,
-          avgPace: newAvgSplit,
-          totalStrokes: Number(body.seq || (activity.get("totalStrokes") as number) + 1),
-          elapsedTime: currentElapsed,
-          avgSpeedKmh: actualSplit > 0 ? Number(((500 / actualSplit) * 3.6).toFixed(1)) : 0,
-          finishedAt: isFinished ? new Date() : (activity.get("finishedAt") as Date),
-          watchModel,
-          rowerModel
-        });
+          await activity.update({
+            currentDistance: actualDistance,
+            netDistance: effectiveDistance,
+            progressPercent: Math.min(100, Number(((effectiveDistance / targetDist) * 100).toFixed(1))),
+            status: activityStatus,
+            lastStrokeRate: actualSpm,
+            lastPower: effectiveLastP,
+            lastPace: actualSplit,
+            lastHeartRate: heartRate,
+            avgPower: newAvgP,
+            avgPace: newAvgSplit,
+            totalStrokes: Number(body.seq || (activity.get("totalStrokes") as number) + 1),
+            elapsedTime: currentElapsed,
+            avgSpeedKmh: actualSplit > 0 ? Number(((500 / actualSplit) * 3.6).toFixed(1)) : 0,
+            finishedAt: isFinished ? new Date() : (activity.get("finishedAt") as Date),
+            watchModel,
+            rowerModel
+          });
+        } catch {}
       }
 
       // Sync equipment to user profile if user exists
@@ -311,14 +329,33 @@ export class TelemetryController {
       }
 
       // Compute rank & gaps
-      const activeRacers = await Activities.findAll({
-        where: { activityId: raceId, status: { [Op.ne]: "abandoned" } },
-        order: [
-          ["status", "ASC"], // finished first
-          ["netDistance", "DESC"],
-          ["elapsedTime", "ASC"]
-        ]
-      });
+      let activeRacers: any[] = [];
+      try {
+        activeRacers = await Activities.findAll({
+          where: { activityId: raceId, status: { [Op.ne]: "abandoned" } },
+          order: [
+            ["status", "ASC"], // finished first
+            ["netDistance", "DESC"],
+            ["elapsedTime", "ASC"]
+          ]
+        });
+      } catch {}
+
+      if (activeRacers.length === 0) {
+        activeRacers = [{
+          get: (field: string) => {
+            if (field === "userId") return userId;
+            if (field === "userName") return body.userName || userId;
+            if (field === "netDistance") return effectiveDistance;
+            if (field === "lastPace") return actualSplit;
+            if (field === "lastPower") return actualPower;
+            if (field === "lastStrokeRate") return actualSpm;
+            if (field === "country") return country;
+            if (field === "status") return activityStatus;
+            return null;
+          }
+        }];
+      }
 
       const totalRacers = activeRacers.length;
       const myIdx = activeRacers.findIndex((a: any) => a.get("userId") === userId);
@@ -405,28 +442,34 @@ export class TelemetryController {
         startMode,
         scheduledStartTime,
         botCount,
-        botMaxPace
+        botMaxPace,
+        isBotDuel: reqIsBotDuel,
+        mode
       } = req.body || {};
 
-      const authCheck = await isUserSubscriberOrAdmin(hostUserId, hostUserName);
-      if (!authCheck.authorized) {
-        res.status(403).json({
-          success: false,
-          error: authCheck.reason || "La création de salon privé est réservée aux abonnés.",
-          code: "SUBSCRIBER_REQUIRED"
-        });
-        return;
+      const isBotDuel = Boolean(reqIsBotDuel || mode === "bot_duel");
+
+      if (!isBotDuel) {
+        const authCheck = await isUserSubscriberOrAdmin(hostUserId, hostUserName);
+        if (!authCheck.authorized) {
+          res.status(403).json({
+            success: false,
+            error: authCheck.reason || "La création de salon privé est réservée aux abonnés.",
+            code: "SUBSCRIBER_REQUIRED"
+          });
+          return;
+        }
       }
 
       // Valider et borner les quotas selon le forfait d'abonnement
       const user = await userStore.findUser(hostUserId);
       const isEmma = isEmmaAdminUser(hostUserId, hostUserName);
 
-      let maxAllowed = 30;
-      let distAllowed = 100000;
-      let botsAllowed = 5;
+      let maxAllowed = isBotDuel ? 2 : 30;
+      let distAllowed = isBotDuel ? 10000 : 100000;
+      let botsAllowed = isBotDuel ? 1 : 5;
 
-      if (user && !isEmma && !user.isAdmin && user.subscriptionTier) {
+      if (!isBotDuel && user && !isEmma && !user.isAdmin && user.subscriptionTier) {
         const tierId: string = user.subscriptionTier;
         const limits = SUBSCRIPTION_TIERS[tierId] || SUBSCRIPTION_TIERS.intermediate;
         maxAllowed = limits.maxParticipants;
@@ -437,15 +480,15 @@ export class TelemetryController {
       const rawDist = Number(targetDistance) || 2000;
       const finalDist = Math.min(distAllowed, Math.max(100, rawDist));
 
-      const rawMax = Number(maxParticipants) || maxAllowed;
-      const finalMax = Math.min(maxAllowed, Math.max(2, rawMax));
+      const rawMax = isBotDuel ? 2 : (Number(maxParticipants) || maxAllowed);
+      const finalMax = isBotDuel ? 2 : Math.min(maxAllowed, Math.max(2, rawMax));
 
-      const rawBots = Number(botCount) || 0;
-      const finalBots = Math.min(botsAllowed, Math.max(0, rawBots));
+      const rawBots = isBotDuel ? 1 : (Number(botCount) || 0);
+      const finalBots = isBotDuel ? 1 : Math.min(botsAllowed, Math.max(0, rawBots));
       const finalBotPace = Math.min(300, Math.max(60, Number(botMaxPace) || 120));
 
       const race = raceManager.createPrivateRace({
-        title: title || "Régate Privée",
+        title: title || (isBotDuel ? "Duel 1v1 contre un Bot" : "Régate Privée"),
         targetDistance: finalDist,
         maxParticipants: finalMax,
         hostUserId: hostUserId || "anonymous",
@@ -453,9 +496,10 @@ export class TelemetryController {
         startMode: startMode === "scheduled" ? "scheduled" : "manual",
         scheduledStartTime,
         countdownMinutes: countdownMinutes !== undefined ? Number(countdownMinutes) : 0,
-        requireApproval: requireApproval !== undefined ? Boolean(requireApproval) : true,
+        requireApproval: isBotDuel ? false : (requireApproval !== undefined ? Boolean(requireApproval) : true),
         botCount: finalBots,
-        botMaxPace: finalBotPace
+        botMaxPace: finalBotPace,
+        isBotDuel
       });
 
       // Best-effort persistence in PostgreSQL Races table so bots & history work seamlessly
@@ -543,7 +587,10 @@ export class TelemetryController {
       }
 
       if (registerLane && userId) {
-        const joined = raceManager.joinPrivateRace(identifier, String(userId), userName);
+        const user = await userStore.findUser(String(userId));
+        const country = user?.country || user?.pays || (await IpGeoService.resolveCountryFromRequest(req));
+
+        const joined = raceManager.joinPrivateRace(identifier, String(userId), userName, country);
         if ("error" in joined) {
           res.status(joined.statusCode).json({ error: joined.error });
           return;
@@ -561,6 +608,7 @@ export class TelemetryController {
               activityId: race.id,
               userId: cleanUserId,
               userName: userName || `Racer_${cleanUserId.slice(-4)}`,
+              country,
               raceMode: "race",
               targetDistance: race.targetDistance,
               status: playerStatus,
@@ -856,6 +904,21 @@ export class TelemetryController {
       const isHost = Boolean(userId && race.hostUserId && userId === race.hostUserId);
 
       if (userId && !isHost) {
+        if (race.isBotDuel) {
+          if (race.hostUserId?.startsWith("guest_") && (!race.participants || race.participants.size === 0)) {
+            race.hostUserId = userId;
+            race.hostUserName = userName || race.hostUserName;
+          } else {
+            res.status(403).json({
+              error: "Ce salon privé est réservé exclusivement au duel 1v1 contre un bot.",
+              status: "rejected",
+              approvalStatus: "rejected",
+              raceId: race.id
+            });
+            return;
+          }
+        }
+
         if (race.rejectedParticipants && race.rejectedParticipants.has(userId)) {
           res.status(403).json({
             error: "Demande de connexion refusée par l'organisateur",

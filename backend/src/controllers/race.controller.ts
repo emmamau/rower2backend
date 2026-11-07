@@ -5,6 +5,7 @@ import config from "../config";
 import raceManager, { RaceState } from "../services/race-manager.service";
 import { isEmmaAdminUser } from "../services/auth.service";
 import userStore from "../services/user-store.service";
+import { IpGeoService } from "../services/ip-geo.service";
 
 const Activities = db.activities;
 const Races = db.races;
@@ -164,11 +165,15 @@ export const joinRace = async (req: Request, res: Response): Promise<void> => {
 
     let activity = await Activities.findByPk(compositeId);
     if (!activity) {
+      const user = await userStore.findUser(String(userId));
+      const country = user?.country || user?.pays || (await IpGeoService.resolveCountryFromRequest(req));
+
       activity = await Activities.create({
         id: compositeId,
         activityId: actualRaceId,
         userId,
         userName: userName || `Racer_${String(userId).slice(-4)}`,
+        country,
         raceMode: "race",
         targetDistance: state.targetDistance || 10000,
         status: playerStatus,
@@ -521,6 +526,7 @@ export const updatePublicRaceAdminConfig = async (req: Request, res: Response): 
       defaultBotsCount,
       defaultBotsPace,
       countdownAfterLastJoinSeconds,
+      lobbyWaitMinutes,
     } = req.body || {};
 
     const user = await userStore.findUser(userId);
@@ -537,6 +543,7 @@ export const updatePublicRaceAdminConfig = async (req: Request, res: Response): 
       defaultBotsCount,
       defaultBotsPace,
       countdownAfterLastJoinSeconds,
+      lobbyWaitMinutes,
     });
 
     res.status(200).json({

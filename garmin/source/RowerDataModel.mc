@@ -67,6 +67,11 @@ class RowerDataModel {
     private var _lastSmartRowWork as Float = 0.0f;
     private var _lastSmartRowHandleCm as Number = 0;
 
+    // SmartRow stream defragmentation buffer across BLE notification chunks
+    private var _srRxFrameChars as Array<Char> = new [48] as Array<Char>;
+    private var _srRxFrameLen as Number = 0;
+    private var _srRxIsRecord as Boolean = false;
+
     // Running session average accumulators
     private var _wattsSum as Long = 0L;
     private var _wattsSamples as Number = 0;
@@ -149,6 +154,8 @@ class RowerDataModel {
         _spmSamples = 0;
         _forceSum = 0L;
         _forceSamples = 0;
+        _srRxFrameLen = 0;
+        _srRxIsRecord = false;
     }
 
     //! Start active race/solo session: tare hardware counters to zero cleanly (ported from rower.iq)
@@ -198,6 +205,8 @@ class RowerDataModel {
         _spmSamples = 0;
         _forceSum = 0L;
         _forceSamples = 0;
+        _srRxFrameLen = 0;
+        _srRxIsRecord = false;
     }
 
     //! Re-tare current hardware counters (e.g. after false start penalty unlock)
@@ -216,6 +225,8 @@ class RowerDataModel {
         _secondsSinceLastPacket = 0;
         _secondsSinceLastStrokeOrDist = 0;
         _haltedByTimeout = false;
+        _srRxFrameLen = 0;
+        _srRxIsRecord = false;
         if (!workoutStarted || !hasStartedRowing) {
             _isFirstPacketAfterConnect = true;
             _distanceOffset = 0;
@@ -756,40 +767,41 @@ class RowerDataModel {
     // =========================================================================
     public function parseSmartRowBytes(bytes as ByteArray) as Void {
         var size = bytes.size();
-        if (size < 6) {
+        if (size <= 0) {
             return;
         }
-
-        var frameChars = new [size] as Array<Char>;
-        var frameLen = 0;
-        var isRecord = false;
 
         for (var i = 0; i < size; i++) {
             var b = bytes[i];
             if (b == 0x0D || b == 0x0A) {
-                if (frameLen >= 6) {
-                    var slice = frameChars.slice(0, frameLen) as Array<Char>;
+                if (_srRxFrameLen >= 6) {
+                    var slice = _srRxFrameChars.slice(0, _srRxFrameLen) as Array<Char>;
                     parseSmartRowString(StringUtil.charArrayToString(slice));
                 }
-                frameLen = 0;
-                isRecord = false;
+                _srRxFrameLen = 0;
+                _srRxIsRecord = false;
             } else {
-                if (frameLen == 0) {
-                    isRecord = (b == 0x61 || b == 0x62 || b == 0x63 || b == 0x64 ||
-                                b == 0x65 || b == 0x66 || b == 0x78 || b == 0x79 || b == 0x7A);
-                } else if (isRecord && frameLen >= 1 && frameLen <= 5) {
+                if (_srRxFrameLen == 0) {
+                    _srRxIsRecord = (b == 0x61 || b == 0x62 || b == 0x63 || b == 0x64 ||
+                                     b == 0x65 || b == 0x66 || b == 0x78 || b == 0x79 || b == 0x7A);
+                    if (!_srRxIsRecord) {
+                        continue;
+                    }
+                } else if (_srRxIsRecord && _srRxFrameLen >= 1 && _srRxFrameLen <= 5) {
                     // Unscramble V3 distance digits: (b & 0x0F) | 0x30 produces ASCII '0'..'9'
                     b = (b & 0x0F) | 0x30;
                 }
                 if (b >= 0x20 && b <= 0x7E) {
-                    frameChars[frameLen] = b.toChar();
-                    frameLen += 1;
+                    if (_srRxFrameLen < 48) {
+                        _srRxFrameChars[_srRxFrameLen] = b.toChar();
+                        _srRxFrameLen += 1;
+                    } else {
+                        // Frame exceeds max valid SmartRow length: reset frame buffer
+                        _srRxFrameLen = 0;
+                        _srRxIsRecord = false;
+                    }
                 }
             }
-        }
-        if (frameLen >= 6) {
-            var slice = frameChars.slice(0, frameLen) as Array<Char>;
-            parseSmartRowString(StringUtil.charArrayToString(slice));
         }
     }
 
@@ -840,10 +852,12 @@ class RowerDataModel {
                 _isFirstPacketAfterConnect = false;
                 _lastRawDistance = rawDistance;
                 _hasHardwareDistance = true;
+                _baselineRawDistance = rawDistance;
                 if (!hasStartedRowing) {
-                    _baselineRawDistance = rawDistance;
                     totalDistance = 0;
                     _accumulatedDistanceMetersFloat = 0.0f;
+                } else {
+                    _distanceOffset = totalDistance;
                 }
             } else if (!hasStartedRowing) {
                 if (rawDistance > _baselineRawDistance) {
@@ -970,7 +984,13 @@ class RowerDataModel {
                 if (rawSpm > 8.0f || (rawStrokes > _lastRawStrokes && _lastRawStrokes > 0)) {
                     liveMovementDetected = true;
                 }
+                if (!_hasNativeSmartRowWatts) {
+                    deriveSmartRowFallbackPower(0.0f);
+                }
             } else if (!hasStartedRowing) {
+                if (_baselineRawStrokes == 0 && rawStrokes > 0) {
+                    _baselineRawStrokes = rawStrokes;
+                }
                 if (rawStrokes > _baselineRawStrokes || rawSpm > 8.0f) {
                     onActiveRowingDetected();
                     strokeCount = (rawStrokes >= _baselineRawStrokes) ? (rawStrokes - _baselineRawStrokes + _strokesOffset) : _strokesOffset;
@@ -979,6 +999,9 @@ class RowerDataModel {
                     strokeCount = 0;
                 }
                 strokeRate = rawSpm;
+                if (!_hasNativeSmartRowWatts) {
+                    deriveSmartRowFallbackPower(0.0f);
+                }
             } else {
                 var strokesReset = (_lastRawStrokes >= 4) && (rawStrokes < (_lastRawStrokes - 2));
                 if (strokesReset) {

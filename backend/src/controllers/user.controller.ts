@@ -4,6 +4,7 @@ import db from "../models";
 import { hashPassword, verifyPassword, isEmmaAdminUser, generateSecureToken } from "../services/auth.service";
 import emailService from "../services/email.service";
 import userStore from "../services/user-store.service";
+import raceManager from "../services/race-manager.service";
 
 const Activities = db.activities;
 
@@ -416,7 +417,10 @@ export const requestWebLogin = async (req: Request, res: Response): Promise<void
       // Tolérance test / hors-ligne
     }
 
-    if (!activeActivity && process.env.NODE_ENV !== "test" && !process.env.TEST_MODE) {
+    const inActiveRace = raceManager.isRacerActive(userId) ||
+      Boolean(raceManager.getCurrentPublicRace()?.participants?.has(userId));
+
+    if (!activeActivity && !inActiveRace && process.env.NODE_ENV !== "test" && !process.env.TEST_MODE) {
       res.status(403).json({
         success: false,
         error: "WATCH_NOT_CONNECTED",
@@ -625,10 +629,44 @@ export const getUserProfile = async (req: Request, res: Response): Promise<void>
  * GET /api/user/leaderboard
  * Retourne le classement général des joueurs basé sur les points accumulés.
  */
-export const getGeneralLeaderboard = async (_req: Request, res: Response): Promise<void> => {
+export const getGeneralLeaderboard = async (req: Request, res: Response): Promise<void> => {
   try {
-    const all = await userStore.getAllUsersForLeaderboard();
-    const players = all.slice(0, 50).map((u) => ({
+    const { country, gender, ageCategory } = req.query;
+    const currentYear = new Date().getFullYear();
+    let all = await userStore.getAllUsersForLeaderboard();
+
+    if (country && typeof country === "string" && country.trim().toLowerCase() !== "all") {
+      const targetCountry = country.trim().toLowerCase();
+      all = all.filter((u) => (u.country || u.pays || "").toLowerCase() === targetCountry);
+    }
+
+    if (gender && typeof gender === "string" && gender.trim().toLowerCase() !== "all") {
+      const targetGender = gender.trim().toLowerCase();
+      all = all.filter((u) => {
+        const g = (u.gender || u.sexe || "").toLowerCase();
+        if (targetGender === "m" || targetGender === "homme") return g === "m" || g === "homme";
+        if (targetGender === "f" || targetGender === "femme") return g === "f" || g === "femme";
+        return g === targetGender;
+      });
+    }
+
+    if (ageCategory && typeof ageCategory === "string" && ageCategory.trim().toLowerCase() !== "all") {
+      const cat = ageCategory.trim().toUpperCase();
+      all = all.filter((u) => {
+        const birth = u.birthYear || u.anneeNaissance;
+        if (!birth || !Number.isFinite(birth)) return false;
+        const age = currentYear - birth;
+        if (cat === "U19" || cat === "-19") return age < 19;
+        if (cat === "19-29" || cat === "SENIOR") return age >= 19 && age <= 29;
+        if (cat === "30-39" || cat === "MASTER_A") return age >= 30 && age <= 39;
+        if (cat === "40-49" || cat === "MASTER_B") return age >= 40 && age <= 49;
+        if (cat === "50-59" || cat === "MASTER_C") return age >= 50 && age <= 59;
+        if (cat === "60+" || cat === "MASTER_D") return age >= 60;
+        return true;
+      });
+    }
+
+    const players = all.slice(0, 100).map((u) => ({
       id: u.id,
       name: u.name,
       points: u.points,
@@ -639,6 +677,9 @@ export const getGeneralLeaderboard = async (_req: Request, res: Response): Promi
       lastRank: u.lastRank,
       isSubscriber: u.isSubscriber,
       isAdmin: u.isAdmin,
+      country: u.country || u.pays || "",
+      gender: u.gender || u.sexe || "",
+      birthYear: u.birthYear || u.anneeNaissance || null,
     }));
 
     res.status(200).json({

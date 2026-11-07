@@ -14,8 +14,8 @@ class RunNoEvil extends Test.Test {
     function initialize() {
         Test.Test.initialize();
         logger = new Test.Logger();
-        idToName = new [9];
-        populate_test_entries_0_to_9();
+        idToName = new [14];
+        populate_test_entries_0_to_14();
     }
 
     function getIndexOf(name as String) as Number {
@@ -41,7 +41,7 @@ class RunNoEvil extends Test.Test {
         return idToName.size();
     }
 
-    function populate_test_entries_0_to_9() as Void {
+    function populate_test_entries_0_to_14() as Void {
         idToName[0] = "testFtmsSplitContinuationPreservesWatts";
         idToName[1] = "testFtmsZeroWattsFlagDerivesPowerFromPace";
         idToName[2] = "testSmartRowFirstStrokeOrderPreservesWatts";
@@ -51,9 +51,14 @@ class RunNoEvil extends Test.Test {
         idToName[6] = "testSmartRowBurstOrderDerivesWattsWithoutDeadlock";
         idToName[7] = "testAlphanumericPinEntry";
         idToName[8] = "testUserLoginAndPendingState";
+        idToName[9] = "testSmartRowSplitPacketReassembly";
+        idToName[10] = "testSmartRowMultiFrameInSinglePacket";
+        idToName[11] = "testSmartRowPreambleNoiseDelimiterReassembly";
+        idToName[12] = "testSmartRowDefragmentationBufferResetOnConnect";
+        idToName[13] = "testWebAuthPromptDuringRacingState";
     }
 
-    function evaluate_test_entries_0_to_9(id as Number, logger as Logger) {
+    function evaluate_test_entries_0_to_14(id as Number, logger as Logger) {
         var result = false;
         if (id == 0) {
             result = $.testFtmsSplitContinuationPreservesWatts(logger);
@@ -73,6 +78,16 @@ class RunNoEvil extends Test.Test {
             result = $.testAlphanumericPinEntry(logger);
         } else if (id == 8) {
             result = $.testUserLoginAndPendingState(logger);
+        } else if (id == 9) {
+            result = $.testSmartRowSplitPacketReassembly(logger);
+        } else if (id == 10) {
+            result = $.testSmartRowMultiFrameInSinglePacket(logger);
+        } else if (id == 11) {
+            result = $.testSmartRowPreambleNoiseDelimiterReassembly(logger);
+        } else if (id == 12) {
+            result = $.testSmartRowDefragmentationBufferResetOnConnect(logger);
+        } else if (id == 13) {
+            result = $.testWebAuthPromptDuringRacingState(logger);
         }
 
         return result;
@@ -86,8 +101,8 @@ class RunNoEvil extends Test.Test {
 
         assertMessage(id >= 0, "Could not find '" + test + "'");
         var result = false;
-        if (id < 9) {
-            result = self.evaluate_test_entries_0_to_9(id, logger);
+        if (id < 14) {
+            result = self.evaluate_test_entries_0_to_14(id, logger);
         }
 
         if (result instanceof Boolean) {

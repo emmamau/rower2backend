@@ -40,6 +40,7 @@ export interface ActivityAttributes {
   // Equipment telemetry
   watchModel?: string;
   rowerModel?: string;
+  country?: string;
 
   createdAt?: Date;
   updatedAt?: Date;
@@ -164,6 +165,10 @@ export default (sequelize: Sequelize, _DataTypesInstance: typeof DataTypes): Act
         allowNull: true,
       },
       rowerModel: {
+        type: DataTypes.STRING(64),
+        allowNull: true,
+      },
+      country: {
         type: DataTypes.STRING(64),
         allowNull: true,
       },

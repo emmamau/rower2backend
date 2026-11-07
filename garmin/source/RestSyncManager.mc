@@ -125,6 +125,8 @@ class RestSyncManager {
                     var reqId = d.get("requestId").toString();
                     var login = d.get("login").toString();
                     (_delegate as BleDelegate).onAuthRequestReceived(reqId, login);
+                } else if (d.hasKey("hasPending") && d.get("hasPending") == false) {
+                    (_delegate as BleDelegate).onAuthRequestCleared();
                 }
             }
         }

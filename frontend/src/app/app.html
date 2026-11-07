@@ -176,6 +176,16 @@
           }
         </button>
 
+        <!-- Bouton Duel 1v1 Bot (Accessible à tous sans compte) -->
+        <button
+          type="button"
+          class="btn-hud btn-bot-duel"
+          (click)="openBotDuelModal()"
+          title="Nouveau mode : affrontez un bot de niveau aléatoire sur la distance de votre choix jusqu'à 10 000m (sans compte)">
+          <span class="btn-icon">🤖</span>
+          Duel 1v1 Bot
+        </button>
+
         <!-- Boutons Salons Privés et Abonnements placés à droite -->
         <button
           type="button"
@@ -380,9 +390,32 @@
               </div>
               <div class="form-group">
                 <label for="reg-pays">Pays *</label>
-                <input id="reg-pays" name="pays" type="text" [(ngModel)]="regPays" placeholder="ex: France" required />
+                <select id="reg-pays" name="pays" [(ngModel)]="regPays" required>
+                  <option value="France">🇫🇷 France</option>
+                  <option value="Suisse">🇨🇭 Suisse</option>
+                  <option value="Belgique">🇧🇪 Belgique</option>
+                  <option value="Canada">🇨🇦 Canada</option>
+                  <option value="Royaume-Uni">🇬🇧 Royaume-Uni</option>
+                  <option value="États-Unis">🇺🇸 États-Unis</option>
+                  <option value="Allemagne">🇩🇪 Allemagne</option>
+                  <option value="Espagne">🇪🇸 Espagne</option>
+                  <option value="Italie">🇮🇹 Italie</option>
+                  <option value="Pays-Bas">🇳🇱 Pays-Bas</option>
+                  <option value="Portugal">🇵🇹 Portugal</option>
+                  <option value="Australie">🇦🇺 Australie</option>
+                  <option value="Nouvelle-Zélande">🇳🇿 Nouvelle-Zélande</option>
+                  <option value="Irlande">🇮🇪 Irlande</option>
+                  <option value="Autre">🌐 Autre pays</option>
+                </select>
               </div>
             </div>
+
+            @if (regPays === 'Autre') {
+              <div class="form-group">
+                <label for="reg-custom-pays">Nom de votre pays *</label>
+                <input id="reg-custom-pays" name="customPays" type="text" [(ngModel)]="regCustomPays" placeholder="ex: Maroc, Brésil, Japon..." required />
+              </div>
+            }
 
             <div class="form-group">
               <label for="reg-login">Login unique *</label>
@@ -697,9 +730,9 @@
 
               <div class="form-row-2">
                 <div class="form-group">
-                  <label for="admin-countdown">Délai départ après dernière connexion (sec) :</label>
-                  <input id="admin-countdown" type="number" [(ngModel)]="adminConfig.countdownAfterLastJoinSeconds" name="cdSec" min="5" max="120" />
-                  <span class="field-hint">Défaut : 15 secondes</span>
+                  <label for="admin-lobby-wait">Délai d'attente avant départ (minutes) :</label>
+                  <input id="admin-lobby-wait" type="number" [(ngModel)]="adminConfig.lobbyWaitMinutes" name="lobbyWaitMin" min="1" max="60" />
+                  <span class="field-hint">Défaut : 15 min (départ à expiration ou si max coureurs atteint)</span>
                 </div>
                 <div class="form-group">
                   <label for="admin-duration">Durée maximale de la partie (minutes) :</label>
@@ -854,6 +887,47 @@
           {{ i18n.t('MODAL_STANDINGS_DESC') }}
         </p>
 
+        <!-- Filtres Pays, Sexe et Catégorie d'âge -->
+        <div class="leaderboard-filters-bar">
+          <div class="filter-group">
+            <label for="filter-country-m">🌍 Pays :</label>
+            <select id="filter-country-m" [(ngModel)]="leaderboardCountryFilter" (change)="applyLeaderboardFilters()">
+              <option value="all">Tous les pays</option>
+              <option *ngFor="let c of availableLeaderboardCountries" [value]="c">
+                {{ getCountryFlag(c) }} {{ c }}
+              </option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <label for="filter-gender-m">⚧ Sexe :</label>
+            <select id="filter-gender-m" [(ngModel)]="leaderboardGenderFilter" (change)="applyLeaderboardFilters()">
+              <option value="all">Tous</option>
+              <option value="M">Hommes (M)</option>
+              <option value="F">Femmes (F)</option>
+              <option value="Autre">Autre</option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <label for="filter-age-m">🎂 Catégorie :</label>
+            <select id="filter-age-m" [(ngModel)]="leaderboardAgeCategoryFilter" (change)="applyLeaderboardFilters()">
+              <option value="all">Toutes</option>
+              <option value="U19">U19 (-19 ans)</option>
+              <option value="19-29">19-29 ans (Senior)</option>
+              <option value="30-39">30-39 ans (Master A)</option>
+              <option value="40-49">40-49 ans (Master B)</option>
+              <option value="50-59">50-59 ans (Master C)</option>
+              <option value="60+">60+ ans (Master D+)</option>
+            </select>
+          </div>
+          <button
+            *ngIf="leaderboardCountryFilter !== 'all' || leaderboardGenderFilter !== 'all' || leaderboardAgeCategoryFilter !== 'all'"
+            type="button"
+            class="btn-reset-filters"
+            (click)="resetLeaderboardFilters()">
+            ✕ Réinitialiser
+          </button>
+        </div>
+
         <div tabindex="0" role="region" aria-labelledby="standings-modal-title" class="standings-table-container">
           <table
             class="standings-table"
@@ -865,6 +939,8 @@
               <tr>
                 <th scope="col">{{ i18n.t('COL_POSITION').toUpperCase() }}</th>
                 <th scope="col">{{ i18n.t('COL_NAME').toUpperCase() }}</th>
+                <th scope="col">PAYS</th>
+                <th scope="col">CATÉGORIE</th>
                 <th scope="col">{{ i18n.t('COL_POINTS').toUpperCase() }}</th>
                 <th scope="col">{{ i18n.t('COL_RACES').toUpperCase() }}</th>
                 <th scope="col">{{ i18n.t('COL_WINS').toUpperCase() }}</th>
@@ -873,7 +949,7 @@
               </tr>
             </thead>
             <tbody>
-              @for (player of generalLeaderboard; track player.id; let pIdx = $index) {
+              @for (player of filteredGeneralLeaderboard; track player.id; let pIdx = $index) {
                 <tr [class.is-current-user]="player.id === activeUserId">
                   <td class="col-rank">
                     <span class="rank-medal" *ngIf="pIdx === 0">🥇</span>
@@ -882,6 +958,8 @@
                     #{{ pIdx + 1 }}
                   </td>
                   <th scope="row" class="col-name">{{ player.name || player.id }}</th>
+                  <td class="col-country">{{ getCountryFlag(player.country) }} {{ player.country || '--' }}</td>
+                  <td class="col-category">{{ getAgeCategoryLabel(player.birthYear) }}</td>
                   <td class="col-pts col-stat-pts">{{ player.points || 0 }} {{ i18n.t('POINTS') }}</td>
                   <td class="col-stat-races">{{ player.totalRaces || 0 }}</td>
                   <td class="col-stat-wins">{{ player.totalWins || 0 }}</td>
@@ -890,7 +968,7 @@
                 </tr>
               } @empty {
                 <tr class="empty-row">
-                  <td colspan="7" class="text-center">Aucun coureur classé pour le moment.</td>
+                  <td colspan="9" class="text-center">Aucun coureur ne correspond aux critères sélectionnés.</td>
                 </tr>
               }
             </tbody>
@@ -1035,6 +1113,51 @@
             }
             <span class="rec-badge" *ngIf="recommendedViewMode === 'cockpit' && canAccessCockpit">Mobile</span>
           </button>
+        </div>
+
+        <!-- Sélecteur de cockpit pendant la course avec validation montre -->
+        <div class="cockpit-picker-race-wrapper" role="region" aria-label="Sélection du cockpit">
+          @if (!canAccessCockpit) {
+            <div class="cockpit-picker-race-group">
+              <span class="picker-race-icon">⌚</span>
+              <label for="cockpit-race-select" class="picker-race-label">Choisir mon cockpit :</label>
+              <select
+                id="cockpit-race-select"
+                class="cockpit-race-select"
+                [(ngModel)]="selectedCockpitPlayerId"
+                (change)="onSelectCockpitPlayer(selectedCockpitPlayerId)">
+                <option value="">-- Choisir mon coureur --</option>
+                <option *ngFor="let racer of humanRacers" [value]="racer.userId">
+                  {{ racer.userName || racer.userId }} ({{ racer.userId }})
+                </option>
+              </select>
+              <span class="picker-race-sep">ou</span>
+              <input
+                type="text"
+                class="cockpit-race-input"
+                placeholder="ID montre (ex: RowX_12)"
+                [(ngModel)]="watchIdLoginInput"
+                (keyup.enter)="identifyWithWatchId()" />
+              <button
+                type="button"
+                class="btn-cockpit-race-submit"
+                [disabled]="isWatchIdLoginPending || (!watchIdLoginInput.trim() && !selectedCockpitPlayerId)"
+                (click)="identifyWithWatchId()">
+                {{ isWatchIdLoginPending ? '⏳ Confirmez sur la montre...' : 'Valider sur la montre' }}
+              </button>
+            </div>
+            @if (watchIdLoginMessage) {
+              <div class="cockpit-picker-race-msg ok">{{ watchIdLoginMessage }}</div>
+            }
+            @if (watchIdLoginError) {
+              <div class="cockpit-picker-race-msg err">{{ watchIdLoginError }}</div>
+            }
+          } @else {
+            <div class="cockpit-active-badge">
+              <span>Cockpit actif : <strong>{{ activeUserId }}</strong></span>
+              <button type="button" class="btn-change-cockpit" (click)="disconnectWatch()">Changer de coureur</button>
+            </div>
+          }
         </div>
 
         <div class="ergo-quick-tools">
@@ -1290,6 +1413,47 @@
           </div>
           <p class="panel-subdesc">{{ i18n.t('MODAL_STANDINGS_DESC') }}</p>
 
+          <!-- Filtres Pays, Sexe et Catégorie d'âge -->
+          <div class="leaderboard-filters-bar">
+            <div class="filter-group">
+              <label for="filter-country-p">🌍 Pays :</label>
+              <select id="filter-country-p" [(ngModel)]="leaderboardCountryFilter" (change)="applyLeaderboardFilters()">
+                <option value="all">Tous les pays</option>
+                <option *ngFor="let c of availableLeaderboardCountries" [value]="c">
+                  {{ getCountryFlag(c) }} {{ c }}
+                </option>
+              </select>
+            </div>
+            <div class="filter-group">
+              <label for="filter-gender-p">⚧ Sexe :</label>
+              <select id="filter-gender-p" [(ngModel)]="leaderboardGenderFilter" (change)="applyLeaderboardFilters()">
+                <option value="all">Tous</option>
+                <option value="M">Hommes (M)</option>
+                <option value="F">Femmes (F)</option>
+                <option value="Autre">Autre</option>
+              </select>
+            </div>
+            <div class="filter-group">
+              <label for="filter-age-p">🎂 Catégorie :</label>
+              <select id="filter-age-p" [(ngModel)]="leaderboardAgeCategoryFilter" (change)="applyLeaderboardFilters()">
+                <option value="all">Toutes</option>
+                <option value="U19">U19 (-19 ans)</option>
+                <option value="19-29">19-29 ans (Senior)</option>
+                <option value="30-39">30-39 ans (Master A)</option>
+                <option value="40-49">40-49 ans (Master B)</option>
+                <option value="50-59">50-59 ans (Master C)</option>
+                <option value="60+">60+ ans (Master D+)</option>
+              </select>
+            </div>
+            <button
+              *ngIf="leaderboardCountryFilter !== 'all' || leaderboardGenderFilter !== 'all' || leaderboardAgeCategoryFilter !== 'all'"
+              type="button"
+              class="btn-reset-filters"
+              (click)="resetLeaderboardFilters()">
+              ✕ Réinitialiser
+            </button>
+          </div>
+
           <div class="scroll-elevator-container" tabindex="0">
             <table
               class="standings-table"
@@ -1301,6 +1465,8 @@
                 <tr>
                   <th scope="col">{{ i18n.t('COL_POSITION').toUpperCase() }}</th>
                   <th scope="col">{{ i18n.t('COL_NAME').toUpperCase() }}</th>
+                  <th scope="col">PAYS</th>
+                  <th scope="col">CATÉGORIE</th>
                   <th scope="col">{{ i18n.t('COL_POINTS').toUpperCase() }}</th>
                   <th scope="col">{{ i18n.t('COL_RACES').toUpperCase() }}</th>
                   <th scope="col">{{ i18n.t('COL_WINS').toUpperCase() }}</th>
@@ -1309,7 +1475,7 @@
                 </tr>
               </thead>
               <tbody>
-                @for (player of generalLeaderboard; track player.id; let pIdx = $index) {
+                @for (player of filteredGeneralLeaderboard; track player.id; let pIdx = $index) {
                   <tr [class.is-current-user]="player.id === activeUserId">
                     <td class="col-rank">
                       <span class="rank-medal" *ngIf="pIdx === 0">🥇</span>
@@ -1318,6 +1484,8 @@
                       #{{ pIdx + 1 }}
                     </td>
                     <th scope="row" class="col-name">{{ player.name || player.id }}</th>
+                    <td class="col-country">{{ getCountryFlag(player.country) }} {{ player.country || '--' }}</td>
+                    <td class="col-category">{{ getAgeCategoryLabel(player.birthYear) }}</td>
                     <td class="col-pts col-stat-pts">{{ player.points || 0 }} {{ i18n.t('POINTS') }}</td>
                     <td class="col-stat-races">{{ player.totalRaces || 0 }}</td>
                     <td class="col-stat-wins">{{ player.totalWins || 0 }}</td>
@@ -1326,7 +1494,7 @@
                   </tr>
                 } @empty {
                   <tr class="empty-row">
-                    <td colspan="7" class="text-center">Aucun coureur classé pour le moment.</td>
+                    <td colspan="9" class="text-center">Aucun coureur ne correspond aux critères sélectionnés.</td>
                   </tr>
                 }
               </tbody>
@@ -1495,6 +1663,42 @@
       </div>
       <div class="blocked-modal-body">
         <p class="blocked-desc">{{ cockpitAccessBlockedMessage }}</p>
+
+        <!-- Débloquer mon cockpit en sélectionnant mon ID -->
+        <div class="cockpit-unlock-box">
+          <h4>Débloquer votre cockpit pendant la course :</h4>
+          <p class="unlock-subtext">Sélectionnez votre identifiant dans la liste ou saisissez-le, puis confirmez la notification sur votre montre Garmin :</p>
+          <div class="watch-input-group">
+            <select
+              class="watch-dropdown-select"
+              [(ngModel)]="selectedCockpitPlayerId"
+              (change)="onSelectCockpitPlayer(selectedCockpitPlayerId)">
+              <option value="">-- Choisir mon coureur --</option>
+              <option *ngFor="let racer of humanRacers" [value]="racer.userId">
+                {{ racer.userName || racer.userId }} ({{ racer.userId }})
+              </option>
+            </select>
+            <span class="watch-or-separator">ou</span>
+            <input
+              type="text"
+              class="watch-id-input"
+              placeholder="ID montre (ex: RowX_12)"
+              [(ngModel)]="watchIdLoginInput"
+              [disabled]="isWatchIdLoginPending"
+              (keyup.enter)="identifyWithWatchId()"
+              maxlength="32" />
+            <button
+              type="button"
+              class="btn-watch-connect"
+              [disabled]="isWatchIdLoginPending || (!watchIdLoginInput.trim() && !selectedCockpitPlayerId)"
+              (click)="identifyWithWatchId()">
+              {{ isWatchIdLoginPending ? '⏳ Attente montre...' : "Confirmer sur ma montre" }}
+            </button>
+          </div>
+          <div *ngIf="watchIdLoginMessage" class="cockpit-picker-msg ok">{{ watchIdLoginMessage }}</div>
+          <div *ngIf="watchIdLoginError" class="cockpit-picker-msg err">{{ watchIdLoginError }}</div>
+        </div>
+
         <div class="blocked-requirements">
           <div class="req-item" [class.ok]="isWatchConfirmed">
             <span class="req-icon">{{ isWatchConfirmed ? '✓' : '✗' }}</span>
@@ -1510,6 +1714,72 @@
           <button type="button" class="btn-hud" (click)="showCockpitBlockedModal = false">Compris, voir la Régate</button>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- MODALE DUEL 1V1 CONTRE UN BOT (SANS COMPTE REQUIS) -->
+  <div class="modal-overlay" *ngIf="isBotDuelModalOpen" (click)="closeBotDuelModal()">
+    <div class="modal-card modal-bot-duel" (click)="$event.stopPropagation()">
+      <div class="modal-header-row">
+        <div class="modal-title-with-badge">
+          <h3>🤖 Mode Duel 1v1 contre un Bot</h3>
+          <span class="badge-role-tag is-guest">Sans compte requis</span>
+        </div>
+        <button type="button" class="btn-close" (click)="closeBotDuelModal()">✕</button>
+      </div>
+
+      <p class="modal-desc">
+        Affrontez un adversaire virtuel de niveau aléatoire sur la distance de votre choix jusqu'à 10 000 mètres.
+        Un salon privé exclusif est créé pour vous deux, et vous ferez la course uniquement contre votre bot !
+      </p>
+
+      <form class="modal-form" (ngSubmit)="startBotDuel()">
+        <div class="form-group">
+          <label for="bot-duel-name">Votre nom / pseudo :</label>
+          <input
+            id="bot-duel-name"
+            type="text"
+            [(ngModel)]="botDuelName"
+            name="botDuelName"
+            placeholder="ex: RameurSolo"
+            maxlength="32" />
+        </div>
+
+        <div class="form-group">
+          <label for="bot-duel-dist">Distance cible (mètres, jusqu'à 10 000m) :</label>
+          <div class="distance-preset-buttons">
+            <button type="button" class="btn-preset" [class.selected]="botDuelDistance === 500" (click)="setBotDuelPresetDistance(500)">500m</button>
+            <button type="button" class="btn-preset" [class.selected]="botDuelDistance === 1000" (click)="setBotDuelPresetDistance(1000)">1 000m</button>
+            <button type="button" class="btn-preset" [class.selected]="botDuelDistance === 2000" (click)="setBotDuelPresetDistance(2000)">2 000m</button>
+            <button type="button" class="btn-preset" [class.selected]="botDuelDistance === 5000" (click)="setBotDuelPresetDistance(5000)">5 000m</button>
+            <button type="button" class="btn-preset" [class.selected]="botDuelDistance === 6000" (click)="setBotDuelPresetDistance(6000)">6 000m</button>
+            <button type="button" class="btn-preset" [class.selected]="botDuelDistance === 10000" (click)="setBotDuelPresetDistance(10000)">10 000m</button>
+          </div>
+          <input
+            id="bot-duel-dist"
+            type="number"
+            min="100"
+            max="10000"
+            step="100"
+            [(ngModel)]="botDuelDistance"
+            name="botDuelDistance"
+            required />
+        </div>
+
+        <div class="bot-level-note">
+          <span class="note-icon">🎲</span>
+          <span>Le niveau du bot (allure et puissance) sera tiré aléatoirement au départ (de Débutant à Élite).</span>
+        </div>
+
+        <div *ngIf="botDuelError" class="modal-error-box">{{ botDuelError }}</div>
+
+        <div class="modal-buttons">
+          <button type="submit" class="btn-primary btn-launch-duel" [disabled]="isCreatingBotDuel">
+            {{ isCreatingBotDuel ? 'Création du salon en cours...' : '🚀 Lancer le Duel contre le Bot' }}
+          </button>
+          <button type="button" class="btn-secondary" (click)="closeBotDuelModal()">Annuler</button>
+        </div>
+      </form>
     </div>
   </div>
 

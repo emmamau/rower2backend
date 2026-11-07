@@ -11,6 +11,7 @@ export interface PrivateParticipantInfo {
   userId: string;
   userName: string;
   joinedAt: Date;
+  country?: string;
 }
 
 export interface RaceState {
@@ -34,6 +35,7 @@ export interface RaceState {
   botMaxPace?: number;
   autoStart?: boolean;
   hasBots?: boolean;
+  isBotDuel?: boolean;
   totalParticipants?: number;
   createdAt?: Date;
   requireApproval?: boolean;
@@ -81,6 +83,7 @@ export class RaceManager {
     defaultBotsCount: 3,
     defaultBotsPace: 120, // 2:00 / 500m
     countdownAfterLastJoinSeconds: 15,
+    lobbyWaitMinutes: 15,
   };
 
   private constructor() {
@@ -194,6 +197,7 @@ export class RaceManager {
       watts: (r.get("lastPower") as number) || (r.get("avgPower") as number) || 0,
       spm: (r.get("lastStrokeRate") as number) || (r.get("avgStrokeRate") as number) || 0,
       heartRate: (r.get("lastHeartRate") as number) || undefined,
+      country: r.get("country") || undefined,
       status: r.get("status") || "in_progress"
     }));
   }
@@ -320,6 +324,33 @@ export class RaceManager {
     const race = this.currentPublicRace;
 
     if (race.status === "LOBBY" || race.status === "COUNTDOWN") {
+      const remainingSec = Math.max(0, Math.floor((race.lobbyEndsAt.getTime() - now.getTime()) / 1000));
+      const participantHumans = race.participants ? Array.from(race.participants.values()).length : 0;
+      const maxPart = race.maxParticipants || this.adminPublicRaceConfig.maxParticipants || 20;
+
+      // Condition 1 : Nombre maxi de coureurs connecté -> déclenchement immédiat du départ
+      if (participantHumans >= maxPart && race.status === "LOBBY") {
+        console.log(`[RaceManager] Capacité maxi atteinte (${participantHumans}/${maxPart}). Lancement anticipé du départ de la course ${race.id} !`);
+        const countdownSec = 15;
+        race.status = "COUNTDOWN";
+        race.lobbyEndsAt = new Date(now.getTime() + countdownSec * 1000);
+        socketGateway.broadcastRaceStatus(race.id, "COUNTDOWN", {
+          lobbyEndsAt: race.lobbyEndsAt,
+          secondsUntilStart: countdownSec,
+          countdownSeconds: countdownSec,
+          reason: "max_participants_reached"
+        });
+      }
+      // Condition 2 : Entrée dans les 15 dernières secondes du timer d'attente prévu (15mn par défaut)
+      else if (remainingSec <= 15 && remainingSec > 0 && race.status === "LOBBY") {
+        race.status = "COUNTDOWN";
+        socketGateway.broadcastRaceStatus(race.id, "COUNTDOWN", {
+          lobbyEndsAt: race.lobbyEndsAt,
+          secondsUntilStart: remainingSec,
+          countdownSeconds: remainingSec
+        });
+      }
+
       if (now.getTime() >= race.lobbyEndsAt.getTime()) {
         let humans = 0;
         try {
@@ -492,7 +523,7 @@ export class RaceManager {
    */
   public async initNextPublicRace(delayMinutes?: number): Promise<RaceState> {
     const now = new Date();
-    const intervalMin = delayMinutes || config.raceIntervalMinutes || 15;
+    const intervalMin = delayMinutes || this.adminPublicRaceConfig.lobbyWaitMinutes || config.raceIntervalMinutes || 15;
     const lobbyEndsAt = new Date(now.getTime() + intervalMin * 60 * 1000);
     let raceId = `RACE_${lobbyEndsAt.toISOString().replace(/[-:T.]/g, "").slice(0, 14)}`;
     if (this.currentPublicRace && this.currentPublicRace.id === raceId) {
@@ -562,27 +593,39 @@ export class RaceManager {
       if (!this.currentPublicRace.participants) {
         this.currentPublicRace.participants = new Map();
       }
-      const alreadyJoined = this.currentPublicRace.participants.has(userId);
-      if (alreadyJoined && this.currentPublicRace.status === "COUNTDOWN") {
-        // Le joueur a déjà rejoint ce salon, ne pas réinitialiser le compte à rebours à chaque paquet télémétrie ou poll
-        return;
-      }
       this.currentPublicRace.participants.set(userId, {
         userId,
         userName: `Racer_${userId.slice(-4)}`,
         joinedAt: new Date()
       });
 
-      const now = new Date();
-      const countdownSec = this.adminPublicRaceConfig.countdownAfterLastJoinSeconds || 15;
-      this.currentPublicRace.status = "COUNTDOWN";
-      this.currentPublicRace.lobbyEndsAt = new Date(now.getTime() + countdownSec * 1000);
-      socketGateway.broadcastRaceStatus(this.currentPublicRace.id, "COUNTDOWN", {
-        lobbyEndsAt: this.currentPublicRace.lobbyEndsAt,
-        secondsUntilStart: countdownSec,
-        countdownSeconds: countdownSec,
-        lastJoinedUserId: userId
-      });
+      const maxParticipants = this.currentPublicRace.maxParticipants || this.adminPublicRaceConfig.maxParticipants || 20;
+      const count = this.currentPublicRace.participants.size;
+
+      // Condition de départ anticipé : si le nombre maxi de coureurs connectés est atteint
+      if (count >= maxParticipants) {
+        console.log(`[RaceManager] Capacité maxi atteinte (${count}/${maxParticipants}) pour la course ${this.currentPublicRace.id}. Déclenchement du départ !`);
+        const now = new Date();
+        const countdownSec = 15; // 15 secondes pour se placer sur le rameur
+        this.currentPublicRace.status = "COUNTDOWN";
+        this.currentPublicRace.lobbyEndsAt = new Date(now.getTime() + countdownSec * 1000);
+        socketGateway.broadcastRaceStatus(this.currentPublicRace.id, "COUNTDOWN", {
+          lobbyEndsAt: this.currentPublicRace.lobbyEndsAt,
+          secondsUntilStart: countdownSec,
+          countdownSeconds: countdownSec,
+          lastJoinedUserId: userId,
+          reason: "max_participants_reached"
+        });
+      } else {
+        // Le nombre maxi n'est pas encore atteint : on conserve le timer d'attente prévu (15mn par défaut)
+        console.log(`[RaceManager] Joueur ${userId} connecté en course publique (${count}/${maxParticipants}). Attente du timer prévu (fin à ${this.currentPublicRace.lobbyEndsAt.toISOString()}).`);
+        socketGateway.broadcastRaceStatus(this.currentPublicRace.id, this.currentPublicRace.status, {
+          lobbyEndsAt: this.currentPublicRace.lobbyEndsAt,
+          participantsCount: count,
+          maxParticipants,
+          lastJoinedUserId: userId
+        });
+      }
     }
   }
 
@@ -604,6 +647,9 @@ export class RaceManager {
     }
     if (newCfg.countdownAfterLastJoinSeconds !== undefined && Number.isFinite(Number(newCfg.countdownAfterLastJoinSeconds))) {
       this.adminPublicRaceConfig.countdownAfterLastJoinSeconds = Math.min(300, Math.max(5, Math.round(Number(newCfg.countdownAfterLastJoinSeconds))));
+    }
+    if (newCfg.lobbyWaitMinutes !== undefined && Number.isFinite(Number(newCfg.lobbyWaitMinutes))) {
+      this.adminPublicRaceConfig.lobbyWaitMinutes = Math.min(120, Math.max(1, Math.round(Number(newCfg.lobbyWaitMinutes))));
     }
     if (this.currentPublicRace && (this.currentPublicRace.status === "LOBBY" || this.currentPublicRace.status === "COUNTDOWN")) {
       this.currentPublicRace.targetDistance = this.adminPublicRaceConfig.targetDistance;
@@ -716,26 +762,31 @@ export class RaceManager {
     requireApproval?: boolean;
     botCount?: number;
     botMaxPace?: number;
+    isBotDuel?: boolean;
+    botCustomName?: string;
   }): RaceState {
     const code = this.generateUniqueMeetCode();
     const pin = this.generateUniquePinCode();
     const raceId = `PRIV_${code.replace(/-/g, "")}`;
     const now = new Date();
 
-    const cleanTitle = String(options.title || "Régate Privée")
+    const isBotDuel = Boolean(options.isBotDuel);
+
+    let cleanTitle = String(options.title || (isBotDuel ? "Duel 1v1 contre un Bot" : "Régate Privée"))
       .replace(/[\u0000-\u001F\u007F]/g, "")
       .trim()
-      .slice(0, 64) || "Régate Privée";
+      .slice(0, 64) || (isBotDuel ? "Duel 1v1 contre un Bot" : "Régate Privée");
 
     const rawDist = Number(options.targetDistance);
+    const maxDistLimit = isBotDuel ? 10000 : 100000;
     const targetDistance = Number.isFinite(rawDist)
-      ? Math.min(100000, Math.max(100, Math.round(rawDist)))
-      : 2000;
+      ? Math.min(maxDistLimit, Math.max(100, Math.round(rawDist)))
+      : (isBotDuel ? 2000 : 2000);
 
     const rawMax = Number(options.maxParticipants);
-    const maxParticipants = Number.isFinite(rawMax)
-      ? Math.min(30, Math.max(2, Math.round(rawMax)))
-      : 8;
+    const maxParticipants = isBotDuel
+      ? 2
+      : (Number.isFinite(rawMax) ? Math.min(30, Math.max(2, Math.round(rawMax))) : 8);
 
     const startMode: "manual" | "scheduled" = options.startMode === "scheduled" ? "scheduled" : "manual";
     let scheduledDate: Date | undefined;
@@ -770,13 +821,34 @@ export class RaceManager {
       ? String(options.hostUserName).trim().slice(0, 64)
       : undefined;
 
-    const requireApproval = options.requireApproval !== undefined ? Boolean(options.requireApproval) : true;
+    const requireApproval = isBotDuel
+      ? false
+      : (options.requireApproval !== undefined ? Boolean(options.requireApproval) : true);
     const participants = new Map<string, PrivateParticipantInfo>();
     const pendingParticipants = new Map<string, PrivateParticipantInfo>();
     const rejectedParticipants = new Set<string>();
 
-    const botCount = Math.min(10, Math.max(0, Number(options.botCount) || 0));
-    const botMaxPace = Math.min(300, Math.max(60, Number(options.botMaxPace) || 120));
+    let botCount = isBotDuel ? 1 : Math.min(10, Math.max(0, Number(options.botCount) || 0));
+    let botMaxPace = Math.min(300, Math.max(60, Number(options.botMaxPace) || 120));
+    let botCustomName = options.botCustomName;
+
+    if (isBotDuel) {
+      // Niveau aléatoire du bot (allure entre 105s et 150s / 500m)
+      const randomPace = Math.floor(Math.random() * (150 - 105 + 1)) + 105;
+      botMaxPace = randomPace;
+      let levelLabel = "Intermédiaire";
+      if (randomPace <= 114) {
+        levelLabel = "Élite";
+      } else if (randomPace <= 124) {
+        levelLabel = "Avancé";
+      } else if (randomPace <= 138) {
+        levelLabel = "Intermédiaire";
+      } else {
+        levelLabel = "Débutant";
+      }
+      botCustomName = `Bot ${levelLabel}`;
+      cleanTitle = `Duel 1v1 - Bot ${levelLabel} (${targetDistance}m)`;
+    }
 
     const privateRace: RaceState = {
       id: raceId,
@@ -797,6 +869,7 @@ export class RaceManager {
       botMaxPace,
       autoStart,
       hasBots: botCount > 0,
+      isBotDuel,
       totalParticipants: 0,
       createdAt: now,
       requireApproval,
@@ -810,18 +883,18 @@ export class RaceManager {
     this.pinToRaceMap.set(pin.toUpperCase(), { raceId, lane: 1 });
 
     if (botCount > 0) {
-      this.ensureSalonBots(raceId, botCount, botMaxPace, targetDistance).catch(() => {});
+      this.ensureSalonBots(raceId, botCount, botMaxPace, targetDistance, botCustomName).catch(() => {});
     }
 
     return privateRace;
   }
 
-  private async ensureSalonBots(raceId: string, botCount: number, botMaxPace: number, targetDistance: number): Promise<void> {
+  private async ensureSalonBots(raceId: string, botCount: number, botMaxPace: number, targetDistance: number, customName?: string): Promise<void> {
     const names = ["Bot Challenger", "Bot Pacer", "Bot Tempo", "Bot Shadow", "Bot Swift"];
     for (let i = 0; i < botCount; i++) {
       const botId = `bot_salon_${i + 1}`;
       const compositeId = `${raceId}_${botId}`;
-      const name = names[i % names.length];
+      const name = customName || names[i % names.length];
       const botPace = botMaxPace + (i * 2);
       const speedMs = 500 / botPace;
       const power = Math.round(2.80 * Math.pow(speedMs, 3));
@@ -871,6 +944,19 @@ export class RaceManager {
 
   public getCurrentPublicRace(): RaceState | null {
     return this.currentPublicRace;
+  }
+
+  public isRacerActive(userId: string): boolean {
+    if (!userId) return false;
+    const pub = this.getCurrentPublicRace();
+    if (pub && pub.participants && pub.participants.has(userId)) return true;
+    for (const priv of this.privateRacesById.values()) {
+      if (priv.status === "RUNNING" || priv.status === "LOBBY") {
+        if (priv.participants && priv.participants.has(userId)) return true;
+        if (priv.hostUserId === userId) return true;
+      }
+    }
+    return false;
   }
 
   public getRaceById(raceId: string): RaceState | null {
@@ -951,7 +1037,8 @@ export class RaceManager {
   public joinPrivateRace(
     identifier: string,
     userId: string,
-    userName?: string
+    userName?: string,
+    country?: string
   ): { race: RaceState; alreadyJoined: boolean; pending?: boolean; rejected?: boolean } | { error: string; statusCode: number } {
     const race = this.findPrivateRace(identifier);
     if (!race) {
@@ -978,12 +1065,17 @@ export class RaceManager {
     const alreadyApproved = race.participants.has(cleanUserId);
     const isHost = Boolean(cleanUserId && race.hostUserId && cleanUserId === race.hostUserId);
 
+    if (race.isBotDuel && !isHost && !alreadyApproved) {
+      return { error: "Ce salon est un duel privé réservé exclusivement contre un bot.", statusCode: 403 };
+    }
+
     // If host requires approval, player is not host, and not yet approved -> put in pending queue
     if (race.requireApproval && !isHost && !alreadyApproved) {
       const pendingInfo: PrivateParticipantInfo = {
         userId: cleanUserId,
         userName: cleanName,
-        joinedAt: new Date()
+        joinedAt: new Date(),
+        country
       };
       race.pendingParticipants.set(cleanUserId, pendingInfo);
       socketGateway.broadcastPrivateRoomUpdate(race.id, {
@@ -1004,7 +1096,8 @@ export class RaceManager {
     race.participants.set(cleanUserId, {
       userId: cleanUserId,
       userName: cleanName,
-      joinedAt: new Date()
+      joinedAt: new Date(),
+      country
     });
     race.totalParticipants = Math.max(race.totalParticipants || 0, race.participants.size);
 

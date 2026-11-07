@@ -211,8 +211,12 @@ export class RowerService {
     return this.http.get<UserProfileResponse>(`${this.apiUrl}/api/user/profile/${encodeURIComponent(userId)}`);
   }
 
-  getGeneralLeaderboard(): Observable<GeneralLeaderboardResponse> {
-    return this.http.get<GeneralLeaderboardResponse>(`${this.apiUrl}/api/user/leaderboard`);
+  getGeneralLeaderboard(filters?: { country?: string; gender?: string; ageCategory?: string }): Observable<GeneralLeaderboardResponse> {
+    let params = new HttpParams();
+    if (filters?.country && filters.country !== 'all') params = params.set('country', filters.country);
+    if (filters?.gender && filters.gender !== 'all') params = params.set('gender', filters.gender);
+    if (filters?.ageCategory && filters.ageCategory !== 'all') params = params.set('ageCategory', filters.ageCategory);
+    return this.http.get<GeneralLeaderboardResponse>(`${this.apiUrl}/api/user/leaderboard`, { params });
   }
 
   // Demande d'authentification envoyée à la montre Garmin

@@ -119,6 +119,7 @@ export class AppComponent implements OnInit, OnDestroy {
     defaultBotsCount: 3,
     defaultBotsPace: 120,
     countdownAfterLastJoinSeconds: 15,
+    lobbyWaitMinutes: 15,
   };
   adminConfigMessage = '';
   adminConfigError = '';
@@ -141,6 +142,7 @@ export class AppComponent implements OnInit, OnDestroy {
   regAnneeNaissance = 1995;
   regSexe = 'M';
   regPays = 'France';
+  regCustomPays = '';
   regLogin = '';
   regEmail = '';
   regPassword = '';
@@ -157,6 +159,18 @@ export class AppComponent implements OnInit, OnDestroy {
   isSettingsOpen = false;
   isLegalTermsOpen = false; // Modale Conditions d'utilisation & RGPD
   isStandingsOpen = false;  // Modale Classement général par points
+
+  // Filtres du tableau des classements
+  leaderboardCountryFilter = 'all';
+  leaderboardGenderFilter = 'all';
+  leaderboardAgeCategoryFilter = 'all';
+
+  // Mode Duel 1v1 Bot (pour les joueurs sans compte)
+  isBotDuelModalOpen = false;
+  botDuelDistance = 2000;
+  botDuelName = '';
+  isCreatingBotDuel = false;
+  botDuelError = '';
 
   // Classement général
   generalLeaderboard: UserProfile[] = [];
@@ -540,11 +554,197 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   loadGeneralLeaderboard(): void {
-    this.rowerService.getGeneralLeaderboard().pipe(
+    this.rowerService.getGeneralLeaderboard({
+      country: this.leaderboardCountryFilter,
+      gender: this.leaderboardGenderFilter,
+      ageCategory: this.leaderboardAgeCategoryFilter
+    }).pipe(
       catchError(() => of({ success: false, players: [] }))
     ).subscribe((res) => {
       if (res && res.players) {
         this.generalLeaderboard = res.players;
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  applyLeaderboardFilters(): void {
+    this.loadGeneralLeaderboard();
+  }
+
+  resetLeaderboardFilters(): void {
+    this.leaderboardCountryFilter = 'all';
+    this.leaderboardGenderFilter = 'all';
+    this.leaderboardAgeCategoryFilter = 'all';
+    this.loadGeneralLeaderboard();
+  }
+
+  get filteredGeneralLeaderboard(): UserProfile[] {
+    const currentYear = new Date().getFullYear();
+    return this.generalLeaderboard.filter((player) => {
+      // 1. Filtrage pays
+      if (this.leaderboardCountryFilter !== 'all') {
+        const pCountry = (player.country || '').trim().toLowerCase();
+        if (pCountry !== this.leaderboardCountryFilter.trim().toLowerCase()) {
+          return false;
+        }
+      }
+
+      // 2. Filtrage sexe
+      if (this.leaderboardGenderFilter !== 'all') {
+        const pGender = (player.gender || '').trim().toUpperCase();
+        if (this.leaderboardGenderFilter === 'M' && pGender !== 'M' && pGender !== 'HOMME') return false;
+        if (this.leaderboardGenderFilter === 'F' && pGender !== 'F' && pGender !== 'FEMME') return false;
+        if (this.leaderboardGenderFilter === 'Autre' && pGender !== 'AUTRE') return false;
+      }
+
+      // 3. Filtrage catégorie d'âge
+      if (this.leaderboardAgeCategoryFilter !== 'all') {
+        if (!player.birthYear) return false;
+        const age = currentYear - player.birthYear;
+        if (this.leaderboardAgeCategoryFilter === 'U19' && !(age < 19)) return false;
+        if (this.leaderboardAgeCategoryFilter === '19-29' && !(age >= 19 && age <= 29)) return false;
+        if (this.leaderboardAgeCategoryFilter === '30-39' && !(age >= 30 && age <= 39)) return false;
+        if (this.leaderboardAgeCategoryFilter === '40-49' && !(age >= 40 && age <= 49)) return false;
+        if (this.leaderboardAgeCategoryFilter === '50-59' && !(age >= 50 && age <= 59)) return false;
+        if (this.leaderboardAgeCategoryFilter === '60+' && !(age >= 60)) return false;
+      }
+
+      return true;
+    });
+  }
+
+  get availableLeaderboardCountries(): string[] {
+    const set = new Set<string>();
+    // Pays présents dans le leaderboard + pays fréquents
+    for (const p of this.generalLeaderboard) {
+      if (p.country && p.country.trim()) {
+        set.add(p.country.trim());
+      }
+    }
+    const defaultList = ['France', 'Suisse', 'Belgique', 'Canada', 'Royaume-Uni', 'États-Unis', 'Allemagne', 'Espagne', 'Italie'];
+    for (const d of defaultList) {
+      set.add(d);
+    }
+    return Array.from(set).sort();
+  }
+
+  getCountryFlag(country?: string): string {
+    if (!country) return '🌐';
+    const clean = country.trim().toLowerCase();
+    const map: Record<string, string> = {
+      france: '🇫🇷',
+      suisse: '🇨🇭',
+      switzerland: '🇨🇭',
+      belgique: '🇧🇪',
+      belgium: '🇧🇪',
+      canada: '🇨🇦',
+      'royaume-uni': '🇬🇧',
+      'united kingdom': '🇬🇧',
+      uk: '🇬🇧',
+      gb: '🇬🇧',
+      'états-unis': '🇺🇸',
+      'etats-unis': '🇺🇸',
+      'united states': '🇺🇸',
+      usa: '🇺🇸',
+      allemagne: '🇩🇪',
+      germany: '🇩🇪',
+      espagne: '🇪🇸',
+      spain: '🇪🇸',
+      italie: '🇮🇹',
+      italy: '🇮🇹',
+      'pays-bas': '🇳🇱',
+      netherlands: '🇳🇱',
+      portugal: '🇵🇹',
+      australie: '🇦🇺',
+      australia: '🇦🇺',
+      'nouvelle-zélande': '🇳🇿',
+      'new zealand': '🇳🇿',
+      irlande: '🇮🇪',
+      ireland: '🇮🇪',
+      maroc: '🇲🇦',
+      tunisie: '🇹🇳',
+      algérie: '🇩🇿',
+      japon: '🇯🇵',
+      japan: '🇯🇵',
+      brésil: '🇧🇷',
+      brazil: '🇧🇷'
+    };
+    return map[clean] || '🌐';
+  }
+
+  getAgeCategoryLabel(birthYear?: number): string {
+    if (!birthYear) return '--';
+    const age = new Date().getFullYear() - birthYear;
+    if (age < 19) return `U19 (${age} ans)`;
+    if (age <= 29) return `Senior (${age} ans)`;
+    if (age <= 39) return `Master A (${age} ans)`;
+    if (age <= 49) return `Master B (${age} ans)`;
+    if (age <= 59) return `Master C (${age} ans)`;
+    return `Master D+ (${age} ans)`;
+  }
+
+  openBotDuelModal(): void {
+    this.closeAllOverlayModals();
+    this.isBotDuelModalOpen = true;
+    this.botDuelError = '';
+    this.botDuelDistance = 2000;
+    this.botDuelName = this.currentUser?.name || `Racer_${this.activeUserId.slice(-4)}`;
+    this.cdr.markForCheck();
+  }
+
+  closeBotDuelModal(): void {
+    this.isBotDuelModalOpen = false;
+    this.cdr.markForCheck();
+  }
+
+  setBotDuelPresetDistance(dist: number): void {
+    this.botDuelDistance = dist;
+    this.cdr.markForCheck();
+  }
+
+  startBotDuel(): void {
+    if (this.botDuelDistance < 100 || this.botDuelDistance > 10000) {
+      this.botDuelError = 'Veuillez choisir une distance comprise entre 100m et 10 000m.';
+      return;
+    }
+
+    this.isCreatingBotDuel = true;
+    this.botDuelError = '';
+
+    const hostUserId = this.activeUserId || this.watchIdLoginInput.trim() || `guest_${Math.random().toString(36).substring(2, 7)}`;
+    const hostUserName = this.botDuelName?.trim() || this.currentUser?.name || `Racer_${hostUserId.slice(-4)}`;
+
+    if (!this.activeUserId) {
+      this.activeUserId = hostUserId;
+      this.currentUser.id = hostUserId;
+      this.currentUser.name = hostUserName;
+      try {
+        localStorage.setItem('rower_user_id', hostUserId);
+        localStorage.setItem('rower_user_login', hostUserName);
+      } catch {}
+    }
+
+    this.rowerService.createPrivateRace({
+      isBotDuel: true,
+      title: `Duel 1v1 Bot (${this.botDuelDistance}m)`,
+      targetDistance: this.botDuelDistance,
+      maxParticipants: 2,
+      hostUserId,
+      hostUserName,
+      botCount: 1
+    }).subscribe({
+      next: (res) => {
+        this.isCreatingBotDuel = false;
+        this.closeBotDuelModal();
+        if (res.race) {
+          this.onPrivateRoomSelected({ payload: res, pushUrl: true });
+        }
+        this.cdr.markForCheck();
+      },
+      error: (err) => {
+        this.isCreatingBotDuel = false;
+        this.botDuelError = err.error?.error || err.error?.message || 'Erreur lors de la création du duel bot.';
         this.cdr.markForCheck();
       }
     });
@@ -698,13 +898,17 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   submitAccountRegister(): void {
+    const finalPays = this.regPays === 'Autre'
+      ? this.regCustomPays.trim()
+      : this.regPays.trim();
+
     if (
       !this.regNom.trim() ||
       !this.regPrenom.trim() ||
       !this.regLogin.trim() ||
       !this.regEmail.trim() ||
       !this.regPassword.trim() ||
-      !this.regPays.trim()
+      !finalPays
     ) {
       this.accountAuthError = 'Tous les champs obligatoires (nom, prénom, année, sexe, pays, login, email, mot de passe) doivent être renseignés.';
       return;
@@ -724,7 +928,7 @@ export class AppComponent implements OnInit, OnDestroy {
       prenom: this.regPrenom.trim(),
       anneeNaissance: Number(this.regAnneeNaissance) || 1995,
       sexe: this.regSexe,
-      pays: this.regPays.trim(),
+      pays: finalPays,
       login: this.regLogin.trim(),
       email: this.regEmail.trim(),
       password: this.regPassword.trim(),
@@ -983,6 +1187,8 @@ export class AppComponent implements OnInit, OnDestroy {
     this.isUnifiedConfigOpen = false;
     this.isStandingsOpen = false;
     this.isLegalTermsOpen = false;
+    this.isBotDuelModalOpen = false;
+    this.showCockpitBlockedModal = false;
   }
 
   /**
@@ -1198,11 +1404,13 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   identifyWithWatchId(): void {
-    if (!this.watchIdLoginInput || !this.watchIdLoginInput.trim()) {
-      this.watchIdLoginError = 'Veuillez saisir votre identifiant de montre Garmin (ex: EMMA01).';
+    const rawWatchId = (this.watchIdLoginInput || '').trim() || (this.selectedCockpitPlayerId || '').trim();
+    if (!rawWatchId) {
+      this.watchIdLoginError = 'Veuillez sélectionner un coureur ou saisir votre identifiant de montre Garmin.';
       return;
     }
-    const watchId = this.watchIdLoginInput.trim();
+    const watchId = rawWatchId;
+    this.watchIdLoginInput = watchId;
     this.watchIdLoginError = '';
     this.watchIdLoginMessage = 'Notification envoyée sur votre montre... Veuillez confirmer sur votre montre !';
     this.isWatchIdLoginPending = true;
@@ -1252,10 +1460,9 @@ export class AppComponent implements OnInit, OnDestroy {
             localStorage.setItem('rower_watch_confirmed', 'true');
           } catch {}
           this.watchIdLoginMessage = `✓ Montre [${this.activeUserId}] confirmée avec succès !`;
+          this.showCockpitBlockedModal = false;
           this.loadUserProfile();
-          if (this.isUserAssociatedWithRace) {
-            this.switchViewMode('cockpit');
-          }
+          this.switchViewMode('cockpit');
           this.cdr.markForCheck();
         } else if (res.status === 'rejected') {
           this.authCheckSub?.unsubscribe();

@@ -94,6 +94,8 @@ export interface CreatePrivateRaceRequest {
   scheduledStartTime?: string;
   botCount?: number;
   botMaxPace?: number;
+  isBotDuel?: boolean;
+  mode?: string;
 }
 
 export interface PrivateRacePayload extends NextRaceInfo {

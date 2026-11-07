@@ -84,6 +84,7 @@ class RowerView extends WatchUi.View {
     // Web login authorization overlay
     private var _authRequestId as String = "";
     private var _authLogin as String = "";
+    private var _authPromptStartTimer as Number = 0;
 
     // Warning toast overlay
     private var _warningText as String? = null;
@@ -356,6 +357,7 @@ class RowerView extends WatchUi.View {
             _authRequestId = reqId;
             _authLogin = login;
             _authMenuIndex = 0;
+            _authPromptStartTimer = System.getTimer();
             WatchUi.requestUpdate();
         }
     }
@@ -393,18 +395,24 @@ class RowerView extends WatchUi.View {
         dc.setColor(COL_BG, COL_BG);
         dc.clear();
 
-        // Priority modal: Web Login Authorization
-        if (hasPendingAuth() && _currentState != STATE_RACING && _currentState != STATE_COUNTDOWN_5S) {
-            drawGarminMenuScreen(
-                dc,
-                I18n.getText("AUTH_TITLE"),
-                COL_ACCENT,
-                I18n.getText("AUTH_SUB") + " " + _authLogin,
-                [I18n.getText("AUTH_APPROVE"), I18n.getText("AUTH_REJECT")] as Array<String>,
-                _authMenuIndex,
-                I18n.getText("MENU_FOOTER")
-            );
-            return;
+        // Priority modal: Web Login Authorization (active during all phases including racing)
+        if (hasPendingAuth() && _currentState != STATE_COUNTDOWN_5S) {
+            // Auto-dismiss after 25s without input during active racing to avoid blocking display
+            if ((_currentState == STATE_RACING || _currentState == STATE_LATE_JOIN) &&
+                (System.getTimer() - _authPromptStartTimer > 25000)) {
+                clearAuthPrompt();
+            } else {
+                drawGarminMenuScreen(
+                    dc,
+                    I18n.getText("AUTH_TITLE"),
+                    COL_ACCENT,
+                    I18n.getText("AUTH_SUB") + " " + _authLogin,
+                    [I18n.getText("AUTH_APPROVE"), I18n.getText("AUTH_REJECT")] as Array<String>,
+                    _authMenuIndex,
+                    I18n.getText("MENU_FOOTER")
+                );
+                return;
+            }
         }
 
         if (_currentState == STATE_SCANNING) {
@@ -1039,9 +1047,10 @@ class RowerView extends WatchUi.View {
         dc.drawText(cx, (h * 5) / 100, Graphics.FONT_XTINY, I18n.getText("PIN_TITLE"), Graphics.TEXT_JUSTIFY_CENTER);
 
         // Athlete Login display (12..19% h)
-        var userStr = I18n.getText("PLAYER_LABEL") + " " + _userId;
+        _userId = UserManager.getUserId();
+        var userStr = "ID Web: " + _userId;
         var userMaxW = getSafeWidthAtY(w, h, (h * 12) / 100, (h * 12) / 100 + 16);
-        dc.setColor(COL_CYAN, Graphics.COLOR_TRANSPARENT);
+        dc.setColor(COL_ACCENT, Graphics.COLOR_TRANSPARENT);
         dc.drawText(cx, (h * 12) / 100, Graphics.FONT_XTINY, truncateToWidth(dc, userStr, Graphics.FONT_XTINY, userMaxW), Graphics.TEXT_JUSTIFY_CENTER);
 
         dc.setColor(COL_GRID, Graphics.COLOR_TRANSPARENT);
@@ -1101,9 +1110,10 @@ class RowerView extends WatchUi.View {
         dc.setColor(hdrCol, Graphics.COLOR_TRANSPARENT);
         dc.drawText(cx, hdrY, Graphics.FONT_XTINY, truncateToWidth(dc, hdrText, Graphics.FONT_XTINY, getSafeWidthAtY(w, h, hdrY, hdrY + 16)), Graphics.TEXT_JUSTIFY_CENTER);
 
-        var playerText = I18n.getText("PLAYER_LABEL") + " " + _userId;
+        _userId = UserManager.getUserId();
+        var playerText = "ID Web: " + _userId;
         var playerY = (h * 11) / 100;
-        dc.setColor(COL_CYAN, Graphics.COLOR_TRANSPARENT);
+        dc.setColor(COL_ACCENT, Graphics.COLOR_TRANSPARENT);
         dc.drawText(cx, playerY, Graphics.FONT_XTINY, truncateToWidth(dc, playerText, Graphics.FONT_XTINY, getSafeWidthAtY(w, h, playerY, playerY + 16)), Graphics.TEXT_JUSTIFY_CENTER);
 
         dc.setColor(COL_GRID, Graphics.COLOR_TRANSPARENT);

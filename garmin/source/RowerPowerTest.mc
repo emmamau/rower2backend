@@ -255,4 +255,132 @@ function testUserLoginAndPendingState(logger as Logger) as Boolean {
     return true;
 }
 
+//! Regression test 10: SmartRow telemetry frame split across 2 BLE notifications
+//! (e.g. 10 bytes chunk 1: "b00026 350" + 5 bytes chunk 2: "0105\r") must be reassembled
+//! without being dropped or corrupted.
+(:test)
+function testSmartRowSplitPacketReassembly(logger as Logger) as Boolean {
+    var model = new RowerDataModel();
+    model.onBleConnected();
+    model.startWorkout();
+
+    // Chunk 1: first 10 bytes of 'b' frame (Work = 350.0 J, Handle = 105 cm)
+    var chunk1 = [
+        0x62, 0x30, 0x30, 0x30, 0x32, 0x36, 0x20, 0x33, 0x35, 0x30
+    ]b; // "b00026 350"
+    model.parseSmartRowBytes(chunk1);
+
+    // Frame is not terminated yet: work must remain 0
+    Test.assertEqual(0.0f, model.work);
+
+    // Chunk 2: remaining 5 bytes including '\r'
+    var chunk2 = [
+        0x30, 0x31, 0x30, 0x35, 0x0D
+    ]b; // "0105\r"
+    model.parseSmartRowBytes(chunk2);
+
+    // Reassembled frame must be parsed completely!
+    Test.assertEqual(35.0f, model.work);
+    Test.assertEqual(105, model.handleLengthCm);
+    return true;
+}
+
+//! Regression test 11: Multiple SmartRow telemetry frames packed back-to-back in a single BLE notification
+//! (e.g. 'b' work frame + 'd' cadence frame) must both be parsed sequentially.
+(:test)
+function testSmartRowMultiFrameInSinglePacket(logger as Logger) as Boolean {
+    var model = new RowerDataModel();
+    model.onBleConnected();
+    model.startWorkout();
+
+    var multiPacket = [
+        0x62, 0x30, 0x30, 0x30, 0x32, 0x36, 0x20, 0x33, 0x35, 0x30, 0x30, 0x31, 0x30, 0x35, 0x0D, // "b00026 3500105\r"
+        0x64, 0x30, 0x30, 0x30, 0x32, 0x36, 0x32, 0x34, 0x30, 0x30, 0x30, 0x30, 0x33, 0x0D        // "d000262400003\r"
+    ]b;
+    model.parseSmartRowBytes(multiPacket);
+
+    Test.assertEqual(35.0f, model.work);
+    Test.assertEqual(105, model.handleLengthCm);
+    Test.assertEqual(24.0f, model.strokeRate);
+    Test.assertEqual(3, model.strokeCount);
+    return true;
+}
+
+//! Regression test 12: SmartRow frame with leading delimiters ('\r\n') must be accepted and parsed cleanly.
+(:test)
+function testSmartRowPreambleNoiseDelimiterReassembly(logger as Logger) as Boolean {
+    var model = new RowerDataModel();
+    model.onBleConnected();
+    model.startWorkout();
+
+    var noisyPacket = [
+        0x0D, 0x0A, 0x20,                                                                           // Preamble noise
+        0x64, 0x30, 0x30, 0x30, 0x35, 0x30, 0x32, 0x38, 0x30, 0x30, 0x30, 0x31, 0x32, 0x0D        // "d000502800012\r"
+    ]b;
+    model.parseSmartRowBytes(noisyPacket);
+
+    Test.assertEqual(28.0f, model.strokeRate);
+    Test.assertEqual(12, model.strokeCount);
+    Test.assertEqual(50, model.totalDistance);
+    return true;
+}
+
+//! Regression test 13: Reconnecting or starting workout resets defragmentation buffer
+//! so incomplete stale fragments from previous sessions cannot contaminate fresh packets.
+(:test)
+function testSmartRowDefragmentationBufferResetOnConnect(logger as Logger) as Boolean {
+    var model = new RowerDataModel();
+    model.onBleConnected();
+    model.startWorkout();
+
+    // Partial corrupt fragment without terminator
+    var partialCorrupt = [0x62, 0x30, 0x30]b;
+    model.parseSmartRowBytes(partialCorrupt);
+
+    // Reconnection occurs
+    model.onBleConnected();
+    model.startWorkout();
+
+    // Clean valid frame arrives
+    var cleanFrame = [
+        0x64, 0x30, 0x30, 0x30, 0x31, 0x30, 0x32, 0x30, 0x30, 0x30, 0x30, 0x30, 0x35, 0x0D
+    ]b; // "d000102000005\r"
+    model.parseSmartRowBytes(cleanFrame);
+
+    Test.assertEqual(20.0f, model.strokeRate);
+    Test.assertEqual(5, model.strokeCount);
+    Test.assertEqual(10, model.totalDistance);
+    return true;
+}
+
+//! Regression test 14: Web login authorization modal can be shown and toggled during active racing.
+(:test)
+function testWebAuthPromptDuringRacingState(logger as Logger) as Boolean {
+    var model = new RowerDataModel();
+    var view = new RowerView(model);
+    view.setAppState(RowerView.STATE_RACING);
+
+    // Initial state: no pending auth
+    Test.assertEqual(false, view.hasPendingAuth());
+
+    // Prompt arrives
+    view.showAuthPrompt("REQ_TEST_99", "Coach_Pierre");
+    Test.assertEqual(true, view.hasPendingAuth());
+    Test.assertEqual("REQ_TEST_99", view.getAuthRequestId());
+    Test.assertEqual(0, view.getAuthMenuIndex());
+
+    // Toggle option (Approve <-> Reject)
+    view.toggleAuthMenu();
+    Test.assertEqual(1, view.getAuthMenuIndex());
+    view.toggleAuthMenu();
+    Test.assertEqual(0, view.getAuthMenuIndex());
+
+    // Clearing prompt
+    view.clearAuthPrompt();
+    Test.assertEqual(false, view.hasPendingAuth());
+    Test.assertEqual(RowerView.STATE_RACING, view.getAppState());
+    return true;
+}
+
+
 

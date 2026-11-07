@@ -58,7 +58,6 @@ C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_17_42
         symbol [ state %state.1 18 12 17 ];
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 21 8 ]
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_21_8_24_8_if_stmt:
-C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_21_12_21_92_begin:
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_21_12_21_57_begin:
         symbol [ _view %tmp.6 21 12 17 ];
         %tmp.6 = getv ? :_view;
@@ -71,219 +70,207 @@ C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_21_38
         symbol [ state %tmp.9 21 38 43 ];
         symbol [ RowerView %tmp.11 21 47 56 ];
         %tmp.11 = getv ? :RowerView;
-        symbol [ STATE_RACING %tmp.12 21 57 69 ];
-        %tmp.12 = getv %tmp.11 :STATE_RACING;
+        symbol [ STATE_COUNTDOWN_5S %tmp.12 21 57 75 ];
+        %tmp.12 = getv %tmp.11 :STATE_COUNTDOWN_5S;
         %tmp.13 = ne %tmp.9 %tmp.12;
         push %tmp.13;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_21_38_21_57_end:
         %tmp.14 = phi [%tmp.8 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_21_12_21_57_begin] [%tmp.13 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_21_38_21_57_true] [%tmp.14 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_21_38_21_57_end];
         bf %tmp.14 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_21_8_24_8_if_end;
-C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_21_73_21_92_true:
-        %tmp.15 = lgetv %state.1;
-        symbol [ state %tmp.15 21 73 78 ];
-        symbol [ RowerView %tmp.17 21 82 91 ];
-        %tmp.17 = getv ? :RowerView;
-        symbol [ STATE_COUNTDOWN_5S %tmp.18 21 92 110 ];
-        %tmp.18 = getv %tmp.17 :STATE_COUNTDOWN_5S;
-        %tmp.19 = ne %tmp.15 %tmp.18;
-        push %tmp.19;
-C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_21_73_21_92_end:
-        %tmp.20 = phi [%tmp.14 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_21_12_21_92_begin] [%tmp.19 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_21_73_21_92_true] [%tmp.20 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_21_73_21_92_end];
-        bf %tmp.20 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_21_8_24_8_if_end;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_21_8_24_8_if_true:
-C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_21_112_24_8_start:
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_21_77_24_8_start:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 22 12 ]
-        symbol [ _bleDelegate %tmp.22 22 12 24 ];
-        %tmp.22 = getv ? :_bleDelegate;
-        symbol [ respondAuth %tmp.23 22 25 36 ];
-        %tmp.23 = getv function %tmp.22 :respondAuth;
-        symbol [ _view %tmp.25 22 37 42 ];
-        %tmp.25 = getv ? :_view;
-        symbol [ getAuthMenuIndex %tmp.26 22 43 59 ];
-        %tmp.26 = getv function %tmp.25 :getAuthMenuIndex;
-        %tmp.27 = invoke %tmp.25 %tmp.26();
-        %tmp.28 = 0;
-        %tmp.29 = eq %tmp.27 %tmp.28;
-        invoke %tmp.22 %tmp.23(%tmp.29);
+        symbol [ _bleDelegate %tmp.16 22 12 24 ];
+        %tmp.16 = getv ? :_bleDelegate;
+        symbol [ respondAuth %tmp.17 22 25 36 ];
+        %tmp.17 = getv function %tmp.16 :respondAuth;
+        symbol [ _view %tmp.19 22 37 42 ];
+        %tmp.19 = getv ? :_view;
+        symbol [ getAuthMenuIndex %tmp.20 22 43 59 ];
+        %tmp.20 = getv function %tmp.19 :getAuthMenuIndex;
+        %tmp.21 = invoke %tmp.19 %tmp.20();
+        %tmp.22 = 0;
+        %tmp.23 = eq %tmp.21 %tmp.22;
+        invoke %tmp.16 %tmp.17(%tmp.23);
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 23 12 ]
-        %tmp.30 = true;
-        ret %tmp.30;
-C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_21_112_24_8_stop:
+        %tmp.24 = true;
+        ret %tmp.24;
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_21_77_24_8_stop:
         goto @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_21_8_24_8_if_end;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_21_8_24_8_if_end:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 26 8 ]
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_26_8_86_8_if_stmt:
-        %tmp.31 = lgetv %state.1;
-        symbol [ state %tmp.31 26 12 17 ];
-        symbol [ RowerView %tmp.33 26 21 30 ];
-        %tmp.33 = getv ? :RowerView;
-        symbol [ STATE_SCANNING %tmp.34 26 31 45 ];
-        %tmp.34 = getv %tmp.33 :STATE_SCANNING;
-        %tmp.35 = eq %tmp.31 %tmp.34;
-        bf %tmp.35 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_26_8_86_8_if_false;
+        %tmp.25 = lgetv %state.1;
+        symbol [ state %tmp.25 26 12 17 ];
+        symbol [ RowerView %tmp.27 26 21 30 ];
+        %tmp.27 = getv ? :RowerView;
+        symbol [ STATE_SCANNING %tmp.28 26 31 45 ];
+        %tmp.28 = getv %tmp.27 :STATE_SCANNING;
+        %tmp.29 = eq %tmp.25 %tmp.28;
+        bf %tmp.29 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_26_8_86_8_if_false;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_26_8_86_8_if_true:
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_26_47_33_8_start:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 27 12 ]
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_27_12_31_12_if_stmt:
-        symbol [ _bleDelegate %tmp.37 27 16 28 ];
-        %tmp.37 = getv ? :_bleDelegate;
-        symbol [ getModel %tmp.38 27 29 37 ];
-        %tmp.38 = getv function %tmp.37 :getModel;
-        %tmp.39 = invoke %tmp.37 %tmp.38();
-        symbol [ isConnected %tmp.40 27 40 51 ];
-        %tmp.40 = getv function %tmp.39 :isConnected;
-        %tmp.41 = invoke %tmp.39 %tmp.40();
-        bf %tmp.41 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_27_12_31_12_if_else_false;
+        symbol [ _bleDelegate %tmp.31 27 16 28 ];
+        %tmp.31 = getv ? :_bleDelegate;
+        symbol [ getModel %tmp.32 27 29 37 ];
+        %tmp.32 = getv function %tmp.31 :getModel;
+        %tmp.33 = invoke %tmp.31 %tmp.32();
+        symbol [ isConnected %tmp.34 27 40 51 ];
+        %tmp.34 = getv function %tmp.33 :isConnected;
+        %tmp.35 = invoke %tmp.33 %tmp.34();
+        bf %tmp.35 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_27_12_31_12_if_else_false;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_27_12_31_12_if_true:
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_27_55_29_12_start:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 28 16 ]
-        symbol [ _view %tmp.43 28 16 21 ];
-        %tmp.43 = getv ? :_view;
-        symbol [ setAppState %tmp.44 28 22 33 ];
-        %tmp.44 = getv function %tmp.43 :setAppState;
-        symbol [ RowerView %tmp.46 28 34 43 ];
-        %tmp.46 = getv ? :RowerView;
-        symbol [ STATE_MENU %tmp.47 28 44 54 ];
-        %tmp.47 = getv %tmp.46 :STATE_MENU;
-        invoke %tmp.43 %tmp.44(%tmp.47);
+        symbol [ _view %tmp.37 28 16 21 ];
+        %tmp.37 = getv ? :_view;
+        symbol [ setAppState %tmp.38 28 22 33 ];
+        %tmp.38 = getv function %tmp.37 :setAppState;
+        symbol [ RowerView %tmp.40 28 34 43 ];
+        %tmp.40 = getv ? :RowerView;
+        symbol [ STATE_MENU %tmp.41 28 44 54 ];
+        %tmp.41 = getv %tmp.40 :STATE_MENU;
+        invoke %tmp.37 %tmp.38(%tmp.41);
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_27_55_29_12_stop:
         goto @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_27_12_31_12_if_end;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_27_12_31_12_if_else_false:
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_29_19_31_12_start:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 30 16 ]
-        symbol [ _bleDelegate %tmp.49 30 16 28 ];
-        %tmp.49 = getv ? :_bleDelegate;
-        symbol [ startScan %tmp.50 30 29 38 ];
-        %tmp.50 = getv function %tmp.49 :startScan;
-        invoke %tmp.49 %tmp.50();
+        symbol [ _bleDelegate %tmp.43 30 16 28 ];
+        %tmp.43 = getv ? :_bleDelegate;
+        symbol [ startScan %tmp.44 30 29 38 ];
+        %tmp.44 = getv function %tmp.43 :startScan;
+        invoke %tmp.43 %tmp.44();
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_29_19_31_12_stop:
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_27_12_31_12_if_end:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 32 12 ]
-        %tmp.51 = true;
-        ret %tmp.51;
+        %tmp.45 = true;
+        ret %tmp.45;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_26_47_33_8_stop:
         goto @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_26_8_86_8_if_end;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_26_8_86_8_if_false:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 33 15 ]
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_33_15_86_8_if_stmt:
-        %tmp.52 = lgetv %state.1;
-        symbol [ state %tmp.52 33 19 24 ];
-        symbol [ RowerView %tmp.54 33 28 37 ];
-        %tmp.54 = getv ? :RowerView;
-        symbol [ STATE_MENU %tmp.55 33 38 48 ];
-        %tmp.55 = getv %tmp.54 :STATE_MENU;
-        %tmp.56 = eq %tmp.52 %tmp.55;
-        bf %tmp.56 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_33_15_86_8_if_false;
+        %tmp.46 = lgetv %state.1;
+        symbol [ state %tmp.46 33 19 24 ];
+        symbol [ RowerView %tmp.48 33 28 37 ];
+        %tmp.48 = getv ? :RowerView;
+        symbol [ STATE_MENU %tmp.49 33 38 48 ];
+        %tmp.49 = getv %tmp.48 :STATE_MENU;
+        %tmp.50 = eq %tmp.46 %tmp.49;
+        bf %tmp.50 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_33_15_86_8_if_false;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_33_15_86_8_if_true:
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_33_50_52_8_start:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 34 12 ]
         [ "C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_33_50_52_8_start" "C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_33_50_52_8_stop" ]
         %menuIdx.2 = local;
         symbol [ menuIdx %menuIdx.2 34 16 23 ];
-        symbol [ _view %tmp.58 34 26 31 ];
-        %tmp.58 = getv ? :_view;
-        symbol [ getMainMenuIndex %tmp.59 34 32 48 ];
-        %tmp.59 = getv function %tmp.58 :getMainMenuIndex;
-        %tmp.60 = invoke %tmp.58 %tmp.59();
-        lputv %menuIdx.2 %tmp.60;
+        symbol [ _view %tmp.52 34 26 31 ];
+        %tmp.52 = getv ? :_view;
+        symbol [ getMainMenuIndex %tmp.53 34 32 48 ];
+        %tmp.53 = getv function %tmp.52 :getMainMenuIndex;
+        %tmp.54 = invoke %tmp.52 %tmp.53();
+        lputv %menuIdx.2 %tmp.54;
         symbol [ menuIdx %menuIdx.2 34 16 23 ];
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 35 12 ]
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_35_12_50_12_if_stmt:
-        %tmp.61 = lgetv %menuIdx.2;
-        symbol [ menuIdx %tmp.61 35 16 23 ];
-        %tmp.62 = 0;
-        %tmp.63 = eq %tmp.61 %tmp.62;
-        bf %tmp.63 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_35_12_50_12_if_false;
+        %tmp.55 = lgetv %menuIdx.2;
+        symbol [ menuIdx %tmp.55 35 16 23 ];
+        %tmp.56 = 0;
+        %tmp.57 = eq %tmp.55 %tmp.56;
+        bf %tmp.57 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_35_12_50_12_if_false;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_35_12_50_12_if_true:
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_35_30_39_12_start:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 37 16 ]
-        symbol [ _view %tmp.65 37 16 21 ];
-        %tmp.65 = getv ? :_view;
-        symbol [ setRaceMode %tmp.66 37 22 33 ];
-        %tmp.66 = getv function %tmp.65 :setRaceMode;
-        %tmp.67 = "race";
-        invoke %tmp.65 %tmp.66(%tmp.67);
+        symbol [ _view %tmp.59 37 16 21 ];
+        %tmp.59 = getv ? :_view;
+        symbol [ setRaceMode %tmp.60 37 22 33 ];
+        %tmp.60 = getv function %tmp.59 :setRaceMode;
+        %tmp.61 = "race";
+        invoke %tmp.59 %tmp.60(%tmp.61);
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 38 16 ]
-        symbol [ _bleDelegate %tmp.69 38 16 28 ];
-        %tmp.69 = getv ? :_bleDelegate;
-        symbol [ joinNextRaceWaiting %tmp.70 38 29 48 ];
-        %tmp.70 = getv function %tmp.69 :joinNextRaceWaiting;
-        invoke %tmp.69 %tmp.70();
+        symbol [ _bleDelegate %tmp.63 38 16 28 ];
+        %tmp.63 = getv ? :_bleDelegate;
+        symbol [ joinNextRaceWaiting %tmp.64 38 29 48 ];
+        %tmp.64 = getv function %tmp.63 :joinNextRaceWaiting;
+        invoke %tmp.63 %tmp.64();
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_35_30_39_12_stop:
         goto @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_35_12_50_12_if_end;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_35_12_50_12_if_false:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 39 19 ]
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_39_19_50_12_if_stmt:
-        %tmp.71 = lgetv %menuIdx.2;
-        symbol [ menuIdx %tmp.71 39 23 30 ];
-        %tmp.72 = 1;
-        %tmp.73 = eq %tmp.71 %tmp.72;
-        bf %tmp.73 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_39_19_50_12_if_false;
+        %tmp.65 = lgetv %menuIdx.2;
+        symbol [ menuIdx %tmp.65 39 23 30 ];
+        %tmp.66 = 1;
+        %tmp.67 = eq %tmp.65 %tmp.66;
+        bf %tmp.67 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_39_19_50_12_if_false;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_39_19_50_12_if_true:
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_39_37_43_12_start:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 41 16 ]
-        symbol [ _view %tmp.75 41 16 21 ];
-        %tmp.75 = getv ? :_view;
-        symbol [ resetPinDigits %tmp.76 41 22 36 ];
-        %tmp.76 = getv function %tmp.75 :resetPinDigits;
-        invoke %tmp.75 %tmp.76();
+        symbol [ _view %tmp.69 41 16 21 ];
+        %tmp.69 = getv ? :_view;
+        symbol [ resetPinDigits %tmp.70 41 22 36 ];
+        %tmp.70 = getv function %tmp.69 :resetPinDigits;
+        invoke %tmp.69 %tmp.70();
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 42 16 ]
-        symbol [ _view %tmp.78 42 16 21 ];
-        %tmp.78 = getv ? :_view;
-        symbol [ setAppState %tmp.79 42 22 33 ];
-        %tmp.79 = getv function %tmp.78 :setAppState;
-        symbol [ RowerView %tmp.81 42 34 43 ];
-        %tmp.81 = getv ? :RowerView;
-        symbol [ STATE_PIN_INPUT %tmp.82 42 44 59 ];
-        %tmp.82 = getv %tmp.81 :STATE_PIN_INPUT;
-        invoke %tmp.78 %tmp.79(%tmp.82);
+        symbol [ _view %tmp.72 42 16 21 ];
+        %tmp.72 = getv ? :_view;
+        symbol [ setAppState %tmp.73 42 22 33 ];
+        %tmp.73 = getv function %tmp.72 :setAppState;
+        symbol [ RowerView %tmp.75 42 34 43 ];
+        %tmp.75 = getv ? :RowerView;
+        symbol [ STATE_PIN_INPUT %tmp.76 42 44 59 ];
+        %tmp.76 = getv %tmp.75 :STATE_PIN_INPUT;
+        invoke %tmp.72 %tmp.73(%tmp.76);
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_39_37_43_12_stop:
         goto @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_39_19_50_12_if_end;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_39_19_50_12_if_false:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 43 19 ]
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_43_19_50_12_if_stmt:
-        %tmp.83 = lgetv %menuIdx.2;
-        symbol [ menuIdx %tmp.83 43 23 30 ];
-        %tmp.84 = 2;
-        %tmp.85 = eq %tmp.83 %tmp.84;
-        bf %tmp.85 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_43_19_50_12_if_false;
+        %tmp.77 = lgetv %menuIdx.2;
+        symbol [ menuIdx %tmp.77 43 23 30 ];
+        %tmp.78 = 2;
+        %tmp.79 = eq %tmp.77 %tmp.78;
+        bf %tmp.79 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_43_19_50_12_if_false;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_43_19_50_12_if_true:
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_43_37_47_12_start:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 45 16 ]
-        symbol [ _view %tmp.87 45 16 21 ];
-        %tmp.87 = getv ? :_view;
-        symbol [ setRaceMode %tmp.88 45 22 33 ];
-        %tmp.88 = getv function %tmp.87 :setRaceMode;
-        %tmp.89 = "solo";
-        invoke %tmp.87 %tmp.88(%tmp.89);
+        symbol [ _view %tmp.81 45 16 21 ];
+        %tmp.81 = getv ? :_view;
+        symbol [ setRaceMode %tmp.82 45 22 33 ];
+        %tmp.82 = getv function %tmp.81 :setRaceMode;
+        %tmp.83 = "solo";
+        invoke %tmp.81 %tmp.82(%tmp.83);
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 46 16 ]
-        symbol [ _bleDelegate %tmp.91 46 16 28 ];
-        %tmp.91 = getv ? :_bleDelegate;
-        symbol [ startSoloSession %tmp.92 46 29 45 ];
-        %tmp.92 = getv function %tmp.91 :startSoloSession;
-        invoke %tmp.91 %tmp.92();
+        symbol [ _bleDelegate %tmp.85 46 16 28 ];
+        %tmp.85 = getv ? :_bleDelegate;
+        symbol [ startSoloSession %tmp.86 46 29 45 ];
+        %tmp.86 = getv function %tmp.85 :startSoloSession;
+        invoke %tmp.85 %tmp.86();
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_43_37_47_12_stop:
         goto @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_43_19_50_12_if_end;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_43_19_50_12_if_false:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 47 19 ]
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_47_19_50_12_if_stmt:
-        %tmp.93 = lgetv %menuIdx.2;
-        symbol [ menuIdx %tmp.93 47 23 30 ];
-        %tmp.94 = 3;
-        %tmp.95 = eq %tmp.93 %tmp.94;
-        bf %tmp.95 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_47_19_50_12_if_end;
+        %tmp.87 = lgetv %menuIdx.2;
+        symbol [ menuIdx %tmp.87 47 23 30 ];
+        %tmp.88 = 3;
+        %tmp.89 = eq %tmp.87 %tmp.88;
+        bf %tmp.89 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_47_19_50_12_if_end;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_47_19_50_12_if_true:
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_47_37_50_12_start:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 49 16 ]
-        symbol [ _view %tmp.97 49 16 21 ];
-        %tmp.97 = getv ? :_view;
-        symbol [ setAppState %tmp.98 49 22 33 ];
-        %tmp.98 = getv function %tmp.97 :setAppState;
-        symbol [ RowerView %tmp.100 49 34 43 ];
-        %tmp.100 = getv ? :RowerView;
-        symbol [ STATE_HISTORY %tmp.101 49 44 57 ];
-        %tmp.101 = getv %tmp.100 :STATE_HISTORY;
-        invoke %tmp.97 %tmp.98(%tmp.101);
+        symbol [ _view %tmp.91 49 16 21 ];
+        %tmp.91 = getv ? :_view;
+        symbol [ setAppState %tmp.92 49 22 33 ];
+        %tmp.92 = getv function %tmp.91 :setAppState;
+        symbol [ RowerView %tmp.94 49 34 43 ];
+        %tmp.94 = getv ? :RowerView;
+        symbol [ STATE_HISTORY %tmp.95 49 44 57 ];
+        %tmp.95 = getv %tmp.94 :STATE_HISTORY;
+        invoke %tmp.91 %tmp.92(%tmp.95);
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_47_37_50_12_stop:
         goto @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_47_19_50_12_if_end;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_47_19_50_12_if_end:
@@ -291,324 +278,324 @@ C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_43_19
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_39_19_50_12_if_end:
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_35_12_50_12_if_end:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 51 12 ]
-        %tmp.102 = true;
-        ret %tmp.102;
+        %tmp.96 = true;
+        ret %tmp.96;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_33_50_52_8_stop:
         goto @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_33_15_86_8_if_end;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_33_15_86_8_if_false:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 52 15 ]
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_52_15_86_8_if_stmt:
-        %tmp.103 = lgetv %state.1;
-        symbol [ state %tmp.103 52 19 24 ];
-        symbol [ RowerView %tmp.105 52 28 37 ];
-        %tmp.105 = getv ? :RowerView;
-        symbol [ STATE_PIN_INPUT %tmp.106 52 38 53 ];
-        %tmp.106 = getv %tmp.105 :STATE_PIN_INPUT;
-        %tmp.107 = eq %tmp.103 %tmp.106;
-        bf %tmp.107 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_52_15_86_8_if_false;
+        %tmp.97 = lgetv %state.1;
+        symbol [ state %tmp.97 52 19 24 ];
+        symbol [ RowerView %tmp.99 52 28 37 ];
+        %tmp.99 = getv ? :RowerView;
+        symbol [ STATE_PIN_INPUT %tmp.100 52 38 53 ];
+        %tmp.100 = getv %tmp.99 :STATE_PIN_INPUT;
+        %tmp.101 = eq %tmp.97 %tmp.100;
+        bf %tmp.101 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_52_15_86_8_if_false;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_52_15_86_8_if_true:
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_52_55_58_8_start:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 53 12 ]
         [ "C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_52_55_58_8_start" "C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_52_55_58_8_stop" ]
         %finished.3 = local;
         symbol [ finished %finished.3 53 16 24 ];
-        symbol [ _view %tmp.109 53 27 32 ];
-        %tmp.109 = getv ? :_view;
-        symbol [ advancePinDigit %tmp.110 53 33 48 ];
-        %tmp.110 = getv function %tmp.109 :advancePinDigit;
-        %tmp.111 = invoke %tmp.109 %tmp.110();
-        lputv %finished.3 %tmp.111;
+        symbol [ _view %tmp.103 53 27 32 ];
+        %tmp.103 = getv ? :_view;
+        symbol [ advancePinDigit %tmp.104 53 33 48 ];
+        %tmp.104 = getv function %tmp.103 :advancePinDigit;
+        %tmp.105 = invoke %tmp.103 %tmp.104();
+        lputv %finished.3 %tmp.105;
         symbol [ finished %finished.3 53 16 24 ];
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 54 12 ]
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_54_12_56_12_if_stmt:
-        %tmp.112 = lgetv %finished.3;
-        symbol [ finished %tmp.112 54 16 24 ];
-        bf %tmp.112 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_54_12_56_12_if_end;
+        %tmp.106 = lgetv %finished.3;
+        symbol [ finished %tmp.106 54 16 24 ];
+        bf %tmp.106 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_54_12_56_12_if_end;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_54_12_56_12_if_true:
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_54_26_56_12_start:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 55 16 ]
-        symbol [ _bleDelegate %tmp.114 55 16 28 ];
-        %tmp.114 = getv ? :_bleDelegate;
-        symbol [ submitPinCode %tmp.115 55 29 42 ];
-        %tmp.115 = getv function %tmp.114 :submitPinCode;
-        symbol [ _view %tmp.117 55 43 48 ];
-        %tmp.117 = getv ? :_view;
-        symbol [ getFormattedPin %tmp.118 55 49 64 ];
-        %tmp.118 = getv function %tmp.117 :getFormattedPin;
-        %tmp.119 = invoke %tmp.117 %tmp.118();
-        invoke %tmp.114 %tmp.115(%tmp.119);
+        symbol [ _bleDelegate %tmp.108 55 16 28 ];
+        %tmp.108 = getv ? :_bleDelegate;
+        symbol [ submitPinCode %tmp.109 55 29 42 ];
+        %tmp.109 = getv function %tmp.108 :submitPinCode;
+        symbol [ _view %tmp.111 55 43 48 ];
+        %tmp.111 = getv ? :_view;
+        symbol [ getFormattedPin %tmp.112 55 49 64 ];
+        %tmp.112 = getv function %tmp.111 :getFormattedPin;
+        %tmp.113 = invoke %tmp.111 %tmp.112();
+        invoke %tmp.108 %tmp.109(%tmp.113);
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_54_26_56_12_stop:
         goto @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_54_12_56_12_if_end;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_54_12_56_12_if_end:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 57 12 ]
-        %tmp.120 = true;
-        ret %tmp.120;
+        %tmp.114 = true;
+        ret %tmp.114;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_52_55_58_8_stop:
         goto @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_52_15_86_8_if_end;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_52_15_86_8_if_false:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 58 15 ]
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_58_15_86_8_if_stmt:
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_58_19_58_72_begin:
-        %tmp.121 = lgetv %state.1;
-        symbol [ state %tmp.121 58 19 24 ];
-        symbol [ RowerView %tmp.123 58 28 37 ];
-        %tmp.123 = getv ? :RowerView;
-        symbol [ STATE_LOBBY %tmp.124 58 38 49 ];
-        %tmp.124 = getv %tmp.123 :STATE_LOBBY;
-        %tmp.125 = eq %tmp.121 %tmp.124;
-        bt %tmp.125 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_58_15_86_8_if_true;
+        %tmp.115 = lgetv %state.1;
+        symbol [ state %tmp.115 58 19 24 ];
+        symbol [ RowerView %tmp.117 58 28 37 ];
+        %tmp.117 = getv ? :RowerView;
+        symbol [ STATE_LOBBY %tmp.118 58 38 49 ];
+        %tmp.118 = getv %tmp.117 :STATE_LOBBY;
+        %tmp.119 = eq %tmp.115 %tmp.118;
+        bt %tmp.119 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_58_15_86_8_if_true;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_58_53_58_72_false:
-        %tmp.126 = lgetv %state.1;
-        symbol [ state %tmp.126 58 53 58 ];
-        symbol [ RowerView %tmp.128 58 62 71 ];
-        %tmp.128 = getv ? :RowerView;
-        symbol [ STATE_WAITING_START %tmp.129 58 72 91 ];
-        %tmp.129 = getv %tmp.128 :STATE_WAITING_START;
-        %tmp.130 = eq %tmp.126 %tmp.129;
-        push %tmp.130;
+        %tmp.120 = lgetv %state.1;
+        symbol [ state %tmp.120 58 53 58 ];
+        symbol [ RowerView %tmp.122 58 62 71 ];
+        %tmp.122 = getv ? :RowerView;
+        symbol [ STATE_WAITING_START %tmp.123 58 72 91 ];
+        %tmp.123 = getv %tmp.122 :STATE_WAITING_START;
+        %tmp.124 = eq %tmp.120 %tmp.123;
+        push %tmp.124;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_58_53_58_72_end:
-        %tmp.131 = phi [%tmp.125 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_58_19_58_72_begin] [%tmp.130 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_58_53_58_72_false] [%tmp.131 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_58_53_58_72_end];
-        bf %tmp.131 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_58_15_86_8_if_false;
+        %tmp.125 = phi [%tmp.119 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_58_19_58_72_begin] [%tmp.124 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_58_53_58_72_false] [%tmp.125 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_58_53_58_72_end];
+        bf %tmp.125 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_58_15_86_8_if_false;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_58_15_86_8_if_true:
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_58_93_61_8_start:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 59 12 ]
-        symbol [ _bleDelegate %tmp.133 59 12 24 ];
-        %tmp.133 = getv ? :_bleDelegate;
-        symbol [ launchRaceFromWaiting %tmp.134 59 25 46 ];
-        %tmp.134 = getv function %tmp.133 :launchRaceFromWaiting;
-        invoke %tmp.133 %tmp.134();
+        symbol [ _bleDelegate %tmp.127 59 12 24 ];
+        %tmp.127 = getv ? :_bleDelegate;
+        symbol [ launchRaceFromWaiting %tmp.128 59 25 46 ];
+        %tmp.128 = getv function %tmp.127 :launchRaceFromWaiting;
+        invoke %tmp.127 %tmp.128();
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 60 12 ]
-        %tmp.135 = true;
-        ret %tmp.135;
+        %tmp.129 = true;
+        ret %tmp.129;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_58_93_61_8_stop:
         goto @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_58_15_86_8_if_end;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_58_15_86_8_if_false:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 61 15 ]
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_61_15_86_8_if_stmt:
-        %tmp.136 = lgetv %state.1;
-        symbol [ state %tmp.136 61 19 24 ];
-        symbol [ RowerView %tmp.138 61 28 37 ];
-        %tmp.138 = getv ? :RowerView;
-        symbol [ STATE_LATE_CHOICE %tmp.139 61 38 55 ];
-        %tmp.139 = getv %tmp.138 :STATE_LATE_CHOICE;
-        %tmp.140 = eq %tmp.136 %tmp.139;
-        bf %tmp.140 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_61_15_86_8_if_false;
+        %tmp.130 = lgetv %state.1;
+        symbol [ state %tmp.130 61 19 24 ];
+        symbol [ RowerView %tmp.132 61 28 37 ];
+        %tmp.132 = getv ? :RowerView;
+        symbol [ STATE_LATE_CHOICE %tmp.133 61 38 55 ];
+        %tmp.133 = getv %tmp.132 :STATE_LATE_CHOICE;
+        %tmp.134 = eq %tmp.130 %tmp.133;
+        bf %tmp.134 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_61_15_86_8_if_false;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_61_15_86_8_if_true:
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_61_57_68_8_start:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 62 12 ]
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_62_12_66_12_if_stmt:
-        symbol [ _view %tmp.142 62 16 21 ];
-        %tmp.142 = getv ? :_view;
-        symbol [ getChoiceMenuIndex %tmp.143 62 22 40 ];
-        %tmp.143 = getv function %tmp.142 :getChoiceMenuIndex;
-        %tmp.144 = invoke %tmp.142 %tmp.143();
-        %tmp.145 = 0;
-        %tmp.146 = eq %tmp.144 %tmp.145;
-        bf %tmp.146 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_62_12_66_12_if_else_false;
+        symbol [ _view %tmp.136 62 16 21 ];
+        %tmp.136 = getv ? :_view;
+        symbol [ getChoiceMenuIndex %tmp.137 62 22 40 ];
+        %tmp.137 = getv function %tmp.136 :getChoiceMenuIndex;
+        %tmp.138 = invoke %tmp.136 %tmp.137();
+        %tmp.139 = 0;
+        %tmp.140 = eq %tmp.138 %tmp.139;
+        bf %tmp.140 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_62_12_66_12_if_else_false;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_62_12_66_12_if_true:
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_62_49_64_12_start:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 63 16 ]
-        symbol [ _bleDelegate %tmp.148 63 16 28 ];
-        %tmp.148 = getv ? :_bleDelegate;
-        symbol [ joinRaceLate %tmp.149 63 29 41 ];
-        %tmp.149 = getv function %tmp.148 :joinRaceLate;
-        invoke %tmp.148 %tmp.149();
+        symbol [ _bleDelegate %tmp.142 63 16 28 ];
+        %tmp.142 = getv ? :_bleDelegate;
+        symbol [ joinRaceLate %tmp.143 63 29 41 ];
+        %tmp.143 = getv function %tmp.142 :joinRaceLate;
+        invoke %tmp.142 %tmp.143();
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_62_49_64_12_stop:
         goto @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_62_12_66_12_if_end;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_62_12_66_12_if_else_false:
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_64_19_66_12_start:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 65 16 ]
-        symbol [ _bleDelegate %tmp.151 65 16 28 ];
-        %tmp.151 = getv ? :_bleDelegate;
-        symbol [ waitNextRaceSlot %tmp.152 65 29 45 ];
-        %tmp.152 = getv function %tmp.151 :waitNextRaceSlot;
-        invoke %tmp.151 %tmp.152();
+        symbol [ _bleDelegate %tmp.145 65 16 28 ];
+        %tmp.145 = getv ? :_bleDelegate;
+        symbol [ waitNextRaceSlot %tmp.146 65 29 45 ];
+        %tmp.146 = getv function %tmp.145 :waitNextRaceSlot;
+        invoke %tmp.145 %tmp.146();
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_64_19_66_12_stop:
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_62_12_66_12_if_end:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 67 12 ]
-        %tmp.153 = true;
-        ret %tmp.153;
+        %tmp.147 = true;
+        ret %tmp.147;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_61_57_68_8_stop:
         goto @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_61_15_86_8_if_end;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_61_15_86_8_if_false:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 68 15 ]
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_68_15_86_8_if_stmt:
-        %tmp.154 = lgetv %state.1;
-        symbol [ state %tmp.154 68 19 24 ];
-        symbol [ RowerView %tmp.156 68 28 37 ];
-        %tmp.156 = getv ? :RowerView;
-        symbol [ STATE_COUNTDOWN_5S %tmp.157 68 38 56 ];
-        %tmp.157 = getv %tmp.156 :STATE_COUNTDOWN_5S;
-        %tmp.158 = eq %tmp.154 %tmp.157;
-        bf %tmp.158 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_68_15_86_8_if_false;
+        %tmp.148 = lgetv %state.1;
+        symbol [ state %tmp.148 68 19 24 ];
+        symbol [ RowerView %tmp.150 68 28 37 ];
+        %tmp.150 = getv ? :RowerView;
+        symbol [ STATE_COUNTDOWN_5S %tmp.151 68 38 56 ];
+        %tmp.151 = getv %tmp.150 :STATE_COUNTDOWN_5S;
+        %tmp.152 = eq %tmp.148 %tmp.151;
+        bf %tmp.152 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_68_15_86_8_if_false;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_68_15_86_8_if_true:
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_68_58_70_8_start:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 69 12 ]
-        %tmp.159 = true;
-        ret %tmp.159;
+        %tmp.153 = true;
+        ret %tmp.153;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_68_58_70_8_stop:
         goto @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_68_15_86_8_if_end;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_68_15_86_8_if_false:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 70 15 ]
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_70_15_86_8_if_stmt:
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_70_19_70_73_begin:
-        %tmp.160 = lgetv %state.1;
-        symbol [ state %tmp.160 70 19 24 ];
-        symbol [ RowerView %tmp.162 70 28 37 ];
-        %tmp.162 = getv ? :RowerView;
-        symbol [ STATE_RACING %tmp.163 70 38 50 ];
-        %tmp.163 = getv %tmp.162 :STATE_RACING;
-        %tmp.164 = eq %tmp.160 %tmp.163;
-        bt %tmp.164 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_70_15_86_8_if_true;
+        %tmp.154 = lgetv %state.1;
+        symbol [ state %tmp.154 70 19 24 ];
+        symbol [ RowerView %tmp.156 70 28 37 ];
+        %tmp.156 = getv ? :RowerView;
+        symbol [ STATE_RACING %tmp.157 70 38 50 ];
+        %tmp.157 = getv %tmp.156 :STATE_RACING;
+        %tmp.158 = eq %tmp.154 %tmp.157;
+        bt %tmp.158 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_70_15_86_8_if_true;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_70_54_70_73_false:
-        %tmp.165 = lgetv %state.1;
-        symbol [ state %tmp.165 70 54 59 ];
-        symbol [ RowerView %tmp.167 70 63 72 ];
-        %tmp.167 = getv ? :RowerView;
-        symbol [ STATE_LATE_JOIN %tmp.168 70 73 88 ];
-        %tmp.168 = getv %tmp.167 :STATE_LATE_JOIN;
-        %tmp.169 = eq %tmp.165 %tmp.168;
-        push %tmp.169;
+        %tmp.159 = lgetv %state.1;
+        symbol [ state %tmp.159 70 54 59 ];
+        symbol [ RowerView %tmp.161 70 63 72 ];
+        %tmp.161 = getv ? :RowerView;
+        symbol [ STATE_LATE_JOIN %tmp.162 70 73 88 ];
+        %tmp.162 = getv %tmp.161 :STATE_LATE_JOIN;
+        %tmp.163 = eq %tmp.159 %tmp.162;
+        push %tmp.163;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_70_54_70_73_end:
-        %tmp.170 = phi [%tmp.164 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_70_19_70_73_begin] [%tmp.169 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_70_54_70_73_false] [%tmp.170 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_70_54_70_73_end];
-        bf %tmp.170 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_70_15_86_8_if_false;
+        %tmp.164 = phi [%tmp.158 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_70_19_70_73_begin] [%tmp.163 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_70_54_70_73_false] [%tmp.164 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_70_54_70_73_end];
+        bf %tmp.164 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_70_15_86_8_if_false;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_70_15_86_8_if_true:
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_70_90_73_8_start:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 71 12 ]
-        symbol [ _bleDelegate %tmp.172 71 12 24 ];
-        %tmp.172 = getv ? :_bleDelegate;
-        symbol [ pauseSession %tmp.173 71 25 37 ];
-        %tmp.173 = getv function %tmp.172 :pauseSession;
-        invoke %tmp.172 %tmp.173();
+        symbol [ _bleDelegate %tmp.166 71 12 24 ];
+        %tmp.166 = getv ? :_bleDelegate;
+        symbol [ pauseSession %tmp.167 71 25 37 ];
+        %tmp.167 = getv function %tmp.166 :pauseSession;
+        invoke %tmp.166 %tmp.167();
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 72 12 ]
-        %tmp.174 = true;
-        ret %tmp.174;
+        %tmp.168 = true;
+        ret %tmp.168;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_70_90_73_8_stop:
         goto @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_70_15_86_8_if_end;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_70_15_86_8_if_false:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 73 15 ]
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_73_15_86_8_if_stmt:
-        %tmp.175 = lgetv %state.1;
-        symbol [ state %tmp.175 73 19 24 ];
-        symbol [ RowerView %tmp.177 73 28 37 ];
-        %tmp.177 = getv ? :RowerView;
-        symbol [ STATE_PAUSED %tmp.178 73 38 50 ];
-        %tmp.178 = getv %tmp.177 :STATE_PAUSED;
-        %tmp.179 = eq %tmp.175 %tmp.178;
-        bf %tmp.179 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_73_15_86_8_if_false;
+        %tmp.169 = lgetv %state.1;
+        symbol [ state %tmp.169 73 19 24 ];
+        symbol [ RowerView %tmp.171 73 28 37 ];
+        %tmp.171 = getv ? :RowerView;
+        symbol [ STATE_PAUSED %tmp.172 73 38 50 ];
+        %tmp.172 = getv %tmp.171 :STATE_PAUSED;
+        %tmp.173 = eq %tmp.169 %tmp.172;
+        bf %tmp.173 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_73_15_86_8_if_false;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_73_15_86_8_if_true:
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_73_52_83_8_start:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 74 12 ]
         [ "C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_73_52_83_8_start" "C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_73_52_83_8_stop" ]
         %pIdx.4 = local;
         symbol [ pIdx %pIdx.4 74 16 20 ];
-        symbol [ _view %tmp.181 74 23 28 ];
-        %tmp.181 = getv ? :_view;
-        symbol [ getPauseMenuIndex %tmp.182 74 29 46 ];
-        %tmp.182 = getv function %tmp.181 :getPauseMenuIndex;
-        %tmp.183 = invoke %tmp.181 %tmp.182();
-        lputv %pIdx.4 %tmp.183;
+        symbol [ _view %tmp.175 74 23 28 ];
+        %tmp.175 = getv ? :_view;
+        symbol [ getPauseMenuIndex %tmp.176 74 29 46 ];
+        %tmp.176 = getv function %tmp.175 :getPauseMenuIndex;
+        %tmp.177 = invoke %tmp.175 %tmp.176();
+        lputv %pIdx.4 %tmp.177;
         symbol [ pIdx %pIdx.4 74 16 20 ];
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 75 12 ]
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_75_12_81_12_if_stmt:
-        %tmp.184 = lgetv %pIdx.4;
-        symbol [ pIdx %tmp.184 75 16 20 ];
-        %tmp.185 = 0;
-        %tmp.186 = eq %tmp.184 %tmp.185;
-        bf %tmp.186 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_75_12_81_12_if_false;
+        %tmp.178 = lgetv %pIdx.4;
+        symbol [ pIdx %tmp.178 75 16 20 ];
+        %tmp.179 = 0;
+        %tmp.180 = eq %tmp.178 %tmp.179;
+        bf %tmp.180 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_75_12_81_12_if_false;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_75_12_81_12_if_true:
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_75_27_77_12_start:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 76 16 ]
-        symbol [ _bleDelegate %tmp.188 76 16 28 ];
-        %tmp.188 = getv ? :_bleDelegate;
-        symbol [ resumeSession %tmp.189 76 29 42 ];
-        %tmp.189 = getv function %tmp.188 :resumeSession;
-        invoke %tmp.188 %tmp.189();
+        symbol [ _bleDelegate %tmp.182 76 16 28 ];
+        %tmp.182 = getv ? :_bleDelegate;
+        symbol [ resumeSession %tmp.183 76 29 42 ];
+        %tmp.183 = getv function %tmp.182 :resumeSession;
+        invoke %tmp.182 %tmp.183();
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_75_27_77_12_stop:
         goto @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_75_12_81_12_if_end;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_75_12_81_12_if_false:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 77 19 ]
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_77_19_81_12_if_stmt:
-        %tmp.190 = lgetv %pIdx.4;
-        symbol [ pIdx %tmp.190 77 23 27 ];
-        %tmp.191 = 1;
-        %tmp.192 = eq %tmp.190 %tmp.191;
-        bf %tmp.192 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_77_19_81_12_if_false;
+        %tmp.184 = lgetv %pIdx.4;
+        symbol [ pIdx %tmp.184 77 23 27 ];
+        %tmp.185 = 1;
+        %tmp.186 = eq %tmp.184 %tmp.185;
+        bf %tmp.186 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_77_19_81_12_if_false;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_77_19_81_12_if_true:
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_77_34_79_12_start:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 78 16 ]
-        symbol [ _bleDelegate %tmp.194 78 16 28 ];
-        %tmp.194 = getv ? :_bleDelegate;
-        symbol [ saveAndExitSession %tmp.195 78 29 47 ];
-        %tmp.195 = getv function %tmp.194 :saveAndExitSession;
-        invoke %tmp.194 %tmp.195();
+        symbol [ _bleDelegate %tmp.188 78 16 28 ];
+        %tmp.188 = getv ? :_bleDelegate;
+        symbol [ saveAndExitSession %tmp.189 78 29 47 ];
+        %tmp.189 = getv function %tmp.188 :saveAndExitSession;
+        invoke %tmp.188 %tmp.189();
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_77_34_79_12_stop:
         goto @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_77_19_81_12_if_end;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_77_19_81_12_if_false:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 79 19 ]
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_79_19_81_12_if_stmt:
-        %tmp.196 = lgetv %pIdx.4;
-        symbol [ pIdx %tmp.196 79 23 27 ];
-        %tmp.197 = 2;
-        %tmp.198 = eq %tmp.196 %tmp.197;
-        bf %tmp.198 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_79_19_81_12_if_end;
+        %tmp.190 = lgetv %pIdx.4;
+        symbol [ pIdx %tmp.190 79 23 27 ];
+        %tmp.191 = 2;
+        %tmp.192 = eq %tmp.190 %tmp.191;
+        bf %tmp.192 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_79_19_81_12_if_end;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_79_19_81_12_if_true:
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_79_34_81_12_start:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 80 16 ]
-        symbol [ _bleDelegate %tmp.200 80 16 28 ];
-        %tmp.200 = getv ? :_bleDelegate;
-        symbol [ discardSession %tmp.201 80 29 43 ];
-        %tmp.201 = getv function %tmp.200 :discardSession;
-        invoke %tmp.200 %tmp.201();
+        symbol [ _bleDelegate %tmp.194 80 16 28 ];
+        %tmp.194 = getv ? :_bleDelegate;
+        symbol [ discardSession %tmp.195 80 29 43 ];
+        %tmp.195 = getv function %tmp.194 :discardSession;
+        invoke %tmp.194 %tmp.195();
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_79_34_81_12_stop:
         goto @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_79_19_81_12_if_end;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_79_19_81_12_if_end:
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_77_19_81_12_if_end:
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_75_12_81_12_if_end:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 82 12 ]
-        %tmp.202 = true;
-        ret %tmp.202;
+        %tmp.196 = true;
+        ret %tmp.196;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_73_52_83_8_stop:
         goto @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_73_15_86_8_if_end;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_73_15_86_8_if_false:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 83 15 ]
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_83_15_86_8_if_stmt:
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_83_19_83_75_begin:
-        %tmp.203 = lgetv %state.1;
-        symbol [ state %tmp.203 83 19 24 ];
-        symbol [ RowerView %tmp.205 83 28 37 ];
-        %tmp.205 = getv ? :RowerView;
-        symbol [ STATE_FINISHED %tmp.206 83 38 52 ];
-        %tmp.206 = getv %tmp.205 :STATE_FINISHED;
-        %tmp.207 = eq %tmp.203 %tmp.206;
-        bt %tmp.207 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_83_15_86_8_if_true;
+        %tmp.197 = lgetv %state.1;
+        symbol [ state %tmp.197 83 19 24 ];
+        symbol [ RowerView %tmp.199 83 28 37 ];
+        %tmp.199 = getv ? :RowerView;
+        symbol [ STATE_FINISHED %tmp.200 83 38 52 ];
+        %tmp.200 = getv %tmp.199 :STATE_FINISHED;
+        %tmp.201 = eq %tmp.197 %tmp.200;
+        bt %tmp.201 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_83_15_86_8_if_true;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_83_56_83_75_false:
-        %tmp.208 = lgetv %state.1;
-        symbol [ state %tmp.208 83 56 61 ];
-        symbol [ RowerView %tmp.210 83 65 74 ];
-        %tmp.210 = getv ? :RowerView;
-        symbol [ STATE_HISTORY %tmp.211 83 75 88 ];
-        %tmp.211 = getv %tmp.210 :STATE_HISTORY;
-        %tmp.212 = eq %tmp.208 %tmp.211;
-        push %tmp.212;
+        %tmp.202 = lgetv %state.1;
+        symbol [ state %tmp.202 83 56 61 ];
+        symbol [ RowerView %tmp.204 83 65 74 ];
+        %tmp.204 = getv ? :RowerView;
+        symbol [ STATE_HISTORY %tmp.205 83 75 88 ];
+        %tmp.205 = getv %tmp.204 :STATE_HISTORY;
+        %tmp.206 = eq %tmp.202 %tmp.205;
+        push %tmp.206;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_83_56_83_75_end:
-        %tmp.213 = phi [%tmp.207 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_83_19_83_75_begin] [%tmp.212 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_83_56_83_75_false] [%tmp.213 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_83_56_83_75_end];
-        bf %tmp.213 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_83_15_86_8_if_end;
+        %tmp.207 = phi [%tmp.201 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_83_19_83_75_begin] [%tmp.206 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_83_56_83_75_false] [%tmp.207 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_83_56_83_75_end];
+        bf %tmp.207 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_83_15_86_8_if_end;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_83_15_86_8_if_true:
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_83_90_86_8_start:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 84 12 ]
-        symbol [ _view %tmp.215 84 12 17 ];
-        %tmp.215 = getv ? :_view;
-        symbol [ setAppState %tmp.216 84 18 29 ];
-        %tmp.216 = getv function %tmp.215 :setAppState;
-        symbol [ RowerView %tmp.218 84 30 39 ];
-        %tmp.218 = getv ? :RowerView;
-        symbol [ STATE_MENU %tmp.219 84 40 50 ];
-        %tmp.219 = getv %tmp.218 :STATE_MENU;
-        invoke %tmp.215 %tmp.216(%tmp.219);
+        symbol [ _view %tmp.209 84 12 17 ];
+        %tmp.209 = getv ? :_view;
+        symbol [ setAppState %tmp.210 84 18 29 ];
+        %tmp.210 = getv function %tmp.209 :setAppState;
+        symbol [ RowerView %tmp.212 84 30 39 ];
+        %tmp.212 = getv ? :RowerView;
+        symbol [ STATE_MENU %tmp.213 84 40 50 ];
+        %tmp.213 = getv %tmp.212 :STATE_MENU;
+        invoke %tmp.209 %tmp.210(%tmp.213);
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 85 12 ]
-        %tmp.220 = true;
-        ret %tmp.220;
+        %tmp.214 = true;
+        ret %tmp.214;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_83_90_86_8_stop:
         goto @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_83_15_86_8_if_end;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_83_15_86_8_if_end:
@@ -621,8 +608,8 @@ C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_52_15
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_33_15_86_8_if_end:
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_26_8_86_8_if_end:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 88 8 ]
-        %tmp.221 = false;
-        ret %tmp.221;
+        %tmp.215 = false;
+        ret %tmp.215;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_17_42_89_4_stop:
     }
     [ @file = "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc"; @line = 92; @symbol_functiondef = [onNextPage,92,20,30]; @symbol_return<0> = [Boolean,92,36,43]; ]
@@ -642,7 +629,6 @@ C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_92_44
         symbol [ state %state.1 93 12 17 ];
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 95 8 ]
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_95_8_98_8_if_stmt:
-C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_95_12_95_92_begin:
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_95_12_95_57_begin:
         symbol [ _view %tmp.6 95 12 17 ];
         %tmp.6 = getv ? :_view;
@@ -655,221 +641,209 @@ C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_95_38
         symbol [ state %tmp.9 95 38 43 ];
         symbol [ RowerView %tmp.11 95 47 56 ];
         %tmp.11 = getv ? :RowerView;
-        symbol [ STATE_RACING %tmp.12 95 57 69 ];
-        %tmp.12 = getv %tmp.11 :STATE_RACING;
+        symbol [ STATE_COUNTDOWN_5S %tmp.12 95 57 75 ];
+        %tmp.12 = getv %tmp.11 :STATE_COUNTDOWN_5S;
         %tmp.13 = ne %tmp.9 %tmp.12;
         push %tmp.13;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_95_38_95_57_end:
         %tmp.14 = phi [%tmp.8 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_95_12_95_57_begin] [%tmp.13 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_95_38_95_57_true] [%tmp.14 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_95_38_95_57_end];
         bf %tmp.14 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_95_8_98_8_if_end;
-C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_95_73_95_92_true:
-        %tmp.15 = lgetv %state.1;
-        symbol [ state %tmp.15 95 73 78 ];
-        symbol [ RowerView %tmp.17 95 82 91 ];
-        %tmp.17 = getv ? :RowerView;
-        symbol [ STATE_COUNTDOWN_5S %tmp.18 95 92 110 ];
-        %tmp.18 = getv %tmp.17 :STATE_COUNTDOWN_5S;
-        %tmp.19 = ne %tmp.15 %tmp.18;
-        push %tmp.19;
-C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_95_73_95_92_end:
-        %tmp.20 = phi [%tmp.14 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_95_12_95_92_begin] [%tmp.19 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_95_73_95_92_true] [%tmp.20 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_95_73_95_92_end];
-        bf %tmp.20 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_95_8_98_8_if_end;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_95_8_98_8_if_true:
-C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_95_112_98_8_start:
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_95_77_98_8_start:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 96 12 ]
-        symbol [ _view %tmp.22 96 12 17 ];
-        %tmp.22 = getv ? :_view;
-        symbol [ toggleAuthMenu %tmp.23 96 18 32 ];
-        %tmp.23 = getv function %tmp.22 :toggleAuthMenu;
-        invoke %tmp.22 %tmp.23();
+        symbol [ _view %tmp.16 96 12 17 ];
+        %tmp.16 = getv ? :_view;
+        symbol [ toggleAuthMenu %tmp.17 96 18 32 ];
+        %tmp.17 = getv function %tmp.16 :toggleAuthMenu;
+        invoke %tmp.16 %tmp.17();
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 97 12 ]
-        %tmp.24 = true;
-        ret %tmp.24;
-C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_95_112_98_8_stop:
+        %tmp.18 = true;
+        ret %tmp.18;
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_95_77_98_8_stop:
         goto @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_95_8_98_8_if_end;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_95_8_98_8_if_end:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 100 8 ]
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_100_8_122_8_if_stmt:
-        %tmp.25 = lgetv %state.1;
-        symbol [ state %tmp.25 100 12 17 ];
-        symbol [ RowerView %tmp.27 100 21 30 ];
-        %tmp.27 = getv ? :RowerView;
-        symbol [ STATE_SCANNING %tmp.28 100 31 45 ];
-        %tmp.28 = getv %tmp.27 :STATE_SCANNING;
-        %tmp.29 = eq %tmp.25 %tmp.28;
-        bf %tmp.29 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_100_8_122_8_if_false;
+        %tmp.19 = lgetv %state.1;
+        symbol [ state %tmp.19 100 12 17 ];
+        symbol [ RowerView %tmp.21 100 21 30 ];
+        %tmp.21 = getv ? :RowerView;
+        symbol [ STATE_SCANNING %tmp.22 100 31 45 ];
+        %tmp.22 = getv %tmp.21 :STATE_SCANNING;
+        %tmp.23 = eq %tmp.19 %tmp.22;
+        bf %tmp.23 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_100_8_122_8_if_false;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_100_8_122_8_if_true:
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_100_47_104_8_start:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 102 12 ]
-        symbol [ _view %tmp.31 102 12 17 ];
-        %tmp.31 = getv ? :_view;
-        symbol [ setAppState %tmp.32 102 18 29 ];
-        %tmp.32 = getv function %tmp.31 :setAppState;
-        symbol [ RowerView %tmp.34 102 30 39 ];
-        %tmp.34 = getv ? :RowerView;
-        symbol [ STATE_MENU %tmp.35 102 40 50 ];
-        %tmp.35 = getv %tmp.34 :STATE_MENU;
-        invoke %tmp.31 %tmp.32(%tmp.35);
+        symbol [ _view %tmp.25 102 12 17 ];
+        %tmp.25 = getv ? :_view;
+        symbol [ setAppState %tmp.26 102 18 29 ];
+        %tmp.26 = getv function %tmp.25 :setAppState;
+        symbol [ RowerView %tmp.28 102 30 39 ];
+        %tmp.28 = getv ? :RowerView;
+        symbol [ STATE_MENU %tmp.29 102 40 50 ];
+        %tmp.29 = getv %tmp.28 :STATE_MENU;
+        invoke %tmp.25 %tmp.26(%tmp.29);
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 103 12 ]
-        %tmp.36 = true;
-        ret %tmp.36;
+        %tmp.30 = true;
+        ret %tmp.30;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_100_47_104_8_stop:
         goto @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_100_8_122_8_if_end;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_100_8_122_8_if_false:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 104 15 ]
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_104_15_122_8_if_stmt:
-        %tmp.37 = lgetv %state.1;
-        symbol [ state %tmp.37 104 19 24 ];
-        symbol [ RowerView %tmp.39 104 28 37 ];
-        %tmp.39 = getv ? :RowerView;
-        symbol [ STATE_MENU %tmp.40 104 38 48 ];
-        %tmp.40 = getv %tmp.39 :STATE_MENU;
-        %tmp.41 = eq %tmp.37 %tmp.40;
-        bf %tmp.41 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_104_15_122_8_if_false;
+        %tmp.31 = lgetv %state.1;
+        symbol [ state %tmp.31 104 19 24 ];
+        symbol [ RowerView %tmp.33 104 28 37 ];
+        %tmp.33 = getv ? :RowerView;
+        symbol [ STATE_MENU %tmp.34 104 38 48 ];
+        %tmp.34 = getv %tmp.33 :STATE_MENU;
+        %tmp.35 = eq %tmp.31 %tmp.34;
+        bf %tmp.35 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_104_15_122_8_if_false;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_104_15_122_8_if_true:
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_104_50_107_8_start:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 105 12 ]
-        symbol [ _view %tmp.43 105 12 17 ];
-        %tmp.43 = getv ? :_view;
-        symbol [ nextMainMenu %tmp.44 105 18 30 ];
-        %tmp.44 = getv function %tmp.43 :nextMainMenu;
-        invoke %tmp.43 %tmp.44();
+        symbol [ _view %tmp.37 105 12 17 ];
+        %tmp.37 = getv ? :_view;
+        symbol [ nextMainMenu %tmp.38 105 18 30 ];
+        %tmp.38 = getv function %tmp.37 :nextMainMenu;
+        invoke %tmp.37 %tmp.38();
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 106 12 ]
-        %tmp.45 = true;
-        ret %tmp.45;
+        %tmp.39 = true;
+        ret %tmp.39;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_104_50_107_8_stop:
         goto @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_104_15_122_8_if_end;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_104_15_122_8_if_false:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 107 15 ]
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_107_15_122_8_if_stmt:
-        %tmp.46 = lgetv %state.1;
-        symbol [ state %tmp.46 107 19 24 ];
-        symbol [ RowerView %tmp.48 107 28 37 ];
-        %tmp.48 = getv ? :RowerView;
-        symbol [ STATE_PIN_INPUT %tmp.49 107 38 53 ];
-        %tmp.49 = getv %tmp.48 :STATE_PIN_INPUT;
-        %tmp.50 = eq %tmp.46 %tmp.49;
-        bf %tmp.50 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_107_15_122_8_if_false;
+        %tmp.40 = lgetv %state.1;
+        symbol [ state %tmp.40 107 19 24 ];
+        symbol [ RowerView %tmp.42 107 28 37 ];
+        %tmp.42 = getv ? :RowerView;
+        symbol [ STATE_PIN_INPUT %tmp.43 107 38 53 ];
+        %tmp.43 = getv %tmp.42 :STATE_PIN_INPUT;
+        %tmp.44 = eq %tmp.40 %tmp.43;
+        bf %tmp.44 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_107_15_122_8_if_false;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_107_15_122_8_if_true:
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_107_55_110_8_start:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 108 12 ]
-        symbol [ _view %tmp.52 108 12 17 ];
-        %tmp.52 = getv ? :_view;
-        symbol [ decrementPinDigit %tmp.53 108 18 35 ];
-        %tmp.53 = getv function %tmp.52 :decrementPinDigit;
-        invoke %tmp.52 %tmp.53();
+        symbol [ _view %tmp.46 108 12 17 ];
+        %tmp.46 = getv ? :_view;
+        symbol [ decrementPinDigit %tmp.47 108 18 35 ];
+        %tmp.47 = getv function %tmp.46 :decrementPinDigit;
+        invoke %tmp.46 %tmp.47();
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 109 12 ]
-        %tmp.54 = true;
-        ret %tmp.54;
+        %tmp.48 = true;
+        ret %tmp.48;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_107_55_110_8_stop:
         goto @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_107_15_122_8_if_end;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_107_15_122_8_if_false:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 110 15 ]
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_110_15_122_8_if_stmt:
-        %tmp.55 = lgetv %state.1;
-        symbol [ state %tmp.55 110 19 24 ];
-        symbol [ RowerView %tmp.57 110 28 37 ];
-        %tmp.57 = getv ? :RowerView;
-        symbol [ STATE_LATE_CHOICE %tmp.58 110 38 55 ];
-        %tmp.58 = getv %tmp.57 :STATE_LATE_CHOICE;
-        %tmp.59 = eq %tmp.55 %tmp.58;
-        bf %tmp.59 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_110_15_122_8_if_false;
+        %tmp.49 = lgetv %state.1;
+        symbol [ state %tmp.49 110 19 24 ];
+        symbol [ RowerView %tmp.51 110 28 37 ];
+        %tmp.51 = getv ? :RowerView;
+        symbol [ STATE_LATE_CHOICE %tmp.52 110 38 55 ];
+        %tmp.52 = getv %tmp.51 :STATE_LATE_CHOICE;
+        %tmp.53 = eq %tmp.49 %tmp.52;
+        bf %tmp.53 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_110_15_122_8_if_false;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_110_15_122_8_if_true:
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_110_57_113_8_start:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 111 12 ]
-        symbol [ _view %tmp.61 111 12 17 ];
-        %tmp.61 = getv ? :_view;
-        symbol [ toggleChoiceMenu %tmp.62 111 18 34 ];
-        %tmp.62 = getv function %tmp.61 :toggleChoiceMenu;
-        invoke %tmp.61 %tmp.62();
+        symbol [ _view %tmp.55 111 12 17 ];
+        %tmp.55 = getv ? :_view;
+        symbol [ toggleChoiceMenu %tmp.56 111 18 34 ];
+        %tmp.56 = getv function %tmp.55 :toggleChoiceMenu;
+        invoke %tmp.55 %tmp.56();
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 112 12 ]
-        %tmp.63 = true;
-        ret %tmp.63;
+        %tmp.57 = true;
+        ret %tmp.57;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_110_57_113_8_stop:
         goto @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_110_15_122_8_if_end;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_110_15_122_8_if_false:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 113 15 ]
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_113_15_122_8_if_stmt:
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_113_19_113_73_begin:
-        %tmp.64 = lgetv %state.1;
-        symbol [ state %tmp.64 113 19 24 ];
-        symbol [ RowerView %tmp.66 113 28 37 ];
-        %tmp.66 = getv ? :RowerView;
-        symbol [ STATE_RACING %tmp.67 113 38 50 ];
-        %tmp.67 = getv %tmp.66 :STATE_RACING;
-        %tmp.68 = eq %tmp.64 %tmp.67;
-        bt %tmp.68 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_113_15_122_8_if_true;
+        %tmp.58 = lgetv %state.1;
+        symbol [ state %tmp.58 113 19 24 ];
+        symbol [ RowerView %tmp.60 113 28 37 ];
+        %tmp.60 = getv ? :RowerView;
+        symbol [ STATE_RACING %tmp.61 113 38 50 ];
+        %tmp.61 = getv %tmp.60 :STATE_RACING;
+        %tmp.62 = eq %tmp.58 %tmp.61;
+        bt %tmp.62 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_113_15_122_8_if_true;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_113_54_113_73_false:
-        %tmp.69 = lgetv %state.1;
-        symbol [ state %tmp.69 113 54 59 ];
-        symbol [ RowerView %tmp.71 113 63 72 ];
-        %tmp.71 = getv ? :RowerView;
-        symbol [ STATE_LATE_JOIN %tmp.72 113 73 88 ];
-        %tmp.72 = getv %tmp.71 :STATE_LATE_JOIN;
-        %tmp.73 = eq %tmp.69 %tmp.72;
-        push %tmp.73;
+        %tmp.63 = lgetv %state.1;
+        symbol [ state %tmp.63 113 54 59 ];
+        symbol [ RowerView %tmp.65 113 63 72 ];
+        %tmp.65 = getv ? :RowerView;
+        symbol [ STATE_LATE_JOIN %tmp.66 113 73 88 ];
+        %tmp.66 = getv %tmp.65 :STATE_LATE_JOIN;
+        %tmp.67 = eq %tmp.63 %tmp.66;
+        push %tmp.67;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_113_54_113_73_end:
-        %tmp.74 = phi [%tmp.68 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_113_19_113_73_begin] [%tmp.73 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_113_54_113_73_false] [%tmp.74 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_113_54_113_73_end];
-        bf %tmp.74 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_113_15_122_8_if_false;
+        %tmp.68 = phi [%tmp.62 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_113_19_113_73_begin] [%tmp.67 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_113_54_113_73_false] [%tmp.68 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_113_54_113_73_end];
+        bf %tmp.68 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_113_15_122_8_if_false;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_113_15_122_8_if_true:
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_113_90_116_8_start:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 114 12 ]
-        symbol [ _view %tmp.76 114 12 17 ];
-        %tmp.76 = getv ? :_view;
-        symbol [ nextRacePage %tmp.77 114 18 30 ];
-        %tmp.77 = getv function %tmp.76 :nextRacePage;
-        invoke %tmp.76 %tmp.77();
+        symbol [ _view %tmp.70 114 12 17 ];
+        %tmp.70 = getv ? :_view;
+        symbol [ nextRacePage %tmp.71 114 18 30 ];
+        %tmp.71 = getv function %tmp.70 :nextRacePage;
+        invoke %tmp.70 %tmp.71();
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 115 12 ]
-        %tmp.78 = true;
-        ret %tmp.78;
+        %tmp.72 = true;
+        ret %tmp.72;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_113_90_116_8_stop:
         goto @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_113_15_122_8_if_end;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_113_15_122_8_if_false:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 116 15 ]
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_116_15_122_8_if_stmt:
-        %tmp.79 = lgetv %state.1;
-        symbol [ state %tmp.79 116 19 24 ];
-        symbol [ RowerView %tmp.81 116 28 37 ];
-        %tmp.81 = getv ? :RowerView;
-        symbol [ STATE_PAUSED %tmp.82 116 38 50 ];
-        %tmp.82 = getv %tmp.81 :STATE_PAUSED;
-        %tmp.83 = eq %tmp.79 %tmp.82;
-        bf %tmp.83 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_116_15_122_8_if_false;
+        %tmp.73 = lgetv %state.1;
+        symbol [ state %tmp.73 116 19 24 ];
+        symbol [ RowerView %tmp.75 116 28 37 ];
+        %tmp.75 = getv ? :RowerView;
+        symbol [ STATE_PAUSED %tmp.76 116 38 50 ];
+        %tmp.76 = getv %tmp.75 :STATE_PAUSED;
+        %tmp.77 = eq %tmp.73 %tmp.76;
+        bf %tmp.77 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_116_15_122_8_if_false;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_116_15_122_8_if_true:
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_116_52_119_8_start:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 117 12 ]
-        symbol [ _view %tmp.85 117 12 17 ];
-        %tmp.85 = getv ? :_view;
-        symbol [ nextPauseMenu %tmp.86 117 18 31 ];
-        %tmp.86 = getv function %tmp.85 :nextPauseMenu;
-        invoke %tmp.85 %tmp.86();
+        symbol [ _view %tmp.79 117 12 17 ];
+        %tmp.79 = getv ? :_view;
+        symbol [ nextPauseMenu %tmp.80 117 18 31 ];
+        %tmp.80 = getv function %tmp.79 :nextPauseMenu;
+        invoke %tmp.79 %tmp.80();
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 118 12 ]
-        %tmp.87 = true;
-        ret %tmp.87;
+        %tmp.81 = true;
+        ret %tmp.81;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_116_52_119_8_stop:
         goto @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_116_15_122_8_if_end;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_116_15_122_8_if_false:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 119 15 ]
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_119_15_122_8_if_stmt:
-        %tmp.88 = lgetv %state.1;
-        symbol [ state %tmp.88 119 19 24 ];
-        symbol [ RowerView %tmp.90 119 28 37 ];
-        %tmp.90 = getv ? :RowerView;
-        symbol [ STATE_FINISHED %tmp.91 119 38 52 ];
-        %tmp.91 = getv %tmp.90 :STATE_FINISHED;
-        %tmp.92 = eq %tmp.88 %tmp.91;
-        bf %tmp.92 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_119_15_122_8_if_end;
+        %tmp.82 = lgetv %state.1;
+        symbol [ state %tmp.82 119 19 24 ];
+        symbol [ RowerView %tmp.84 119 28 37 ];
+        %tmp.84 = getv ? :RowerView;
+        symbol [ STATE_FINISHED %tmp.85 119 38 52 ];
+        %tmp.85 = getv %tmp.84 :STATE_FINISHED;
+        %tmp.86 = eq %tmp.82 %tmp.85;
+        bf %tmp.86 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_119_15_122_8_if_end;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_119_15_122_8_if_true:
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_119_54_122_8_start:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 120 12 ]
-        symbol [ _view %tmp.94 120 12 17 ];
-        %tmp.94 = getv ? :_view;
-        symbol [ nextFinishPage %tmp.95 120 18 32 ];
-        %tmp.95 = getv function %tmp.94 :nextFinishPage;
-        invoke %tmp.94 %tmp.95();
+        symbol [ _view %tmp.88 120 12 17 ];
+        %tmp.88 = getv ? :_view;
+        symbol [ nextFinishPage %tmp.89 120 18 32 ];
+        %tmp.89 = getv function %tmp.88 :nextFinishPage;
+        invoke %tmp.88 %tmp.89();
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 121 12 ]
-        %tmp.96 = true;
-        ret %tmp.96;
+        %tmp.90 = true;
+        ret %tmp.90;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_119_54_122_8_stop:
         goto @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_119_15_122_8_if_end;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_119_15_122_8_if_end:
@@ -880,8 +854,8 @@ C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_107_1
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_104_15_122_8_if_end:
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_100_8_122_8_if_end:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 124 8 ]
-        %tmp.97 = false;
-        ret %tmp.97;
+        %tmp.91 = false;
+        ret %tmp.91;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_92_44_125_4_stop:
     }
     [ @file = "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc"; @line = 128; @symbol_functiondef = [onPreviousPage,128,20,34]; @symbol_return<0> = [Boolean,128,40,47]; ]
@@ -901,7 +875,6 @@ C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_128_4
         symbol [ state %state.1 129 12 17 ];
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 131 8 ]
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_131_8_134_8_if_stmt:
-C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_131_12_131_92_begin:
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_131_12_131_57_begin:
         symbol [ _view %tmp.6 131 12 17 ];
         %tmp.6 = getv ? :_view;
@@ -914,193 +887,181 @@ C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_131_3
         symbol [ state %tmp.9 131 38 43 ];
         symbol [ RowerView %tmp.11 131 47 56 ];
         %tmp.11 = getv ? :RowerView;
-        symbol [ STATE_RACING %tmp.12 131 57 69 ];
-        %tmp.12 = getv %tmp.11 :STATE_RACING;
+        symbol [ STATE_COUNTDOWN_5S %tmp.12 131 57 75 ];
+        %tmp.12 = getv %tmp.11 :STATE_COUNTDOWN_5S;
         %tmp.13 = ne %tmp.9 %tmp.12;
         push %tmp.13;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_131_38_131_57_end:
         %tmp.14 = phi [%tmp.8 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_131_12_131_57_begin] [%tmp.13 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_131_38_131_57_true] [%tmp.14 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_131_38_131_57_end];
         bf %tmp.14 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_131_8_134_8_if_end;
-C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_131_73_131_92_true:
-        %tmp.15 = lgetv %state.1;
-        symbol [ state %tmp.15 131 73 78 ];
-        symbol [ RowerView %tmp.17 131 82 91 ];
-        %tmp.17 = getv ? :RowerView;
-        symbol [ STATE_COUNTDOWN_5S %tmp.18 131 92 110 ];
-        %tmp.18 = getv %tmp.17 :STATE_COUNTDOWN_5S;
-        %tmp.19 = ne %tmp.15 %tmp.18;
-        push %tmp.19;
-C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_131_73_131_92_end:
-        %tmp.20 = phi [%tmp.14 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_131_12_131_92_begin] [%tmp.19 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_131_73_131_92_true] [%tmp.20 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_131_73_131_92_end];
-        bf %tmp.20 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_131_8_134_8_if_end;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_131_8_134_8_if_true:
-C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_131_112_134_8_start:
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_131_77_134_8_start:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 132 12 ]
-        symbol [ _view %tmp.22 132 12 17 ];
-        %tmp.22 = getv ? :_view;
-        symbol [ toggleAuthMenu %tmp.23 132 18 32 ];
-        %tmp.23 = getv function %tmp.22 :toggleAuthMenu;
-        invoke %tmp.22 %tmp.23();
+        symbol [ _view %tmp.16 132 12 17 ];
+        %tmp.16 = getv ? :_view;
+        symbol [ toggleAuthMenu %tmp.17 132 18 32 ];
+        %tmp.17 = getv function %tmp.16 :toggleAuthMenu;
+        invoke %tmp.16 %tmp.17();
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 133 12 ]
-        %tmp.24 = true;
-        ret %tmp.24;
-C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_131_112_134_8_stop:
+        %tmp.18 = true;
+        ret %tmp.18;
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_131_77_134_8_stop:
         goto @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_131_8_134_8_if_end;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_131_8_134_8_if_end:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 136 8 ]
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_136_8_154_8_if_stmt:
-        %tmp.25 = lgetv %state.1;
-        symbol [ state %tmp.25 136 12 17 ];
-        symbol [ RowerView %tmp.27 136 21 30 ];
-        %tmp.27 = getv ? :RowerView;
-        symbol [ STATE_MENU %tmp.28 136 31 41 ];
-        %tmp.28 = getv %tmp.27 :STATE_MENU;
-        %tmp.29 = eq %tmp.25 %tmp.28;
-        bf %tmp.29 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_136_8_154_8_if_false;
+        %tmp.19 = lgetv %state.1;
+        symbol [ state %tmp.19 136 12 17 ];
+        symbol [ RowerView %tmp.21 136 21 30 ];
+        %tmp.21 = getv ? :RowerView;
+        symbol [ STATE_MENU %tmp.22 136 31 41 ];
+        %tmp.22 = getv %tmp.21 :STATE_MENU;
+        %tmp.23 = eq %tmp.19 %tmp.22;
+        bf %tmp.23 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_136_8_154_8_if_false;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_136_8_154_8_if_true:
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_136_43_139_8_start:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 137 12 ]
-        symbol [ _view %tmp.31 137 12 17 ];
-        %tmp.31 = getv ? :_view;
-        symbol [ prevMainMenu %tmp.32 137 18 30 ];
-        %tmp.32 = getv function %tmp.31 :prevMainMenu;
-        invoke %tmp.31 %tmp.32();
+        symbol [ _view %tmp.25 137 12 17 ];
+        %tmp.25 = getv ? :_view;
+        symbol [ prevMainMenu %tmp.26 137 18 30 ];
+        %tmp.26 = getv function %tmp.25 :prevMainMenu;
+        invoke %tmp.25 %tmp.26();
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 138 12 ]
-        %tmp.33 = true;
-        ret %tmp.33;
+        %tmp.27 = true;
+        ret %tmp.27;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_136_43_139_8_stop:
         goto @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_136_8_154_8_if_end;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_136_8_154_8_if_false:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 139 15 ]
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_139_15_154_8_if_stmt:
-        %tmp.34 = lgetv %state.1;
-        symbol [ state %tmp.34 139 19 24 ];
-        symbol [ RowerView %tmp.36 139 28 37 ];
-        %tmp.36 = getv ? :RowerView;
-        symbol [ STATE_PIN_INPUT %tmp.37 139 38 53 ];
-        %tmp.37 = getv %tmp.36 :STATE_PIN_INPUT;
-        %tmp.38 = eq %tmp.34 %tmp.37;
-        bf %tmp.38 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_139_15_154_8_if_false;
+        %tmp.28 = lgetv %state.1;
+        symbol [ state %tmp.28 139 19 24 ];
+        symbol [ RowerView %tmp.30 139 28 37 ];
+        %tmp.30 = getv ? :RowerView;
+        symbol [ STATE_PIN_INPUT %tmp.31 139 38 53 ];
+        %tmp.31 = getv %tmp.30 :STATE_PIN_INPUT;
+        %tmp.32 = eq %tmp.28 %tmp.31;
+        bf %tmp.32 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_139_15_154_8_if_false;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_139_15_154_8_if_true:
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_139_55_142_8_start:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 140 12 ]
-        symbol [ _view %tmp.40 140 12 17 ];
-        %tmp.40 = getv ? :_view;
-        symbol [ incrementPinDigit %tmp.41 140 18 35 ];
-        %tmp.41 = getv function %tmp.40 :incrementPinDigit;
-        invoke %tmp.40 %tmp.41();
+        symbol [ _view %tmp.34 140 12 17 ];
+        %tmp.34 = getv ? :_view;
+        symbol [ incrementPinDigit %tmp.35 140 18 35 ];
+        %tmp.35 = getv function %tmp.34 :incrementPinDigit;
+        invoke %tmp.34 %tmp.35();
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 141 12 ]
-        %tmp.42 = true;
-        ret %tmp.42;
+        %tmp.36 = true;
+        ret %tmp.36;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_139_55_142_8_stop:
         goto @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_139_15_154_8_if_end;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_139_15_154_8_if_false:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 142 15 ]
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_142_15_154_8_if_stmt:
-        %tmp.43 = lgetv %state.1;
-        symbol [ state %tmp.43 142 19 24 ];
-        symbol [ RowerView %tmp.45 142 28 37 ];
-        %tmp.45 = getv ? :RowerView;
-        symbol [ STATE_LATE_CHOICE %tmp.46 142 38 55 ];
-        %tmp.46 = getv %tmp.45 :STATE_LATE_CHOICE;
-        %tmp.47 = eq %tmp.43 %tmp.46;
-        bf %tmp.47 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_142_15_154_8_if_false;
+        %tmp.37 = lgetv %state.1;
+        symbol [ state %tmp.37 142 19 24 ];
+        symbol [ RowerView %tmp.39 142 28 37 ];
+        %tmp.39 = getv ? :RowerView;
+        symbol [ STATE_LATE_CHOICE %tmp.40 142 38 55 ];
+        %tmp.40 = getv %tmp.39 :STATE_LATE_CHOICE;
+        %tmp.41 = eq %tmp.37 %tmp.40;
+        bf %tmp.41 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_142_15_154_8_if_false;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_142_15_154_8_if_true:
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_142_57_145_8_start:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 143 12 ]
-        symbol [ _view %tmp.49 143 12 17 ];
-        %tmp.49 = getv ? :_view;
-        symbol [ toggleChoiceMenu %tmp.50 143 18 34 ];
-        %tmp.50 = getv function %tmp.49 :toggleChoiceMenu;
-        invoke %tmp.49 %tmp.50();
+        symbol [ _view %tmp.43 143 12 17 ];
+        %tmp.43 = getv ? :_view;
+        symbol [ toggleChoiceMenu %tmp.44 143 18 34 ];
+        %tmp.44 = getv function %tmp.43 :toggleChoiceMenu;
+        invoke %tmp.43 %tmp.44();
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 144 12 ]
-        %tmp.51 = true;
-        ret %tmp.51;
+        %tmp.45 = true;
+        ret %tmp.45;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_142_57_145_8_stop:
         goto @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_142_15_154_8_if_end;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_142_15_154_8_if_false:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 145 15 ]
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_145_15_154_8_if_stmt:
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_145_19_145_73_begin:
-        %tmp.52 = lgetv %state.1;
-        symbol [ state %tmp.52 145 19 24 ];
-        symbol [ RowerView %tmp.54 145 28 37 ];
-        %tmp.54 = getv ? :RowerView;
-        symbol [ STATE_RACING %tmp.55 145 38 50 ];
-        %tmp.55 = getv %tmp.54 :STATE_RACING;
-        %tmp.56 = eq %tmp.52 %tmp.55;
-        bt %tmp.56 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_145_15_154_8_if_true;
+        %tmp.46 = lgetv %state.1;
+        symbol [ state %tmp.46 145 19 24 ];
+        symbol [ RowerView %tmp.48 145 28 37 ];
+        %tmp.48 = getv ? :RowerView;
+        symbol [ STATE_RACING %tmp.49 145 38 50 ];
+        %tmp.49 = getv %tmp.48 :STATE_RACING;
+        %tmp.50 = eq %tmp.46 %tmp.49;
+        bt %tmp.50 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_145_15_154_8_if_true;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_145_54_145_73_false:
-        %tmp.57 = lgetv %state.1;
-        symbol [ state %tmp.57 145 54 59 ];
-        symbol [ RowerView %tmp.59 145 63 72 ];
-        %tmp.59 = getv ? :RowerView;
-        symbol [ STATE_LATE_JOIN %tmp.60 145 73 88 ];
-        %tmp.60 = getv %tmp.59 :STATE_LATE_JOIN;
-        %tmp.61 = eq %tmp.57 %tmp.60;
-        push %tmp.61;
+        %tmp.51 = lgetv %state.1;
+        symbol [ state %tmp.51 145 54 59 ];
+        symbol [ RowerView %tmp.53 145 63 72 ];
+        %tmp.53 = getv ? :RowerView;
+        symbol [ STATE_LATE_JOIN %tmp.54 145 73 88 ];
+        %tmp.54 = getv %tmp.53 :STATE_LATE_JOIN;
+        %tmp.55 = eq %tmp.51 %tmp.54;
+        push %tmp.55;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_145_54_145_73_end:
-        %tmp.62 = phi [%tmp.56 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_145_19_145_73_begin] [%tmp.61 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_145_54_145_73_false] [%tmp.62 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_145_54_145_73_end];
-        bf %tmp.62 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_145_15_154_8_if_false;
+        %tmp.56 = phi [%tmp.50 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_145_19_145_73_begin] [%tmp.55 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_145_54_145_73_false] [%tmp.56 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_145_54_145_73_end];
+        bf %tmp.56 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_145_15_154_8_if_false;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_145_15_154_8_if_true:
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_145_90_148_8_start:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 146 12 ]
-        symbol [ _view %tmp.64 146 12 17 ];
-        %tmp.64 = getv ? :_view;
-        symbol [ prevRacePage %tmp.65 146 18 30 ];
-        %tmp.65 = getv function %tmp.64 :prevRacePage;
-        invoke %tmp.64 %tmp.65();
+        symbol [ _view %tmp.58 146 12 17 ];
+        %tmp.58 = getv ? :_view;
+        symbol [ prevRacePage %tmp.59 146 18 30 ];
+        %tmp.59 = getv function %tmp.58 :prevRacePage;
+        invoke %tmp.58 %tmp.59();
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 147 12 ]
-        %tmp.66 = true;
-        ret %tmp.66;
+        %tmp.60 = true;
+        ret %tmp.60;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_145_90_148_8_stop:
         goto @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_145_15_154_8_if_end;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_145_15_154_8_if_false:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 148 15 ]
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_148_15_154_8_if_stmt:
-        %tmp.67 = lgetv %state.1;
-        symbol [ state %tmp.67 148 19 24 ];
-        symbol [ RowerView %tmp.69 148 28 37 ];
-        %tmp.69 = getv ? :RowerView;
-        symbol [ STATE_PAUSED %tmp.70 148 38 50 ];
-        %tmp.70 = getv %tmp.69 :STATE_PAUSED;
-        %tmp.71 = eq %tmp.67 %tmp.70;
-        bf %tmp.71 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_148_15_154_8_if_false;
+        %tmp.61 = lgetv %state.1;
+        symbol [ state %tmp.61 148 19 24 ];
+        symbol [ RowerView %tmp.63 148 28 37 ];
+        %tmp.63 = getv ? :RowerView;
+        symbol [ STATE_PAUSED %tmp.64 148 38 50 ];
+        %tmp.64 = getv %tmp.63 :STATE_PAUSED;
+        %tmp.65 = eq %tmp.61 %tmp.64;
+        bf %tmp.65 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_148_15_154_8_if_false;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_148_15_154_8_if_true:
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_148_52_151_8_start:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 149 12 ]
-        symbol [ _view %tmp.73 149 12 17 ];
-        %tmp.73 = getv ? :_view;
-        symbol [ prevPauseMenu %tmp.74 149 18 31 ];
-        %tmp.74 = getv function %tmp.73 :prevPauseMenu;
-        invoke %tmp.73 %tmp.74();
+        symbol [ _view %tmp.67 149 12 17 ];
+        %tmp.67 = getv ? :_view;
+        symbol [ prevPauseMenu %tmp.68 149 18 31 ];
+        %tmp.68 = getv function %tmp.67 :prevPauseMenu;
+        invoke %tmp.67 %tmp.68();
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 150 12 ]
-        %tmp.75 = true;
-        ret %tmp.75;
+        %tmp.69 = true;
+        ret %tmp.69;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_148_52_151_8_stop:
         goto @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_148_15_154_8_if_end;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_148_15_154_8_if_false:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 151 15 ]
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_151_15_154_8_if_stmt:
-        %tmp.76 = lgetv %state.1;
-        symbol [ state %tmp.76 151 19 24 ];
-        symbol [ RowerView %tmp.78 151 28 37 ];
-        %tmp.78 = getv ? :RowerView;
-        symbol [ STATE_FINISHED %tmp.79 151 38 52 ];
-        %tmp.79 = getv %tmp.78 :STATE_FINISHED;
-        %tmp.80 = eq %tmp.76 %tmp.79;
-        bf %tmp.80 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_151_15_154_8_if_end;
+        %tmp.70 = lgetv %state.1;
+        symbol [ state %tmp.70 151 19 24 ];
+        symbol [ RowerView %tmp.72 151 28 37 ];
+        %tmp.72 = getv ? :RowerView;
+        symbol [ STATE_FINISHED %tmp.73 151 38 52 ];
+        %tmp.73 = getv %tmp.72 :STATE_FINISHED;
+        %tmp.74 = eq %tmp.70 %tmp.73;
+        bf %tmp.74 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_151_15_154_8_if_end;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_151_15_154_8_if_true:
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_151_54_154_8_start:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 152 12 ]
-        symbol [ _view %tmp.82 152 12 17 ];
-        %tmp.82 = getv ? :_view;
-        symbol [ nextFinishPage %tmp.83 152 18 32 ];
-        %tmp.83 = getv function %tmp.82 :nextFinishPage;
-        invoke %tmp.82 %tmp.83();
+        symbol [ _view %tmp.76 152 12 17 ];
+        %tmp.76 = getv ? :_view;
+        symbol [ nextFinishPage %tmp.77 152 18 32 ];
+        %tmp.77 = getv function %tmp.76 :nextFinishPage;
+        invoke %tmp.76 %tmp.77();
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 153 12 ]
-        %tmp.84 = true;
-        ret %tmp.84;
+        %tmp.78 = true;
+        ret %tmp.78;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_151_54_154_8_stop:
         goto @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_151_15_154_8_if_end;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_151_15_154_8_if_end:
@@ -1110,8 +1071,8 @@ C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_142_1
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_139_15_154_8_if_end:
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_136_8_154_8_if_end:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 156 8 ]
-        %tmp.85 = false;
-        ret %tmp.85;
+        %tmp.79 = false;
+        ret %tmp.79;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_128_48_157_4_stop:
     }
     [ @file = "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc"; @line = 160; @symbol_functiondef = [onTap,160,20,25]; @symbol_param<0> = [clickEvent,160,26,36]; @symbol_param<0>_type<0> = [ClickEvent,160,40,50]; @symbol_return<0> = [Boolean,160,55,62]; ]
@@ -1193,7 +1154,6 @@ C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_170_4
         symbol [ state %state.1 171 12 17 ];
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 173 8 ]
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_173_8_176_8_if_stmt:
-C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_173_12_173_92_begin:
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_173_12_173_57_begin:
         symbol [ _view %tmp.6 173 12 17 ];
         %tmp.6 = getv ? :_view;
@@ -1206,138 +1166,126 @@ C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_173_3
         symbol [ state %tmp.9 173 38 43 ];
         symbol [ RowerView %tmp.11 173 47 56 ];
         %tmp.11 = getv ? :RowerView;
-        symbol [ STATE_RACING %tmp.12 173 57 69 ];
-        %tmp.12 = getv %tmp.11 :STATE_RACING;
+        symbol [ STATE_COUNTDOWN_5S %tmp.12 173 57 75 ];
+        %tmp.12 = getv %tmp.11 :STATE_COUNTDOWN_5S;
         %tmp.13 = ne %tmp.9 %tmp.12;
         push %tmp.13;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_173_38_173_57_end:
         %tmp.14 = phi [%tmp.8 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_173_12_173_57_begin] [%tmp.13 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_173_38_173_57_true] [%tmp.14 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_173_38_173_57_end];
         bf %tmp.14 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_173_8_176_8_if_end;
-C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_173_73_173_92_true:
-        %tmp.15 = lgetv %state.1;
-        symbol [ state %tmp.15 173 73 78 ];
-        symbol [ RowerView %tmp.17 173 82 91 ];
-        %tmp.17 = getv ? :RowerView;
-        symbol [ STATE_COUNTDOWN_5S %tmp.18 173 92 110 ];
-        %tmp.18 = getv %tmp.17 :STATE_COUNTDOWN_5S;
-        %tmp.19 = ne %tmp.15 %tmp.18;
-        push %tmp.19;
-C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_173_73_173_92_end:
-        %tmp.20 = phi [%tmp.14 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_173_12_173_92_begin] [%tmp.19 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_173_73_173_92_true] [%tmp.20 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_173_73_173_92_end];
-        bf %tmp.20 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_173_8_176_8_if_end;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_173_8_176_8_if_true:
-C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_173_112_176_8_start:
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_173_77_176_8_start:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 174 12 ]
-        symbol [ _bleDelegate %tmp.22 174 12 24 ];
-        %tmp.22 = getv ? :_bleDelegate;
-        symbol [ respondAuth %tmp.23 174 25 36 ];
-        %tmp.23 = getv function %tmp.22 :respondAuth;
-        %tmp.24 = false;
-        invoke %tmp.22 %tmp.23(%tmp.24);
+        symbol [ _bleDelegate %tmp.16 174 12 24 ];
+        %tmp.16 = getv ? :_bleDelegate;
+        symbol [ respondAuth %tmp.17 174 25 36 ];
+        %tmp.17 = getv function %tmp.16 :respondAuth;
+        %tmp.18 = false;
+        invoke %tmp.16 %tmp.17(%tmp.18);
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 175 12 ]
-        %tmp.25 = true;
-        ret %tmp.25;
-C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_173_112_176_8_stop:
+        %tmp.19 = true;
+        ret %tmp.19;
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_173_77_176_8_stop:
         goto @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_173_8_176_8_if_end;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_173_8_176_8_if_end:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 178 8 ]
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_178_8_203_8_if_stmt:
-        %tmp.26 = lgetv %state.1;
-        symbol [ state %tmp.26 178 12 17 ];
-        symbol [ RowerView %tmp.28 178 21 30 ];
-        %tmp.28 = getv ? :RowerView;
-        symbol [ STATE_SCANNING %tmp.29 178 31 45 ];
-        %tmp.29 = getv %tmp.28 :STATE_SCANNING;
-        %tmp.30 = eq %tmp.26 %tmp.29;
-        bf %tmp.30 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_178_8_203_8_if_false;
+        %tmp.20 = lgetv %state.1;
+        symbol [ state %tmp.20 178 12 17 ];
+        symbol [ RowerView %tmp.22 178 21 30 ];
+        %tmp.22 = getv ? :RowerView;
+        symbol [ STATE_SCANNING %tmp.23 178 31 45 ];
+        %tmp.23 = getv %tmp.22 :STATE_SCANNING;
+        %tmp.24 = eq %tmp.20 %tmp.23;
+        bf %tmp.24 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_178_8_203_8_if_false;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_178_8_203_8_if_true:
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_178_47_181_8_start:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 179 12 ]
-        symbol [ _bleDelegate %tmp.32 179 12 24 ];
-        %tmp.32 = getv ? :_bleDelegate;
-        symbol [ disconnect %tmp.33 179 25 35 ];
-        %tmp.33 = getv function %tmp.32 :disconnect;
-        invoke %tmp.32 %tmp.33();
+        symbol [ _bleDelegate %tmp.26 179 12 24 ];
+        %tmp.26 = getv ? :_bleDelegate;
+        symbol [ disconnect %tmp.27 179 25 35 ];
+        %tmp.27 = getv function %tmp.26 :disconnect;
+        invoke %tmp.26 %tmp.27();
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 180 12 ]
-        %tmp.34 = false;
-        ret %tmp.34;
+        %tmp.28 = false;
+        ret %tmp.28;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_178_47_181_8_stop:
         goto @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_178_8_203_8_if_end;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_178_8_203_8_if_false:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 181 15 ]
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_181_15_203_8_if_stmt:
-        %tmp.35 = lgetv %state.1;
-        symbol [ state %tmp.35 181 19 24 ];
-        symbol [ RowerView %tmp.37 181 28 37 ];
-        %tmp.37 = getv ? :RowerView;
-        symbol [ STATE_MENU %tmp.38 181 38 48 ];
-        %tmp.38 = getv %tmp.37 :STATE_MENU;
-        %tmp.39 = eq %tmp.35 %tmp.38;
-        bf %tmp.39 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_181_15_203_8_if_false;
+        %tmp.29 = lgetv %state.1;
+        symbol [ state %tmp.29 181 19 24 ];
+        symbol [ RowerView %tmp.31 181 28 37 ];
+        %tmp.31 = getv ? :RowerView;
+        symbol [ STATE_MENU %tmp.32 181 38 48 ];
+        %tmp.32 = getv %tmp.31 :STATE_MENU;
+        %tmp.33 = eq %tmp.29 %tmp.32;
+        bf %tmp.33 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_181_15_203_8_if_false;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_181_15_203_8_if_true:
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_181_50_184_8_start:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 182 12 ]
-        symbol [ _view %tmp.41 182 12 17 ];
-        %tmp.41 = getv ? :_view;
-        symbol [ setAppState %tmp.42 182 18 29 ];
-        %tmp.42 = getv function %tmp.41 :setAppState;
-        symbol [ RowerView %tmp.44 182 30 39 ];
-        %tmp.44 = getv ? :RowerView;
-        symbol [ STATE_SCANNING %tmp.45 182 40 54 ];
-        %tmp.45 = getv %tmp.44 :STATE_SCANNING;
-        invoke %tmp.41 %tmp.42(%tmp.45);
+        symbol [ _view %tmp.35 182 12 17 ];
+        %tmp.35 = getv ? :_view;
+        symbol [ setAppState %tmp.36 182 18 29 ];
+        %tmp.36 = getv function %tmp.35 :setAppState;
+        symbol [ RowerView %tmp.38 182 30 39 ];
+        %tmp.38 = getv ? :RowerView;
+        symbol [ STATE_SCANNING %tmp.39 182 40 54 ];
+        %tmp.39 = getv %tmp.38 :STATE_SCANNING;
+        invoke %tmp.35 %tmp.36(%tmp.39);
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 183 12 ]
-        %tmp.46 = true;
-        ret %tmp.46;
+        %tmp.40 = true;
+        ret %tmp.40;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_181_50_184_8_stop:
         goto @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_181_15_203_8_if_end;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_181_15_203_8_if_false:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 184 15 ]
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_184_15_203_8_if_stmt:
-        %tmp.47 = lgetv %state.1;
-        symbol [ state %tmp.47 184 19 24 ];
-        symbol [ RowerView %tmp.49 184 28 37 ];
-        %tmp.49 = getv ? :RowerView;
-        symbol [ STATE_PIN_INPUT %tmp.50 184 38 53 ];
-        %tmp.50 = getv %tmp.49 :STATE_PIN_INPUT;
-        %tmp.51 = eq %tmp.47 %tmp.50;
-        bf %tmp.51 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_184_15_203_8_if_false;
+        %tmp.41 = lgetv %state.1;
+        symbol [ state %tmp.41 184 19 24 ];
+        symbol [ RowerView %tmp.43 184 28 37 ];
+        %tmp.43 = getv ? :RowerView;
+        symbol [ STATE_PIN_INPUT %tmp.44 184 38 53 ];
+        %tmp.44 = getv %tmp.43 :STATE_PIN_INPUT;
+        %tmp.45 = eq %tmp.41 %tmp.44;
+        bf %tmp.45 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_184_15_203_8_if_false;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_184_15_203_8_if_true:
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_184_55_190_8_start:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 185 12 ]
         [ "C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_184_55_190_8_start" "C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_184_55_190_8_stop" ]
         %canExit.2 = local;
         symbol [ canExit %canExit.2 185 16 23 ];
-        symbol [ _view %tmp.53 185 26 31 ];
-        %tmp.53 = getv ? :_view;
-        symbol [ backspacePinDigit %tmp.54 185 32 49 ];
-        %tmp.54 = getv function %tmp.53 :backspacePinDigit;
-        %tmp.55 = invoke %tmp.53 %tmp.54();
-        lputv %canExit.2 %tmp.55;
+        symbol [ _view %tmp.47 185 26 31 ];
+        %tmp.47 = getv ? :_view;
+        symbol [ backspacePinDigit %tmp.48 185 32 49 ];
+        %tmp.48 = getv function %tmp.47 :backspacePinDigit;
+        %tmp.49 = invoke %tmp.47 %tmp.48();
+        lputv %canExit.2 %tmp.49;
         symbol [ canExit %canExit.2 185 16 23 ];
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 186 12 ]
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_186_12_188_12_if_stmt:
-        %tmp.56 = lgetv %canExit.2;
-        symbol [ canExit %tmp.56 186 16 23 ];
-        bf %tmp.56 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_186_12_188_12_if_end;
+        %tmp.50 = lgetv %canExit.2;
+        symbol [ canExit %tmp.50 186 16 23 ];
+        bf %tmp.50 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_186_12_188_12_if_end;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_186_12_188_12_if_true:
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_186_25_188_12_start:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 187 16 ]
-        symbol [ _view %tmp.58 187 16 21 ];
-        %tmp.58 = getv ? :_view;
-        symbol [ setAppState %tmp.59 187 22 33 ];
-        %tmp.59 = getv function %tmp.58 :setAppState;
-        symbol [ RowerView %tmp.61 187 34 43 ];
-        %tmp.61 = getv ? :RowerView;
-        symbol [ STATE_MENU %tmp.62 187 44 54 ];
-        %tmp.62 = getv %tmp.61 :STATE_MENU;
-        invoke %tmp.58 %tmp.59(%tmp.62);
+        symbol [ _view %tmp.52 187 16 21 ];
+        %tmp.52 = getv ? :_view;
+        symbol [ setAppState %tmp.53 187 22 33 ];
+        %tmp.53 = getv function %tmp.52 :setAppState;
+        symbol [ RowerView %tmp.55 187 34 43 ];
+        %tmp.55 = getv ? :RowerView;
+        symbol [ STATE_MENU %tmp.56 187 44 54 ];
+        %tmp.56 = getv %tmp.55 :STATE_MENU;
+        invoke %tmp.52 %tmp.53(%tmp.56);
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_186_25_188_12_stop:
         goto @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_186_12_188_12_if_end;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_186_12_188_12_if_end:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 189 12 ]
-        %tmp.63 = true;
-        ret %tmp.63;
+        %tmp.57 = true;
+        ret %tmp.57;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_184_55_190_8_stop:
         goto @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_184_15_203_8_if_end;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_184_15_203_8_if_false:
@@ -1348,168 +1296,168 @@ C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_190_1
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_190_19_191_80_begin:
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_190_19_191_38_begin:
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_190_19_190_78_begin:
-        %tmp.64 = lgetv %state.1;
-        symbol [ state %tmp.64 190 19 24 ];
-        symbol [ RowerView %tmp.66 190 28 37 ];
-        %tmp.66 = getv ? :RowerView;
-        symbol [ STATE_LATE_CHOICE %tmp.67 190 38 55 ];
-        %tmp.67 = getv %tmp.66 :STATE_LATE_CHOICE;
-        %tmp.68 = eq %tmp.64 %tmp.67;
-        bt %tmp.68 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_190_15_203_8_if_true;
+        %tmp.58 = lgetv %state.1;
+        symbol [ state %tmp.58 190 19 24 ];
+        symbol [ RowerView %tmp.60 190 28 37 ];
+        %tmp.60 = getv ? :RowerView;
+        symbol [ STATE_LATE_CHOICE %tmp.61 190 38 55 ];
+        %tmp.61 = getv %tmp.60 :STATE_LATE_CHOICE;
+        %tmp.62 = eq %tmp.58 %tmp.61;
+        bt %tmp.62 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_190_15_203_8_if_true;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_190_59_190_78_false:
+        %tmp.63 = lgetv %state.1;
+        symbol [ state %tmp.63 190 59 64 ];
+        symbol [ RowerView %tmp.65 190 68 77 ];
+        %tmp.65 = getv ? :RowerView;
+        symbol [ STATE_LOBBY %tmp.66 190 78 89 ];
+        %tmp.66 = getv %tmp.65 :STATE_LOBBY;
+        %tmp.67 = eq %tmp.63 %tmp.66;
+        push %tmp.67;
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_190_59_190_78_end:
+        %tmp.68 = phi [%tmp.62 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_190_19_190_78_begin] [%tmp.67 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_190_59_190_78_false] [%tmp.68 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_190_59_190_78_end];
+        bt %tmp.68 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_190_15_203_8_if_true;
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_191_19_191_38_false:
         %tmp.69 = lgetv %state.1;
-        symbol [ state %tmp.69 190 59 64 ];
-        symbol [ RowerView %tmp.71 190 68 77 ];
+        symbol [ state %tmp.69 191 19 24 ];
+        symbol [ RowerView %tmp.71 191 28 37 ];
         %tmp.71 = getv ? :RowerView;
-        symbol [ STATE_LOBBY %tmp.72 190 78 89 ];
-        %tmp.72 = getv %tmp.71 :STATE_LOBBY;
+        symbol [ STATE_WAITING_START %tmp.72 191 38 57 ];
+        %tmp.72 = getv %tmp.71 :STATE_WAITING_START;
         %tmp.73 = eq %tmp.69 %tmp.72;
         push %tmp.73;
-C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_190_59_190_78_end:
-        %tmp.74 = phi [%tmp.68 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_190_19_190_78_begin] [%tmp.73 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_190_59_190_78_false] [%tmp.74 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_190_59_190_78_end];
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_191_19_191_38_end:
+        %tmp.74 = phi [%tmp.68 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_190_19_191_38_begin] [%tmp.73 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_191_19_191_38_false] [%tmp.74 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_191_19_191_38_end];
         bt %tmp.74 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_190_15_203_8_if_true;
-C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_191_19_191_38_false:
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_191_61_191_80_false:
         %tmp.75 = lgetv %state.1;
-        symbol [ state %tmp.75 191 19 24 ];
-        symbol [ RowerView %tmp.77 191 28 37 ];
+        symbol [ state %tmp.75 191 61 66 ];
+        symbol [ RowerView %tmp.77 191 70 79 ];
         %tmp.77 = getv ? :RowerView;
-        symbol [ STATE_WAITING_START %tmp.78 191 38 57 ];
-        %tmp.78 = getv %tmp.77 :STATE_WAITING_START;
+        symbol [ STATE_HISTORY %tmp.78 191 80 93 ];
+        %tmp.78 = getv %tmp.77 :STATE_HISTORY;
         %tmp.79 = eq %tmp.75 %tmp.78;
         push %tmp.79;
-C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_191_19_191_38_end:
-        %tmp.80 = phi [%tmp.74 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_190_19_191_38_begin] [%tmp.79 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_191_19_191_38_false] [%tmp.80 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_191_19_191_38_end];
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_191_61_191_80_end:
+        %tmp.80 = phi [%tmp.74 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_190_19_191_80_begin] [%tmp.79 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_191_61_191_80_false] [%tmp.80 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_191_61_191_80_end];
         bt %tmp.80 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_190_15_203_8_if_true;
-C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_191_61_191_80_false:
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_192_19_192_38_false:
         %tmp.81 = lgetv %state.1;
-        symbol [ state %tmp.81 191 61 66 ];
-        symbol [ RowerView %tmp.83 191 70 79 ];
+        symbol [ state %tmp.81 192 19 24 ];
+        symbol [ RowerView %tmp.83 192 28 37 ];
         %tmp.83 = getv ? :RowerView;
-        symbol [ STATE_HISTORY %tmp.84 191 80 93 ];
-        %tmp.84 = getv %tmp.83 :STATE_HISTORY;
+        symbol [ STATE_FINISHED %tmp.84 192 38 52 ];
+        %tmp.84 = getv %tmp.83 :STATE_FINISHED;
         %tmp.85 = eq %tmp.81 %tmp.84;
         push %tmp.85;
-C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_191_61_191_80_end:
-        %tmp.86 = phi [%tmp.80 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_190_19_191_80_begin] [%tmp.85 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_191_61_191_80_false] [%tmp.86 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_191_61_191_80_end];
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_192_19_192_38_end:
+        %tmp.86 = phi [%tmp.80 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_190_19_192_38_begin] [%tmp.85 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_192_19_192_38_false] [%tmp.86 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_192_19_192_38_end];
         bt %tmp.86 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_190_15_203_8_if_true;
-C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_192_19_192_38_false:
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_192_56_192_75_false:
         %tmp.87 = lgetv %state.1;
-        symbol [ state %tmp.87 192 19 24 ];
-        symbol [ RowerView %tmp.89 192 28 37 ];
+        symbol [ state %tmp.87 192 56 61 ];
+        symbol [ RowerView %tmp.89 192 65 74 ];
         %tmp.89 = getv ? :RowerView;
-        symbol [ STATE_FINISHED %tmp.90 192 38 52 ];
-        %tmp.90 = getv %tmp.89 :STATE_FINISHED;
+        symbol [ STATE_PENDING_APPROVAL %tmp.90 192 75 97 ];
+        %tmp.90 = getv %tmp.89 :STATE_PENDING_APPROVAL;
         %tmp.91 = eq %tmp.87 %tmp.90;
         push %tmp.91;
-C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_192_19_192_38_end:
-        %tmp.92 = phi [%tmp.86 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_190_19_192_38_begin] [%tmp.91 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_192_19_192_38_false] [%tmp.92 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_192_19_192_38_end];
-        bt %tmp.92 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_190_15_203_8_if_true;
-C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_192_56_192_75_false:
-        %tmp.93 = lgetv %state.1;
-        symbol [ state %tmp.93 192 56 61 ];
-        symbol [ RowerView %tmp.95 192 65 74 ];
-        %tmp.95 = getv ? :RowerView;
-        symbol [ STATE_PENDING_APPROVAL %tmp.96 192 75 97 ];
-        %tmp.96 = getv %tmp.95 :STATE_PENDING_APPROVAL;
-        %tmp.97 = eq %tmp.93 %tmp.96;
-        push %tmp.97;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_192_56_192_75_end:
-        %tmp.98 = phi [%tmp.92 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_190_19_192_75_begin] [%tmp.97 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_192_56_192_75_false] [%tmp.98 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_192_56_192_75_end];
-        bf %tmp.98 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_190_15_203_8_if_false;
+        %tmp.92 = phi [%tmp.86 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_190_19_192_75_begin] [%tmp.91 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_192_56_192_75_false] [%tmp.92 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_192_56_192_75_end];
+        bf %tmp.92 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_190_15_203_8_if_false;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_190_15_203_8_if_true:
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_192_99_195_8_start:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 193 12 ]
-        symbol [ _view %tmp.100 193 12 17 ];
-        %tmp.100 = getv ? :_view;
-        symbol [ setAppState %tmp.101 193 18 29 ];
-        %tmp.101 = getv function %tmp.100 :setAppState;
-        symbol [ RowerView %tmp.103 193 30 39 ];
-        %tmp.103 = getv ? :RowerView;
-        symbol [ STATE_MENU %tmp.104 193 40 50 ];
-        %tmp.104 = getv %tmp.103 :STATE_MENU;
-        invoke %tmp.100 %tmp.101(%tmp.104);
+        symbol [ _view %tmp.94 193 12 17 ];
+        %tmp.94 = getv ? :_view;
+        symbol [ setAppState %tmp.95 193 18 29 ];
+        %tmp.95 = getv function %tmp.94 :setAppState;
+        symbol [ RowerView %tmp.97 193 30 39 ];
+        %tmp.97 = getv ? :RowerView;
+        symbol [ STATE_MENU %tmp.98 193 40 50 ];
+        %tmp.98 = getv %tmp.97 :STATE_MENU;
+        invoke %tmp.94 %tmp.95(%tmp.98);
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 194 12 ]
-        %tmp.105 = true;
-        ret %tmp.105;
+        %tmp.99 = true;
+        ret %tmp.99;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_192_99_195_8_stop:
         goto @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_190_15_203_8_if_end;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_190_15_203_8_if_false:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 195 15 ]
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_195_15_203_8_if_stmt:
-        %tmp.106 = lgetv %state.1;
-        symbol [ state %tmp.106 195 19 24 ];
-        symbol [ RowerView %tmp.108 195 28 37 ];
-        %tmp.108 = getv ? :RowerView;
-        symbol [ STATE_COUNTDOWN_5S %tmp.109 195 38 56 ];
-        %tmp.109 = getv %tmp.108 :STATE_COUNTDOWN_5S;
-        %tmp.110 = eq %tmp.106 %tmp.109;
-        bf %tmp.110 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_195_15_203_8_if_false;
+        %tmp.100 = lgetv %state.1;
+        symbol [ state %tmp.100 195 19 24 ];
+        symbol [ RowerView %tmp.102 195 28 37 ];
+        %tmp.102 = getv ? :RowerView;
+        symbol [ STATE_COUNTDOWN_5S %tmp.103 195 38 56 ];
+        %tmp.103 = getv %tmp.102 :STATE_COUNTDOWN_5S;
+        %tmp.104 = eq %tmp.100 %tmp.103;
+        bf %tmp.104 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_195_15_203_8_if_false;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_195_15_203_8_if_true:
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_195_58_197_8_start:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 196 12 ]
-        %tmp.111 = true;
-        ret %tmp.111;
+        %tmp.105 = true;
+        ret %tmp.105;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_195_58_197_8_stop:
         goto @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_195_15_203_8_if_end;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_195_15_203_8_if_false:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 197 15 ]
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_197_15_203_8_if_stmt:
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_197_19_197_73_begin:
-        %tmp.112 = lgetv %state.1;
-        symbol [ state %tmp.112 197 19 24 ];
-        symbol [ RowerView %tmp.114 197 28 37 ];
-        %tmp.114 = getv ? :RowerView;
-        symbol [ STATE_RACING %tmp.115 197 38 50 ];
-        %tmp.115 = getv %tmp.114 :STATE_RACING;
-        %tmp.116 = eq %tmp.112 %tmp.115;
-        bt %tmp.116 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_197_15_203_8_if_true;
+        %tmp.106 = lgetv %state.1;
+        symbol [ state %tmp.106 197 19 24 ];
+        symbol [ RowerView %tmp.108 197 28 37 ];
+        %tmp.108 = getv ? :RowerView;
+        symbol [ STATE_RACING %tmp.109 197 38 50 ];
+        %tmp.109 = getv %tmp.108 :STATE_RACING;
+        %tmp.110 = eq %tmp.106 %tmp.109;
+        bt %tmp.110 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_197_15_203_8_if_true;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_197_54_197_73_false:
-        %tmp.117 = lgetv %state.1;
-        symbol [ state %tmp.117 197 54 59 ];
-        symbol [ RowerView %tmp.119 197 63 72 ];
-        %tmp.119 = getv ? :RowerView;
-        symbol [ STATE_LATE_JOIN %tmp.120 197 73 88 ];
-        %tmp.120 = getv %tmp.119 :STATE_LATE_JOIN;
-        %tmp.121 = eq %tmp.117 %tmp.120;
-        push %tmp.121;
+        %tmp.111 = lgetv %state.1;
+        symbol [ state %tmp.111 197 54 59 ];
+        symbol [ RowerView %tmp.113 197 63 72 ];
+        %tmp.113 = getv ? :RowerView;
+        symbol [ STATE_LATE_JOIN %tmp.114 197 73 88 ];
+        %tmp.114 = getv %tmp.113 :STATE_LATE_JOIN;
+        %tmp.115 = eq %tmp.111 %tmp.114;
+        push %tmp.115;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_197_54_197_73_end:
-        %tmp.122 = phi [%tmp.116 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_197_19_197_73_begin] [%tmp.121 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_197_54_197_73_false] [%tmp.122 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_197_54_197_73_end];
-        bf %tmp.122 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_197_15_203_8_if_false;
+        %tmp.116 = phi [%tmp.110 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_197_19_197_73_begin] [%tmp.115 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_197_54_197_73_false] [%tmp.116 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_197_54_197_73_end];
+        bf %tmp.116 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_197_15_203_8_if_false;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_197_15_203_8_if_true:
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_197_90_200_8_start:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 198 12 ]
-        symbol [ _bleDelegate %tmp.124 198 12 24 ];
-        %tmp.124 = getv ? :_bleDelegate;
-        symbol [ pauseSession %tmp.125 198 25 37 ];
-        %tmp.125 = getv function %tmp.124 :pauseSession;
-        invoke %tmp.124 %tmp.125();
+        symbol [ _bleDelegate %tmp.118 198 12 24 ];
+        %tmp.118 = getv ? :_bleDelegate;
+        symbol [ pauseSession %tmp.119 198 25 37 ];
+        %tmp.119 = getv function %tmp.118 :pauseSession;
+        invoke %tmp.118 %tmp.119();
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 199 12 ]
-        %tmp.126 = true;
-        ret %tmp.126;
+        %tmp.120 = true;
+        ret %tmp.120;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_197_90_200_8_stop:
         goto @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_197_15_203_8_if_end;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_197_15_203_8_if_false:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 200 15 ]
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_200_15_203_8_if_stmt:
-        %tmp.127 = lgetv %state.1;
-        symbol [ state %tmp.127 200 19 24 ];
-        symbol [ RowerView %tmp.129 200 28 37 ];
-        %tmp.129 = getv ? :RowerView;
-        symbol [ STATE_PAUSED %tmp.130 200 38 50 ];
-        %tmp.130 = getv %tmp.129 :STATE_PAUSED;
-        %tmp.131 = eq %tmp.127 %tmp.130;
-        bf %tmp.131 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_200_15_203_8_if_end;
+        %tmp.121 = lgetv %state.1;
+        symbol [ state %tmp.121 200 19 24 ];
+        symbol [ RowerView %tmp.123 200 28 37 ];
+        %tmp.123 = getv ? :RowerView;
+        symbol [ STATE_PAUSED %tmp.124 200 38 50 ];
+        %tmp.124 = getv %tmp.123 :STATE_PAUSED;
+        %tmp.125 = eq %tmp.121 %tmp.124;
+        bf %tmp.125 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_200_15_203_8_if_end;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_200_15_203_8_if_true:
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_200_52_203_8_start:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 201 12 ]
-        symbol [ _bleDelegate %tmp.133 201 12 24 ];
-        %tmp.133 = getv ? :_bleDelegate;
-        symbol [ resumeSession %tmp.134 201 25 38 ];
-        %tmp.134 = getv function %tmp.133 :resumeSession;
-        invoke %tmp.133 %tmp.134();
+        symbol [ _bleDelegate %tmp.127 201 12 24 ];
+        %tmp.127 = getv ? :_bleDelegate;
+        symbol [ resumeSession %tmp.128 201 25 38 ];
+        %tmp.128 = getv function %tmp.127 :resumeSession;
+        invoke %tmp.127 %tmp.128();
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 202 12 ]
-        %tmp.135 = true;
-        ret %tmp.135;
+        %tmp.129 = true;
+        ret %tmp.129;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_200_52_203_8_stop:
         goto @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_200_15_203_8_if_end;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_200_15_203_8_if_end:
@@ -1520,8 +1468,8 @@ C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_184_1
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_181_15_203_8_if_end:
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_178_8_203_8_if_end:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerDelegate.mc" 205 8 ]
-        %tmp.136 = false;
-        ret %tmp.136;
+        %tmp.130 = false;
+        ret %tmp.130;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerDelegate_mc_170_40_206_4_stop:
     }
 }

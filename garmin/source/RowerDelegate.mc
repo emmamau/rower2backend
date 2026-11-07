@@ -18,7 +18,7 @@ class RowerDelegate extends WatchUi.BehaviorDelegate {
         var state = _view.getAppState();
 
         // Priority modal: Web Login Authorization prompt
-        if (_view.hasPendingAuth() && state != RowerView.STATE_RACING && state != RowerView.STATE_COUNTDOWN_5S) {
+        if (_view.hasPendingAuth() && state != RowerView.STATE_COUNTDOWN_5S) {
             _bleDelegate.respondAuth(_view.getAuthMenuIndex() == 0);
             return true;
         }
@@ -92,7 +92,7 @@ class RowerDelegate extends WatchUi.BehaviorDelegate {
     public function onNextPage() as Boolean {
         var state = _view.getAppState();
 
-        if (_view.hasPendingAuth() && state != RowerView.STATE_RACING && state != RowerView.STATE_COUNTDOWN_5S) {
+        if (_view.hasPendingAuth() && state != RowerView.STATE_COUNTDOWN_5S) {
             _view.toggleAuthMenu();
             return true;
         }
@@ -128,7 +128,7 @@ class RowerDelegate extends WatchUi.BehaviorDelegate {
     public function onPreviousPage() as Boolean {
         var state = _view.getAppState();
 
-        if (_view.hasPendingAuth() && state != RowerView.STATE_RACING && state != RowerView.STATE_COUNTDOWN_5S) {
+        if (_view.hasPendingAuth() && state != RowerView.STATE_COUNTDOWN_5S) {
             _view.toggleAuthMenu();
             return true;
         }
@@ -170,7 +170,7 @@ class RowerDelegate extends WatchUi.BehaviorDelegate {
     public function onBack() as Boolean {
         var state = _view.getAppState();
 
-        if (_view.hasPendingAuth() && state != RowerView.STATE_RACING && state != RowerView.STATE_COUNTDOWN_5S) {
+        if (_view.hasPendingAuth() && state != RowerView.STATE_COUNTDOWN_5S) {
             _bleDelegate.respondAuth(false);
             return true;
         }

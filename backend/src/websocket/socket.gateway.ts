@@ -10,6 +10,7 @@ export interface LiveRacerMetric {
   watts: number;
   spm: number;
   heartRate?: number;
+  country?: string;
   status: string;
 }
 
