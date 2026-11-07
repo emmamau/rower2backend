@@ -12,7 +12,7 @@
   <div class="prestart-countdown-overlay" *ngIf="isPreStartCountdown && !is3sCountdown">
     <div class="prestart-countdown-box">
       <div class="prestart-countdown-badge">⏱️ DÉPART DANS</div>
-      <div class="prestart-countdown-number">{{ countdownSeconds }}s</div>
+      <div class="prestart-countdown-number">{{ formattedPreRaceCountdown }}</div>
       <div class="prestart-countdown-sub">Tenez-vous prêts sur vos rameurs !</div>
     </div>
   </div>
@@ -86,7 +86,7 @@
             <div class="timer-display-box" [class.is-running]="nextRaceInfo.status === 'in_progress'">
               <span class="timer-label-sub" *ngIf="nextRaceInfo.status === 'in_progress'">⏱️ Temps restant : </span>
               <span class="timer-digits">
-                {{ activePrivateRoom?.waitingForHost ? i18n.t('STATUS_WAITING_HOST') : (nextRaceInfo.status === 'in_progress' ? formattedGameRemaining : nextRaceInfo.formattedCountdown) }}
+                {{ activePrivateRoom?.waitingForHost ? i18n.t('STATUS_WAITING_HOST') : (nextRaceInfo.status === 'in_progress' ? formattedGameRemaining : formattedPreRaceCountdown) }}
               </span>
             </div>
             <span class="racers-count" [class.has-players]="activeRacersCount > 0">
@@ -1116,7 +1116,7 @@
               🚣 {{ myActivity?.netDistance || 0 }}m / {{ activeTargetDistance }}m ({{ myProgressPercent }}%)
             </span>
             <span class="cockpit-prog-meta">
-              👥 {{ activeRacersCount }} · ⏱️ {{ activePrivateRoom?.waitingForHost ? i18n.t('STATUS_WAITING_HOST') : (nextRaceInfo?.status === 'in_progress' ? ('Fin dans : ' + formattedGameRemaining) : (nextRaceInfo?.formattedCountdown || '00:00')) }}
+              👥 {{ activeRacersCount }} · ⏱️ {{ activePrivateRoom?.waitingForHost ? i18n.t('STATUS_WAITING_HOST') : (nextRaceInfo?.status === 'in_progress' ? ('Fin dans : ' + formattedGameRemaining) : formattedPreRaceCountdown) }}
             </span>
           </div>
           <div class="cockpit-progress-track">
@@ -1377,6 +1377,33 @@
                 <div class="empty-notice">Aucune course précédente enregistrée.</div>
               }
             </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- VUE 2D EN DESSOUS DES CLASSEMENTS ET HISTORIQUES AVEC LES LIGNES D'EAU OÙ LES JOUEURS SONT ENGAGÉS -->
+      <section class="lobby-regatta-preview-section" aria-label="Grille de départ et lignes d'eau engagées">
+        <div class="lobby-preview-card">
+          <div class="panel-header">
+            <div class="panel-title-group">
+              <span class="panel-icon">🛶</span>
+              <h3 class="panel-title">Grille de Départ — Lignes d'eau engagées</h3>
+            </div>
+            <div class="preview-badges-cluster">
+              <span class="panel-badge-target">🎯 Objectif : {{ nextRaceInfo?.race?.targetDistance || 2000 }} m</span>
+              <span class="panel-badge">{{ liveMetricsList.length }} Rameurs engagés</span>
+            </div>
+          </div>
+          <p class="panel-subdesc">
+            Visualisez en direct chaque rameur et bot sur sa ligne d'eau (L1, L2, L3...) prêt pour le départ de la régate.
+          </p>
+
+          <div class="canvas-display-card">
+            <app-regatta-canvas
+              [racers]="liveMetricsList"
+              [targetDistance]="nextRaceInfo?.race?.targetDistance || 2000"
+              [activeUserId]="activeUserId">
+            </app-regatta-canvas>
           </div>
         </div>
       </section>

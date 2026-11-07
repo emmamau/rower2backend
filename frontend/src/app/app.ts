@@ -858,6 +858,13 @@ export class AppComponent implements OnInit, OnDestroy {
     );
   }
 
+  get formattedPreRaceCountdown(): string {
+    const s = Math.max(0, Math.floor(this.countdownSeconds));
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    return `${m}m ${sec < 10 ? '0' : ''}${sec}s`;
+  }
+
   get canStopRace(): boolean {
     if (!this.isRaceActive) return false;
     return this.isUserAdmin || this.isOrganizerOfActiveRoom;
@@ -1433,6 +1440,10 @@ export class AppComponent implements OnInit, OnDestroy {
                         this.nextRaceInfo?.race?.status === 'in_progress';
       if (!isRunning && this.countdownSeconds > 0) {
         this.countdownSeconds--;
+        if (this.nextRaceInfo) {
+          this.nextRaceInfo.secondsRemaining = this.countdownSeconds;
+          this.nextRaceInfo.formattedCountdown = this.formattedPreRaceCountdown;
+        }
         this.syncCountdownUI();
         if (this.countdownSeconds === 0) {
           if (this.nextRaceInfo) {

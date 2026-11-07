@@ -2634,6 +2634,44 @@ input[type="number"]:focus { border-color: var(--neon-cyan); box-shadow: 0 0 10p
 }
 
 /* ==========================================================================
+   LOBBY 2D REGATTA PREVIEW (ENGAGED PLAYERS ON STARTING LANES)
+   ========================================================================== */
+.lobby-regatta-preview-section {
+  inline-size: 100%;
+  margin: 1.2rem 0 1.6rem 0;
+}
+
+.lobby-preview-card {
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.94), rgba(10, 15, 30, 0.92));
+  border: 1.5px solid rgba(0, 240, 255, 0.35);
+  border-radius: 16px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.45), inset 0 0 25px rgba(0, 240, 255, 0.08);
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  min-inline-size: 0;
+  backdrop-filter: blur(10px);
+}
+
+.preview-badges-cluster {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.panel-badge-target {
+  font-size: 0.72rem;
+  font-weight: 800;
+  padding: 0.22rem 0.65rem;
+  border-radius: 20px;
+  background: rgba(255, 230, 0, 0.15);
+  color: var(--neon-yellow);
+  border: 1px solid rgba(255, 230, 0, 0.35);
+  font-family: var(--font-race), monospace;
+}
+
+/* ==========================================================================
    FOOTER PERMANENT (MENTIONS LÉGALES, CGU, RGPD)
    ========================================================================== */
 .app-footer {

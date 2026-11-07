@@ -92,11 +92,11 @@ async function buildPrivateRacePayload(race: RaceState) {
   const remainingSeconds = timing.remainingSeconds;
   const maxDurationSeconds = timing.maxDurationSeconds;
 
-  let formattedCountdown = `${Math.floor(secondsRemaining / 60)}m ${secondsRemaining % 60}s`;
+  let formattedCountdown = `${Math.floor(secondsRemaining / 60)}m ${(secondsRemaining % 60).toString().padStart(2, "0")}s`;
   if (waitingForHost) {
     formattedCountdown = "PRÊT";
   } else if (race.status === "RUNNING") {
-    formattedCountdown = `${Math.floor(remainingSeconds / 60)}m ${remainingSeconds % 60}s`;
+    formattedCountdown = `${Math.floor(remainingSeconds / 60)}m ${(remainingSeconds % 60).toString().padStart(2, "0")}s`;
   } else if (race.status === "COMPLETED") {
     formattedCountdown = "TERMINÉ";
   }
@@ -384,7 +384,7 @@ export class TelemetryController {
       race,
       secondsRemaining: remainingSec,
       pinCode: race.pinCode,
-      formattedCountdown: `${Math.floor(remainingSec / 60)}:${(remainingSec % 60).toString().padStart(2, "0")}`
+      formattedCountdown: `${Math.floor(remainingSec / 60)}m ${(remainingSec % 60).toString().padStart(2, "0")}s`
     });
   }
 

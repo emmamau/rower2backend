@@ -115,9 +115,15 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
     const canvas = this.canvasRef?.nativeElement;
     if (!canvas) return;
 
+    const boatCount = Math.max(1, this.boatsMap.size);
+    const dynamicMinHeight = Math.max(220, Math.min(600, 44 + boatCount * 36));
+    if (wrapper) {
+      wrapper.style.minHeight = `${dynamicMinHeight}px`;
+    }
+
     const dpr = typeof window !== 'undefined' ? Math.min(window.devicePixelRatio || 1, 2.5) : 1;
     const width = Math.max(260, wrapper?.clientWidth || 900);
-    const height = Math.max(150, wrapper?.clientHeight || 240);
+    const height = Math.max(dynamicMinHeight, wrapper?.clientHeight || dynamicMinHeight);
 
     this.cssWidth = width;
     this.cssHeight = height;
@@ -210,11 +216,11 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
     ctx.fillRect(0, 0, w, h);
 
     // 2. River lines & distance marks adapted to mobile/tablet width
-    const marginX = isCompact ? 22 : 52;
+    const marginX = isCompact ? 32 : 62;
     const rightPad = isCompact ? 20 : 34;
     const trackW = Math.max(120, w - marginX - rightPad);
     const boatCount = Math.max(1, this.boatsMap.size);
-    const laneH = Math.min(44, (h - 36) / Math.max(1, Math.min(8, boatCount)));
+    const laneH = Math.min(44, Math.max(26, (h - 40) / boatCount));
 
     const markers = w < 380 ? [0, 0.5, 1.0] : [0, 0.25, 0.5, 0.75, 1.0];
     ctx.strokeStyle = 'rgba(0, 240, 255, 0.16)';
@@ -263,8 +269,15 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
       const progress = Math.min(1.0, Math.max(0, boat.currentDisplayDist / (this.targetDistance || 2000)));
       const x = marginX + trackW * progress;
 
-      // Lane separator
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.06)';
+      // Numéro de ligne d'eau (L1, L2, L3...) dans la marge de gauche
+      const laneNum = boat.lane || (laneIdx + 1);
+      ctx.font = isCompact ? 'bold 9.5px monospace' : 'bold 11px monospace';
+      ctx.fillStyle = boat.userId === this.activeUserId ? '#ffe600' : 'rgba(0, 240, 255, 0.85)';
+      const laneLabel = isCompact ? `L${laneNum}` : `Ligne ${laneNum}`;
+      ctx.fillText(laneLabel, 4, y + 4);
+
+      // Séparateur de ligne d'eau
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
       ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.moveTo(marginX, y + laneH / 2);
