@@ -394,5 +394,66 @@ function testGarminPairingInputAndStateNavigation(logger as Logger) as Boolean {
     return true;
 }
 
+//! Regression test 15: UnifiedCodePickerView and UnifiedCodePickerDelegate
+//! Validates identical behavior across 6-char Pairing ("APPAIRAGE") and 5-char Room PIN ("CODE SALON"),
+//! circular wrap-around (0 <-> Z), prev/next carousel characters, slot dash '_', and backspace/cancel.
+(:test)
+function testUnifiedCodePickerComponent(logger as Logger) as Boolean {
+    var pairingPicker = new UnifiedCodePickerView(6, "APPAIRAGE", null);
+    var roomPicker = new UnifiedCodePickerView(5, "CODE SALON", null);
+
+    Test.assertEqual(6, pairingPicker.getCodeLength());
+    Test.assertEqual("APPAIRAGE", pairingPicker.getScreenTitle());
+    Test.assertEqual(5, roomPicker.getCodeLength());
+    Test.assertEqual("CODE SALON", roomPicker.getScreenTitle());
+
+    // Initial state: slot 0 active ('0'), remaining slots show '_'
+    Test.assertEqual(0, pairingPicker.getCurrentSlot());
+    Test.assertEqual("0", pairingPicker.getCurrentChar());
+    Test.assertEqual("Z", pairingPicker.getPrevChar());
+    Test.assertEqual("1", pairingPicker.getNextChar());
+    Test.assertEqual("0", pairingPicker.getSlotDisplayChar(0));
+    Test.assertEqual("_", pairingPicker.getSlotDisplayChar(1));
+    Test.assertEqual("_", pairingPicker.getSlotDisplayChar(5));
+
+    // Circular wrap-around backward: 0 -> Z
+    var pairingDel = new UnifiedCodePickerDelegate(pairingPicker);
+    pairingDel.onPreviousPage();
+    Test.assertEqual("Z", pairingPicker.getCurrentChar());
+    Test.assertEqual("Y", pairingPicker.getPrevChar());
+    Test.assertEqual("0", pairingPicker.getNextChar());
+
+    // Circular wrap-around forward: Z -> 0 -> 1
+    pairingDel.onNextPage();
+    Test.assertEqual("0", pairingPicker.getCurrentChar());
+    pairingDel.onNextPage();
+    Test.assertEqual("1", pairingPicker.getCurrentChar());
+
+    // Confirm slot 0 ('1') -> advances to slot 1
+    Test.assertEqual(false, pairingPicker.confirmCurrentChar());
+    Test.assertEqual(1, pairingPicker.getCurrentSlot());
+    Test.assertEqual("1", pairingPicker.getSlotDisplayChar(0));
+    Test.assertEqual("0", pairingPicker.getSlotDisplayChar(1));
+    Test.assertEqual("_", pairingPicker.getSlotDisplayChar(2));
+
+    // Backspace from slot 1 -> returns to slot 0 and clears previous character
+    Test.assertEqual(false, pairingPicker.backspaceOrCancel());
+    Test.assertEqual(0, pairingPicker.getCurrentSlot());
+    Test.assertEqual("0", pairingPicker.getCurrentChar());
+
+    // Backspace at slot 0 -> cancels (returns true)
+    Test.assertEqual(true, pairingPicker.backspaceOrCancel());
+
+    // Room picker 5-char completion
+    for (var i = 0; i < 4; i++) {
+        Test.assertEqual(false, roomPicker.confirmCurrentChar());
+    }
+    Test.assertEqual(true, roomPicker.confirmCurrentChar());
+    Test.assertEqual(5, roomPicker.getFormattedCode().length());
+
+    return true;
+}
+
+
 
 

@@ -255,7 +255,7 @@ test('POST /api/rooms/join - Garmin watch join with deviceToken authentication',
   }
 });
 
-test('Instant reactive start for Bot Duel on first stroke (power > 0 or strokeRate > 0)', async () => {
+test('15-second countdown & false start protection (distance forced to 0m during countdown)', async () => {
   const { baseUrl, close } = await createTestServer();
   try {
     const raceManager = RaceManager.getInstance();
@@ -268,7 +268,20 @@ test('Instant reactive start for Bot Duel on first stroke (power > 0 or strokeRa
 
     assert.equal(botDuel.status, 'LOBBY');
 
-    // First stroke received via telemetry
+    // Join via PIN triggers 15-second countdown for Bot Duel
+    const resJoin = await fetch(`${baseUrl}/api/rooms/join`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        pin: botDuel.pinCode,
+        userId: 'solo_challenger',
+        userName: 'SoloChallenger'
+      })
+    });
+    assert.equal(resJoin.status, 200);
+    assert.equal(botDuel.status, 'COUNTDOWN', 'Bot Duel transitions to 15s COUNTDOWN on join');
+
+    // Stroke during 15s countdown -> False start detected, distance forced to 0m
     const resStroke = await fetch(`${baseUrl}/api/v1/telemetry`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -278,7 +291,7 @@ test('Instant reactive start for Bot Duel on first stroke (power > 0 or strokeRa
         userName: 'SoloChallenger',
         seq: 1,
         metrics: {
-          distanceM: 10,
+          distanceM: 15,
           splitSec: 125,
           powerWatts: 240,
           strokeRate: 28
@@ -287,9 +300,121 @@ test('Instant reactive start for Bot Duel on first stroke (power > 0 or strokeRa
     });
     assert.equal(resStroke.status, 200);
     const strokeData = await resStroke.json();
-    assert.equal(strokeData.status, 'RUNNING', 'Race must transition to RUNNING immediately on first stroke');
-    assert.equal(botDuel.status, 'RUNNING');
-    assert.ok(botDuel.startedAt, 'startedAt must be set at the stroke timestamp');
+    assert.equal(strokeData.falseStart, true, 'Must detect false start during countdown');
+    assert.equal(strokeData.soundAlert, 'false_start');
+    assert.equal(strokeData.normDistM, 0, 'Distance must remain at 0m during false start');
+  } finally {
+    await close();
+  }
+});
+
+test('Duel 1v1 automatic 15-second countdown when 2nd player joins, and waiting status messages', async () => {
+  const { baseUrl, close } = await createTestServer();
+  try {
+    const raceManager = RaceManager.getInstance();
+    const duel = raceManager.createPrivateRace({
+      isDuel1v1: true,
+      maxParticipants: 2,
+      targetDistance: 2000,
+      hostUserId: 'duel_host_1',
+      hostUserName: 'DuelHost'
+    });
+
+    // Host checks status while alone -> "En attente de l'adversaire..."
+    const resHost = await fetch(`${baseUrl}/api/rooms/join`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        pin: duel.pinCode,
+        userId: 'duel_host_1'
+      })
+    });
+    assert.equal(resHost.status, 200);
+    const hostData = await resHost.json();
+    assert.equal(hostData.waitingStatusMessage, "En attente de l'adversaire...");
+    assert.equal(duel.status, 'LOBBY');
+
+    // 2nd player joins via PIN -> automatically triggers 15-second countdown!
+    const resGuest = await fetch(`${baseUrl}/api/rooms/join`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        pin: duel.pinCode,
+        userId: 'duel_guest_2'
+      })
+    });
+    assert.equal(resGuest.status, 200);
+    const guestData = await resGuest.json();
+    assert.equal(guestData.lane, 2);
+    assert.equal(duel.status, 'COUNTDOWN', 'Must transition to COUNTDOWN as soon as 2nd player joins 1v1 duel');
+    assert.ok(guestData.waitingStatusMessage.startsWith('Départ dans '), 'Countdown message returned');
+  } finally {
+    await close();
+  }
+});
+
+test('Organizer subscription tier capacity & 410 Gone on completed/running races', async () => {
+  const { baseUrl, close } = await createTestServer();
+  try {
+    const raceManager = RaceManager.getInstance();
+
+    // Create a Free-tier organizer in userStore (max 2 participants total: host + 1 guest)
+    await userStore.createUser({
+      id: 'free_host_org',
+      login: 'free_host_org',
+      name: 'Free Host',
+      email: 'free_host@example.com',
+      password: 'password123',
+      isSubscriber: false,
+      subscriptionTier: 'free'
+    });
+
+    const freeSalon = raceManager.createPrivateRace({
+      targetDistance: 2000,
+      maxParticipants: 8, // Even if room requested 8, organizer free tier limits to 2
+      hostUserId: 'free_host_org',
+      hostUserName: 'Free Host',
+      requireApproval: false
+    });
+
+    // 1st guest joins -> Lane 2 (200 OK)
+    const resG1 = await fetch(`${baseUrl}/api/rooms/join`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        pin: freeSalon.pinCode,
+        userId: 'guest_one'
+      })
+    });
+    assert.equal(resG1.status, 200);
+    const dataG1 = await resG1.json();
+    assert.equal(dataG1.lane, 2);
+    assert.equal(dataG1.waitingStatusMessage, "En attente du signal de départ de l'organisateur...");
+
+    // 2nd guest tries to join -> Exceeds Free organizer capacity (2) -> 409 with exact message
+    const resG2 = await fetch(`${baseUrl}/api/rooms/join`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        pin: freeSalon.pinCode,
+        userId: 'guest_two'
+      })
+    });
+    assert.equal(resG2.status, 409);
+    const dataG2 = await resG2.json();
+    assert.equal(dataG2.error, 'Capacité maximale atteinte pour ce salon');
+
+    // Mark race as COMPLETED -> new join returns 410 Gone
+    freeSalon.status = 'COMPLETED';
+    const resGone = await fetch(`${baseUrl}/api/rooms/join`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        pin: freeSalon.pinCode,
+        userId: 'guest_three'
+      })
+    });
+    assert.equal(resGone.status, 410);
   } finally {
     await close();
   }

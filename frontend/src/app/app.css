@@ -4469,6 +4469,53 @@ body.rigid-viewport {
 /* ==========================================================================
    REGATTA UNIFIED HUD & ZERO-SCROLL VIEWPORT
    ========================================================================== */
+.regatta-waiting-banner {
+  width: 100%;
+  margin-block: 0.25rem 0.4rem;
+  padding: 0.4rem 0.75rem;
+  background: linear-gradient(90deg, rgba(245, 158, 11, 0.16), rgba(6, 13, 29, 0.95), rgba(0, 240, 255, 0.16));
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  border-radius: 8px;
+  box-sizing: border-box;
+  animation: pulse-waiting-glow 2.5s infinite ease-in-out;
+}
+
+@keyframes pulse-waiting-glow {
+  0%, 100% { border-color: rgba(245, 158, 11, 0.4); box-shadow: 0 0 8px rgba(245, 158, 11, 0.15); }
+  50% { border-color: rgba(0, 240, 255, 0.6); box-shadow: 0 0 14px rgba(0, 240, 255, 0.25); }
+}
+
+.rwb-content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.rwb-icon {
+  font-size: 1.1rem;
+}
+
+.rwb-text {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #fbd38d;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.rwb-lane-badge {
+  font-size: 0.75rem;
+  font-weight: 800;
+  padding: 0.15rem 0.45rem;
+  background: rgba(0, 240, 255, 0.2);
+  border: 1px solid rgba(0, 240, 255, 0.5);
+  border-radius: 4px;
+  color: #00f0ff;
+  letter-spacing: 0.05em;
+}
+
 .regatta-unified-hud {
   width: 100%;
   margin-block: 0.35rem;

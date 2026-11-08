@@ -2298,6 +2298,442 @@ C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerPowerTest_mc_376_
     ret %tmp.110;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerPowerTest_mc_358_79_395_0_stop:
 }
+//! Regression test 15: UnifiedCodePickerView and UnifiedCodePickerDelegate
+//! Validates identical behavior across 6-char Pairing ("APPAIRAGE") and 5-char Room PIN ("CODE SALON"),
+//! circular wrap-around (0 <-> Z), prev/next carousel characters, slot dash '_', and backspace/cancel.
+[ @file = "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc"; @line = 401; test = true; @symbol_functiondef = [testUnifiedCodePickerComponent,401,9,39]; @symbol_param<0> = [logger,401,40,46]; @symbol_param<0>_type<0> = [Logger,401,50,56]; @symbol_return<0> = [Boolean,401,61,68]; ]
+function testUnifiedCodePickerComponent(logger as Logger) as Boolean {
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerPowerTest_mc_401_69_455_0_start:
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 402 4 ]
+    [ "C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerPowerTest_mc_401_69_455_0_start" "C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerPowerTest_mc_401_69_455_0_stop" ]
+    %pairingPicker.1 = local;
+    symbol [ pairingPicker %pairingPicker.1 402 8 21 ];
+    symbol [ UnifiedCodePickerView %tmp.4 402 28 49 ];
+    %tmp.4 = getv ? :UnifiedCodePickerView;
+    %tmp.5 = 6;
+    %tmp.6 = "APPAIRAGE";
+    %tmp.7 = null;
+    %tmp.1 = newc %tmp.4 (%tmp.5, %tmp.6, %tmp.7);
+    lputv %pairingPicker.1 %tmp.1;
+    symbol [ pairingPicker %pairingPicker.1 402 8 21 ];
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 403 4 ]
+    [ "C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerPowerTest_mc_401_69_455_0_start" "C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerPowerTest_mc_401_69_455_0_stop" ]
+    %roomPicker.2 = local;
+    symbol [ roomPicker %roomPicker.2 403 8 18 ];
+    symbol [ UnifiedCodePickerView %tmp.11 403 25 46 ];
+    %tmp.11 = getv ? :UnifiedCodePickerView;
+    %tmp.12 = 5;
+    %tmp.13 = "CODE SALON";
+    %tmp.14 = null;
+    %tmp.8 = newc %tmp.11 (%tmp.12, %tmp.13, %tmp.14);
+    lputv %roomPicker.2 %tmp.8;
+    symbol [ roomPicker %roomPicker.2 403 8 18 ];
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 405 4 ]
+    symbol [ Test %tmp.15 405 4 8 ];
+    %tmp.15 = getm $.Toybox.Test;
+    symbol [ assertEqual %tmp.16 405 9 20 ];
+    %tmp.16 = getv function %tmp.15 :assertEqual;
+    %tmp.17 = 6;
+    %tmp.18 = lgetv %pairingPicker.1;
+    symbol [ pairingPicker %tmp.18 405 24 37 ];
+    symbol [ getCodeLength %tmp.19 405 38 51 ];
+    %tmp.19 = getv function %tmp.18 :getCodeLength;
+    %tmp.20 = invoke %tmp.18 %tmp.19();
+    invoke %tmp.15 %tmp.16(%tmp.17, %tmp.20);
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 406 4 ]
+    symbol [ Test %tmp.21 406 4 8 ];
+    %tmp.21 = getm $.Toybox.Test;
+    symbol [ assertEqual %tmp.22 406 9 20 ];
+    %tmp.22 = getv function %tmp.21 :assertEqual;
+    %tmp.23 = "APPAIRAGE";
+    %tmp.24 = lgetv %pairingPicker.1;
+    symbol [ pairingPicker %tmp.24 406 34 47 ];
+    symbol [ getScreenTitle %tmp.25 406 48 62 ];
+    %tmp.25 = getv function %tmp.24 :getScreenTitle;
+    %tmp.26 = invoke %tmp.24 %tmp.25();
+    invoke %tmp.21 %tmp.22(%tmp.23, %tmp.26);
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 407 4 ]
+    symbol [ Test %tmp.27 407 4 8 ];
+    %tmp.27 = getm $.Toybox.Test;
+    symbol [ assertEqual %tmp.28 407 9 20 ];
+    %tmp.28 = getv function %tmp.27 :assertEqual;
+    %tmp.29 = 5;
+    %tmp.30 = lgetv %roomPicker.2;
+    symbol [ roomPicker %tmp.30 407 24 34 ];
+    symbol [ getCodeLength %tmp.31 407 35 48 ];
+    %tmp.31 = getv function %tmp.30 :getCodeLength;
+    %tmp.32 = invoke %tmp.30 %tmp.31();
+    invoke %tmp.27 %tmp.28(%tmp.29, %tmp.32);
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 408 4 ]
+    symbol [ Test %tmp.33 408 4 8 ];
+    %tmp.33 = getm $.Toybox.Test;
+    symbol [ assertEqual %tmp.34 408 9 20 ];
+    %tmp.34 = getv function %tmp.33 :assertEqual;
+    %tmp.35 = "CODE SALON";
+    %tmp.36 = lgetv %roomPicker.2;
+    symbol [ roomPicker %tmp.36 408 35 45 ];
+    symbol [ getScreenTitle %tmp.37 408 46 60 ];
+    %tmp.37 = getv function %tmp.36 :getScreenTitle;
+    %tmp.38 = invoke %tmp.36 %tmp.37();
+    invoke %tmp.33 %tmp.34(%tmp.35, %tmp.38);
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 411 4 ]
+    symbol [ Test %tmp.39 411 4 8 ];
+    %tmp.39 = getm $.Toybox.Test;
+    symbol [ assertEqual %tmp.40 411 9 20 ];
+    %tmp.40 = getv function %tmp.39 :assertEqual;
+    %tmp.41 = 0;
+    %tmp.42 = lgetv %pairingPicker.1;
+    symbol [ pairingPicker %tmp.42 411 24 37 ];
+    symbol [ getCurrentSlot %tmp.43 411 38 52 ];
+    %tmp.43 = getv function %tmp.42 :getCurrentSlot;
+    %tmp.44 = invoke %tmp.42 %tmp.43();
+    invoke %tmp.39 %tmp.40(%tmp.41, %tmp.44);
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 412 4 ]
+    symbol [ Test %tmp.45 412 4 8 ];
+    %tmp.45 = getm $.Toybox.Test;
+    symbol [ assertEqual %tmp.46 412 9 20 ];
+    %tmp.46 = getv function %tmp.45 :assertEqual;
+    %tmp.47 = "0";
+    %tmp.48 = lgetv %pairingPicker.1;
+    symbol [ pairingPicker %tmp.48 412 26 39 ];
+    symbol [ getCurrentChar %tmp.49 412 40 54 ];
+    %tmp.49 = getv function %tmp.48 :getCurrentChar;
+    %tmp.50 = invoke %tmp.48 %tmp.49();
+    invoke %tmp.45 %tmp.46(%tmp.47, %tmp.50);
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 413 4 ]
+    symbol [ Test %tmp.51 413 4 8 ];
+    %tmp.51 = getm $.Toybox.Test;
+    symbol [ assertEqual %tmp.52 413 9 20 ];
+    %tmp.52 = getv function %tmp.51 :assertEqual;
+    %tmp.53 = "Z";
+    %tmp.54 = lgetv %pairingPicker.1;
+    symbol [ pairingPicker %tmp.54 413 26 39 ];
+    symbol [ getPrevChar %tmp.55 413 40 51 ];
+    %tmp.55 = getv function %tmp.54 :getPrevChar;
+    %tmp.56 = invoke %tmp.54 %tmp.55();
+    invoke %tmp.51 %tmp.52(%tmp.53, %tmp.56);
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 414 4 ]
+    symbol [ Test %tmp.57 414 4 8 ];
+    %tmp.57 = getm $.Toybox.Test;
+    symbol [ assertEqual %tmp.58 414 9 20 ];
+    %tmp.58 = getv function %tmp.57 :assertEqual;
+    %tmp.59 = "1";
+    %tmp.60 = lgetv %pairingPicker.1;
+    symbol [ pairingPicker %tmp.60 414 26 39 ];
+    symbol [ getNextChar %tmp.61 414 40 51 ];
+    %tmp.61 = getv function %tmp.60 :getNextChar;
+    %tmp.62 = invoke %tmp.60 %tmp.61();
+    invoke %tmp.57 %tmp.58(%tmp.59, %tmp.62);
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 415 4 ]
+    symbol [ Test %tmp.63 415 4 8 ];
+    %tmp.63 = getm $.Toybox.Test;
+    symbol [ assertEqual %tmp.64 415 9 20 ];
+    %tmp.64 = getv function %tmp.63 :assertEqual;
+    %tmp.65 = "0";
+    %tmp.66 = lgetv %pairingPicker.1;
+    symbol [ pairingPicker %tmp.66 415 26 39 ];
+    symbol [ getSlotDisplayChar %tmp.67 415 40 58 ];
+    %tmp.67 = getv function %tmp.66 :getSlotDisplayChar;
+    %tmp.68 = 0;
+    %tmp.69 = invoke %tmp.66 %tmp.67(%tmp.68);
+    invoke %tmp.63 %tmp.64(%tmp.65, %tmp.69);
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 416 4 ]
+    symbol [ Test %tmp.70 416 4 8 ];
+    %tmp.70 = getm $.Toybox.Test;
+    symbol [ assertEqual %tmp.71 416 9 20 ];
+    %tmp.71 = getv function %tmp.70 :assertEqual;
+    %tmp.72 = "_";
+    %tmp.73 = lgetv %pairingPicker.1;
+    symbol [ pairingPicker %tmp.73 416 26 39 ];
+    symbol [ getSlotDisplayChar %tmp.74 416 40 58 ];
+    %tmp.74 = getv function %tmp.73 :getSlotDisplayChar;
+    %tmp.75 = 1;
+    %tmp.76 = invoke %tmp.73 %tmp.74(%tmp.75);
+    invoke %tmp.70 %tmp.71(%tmp.72, %tmp.76);
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 417 4 ]
+    symbol [ Test %tmp.77 417 4 8 ];
+    %tmp.77 = getm $.Toybox.Test;
+    symbol [ assertEqual %tmp.78 417 9 20 ];
+    %tmp.78 = getv function %tmp.77 :assertEqual;
+    %tmp.79 = "_";
+    %tmp.80 = lgetv %pairingPicker.1;
+    symbol [ pairingPicker %tmp.80 417 26 39 ];
+    symbol [ getSlotDisplayChar %tmp.81 417 40 58 ];
+    %tmp.81 = getv function %tmp.80 :getSlotDisplayChar;
+    %tmp.82 = 5;
+    %tmp.83 = invoke %tmp.80 %tmp.81(%tmp.82);
+    invoke %tmp.77 %tmp.78(%tmp.79, %tmp.83);
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 420 4 ]
+    [ "C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerPowerTest_mc_401_69_455_0_start" "C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerPowerTest_mc_401_69_455_0_stop" ]
+    %pairingDel.3 = local;
+    symbol [ pairingDel %pairingDel.3 420 8 18 ];
+    symbol [ UnifiedCodePickerDelegate %tmp.87 420 25 50 ];
+    %tmp.87 = getv ? :UnifiedCodePickerDelegate;
+    %tmp.88 = lgetv %pairingPicker.1;
+    symbol [ pairingPicker %tmp.88 420 51 64 ];
+    %tmp.84 = newc %tmp.87 (%tmp.88);
+    lputv %pairingDel.3 %tmp.84;
+    symbol [ pairingDel %pairingDel.3 420 8 18 ];
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 421 4 ]
+    %tmp.89 = lgetv %pairingDel.3;
+    symbol [ pairingDel %tmp.89 421 4 14 ];
+    symbol [ onPreviousPage %tmp.90 421 15 29 ];
+    %tmp.90 = getv function %tmp.89 :onPreviousPage;
+    invoke %tmp.89 %tmp.90();
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 422 4 ]
+    symbol [ Test %tmp.91 422 4 8 ];
+    %tmp.91 = getm $.Toybox.Test;
+    symbol [ assertEqual %tmp.92 422 9 20 ];
+    %tmp.92 = getv function %tmp.91 :assertEqual;
+    %tmp.93 = "Z";
+    %tmp.94 = lgetv %pairingPicker.1;
+    symbol [ pairingPicker %tmp.94 422 26 39 ];
+    symbol [ getCurrentChar %tmp.95 422 40 54 ];
+    %tmp.95 = getv function %tmp.94 :getCurrentChar;
+    %tmp.96 = invoke %tmp.94 %tmp.95();
+    invoke %tmp.91 %tmp.92(%tmp.93, %tmp.96);
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 423 4 ]
+    symbol [ Test %tmp.97 423 4 8 ];
+    %tmp.97 = getm $.Toybox.Test;
+    symbol [ assertEqual %tmp.98 423 9 20 ];
+    %tmp.98 = getv function %tmp.97 :assertEqual;
+    %tmp.99 = "Y";
+    %tmp.100 = lgetv %pairingPicker.1;
+    symbol [ pairingPicker %tmp.100 423 26 39 ];
+    symbol [ getPrevChar %tmp.101 423 40 51 ];
+    %tmp.101 = getv function %tmp.100 :getPrevChar;
+    %tmp.102 = invoke %tmp.100 %tmp.101();
+    invoke %tmp.97 %tmp.98(%tmp.99, %tmp.102);
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 424 4 ]
+    symbol [ Test %tmp.103 424 4 8 ];
+    %tmp.103 = getm $.Toybox.Test;
+    symbol [ assertEqual %tmp.104 424 9 20 ];
+    %tmp.104 = getv function %tmp.103 :assertEqual;
+    %tmp.105 = "0";
+    %tmp.106 = lgetv %pairingPicker.1;
+    symbol [ pairingPicker %tmp.106 424 26 39 ];
+    symbol [ getNextChar %tmp.107 424 40 51 ];
+    %tmp.107 = getv function %tmp.106 :getNextChar;
+    %tmp.108 = invoke %tmp.106 %tmp.107();
+    invoke %tmp.103 %tmp.104(%tmp.105, %tmp.108);
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 427 4 ]
+    %tmp.109 = lgetv %pairingDel.3;
+    symbol [ pairingDel %tmp.109 427 4 14 ];
+    symbol [ onNextPage %tmp.110 427 15 25 ];
+    %tmp.110 = getv function %tmp.109 :onNextPage;
+    invoke %tmp.109 %tmp.110();
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 428 4 ]
+    symbol [ Test %tmp.111 428 4 8 ];
+    %tmp.111 = getm $.Toybox.Test;
+    symbol [ assertEqual %tmp.112 428 9 20 ];
+    %tmp.112 = getv function %tmp.111 :assertEqual;
+    %tmp.113 = "0";
+    %tmp.114 = lgetv %pairingPicker.1;
+    symbol [ pairingPicker %tmp.114 428 26 39 ];
+    symbol [ getCurrentChar %tmp.115 428 40 54 ];
+    %tmp.115 = getv function %tmp.114 :getCurrentChar;
+    %tmp.116 = invoke %tmp.114 %tmp.115();
+    invoke %tmp.111 %tmp.112(%tmp.113, %tmp.116);
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 429 4 ]
+    %tmp.117 = lgetv %pairingDel.3;
+    symbol [ pairingDel %tmp.117 429 4 14 ];
+    symbol [ onNextPage %tmp.118 429 15 25 ];
+    %tmp.118 = getv function %tmp.117 :onNextPage;
+    invoke %tmp.117 %tmp.118();
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 430 4 ]
+    symbol [ Test %tmp.119 430 4 8 ];
+    %tmp.119 = getm $.Toybox.Test;
+    symbol [ assertEqual %tmp.120 430 9 20 ];
+    %tmp.120 = getv function %tmp.119 :assertEqual;
+    %tmp.121 = "1";
+    %tmp.122 = lgetv %pairingPicker.1;
+    symbol [ pairingPicker %tmp.122 430 26 39 ];
+    symbol [ getCurrentChar %tmp.123 430 40 54 ];
+    %tmp.123 = getv function %tmp.122 :getCurrentChar;
+    %tmp.124 = invoke %tmp.122 %tmp.123();
+    invoke %tmp.119 %tmp.120(%tmp.121, %tmp.124);
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 433 4 ]
+    symbol [ Test %tmp.125 433 4 8 ];
+    %tmp.125 = getm $.Toybox.Test;
+    symbol [ assertEqual %tmp.126 433 9 20 ];
+    %tmp.126 = getv function %tmp.125 :assertEqual;
+    %tmp.127 = false;
+    %tmp.128 = lgetv %pairingPicker.1;
+    symbol [ pairingPicker %tmp.128 433 28 41 ];
+    symbol [ confirmCurrentChar %tmp.129 433 42 60 ];
+    %tmp.129 = getv function %tmp.128 :confirmCurrentChar;
+    %tmp.130 = invoke %tmp.128 %tmp.129();
+    invoke %tmp.125 %tmp.126(%tmp.127, %tmp.130);
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 434 4 ]
+    symbol [ Test %tmp.131 434 4 8 ];
+    %tmp.131 = getm $.Toybox.Test;
+    symbol [ assertEqual %tmp.132 434 9 20 ];
+    %tmp.132 = getv function %tmp.131 :assertEqual;
+    %tmp.133 = 1;
+    %tmp.134 = lgetv %pairingPicker.1;
+    symbol [ pairingPicker %tmp.134 434 24 37 ];
+    symbol [ getCurrentSlot %tmp.135 434 38 52 ];
+    %tmp.135 = getv function %tmp.134 :getCurrentSlot;
+    %tmp.136 = invoke %tmp.134 %tmp.135();
+    invoke %tmp.131 %tmp.132(%tmp.133, %tmp.136);
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 435 4 ]
+    symbol [ Test %tmp.137 435 4 8 ];
+    %tmp.137 = getm $.Toybox.Test;
+    symbol [ assertEqual %tmp.138 435 9 20 ];
+    %tmp.138 = getv function %tmp.137 :assertEqual;
+    %tmp.139 = "1";
+    %tmp.140 = lgetv %pairingPicker.1;
+    symbol [ pairingPicker %tmp.140 435 26 39 ];
+    symbol [ getSlotDisplayChar %tmp.141 435 40 58 ];
+    %tmp.141 = getv function %tmp.140 :getSlotDisplayChar;
+    %tmp.142 = 0;
+    %tmp.143 = invoke %tmp.140 %tmp.141(%tmp.142);
+    invoke %tmp.137 %tmp.138(%tmp.139, %tmp.143);
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 436 4 ]
+    symbol [ Test %tmp.144 436 4 8 ];
+    %tmp.144 = getm $.Toybox.Test;
+    symbol [ assertEqual %tmp.145 436 9 20 ];
+    %tmp.145 = getv function %tmp.144 :assertEqual;
+    %tmp.146 = "0";
+    %tmp.147 = lgetv %pairingPicker.1;
+    symbol [ pairingPicker %tmp.147 436 26 39 ];
+    symbol [ getSlotDisplayChar %tmp.148 436 40 58 ];
+    %tmp.148 = getv function %tmp.147 :getSlotDisplayChar;
+    %tmp.149 = 1;
+    %tmp.150 = invoke %tmp.147 %tmp.148(%tmp.149);
+    invoke %tmp.144 %tmp.145(%tmp.146, %tmp.150);
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 437 4 ]
+    symbol [ Test %tmp.151 437 4 8 ];
+    %tmp.151 = getm $.Toybox.Test;
+    symbol [ assertEqual %tmp.152 437 9 20 ];
+    %tmp.152 = getv function %tmp.151 :assertEqual;
+    %tmp.153 = "_";
+    %tmp.154 = lgetv %pairingPicker.1;
+    symbol [ pairingPicker %tmp.154 437 26 39 ];
+    symbol [ getSlotDisplayChar %tmp.155 437 40 58 ];
+    %tmp.155 = getv function %tmp.154 :getSlotDisplayChar;
+    %tmp.156 = 2;
+    %tmp.157 = invoke %tmp.154 %tmp.155(%tmp.156);
+    invoke %tmp.151 %tmp.152(%tmp.153, %tmp.157);
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 440 4 ]
+    symbol [ Test %tmp.158 440 4 8 ];
+    %tmp.158 = getm $.Toybox.Test;
+    symbol [ assertEqual %tmp.159 440 9 20 ];
+    %tmp.159 = getv function %tmp.158 :assertEqual;
+    %tmp.160 = false;
+    %tmp.161 = lgetv %pairingPicker.1;
+    symbol [ pairingPicker %tmp.161 440 28 41 ];
+    symbol [ backspaceOrCancel %tmp.162 440 42 59 ];
+    %tmp.162 = getv function %tmp.161 :backspaceOrCancel;
+    %tmp.163 = invoke %tmp.161 %tmp.162();
+    invoke %tmp.158 %tmp.159(%tmp.160, %tmp.163);
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 441 4 ]
+    symbol [ Test %tmp.164 441 4 8 ];
+    %tmp.164 = getm $.Toybox.Test;
+    symbol [ assertEqual %tmp.165 441 9 20 ];
+    %tmp.165 = getv function %tmp.164 :assertEqual;
+    %tmp.166 = 0;
+    %tmp.167 = lgetv %pairingPicker.1;
+    symbol [ pairingPicker %tmp.167 441 24 37 ];
+    symbol [ getCurrentSlot %tmp.168 441 38 52 ];
+    %tmp.168 = getv function %tmp.167 :getCurrentSlot;
+    %tmp.169 = invoke %tmp.167 %tmp.168();
+    invoke %tmp.164 %tmp.165(%tmp.166, %tmp.169);
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 442 4 ]
+    symbol [ Test %tmp.170 442 4 8 ];
+    %tmp.170 = getm $.Toybox.Test;
+    symbol [ assertEqual %tmp.171 442 9 20 ];
+    %tmp.171 = getv function %tmp.170 :assertEqual;
+    %tmp.172 = "0";
+    %tmp.173 = lgetv %pairingPicker.1;
+    symbol [ pairingPicker %tmp.173 442 26 39 ];
+    symbol [ getCurrentChar %tmp.174 442 40 54 ];
+    %tmp.174 = getv function %tmp.173 :getCurrentChar;
+    %tmp.175 = invoke %tmp.173 %tmp.174();
+    invoke %tmp.170 %tmp.171(%tmp.172, %tmp.175);
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 445 4 ]
+    symbol [ Test %tmp.176 445 4 8 ];
+    %tmp.176 = getm $.Toybox.Test;
+    symbol [ assertEqual %tmp.177 445 9 20 ];
+    %tmp.177 = getv function %tmp.176 :assertEqual;
+    %tmp.178 = true;
+    %tmp.179 = lgetv %pairingPicker.1;
+    symbol [ pairingPicker %tmp.179 445 27 40 ];
+    symbol [ backspaceOrCancel %tmp.180 445 41 58 ];
+    %tmp.180 = getv function %tmp.179 :backspaceOrCancel;
+    %tmp.181 = invoke %tmp.179 %tmp.180();
+    invoke %tmp.176 %tmp.177(%tmp.178, %tmp.181);
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 448 4 ]
+    for @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerPowerTest_mc_448_4_450_4_for_test @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerPowerTest_mc_448_4_450_4_for_incr @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerPowerTest_mc_448_4_450_4_for_end;
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerPowerTest_mc_448_4_450_4_for_init:
+    [ "C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerPowerTest_mc_448_4_450_4_for_begin" "C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerPowerTest_mc_448_4_450_4_for_end" ]
+    %i.4 = local;
+    symbol [ i %i.4 448 13 14 ];
+    %tmp.182 = 0;
+    lputv %i.4 %tmp.182;
+    symbol [ i %i.4 448 13 14 ];
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerPowerTest_mc_448_4_450_4_for_test:
+    %tmp.183 = lgetv %i.4;
+    symbol [ i %tmp.183 448 20 21 ];
+    %tmp.184 = 4;
+    %tmp.185 = lt %tmp.183 %tmp.184;
+    bf %tmp.185 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerPowerTest_mc_448_4_450_4_for_end;
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerPowerTest_mc_448_4_450_4_for_begin:
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerPowerTest_mc_448_32_450_4_start:
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 449 8 ]
+    symbol [ Test %tmp.186 449 8 12 ];
+    %tmp.186 = getm $.Toybox.Test;
+    symbol [ assertEqual %tmp.187 449 13 24 ];
+    %tmp.187 = getv function %tmp.186 :assertEqual;
+    %tmp.188 = false;
+    %tmp.189 = lgetv %roomPicker.2;
+    symbol [ roomPicker %tmp.189 449 32 42 ];
+    symbol [ confirmCurrentChar %tmp.190 449 43 61 ];
+    %tmp.190 = getv function %tmp.189 :confirmCurrentChar;
+    %tmp.191 = invoke %tmp.189 %tmp.190();
+    invoke %tmp.186 %tmp.187(%tmp.188, %tmp.191);
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerPowerTest_mc_448_32_450_4_stop:
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerPowerTest_mc_448_4_450_4_for_incr:
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 448 ]
+    %tmp.194 = lgetv %i.4;
+    symbol [ i %tmp.194 448 27 28 ];
+    %tmp.195 = add %tmp.194 1;
+    lputv %i.4 %tmp.195;
+    symbol [ i %i.4 448 27 28 ];
+    goto @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerPowerTest_mc_448_4_450_4_for_test;
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerPowerTest_mc_448_4_450_4_for_end:
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 451 4 ]
+    symbol [ Test %tmp.196 451 4 8 ];
+    %tmp.196 = getm $.Toybox.Test;
+    symbol [ assertEqual %tmp.197 451 9 20 ];
+    %tmp.197 = getv function %tmp.196 :assertEqual;
+    %tmp.198 = true;
+    %tmp.199 = lgetv %roomPicker.2;
+    symbol [ roomPicker %tmp.199 451 27 37 ];
+    symbol [ confirmCurrentChar %tmp.200 451 38 56 ];
+    %tmp.200 = getv function %tmp.199 :confirmCurrentChar;
+    %tmp.201 = invoke %tmp.199 %tmp.200();
+    invoke %tmp.196 %tmp.197(%tmp.198, %tmp.201);
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 452 4 ]
+    symbol [ Test %tmp.202 452 4 8 ];
+    %tmp.202 = getm $.Toybox.Test;
+    symbol [ assertEqual %tmp.203 452 9 20 ];
+    %tmp.203 = getv function %tmp.202 :assertEqual;
+    %tmp.204 = 5;
+    %tmp.205 = lgetv %roomPicker.2;
+    symbol [ roomPicker %tmp.205 452 24 34 ];
+    symbol [ getFormattedCode %tmp.206 452 35 51 ];
+    %tmp.206 = getv function %tmp.205 :getFormattedCode;
+    %tmp.207 = invoke %tmp.205 %tmp.206();
+    symbol [ length %tmp.208 452 54 60 ];
+    %tmp.208 = getv function %tmp.207 :length;
+    %tmp.209 = invoke %tmp.207 %tmp.208();
+    invoke %tmp.202 %tmp.203(%tmp.204, %tmp.209);
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 454 4 ]
+    %tmp.210 = true;
+    ret %tmp.210;
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerPowerTest_mc_401_69_455_0_stop:
+}
 [ @file = "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc"; @line = 1; ]
 <init> {
 }

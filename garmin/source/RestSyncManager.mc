@@ -324,6 +324,7 @@ class RestSyncManager {
         var endpoint = getBaseUrl() + "/api/rooms/join";
         var devToken = UserManager.getDeviceToken();
         var payload = {
+            "pin" => code,
             "code" => code,
             "userId" => userId,
             "userName" => userName

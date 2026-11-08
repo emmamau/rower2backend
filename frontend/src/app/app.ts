@@ -2725,6 +2725,25 @@ export class AppComponent implements OnInit, OnDestroy {
       this.privateUpdateSub.unsubscribe();
     }
     this.privateUpdateSub = this.socketService.onPrivateRoomUpdate().subscribe((update) => {
+      // Si la montre liée ou l'utilisateur actif vient de rejoindre le salon via PIN
+      const currentActiveId = this.activeUserId || this.currentUser?.id || this.guestSessionId;
+      const assignedLaneVal = Number(update?.['lane'] || 0);
+      if (update && update.type === 'PARTICIPANT_JOINED' && update.userId && (update.userId === currentActiveId || update.userId === this.currentUser?.id)) {
+        if (assignedLaneVal > 0) {
+          this.myAssignedLane = assignedLaneVal;
+        }
+        if (!this.activePrivateRoom || (this.activePrivateRoom.race?.id !== update.raceId && this.activePrivateRoom.code !== update.raceId)) {
+          this.rowerService.getPrivateRace(update.raceId).subscribe({
+            next: (room: PrivateRacePayload) => {
+              (room as any).lane = assignedLaneVal || this.myAssignedLane;
+              this.activatePrivateRoom(room, false);
+              this.setSiteView('regatta');
+              this.cdr.markForCheck();
+            }
+          });
+        }
+      }
+
       if (this.activePrivateRoom && (update.raceId === this.activePrivateRoom.race?.id || update.raceId === this.activePrivateRoom.code)) {
         this.pollActiveRaceSource().subscribe((data) => {
           if (data) {
@@ -2888,6 +2907,54 @@ export class AppComponent implements OnInit, OnDestroy {
         this.initGameLoop();
       }
     });
+  }
+
+  getWaitingStatusText(): string {
+    const race = this.activePrivateRoom?.race || (this.nextRaceInfo as any)?.race || (this.nextRaceInfo as any);
+    if (!race && !this.activePrivateRoom) {
+      return '';
+    }
+    const status = this.nextRaceInfo?.status || race?.status;
+    if (status === 'in_progress') {
+      return 'Course en cours';
+    }
+    if (status === 'finished' || status === 'completed') {
+      return 'Course terminée';
+    }
+    if (this.isPreStartCountdown || this.is3sCountdown || status === 'countdown') {
+      return `Départ dans ${this.formattedPreRaceCountdown}`;
+    }
+    const isDuel = Boolean(race?.isDuel1v1 || (this.activePrivateRoom as any)?.isDuel1v1);
+    if (isDuel) {
+      const pCount = (this.activePrivateRoom as any)?.participants?.length || (this.activePrivateRoom as any)?.totalParticipants || 0;
+      if (pCount < 2) {
+        return "En attente de l'adversaire...";
+      }
+      return "Adversaire connecté - Préparez-vous";
+    }
+    const isBot = Boolean(race?.isBotDuel || (this.activePrivateRoom as any)?.isBotDuel);
+    if (isBot) {
+      return "En attente du départ contre le bot...";
+    }
+    const isScheduled = race?.startMode === 'scheduled' || (this.activePrivateRoom as any)?.startMode === 'scheduled';
+    if (isScheduled) {
+      const scheduledTime = race?.scheduledStartTime || (this.activePrivateRoom as any)?.scheduledStartTime;
+      if (scheduledTime) {
+        const d = new Date(scheduledTime);
+        const ms = d.getTime() - Date.now();
+        const min = Math.max(0, Math.ceil(ms / 60000));
+        const pad = (n: number) => n.toString().padStart(2, '0');
+        const hh = pad(d.getHours());
+        const mm = pad(d.getMinutes());
+        if (min > 0) {
+          return `Départ prévu dans ${min} min / à ${hh}:${mm}`;
+        } else {
+          return `Départ prévu à ${hh}:${mm}`;
+        }
+      }
+      return 'Départ programmé...';
+    }
+    return "En attente du signal de départ de l'organisateur...";
   }
 
   private activatePrivateRoom(room: PrivateRacePayload, pushHistory: boolean): void {

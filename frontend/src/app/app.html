@@ -258,7 +258,7 @@
                 <span class="timer-label-sub" *ngIf="nextRaceInfo.status === 'in_progress'">⏱️ Temps restant : </span>
                 <span class="timer-label-sub" *ngIf="nextRaceInfo.status === 'post_race_pause'">⏸️ Pause : </span>
                 <span class="timer-digits">
-                  {{ activePrivateRoom?.waitingForHost ? i18n.t('STATUS_WAITING_HOST') : (nextRaceInfo.status === 'in_progress' ? formattedGameRemaining : formattedPreRaceCountdown) }}
+                  {{ activePrivateRoom ? getWaitingStatusText() : (nextRaceInfo.status === 'in_progress' ? formattedGameRemaining : formattedPreRaceCountdown) }}
                 </span>
               </div>
               <span class="racers-count" [class.has-players]="activeRacersCount > 0">
@@ -1551,6 +1551,15 @@
           </div>
         </div>
       </section>
+
+      <!-- BANDEAU DE STATUT D'ATTENTE DE SALON PRIVÉ / DUEL / PROGRAMMÉ -->
+      <aside class="regatta-waiting-banner" *ngIf="activePrivateRoom && nextRaceInfo?.status !== 'in_progress' && nextRaceInfo?.status !== 'finished'" role="status" aria-live="polite">
+        <div class="rwb-content">
+          <span class="rwb-icon">⏳</span>
+          <span class="rwb-text">{{ getWaitingStatusText() }}</span>
+          <span class="rwb-lane-badge" *ngIf="myAssignedLane > 0">Ligne {{ myAssignedLane }}</span>
+        </div>
+      </aside>
 
       <!-- HUD TÉLÉMÉTRIE UNIFIÉ RÉGATE (PUISSANCE, ALLURE, CADENCE, DISTANCE, CHRONO - ZÉRO SCROLL) -->
       <section class="regatta-unified-hud" aria-label="Télémétrie de bord en direct">

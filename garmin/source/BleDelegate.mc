@@ -961,13 +961,7 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
             }
 
             var isRowing = (_model.strokeRate > 0 || _model.instantPower > 0);
-            // Mode "Duel contre un Bot" : Départ réactif instantané ("Go" automatique) au premier coup de rame
-            if (_isBotDuel) {
-                if (isRowing) {
-                    handleRaceStartTrigger(view, true);
-                    return;
-                }
-            } else if (cd <= 15 && cd > 0) {
+            if (cd <= 15 && cd > 0) {
                 if (isRowing) {
                     view.setFalseStartLocked(true);
                     view.showWarning(I18n.getText("WARN_FALSE_START"), 2);
@@ -1812,10 +1806,18 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
             assignedLane = data.get("lane") as Number;
         }
 
+        var waitingMsg = "";
+        if (data.hasKey("waitingStatusMessage") && data.get("waitingStatusMessage") != null) {
+            waitingMsg = data.get("waitingStatusMessage").toString();
+        }
+
         triggerApprovalVibe();
 
         if (_view != null) {
             (_view as RowerView).setAssignedLane(assignedLane);
+            if (waitingMsg.length() > 0) {
+                (_view as RowerView).setWaitingStatusMessage(waitingMsg);
+            }
             (_view as RowerView).showWarning("Ligne " + assignedLane, 2);
         }
 
@@ -1881,12 +1883,16 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
                 msg = "Complet";
             } else if (responseCode == 403) {
                 msg = "Acces refuse";
+            } else if (responseCode == 410) {
+                msg = "Termine";
             } else if (responseCode == 401) {
                 msg = "Non appaire";
             } else if (data != null && data instanceof Dictionary && (data as Dictionary).hasKey("error")) {
                 var errStr = (data as Dictionary).get("error").toString();
-                if (errStr.find("Complet") != null || errStr.find("quota") != null) {
+                if (errStr.find("Complet") != null || errStr.find("quota") != null || errStr.find("Capacité") != null) {
                     msg = "Complet";
+                } else if (errStr.find("terminé") != null || errStr.find("lancée") != null) {
+                    msg = "Termine";
                 } else if (errStr.find("réservé") != null || errStr.find("refusé") != null || errStr.find("requis") != null) {
                     msg = "Acces refuse";
                 } else {

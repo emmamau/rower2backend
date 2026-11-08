@@ -206,7 +206,7 @@ export class TelemetryController {
         prevTime
       );
 
-      const actualDistance = validation.sanitizedDistance;
+      let actualDistance = validation.sanitizedDistance;
       const actualPower = validation.sanitizedPower;
       const actualSplit = validation.sanitizedSplit;
       const actualSpm = validation.sanitizedSpm;
@@ -229,28 +229,18 @@ export class TelemetryController {
 
       const matchedRace = raceManager.getRaceById(raceId) || raceManager.getCurrentPublicRace();
       const targetDist = matchedRace?.targetDistance || Number(body.targetDistance) || 2000;
-      const isFinished = effectiveDistance >= targetDist;
-      const activityStatus = body.status === "abandoned" ? "abandoned" : (isFinished ? "finished" : "in_progress");
-
-      // Mode "Duel contre un Bot" : Départ réactif instantané ("Go" automatique) au premier coup de rame
-      if (matchedRace && matchedRace.isBotDuel && (matchedRace.status === "LOBBY" || matchedRace.status === "COUNTDOWN")) {
-        if (actualPower > 0 || actualSpm > 0) {
-          const startNow = new Date();
-          matchedRace.status = "RUNNING";
-          matchedRace.autoStart = true;
-          matchedRace.startedAt = startNow;
-          matchedRace.endedAt = undefined;
-          matchedRace.lobbyEndsAt = startNow;
-          try {
-            await Races.update({ status: "in_progress", startTime: startNow }, { where: { id: matchedRace.id } });
-            await Activities.update(
-              { status: "in_progress" },
-              { where: { activityId: matchedRace.id, status: "waiting" } }
-            );
-          } catch {}
-          socketGateway.broadcastRaceStatus(matchedRace.id, "RUNNING", { startedAt: startNow });
+      // Procédure de départ arrêté : alerte sonore/vibratoire et distance à 0 m en cas de faux départ pendant les 15 s
+      let falseStartDetected = false;
+      if (matchedRace && (matchedRace.status === "COUNTDOWN" || matchedRace.status === "LOBBY")) {
+        if (actualDistance > 0 || actualPower > 0 || actualSpm > 0) {
+          falseStartDetected = true;
+          actualDistance = 0;
+          effectiveDistance = 0;
         }
       }
+
+      const isFinished = effectiveDistance >= targetDist;
+      const activityStatus = body.status === "abandoned" ? "abandoned" : (isFinished ? "finished" : "in_progress");
 
       const user = await userStore.findUser(String(userId));
       const country = user?.country || user?.pays || (await IpGeoService.resolveCountryFromRequest(req));
@@ -458,6 +448,8 @@ export class TelemetryController {
         fairnessNotice: "La distance est normalisée selon la formule Concept2 basée sur votre puissance en Watts pour garantir l'égalité sportive entre tous les modèles de rameurs.",
         watchModel,
         rowerModel,
+        falseStart: falseStartDetected,
+        soundAlert: falseStartDetected ? "false_start" : undefined,
         status: (matchedRace?.status === "RUNNING" ? "RUNNING" : matchedRace?.status) || "RUNNING"
       });
     } catch (err: unknown) {
@@ -765,7 +757,7 @@ export class TelemetryController {
       const outcome = raceManager.startOrResetPrivateRace(identifier, {
         hostUserId,
         isAdmin,
-        countdownSeconds: countdownSeconds !== undefined ? Number(countdownSeconds) : 10,
+        countdownSeconds: countdownSeconds !== undefined ? Number(countdownSeconds) : 15,
         reset: Boolean(reset),
         targetDistance: targetDistance !== undefined ? Number(targetDistance) : undefined
       });

@@ -14,8 +14,8 @@ class RunNoEvil extends Test.Test {
     function initialize() {
         Test.Test.initialize();
         logger = new Test.Logger();
-        idToName = new [14];
-        populate_test_entries_0_to_14();
+        idToName = new [15];
+        populate_test_entries_0_to_15();
     }
 
     function getIndexOf(name as String) as Number {
@@ -41,7 +41,7 @@ class RunNoEvil extends Test.Test {
         return idToName.size();
     }
 
-    function populate_test_entries_0_to_14() as Void {
+    function populate_test_entries_0_to_15() as Void {
         idToName[0] = "testFtmsSplitContinuationPreservesWatts";
         idToName[1] = "testFtmsZeroWattsFlagDerivesPowerFromPace";
         idToName[2] = "testSmartRowFirstStrokeOrderPreservesWatts";
@@ -56,9 +56,10 @@ class RunNoEvil extends Test.Test {
         idToName[11] = "testSmartRowPreambleNoiseDelimiterReassembly";
         idToName[12] = "testSmartRowDefragmentationBufferResetOnConnect";
         idToName[13] = "testGarminPairingInputAndStateNavigation";
+        idToName[14] = "testUnifiedCodePickerComponent";
     }
 
-    function evaluate_test_entries_0_to_14(id as Number, logger as Logger) {
+    function evaluate_test_entries_0_to_15(id as Number, logger as Logger) {
         var result = false;
         if (id == 0) {
             result = $.testFtmsSplitContinuationPreservesWatts(logger);
@@ -88,6 +89,8 @@ class RunNoEvil extends Test.Test {
             result = $.testSmartRowDefragmentationBufferResetOnConnect(logger);
         } else if (id == 13) {
             result = $.testGarminPairingInputAndStateNavigation(logger);
+        } else if (id == 14) {
+            result = $.testUnifiedCodePickerComponent(logger);
         }
 
         return result;
@@ -101,8 +104,8 @@ class RunNoEvil extends Test.Test {
 
         assertMessage(id >= 0, "Could not find '" + test + "'");
         var result = false;
-        if (id < 14) {
-            result = self.evaluate_test_entries_0_to_14(id, logger);
+        if (id < 15) {
+            result = self.evaluate_test_entries_0_to_15(id, logger);
         }
 
         if (result instanceof Boolean) {

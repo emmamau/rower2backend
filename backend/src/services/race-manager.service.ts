@@ -47,12 +47,50 @@ export interface RaceState {
   hostParticipates?: boolean;
   requiredLeague?: string;
   requiresSubscription?: boolean;
+  organizerCapacity?: number;
   totalParticipants?: number;
   createdAt?: Date;
   requireApproval?: boolean;
   participants?: Map<string, PrivateParticipantInfo>;
   pendingParticipants?: Map<string, PrivateParticipantInfo>;
   rejectedParticipants?: Set<string>;
+}
+
+export function getWaitingStatusMessage(race: RaceState, now: Date = new Date()): string {
+  if (race.status === "RUNNING") {
+    return "Course en cours";
+  }
+  if (race.status === "COMPLETED" || race.status === "ABANDONED") {
+    return "Course terminée";
+  }
+  if (race.status === "COUNTDOWN") {
+    const sec = Math.max(0, Math.ceil((race.lobbyEndsAt.getTime() - now.getTime()) / 1000));
+    return `Départ dans ${sec}s`;
+  }
+  if (race.isDuel1v1) {
+    const count = race.participants ? race.participants.size : 0;
+    if (count < 2) {
+      return "En attente de l'adversaire...";
+    }
+    return "Adversaire connecté - Préparez-vous";
+  }
+  if (race.isBotDuel) {
+    return "En attente du départ contre le bot...";
+  }
+  if (race.startMode === "scheduled" && race.scheduledStartTime) {
+    const msUntilStart = race.scheduledStartTime.getTime() - now.getTime();
+    const minUntilStart = Math.max(0, Math.ceil(msUntilStart / 60000));
+    const pad = (n: number) => n.toString().padStart(2, "0");
+    const d = new Date(race.scheduledStartTime);
+    const hh = pad(d.getHours());
+    const mm = pad(d.getMinutes());
+    if (minUntilStart > 0) {
+      return `Départ prévu dans ${minUntilStart} min / à ${hh}:${mm}`;
+    } else {
+      return `Départ prévu à ${hh}:${mm}`;
+    }
+  }
+  return "En attente du signal de départ de l'organisateur...";
 }
 
 export interface RaceTiming {
@@ -1249,6 +1287,10 @@ export class RaceManager {
       return { error: "Votre demande de participation a été refusée par l'hôte.", statusCode: 403, rejected: true };
     }
 
+    if (race.status === "COMPLETED" || race.status === "ABANDONED") {
+      return { error: "Ce salon est déjà terminé.", statusCode: 410 };
+    }
+
     const alreadyApproved = race.participants.has(cleanUserId);
     const isHost = Boolean(cleanUserId && race.hostUserId && cleanUserId === race.hostUserId);
 
@@ -1268,9 +1310,18 @@ export class RaceManager {
       return { error: "Salon complet - quota atteint", statusCode: 409 };
     }
 
+    // Contrôle de la jauge maximale permise par l'abonnement de l'organisateur
+    if (!alreadyApproved && !isHost && race.organizerCapacity && race.participants.size >= race.organizerCapacity) {
+      return { error: "Capacité maximale atteinte pour ce salon", statusCode: 409 };
+    }
+
     // 3. Salon Régate Multijoueur / Privé standard : contrôle quota maximum de lignes d'eau
     if (!alreadyApproved && race.participants.size >= race.maxParticipants) {
       return { error: "Salon complet - quota atteint", statusCode: 409 };
+    }
+
+    if (race.status === "RUNNING" && !alreadyApproved && !isHost) {
+      return { error: "Cette course a déjà été lancée.", statusCode: 410 };
     }
 
     // 4. Contrôle du profil du joueur et prérequis (niveau de ligue, abonnement)
@@ -1336,6 +1387,31 @@ export class RaceManager {
     race.totalParticipants = Math.max(race.totalParticipants || 0, race.participants.size);
     if (race.pinCode) {
       this.pinToRaceMap.set(race.pinCode.toUpperCase(), { raceId: race.id, lane: assignedLane });
+    }
+
+    // 4. Logiques de départ avec décompte impératif de 15 secondes
+    // Duel 1v1 Joueur vs Joueur : déclenchement automatique du décompte de 15 s dès que le 2e joueur (invité) valide son PIN et rejoint sa ligne
+    if (isDuel1v1 && race.participants.size === 2 && race.status === "LOBBY") {
+      const startNow = new Date();
+      race.status = "COUNTDOWN";
+      race.autoStart = true;
+      race.lobbyEndsAt = new Date(startNow.getTime() + 15 * 1000);
+      socketGateway.broadcastRaceStatus(race.id, "COUNTDOWN", {
+        lobbyEndsAt: race.lobbyEndsAt,
+        countdownSeconds: 15
+      });
+    }
+
+    // Duel 1v1 Bot : dès validation ou entrée sur le plan d'eau, décompte 15 s immédiat, départ simultané humain + bot à T=0
+    if (race.isBotDuel && race.status === "LOBBY") {
+      const startNow = new Date();
+      race.status = "COUNTDOWN";
+      race.autoStart = true;
+      race.lobbyEndsAt = new Date(startNow.getTime() + 15 * 1000);
+      socketGateway.broadcastRaceStatus(race.id, "COUNTDOWN", {
+        lobbyEndsAt: race.lobbyEndsAt,
+        countdownSeconds: 15
+      });
     }
 
     return { race, lane: assignedLane, alreadyJoined: alreadyApproved, pending: false };

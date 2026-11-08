@@ -331,6 +331,30 @@ module I18n {
         }
 
         // --- G4: LOBBY & WAITING ROOM ---
+        if (key.equals("WAITING_OPPONENT")) {
+            if (_currentLang == LANG_FR) { return "En attente de l'adversaire..."; }
+            if (_currentLang == LANG_DE) { return "Warte auf Gegner..."; }
+            if (_currentLang == LANG_ES) { return "Esperando al rival..."; }
+            if (_currentLang == LANG_IT) { return "In attesa dell'avversario..."; }
+            if (_currentLang == LANG_PT) { return "Aguardando adversario..."; }
+            return "Waiting for opponent...";
+        }
+        if (key.equals("WAITING_HOST_SIGNAL")) {
+            if (_currentLang == LANG_FR) { return "En attente du signal de depart..."; }
+            if (_currentLang == LANG_DE) { return "Warte auf Startsignal..."; }
+            if (_currentLang == LANG_ES) { return "Esperando senal de salida..."; }
+            if (_currentLang == LANG_IT) { return "In attesa del segnale di partenza..."; }
+            if (_currentLang == LANG_PT) { return "Aguardando sinal de largada..."; }
+            return "Waiting for start signal...";
+        }
+        if (key.equals("WAITING_SCHEDULED")) {
+            if (_currentLang == LANG_FR) { return "Depart programme..."; }
+            if (_currentLang == LANG_DE) { return "Geplanter Start..."; }
+            if (_currentLang == LANG_ES) { return "Salida programada..."; }
+            if (_currentLang == LANG_IT) { return "Partenza programmata..."; }
+            if (_currentLang == LANG_PT) { return "Largada programada..."; }
+            return "Scheduled start...";
+        }
         if (key.equals("LOBBY_TITLE")) {
             if (_currentLang == LANG_FR) { return "DEPART DANS"; }
             if (_currentLang == LANG_DE) { return "START IN"; }

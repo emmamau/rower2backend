@@ -11,6 +11,16 @@ class RowerDelegate extends WatchUi.BehaviorDelegate {
         BehaviorDelegate.initialize();
         _bleDelegate = bleDelegate;
         _view = view;
+        _view.setPairingCompletedCallback(method(:onPairingCodeCompleted));
+        _view.setRoomPinCompletedCallback(method(:onRoomPinCompleted));
+    }
+
+    public function onPairingCodeCompleted(code as String) as Void {
+        _bleDelegate.submitPairingCode(code);
+    }
+
+    public function onRoomPinCompleted(pin as String) as Void {
+        _bleDelegate.submitPinCode(pin);
     }
 
     // Handles START / SELECT button
@@ -53,10 +63,7 @@ class RowerDelegate extends WatchUi.BehaviorDelegate {
             }
             return true;
         } else if (state == RowerView.STATE_PAIRING_INPUT) {
-            var finished = _view.advancePairingSlot();
-            if (finished) {
-                _bleDelegate.submitPairingCode(_view.getFormattedPairingCode());
-            }
+            _view.advancePairingSlot();
             return true;
         } else if (state == RowerView.STATE_PAIRING_STATUS) {
             var pStatusIdx = _view.getPairingStatusMenuIndex();
@@ -80,10 +87,7 @@ class RowerDelegate extends WatchUi.BehaviorDelegate {
             }
             return true;
         } else if (state == RowerView.STATE_PIN_INPUT) {
-            var finished = _view.advancePinDigit();
-            if (finished) {
-                _bleDelegate.submitPinCode(_view.getFormattedPin());
-            }
+            _view.advancePinDigit();
             return true;
         } else if (state == RowerView.STATE_LOBBY || state == RowerView.STATE_WAITING_START) {
             _bleDelegate.launchRaceFromWaiting();
@@ -194,6 +198,37 @@ class RowerDelegate extends WatchUi.BehaviorDelegate {
         if (state == RowerView.STATE_SCANNING && _bleDelegate.getModel().isConnected()) {
             _view.setAppState(RowerView.STATE_MENU);
             return true;
+        } else if (state == RowerView.STATE_PAIRING_INPUT) {
+            _view.advancePairingSlot();
+            return true;
+        } else if (state == RowerView.STATE_PIN_INPUT) {
+            _view.advancePinDigit();
+            return true;
+        }
+        return false;
+    }
+
+    // Handles touchscreen swipe gestures (Swipe UP = previous char, Swipe DOWN = next char)
+    public function onSwipe(swipeEvent as SwipeEvent) as Boolean {
+        var state = _view.getAppState();
+        if (state == RowerView.STATE_PAIRING_INPUT) {
+            var dir = swipeEvent.getDirection();
+            if (dir == WatchUi.SWIPE_UP) {
+                _view.cyclePairingChar(-1);
+                return true;
+            } else if (dir == WatchUi.SWIPE_DOWN) {
+                _view.cyclePairingChar(1);
+                return true;
+            }
+        } else if (state == RowerView.STATE_PIN_INPUT) {
+            var dir2 = swipeEvent.getDirection();
+            if (dir2 == WatchUi.SWIPE_UP) {
+                _view.cyclePinDigit(-1);
+                return true;
+            } else if (dir2 == WatchUi.SWIPE_DOWN) {
+                _view.cyclePinDigit(1);
+                return true;
+            }
         }
         return false;
     }

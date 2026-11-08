@@ -38,14 +38,6 @@ class RowerView extends WatchUi.View {
     private static const COL_ALERT     = Graphics.COLOR_RED;
     private static const COL_PILL_BG   = Graphics.COLOR_DK_BLUE;
 
-    // Alphanumeric character set for 5-char PIN codes (0..9 + A..Z = 36 chars)
-    private static const PIN_CHARSET as Array<String> = [
-        "0","1","2","3","4","5","6","7","8","9",
-        "A","B","C","D","E","F","G","H","I","J",
-        "K","L","M","N","O","P","Q","R","S","T",
-        "U","V","W","X","Y","Z"
-    ];
-
     private var _model as RowerDataModel;
     private var _currentState as Number = STATE_SCANNING;
 
@@ -56,17 +48,17 @@ class RowerView extends WatchUi.View {
     private var _racePage as Number = 0;        // 0 = Main 2x2 Race Grid, 1 = Gaps & Averages 2x2 Grid
     private var _finishPage as Number = 0;      // 0 = Finish Stats 2x2 Grid, 1 = Official Top 3 Podium
 
-    // G3 PIN Input state (5 alphanumeric characters)
-    private var _pinIndices as Array<Number> = [0, 0, 0, 0, 0];
-    private var _pinCurrentDigitIdx as Number = 0;
+    // Composant unifié de saisie (Appairage 6 caractères & Salon Privé 5 caractères)
+    private var _pairingPicker as UnifiedCodePickerView;
+    private var _roomPinPicker as UnifiedCodePickerView;
     private var _assignedLane as Number = 1;
 
-    // Garmin Pairing 6-character Code State
-    private var _pairingIndices as Array<Number> = [0, 0, 0, 0, 0, 0];
-    private var _pairingCurrentSlot as Number = 0;
+    // Garmin Pairing Result & Status State
     private var _pairingSuccess as Boolean = false;
     private var _pairingResultMessage as String = "";
     private var _pairingStatusMenuIndex as Number = 0;
+    private var _pairingCompletedCallback as Method? = null;
+    private var _roomPinCompletedCallback as Method? = null;
 
     // G5 5-second countdown
     private var _countdown5sValue as Number = 5;
@@ -103,12 +95,15 @@ class RowerView extends WatchUi.View {
     private var _userTotalPlayers as Number = 1;
     private var _userLastRank as Number = 0;
     private var _userBestRank as Number = 0;
+    private var _waitingStatusMessage as String = "";
 
     public function initialize(model as RowerDataModel) {
         View.initialize();
         _model = model;
         _userId = UserManager.getUserId();
         I18n.init();
+        _pairingPicker = new UnifiedCodePickerView(6, "APPAIRAGE", method(:onPairingCodeCompleted));
+        _roomPinPicker = new UnifiedCodePickerView(5, "CODE SALON", method(:onRoomPinCompleted));
         // Appairage prioritaire au lancement : si non appairé, basculer immédiatement vers la saisie du code OTP 6 caractères
         if (!UserManager.isPaired()) {
             _currentState = STATE_PAIRING_INPUT;
@@ -116,6 +111,34 @@ class RowerView extends WatchUi.View {
         } else {
             _currentState = STATE_SCANNING;
         }
+    }
+
+    public function setPairingCompletedCallback(cb as Method?) as Void {
+        _pairingCompletedCallback = cb;
+    }
+
+    public function setRoomPinCompletedCallback(cb as Method?) as Void {
+        _roomPinCompletedCallback = cb;
+    }
+
+    public function onPairingCodeCompleted(code as String) as Void {
+        if (_pairingCompletedCallback != null) {
+            (_pairingCompletedCallback as Method).invoke(code);
+        }
+    }
+
+    public function onRoomPinCompleted(pin as String) as Void {
+        if (_roomPinCompletedCallback != null) {
+            (_roomPinCompletedCallback as Method).invoke(pin);
+        }
+    }
+
+    public function getPairingPicker() as UnifiedCodePickerView {
+        return _pairingPicker;
+    }
+
+    public function getRoomPinPicker() as UnifiedCodePickerView {
+        return _roomPinPicker;
     }
 
     public function setAppState(state as Number) as Void {
@@ -312,100 +335,75 @@ class RowerView extends WatchUi.View {
         WatchUi.requestUpdate();
     }
 
+    public function setWaitingStatusMessage(msg as String) as Void {
+        _waitingStatusMessage = msg;
+        WatchUi.requestUpdate();
+    }
+
+    public function getWaitingStatusMessage() as String {
+        return _waitingStatusMessage;
+    }
+
     public function getAssignedLane() as Number {
         return _assignedLane;
     }
 
-    // PIN helpers (5 alphanumeric characters 0..9 and A..Z)
+    // PIN helpers (5 alphanumeric characters 0..9 and A..Z via UnifiedCodePickerView)
     public function cyclePinDigit(delta as Number) as Void {
-        var count = PIN_CHARSET.size();
-        _pinIndices[_pinCurrentDigitIdx] = (_pinIndices[_pinCurrentDigitIdx] + delta + count) % count;
-        WatchUi.requestUpdate();
+        _roomPinPicker.cycleChar(delta);
     }
 
     public function incrementPinDigit() as Void {
-        cyclePinDigit(1);
+        _roomPinPicker.cycleChar(1);
     }
 
     public function decrementPinDigit() as Void {
-        cyclePinDigit(-1);
+        _roomPinPicker.cycleChar(-1);
     }
 
     public function advancePinDigit() as Boolean {
-        if (_pinCurrentDigitIdx < 4) {
-            _pinCurrentDigitIdx++;
-            WatchUi.requestUpdate();
-            return false;
-        }
-        return true;
+        return _roomPinPicker.confirmCurrentChar();
     }
 
     public function backspacePinDigit() as Boolean {
-        if (_pinCurrentDigitIdx > 0) {
-            _pinCurrentDigitIdx--;
-            WatchUi.requestUpdate();
-            return false;
-        }
-        return true;
+        return _roomPinPicker.backspaceOrCancel();
     }
 
     public function resetPinDigits() as Void {
-        _pinIndices = [0, 0, 0, 0, 0];
-        _pinCurrentDigitIdx = 0;
+        _roomPinPicker.reset();
     }
 
     public function getFormattedPin() as String {
-        var res = "";
-        for (var i = 0; i < 5; i++) {
-            res += PIN_CHARSET[_pinIndices[i]];
-        }
-        return res;
+        return _roomPinPicker.getFormattedCode();
     }
 
-    // Garmin Pairing 6-char Code Helpers
+    // Garmin Pairing 6-char Code Helpers (via UnifiedCodePickerView)
     public function advancePairingSlot() as Boolean {
-        if (_pairingCurrentSlot < 5) {
-            _pairingCurrentSlot++;
-            WatchUi.requestUpdate();
-            return false;
-        }
-        return true;
+        return _pairingPicker.confirmCurrentChar();
     }
 
     public function backspacePairingSlot() as Boolean {
-        if (_pairingCurrentSlot > 0) {
-            _pairingCurrentSlot--;
-            WatchUi.requestUpdate();
-            return false;
-        }
-        return true;
+        return _pairingPicker.backspaceOrCancel();
     }
 
     public function cyclePairingChar(delta as Number) as Void {
-        var count = PIN_CHARSET.size();
-        _pairingIndices[_pairingCurrentSlot] = (_pairingIndices[_pairingCurrentSlot] + delta + count) % count;
-        WatchUi.requestUpdate();
+        _pairingPicker.cycleChar(delta);
     }
 
     public function resetPairingDigits() as Void {
-        _pairingIndices = [0, 0, 0, 0, 0, 0];
-        _pairingCurrentSlot = 0;
+        _pairingPicker.reset();
     }
 
     public function getPairingLength() as Number {
-        return _pairingIndices.size();
+        return _pairingPicker.getCodeLength();
     }
 
     public function getCurrentPairingSlotChar() as String {
-        return PIN_CHARSET[_pairingIndices[_pairingCurrentSlot]];
+        return _pairingPicker.getCurrentChar();
     }
 
     public function getFormattedPairingCode() as String {
-        var res = "";
-        for (var i = 0; i < 6; i++) {
-            res += PIN_CHARSET[_pairingIndices[i]];
-        }
-        return res;
+        return _pairingPicker.getFormattedCode();
     }
 
     public function togglePairingStatusMenu() as Void {
@@ -1028,74 +1026,10 @@ class RowerView extends WatchUi.View {
     }
 
     // =========================================================================
-    // G3 : SAISIE CODE PIN ALPHANUMERIQUE 5 CARACTERES (0..9 + A..Z)
+    // G3 : SAISIE CODE PIN ALPHANUMERIQUE 5 CARACTERES (0..9 + A..Z via UnifiedCodePickerView)
     // =========================================================================
     private function drawG3PinInput(dc as Graphics.Dc, w as Number, h as Number) as Void {
-        var cx = w / 2;
-
-        // Title (6% h)
-        dc.setColor(COL_ACCENT, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, (h * 5) / 100, Graphics.FONT_XTINY, I18n.getText("PIN_TITLE"), Graphics.TEXT_JUSTIFY_CENTER);
-
-        // Player Login display (12% h)
-        var playerText = I18n.getText("PLAYER_LABEL") + " " + _userId;
-        var pY = (h * 12) / 100;
-        var pW = getSafeWidthAtY(w, h, pY, pY + 16);
-        dc.setColor(COL_CYAN, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, pY, Graphics.FONT_XTINY, truncateToWidth(dc, playerText, Graphics.FONT_XTINY, pW), Graphics.TEXT_JUSTIFY_CENTER);
-
-        // Subtitle (18% h)
-        dc.setColor(COL_MUTED, Graphics.COLOR_TRANSPARENT);
-        var subY = (h * 19) / 100;
-        var subW = getSafeWidthAtY(w, h, subY, subY + 16);
-        dc.drawText(cx, subY, Graphics.FONT_XTINY, truncateToWidth(dc, I18n.getText("PIN_SUB"), Graphics.FONT_XTINY, subW), Graphics.TEXT_JUSTIFY_CENTER);
-
-        dc.setColor(COL_GRID, Graphics.COLOR_TRANSPARENT);
-        dc.drawLine((w * 18) / 100, (h * 27) / 100, w - ((w * 18) / 100), (h * 27) / 100);
-
-        // 5 Proportional Alphanumeric Character Cards in [30..62% h]
-        var boxY = (h * 30) / 100;
-        var boxH = (h * 30) / 100;
-        var availW = getSafeWidthAtY(w, h, boxY, boxY + boxH) - 14;
-        var gap = (w * 2) / 100;
-        var boxW = (availW - (4 * gap)) / 5;
-        var totalRowW = (5 * boxW) + (4 * gap);
-        var startX = cx - (totalRowW / 2);
-
-        // Candidate fonts for alphanumeric glyphs (never use FONT_NUMBER_* for A-Z)
-        var charCandidates = [
-            Graphics.FONT_LARGE,
-            Graphics.FONT_MEDIUM,
-            Graphics.FONT_SMALL,
-            Graphics.FONT_TINY
-        ] as Array<Graphics.FontDefinition>;
-
-        for (var i = 0; i < 5; i++) {
-            var bx = startX + (i * (boxW + gap));
-            var isCurrent = (i == _pinCurrentDigitIdx);
-            var charIdx = _pinIndices[i];
-            var cStr = PIN_CHARSET[charIdx];
-            var cFont = fitFontToBox(dc, cStr, charCandidates, boxW - 4, boxH - 6);
-
-            if (isCurrent) {
-                dc.setColor(COL_ACCENT, COL_ACCENT);
-                dc.fillRoundedRectangle(bx, boxY, boxW, boxH, 6);
-                dc.setColor(COL_BG, Graphics.COLOR_TRANSPARENT);
-            } else {
-                dc.setColor(COL_GRID, COL_GRID);
-                dc.fillRoundedRectangle(bx, boxY, boxW, boxH, 6);
-                dc.setColor(COL_PRIMARY, Graphics.COLOR_TRANSPARENT);
-            }
-
-            dc.drawText(bx + (boxW / 2), boxY + (boxH / 2), cFont, cStr, Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
-        }
-
-        var h1Y = (h * 68) / 100;
-        var h2Y = (h * 79) / 100;
-        dc.setColor(COL_WARN, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, h1Y, Graphics.FONT_XTINY, truncateToWidth(dc, I18n.getText("PIN_HELP_1"), Graphics.FONT_XTINY, getSafeWidthAtY(w, h, h1Y, h1Y + 16)), Graphics.TEXT_JUSTIFY_CENTER);
-        dc.setColor(COL_MUTED, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, h2Y, Graphics.FONT_XTINY, truncateToWidth(dc, I18n.getText("PIN_HELP_2"), Graphics.FONT_XTINY, getSafeWidthAtY(w, h, h2Y, h2Y + 16)), Graphics.TEXT_JUSTIFY_CENTER);
+        _roomPinPicker.renderToDc(dc, w, h);
     }
 
     // =========================================================================
@@ -1228,6 +1162,9 @@ class RowerView extends WatchUi.View {
 
         var footY = (h * 84) / 100;
         var footText = I18n.getText("AUTO_START_AT_ZERO");
+        if (_waitingStatusMessage != null && (_waitingStatusMessage as String).length() > 0) {
+            footText = _waitingStatusMessage as String;
+        }
         dc.setColor(COL_MUTED, Graphics.COLOR_TRANSPARENT);
         dc.drawText(cx, footY, Graphics.FONT_XTINY, truncateToWidth(dc, footText, Graphics.FONT_XTINY, getSafeWidthAtY(w, h, footY, footY + 16)), Graphics.TEXT_JUSTIFY_CENTER);
     }
@@ -1569,66 +1506,10 @@ class RowerView extends WatchUi.View {
     }
 
     // =========================================================================
-    // NOUVEL ECRAN DE SAISIE DU CODE D'APPAIRAGE (6 CARACTERES)
+    // ECRAN DE SAISIE DU CODE D'APPAIRAGE (6 CARACTERES via UnifiedCodePickerView)
     // =========================================================================
     private function drawPairingInput(dc as Graphics.Dc, w as Number, h as Number) as Void {
-        var cx = w / 2;
-
-        var titleY = (h * 6) / 100;
-        dc.setColor(COL_ACCENT, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, titleY, Graphics.FONT_XTINY, I18n.getText("PAIR_INPUT_TITLE"), Graphics.TEXT_JUSTIFY_CENTER);
-
-        var subY = (h * 14) / 100;
-        dc.setColor(COL_MUTED, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, subY, Graphics.FONT_XTINY, I18n.getText("PAIR_INPUT_SUB"), Graphics.TEXT_JUSTIFY_CENTER);
-
-        var divY = (h * 22) / 100;
-        dc.setColor(COL_GRID, Graphics.COLOR_TRANSPARENT);
-        dc.drawLine((w * 16) / 100, divY, w - ((w * 16) / 100), divY);
-
-        // 6 Slots de saisie (Slot 0..5)
-        var boxTop = (h * 30) / 100;
-        var boxH = (h * 24) / 100;
-        var boxW = (w * 12) / 100;
-        var gap = (w * 2) / 100;
-        var totalBoxesW = (boxW * 6) + (gap * 5);
-        var startX = cx - (totalBoxesW / 2);
-
-        for (var i = 0; i < 6; i++) {
-            var bx = startX + i * (boxW + gap);
-            var isCur = (i == _pairingCurrentSlot);
-
-            if (isCur) {
-                dc.setColor(COL_PILL_BG, COL_PILL_BG);
-                dc.fillRoundedRectangle(bx, boxTop, boxW, boxH, 4);
-                dc.setColor(COL_ACCENT, Graphics.COLOR_TRANSPARENT);
-                dc.drawRoundedRectangle(bx, boxTop, boxW, boxH, 4);
-            } else {
-                dc.setColor(COL_GRID, Graphics.COLOR_TRANSPARENT);
-                dc.drawRoundedRectangle(bx, boxTop, boxW, boxH, 4);
-            }
-
-            var ch = PIN_CHARSET[_pairingIndices[i]];
-            dc.setColor(isCur ? COL_ACCENT : COL_PRIMARY, Graphics.COLOR_TRANSPARENT);
-            dc.drawText(bx + (boxW / 2), boxTop + (boxH / 2), Graphics.FONT_MEDIUM, ch, Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
-        }
-
-        // Instructions
-        var instY1 = (h * 62) / 100;
-        dc.setColor(COL_CYAN, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, instY1, Graphics.FONT_XTINY, "UP / DOWN : Changer lettre", Graphics.TEXT_JUSTIFY_CENTER);
-
-        var instY2 = (h * 71) / 100;
-        dc.setColor(COL_MUTED, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, instY2, Graphics.FONT_XTINY, "START : Suivant/Valider", Graphics.TEXT_JUSTIFY_CENTER);
-
-        var footDivY = (h * 81) / 100;
-        dc.setColor(COL_GRID, Graphics.COLOR_TRANSPARENT);
-        dc.drawLine((w * 20) / 100, footDivY, w - ((w * 20) / 100), footDivY);
-
-        var footY = (h * 85) / 100;
-        dc.setColor(COL_MUTED, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, footY, Graphics.FONT_XTINY, "BACK : Retour", Graphics.TEXT_JUSTIFY_CENTER);
+        _pairingPicker.renderToDc(dc, w, h);
     }
 
     // =========================================================================
