@@ -35,13 +35,27 @@ interface BoatRenderState {
       <canvas #raceCanvas></canvas>
 
       <!-- Mini-leaderboard rétractable avec classements et écarts temps réel -->
-      <div class="mini-leaderboard" [class.collapsed]="isLeaderboardCollapsed" *ngIf="sortedLeaderboard.length > 0">
+      <div
+        #leaderboardBoxEl
+        class="mini-leaderboard"
+        [class.collapsed]="isLeaderboardCollapsed"
+        [class.is-dragging]="isDraggingLeaderboard"
+        [style.left.px]="leaderboardPosition ? leaderboardPosition.x : null"
+        [style.top.px]="leaderboardPosition ? leaderboardPosition.y : null"
+        [style.right]="leaderboardPosition ? 'auto' : null"
+        (pointerdown)="onLeaderboardPointerDown($event)"
+        (pointermove)="onLeaderboardPointerMove($event)"
+        (pointerup)="onLeaderboardPointerUp($event)"
+        (pointercancel)="onLeaderboardPointerUp($event)"
+        *ngIf="sortedLeaderboard.length > 0">
         <button
           type="button"
           class="mini-lead-header"
-          (click)="toggleLeaderboard()"
+          (click)="onLeaderboardHeaderClick($event)"
           title="Afficher/Masquer le classement des écarts">
-          <span class="mini-lead-title">🏆 {{ isLeaderboardCollapsed ? 'Écarts' : 'Classement en direct' }}</span>
+          <span class="mini-lead-title">
+            🏆 {{ isLeaderboardCollapsed ? myRankBadgeText : 'Classement en direct' }}
+          </span>
           <span class="mini-lead-toggle">{{ isLeaderboardCollapsed ? '◀' : '▼' }}</span>
         </button>
         <div class="mini-lead-body" *ngIf="!isLeaderboardCollapsed">
@@ -55,7 +69,7 @@ interface BoatRenderState {
             <span class="mini-lead-name">{{ racer.name }}</span>
             <span class="mini-lead-dist">{{ Math.round(racer.dist) }}m</span>
             <span class="mini-lead-gap" [class.leader]="rank === 0">
-              {{ rank === 0 ? 'Leader' : '-' + Math.round(sortedLeaderboard[0].dist - racer.dist) + 'm' }}
+              {{ formatGap(racer, sortedLeaderboard[0]) }}
             </span>
           </div>
         </div>
@@ -87,19 +101,35 @@ interface BoatRenderState {
       position: absolute;
       top: 10px;
       right: 10px;
-      z-index: 10;
-      background: rgba(6, 13, 29, 0.92);
-      border: 1px solid rgba(0, 240, 255, 0.4);
+      z-index: 20;
+      background: rgba(6, 13, 29, 0.94);
+      border: 1px solid rgba(0, 240, 255, 0.45);
       border-radius: 8px;
       box-shadow: 0 6px 20px rgba(0, 0, 0, 0.65), 0 0 12px rgba(0, 240, 255, 0.2);
       backdrop-filter: blur(8px);
       max-width: 250px;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      transition: all 0.25s ease-in-out;
+      transition: box-shadow 0.2s ease, opacity 0.2s ease;
       overflow: hidden;
+      touch-action: none;
+      user-select: none;
+    }
+    .mini-leaderboard.is-dragging {
+      cursor: grabbing;
+      opacity: 0.92;
+      box-shadow: 0 8px 25px rgba(0, 240, 255, 0.45);
+      z-index: 50;
     }
     .mini-leaderboard.collapsed {
-      max-width: 140px;
+      max-width: fit-content;
+      border-radius: 20px;
+    }
+    .mini-leaderboard.collapsed .mini-lead-header {
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 800;
+      background: rgba(0, 240, 255, 0.2);
     }
     .mini-lead-header {
       width: 100%;
@@ -189,6 +219,7 @@ interface BoatRenderState {
 export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChanges {
   @ViewChild('wrapperEl', { static: true }) wrapperRef!: ElementRef<HTMLDivElement>;
   @ViewChild('raceCanvas', { static: true }) canvasRef!: ElementRef<HTMLCanvasElement>;
+  @ViewChild('leaderboardBoxEl') leaderboardBoxRef?: ElementRef<HTMLDivElement>;
   @Input() racers: LiveRacerMetric[] = [];
   @Input() targetDistance = 2000;
   @Input() activeUserId = '';
@@ -196,8 +227,14 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
   @Output() racerSelected = new EventEmitter<string>();
 
   protected Math = Math;
-  public isLeaderboardCollapsed = false;
+  public isLeaderboardCollapsed = true;
   public sortedLeaderboard: LiveRacerMetric[] = [];
+  public leaderboardPosition: { x: number; y: number } | null = null;
+  public isDraggingLeaderboard = false;
+  private dragStartPointer = { x: 0, y: 0 };
+  private dragStartLeaderboardPos = { x: 0, y: 0 };
+  private hasMovedWhileDragging = false;
+  private lastToggleTimestamp = 0;
 
   private ctx: CanvasRenderingContext2D | null = null;
   private animFrameId: number | null = null;
@@ -219,6 +256,22 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
     return this.focusedUserId || this.activeUserId || '';
   }
 
+  get myPlayerRank(): number | null {
+    if (!this.activeUserId) return null;
+    const index = this.sortedLeaderboard.findIndex((r) => r.userId === this.activeUserId);
+    return index >= 0 ? index + 1 : null;
+  }
+
+  get myRankBadgeText(): string {
+    const rank = this.myPlayerRank;
+    const total = this.sortedLeaderboard.length;
+    if (!rank) {
+      return total > 0 ? `-- / ${total}` : '--';
+    }
+    const suffix = rank === 1 ? 'er' : 'e';
+    return `${rank}${suffix} / ${total}`;
+  }
+
   ngAfterViewInit(): void {
     const canvas = this.canvasRef.nativeElement;
     this.ctx = canvas.getContext('2d');
@@ -230,6 +283,17 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
     }
     window.addEventListener('resize', this.onResize);
     this.startRenderLoop();
+
+    if (typeof localStorage !== 'undefined') {
+      try {
+        const sx = localStorage.getItem('rower_canvas_lb_pos_x');
+        const sy = localStorage.getItem('rower_canvas_lb_pos_y');
+        if (sx && sy) {
+          this.leaderboardPosition = { x: Number(sx), y: Number(sy) };
+        }
+      } catch {}
+    }
+    setTimeout(() => this.clampCurrentPosition(), 60);
   }
 
   ngOnChanges(changes: SimpleChanges): void {
@@ -251,7 +315,150 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
   }
 
   public toggleLeaderboard(): void {
+    const now = Date.now();
+    if (now - this.lastToggleTimestamp < 250) return;
+    this.lastToggleTimestamp = now;
     this.isLeaderboardCollapsed = !this.isLeaderboardCollapsed;
+    setTimeout(() => this.clampCurrentPosition(), 50);
+  }
+
+  public onLeaderboardHeaderClick(event: MouseEvent): void {
+    if (this.hasMovedWhileDragging) {
+      event.preventDefault();
+      event.stopPropagation();
+      this.hasMovedWhileDragging = false;
+      return;
+    }
+    this.toggleLeaderboard();
+  }
+
+  public onLeaderboardPointerDown(event: PointerEvent): void {
+    if (event.button !== 0 && event.pointerType === 'mouse') return;
+    const target = event.target as HTMLElement;
+    if (target?.closest('.mini-lead-body')) return;
+
+    const box = this.leaderboardBoxRef?.nativeElement;
+    if (!box) return;
+
+    this.isDraggingLeaderboard = true;
+    this.hasMovedWhileDragging = false;
+    this.dragStartPointer = { x: event.clientX, y: event.clientY };
+
+    const wrapper = this.wrapperRef.nativeElement;
+    const wrapperRect = wrapper.getBoundingClientRect();
+    const boxRect = box.getBoundingClientRect();
+
+    if (!this.leaderboardPosition) {
+      this.leaderboardPosition = {
+        x: Math.round(boxRect.left - wrapperRect.left),
+        y: Math.round(boxRect.top - wrapperRect.top),
+      };
+    }
+    this.dragStartLeaderboardPos = { ...this.leaderboardPosition };
+
+    try {
+      box.setPointerCapture(event.pointerId);
+    } catch {}
+  }
+
+  public onLeaderboardPointerMove(event: PointerEvent): void {
+    if (!this.isDraggingLeaderboard) return;
+    const dx = event.clientX - this.dragStartPointer.x;
+    const dy = event.clientY - this.dragStartPointer.y;
+
+    if (Math.hypot(dx, dy) > 5) {
+      this.hasMovedWhileDragging = true;
+    }
+    if (!this.hasMovedWhileDragging) return;
+
+    if (event.cancelable) {
+      event.preventDefault();
+    }
+
+    const wrapper = this.wrapperRef.nativeElement;
+    const wrapperRect = wrapper.getBoundingClientRect();
+    const box = this.leaderboardBoxRef?.nativeElement;
+    const boxWidth = box ? box.offsetWidth : (this.isLeaderboardCollapsed ? 120 : 180);
+    const boxHeight = box ? box.offsetHeight : (this.isLeaderboardCollapsed ? 32 : 160);
+
+    this.leaderboardPosition = this.clampLeaderboardPosition(
+      this.dragStartLeaderboardPos,
+      { dx, dy },
+      wrapperRect.width,
+      wrapperRect.height,
+      boxWidth,
+      boxHeight
+    );
+  }
+
+  public onLeaderboardPointerUp(event: PointerEvent): void {
+    if (!this.isDraggingLeaderboard) return;
+    this.isDraggingLeaderboard = false;
+    const box = this.leaderboardBoxRef?.nativeElement;
+    try {
+      if (box && box.hasPointerCapture(event.pointerId)) {
+        box.releasePointerCapture(event.pointerId);
+      }
+    } catch {}
+
+    if (!this.hasMovedWhileDragging) {
+      const target = event.target as HTMLElement;
+      if (target?.closest('.mini-lead-header') || this.isLeaderboardCollapsed) {
+        this.toggleLeaderboard();
+      }
+    }
+
+    if (this.leaderboardPosition && typeof localStorage !== 'undefined') {
+      try {
+        localStorage.setItem('rower_canvas_lb_pos_x', String(this.leaderboardPosition.x));
+        localStorage.setItem('rower_canvas_lb_pos_y', String(this.leaderboardPosition.y));
+      } catch {}
+    }
+  }
+
+  public clampCurrentPosition(): void {
+    if (!this.leaderboardPosition) return;
+    const wrapper = this.wrapperRef?.nativeElement;
+    if (!wrapper) return;
+    const wrapperRect = wrapper.getBoundingClientRect();
+    const box = this.leaderboardBoxRef?.nativeElement;
+    const boxWidth = box ? box.offsetWidth : (this.isLeaderboardCollapsed ? 120 : 180);
+    const boxHeight = box ? box.offsetHeight : (this.isLeaderboardCollapsed ? 32 : 160);
+    this.leaderboardPosition = this.clampLeaderboardPosition(
+      this.leaderboardPosition,
+      { dx: 0, dy: 0 },
+      wrapperRect.width,
+      wrapperRect.height,
+      boxWidth,
+      boxHeight
+    );
+  }
+
+  public formatGap(racer: LiveRacerMetric, leader: LiveRacerMetric): string {
+    if (!leader || racer.userId === leader.userId) return 'Leader';
+    const distDiff = Math.round((leader.dist || 0) - (racer.dist || 0));
+    if (distDiff <= 0) return 'Leader';
+    let text = `-${distDiff}m`;
+    if (racer.split && racer.split > 0 && racer.split < 600) {
+      const secDiff = ((distDiff * racer.split) / 500).toFixed(1);
+      text += ` (+${secDiff}s)`;
+    }
+    return text;
+  }
+
+  public clampLeaderboardPosition(
+    pos: { x: number; y: number },
+    delta: { dx: number; dy: number },
+    containerWidth: number = 900,
+    containerHeight: number = 260,
+    boxWidth: number = 160,
+    boxHeight: number = 40
+  ): { x: number; y: number } {
+    const maxX = Math.max(5, containerWidth - boxWidth - 5);
+    const maxY = Math.max(5, containerHeight - boxHeight - 5);
+    const nextX = Math.min(Math.max(5, pos.x + delta.dx), maxX);
+    const nextY = Math.min(Math.max(5, pos.y + delta.dy), maxY);
+    return { x: Math.round(nextX), y: Math.round(nextY) };
   }
 
   public selectRacerToFollow(userId: string): void {
@@ -286,6 +493,7 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
     if (this.ctx) {
       this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     }
+    this.clampCurrentPosition();
   }
 
   private syncRacersData(): void {

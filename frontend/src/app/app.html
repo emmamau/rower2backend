@@ -1,4 +1,41 @@
 <div class="game-container" [class.mobile-fullscreen-view]="isMobileFullscreenOnly" [class.pure-screen-active]="siteView !== 'home'">
+  <!-- INVITATION VISUELLE À FAIRE PIVOTER L'APPAREIL EN MODE PAYSAGE -->
+  <aside
+    class="orientation-rotate-notice"
+    *ngIf="(isMobileOrTablet || isMobileFullscreenOnly) && !isOrientationDismissed && (siteView === 'cockpit' || siteView === 'regatta' || isFullscreen || isPseudoFullscreen)"
+    role="status"
+    aria-live="polite">
+    <div class="orientation-rotate-card">
+      <div class="rotate-icon-anim" aria-hidden="true">🔄</div>
+      <div class="rotate-text-group">
+        <strong class="rotate-title">{{ i18n.t('ROTATE_DEVICE_TITLE') || 'Optimisation pour Rameur' }}</strong>
+        <p class="rotate-desc">
+          {{ i18n.t('ROTATE_DEVICE_DESC') || 'Faites pivoter votre appareil en mode paysage (horizontal) pour afficher l\'ensemble du cockpit et de la régate.' }}
+        </p>
+      </div>
+      <button
+        type="button"
+        class="btn-dismiss-rotate"
+        (click)="dismissOrientationNotice()"
+        title="Fermer l'avertissement"
+        aria-label="Fermer">✕</button>
+    </div>
+  </aside>
+
+  <!-- BOUTON FLOTTANT PLEIN ÉCRAN ACCESSIBLE (MOBILE / TABLETTE / COCKPIT / RÉGATE) -->
+  <button
+    type="button"
+    class="btn-floating-fullscreen"
+    [class.active]="isFullscreen"
+    *ngIf="siteView === 'regatta' || siteView === 'cockpit' || isMobileOrTablet || isFullscreen || isPseudoFullscreen"
+    (click)="toggleFullscreen()"
+    [title]="isFullscreen ? i18n.t('FULLSCREEN_EXIT') : i18n.t('FULLSCREEN_ENTER')"
+    [attr.aria-label]="isFullscreen ? i18n.t('FULLSCREEN_EXIT') : i18n.t('FULLSCREEN_ENTER')"
+    [attr.aria-pressed]="isFullscreen">
+    <span class="floating-fs-icon" aria-hidden="true">{{ isFullscreen ? '✕' : '⛶' }}</span>
+    <span class="floating-fs-text">{{ isFullscreen ? (i18n.t('FULLSCREEN_EXIT_LABEL') || 'Quitter') : (i18n.t('TOGGLE_FULLSCREEN') || 'Basculer Plein Écran') }}</span>
+  </button>
+
   <!-- 3 SECONDS RACE COUNTDOWN OVERLAY -->
   <div class="three-sec-overlay" *ngIf="is3sCountdown">
     <div class="three-sec-box">
@@ -1380,6 +1417,46 @@
       <!-- ======================================================== -->
       <!-- MODE COCKPIT ÉPURÉ : UNIQUEMENT LE COCKPIT -->
       <!-- ======================================================== -->
+
+      <!-- MINI-LEADERBOARD RÉTRACTABLE ET DÉPLAÇABLE DANS LE COCKPIT -->
+      <div
+        #cockpitLeaderboardEl
+        class="mini-leaderboard cockpit-floating-leaderboard"
+        [class.collapsed]="isCockpitLeaderboardCollapsed"
+        [class.is-dragging]="isDraggingCockpitLeaderboard"
+        [style.left.px]="cockpitLeaderboardPos ? cockpitLeaderboardPos.x : null"
+        [style.top.px]="cockpitLeaderboardPos ? cockpitLeaderboardPos.y : null"
+        [style.right]="cockpitLeaderboardPos ? 'auto' : null"
+        (pointerdown)="onCockpitLeaderboardPointerDown($event)"
+        (pointermove)="onCockpitLeaderboardPointerMove($event)"
+        (pointerup)="onCockpitLeaderboardPointerUp($event)"
+        (pointercancel)="onCockpitLeaderboardPointerUp($event)"
+        *ngIf="liveMetricsList.length > 0">
+        <button
+          type="button"
+          class="mini-lead-header"
+          (click)="onCockpitLeaderboardHeaderClick($event)"
+          title="Afficher/Masquer le classement des écarts">
+          <span class="mini-lead-title">
+            🏆 {{ isCockpitLeaderboardCollapsed ? myCockpitRankBadgeText : (i18n.t('LEADERBOARD') || 'Classement direct') }}
+          </span>
+          <span class="mini-lead-toggle">{{ isCockpitLeaderboardCollapsed ? '◀' : '▼' }}</span>
+        </button>
+        <div class="mini-lead-body" *ngIf="!isCockpitLeaderboardCollapsed">
+          <div
+            *ngFor="let racer of sortedLiveMetrics; let rank = index"
+            class="mini-lead-row"
+            [class.active-player]="racer.userId === activeUserId"
+            (click)="onSpectatorSelect(racer.userId)">
+            <span class="mini-lead-rank">{{ rank + 1 }}</span>
+            <span class="mini-lead-name">{{ racer.name }}</span>
+            <span class="mini-lead-dist">{{ Math.round(racer.dist) }}m</span>
+            <span class="mini-lead-gap" [class.leader]="rank === 0">
+              {{ formatRacerGap(racer, sortedLiveMetrics[0]) }}
+            </span>
+          </div>
+        </div>
+      </div>
 
       <!-- BANNIÈRE DE FÉLICITATIONS FIN DE COURSE -->
       <section class="finish-celebration-banner" *ngIf="isFinished" role="region" aria-label="Félicitations de fin de course">

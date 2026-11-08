@@ -24,6 +24,8 @@ import { switchMap, startWith, catchError } from 'rxjs/operators';
   styleUrls: ['./app.css']
 })
 export class AppComponent implements OnInit, OnDestroy {
+  protected Math = Math;
+
   // Current user / player login
   activeUserId = '';
   userLoginInput = '';
@@ -183,6 +185,17 @@ export class AppComponent implements OnInit, OnDestroy {
   private dragStartPointer = { x: 0, y: 0 };
   private dragStartTimerPos = { x: 0, y: 0 };
 
+  // Orientation paysage & notice de rotation
+  isOrientationDismissed = false;
+
+  // Mini-leaderboard cockpit rétractable & déplaçable (Draggable Leaderboard)
+  isCockpitLeaderboardCollapsed = true;
+  cockpitLeaderboardPos: { x: number; y: number } | null = null;
+  isDraggingCockpitLeaderboard = false;
+  private dragStartCockpitPointer = { x: 0, y: 0 };
+  private dragStartCockpitPos = { x: 0, y: 0 };
+  private hasMovedCockpitLeaderboard = false;
+
   // Espace Statistiques & Analyses de courses (abonnés = illimité, comptes gratuits = 10 jours)
   isStatisticsModalOpen = false;
   userStatisticsData: any = null;
@@ -223,6 +236,7 @@ export class AppComponent implements OnInit, OnDestroy {
   private joinedSocketRaceId: string | null = null;
   private readonly popstateListener = () => this.resolveRoomFromCurrentUrl();
   private readonly resizeListener = () => {
+    this.clampCurrentCockpitPosition();
     if (!this.userOverrodeViewMode) {
       const best = this.detectTerminalViewMode();
       if (this.activeViewMode !== best) {
@@ -241,6 +255,7 @@ export class AppComponent implements OnInit, OnDestroy {
     return Boolean(
       doc.fullscreenElement ||
       doc.webkitFullscreenElement ||
+      doc.webkitCurrentFullScreenElement ||
       doc.mozFullScreenElement ||
       doc.msFullscreenElement
     );
@@ -286,6 +301,13 @@ export class AppComponent implements OnInit, OnDestroy {
     if (this.isMobileFullscreenOnly && !this.userOverrodeViewMode) {
       this.activeViewMode = 'cockpit';
     }
+    this.cdr.markForCheck();
+  };
+
+  private readonly fullscreenErrorListener = () => {
+    this.isPseudoFullscreen = true;
+    this.syncPseudoFullscreenClass();
+    this.isFullscreen = true;
     this.cdr.markForCheck();
   };
 
@@ -387,6 +409,8 @@ export class AppComponent implements OnInit, OnDestroy {
       document.addEventListener('webkitfullscreenchange', this.fullscreenListener);
       document.addEventListener('mozfullscreenchange', this.fullscreenListener);
       document.addEventListener('MSFullscreenChange', this.fullscreenListener);
+      document.addEventListener('fullscreenerror', this.fullscreenErrorListener);
+      document.addEventListener('webkitfullscreenerror', this.fullscreenErrorListener);
     }
     this.wakeLockService.onStateChange = (isActive: boolean) => {
       this.wakeLockActive = isActive;
@@ -407,8 +431,20 @@ export class AppComponent implements OnInit, OnDestroy {
             this.timerPosition = { x: parsedX, y: parsedY };
           }
         }
+        const savedLbX = localStorage.getItem('rower_cockpit_lb_pos_x');
+        const savedLbY = localStorage.getItem('rower_cockpit_lb_pos_y');
+        if (savedLbX && savedLbY) {
+          const pLbX = Number(savedLbX);
+          const pLbY = Number(savedLbY);
+          if (!isNaN(pLbX) && !isNaN(pLbY)) {
+            this.cockpitLeaderboardPos = { x: pLbX, y: pLbY };
+          }
+        }
       }
     } catch {}
+    if (typeof window !== 'undefined') {
+      setTimeout(() => this.clampCurrentCockpitPosition(), 60);
+    }
   }
 
   ngOnDestroy(): void {
@@ -461,6 +497,8 @@ export class AppComponent implements OnInit, OnDestroy {
       document.removeEventListener('webkitfullscreenchange', this.fullscreenListener);
       document.removeEventListener('mozfullscreenchange', this.fullscreenListener);
       document.removeEventListener('MSFullscreenChange', this.fullscreenListener);
+      document.removeEventListener('fullscreenerror', this.fullscreenErrorListener);
+      document.removeEventListener('webkitfullscreenerror', this.fullscreenErrorListener);
     }
     this.isPseudoFullscreen = false;
     this.syncPseudoFullscreenClass();
@@ -1245,11 +1283,19 @@ export class AppComponent implements OnInit, OnDestroy {
   setSiteView(view: 'home' | 'regatta' | 'cockpit'): void {
     this.siteView = view;
     if (view === 'regatta') {
+      this.userOverrodeViewMode = true;
       this.activeViewMode = 'canvas';
       this.userExplicitlyNavigatedHome = false;
+      if (this.isMobileOrTablet && !this.checkIsFullscreen()) {
+        this.enterFullscreen().catch(() => {});
+      }
     } else if (view === 'cockpit') {
+      this.userOverrodeViewMode = true;
       this.activeViewMode = 'cockpit';
       this.userExplicitlyNavigatedHome = false;
+      if (this.isMobileOrTablet && !this.checkIsFullscreen()) {
+        this.enterFullscreen().catch(() => {});
+      }
     } else {
       this.userExplicitlyNavigatedHome = true;
     }
@@ -1362,6 +1408,168 @@ export class AppComponent implements OnInit, OnDestroy {
       } catch {}
     }
     this.cdr.markForCheck();
+  }
+
+  // --------------------------------------------------------------------------
+  // ORIENTATION NOTICE & MINI-LEADERBOARD COCKPIT (DRAGGABLE LEADERBOARD)
+  // --------------------------------------------------------------------------
+  dismissOrientationNotice(): void {
+    this.isOrientationDismissed = true;
+    this.cdr.markForCheck();
+  }
+
+  get myCockpitRankBadgeText(): string {
+    const rank = this.myRank;
+    const total = this.totalActiveRacers || this.liveMetricsList.length || 1;
+    if (!rank) {
+      return total > 0 ? `-- / ${total}` : '--';
+    }
+    const suffix = rank === 1 ? 'er' : 'e';
+    return `${rank}${suffix} / ${total}`;
+  }
+
+  get sortedLiveMetrics(): LiveRacerMetric[] {
+    return [...this.liveMetricsList].sort((a, b) => (b.dist || 0) - (a.dist || 0));
+  }
+
+  private lastCockpitToggleTimestamp = 0;
+
+  toggleCockpitLeaderboard(): void {
+    const now = Date.now();
+    if (now - this.lastCockpitToggleTimestamp < 250) return;
+    this.lastCockpitToggleTimestamp = now;
+    this.isCockpitLeaderboardCollapsed = !this.isCockpitLeaderboardCollapsed;
+    this.cdr.markForCheck();
+    setTimeout(() => this.clampCurrentCockpitPosition(), 50);
+  }
+
+  onCockpitLeaderboardPointerDown(event: PointerEvent): void {
+    if (event.button !== 0 && event.pointerType === 'mouse') return;
+    const target = event.target as HTMLElement;
+    if (target?.closest('.mini-lead-body')) return;
+
+    this.isDraggingCockpitLeaderboard = true;
+    this.hasMovedCockpitLeaderboard = false;
+    const box = event.currentTarget as HTMLElement;
+    const rect = box.getBoundingClientRect();
+    if (!this.cockpitLeaderboardPos) {
+      this.cockpitLeaderboardPos = { x: Math.round(rect.left), y: Math.round(rect.top) };
+    }
+    this.dragStartCockpitPointer = { x: event.clientX, y: event.clientY };
+    this.dragStartCockpitPos = { ...this.cockpitLeaderboardPos };
+    try {
+      box.setPointerCapture(event.pointerId);
+    } catch {}
+  }
+
+  onCockpitLeaderboardPointerMove(event: PointerEvent): void {
+    if (!this.isDraggingCockpitLeaderboard) return;
+    const dx = event.clientX - this.dragStartCockpitPointer.x;
+    const dy = event.clientY - this.dragStartCockpitPointer.y;
+    if (Math.hypot(dx, dy) > 5) {
+      this.hasMovedCockpitLeaderboard = true;
+    }
+    if (!this.hasMovedCockpitLeaderboard) return;
+
+    if (event.cancelable) {
+      event.preventDefault();
+    }
+
+    const box = event.currentTarget as HTMLElement;
+    const boxWidth = box ? box.offsetWidth : (this.isCockpitLeaderboardCollapsed ? 120 : 180);
+    const boxHeight = box ? box.offsetHeight : (this.isCockpitLeaderboardCollapsed ? 32 : 160);
+    const windowWidth = typeof window !== 'undefined' ? window.innerWidth : 800;
+    const windowHeight = typeof window !== 'undefined' ? window.innerHeight : 600;
+
+    this.cockpitLeaderboardPos = this.clampCockpitLeaderboardPosition(
+      this.dragStartCockpitPos,
+      { dx, dy },
+      windowWidth,
+      windowHeight,
+      boxWidth,
+      boxHeight
+    );
+    this.cdr.markForCheck();
+  }
+
+  onCockpitLeaderboardPointerUp(event: PointerEvent): void {
+    if (!this.isDraggingCockpitLeaderboard) return;
+    this.isDraggingCockpitLeaderboard = false;
+    const box = event.currentTarget as HTMLElement;
+    try {
+      if (box.hasPointerCapture(event.pointerId)) {
+        box.releasePointerCapture(event.pointerId);
+      }
+    } catch {}
+
+    if (!this.hasMovedCockpitLeaderboard) {
+      const target = event.target as HTMLElement;
+      if (target?.closest('.mini-lead-header') || this.isCockpitLeaderboardCollapsed) {
+        this.toggleCockpitLeaderboard();
+      }
+    }
+
+    if (this.cockpitLeaderboardPos && typeof localStorage !== 'undefined') {
+      try {
+        localStorage.setItem('rower_cockpit_lb_pos_x', String(this.cockpitLeaderboardPos.x));
+        localStorage.setItem('rower_cockpit_lb_pos_y', String(this.cockpitLeaderboardPos.y));
+      } catch {}
+    }
+    this.cdr.markForCheck();
+  }
+
+  onCockpitLeaderboardHeaderClick(event: MouseEvent): void {
+    if (this.hasMovedCockpitLeaderboard) {
+      event.preventDefault();
+      event.stopPropagation();
+      this.hasMovedCockpitLeaderboard = false;
+      return;
+    }
+    this.toggleCockpitLeaderboard();
+  }
+
+  clampCurrentCockpitPosition(): void {
+    if (!this.cockpitLeaderboardPos || typeof window === 'undefined') return;
+    const windowWidth = window.innerWidth;
+    const windowHeight = window.innerHeight;
+    const boxWidth = this.isCockpitLeaderboardCollapsed ? 130 : 200;
+    const boxHeight = this.isCockpitLeaderboardCollapsed ? 34 : 180;
+    this.cockpitLeaderboardPos = this.clampCockpitLeaderboardPosition(
+      this.cockpitLeaderboardPos,
+      { dx: 0, dy: 0 },
+      windowWidth,
+      windowHeight,
+      boxWidth,
+      boxHeight
+    );
+    this.cdr.markForCheck();
+  }
+
+  formatRacerGap(racer: LiveRacerMetric, leader: LiveRacerMetric): string {
+    if (!leader || racer.userId === leader.userId) return 'Leader';
+    const distDiff = Math.round((leader.dist || 0) - (racer.dist || 0));
+    if (distDiff <= 0) return 'Leader';
+    let label = `-${distDiff}m`;
+    if (racer.split && racer.split > 0 && racer.split < 600) {
+      const secDiff = ((distDiff * racer.split) / 500).toFixed(1);
+      label += ` (+${secDiff}s)`;
+    }
+    return label;
+  }
+
+  clampCockpitLeaderboardPosition(
+    pos: { x: number; y: number },
+    delta: { dx: number; dy: number },
+    windowWidth: number = 1024,
+    windowHeight: number = 768,
+    boxWidth: number = 160,
+    boxHeight: number = 40
+  ): { x: number; y: number } {
+    const maxX = Math.max(10, windowWidth - boxWidth - 10);
+    const maxY = Math.max(10, windowHeight - boxHeight - 10);
+    const nextX = Math.min(Math.max(10, pos.x + delta.dx), maxX);
+    const nextY = Math.min(Math.max(10, pos.y + delta.dy), maxY);
+    return { x: Math.round(nextX), y: Math.round(nextY) };
   }
 
   // --------------------------------------------------------------------------
@@ -1536,8 +1744,9 @@ export class AppComponent implements OnInit, OnDestroy {
     if (typeof window === 'undefined') return false;
     const width = window.innerWidth;
     const isTouch = typeof navigator !== 'undefined' && (((navigator as any).maxTouchPoints && (navigator as any).maxTouchPoints > 0) || 'ontouchstart' in window);
+    const hasCoarsePointer = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
     const isMobileUA = /Android|iPhone|iPad|iPod|Mobile|IEMobile|Silk|Kindle/i.test(navigator.userAgent || '');
-    return isMobileUA || width <= 1024 || (Boolean(isTouch) && width <= 1200);
+    return isMobileUA || width <= 1024 || (Boolean(isTouch) && width <= 1200) || Boolean(hasCoarsePointer);
   }
 
   get isSmartphone(): boolean {
@@ -1950,12 +2159,15 @@ export class AppComponent implements OnInit, OnDestroy {
     this.activeViewMode = mode;
     this.siteView = mode === 'canvas' ? 'regatta' : 'cockpit';
     this.userExplicitlyNavigatedHome = false;
+    if (this.isMobileOrTablet && !this.checkIsFullscreen()) {
+      this.enterFullscreen().catch(() => {});
+    }
     this.cdr.markForCheck();
   }
 
-  async toggleFullscreen(): Promise<void> {
+  async enterFullscreen(): Promise<void> {
     if (typeof document === 'undefined') return;
-    const doc = document as any;
+    if (this.checkIsFullscreen()) return;
     const docEl = document.documentElement as any;
     const hasNativeFullscreen = Boolean(
       docEl?.requestFullscreen ||
@@ -1966,50 +2178,67 @@ export class AppComponent implements OnInit, OnDestroy {
 
     try {
       if (hasNativeFullscreen) {
-        if (!this.checkNativeFullscreen()) {
-          if (docEl.requestFullscreen) {
-            await docEl.requestFullscreen();
-          } else if (docEl.webkitRequestFullscreen) {
-            await docEl.webkitRequestFullscreen();
-          } else if (docEl.mozRequestFullScreen) {
-            await docEl.mozRequestFullScreen();
-          } else if (docEl.msRequestFullscreen) {
-            await docEl.msRequestFullscreen();
-          }
-          this.isPseudoFullscreen = false;
-        } else {
-          if (doc.exitFullscreen) {
-            await doc.exitFullscreen();
-          } else if (doc.webkitExitFullscreen) {
-            await doc.webkitExitFullscreen();
-          } else if (doc.mozCancelFullScreen) {
-            await doc.mozCancelFullScreen();
-          } else if (doc.msExitFullscreen) {
-            await doc.msExitFullscreen();
-          }
-          this.isPseudoFullscreen = false;
+        if (docEl.requestFullscreen) {
+          await docEl.requestFullscreen();
+        } else if (docEl.webkitRequestFullscreen) {
+          await docEl.webkitRequestFullscreen();
+        } else if (docEl.mozRequestFullScreen) {
+          await docEl.mozRequestFullScreen();
+        } else if (docEl.msRequestFullscreen) {
+          await docEl.msRequestFullscreen();
         }
+        this.isPseudoFullscreen = false;
       } else {
-        // Fallback for devices without native Element.requestFullscreen (e.g. mobile Safari on iOS iPhones)
-        this.isPseudoFullscreen = !this.isPseudoFullscreen;
+        this.isPseudoFullscreen = true;
         if (typeof window !== 'undefined') {
-          try {
-            window.scrollTo(0, 1);
-          } catch {}
+          try { window.scrollTo(0, 1); } catch {}
         }
       }
     } catch {
-      // If native requestFullscreen throws/is rejected (embedded iframe, iOS restriction), switch to pseudo-fullscreen fallback
-      this.isPseudoFullscreen = !this.isPseudoFullscreen;
+      this.isPseudoFullscreen = true;
     } finally {
       this.syncPseudoFullscreenClass();
       this.isFullscreen = this.checkIsFullscreen();
       if (this.isMobileFullscreenOnly && !this.userOverrodeViewMode) {
         this.activeViewMode = 'cockpit';
       }
-      // On user interaction, ensure screen wake lock is active by default
       this.enableScreenWakeLock();
+      this.clampCurrentCockpitPosition();
       this.cdr.markForCheck();
+    }
+  }
+
+  async exitFullscreen(): Promise<void> {
+    if (typeof document === 'undefined') return;
+    const doc = document as any;
+    try {
+      if (this.checkNativeFullscreen()) {
+        if (doc.exitFullscreen) {
+          await doc.exitFullscreen();
+        } else if (doc.webkitExitFullscreen) {
+          await doc.webkitExitFullscreen();
+        } else if (doc.mozCancelFullScreen) {
+          await doc.mozCancelFullScreen();
+        } else if (doc.msExitFullscreen) {
+          await doc.msExitFullscreen();
+        }
+      }
+      this.isPseudoFullscreen = false;
+    } catch {
+      this.isPseudoFullscreen = false;
+    } finally {
+      this.syncPseudoFullscreenClass();
+      this.isFullscreen = this.checkIsFullscreen();
+      this.clampCurrentCockpitPosition();
+      this.cdr.markForCheck();
+    }
+  }
+
+  async toggleFullscreen(): Promise<void> {
+    if (this.checkIsFullscreen()) {
+      await this.exitFullscreen();
+    } else {
+      await this.enterFullscreen();
     }
   }
 

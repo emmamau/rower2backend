@@ -4756,3 +4756,281 @@ input[type="number"]:focus { border-color: var(--neon-cyan); box-shadow: 0 0 10p
   }
 }
 
+/* ==========================================================================
+   BOUTON FLOTTANT PLEIN ÉCRAN ACCESSIBLE (MOBILE / TABLETTE / COCKPIT / RÉGATE)
+   ========================================================================== */
+.btn-floating-fullscreen {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 9999;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.5rem 0.9rem;
+  background: rgba(6, 13, 29, 0.88);
+  border: 1px solid rgba(0, 240, 255, 0.5);
+  border-radius: 24px;
+  color: #00f0ff;
+  font-family: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.6), 0 0 12px rgba(0, 240, 255, 0.25);
+  backdrop-filter: blur(8px);
+  transition: all 0.2s ease-in-out;
+  touch-action: manipulation;
+  user-select: none;
+}
+@media (max-width: 768px) {
+  body:not(.app-pseudo-fullscreen) .game-container:not(.pure-screen-active):not(.mobile-fullscreen-view) .btn-floating-fullscreen {
+    bottom: 74px;
+  }
+}
+.btn-floating-fullscreen:hover {
+  background: rgba(0, 240, 255, 0.2);
+  border-color: #00f0ff;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 22px rgba(0, 240, 255, 0.35);
+}
+.btn-floating-fullscreen:active {
+  transform: scale(0.96);
+}
+.btn-floating-fullscreen.active {
+  background: linear-gradient(135deg, rgba(0, 240, 255, 0.35), rgba(6, 13, 29, 0.95));
+  border-color: #ffe600;
+  color: #ffe600;
+}
+.floating-fs-icon {
+  font-size: 1.1rem;
+  line-height: 1;
+}
+.floating-fs-text {
+  letter-spacing: 0.4px;
+}
+
+/* ==========================================================================
+   INVITATION VISUELLE ORIENTATION PAYSAGE (MOBILE / TABLETTE)
+   ========================================================================== */
+.orientation-rotate-notice {
+  display: none;
+}
+@media (orientation: portrait) and (max-width: 1024px) {
+  .orientation-rotate-notice {
+    display: block;
+    position: fixed;
+    top: 14px;
+    left: 14px;
+    right: 14px;
+    z-index: 10000;
+    pointer-events: auto;
+  }
+}
+@media (orientation: landscape) {
+  .orientation-rotate-notice {
+    display: none !important;
+  }
+}
+.orientation-rotate-card {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: rgba(6, 13, 29, 0.95);
+  border: 1px solid rgba(255, 230, 0, 0.75);
+  border-radius: 12px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.75), 0 0 15px rgba(255, 230, 0, 0.25);
+  backdrop-filter: blur(10px);
+}
+.rotate-icon-anim {
+  font-size: 1.8rem;
+  line-height: 1;
+  animation: rotateDevicePrompt 2.5s infinite ease-in-out;
+  flex-shrink: 0;
+}
+@keyframes rotateDevicePrompt {
+  0% { transform: rotate(0deg); }
+  30% { transform: rotate(90deg); }
+  60% { transform: rotate(90deg); }
+  100% { transform: rotate(0deg); }
+}
+.rotate-text-group {
+  flex: 1;
+  min-width: 0;
+}
+.rotate-title {
+  display: block;
+  font-size: 0.88rem;
+  color: #ffe600;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+}
+.rotate-desc {
+  margin: 0.2rem 0 0 0;
+  font-size: 0.76rem;
+  color: #cbd5e1;
+  line-height: 1.35;
+}
+.btn-dismiss-rotate {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  font-size: 1.1rem;
+  cursor: pointer;
+  padding: 0.35rem;
+  line-height: 1;
+  border-radius: 4px;
+}
+.btn-dismiss-rotate:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* ==========================================================================
+   MINI-LEADERBOARD RÉTRACTABLE ET DÉPLAÇABLE (COCKPIT & COMMUN)
+   ========================================================================== */
+.cockpit-floating-leaderboard {
+  position: fixed;
+  top: 75px;
+  right: 18px;
+  z-index: 150;
+  background: rgba(6, 13, 29, 0.95);
+  border: 1px solid rgba(0, 240, 255, 0.5);
+  border-radius: 8px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.65), 0 0 12px rgba(0, 240, 255, 0.2);
+  backdrop-filter: blur(8px);
+  max-width: 260px;
+  touch-action: none;
+  user-select: none;
+  transition: box-shadow 0.2s ease, opacity 0.2s ease;
+}
+.cockpit-floating-leaderboard.is-dragging {
+  cursor: grabbing;
+  opacity: 0.92;
+  box-shadow: 0 8px 25px rgba(0, 240, 255, 0.45);
+  z-index: 200;
+}
+.cockpit-floating-leaderboard.collapsed {
+  max-width: fit-content;
+  border-radius: 20px;
+}
+.cockpit-floating-leaderboard.collapsed .mini-lead-header {
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 800;
+  background: rgba(0, 240, 255, 0.2);
+}
+.cockpit-floating-leaderboard .mini-lead-header {
+  width: 100%;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  background: rgba(0, 240, 255, 0.14);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 700;
+  color: #00f0ff;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  gap: 6px;
+}
+.cockpit-floating-leaderboard .mini-lead-header:hover {
+  background: rgba(0, 240, 255, 0.22);
+}
+.cockpit-floating-leaderboard .mini-lead-title {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cockpit-floating-leaderboard .mini-lead-toggle {
+  font-size: 10px;
+  color: #00f0ff;
+}
+.cockpit-floating-leaderboard .mini-lead-body {
+  max-height: 180px;
+  overflow-y: auto;
+  padding: 4px 0;
+}
+.cockpit-floating-leaderboard .mini-lead-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  font-size: 10.5px;
+  cursor: pointer;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  transition: background 0.15s ease;
+}
+.cockpit-floating-leaderboard .mini-lead-row:hover {
+  background: rgba(0, 240, 255, 0.18);
+}
+.cockpit-floating-leaderboard .mini-lead-row.active-player {
+  background: rgba(0, 240, 255, 0.25);
+  font-weight: bold;
+  color: #00f0ff;
+}
+.cockpit-floating-leaderboard .mini-lead-rank {
+  font-weight: 800;
+  color: #ffe600;
+  min-width: 14px;
+  text-align: center;
+}
+.cockpit-floating-leaderboard .mini-lead-name {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: #e2e8f0;
+}
+.cockpit-floating-leaderboard .mini-lead-dist {
+  color: #94a3b8;
+  font-variant-numeric: tabular-nums;
+  font-size: 10px;
+}
+.cockpit-floating-leaderboard .mini-lead-gap {
+  font-variant-numeric: tabular-nums;
+  font-size: 9.5px;
+  color: #f87171;
+  min-width: 38px;
+  text-align: right;
+}
+.cockpit-floating-leaderboard .mini-lead-gap.leader {
+  color: #4ade80;
+  font-weight: 700;
+}
+
+/* ==========================================================================
+   DISPOSITION OPTIMISÉE EN ORIENTATION PAYSAGE (LANDSCAPE)
+   ========================================================================== */
+@media (orientation: landscape) and (max-height: 600px) {
+  .game-container.mobile-fullscreen-view {
+    padding: 0.15rem !important;
+  }
+  .pure-screen-header {
+    padding: 0.25rem 0.5rem !important;
+  }
+  .pure-screen-tag {
+    display: none !important;
+  }
+  .cockpit-hud {
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)) !important;
+    gap: 0.35rem !important;
+    padding: 0.25rem !important;
+  }
+  .cockpit-hud .hud-card {
+    padding: 0.35rem 0.5rem !important;
+  }
+  .cockpit-progress-strip {
+    margin-block: 0.2rem !important;
+  }
+  .btn-floating-fullscreen {
+    bottom: 10px;
+    right: 10px;
+    padding: 0.35rem 0.65rem;
+    font-size: 0.76rem;
+  }
+}
+

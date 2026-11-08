@@ -735,3 +735,155 @@ test('robots.txt and meta noindex prevent SEO crawling of frontend', () => {
   assert.match(indexHtml, /<meta\s+name=["']robots["']\s+content=["'][^"']*noindex[^"']*["']/i, 'index.html must have noindex meta tag');
 });
 
+test('Mobile & Tablet: Automatic Fullscreen on Cockpit or Regatta entry, and Floating Fullscreen button', () => {
+  const appHtmlPath = path.resolve(__dirname, '../src/app/app.html');
+  const appCssPath = path.resolve(__dirname, '../src/app/app.css');
+  const appTsPath = path.resolve(__dirname, '../src/app/app.ts');
+  const appHtml = fs.readFileSync(appHtmlPath, 'utf8');
+  const appCss = fs.readFileSync(appCssPath, 'utf8');
+  const appTs = fs.readFileSync(appTsPath, 'utf8');
+
+  // Verify device detection checks touch, pointer: coarse, and mobile UA
+  assert.match(appTs, /get\s+isMobileOrTablet\(\)[\s\S]*?maxTouchPoints[\s\S]*?pointer:\s*coarse/);
+
+  // Verify setSiteView triggers enterFullscreen when isMobileOrTablet
+  assert.match(appTs, /setSiteView\(view:\s*'home'\s*\|\s*'regatta'\s*\|\s*'cockpit'\)[\s\S]*?view === 'regatta'[\s\S]*?this\.isMobileOrTablet[\s\S]*?this\.enterFullscreen\(\)/);
+  assert.match(appTs, /setSiteView\(view:\s*'home'\s*\|\s*'regatta'\s*\|\s*'cockpit'\)[\s\S]*?view === 'cockpit'[\s\S]*?this\.isMobileOrTablet[\s\S]*?this\.enterFullscreen\(\)/);
+
+  // Verify switchViewMode triggers enterFullscreen when isMobileOrTablet
+  assert.match(appTs, /switchViewMode\(mode:\s*'canvas'\s*\|\s*'cockpit'\)[\s\S]*?this\.isMobileOrTablet[\s\S]*?this\.enterFullscreen\(\)/);
+
+  // Verify enterFullscreen and exitFullscreen methods with native vendor prefixes and pseudo-fullscreen fallback
+  assert.match(appTs, /async\s+enterFullscreen\(\)[\s\S]*?docEl\.requestFullscreen[\s\S]*?docEl\.webkitRequestFullscreen[\s\S]*?docEl\.mozRequestFullScreen[\s\S]*?docEl\.msRequestFullscreen/);
+  assert.match(appTs, /async\s+exitFullscreen\(\)[\s\S]*?doc\.exitFullscreen[\s\S]*?doc\.webkitExitFullscreen[\s\S]*?doc\.mozCancelFullScreen[\s\S]*?doc\.msExitFullscreen/);
+
+  // Verify floating fullscreen toggle button in app.html
+  assert.match(appHtml, /class="btn-floating-fullscreen"/, 'app.html must have btn-floating-fullscreen button');
+  assert.match(appHtml, /\[attr\.aria-label\]="isFullscreen\s*\?\s*i18n\.t\('FULLSCREEN_EXIT'\)\s*:\s*i18n\.t\('FULLSCREEN_ENTER'\)"/);
+  assert.match(appHtml, /\[attr\.aria-pressed\]="isFullscreen"/);
+  assert.match(appHtml, /\(click\)="toggleFullscreen\(\)"/);
+
+  // Verify floating fullscreen button styles in app.css
+  assert.match(appCss, /\.btn-floating-fullscreen\s*\{[\s\S]*?position:\s*fixed;[\s\S]*?z-index:\s*9999;/);
+  assert.match(appCss, /\.btn-floating-fullscreen:hover\s*\{/);
+  assert.match(appCss, /\.btn-floating-fullscreen\.active\s*\{/);
+});
+
+test('Landscape orientation enforcement & visual portrait rotation invitation', () => {
+  const appHtmlPath = path.resolve(__dirname, '../src/app/app.html');
+  const appCssPath = path.resolve(__dirname, '../src/app/app.css');
+  const appTsPath = path.resolve(__dirname, '../src/app/app.ts');
+  const appHtml = fs.readFileSync(appHtmlPath, 'utf8');
+  const appCss = fs.readFileSync(appCssPath, 'utf8');
+  const appTs = fs.readFileSync(appTsPath, 'utf8');
+
+  // Verify visual invitation element in HTML
+  assert.match(appHtml, /class="orientation-rotate-notice"/, 'app.html must contain orientation-rotate-notice banner');
+  assert.match(appHtml, /class="rotate-icon-anim"/, 'app.html must contain rotating animation icon');
+  assert.match(appHtml, /class="btn-dismiss-rotate"[\s\S]*?\(click\)="dismissOrientationNotice\(\)"/, 'Must provide dismiss button');
+
+  // Verify dismissOrientationNotice in app.ts
+  assert.match(appTs, /dismissOrientationNotice\(\)[\s\S]*?this\.isOrientationDismissed = true/);
+
+  // Verify CSS responsive visibility: display on portrait, hidden on landscape
+  assert.match(appCss, /@media\s*\(orientation:\s*portrait\)\s*and\s*\(max-width:\s*1024px\)\s*\{[\s\S]*?\.orientation-rotate-notice\s*\{[\s\S]*?display:\s*block;/);
+  assert.match(appCss, /@media\s*\(orientation:\s*landscape\)\s*\{[\s\S]*?\.orientation-rotate-notice\s*\{[\s\S]*?display:\s*none\s*!important;/);
+
+  // Verify landscape layout optimization for compact mobile cockpits
+  assert.match(appCss, /@media\s*\(orientation:\s*landscape\)\s*and\s*\(max-height:\s*600px\)\s*\{[\s\S]*?\.cockpit-hud\s*\{/);
+});
+
+test('Draggable & Collapsible Leaderboard in Regatta Canvas and Cockpit views', () => {
+  const canvasTsPath = path.resolve(__dirname, '../src/app/components/regatta-canvas/regatta-canvas.component.ts');
+  const appHtmlPath = path.resolve(__dirname, '../src/app/app.html');
+  const appTsPath = path.resolve(__dirname, '../src/app/app.ts');
+  const appCssPath = path.resolve(__dirname, '../src/app/app.css');
+
+  const canvasTs = fs.readFileSync(canvasTsPath, 'utf8');
+  const appHtml = fs.readFileSync(appHtmlPath, 'utf8');
+  const appTs = fs.readFileSync(appTsPath, 'utf8');
+  const appCss = fs.readFileSync(appCssPath, 'utf8');
+
+  // 1. Collapsed state badge format (ex: "2e / 8" or "1er / 8")
+  function formatRankBadge(rank, total) {
+    if (!rank) return total > 0 ? `-- / ${total}` : '--';
+    const suffix = rank === 1 ? 'er' : 'e';
+    return `${rank}${suffix} / ${total}`;
+  }
+
+  assert.equal(formatRankBadge(1, 8), '1er / 8');
+  assert.equal(formatRankBadge(2, 8), '2e / 8');
+  assert.equal(formatRankBadge(5, 12), '5e / 12');
+  assert.equal(formatRankBadge(null, 6), '-- / 6');
+
+  // Verify myRankBadgeText in RegattaCanvasComponent
+  assert.match(canvasTs, /get\s+myRankBadgeText\(\)[\s\S]*?rank === 1 \? 'er' : 'e'[\s\S]*?\${rank}\${suffix}\s*\/\s*\${total}/);
+  assert.match(canvasTs, /isLeaderboardCollapsed\s*\?\s*myRankBadgeText\s*:\s*'Classement en direct'/);
+
+  // Verify myCockpitRankBadgeText in app.ts and cockpit HTML
+  assert.match(appTs, /get\s+myCockpitRankBadgeText\(\)[\s\S]*?rank === 1 \? 'er' : 'e'[\s\S]*?\${rank}\${suffix}\s*\/\s*\${total}/);
+  assert.match(appHtml, /isCockpitLeaderboardCollapsed\s*\?\s*myCockpitRankBadgeText/);
+
+  // 2. Touch & Pointer drag and drop in RegattaCanvasComponent
+  assert.match(canvasTs, /\(pointerdown\)="onLeaderboardPointerDown\(\$event\)"/);
+  assert.match(canvasTs, /\(pointermove\)="onLeaderboardPointerMove\(\$event\)"/);
+  assert.match(canvasTs, /\(pointerup\)="onLeaderboardPointerUp\(\$event\)"/);
+  assert.match(canvasTs, /setPointerCapture/);
+  assert.match(canvasTs, /releasePointerCapture/);
+
+  // 3. Pointer drag and drop in Cockpit view
+  assert.match(appHtml, /class="mini-leaderboard cockpit-floating-leaderboard"/);
+  assert.match(appHtml, /\(pointerdown\)="onCockpitLeaderboardPointerDown\(\$event\)"/);
+  assert.match(appHtml, /\(pointermove\)="onCockpitLeaderboardPointerMove\(\$event\)"/);
+  assert.match(appHtml, /\(pointerup\)="onCockpitLeaderboardPointerUp\(\$event\)"/);
+
+  // 4. Clamping and boundary math verification
+  function clampLeaderboard(pos, delta, containerW, containerH, boxW, boxH) {
+    const maxX = Math.max(5, containerW - boxW - 5);
+    const maxY = Math.max(5, containerH - boxH - 5);
+    const nextX = Math.min(Math.max(5, pos.x + delta.dx), maxX);
+    const nextY = Math.min(Math.max(5, pos.y + delta.dy), maxY);
+    return { x: Math.round(nextX), y: Math.round(nextY) };
+  }
+
+  // Inside bounds
+  assert.deepEqual(clampLeaderboard({ x: 100, y: 50 }, { dx: 30, dy: 20 }, 800, 400, 160, 40), { x: 130, y: 70 });
+  // Clamped top-left
+  assert.deepEqual(clampLeaderboard({ x: 50, y: 50 }, { dx: -100, dy: -100 }, 800, 400, 160, 40), { x: 5, y: 5 });
+  // Clamped bottom-right
+  assert.deepEqual(clampLeaderboard({ x: 600, y: 300 }, { dx: 300, dy: 200 }, 800, 400, 160, 40), { x: 635, y: 355 });
+
+  // 5. CSS touch-action and dragging styles
+  assert.match(canvasTs, /touch-action:\s*none/);
+  assert.match(canvasTs, /user-select:\s*none/);
+  assert.match(appCss, /\.cockpit-floating-leaderboard[\s\S]*?touch-action:\s*none/);
+  assert.match(appCss, /\.cockpit-floating-leaderboard\.collapsed\s*\{[\s\S]*?border-radius:\s*20px/);
+
+  // 6. Independent scrolling & clicking of racer list (pointerdown on .mini-lead-body does not start drag)
+  assert.match(canvasTs, /target\?\.closest\('\.mini-lead-body'\)/);
+  assert.match(appTs, /target\?\.closest\('\.mini-lead-body'\)/);
+
+  // 7. Gaps in meters and time (écarts en mètres/temps)
+  function computeRacerGap(distDiff, split) {
+    if (distDiff <= 0) return 'Leader';
+    let text = `-${distDiff}m`;
+    if (split && split > 0 && split < 600) {
+      const secDiff = ((distDiff * split) / 500).toFixed(1);
+      text += ` (+${secDiff}s)`;
+    }
+    return text;
+  }
+  assert.equal(computeRacerGap(0, 115), 'Leader');
+  assert.equal(computeRacerGap(15, 120), '-15m (+3.6s)');
+  assert.equal(computeRacerGap(30, 100), '-30m (+6.0s)');
+  assert.match(canvasTs, /formatGap\(racer:\s*LiveRacerMetric,\s*leader:\s*LiveRacerMetric\)/);
+  assert.match(appTs, /formatRacerGap\(racer:\s*LiveRacerMetric,\s*leader:\s*LiveRacerMetric\)/);
+
+  // 8. Dynamic orientation and resize clamping & Fullscreen error resilience
+  assert.match(canvasTs, /clampCurrentPosition\(\)/);
+  assert.match(appTs, /clampCurrentCockpitPosition\(\)/);
+  assert.match(appTs, /fullscreenerror/);
+  assert.match(appTs, /webkitfullscreenerror/);
+});
+
+
