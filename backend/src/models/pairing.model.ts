@@ -71,10 +71,10 @@ export default (sequelize: Sequelize, _DataTypesInstance: typeof DataTypes): Pai
       tableName: "garmin_pairings",
       timestamps: true,
       indexes: [
-        { fields: ["pairingCode"] },
-        { fields: ["userId"] },
-        { fields: ["deviceToken"] },
-        { fields: ["deviceId"] },
+        { fields: ["pairing_code"] },
+        { fields: ["user_id"] },
+        { fields: ["device_token"] },
+        { fields: ["device_id"] },
         { fields: ["status"] },
       ],
     }

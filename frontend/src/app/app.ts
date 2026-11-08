@@ -72,6 +72,13 @@ export class AppComponent implements OnInit, OnDestroy {
   distToNext = 0;
   totalActiveRacers = 0;
 
+  // Finish line toast & race completion state
+  finishedRacerIds = new Set<string>();
+  finisherCount = 0;
+  activeFinishToast: string | null = null;
+  private finishToastTimer: any = null;
+  isPostRaceRankingActive = false;
+
   // Race Config
   configTargetDistance = 10000;
   configIntervalMinutes = 15;
@@ -246,6 +253,7 @@ export class AppComponent implements OnInit, OnDestroy {
   private readonly popstateListener = () => this.resolveRoomFromCurrentUrl();
   private readonly resizeListener = () => {
     this.clampCurrentCockpitPosition();
+    this.syncRigidViewport();
     if (!this.userOverrodeViewMode) {
       const best = this.detectTerminalViewMode();
       if (this.activeViewMode !== best) {
@@ -310,6 +318,7 @@ export class AppComponent implements OnInit, OnDestroy {
     if (this.isMobileFullscreenOnly && !this.userOverrodeViewMode) {
       this.activeViewMode = 'cockpit';
     }
+    this.syncRigidViewport();
     this.cdr.markForCheck();
   };
 
@@ -317,6 +326,7 @@ export class AppComponent implements OnInit, OnDestroy {
     this.isPseudoFullscreen = true;
     this.syncPseudoFullscreenClass();
     this.isFullscreen = true;
+    this.syncRigidViewport();
     this.cdr.markForCheck();
   };
 
@@ -325,6 +335,7 @@ export class AppComponent implements OnInit, OnDestroy {
       this.isPseudoFullscreen = false;
       this.syncPseudoFullscreenClass();
       this.isFullscreen = this.checkIsFullscreen();
+      this.syncRigidViewport();
       this.cdr.markForCheck();
     }
   };
@@ -429,6 +440,7 @@ export class AppComponent implements OnInit, OnDestroy {
     this.initCountdownTicker();
     this.resolveRoomFromCurrentUrl();
     this.enableScreenWakeLock();
+    this.syncRigidViewport();
     try {
       if (typeof localStorage !== 'undefined') {
         const savedX = localStorage.getItem('rower_timer_pos_x');
@@ -1290,6 +1302,37 @@ export class AppComponent implements OnInit, OnDestroy {
     }
   }
 
+  get isRigidViewportActive(): boolean {
+    return Boolean(
+      (this.siteView === 'regatta' || this.siteView === 'cockpit') &&
+      (this.isMobileOrTablet || this.isMobileFullscreenOnly || this.isFullscreen || this.isPseudoFullscreen)
+    );
+  }
+
+  syncRigidViewport(): void {
+    if (typeof document !== 'undefined') {
+      if (this.isRigidViewportActive) {
+        document.documentElement.classList.add('rigid-viewport');
+        document.body.classList.add('rigid-viewport');
+      } else {
+        document.documentElement.classList.remove('rigid-viewport');
+        document.body.classList.remove('rigid-viewport');
+      }
+    }
+  }
+
+  triggerFinishToast(message: string): void {
+    this.activeFinishToast = message;
+    if (this.finishToastTimer) {
+      clearTimeout(this.finishToastTimer);
+    }
+    this.finishToastTimer = setTimeout(() => {
+      this.activeFinishToast = null;
+      this.cdr.markForCheck();
+    }, 2000);
+    this.cdr.markForCheck();
+  }
+
   setSiteView(view: 'home' | 'regatta' | 'cockpit'): void {
     this.siteView = view;
     if (view === 'regatta') {
@@ -1312,6 +1355,7 @@ export class AppComponent implements OnInit, OnDestroy {
       this.userExplicitlyNavigatedHome = true;
       this.isImmersionControlsVisible = true;
     }
+    this.syncRigidViewport();
     this.cdr.markForCheck();
   }
 
@@ -1947,13 +1991,21 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   // Vue Historique : Consultation des classements passés
+  openCurrentRaceLeaderboard(): void {
+    if (this.nextRaceInfo?.race?.id) {
+      this.openRaceLeaderboard(this.nextRaceInfo.race.id);
+    }
+  }
+
   openRaceLeaderboard(raceId: string): void {
     if (!raceId) return;
     this.isRaceLeaderboardModalOpen = true;
-    this.isLoadingRaceLeaderboard = true;
     this.raceLeaderboardError = '';
-    this.selectedRaceLeaderboard = [];
-    this.selectedRaceInfo = null;
+    if (!this.selectedRaceInfo || this.selectedRaceInfo.id !== raceId) {
+      this.isLoadingRaceLeaderboard = true;
+      this.selectedRaceLeaderboard = [];
+      this.selectedRaceInfo = null;
+    }
     this.cdr.markForCheck();
 
     this.rowerService.getRaceLeaderboard(raceId).subscribe({
@@ -1977,6 +2029,7 @@ export class AppComponent implements OnInit, OnDestroy {
 
   closeRaceLeaderboardModal(): void {
     this.isRaceLeaderboardModalOpen = false;
+    this.isPostRaceRankingActive = false;
     this.selectedRaceLeaderboard = [];
     this.selectedRaceInfo = null;
     this.cdr.markForCheck();
@@ -2339,6 +2392,7 @@ export class AppComponent implements OnInit, OnDestroy {
       }
       this.enableScreenWakeLock();
       this.clampCurrentCockpitPosition();
+      this.syncRigidViewport();
       this.cdr.markForCheck();
     }
   }
@@ -2366,6 +2420,7 @@ export class AppComponent implements OnInit, OnDestroy {
       this.isFullscreen = this.checkIsFullscreen();
       this.isImmersionControlsVisible = true;
       this.clampCurrentCockpitPosition();
+      this.syncRigidViewport();
       this.cdr.markForCheck();
     }
   }
@@ -2444,6 +2499,146 @@ export class AppComponent implements OnInit, OnDestroy {
     this.socketSub = this.socketService.onLeaderboardUpdate().subscribe((update) => {
       if (this.nextRaceInfo && update.raceId === this.nextRaceInfo.race.id) {
         this.liveMetricsList = update.leaderboard;
+
+        // 1. Sync racers array for spectators and reactive gauges
+        update.leaderboard.forEach((m) => {
+          let r = this.racers.find(x => x.userId === m.userId);
+          if (!r) {
+            r = {
+              id: `${update.raceId}_${m.userId}`,
+              activityId: update.raceId,
+              userId: m.userId,
+              userName: m.name,
+              netDistance: m.dist,
+              currentDistance: m.dist,
+              lastPower: m.watts,
+              lastStrokeRate: m.spm,
+              lastPace: m.split,
+              avgPower: m.watts,
+              avgPace: m.split,
+              avgStrokeRate: m.spm,
+              avgSpeedKmh: m.split > 0 ? Number(((500 / m.split) * 3.6).toFixed(1)) : 0,
+              status: (m.status as any) || 'in_progress',
+              elapsedTime: 0,
+              country: m.country,
+              lastHeartRate: m.heartRate
+            } as any;
+            this.racers.push(r!);
+          } else {
+            r.netDistance = m.dist;
+            r.lastPower = m.watts;
+            r.lastStrokeRate = m.spm;
+            r.lastPace = m.split;
+            if (m.split > 0) {
+              r.avgSpeedKmh = Number(((500 / m.split) * 3.6).toFixed(1));
+            }
+            if (m.status) {
+              r.status = m.status as any;
+            }
+            if (m.country) {
+              r.country = m.country;
+            }
+            if (m.heartRate) {
+              r.lastHeartRate = m.heartRate;
+            }
+          }
+        });
+
+        // 2. Synchronize active player's activity & HUD gauges continuously
+        const activeName = this.currentUser?.name || '';
+        const myMetric = update.leaderboard.find(m => m.userId === this.activeUserId || (activeName && m.name === activeName));
+        if (myMetric) {
+          if (!this.myActivity) {
+            this.myActivity = {
+              id: `${update.raceId}_${myMetric.userId}`,
+              activityId: update.raceId,
+              userId: myMetric.userId,
+              userName: myMetric.name,
+              netDistance: myMetric.dist,
+              currentDistance: myMetric.dist,
+              lastPower: myMetric.watts,
+              lastStrokeRate: myMetric.spm,
+              lastPace: myMetric.split,
+              avgPower: myMetric.watts,
+              avgPace: myMetric.split,
+              avgStrokeRate: myMetric.spm,
+              avgSpeedKmh: myMetric.split > 0 ? Number(((500 / myMetric.split) * 3.6).toFixed(1)) : 0,
+              status: (myMetric.status as any) || 'in_progress',
+              elapsedTime: myMetric.elapsedTime || Math.max(0, this.gameMaxDurationSeconds - this.gameRemainingSeconds),
+              country: myMetric.country,
+              lastHeartRate: myMetric.heartRate
+            } as any;
+          } else {
+            this.myActivity.netDistance = myMetric.dist;
+            this.myActivity.lastPower = myMetric.watts;
+            this.myActivity.lastStrokeRate = myMetric.spm;
+            this.myActivity.lastPace = myMetric.split;
+            if (myMetric.elapsedTime !== undefined && myMetric.elapsedTime > 0) {
+              this.myActivity.elapsedTime = myMetric.elapsedTime;
+            } else if (this.nextRaceInfo?.status === 'in_progress') {
+              this.myActivity.elapsedTime = Math.max(0, this.gameMaxDurationSeconds - this.gameRemainingSeconds);
+            }
+            if (myMetric.watts > 0) {
+              this.myActivity.avgPower = this.myActivity.avgPower > 0
+                ? Math.round((this.myActivity.avgPower + myMetric.watts) / 2)
+                : myMetric.watts;
+            }
+            if (myMetric.split > 0) {
+              this.myActivity.avgPace = this.myActivity.avgPace > 0
+                ? Math.round((this.myActivity.avgPace + myMetric.split) / 2)
+                : myMetric.split;
+              this.myActivity.avgSpeedKmh = Number(((500 / myMetric.split) * 3.6).toFixed(1));
+            }
+            if (myMetric.status) {
+              this.myActivity.status = myMetric.status as any;
+            }
+            if (myMetric.heartRate) {
+              this.myActivity.lastHeartRate = myMetric.heartRate;
+            }
+          }
+        }
+
+        // 3. Update ranking & gaps in real-time
+        const activeSorted = [...update.leaderboard].filter(r => r.status !== 'abandoned').sort((a, b) => {
+          const isFinA = a.status === 'finished' ? 1 : 0;
+          const isFinB = b.status === 'finished' ? 1 : 0;
+          if (isFinA !== isFinB) return isFinB - isFinA;
+          return (b.dist || 0) - (a.dist || 0);
+        });
+        this.totalActiveRacers = activeSorted.length;
+        const myIdx = activeSorted.findIndex(r => r.userId === this.activeUserId || (activeName && r.name === activeName));
+        if (myIdx >= 0) {
+          this.myRank = myIdx + 1;
+          const myDist = activeSorted[myIdx].dist || 0;
+          const leaderDist = activeSorted[0].dist || 0;
+          this.distToLeader = Math.max(0, Math.round(leaderDist - myDist));
+          this.distToPrev = myIdx > 0 ? Math.max(0, Math.round((activeSorted[myIdx - 1].dist || 0) - myDist)) : 0;
+          this.distToNext = myIdx < activeSorted.length - 1 ? Math.max(0, Math.round(myDist - (activeSorted[myIdx + 1].dist || 0))) : 0;
+        }
+
+        // 4. Notification Éphémère de Franchissement de Ligne (2 secondes strictes)
+        const targetDist = this.activeTargetDistance || 2000;
+        for (const racer of update.leaderboard) {
+          const isFin = racer.status === 'finished' || (racer.dist >= targetDist && targetDist > 0);
+          if (isFin && !this.finishedRacerIds.has(racer.userId)) {
+            this.finishedRacerIds.add(racer.userId);
+            this.finisherCount++;
+            const pos = this.finisherCount;
+            const medal = pos === 1 ? '🥇 1er' : (pos === 2 ? '🥈 2e' : (pos === 3 ? '🥉 3e' : `${pos}e`));
+            const elapsed = racer.elapsedTime || (this.gameMaxDurationSeconds - this.gameRemainingSeconds) || (this.focusedTelemetry || this.myActivity)?.elapsedTime || 0;
+            const formattedChrono = this.formatTime(Math.max(0, elapsed));
+            const toastMsg = `${medal} : ${racer.name} - ${formattedChrono} - Ligne d'arrivée franchie !`;
+            this.triggerFinishToast(toastMsg);
+          }
+        }
+
+        // 5. Affichage du Classement Général en Fin de Course publique
+        const isPublicRace = !this.activePrivateRoom;
+        if (isPublicRace && this.isFinished && !this.isPostRaceRankingActive && this.nextRaceInfo?.race?.id) {
+          this.openRaceLeaderboard(this.nextRaceInfo.race.id);
+          this.isPostRaceRankingActive = true;
+        }
+
         this.cdr.markForCheck();
       }
     });
@@ -2464,6 +2659,12 @@ export class AppComponent implements OnInit, OnDestroy {
           this.countdownSeconds = 0;
           this.is3sCountdown = false;
           this.isPreStartCountdown = false;
+          this.finishedRacerIds.clear();
+          this.finisherCount = 0;
+          if (this.isPostRaceRankingActive || this.isRaceLeaderboardModalOpen) {
+            this.closeRaceLeaderboardModal();
+            this.isPostRaceRankingActive = false;
+          }
           if (this.nextRaceInfo) {
             this.nextRaceInfo.status = 'in_progress';
             if (this.nextRaceInfo.race) {
@@ -2481,6 +2682,11 @@ export class AppComponent implements OnInit, OnDestroy {
             if (this.nextRaceInfo.race) {
               this.nextRaceInfo.race.status = 'post_race_pause';
             }
+          }
+          // Maintenir l'affichage du classement tout au long de la période de pause d'après-course (les 2 minutes)
+          if (!this.activePrivateRoom && this.nextRaceInfo?.race?.id) {
+            this.openRaceLeaderboard(this.nextRaceInfo.race.id);
+            this.isPostRaceRankingActive = true;
           }
           this.syncCountdownUI();
         }
@@ -2552,6 +2758,9 @@ export class AppComponent implements OnInit, OnDestroy {
         const remMin = Math.floor(this.gameRemainingSeconds / 60);
         const remSec = this.gameRemainingSeconds % 60;
         this.formattedGameRemaining = `${remMin}m ${remSec < 10 ? '0' : ''}${remSec}s`;
+        if (this.myActivity && this.nextRaceInfo?.status === 'in_progress') {
+          this.myActivity.elapsedTime = Math.max(0, this.gameMaxDurationSeconds - this.gameRemainingSeconds);
+        }
         this.cdr.markForCheck();
       }
     });

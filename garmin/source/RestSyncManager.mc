@@ -233,12 +233,14 @@ class RestSyncManager {
 
         var effPace = (model.instantPace > 0) ? model.instantPace : ((!model.isHalted && model.avgPace > 0) ? model.avgPace : 0);
         var effPower = (model.instantPower > 0) ? model.instantPower : ((!model.isHalted && model.avgPower > 0) ? model.avgPower : 0);
+        var effSpm = (model.strokeRate > 0.0f) ? model.strokeRate : ((!model.isHalted && model.avgStrokeRate > 0.0f) ? model.avgStrokeRate : 0.0f);
 
         var metrics = {
             "distanceM" => model.totalDistance,
             "splitSec" => effPace,
             "powerWatts" => effPower,
-            "strokeRate" => model.strokeRate,
+            "strokeRate" => effSpm,
+            "spm" => effSpm,
             "heartRate" => model.heartRate
         };
 
@@ -255,6 +257,8 @@ class RestSyncManager {
             "currentDistance" => model.totalDistance,
             "instantPower" => effPower,
             "instantPace" => effPace,
+            "strokeRate" => effSpm,
+            "spm" => effSpm,
             "metrics" => metrics
         };
 

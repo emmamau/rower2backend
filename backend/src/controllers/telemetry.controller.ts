@@ -176,10 +176,10 @@ export class TelemetryController {
       }
 
       // Extract metrics either from standard format or legacy flat format
-      const distanceM = Number(body.metrics?.distanceM ?? body.currentDistance ?? 0);
-      const splitSec = Number(body.metrics?.splitSec ?? body.instantPace ?? 0);
-      const powerWatts = Number(body.metrics?.powerWatts ?? body.instantPower ?? 0);
-      const strokeRate = Number(body.metrics?.strokeRate ?? 0);
+      const distanceM = Number(body.metrics?.distanceM ?? body.currentDistance ?? body.distanceM ?? 0);
+      const splitSec = Number(body.metrics?.splitSec ?? body.instantPace ?? body.splitSec ?? body.pace ?? 0);
+      const powerWatts = Number(body.metrics?.powerWatts ?? body.instantPower ?? body.powerWatts ?? body.power ?? 0);
+      const strokeRate = Number(body.metrics?.strokeRate ?? body.metrics?.spm ?? body.strokeRate ?? body.spm ?? body.cadence ?? 0);
       const heartRate = Number(body.metrics?.heartRate ?? body.heartRate ?? 0);
 
       const compositeId = `${raceId}_${userId}`;
@@ -395,17 +395,33 @@ export class TelemetryController {
       }
 
       // Broadcast WebSocket leaderboard update to web clients
-      const liveList: LiveRacerMetric[] = activeRacers.map((r: any, idx: number) => ({
-        lane: idx + 1,
-        userId: r.get("userId"),
-        name: r.get("userName") || r.get("userId"),
-        dist: r.get("netDistance") as number,
-        split: (r.get("lastPace") as number) || 120,
-        watts: (r.get("lastPower") as number) || 0,
-        spm: (r.get("lastStrokeRate") as number) || 0,
-        heartRate: r.get("lastHeartRate") as number,
-        status: r.get("status")
-      }));
+      const liveList: LiveRacerMetric[] = activeRacers.map((r: any, idx: number) => {
+        const rUserId = typeof r.get === "function" ? r.get("userId") : r.userId;
+        const isMe = rUserId === userId;
+        const netDist = isMe ? effectiveDistance : (typeof r.get === "function" ? (r.get("netDistance") as number) : r.netDistance) || 0;
+        const split = isMe ? actualSplit : (typeof r.get === "function" ? (r.get("lastPace") as number) : r.lastPace) || 120;
+        const watts = isMe ? actualPower : (typeof r.get === "function" ? (r.get("lastPower") as number) : r.lastPower) || 0;
+        const spm = isMe ? actualSpm : (typeof r.get === "function" ? (r.get("lastStrokeRate") as number) : r.lastStrokeRate) || 0;
+        const hr = isMe ? heartRate : (typeof r.get === "function" ? (r.get("lastHeartRate") as number) : r.lastHeartRate);
+        const st = isMe ? activityStatus : (typeof r.get === "function" ? r.get("status") : r.status);
+        const name = (typeof r.get === "function" ? (r.get("userName") || r.get("userId")) : (r.userName || r.userId)) || rUserId;
+        const countryVal = typeof r.get === "function" ? r.get("country") : r.country;
+        const elapsed = isMe ? currentElapsed : ((typeof r.get === "function" ? (r.get("elapsedTime") as number) : r.elapsedTime) || 0);
+
+        return {
+          lane: idx + 1,
+          userId: rUserId,
+          name,
+          dist: netDist,
+          split,
+          watts,
+          spm,
+          heartRate: hr,
+          status: st,
+          country: countryVal || undefined,
+          elapsedTime: elapsed
+        };
+      });
       socketGateway.broadcastLeaderboard(raceId, liveList);
 
       res.status(200).json({

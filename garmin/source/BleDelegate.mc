@@ -1123,9 +1123,10 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
                 :mesgType => FitContributor.MESG_TYPE_SESSION,
                 :units => "m"
             });
-            _fitFieldAvgPace = sess.createField("avg_split_500m", 3, FitContributor.DATA_TYPE_UINT16, {
+            _fitFieldAvgPace = sess.createField("avg_split_500m", 3, FitContributor.DATA_TYPE_STRING, {
                 :mesgType => FitContributor.MESG_TYPE_SESSION,
-                :units => "s/500m"
+                :count => 16,
+                :units => "mm:ss/500m"
             });
             _fitFieldAvgPower = sess.createField("avg_power", 4, FitContributor.DATA_TYPE_UINT16, {
                 :mesgType => FitContributor.MESG_TYPE_SESSION,
@@ -1165,7 +1166,13 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
             }
             if (_fitFieldAvgPace != null) {
                 var avgPaceSec = _model.getEffectiveAvgPace(_model.elapsedTime);
-                (_fitFieldAvgPace as FitContributor.Field).setData(avgPaceSec);
+                var formattedPace = "--:--/500m";
+                if (avgPaceSec > 0 && avgPaceSec < 3600) {
+                    var m = avgPaceSec / 60;
+                    var s = avgPaceSec % 60;
+                    formattedPace = m.format("%d") + ":" + s.format("%02d") + "/500m";
+                }
+                (_fitFieldAvgPace as FitContributor.Field).setData(formattedPace);
             }
             if (_fitFieldAvgPower != null) {
                 (_fitFieldAvgPower as FitContributor.Field).setData(_model.avgPower);

@@ -14,7 +14,7 @@
     <string id="FitOfficialDistLabel">Race Distance</string>
     <string id="FitOfficialDistUnits">m</string>
     <string id="FitAvgPaceLabel">Avg Split 500m</string>
-    <string id="FitAvgPaceUnits">s/500m</string>
+    <string id="FitAvgPaceUnits">mm:ss/500m</string>
     <string id="FitAvgPowerLabel">Avg Power</string>
     <string id="FitAvgPowerUnits">W</string>
     <string id="FitMaxPowerLabel">Max Power</string>

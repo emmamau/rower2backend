@@ -199,18 +199,32 @@ export class RaceManager {
   }
 
   public static toLiveMetrics(sortedRows: any[]): LiveRacerMetric[] {
-    return sortedRows.map((r: any, idx: number) => ({
-      lane: idx + 1,
-      userId: r.get("userId"),
-      name: r.get("userName") || r.get("userId"),
-      dist: (r.get("netDistance") as number) || 0,
-      split: (r.get("lastPace") as number) || (r.get("avgPace") as number) || 120,
-      watts: (r.get("lastPower") as number) || (r.get("avgPower") as number) || 0,
-      spm: (r.get("lastStrokeRate") as number) || (r.get("avgStrokeRate") as number) || 0,
-      heartRate: (r.get("lastHeartRate") as number) || undefined,
-      country: r.get("country") || undefined,
-      status: r.get("status") || "in_progress"
-    }));
+    return sortedRows.map((r: any, idx: number) => {
+      const getVal = (f: string) => (typeof r.get === "function" ? r.get(f) : r[f]);
+      const userId = getVal("userId");
+      const name = getVal("userName") || userId;
+      const dist = (getVal("netDistance") as number) || 0;
+      const split = (getVal("lastPace") as number) || (getVal("avgPace") as number) || 120;
+      const watts = (getVal("lastPower") as number) || (getVal("avgPower") as number) || 0;
+      const spm = (getVal("lastStrokeRate") as number) || (getVal("avgStrokeRate") as number) || 0;
+      const heartRate = (getVal("lastHeartRate") as number) || undefined;
+      const country = getVal("country") || undefined;
+      const status = getVal("status") || "in_progress";
+      const elapsedTime = (getVal("elapsedTime") as number) || 0;
+      return {
+        lane: idx + 1,
+        userId,
+        name,
+        dist,
+        split,
+        watts,
+        spm,
+        heartRate,
+        country,
+        status,
+        elapsedTime
+      };
+    });
   }
 
   /** A human racer still taking part in the race (not abandoned / finished, and still sending data). */

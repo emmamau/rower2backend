@@ -12,6 +12,7 @@ export interface LiveRacerMetric {
   heartRate?: number;
   country?: string;
   status: string;
+  elapsedTime?: number;
 }
 
 export interface LeaderboardUpdatePayload {

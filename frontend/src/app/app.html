@@ -1,6 +1,7 @@
 <div
   class="game-container"
   [class.mobile-fullscreen-view]="isMobileFullscreenOnly"
+  [class.rigid-viewport]="isRigidViewportActive"
   [class.pure-screen-active]="siteView !== 'home'"
   [class.immersion-mode]="isImmersionActive"
   [class.controls-faded]="isImmersionActive && !isImmersionControlsVisible"
@@ -8,6 +9,14 @@
   (pointermove)="onImmersionPointerMove($event)"
   (pointerup)="onImmersionPointerUp()"
   (pointercancel)="onImmersionPointerUp()">
+  <!-- TOAST ÉPHÉMÈRE FRANCHISSEMENT DE LIGNE D'ARRIVÉE (2 SECONDES STRICTES) -->
+  <aside class="finish-line-toast" *ngIf="activeFinishToast" role="alert" aria-live="assertive">
+    <div class="finish-toast-card">
+      <span class="finish-toast-icon">🏁</span>
+      <span class="finish-toast-text">{{ activeFinishToast }}</span>
+    </div>
+  </aside>
+
   <!-- INVITATION VISUELLE À FAIRE PIVOTER L'APPAREIL EN MODE PAYSAGE -->
   <aside
     class="orientation-rotate-notice"
@@ -1422,8 +1431,8 @@
       <!-- MODE RÉGATE ÉPURÉ : UNIQUEMENT LE TABLEAU DE LA RÉGATE -->
       <!-- ======================================================== -->
 
-      <!-- BANNIÈRE DE FÉLICITATIONS FIN DE COURSE -->
-      <section class="finish-celebration-banner" *ngIf="isFinished" role="region" aria-label="Félicitations de fin de course">
+      <!-- BANNIÈRE DE FÉLICITATIONS FIN DE COURSE ET CLASSEMENT GÉNÉRAL COMPLET -->
+      <section class="finish-celebration-banner" *ngIf="isFinished || isPostRaceRankingActive" role="region" aria-label="Félicitations de fin de course">
         <div class="finish-celebration-card" [class.podium-gold]="myRank === 1" [class.podium-silver]="myRank === 2" [class.podium-bronze]="myRank === 3">
           <div class="finish-badge-header">
             <span class="finish-confetti">🎉</span>
@@ -1460,6 +1469,127 @@
               <span class="f-lbl">PUISSANCE MOY.</span>
               <span class="f-val">{{ myActivity?.avgPower || 0 }} W</span>
             </div>
+          </div>
+
+          <!-- CLASSEMENT GÉNÉRAL COMPLET ET DÉTAILLÉ DE LA MANCHE (POSITIONS, PSEUDOS, CHRONOS, ÉCARTS, POINTS) -->
+          <div class="finish-ranking-section">
+            <div class="finish-ranking-header">
+              <h3 class="finish-ranking-title">🏆 {{ i18n.t('LEADERBOARD') || 'Classement Général de la Régate' }}</h3>
+              <button
+                *ngIf="nextRaceInfo?.race?.id"
+                type="button"
+                class="btn-open-full-leaderboard"
+                (click)="openCurrentRaceLeaderboard()"
+                title="Afficher le tableau officiel complet">
+                📊 Voir Détails Complets
+              </button>
+            </div>
+
+            <div class="finish-ranking-table-wrap">
+              <table class="race-leaderboard-table compact-finish-table">
+                <thead>
+                  <tr>
+                    <th>Rang</th>
+                    <th>Coureur</th>
+                    <th>Chrono</th>
+                    <th>Allure</th>
+                    <th>Écart</th>
+                    <th>Points</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @if (selectedRaceLeaderboard.length > 0) {
+                    @for (entry of selectedRaceLeaderboard; track entry.userId || $index) {
+                      <tr [class.is-winner]="entry.position === 1" [class.is-me]="entry.userId === activeUserId">
+                        <td class="col-rank">
+                          <span class="rank-badge" [class.rank-1]="entry.position === 1" [class.rank-2]="entry.position === 2" [class.rank-3]="entry.position === 3">
+                            #{{ entry.position }}
+                          </span>
+                        </td>
+                        <td class="col-user">
+                          <div class="user-cell">
+                            <span class="user-league-badge" *ngIf="entry.league" [title]="entry.league.name">{{ entry.league.badge }}</span>
+                            <span class="bot-indicator" *ngIf="entry.isBot" title="Robot / IA">🤖</span>
+                            <strong class="user-name">{{ entry.userName }}</strong>
+                          </div>
+                        </td>
+                        <td class="col-time font-mono">{{ entry.formattedDuration || '--' }}</td>
+                        <td class="col-pace font-mono">{{ formatPace(entry.avgPace) }}</td>
+                        <td class="col-gap font-mono">{{ entry.gap || '--' }}</td>
+                        <td class="col-points">
+                          <span class="points-pill" *ngIf="entry.points">+{{ entry.points }} pts</span>
+                          <span *ngIf="!entry.points">—</span>
+                        </td>
+                      </tr>
+                    }
+                  } @else {
+                    @for (m of liveMetricsList; track m.userId || $index) {
+                      <tr [class.is-winner]="$index === 0" [class.is-me]="m.userId === activeUserId">
+                        <td class="col-rank">
+                          <span class="rank-badge" [class.rank-1]="$index === 0" [class.rank-2]="$index === 1" [class.rank-3]="$index === 2">
+                            #{{ $index + 1 }}
+                          </span>
+                        </td>
+                        <td class="col-user">
+                          <div class="user-cell">
+                            <strong class="user-name">{{ m.name }}</strong>
+                          </div>
+                        </td>
+                        <td class="col-time font-mono">{{ formatTime(m.elapsedTime) }}</td>
+                        <td class="col-pace font-mono">{{ formatPace(m.split) }}</td>
+                        <td class="col-gap font-mono">{{ m.dist ? m.dist + 'm' : '--' }}</td>
+                        <td class="col-points">
+                          <span class="points-pill">{{ m.status === 'finished' ? '+100 pts' : '—' }}</span>
+                        </td>
+                      </tr>
+                    }
+                  }
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- HUD TÉLÉMÉTRIE UNIFIÉ RÉGATE (PUISSANCE, ALLURE, CADENCE, DISTANCE, CHRONO - ZÉRO SCROLL) -->
+      <section class="regatta-unified-hud" aria-label="Télémétrie de bord en direct">
+        <div class="regatta-hud-grid">
+          <div class="hud-mini-card hud-power">
+            <span class="hm-lbl">{{ i18n.t('POWER') || 'PUISSANCE' }}</span>
+            <span class="hm-val font-mono">{{ (focusedTelemetry || myActivity)?.lastPower || 0 }}<span class="hm-unit">W</span></span>
+            <span class="hm-sub">Moy: {{ (focusedTelemetry || myActivity)?.avgPower || 0 }}W</span>
+          </div>
+
+          <div class="hud-mini-card hud-pace">
+            <span class="hm-lbl">{{ i18n.t('PACE_500M') || 'ALLURE' }}</span>
+            <span class="hm-val font-mono">{{ formatPace((focusedTelemetry || myActivity)?.lastPace) }}</span>
+            <span class="hm-sub">{{ (focusedTelemetry || myActivity)?.avgSpeedKmh || 0 }} km/h</span>
+          </div>
+
+          <div class="hud-mini-card hud-spm">
+            <span class="hm-lbl">{{ i18n.t('CADENCE') || 'CADENCE' }}</span>
+            <span class="hm-val font-mono">{{ ((focusedTelemetry || myActivity)?.lastStrokeRate || 0) | number:'1.0-0' }}<span class="hm-unit">SPM</span></span>
+            <span class="hm-sub">Coups: {{ (focusedTelemetry || myActivity)?.totalStrokes || 0 }}</span>
+          </div>
+
+          <div class="hud-mini-card hud-dist">
+            <span class="hm-lbl">{{ i18n.t('DISTANCE') || 'DISTANCE' }}</span>
+            <span class="hm-val font-mono">{{ (focusedTelemetry || myActivity)?.netDistance || 0 }}<span class="hm-unit">m</span></span>
+            <span class="hm-sub">/ {{ activeTargetDistance }}m</span>
+          </div>
+
+          <div class="hud-mini-card hud-chrono">
+            <span class="hm-lbl">{{ i18n.t('TIME_ELAPSED') || 'CHRONO' }}</span>
+            <span class="hm-val font-mono">{{ formatTime((focusedTelemetry || myActivity)?.elapsedTime) }}</span>
+            <span class="hm-sub" *ngIf="nextRaceInfo?.status === 'in_progress'">Fin: {{ formattedGameRemaining }}</span>
+            <span class="hm-sub" *ngIf="nextRaceInfo?.status !== 'in_progress'">{{ formattedPreRaceCountdown }}</span>
+          </div>
+
+          <div class="hud-mini-card hud-rank">
+            <span class="hm-lbl">{{ i18n.t('LEADERBOARD') || 'RANG' }}</span>
+            <span class="hm-val font-mono rank-glow">{{ myRank ? ('#' + myRank) : '--' }}<span class="hm-unit">/{{ totalActiveRacers || 1 }}</span></span>
+            <span class="hm-sub" *ngIf="myRank === 1">Leader</span>
+            <span class="hm-sub" *ngIf="myRank && myRank > 1">-{{ distToLeader }}m</span>
           </div>
         </div>
       </section>

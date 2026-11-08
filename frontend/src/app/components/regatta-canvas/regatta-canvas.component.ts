@@ -475,7 +475,10 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
     if (!canvas) return;
 
     const boatCount = Math.max(1, this.boatsMap.size);
-    const dynamicMinHeight = Math.max(240, Math.min(600, 48 + boatCount * 38));
+    const isSmallLandscape = typeof window !== 'undefined' && window.innerHeight <= 500;
+    const maxAllowed = isSmallLandscape ? Math.max(100, window.innerHeight - 80) : 600;
+    const minFloor = isSmallLandscape ? 100 : 200;
+    const dynamicMinHeight = Math.max(minFloor, Math.min(maxAllowed, 40 + boatCount * 32));
     if (wrapper) {
       wrapper.style.minHeight = `${dynamicMinHeight}px`;
     }

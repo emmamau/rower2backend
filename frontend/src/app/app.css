@@ -4408,21 +4408,51 @@ input[type="number"]:focus { border-color: var(--neon-cyan); box-shadow: 0 0 10p
   color: #ffe600;
 }
 
-/* Mobile & Tablet Fullscreen Minimalist View */
+/* Rigid Viewport Lock for Smartphone & Fullscreen Pure Screen */
+html.rigid-viewport,
+body.rigid-viewport {
+  height: 100dvh !important;
+  width: 100vw !important;
+  overflow: hidden !important;
+  position: fixed !important;
+  inset: 0 !important;
+  overscroll-behavior: none !important;
+  touch-action: none !important;
+}
+
+/* Mobile & Tablet Fullscreen Minimalist View & Rigid Viewport */
+.game-container.rigid-viewport,
 .game-container.mobile-fullscreen-view {
   padding: 0.25rem !important;
   margin: 0 !important;
   width: 100vw !important;
   max-width: 100vw !important;
-  min-height: 100vh !important;
-  height: 100vh !important;
-  overflow-y: auto !important;
+  height: 100dvh !important;
+  min-height: 100dvh !important;
+  position: fixed !important;
+  inset: 0 !important;
+  overflow: hidden !important;
+  overscroll-behavior: none !important;
+  touch-action: none !important;
+  display: flex !important;
+  flex-direction: column !important;
+  box-sizing: border-box !important;
 }
+.game-container.rigid-viewport .hud-header,
+.game-container.rigid-viewport .dual-standings-history-container,
+.game-container.rigid-viewport .smartphone-table-links,
+.game-container.rigid-viewport .lobby-regatta-preview-section,
+.game-container.rigid-viewport .concept2-fairness-banner,
+.game-container.rigid-viewport .regatta-user-summary,
+.game-container.rigid-viewport .watch-auth-strip,
+.game-container.rigid-viewport .mobile-bottom-nav,
+.game-container.rigid-viewport .app-footer,
 .game-container.mobile-fullscreen-view .hud-header,
 .game-container.mobile-fullscreen-view .dual-standings-history-container,
 .game-container.mobile-fullscreen-view .smartphone-table-links,
 .game-container.mobile-fullscreen-view .lobby-regatta-preview-section,
 .game-container.mobile-fullscreen-view .concept2-fairness-banner,
+.game-container.mobile-fullscreen-view .regatta-user-summary,
 .game-container.mobile-fullscreen-view .watch-auth-strip,
 .game-container.mobile-fullscreen-view .mobile-bottom-nav,
 .game-container.mobile-fullscreen-view .app-footer {
@@ -4434,6 +4464,241 @@ input[type="number"]:focus { border-color: var(--neon-cyan); box-shadow: 0 0 10p
 }
 .game-container.mobile-fullscreen-view .cockpit-hud {
   min-height: calc(100vh - 80px);
+}
+
+/* ==========================================================================
+   REGATTA UNIFIED HUD & ZERO-SCROLL VIEWPORT
+   ========================================================================== */
+.regatta-unified-hud {
+  width: 100%;
+  margin-block: 0.35rem;
+  z-index: 10;
+  box-sizing: border-box;
+}
+
+.regatta-hud-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.hud-mini-card {
+  background: linear-gradient(135deg, rgba(13, 23, 44, 0.94), rgba(7, 14, 30, 0.96));
+  border: 1px solid rgba(0, 240, 255, 0.35);
+  border-radius: 10px;
+  padding: 0.45rem 0.65rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4), inset 0 0 10px rgba(0, 240, 255, 0.05);
+  min-width: 0;
+  overflow: hidden;
+}
+
+.hud-mini-card .hm-lbl {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: #8da2c0;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.hud-mini-card .hm-val {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #00f0ff;
+  line-height: 1.15;
+  margin-block: 0.15rem;
+  white-space: nowrap;
+}
+
+.hud-mini-card .hm-unit {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #8da2c0;
+  margin-left: 2px;
+}
+
+.hud-mini-card .hm-sub {
+  font-size: 0.68rem;
+  color: #94a3b8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.hud-mini-card.hud-power .hm-val {
+  color: #ffaa00;
+}
+
+.hud-mini-card.hud-rank .rank-glow {
+  color: #ffe600;
+  text-shadow: 0 0 10px rgba(255, 230, 0, 0.5);
+}
+
+/* Regatta Canvas in Rigid Viewport */
+.game-container.rigid-viewport .regatta-canvas-section,
+.game-container.mobile-fullscreen-view .regatta-canvas-section {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  margin: 0;
+}
+
+.game-container.rigid-viewport .canvas-display-card,
+.game-container.mobile-fullscreen-view .canvas-display-card {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.game-container.rigid-viewport app-regatta-canvas,
+.game-container.mobile-fullscreen-view app-regatta-canvas {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Smartphone Landscape: Ultra-compact unified Regatta + Telemetry */
+@media (orientation: landscape) and (max-height: 600px) {
+  .game-container.rigid-viewport,
+  .game-container.mobile-fullscreen-view {
+    padding: 0.15rem 0.4rem !important;
+  }
+  .game-container.rigid-viewport .pure-screen-header,
+  .game-container.mobile-fullscreen-view .pure-screen-header {
+    padding: 0.15rem 0.5rem !important;
+    min-height: 28px !important;
+  }
+  .regatta-unified-hud {
+    margin-block: 0.15rem;
+  }
+  .regatta-hud-grid {
+    grid-template-columns: repeat(6, 1fr) !important;
+    gap: 0.25rem !important;
+  }
+  .hud-mini-card {
+    padding: 0.2rem 0.35rem !important;
+  }
+  .hud-mini-card .hm-lbl {
+    font-size: 0.6rem !important;
+  }
+  .hud-mini-card .hm-val {
+    font-size: 0.95rem !important;
+    margin-block: 0.05rem !important;
+  }
+  .hud-mini-card .hm-sub {
+    font-size: 0.6rem !important;
+  }
+  .spectator-camera-bar,
+  .regatta-user-summary,
+  .regatta-fairness-banner {
+    display: none !important;
+  }
+}
+
+/* Smartphone Portrait: 2-column or 3-column compact HUD under 2D canvas */
+@media (orientation: portrait) and (max-width: 768px) {
+  .game-container.rigid-viewport,
+  .game-container.mobile-fullscreen-view {
+    padding: 0.25rem !important;
+  }
+  .game-container.rigid-viewport .regatta-canvas-section,
+  .game-container.mobile-fullscreen-view .regatta-canvas-section {
+    max-height: 52dvh !important;
+    flex: 1 1 50% !important;
+  }
+  .regatta-unified-hud {
+    flex: 0 0 auto !important;
+    margin-top: 0.35rem !important;
+  }
+  .regatta-hud-grid {
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 0.35rem !important;
+  }
+  .hud-mini-card {
+    padding: 0.35rem 0.45rem !important;
+  }
+  .hud-mini-card .hm-val {
+    font-size: 1.05rem !important;
+  }
+  .spectator-camera-bar,
+  .regatta-user-summary,
+  .regatta-fairness-banner {
+    display: none !important;
+  }
+}
+
+/* Toast Éphémère de Franchissement de Ligne (2 secondes) */
+.finish-line-toast {
+  position: fixed;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100000;
+  pointer-events: none;
+  animation: toastSlideDownFade 2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.finish-toast-card {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  background: linear-gradient(135deg, rgba(8, 16, 36, 0.96), rgba(3, 8, 20, 0.98));
+  border: 2px solid #00f0ff;
+  border-radius: 999px;
+  padding: 0.5rem 1.4rem;
+  box-shadow: 0 0 25px rgba(0, 240, 255, 0.6), 0 8px 30px rgba(0, 0, 0, 0.85);
+  color: #ffffff;
+  font-size: 0.92rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.finish-toast-icon {
+  font-size: 1.15rem;
+  animation: bounceFinish 0.6s ease infinite alternate;
+}
+
+.finish-toast-text {
+  font-family: var(--font-race), monospace;
+  color: #e6f1ff;
+  letter-spacing: 0.3px;
+}
+
+@keyframes toastSlideDownFade {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -24px) scale(0.9);
+  }
+  12% {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
+  }
+  80% {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -18px) scale(0.95);
+  }
+}
+
+@keyframes bounceFinish {
+  from { transform: translateY(0); }
+  to { transform: translateY(-3px); }
 }
 
 .cockpit-player-select-card {
@@ -5362,4 +5627,68 @@ input[type="number"]:focus { border-color: var(--neon-cyan); box-shadow: 0 0 10p
   background: rgba(255, 60, 60, 0.15);
   color: #ff3c3c;
   border: 1px solid rgba(255, 60, 60, 0.3);
+}
+
+/* Regatta In-Overlay Detailed Leaderboard */
+.finish-ranking-section {
+  margin-top: 1rem;
+  width: 100%;
+  border-top: 1px solid rgba(0, 240, 255, 0.2);
+  padding-top: 0.75rem;
+}
+
+.finish-ranking-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+
+.finish-ranking-title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #00f0ff;
+  letter-spacing: 0.5px;
+}
+
+.btn-open-full-leaderboard {
+  background: rgba(0, 240, 255, 0.12);
+  border: 1px solid rgba(0, 240, 255, 0.35);
+  color: #00f0ff;
+  padding: 0.25rem 0.6rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-open-full-leaderboard:hover {
+  background: rgba(0, 240, 255, 0.25);
+  color: #ffffff;
+}
+
+.finish-ranking-table-wrap {
+  max-height: 220px;
+  overflow-y: auto;
+  border-radius: 6px;
+  border: 1px solid rgba(0, 240, 255, 0.15);
+}
+
+.compact-finish-table {
+  font-size: 0.8rem;
+}
+
+.compact-finish-table th {
+  padding: 0.4rem 0.6rem;
+  font-size: 0.7rem;
+}
+
+.compact-finish-table td {
+  padding: 0.35rem 0.6rem;
+}
+
+.compact-finish-table tr.is-me td {
+  background: rgba(0, 240, 255, 0.1) !important;
 }

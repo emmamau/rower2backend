@@ -36,8 +36,8 @@ export class TelemetryValidator {
   ): ValidationResult {
     const { distanceM, splitSec, powerWatts, strokeRate } = payload.metrics;
 
-    const clampedSpm = Math.min(60, Math.max(0, strokeRate));
-    const clampedSplit = splitSec > 0 ? Math.max(60, Math.min(360, splitSec)) : 0;
+    let clampedSpm = Math.min(60, Math.max(0, strokeRate));
+    let clampedSplit = splitSec > 0 ? Math.max(60, Math.min(360, splitSec)) : 0;
 
     // Derive mechanical ergometer power (W = 2.80 / (split/500)^3) when rower omits powerWatts during active stroke
     let rawOrDerivedPower = powerWatts;
@@ -46,6 +46,19 @@ export class TelemetryValidator {
       rawOrDerivedPower = Math.round(2.80 / (splitRatio * splitRatio * splitRatio));
     }
     const clampedPower = Math.min(1200, Math.max(0, rawOrDerivedPower));
+
+    // Cross-derive splitSec from powerWatts if splitSec is 0 but powerWatts > 0
+    if (clampedSplit <= 0 && clampedPower > 0) {
+      const c2Speed = Math.cbrt(clampedPower / 2.80);
+      if (c2Speed > 0) {
+        clampedSplit = Math.max(60, Math.min(360, Math.round(500 / c2Speed)));
+      }
+    }
+
+    // Realistic cadence estimation if power is generated but SPM omitted
+    if (clampedSpm <= 0 && clampedPower > 15) {
+      clampedSpm = Math.min(36, Math.max(18, Math.round(18 + Math.sqrt(clampedPower) * 0.45)));
+    }
 
     // 1. Distance checks
     const distDelta = distanceM - previousDistance;

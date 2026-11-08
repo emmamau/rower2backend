@@ -933,5 +933,115 @@ test('Responsive UI Refactor: Floating fullscreen hidden on mobile, Timer block 
   assert.ok(!appHtml.includes('Personnaliser mon identifiant'), 'No Personnaliser mon identifiant label should remain');
 });
 
+test('Mobile Rigid Viewport & Anti-Scroll: 100dvh, 100vw, overflow hidden, position fixed, touch-action & overscroll-behavior none', () => {
+  const appCss = fs.readFileSync(path.resolve(__dirname, '../src/app/app.css'), 'utf8');
+  const appHtml = fs.readFileSync(path.resolve(__dirname, '../src/app/app.html'), 'utf8');
+  const appTs = fs.readFileSync(path.resolve(__dirname, '../src/app/app.ts'), 'utf8');
+
+  // 1. Rigid viewport class definition in CSS
+  assert.match(appCss, /html\.rigid-viewport,\s*body\.rigid-viewport\s*\{/);
+  assert.match(appCss, /\.game-container\.rigid-viewport,\s*\.game-container\.mobile-fullscreen-view\s*\{/);
+  assert.match(appCss, /height:\s*100dvh\s*!important;/);
+  assert.match(appCss, /width:\s*100vw\s*!important;/);
+  assert.match(appCss, /overflow:\s*hidden\s*!important;/);
+  assert.match(appCss, /position:\s*fixed\s*!important;/);
+  assert.match(appCss, /overscroll-behavior:\s*none\s*!important;/);
+  assert.match(appCss, /touch-action:\s*none\s*!important;/);
+
+  // 2. HTML template binds [class.rigid-viewport]="isRigidViewportActive"
+  assert.match(appHtml, /\[class\.rigid-viewport\]="isRigidViewportActive"/);
+
+  // 3. TypeScript logic computes isRigidViewportActive and syncs classes
+  assert.match(appTs, /get isRigidViewportActive\(\):\s*boolean\s*\{/);
+  assert.match(appTs, /syncRigidViewport\(\):\s*void\s*\{/);
+  // Verify syncRigidViewport is wired up on resize, fullscreen enter/exit and error fallback
+  assert.match(appTs, /private readonly resizeListener = \(\) => \{[\s\S]*?this\.syncRigidViewport\(\);/);
+  assert.match(appTs, /fullscreenErrorListener = \(\) => \{[\s\S]*?this\.syncRigidViewport\(\);/);
+  assert.match(appTs, /escapeKeyFullscreenHandler = \([\s\S]*?\) => \{[\s\S]*?this\.syncRigidViewport\(\);/);
+});
+
+test('Regatta Unified HUD: displays Power, Pace/Speed, Cadence/SPM, Distance, and Chrono without scrolling', () => {
+  const appHtml = fs.readFileSync(path.resolve(__dirname, '../src/app/app.html'), 'utf8');
+  const appCss = fs.readFileSync(path.resolve(__dirname, '../src/app/app.css'), 'utf8');
+
+  // Unified HUD section in regatta view
+  assert.match(appHtml, /<section class="regatta-unified-hud"/);
+  assert.match(appHtml, /class="hud-mini-card hud-power"/);
+  assert.match(appHtml, /class="hud-mini-card hud-pace"/);
+  assert.match(appHtml, /class="hud-mini-card hud-spm"/);
+  assert.match(appHtml, /class="hud-mini-card hud-dist"/);
+  assert.match(appHtml, /class="hud-mini-card hud-chrono"/);
+  assert.match(appHtml, /class="hud-mini-card hud-rank"/);
+
+  // CSS ensures flex-based layout for zero scroll on mobile
+  assert.match(appCss, /\.regatta-unified-hud\s*\{/);
+  assert.match(appCss, /\.game-container\.rigid-viewport \.regatta-canvas-section/);
+  assert.match(appCss, /@media\s*\(orientation:\s*landscape\)\s*and\s*\(max-height:\s*600px\)/);
+});
+
+test('Ephemeral Finish Line Toast Notification: triggers for finished racers, 2-second max duration, slide down & fade out', () => {
+  const appHtml = fs.readFileSync(path.resolve(__dirname, '../src/app/app.html'), 'utf8');
+  const appCss = fs.readFileSync(path.resolve(__dirname, '../src/app/app.css'), 'utf8');
+  const appTs = fs.readFileSync(path.resolve(__dirname, '../src/app/app.ts'), 'utf8');
+
+  // 1. Toast in HTML
+  assert.match(appHtml, /class="finish-line-toast"\s*\*ngIf="activeFinishToast"/);
+  assert.match(appHtml, /class="finish-toast-text">\{\{\s*activeFinishToast\s*\}\}/);
+
+  // 2. 2-second strict duration animation in CSS
+  assert.match(appCss, /\.finish-line-toast\s*\{[\s\S]*?animation:\s*toastSlideDownFade\s+2s/);
+  assert.match(appCss, /@keyframes toastSlideDownFade/);
+
+  // 3. TypeScript toast trigger with 2000ms timer and dynamic race chrono
+  assert.match(appTs, /triggerFinishToast\(message:\s*string\):\s*void\s*\{/);
+  assert.match(appTs, /setTimeout\(\(\)\s*=>\s*\{[\s\S]*?this\.activeFinishToast\s*=\s*null;[\s\S]*?\}, 2000\)/);
+  assert.match(appTs, /racer\.elapsedTime\s*\|\|\s*\(this\.gameMaxDurationSeconds - this\.gameRemainingSeconds\)/);
+  assert.match(appTs, /Ligne d'arrivée franchie !/);
+});
+
+test('Post-Race Detailed Ranking: displayed on public race finish and maintained across 2-minute pause until next race start', () => {
+  const appHtml = fs.readFileSync(path.resolve(__dirname, '../src/app/app.html'), 'utf8');
+  const appTs = fs.readFileSync(path.resolve(__dirname, '../src/app/app.ts'), 'utf8');
+
+  // Triggered on public race finish
+  assert.match(appTs, /if\s*\(isPublicRace && this\.isFinished && !this\.isPostRaceRankingActive && this\.nextRaceInfo\?\.race\?\.id\)\s*\{/);
+  // Maintained throughout POST_RACE_PAUSE (2 minutes)
+  assert.match(appTs, /update\.status === 'POST_RACE_PAUSE'/);
+  assert.match(appTs, /this\.openRaceLeaderboard\(this\.nextRaceInfo\.race\.id\);/);
+  // Dismissed upon RUNNING status of next race
+  assert.match(appTs, /if\s*\(this\.isPostRaceRankingActive \|\| this\.isRaceLeaderboardModalOpen\)\s*\{[\s\S]*?this\.closeRaceLeaderboardModal\(\);/);
+  // Regatta finish overlay embeds complete detailed ranking table (positions, names, chrono, pace, gap, points)
+  assert.match(appHtml, /class="finish-ranking-section"/);
+  assert.match(appHtml, /compact-finish-table/);
+  assert.match(appHtml, /selectedRaceLeaderboard/);
+});
+
+test('Real-time Telemetry WebSocket Binding: updates Watts, SPM, Pace, and Distance continuously and synchronously', () => {
+  const appTs = fs.readFileSync(path.resolve(__dirname, '../src/app/app.ts'), 'utf8');
+
+  // Synchronizes myActivity directly from WebSocket update.leaderboard
+  assert.match(appTs, /this\.myActivity\.netDistance\s*=\s*myMetric\.dist;/);
+  assert.match(appTs, /this\.myActivity\.lastPower\s*=\s*myMetric\.watts;/);
+  assert.match(appTs, /this\.myActivity\.lastStrokeRate\s*=\s*myMetric\.spm;/);
+  assert.match(appTs, /this\.myActivity\.lastPace\s*=\s*myMetric\.split;/);
+});
+
+test('Garmin FIT Activity Split Formatting: mm:ss/500m string formatting in BleDelegate.mc and fit_contributions.xml', () => {
+  const bleDelegateMc = fs.readFileSync(path.resolve(__dirname, '../../garmin/source/BleDelegate.mc'), 'utf8');
+  const stringsXml = fs.readFileSync(path.resolve(__dirname, '../../garmin/resources/strings/strings.xml'), 'utf8');
+  const fitContribXml = fs.readFileSync(path.resolve(__dirname, '../../garmin/resources/fit_contributions.xml'), 'utf8');
+
+  // 1. DATA_TYPE_STRING and mm:ss/500m units in BleDelegate.mc
+  assert.match(bleDelegateMc, /sess\.createField\("avg_split_500m",\s*3,\s*FitContributor\.DATA_TYPE_STRING,\s*\{[\s\S]*?:units\s*=>\s*"mm:ss\/500m"/);
+  assert.match(bleDelegateMc, /m\.format\("%d"\)\s*\+\s*":"\s*\+\s*s\.format\("%02d"\)\s*\+\s*"\/500m"/);
+
+  // 2. Unit label defined in strings.xml
+  assert.match(stringsXml, /<string id="FitAvgPaceUnits">mm:ss\/500m<\/string>/);
+
+  // 3. FIT Field in fit_contributions.xml references strings
+  assert.match(fitContribXml, /<fitField id="3"[\s\S]*?unitLabel="@Strings\.FitAvgPaceUnits"/);
+});
+
+
 
 

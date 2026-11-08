@@ -269,3 +269,53 @@ test('Guest Spectator & Guest Pairing: guest_session_id works seamlessly for pai
     await close();
   }
 });
+
+test('Pairing model definition: index fields must match database column names and query generator outputs valid SQL', () => {
+  const { Sequelize, DataTypes } = require('sequelize');
+  const seq = new Sequelize('postgres://user:pass@localhost:5432/testdb', { logging: false });
+  const definePairings = require('../dist/models/pairing.model').default;
+  const Pairing = definePairings(seq, DataTypes);
+
+  const rawAttributes = Pairing.rawAttributes;
+  const columnNames = new Set(
+    Object.values(rawAttributes).map((attr) => attr.field || attr.fieldName)
+  );
+
+  const indexes = Pairing.options.indexes || [];
+  assert.ok(indexes.length > 0, 'Pairing model should define indexes');
+
+  const qg = seq.getQueryInterface().queryGenerator;
+
+  for (const idx of indexes) {
+    for (const field of idx.fields) {
+      const fieldName = typeof field === 'string' ? field : field.name || field.attribute;
+      assert.ok(
+        columnNames.has(fieldName),
+        `Index field "${fieldName}" does not exist in Pairing table columns (${Array.from(columnNames).join(', ')})`
+      );
+    }
+
+    const indexSql = qg.addIndexQuery(Pairing.getTableName(), idx.fields, idx, Pairing.getTableName());
+    assert.ok(!indexSql.includes('"pairingCode"'), 'Generated SQL must not reference camelCase pairingCode: ' + indexSql);
+    assert.ok(!indexSql.includes('"userId"'), 'Generated SQL must not reference camelCase userId: ' + indexSql);
+    assert.ok(!indexSql.includes('"deviceToken"'), 'Generated SQL must not reference camelCase deviceToken: ' + indexSql);
+    assert.ok(!indexSql.includes('"deviceId"'), 'Generated SQL must not reference camelCase deviceId: ' + indexSql);
+  }
+
+  // Also verify all models defined in the database
+  const { db } = require('../dist/models');
+  const allModels = [db.activities, db.races, db.users, db.loginRequests, db.pairings];
+  for (const m of allModels) {
+    const cols = new Set(Object.values(m.rawAttributes).map((a) => a.field || a.fieldName));
+    for (const idx of m.options.indexes || []) {
+      for (const field of idx.fields) {
+        const fieldName = typeof field === 'string' ? field : field.name || field.attribute;
+        assert.ok(
+          cols.has(fieldName),
+          `Model ${m.name} has index on non-existent column "${fieldName}"`
+        );
+      }
+    }
+  }
+});
+

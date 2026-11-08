@@ -29,6 +29,7 @@ export interface RowerData {
   avgSpeedKmh: number;
 
   finalRank?: number;
+  country?: string;
   finishedAt?: string;
   updatedAt?: string;
 }
