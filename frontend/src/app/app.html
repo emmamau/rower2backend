@@ -149,6 +149,15 @@
         (click)="setSiteView('cockpit')">
         📱 <span class="pure-btn-text">{{ i18n.t('MODE_COCKPIT') }}</span>
       </button>
+      @if (fullscreenSupported || isFullscreen || isPseudoFullscreen) {
+        <button
+          type="button"
+          class="btn-pure-nav btn-pure-fullscreen"
+          (click)="toggleFullscreen()"
+          [title]="isFullscreen ? i18n.t('FULLSCREEN_EXIT') : i18n.t('FULLSCREEN_ENTER')">
+          {{ isFullscreen ? '✕' : '⛶' }}
+        </button>
+      }
     </div>
   </header>
 
@@ -223,7 +232,7 @@
           </button>
         </nav>
 
-        <!-- Groupe Prochaine Course + Bouton Plein Écran très accessible juste à sa droite -->
+        <!-- Groupe Prochaine Course (Bloc Timer) avec Plein Écran et Appairage Garmin intégrés -->
         <div class="hero-schedule-cluster">
           <!-- Prochaine Course -->
           <div class="race-schedule-badge hero-schedule" [class.private-mode]="!!activePrivateRoom" *ngIf="nextRaceInfo">
@@ -246,7 +255,46 @@
                 <span class="pulse-dot" *ngIf="activeRacersCount > 0"></span>
                 👥 {{ activeRacersCount }} {{ i18n.t('ACTIVE_RACERS') }}
               </span>
+
+              <!-- Action Plein Écran compacte intégrée au bloc Timer -->
+              <button
+                type="button"
+                class="btn-fullscreen hero-fullscreen"
+                [class.active]="isFullscreen"
+                (click)="toggleFullscreen()"
+                [title]="isFullscreen ? i18n.t('FULLSCREEN_EXIT') : i18n.t('FULLSCREEN_ENTER')"
+                [attr.aria-label]="isFullscreen ? i18n.t('FULLSCREEN_EXIT') : i18n.t('FULLSCREEN_ENTER')"
+                [attr.aria-pressed]="isFullscreen">
+                <span class="fullscreen-icon" aria-hidden="true">{{ isFullscreen ? '✕' : '⛶' }}</span>
+                <span class="fullscreen-label">{{ isFullscreen ? (i18n.t('FULLSCREEN_EXIT_LABEL') || 'Quitter') : (i18n.t('TOGGLE_FULLSCREEN') || 'Plein Écran') }}</span>
+              </button>
             </div>
+
+            <!-- Action / Lien d'appairage Montre Garmin intégré au Bloc Timer avant le départ si non appairée -->
+            @if (!isPaired && !isWatchConfirmed && nextRaceInfo.status !== 'in_progress') {
+              <div class="timer-pairing-bar">
+                @if (!pairingCode) {
+                  <button
+                    type="button"
+                    class="btn-timer-pair"
+                    [disabled]="isGeneratingPairingCode"
+                    (click)="generateGarminPairingCode()"
+                    title="Lier votre montre Garmin (Connect IQ) pour la course">
+                    <span class="pair-icon">⌚</span>
+                    <span class="pair-text">{{ isGeneratingPairingCode ? 'Génération...' : 'Lier ma montre Garmin' }}</span>
+                  </button>
+                } @else {
+                  <div class="timer-pairing-code-pill">
+                    <span class="pair-code-tag">Code Garmin :</span>
+                    <strong class="pair-code-num">{{ pairingCode }}</strong>
+                    <span class="pair-code-timer">⏱️ {{ formattedPairingCountdown }}</span>
+                  </div>
+                }
+                @if (pairingErrorMessage) {
+                  <span class="timer-pairing-err">⚠️ {{ pairingErrorMessage }}</span>
+                }
+              </div>
+            }
           </div>
 
 
@@ -686,32 +734,10 @@
 
               <!-- Zone d'appairage Garmin sous la section compte / abonnement -->
               <div class="profile-garmin-box" *ngIf="!isPaired">
-                <h5>⌚ Lier ma montre Garmin</h5>
+                <h5>⌚ Liaison Montre Garmin</h5>
                 <p class="field-hint">
-                  Liez votre montre Garmin (SDK Connect IQ) pour synchroniser votre rameur et transmettre vos métriques en temps réel.
+                  L'appairage s'effectue désormais directement depuis le bloc Timer avant le départ de la course.
                 </p>
-                <div class="profile-pairing-actions">
-                  <button
-                    type="button"
-                    class="btn-cyber-primary"
-                    [disabled]="isGeneratingPairingCode"
-                    (click)="generateGarminPairingCode()">
-                    ⚡ {{ pairingCode ? 'Regénérer un code' : 'Lier ma montre Garmin' }}
-                  </button>
-                </div>
-                @if (pairingCode) {
-                  <div class="profile-code-display">
-                    <span class="code-sub-tag">CODE MONTRE :</span>
-                    <div class="code-glow-digits-profile">{{ pairingCode }}</div>
-                    <span class="timer-sub-profile">Temps restant : {{ formattedPairingCountdown }}</span>
-                  </div>
-                }
-                @if (pairingSuccessMessage) {
-                  <div class="account-action-feedback ok">{{ pairingSuccessMessage }}</div>
-                }
-                @if (pairingErrorMessage) {
-                  <div class="account-action-feedback err">{{ pairingErrorMessage }}</div>
-                }
               </div>
               <div class="profile-garmin-box is-paired" *ngIf="isPaired">
                 <h5>⌚ Montre Garmin Connectée</h5>
@@ -1121,7 +1147,7 @@
                   <li><strong>Courses Privées Personnalisées :</strong> Distances configurables jusqu'à {{ currentSubscriberTier === 'pro' ? '10 000 m' : '5 000 m' }}.</li>
                   <li><strong>Gestion des Bots Virtuels :</strong> Jusqu'à {{ currentSubscriberTier === 'pro' ? '5 bots' : '3 bots' }} avec niveau d'allure ajustable.</li>
                   <li><strong>Modes de Départ :</strong> Top départ manuel après validation des rameurs ou départ programmé à date/heure précise.</li>
-                  <li><strong>Préfixe Personnalisé :</strong> Modifiable dans votre profil coureur.</li>
+                  <li><strong>Analyses Statistiques :</strong> Accès illimité aux métriques et analyses de courses.</li>
                   <li><strong>Historique Illimité :</strong> Toutes vos statistiques de régate conservées sans limite.</li>
                 </ul>
               </div>
@@ -1132,9 +1158,6 @@
               <div class="modal-buttons">
                 <button type="button" class="btn-primary" (click)="closeUnifiedConfigModal(); openPrivateModal('create')">
                   🔒 Créer un Salon Privé
-                </button>
-                <button type="button" class="btn-secondary" (click)="closeUnifiedConfigModal(); openAccountModal('profile')">
-                  👤 Modifier mon Préfixe
                 </button>
                 <button type="button" class="btn-secondary" (click)="closeUnifiedConfigModal()">Fermer</button>
               </div>
@@ -1172,7 +1195,7 @@
               <h4>Prenez les commandes : organisez vos propres courses !</h4>
               <p>
                 La personnalisation des distances (jusqu'à 10 000 m), le choix des bots virtuels,
-                les salons privés programmés et la modification de votre identifiant sont réservés aux abonnés Club & Élite Pro.
+                les salons privés programmés et les fonctionnalités avancées sont réservés aux abonnés Club & Élite Pro.
               </p>
               <div class="promo-pricing-pills">
                 <span class="pill-tier">Gratuit · 1 invité · 2 km · 1 bot</span>
@@ -1322,8 +1345,8 @@
           </p>
           <ul>
             <li><strong>Compte Invité / Gratuit :</strong> Accès aux courses publiques, au mode duel 1v1 contre un bot, et création de salons privés jusqu'à 2 coureurs et 2 000 m. L'historique et les statistiques d'analyses de courses sont conservés pendant <strong>10 jours</strong>.</li>
-            <li><strong>Abonnement Club (5,99 € / mois) :</strong> Salons privés jusqu'à 5 coureurs et 5 000 m, jusqu'à 3 bots configurables, <strong>historique et analyses statistiques illimités</strong>, et personnalisation de l'identifiant joueur unifié.</li>
-            <li><strong>Abonnement Élite Pro (8,99 € / mois) :</strong> Salons privés jusqu'à 10 coureurs et 10 000 m, jusqu'à 5 bots avec régulation de cadence/puissance, historique illimité, personnalisation d'identifiant et support prioritaire.</li>
+            <li><strong>Abonnement Club (5,99 € / mois) :</strong> Salons privés jusqu'à 5 coureurs et 5 000 m, jusqu'à 3 bots configurables, et <strong>historique et analyses statistiques illimités</strong>.</li>
+            <li><strong>Abonnement Élite Pro (8,99 € / mois) :</strong> Salons privés jusqu'à 10 coureurs et 10 000 m, jusqu'à 5 bots avec régulation de cadence/puissance, historique illimité et support prioritaire.</li>
           </ul>
           <p>
             Les transactions et renouvellements sont opérés de façon sécurisée par Lemon Squeezy. Vous pouvez <strong>résilier votre abonnement à tout moment</strong> d'un simple clic dans votre profil utilisateur ou en écrivant à <a href="mailto:contact@rowerrace.com" class="legal-link">contact@rowerrace.com</a>. La résiliation prend effet à la fin de la période en cours, et votre compte redevient un compte gratuit.
@@ -2529,7 +2552,7 @@
             <li>✓ Courses jusqu'à <strong>5 000 m (5 km)</strong></li>
             <li>✓ <strong>Jusqu'à 3 bots</strong> configurables</li>
             <li>✓ <strong>Historique illimité</strong> des courses</li>
-            <li>✓ <strong>Personnalisation</strong> de votre identifiant</li>
+            <li>✓ <strong>Statistiques & analyses</strong> de course illimitées</li>
             <li>✓ Départ manuel ou <strong>programmé à l'heure</strong></li>
           </ul>
           <button
@@ -2553,7 +2576,7 @@
             <li>✓ Courses longues jusqu'à <strong>10 000 m (10 km)</strong></li>
             <li>✓ <strong>Jusqu'à 5 bots</strong> avec allure max</li>
             <li>✓ <strong>Historique illimité</strong> & export</li>
-            <li>✓ Identifiant personnalisé mondial</li>
+            <li>✓ Analyses avancées & export de données</li>
             <li>✓ Support prioritaire & nouveautés</li>
           </ul>
           <button

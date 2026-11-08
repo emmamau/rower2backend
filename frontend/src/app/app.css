@@ -650,6 +650,84 @@ body.app-pseudo-fullscreen .game-container {
   50% { box-shadow: 0 0 18px rgba(57, 255, 20, 0.7); }
 }
 
+/* ==========================================================================
+   ACTIONS DANS LE BLOC TIMER (PLEIN ÉCRAN & APPAIRAGE GARMIN)
+   ========================================================================== */
+.badge-timer .hero-fullscreen {
+  min-block-size: 34px;
+  padding: 0.32rem 0.8rem;
+  font-size: 0.78rem;
+  border-radius: 8px;
+  gap: 0.4rem;
+  flex-shrink: 0;
+  text-transform: none;
+  font-weight: 800;
+}
+.badge-timer .hero-fullscreen .fullscreen-icon {
+  font-size: 0.95rem;
+}
+.timer-pairing-bar {
+  margin-top: 0.45rem;
+  padding-top: 0.45rem;
+  border-top: 1px dashed rgba(0, 240, 255, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+.btn-timer-pair {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: linear-gradient(135deg, rgba(0, 240, 255, 0.2), rgba(0, 119, 182, 0.35));
+  border: 1px solid rgba(0, 240, 255, 0.6);
+  color: #00f0ff;
+  border-radius: 6px;
+  padding: 0.3rem 0.75rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  touch-action: manipulation;
+}
+.btn-timer-pair:hover {
+  background: linear-gradient(135deg, rgba(0, 240, 255, 0.35), rgba(0, 119, 182, 0.5));
+  border-color: #00f0ff;
+  color: #ffffff;
+  box-shadow: 0 0 10px rgba(0, 240, 255, 0.4);
+}
+.timer-pairing-code-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(6, 9, 19, 0.9);
+  border: 1px solid rgba(255, 230, 0, 0.6);
+  border-radius: 6px;
+  padding: 0.25rem 0.65rem;
+  font-size: 0.78rem;
+}
+.timer-pairing-code-pill .pair-code-tag {
+  color: #94a3b8;
+  font-size: 0.72rem;
+}
+.timer-pairing-code-pill .pair-code-num {
+  font-family: monospace;
+  font-size: 1rem;
+  font-weight: 900;
+  color: #ffe600;
+  letter-spacing: 2px;
+}
+.timer-pairing-code-pill .pair-code-timer {
+  color: #00f0ff;
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+.timer-pairing-err {
+  font-size: 0.72rem;
+  color: #ef4444;
+}
+
 .lang-selector-bar {
   display: flex;
   align-items: center;
@@ -2462,76 +2540,6 @@ input[type="number"]:focus { border-color: var(--neon-cyan); box-shadow: 0 0 10p
 }
 
 /* ==========================================================================
-   PRÉFIXE JOUEUR PERSONNALISABLE (ABONNÉS)
-   ========================================================================== */
-.profile-prefix-customizer {
-  background: rgba(15, 23, 42, 0.8);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 10px;
-  padding: 0.85rem;
-  margin-top: 0.75rem;
-}
-.profile-prefix-customizer h5 {
-  margin: 0 0 0.35rem;
-  color: #00f0ff;
-  font-size: 0.92rem;
-  font-weight: 700;
-}
-.prefix-input-row {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin-top: 0.5rem;
-  flex-wrap: wrap;
-}
-.prefix-text-input {
-  background: #060913;
-  border: 1px solid rgba(0, 240, 255, 0.4);
-  color: #ffffff;
-  padding: 0.5rem 0.75rem;
-  border-radius: 6px;
-  font-size: 0.9rem;
-  font-weight: 700;
-  max-width: 160px;
-}
-.suffix-badge {
-  background: rgba(0, 240, 255, 0.15);
-  border: 1px solid rgba(0, 240, 255, 0.3);
-  color: #00f0ff;
-  font-family: 'SF Mono', Consolas, monospace;
-  font-weight: 800;
-  padding: 0.45rem 0.65rem;
-  border-radius: 6px;
-  font-size: 0.85rem;
-}
-.btn-prefix-save {
-  background: linear-gradient(135deg, #00f0ff 0%, #0077b6 100%);
-  border: none;
-  color: #060913;
-  font-weight: 800;
-  padding: 0.5rem 0.95rem;
-  border-radius: 6px;
-  font-size: 0.82rem;
-  cursor: pointer;
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
-}
-.btn-prefix-save:hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow: 0 0 12px rgba(0, 240, 255, 0.5);
-}
-.prefix-feedback {
-  font-size: 0.8rem;
-  margin-top: 0.4rem;
-  font-weight: 600;
-}
-.prefix-feedback.ok {
-  color: #22c55e;
-}
-.prefix-feedback.err {
-  color: #ef4444;
-}
-
-/* ==========================================================================
    MODALE DES ABONNEMENTS (LEMON SQUEEZY)
    ========================================================================== */
 .modal-pricing {
@@ -3079,6 +3087,18 @@ input[type="number"]:focus { border-color: var(--neon-cyan); box-shadow: 0 0 10p
   .dual-standings-history-container {
     display: none !important;
   }
+  /* Suppression du bouton flottant plein écran en bas de page sur smartphone */
+  .btn-floating-fullscreen {
+    display: none !important;
+  }
+  /* Masquage total du bloc Égalité sportive sur smartphone pour libérer l'espace vertical */
+  .concept2-fairness-banner {
+    display: none !important;
+  }
+  /* Masquage de l'encart d'appairage autonome sur smartphone (géré dans le bloc Timer) */
+  .garmin-pairing-section {
+    display: none !important;
+  }
   .smartphone-table-links {
     display: flex;
     flex-direction: column;
@@ -3122,13 +3142,6 @@ input[type="number"]:focus { border-color: var(--neon-cyan); box-shadow: 0 0 10p
   }
   .subscription-tiers-grid {
     grid-template-columns: 1fr;
-  }
-  .prefix-input-row {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  .prefix-text-input {
-    max-inline-size: 100%;
   }
   .fairness-content {
     flex-direction: column;
@@ -4782,9 +4795,9 @@ input[type="number"]:focus { border-color: var(--neon-cyan); box-shadow: 0 0 10p
   touch-action: manipulation;
   user-select: none;
 }
-@media (max-width: 768px) {
-  body:not(.app-pseudo-fullscreen) .game-container:not(.pure-screen-active):not(.mobile-fullscreen-view) .btn-floating-fullscreen {
-    bottom: 74px;
+@media (max-width: 768px), (max-height: 500px) and (max-width: 950px) {
+  .btn-floating-fullscreen {
+    display: none !important;
   }
 }
 .btn-floating-fullscreen:hover {
@@ -5058,8 +5071,8 @@ input[type="number"]:focus { border-color: var(--neon-cyan); box-shadow: 0 0 10p
   transform: translateY(16px);
 }
 
-/* Positionnement sécurisé au-dessus du dock mobile */
-@media (max-width: 1024px) {
+/* Positionnement sécurisé au-dessus du dock sur tablette (hors smartphone où le bouton est masqué) */
+@media (min-width: 769px) and (max-width: 1024px) {
   body:not(.app-pseudo-fullscreen) .game-container:not(.pure-screen-active):not(.mobile-fullscreen-view) .btn-floating-fullscreen {
     bottom: calc(76px + var(--safe-bottom, 0px)) !important;
     right: max(16px, var(--safe-right, 16px));

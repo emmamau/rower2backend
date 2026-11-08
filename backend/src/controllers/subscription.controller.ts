@@ -74,7 +74,7 @@ export const SUBSCRIPTION_TIERS: Record<string, SubscriptionTierConfig> = {
       "Courses longue distance jusqu'à 10 000 m (10 km)",
       "Jusqu'à 5 bots avec allure de course max",
       "Historique illimité et export des statistiques",
-      "Personnalisation intégrale de l'identifiant joueur",
+      "Analyses et statistiques de courses illimitées",
       "Tous modes de départ (top départ ou heure programmée)",
       "Accès prioritaire aux nouvelles fonctionnalités",
     ],

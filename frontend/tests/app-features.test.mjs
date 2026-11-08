@@ -886,4 +886,52 @@ test('Draggable & Collapsible Leaderboard in Regatta Canvas and Cockpit views', 
   assert.match(appTs, /webkitfullscreenerror/);
 });
 
+test('Responsive UI Refactor: Floating fullscreen hidden on mobile, Timer block actions (Fullscreen & Garmin pairing), fairness banner desktop/mobile placement, and account identifier cleanup', () => {
+  const appHtml = fs.readFileSync(path.resolve(__dirname, '../src/app/app.html'), 'utf8');
+  const appCss = fs.readFileSync(path.resolve(__dirname, '../src/app/app.css'), 'utf8');
+
+  // 1. Suppression du bouton flottant plein écran en bas de page sur smartphone
+  assert.match(
+    appCss,
+    /@media\s*\(max-width:\s*768px\)[\s\S]*?\.btn-floating-fullscreen\s*\{[\s\S]*?display:\s*none\s*!important/,
+    'Floating fullscreen button must be hidden on mobile <= 768px'
+  );
+
+  // 2. Action Plein Écran intégrée directement dans le bloc Timer
+  assert.match(
+    appHtml,
+    /<div class="badge-timer">[\s\S]*?class="btn-fullscreen hero-fullscreen"[\s\S]*?\(click\)="toggleFullscreen\(\)"/,
+    'Timer badge must contain compact fullscreen button'
+  );
+  assert.match(
+    appCss,
+    /\.badge-timer \.hero-fullscreen\s*\{[\s\S]*?min-block-size:\s*34px;[\s\S]*?padding:\s*0\.32rem\s+0\.8rem;/,
+    'Timer fullscreen button must have compact styles'
+  );
+
+  // 3. Intégration du flux d\'appairage Garmin dans le bloc Timer avant départ si non appairé
+  assert.match(
+    appHtml,
+    /@if\s*\(!isPaired && !isWatchConfirmed && nextRaceInfo\.status !== 'in_progress'\)\s*\{[\s\S]*?class="timer-pairing-bar"[\s\S]*?class="btn-timer-pair"[\s\S]*?\(click\)="generateGarminPairingCode\(\)"/,
+    'Timer block must include Garmin pairing action conditioned on !isPaired'
+  );
+
+  // 4. Masquage du bloc Égalité sportive sur smartphone et positionnement sous la régate sur desktop
+  assert.match(
+    appCss,
+    /@media\s*\(max-width:\s*768px\)[\s\S]*?\.concept2-fairness-banner\s*\{[\s\S]*?display:\s*none\s*!important/,
+    'Fairness banner must be hidden on smartphone <= 768px'
+  );
+  const canvasIdx = appHtml.indexOf('class="canvas-display-card"');
+  const fairnessIdx = appHtml.indexOf('class="concept2-fairness-banner lobby-fairness-banner"');
+  assert.ok(canvasIdx > 0, 'canvas-display-card must exist');
+  assert.ok(fairnessIdx > canvasIdx, 'Fairness banner must be positioned underneath regatta presentation on desktop');
+
+  // 5. Nettoyage complet des personnalisations de pseudo/préfixe
+  assert.ok(!appHtml.includes('Modifier mon Préfixe'), 'No Modifier mon Préfixe button should remain');
+  assert.ok(!appHtml.includes('profile-prefix-customizer'), 'No profile-prefix-customizer class should remain');
+  assert.ok(!appHtml.includes('Personnaliser mon identifiant'), 'No Personnaliser mon identifiant label should remain');
+});
+
+
 

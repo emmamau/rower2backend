@@ -2577,6 +2577,17 @@ export class AppComponent implements OnInit, OnDestroy {
     }
   }
 
+  loadNextRaceInfo(): void {
+    this.pollActiveRaceSource().subscribe((data) => {
+      if (data) {
+        this.nextRaceInfo = data;
+        this.countdownSeconds = data.secondsRemaining;
+        this.syncCountdownUI();
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
   private syncSocketRoom(raceId: string): void {
     if (!raceId) return;
     if (this.joinedSocketRaceId && this.joinedSocketRaceId !== raceId) {
