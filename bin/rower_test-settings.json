@@ -1,0 +1,45 @@
+{
+  "settings" : [ {
+    "key" : "userLogin",
+    "valueType" : "string",
+    "defaultValue" : "",
+    "configTitle" : "UserLoginTitle",
+    "configPrompt" : "UserLoginPrompt",
+    "configType" : "alphaNumeric",
+    "configError" : null,
+    "configHelpUrl" : null,
+    "configReadonly" : false,
+    "configRequired" : false,
+    "configOptions" : null,
+    "configMin" : null,
+    "configMax" : null,
+    "configMaxLength" : 32
+  } ],
+  "supportsLiveValidation" : false,
+  "languages" : {
+    "valyrian" : {
+      "StatusConnected" : "BLE: Connected",
+      "FitAvgPowerLabel" : "Avg Power",
+      "FitAvgCadenceLabel" : "Avg Cadence",
+      "FitRacePointsLabel" : "League Points",
+      "FitMaxCadenceLabel" : "Max Cadence",
+      "FitRacePointsUnits" : "pts",
+      "FitMaxCadenceUnits" : "spm",
+      "StatusDisconnected" : "BLE: Disconnected",
+      "FitOfficialDistLabel" : "Race Distance",
+      "FitMaxPowerUnits" : "W",
+      "AppName" : "Rower Race",
+      "UserLoginTitle" : "Login / Pseudo",
+      "FitMaxPowerLabel" : "Max Power",
+      "FitOfficialDistUnits" : "m",
+      "FitAvgCadenceUnits" : "spm",
+      "UserLoginPrompt" : "Pseudo ou login invite",
+      "FitRaceRankLabel" : "Race Rank",
+      "FitRaceRankUnits" : "pos",
+      "StatusScanning" : "BLE: Scanning...",
+      "FitAvgPaceLabel" : "Avg Split 500m",
+      "FitAvgPaceUnits" : "mm:ss/500m",
+      "FitAvgPowerUnits" : "W"
+    }
+  }
+}

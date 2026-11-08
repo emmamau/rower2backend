@@ -5283,7 +5283,217 @@ body.rigid-viewport {
 /* ==========================================================================
    DISPOSITION OPTIMISÉE EN ORIENTATION PAYSAGE (LANDSCAPE)
    ========================================================================== */
-@media (orientation: landscape) and (max-height: 600px) {
+.pure-user-lane-badge {
+  background: rgba(0, 240, 255, 0.22);
+  color: #00f0ff;
+  border: 1px solid rgba(0, 240, 255, 0.5);
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.1rem 0.4rem;
+  border-radius: 9999px;
+  margin-left: 0.35rem;
+  letter-spacing: 0.3px;
+}
+.regatta-summary-pill .sum-lane {
+  background: rgba(0, 240, 255, 0.25);
+  color: #00f0ff;
+  font-weight: 800;
+  padding: 0.15rem 0.5rem;
+  border-radius: 9999px;
+  font-size: 0.78rem;
+  border: 1px solid rgba(0, 240, 255, 0.45);
+}
+
+@media (max-height: 500px) and (orientation: landscape) {
+  html, body {
+    overflow: hidden !important;
+    height: 100% !important;
+    max-height: 100dvh !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  .game-container {
+    position: fixed !important;
+    inset: 0 !important;
+    width: 100vw !important;
+    height: 100dvh !important;
+    max-height: 100dvh !important;
+    overflow: hidden !important;
+    padding-top: max(2px, env(safe-area-inset-top, 0px)) !important;
+    padding-bottom: max(2px, env(safe-area-inset-bottom, 0px)) !important;
+    padding-left: max(4px, env(safe-area-inset-left, 0px)) !important;
+    padding-right: max(4px, env(safe-area-inset-right, 0px)) !important;
+    margin: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Suppression ou réduction au strict minimum des marges et paddings supérieurs */
+  .pure-screen-header {
+    padding: 1px 6px !important;
+    min-height: 22px !important;
+    height: 22px !important;
+    margin: 0 !important;
+    flex: 0 0 22px !important;
+    border-bottom: 1px solid rgba(0, 240, 255, 0.15) !important;
+    display: flex !important;
+    align-items: center !important;
+  }
+  .pure-screen-header .pure-screen-tag,
+  .pure-screen-header .pure-league-badge,
+  .pure-screen-header .pure-lang-dropdown {
+    display: none !important;
+  }
+  .pure-screen-header .btn-pure-nav {
+    padding: 1px 6px !important;
+    font-size: 0.70rem !important;
+    min-height: 18px !important;
+  }
+  .pure-screen-header .pure-user-pill {
+    padding: 1px 6px !important;
+    font-size: 0.70rem !important;
+  }
+
+  .hud-header {
+    display: none !important;
+  }
+
+  .race-arena {
+    padding: 0 !important;
+    margin: 0 !important;
+    gap: 0 !important;
+    flex: 1 1 0 !important;
+    min-height: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+    width: 100% !important;
+    height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 22px) !important;
+  }
+
+  /* Compacter la barre de données/télémétrie en bandeau ultra-fin (inline HUD horizontal) */
+  .regatta-unified-hud {
+    flex: 0 0 auto !important;
+    margin: 1px 0 !important;
+    padding: 1px 2px !important;
+    background: rgba(6, 13, 29, 0.92) !important;
+    border-radius: 4px !important;
+    border: 1px solid rgba(0, 240, 255, 0.25) !important;
+  }
+  .regatta-hud-grid {
+    display: grid !important;
+    grid-template-columns: repeat(6, 1fr) !important;
+    gap: 2px !important;
+  }
+  .hud-mini-card {
+    padding: 1px 3px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    min-height: 24px !important;
+    background: rgba(10, 25, 47, 0.75) !important;
+    border-radius: 3px !important;
+  }
+  .hud-mini-card .hm-lbl {
+    font-size: 0.50rem !important;
+    line-height: 1 !important;
+    text-transform: uppercase !important;
+    opacity: 0.8 !important;
+    margin-bottom: 1px !important;
+  }
+  .hud-mini-card .hm-val {
+    font-size: 0.80rem !important;
+    line-height: 1.1 !important;
+    font-weight: 800 !important;
+    margin: 0 !important;
+  }
+  .hud-mini-card .hm-unit {
+    font-size: 0.50rem !important;
+  }
+  .hud-mini-card .hm-sub {
+    display: none !important;
+  }
+
+  /* Éléments masqués pour dédier 100% de la hauteur utile au plan d'eau */
+  .spectator-camera-bar,
+  .regatta-user-summary,
+  .concept2-fairness-banner,
+  .regatta-fairness-banner,
+  .mobile-bottom-nav,
+  .app-footer,
+  .watch-auth-strip,
+  .smartphone-table-links,
+  .dual-standings-history-container,
+  .lobby-regatta-preview-section,
+  .seo-hub-section,
+  .btn-floating-fullscreen,
+  .finish-celebration-banner {
+    display: none !important;
+  }
+
+  /* Plan d'eau 2D étiré sans défilement avec flex: 1 */
+  .regatta-canvas-section {
+    flex: 1 1 0 !important;
+    min-height: 0 !important;
+    height: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+  }
+  .canvas-display-card {
+    flex: 1 1 0 !important;
+    min-height: 0 !important;
+    height: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    border: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
+    overflow: hidden !important;
+  }
+  app-regatta-canvas {
+    flex: 1 1 0 !important;
+    min-height: 0 !important;
+    height: 100% !important;
+    width: 100% !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }
+  app-regatta-canvas .canvas-wrapper {
+    flex: 1 1 0 !important;
+    min-height: 0 !important;
+    height: 100% !important;
+    block-size: 100% !important;
+    border-radius: 4px !important;
+    overflow: hidden !important;
+  }
+  app-regatta-canvas canvas {
+    width: 100% !important;
+    height: 100% !important;
+    display: block !important;
+  }
+
+  /* Mode Cockpit compact */
+  .cockpit-hud {
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)) !important;
+    gap: 0.25rem !important;
+    padding: 0.15rem !important;
+  }
+  .cockpit-hud .hud-card {
+    padding: 0.25rem 0.45rem !important;
+  }
+  .cockpit-progress-strip {
+    margin-block: 0.15rem !important;
+  }
+}
+
+@media (orientation: landscape) and (max-height: 600px) and (min-height: 501px) {
   .game-container.mobile-fullscreen-view {
     padding: 0.15rem !important;
   }

@@ -376,6 +376,7 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
       .subscribe({
         next: (created) => {
           this.isCreating = false;
+          (created as any).lane = (created as any).lane !== undefined ? (created as any).lane : 1;
           this.rememberSalon(created, true);
           this.roomSelected.emit({ payload: created, pushUrl: true });
           this.activeTab = 'share';
@@ -491,26 +492,56 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
     this.joinError = '';
     this.isJoining = true;
 
-    const obs =
-      parsed.kind === 'pin'
-        ? this.rowerService.getRaceByPin(parsed.value)
-        : this.rowerService.getPrivateRace(parsed.value);
+    this.rowerService.joinRoom(parsed.value, this.activeUserId, this.activeUserName).subscribe({
+      next: (joinRes) => {
+        const assignedLane = joinRes.lane || 1;
+        const roomIdent = joinRes.code || parsed.value;
 
-    obs.subscribe({
-      next: (room) => {
-        this.isJoining = false;
-        this.joinInput = '';
-        this.rememberSalon(room);
-        this.roomSelected.emit({ payload: room, pushUrl: true });
-        this.activeTab = 'share';
-        this.cdr.markForCheck();
+        this.rowerService.getPrivateRace(roomIdent).subscribe({
+          next: (room) => {
+            this.isJoining = false;
+            this.joinInput = '';
+            (room as any).lane = assignedLane;
+            this.rememberSalon(room);
+            this.roomSelected.emit({ payload: room, pushUrl: true });
+            this.feedbackMessage = joinRes.message || `Entrée validée sur la ligne d'eau ${assignedLane}`;
+            this.activeTab = 'share';
+            this.cdr.markForCheck();
+          },
+          error: () => {
+            this.isJoining = false;
+            this.joinInput = '';
+            const fallbackRoom: any = {
+              success: true,
+              raceId: joinRes.raceId,
+              code: joinRes.code,
+              lane: assignedLane,
+              targetDistance: joinRes.targetDistance || 2000,
+              race: {
+                id: joinRes.raceId,
+                code: joinRes.code,
+                targetDistance: joinRes.targetDistance || 2000,
+                status: joinRes.internalStatus || 'LOBBY'
+              }
+            };
+            this.roomSelected.emit({ payload: fallbackRoom, pushUrl: true });
+            this.feedbackMessage = `Entrée validée sur la ligne d'eau ${assignedLane}`;
+            this.activeTab = 'share';
+            this.cdr.markForCheck();
+          }
+        });
       },
       error: (err) => {
         this.isJoining = false;
-        this.joinError =
-          err?.status === 404
-            ? this.i18n.t('JOIN_ERR_NOT_FOUND')
-            : (err?.error?.error || this.i18n.t('JOIN_ERR_NOT_FOUND'));
+        if (err?.status === 409) {
+          this.joinError = err?.error?.error || "Salon complet - quota atteint";
+        } else if (err?.status === 403) {
+          this.joinError = err?.error?.error || "Accès refusé pour ce salon";
+        } else if (err?.status === 404) {
+          this.joinError = this.i18n.t('JOIN_ERR_NOT_FOUND');
+        } else {
+          this.joinError = err?.error?.error || err?.error?.message || this.i18n.t('JOIN_ERR_NOT_FOUND');
+        }
         this.cdr.markForCheck();
       }
     });
@@ -518,16 +549,33 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
 
   openSavedSalon(salon: SavedPrivateSalon): void {
     this.actionError = '';
-    this.rowerService.getPrivateRace(salon.code).subscribe({
-      next: (room) => {
-        this.rememberSalon(room);
-        this.roomSelected.emit({ payload: room, pushUrl: true });
-        this.activeTab = 'share';
-        this.cdr.markForCheck();
+    this.rowerService.joinRoom(salon.code, this.activeUserId, this.activeUserName).subscribe({
+      next: (joinRes) => {
+        const assignedLane = joinRes.lane || 1;
+        this.rowerService.getPrivateRace(salon.code).subscribe({
+          next: (room) => {
+            (room as any).lane = assignedLane;
+            this.rememberSalon(room);
+            this.roomSelected.emit({ payload: room, pushUrl: true });
+            this.activeTab = 'share';
+            this.cdr.markForCheck();
+          },
+          error: () => {
+            this.removeSavedSalonLocal(salon.id);
+            this.joinError = this.i18n.t('JOIN_ERR_NOT_FOUND');
+            this.cdr.markForCheck();
+          }
+        });
       },
-      error: () => {
-        this.removeSavedSalonLocal(salon.id);
-        this.joinError = this.i18n.t('JOIN_ERR_NOT_FOUND');
+      error: (err) => {
+        if (err?.status === 409) {
+          this.joinError = err?.error?.error || "Salon complet - quota atteint";
+        } else if (err?.status === 403) {
+          this.joinError = err?.error?.error || "Accès refusé pour ce salon";
+        } else {
+          this.removeSavedSalonLocal(salon.id);
+          this.joinError = err?.error?.error || this.i18n.t('JOIN_ERR_NOT_FOUND');
+        }
         this.cdr.markForCheck();
       }
     });

@@ -94,7 +94,12 @@ interface BoatRenderState {
     }
     @media (max-height: 500px) and (orientation: landscape) {
       .canvas-wrapper {
-        block-size: 175px;
+        block-size: 100% !important;
+        height: 100% !important;
+        flex: 1 1 0 !important;
+        min-height: 0 !important;
+        border-radius: 4px;
+        margin: 0 !important;
       }
     }
     .mini-leaderboard {
@@ -475,17 +480,19 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
     if (!canvas) return;
 
     const boatCount = Math.max(1, this.boatsMap.size);
-    const isSmallLandscape = typeof window !== 'undefined' && window.innerHeight <= 500;
-    const maxAllowed = isSmallLandscape ? Math.max(100, window.innerHeight - 80) : 600;
-    const minFloor = isSmallLandscape ? 100 : 200;
-    const dynamicMinHeight = Math.max(minFloor, Math.min(maxAllowed, 40 + boatCount * 32));
+    const isSmallLandscape = typeof window !== 'undefined' && window.innerHeight <= 500 && window.innerWidth > window.innerHeight;
     if (wrapper) {
-      wrapper.style.minHeight = `${dynamicMinHeight}px`;
+      if (isSmallLandscape) {
+        wrapper.style.minHeight = '0px';
+      } else {
+        const dynamicMinHeight = Math.max(200, Math.min(600, 40 + boatCount * 32));
+        wrapper.style.minHeight = `${dynamicMinHeight}px`;
+      }
     }
 
     const dpr = typeof window !== 'undefined' ? Math.min(window.devicePixelRatio || 1, 2.5) : 1;
     const width = Math.max(260, wrapper?.clientWidth || 900);
-    const height = Math.max(dynamicMinHeight, wrapper?.clientHeight || dynamicMinHeight);
+    const height = Math.max(isSmallLandscape ? 80 : 200, wrapper?.clientHeight || (isSmallLandscape ? 120 : 260));
 
     this.cssWidth = width;
     this.cssHeight = height;
@@ -586,7 +593,13 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
     const rightPad = isCompact ? 24 : 40;
     const trackW = Math.max(120, w - marginX - rightPad);
     const boatCount = Math.max(1, this.boatsMap.size);
-    const laneH = Math.min(46, Math.max(28, (h - 44) / boatCount));
+
+    const isSmallLandscape = (typeof window !== 'undefined' && window.innerHeight <= 500) || h <= 320;
+    const topOffset = isSmallLandscape ? 16 : (isCompact ? 22 : 36);
+    const bottomPad = isSmallLandscape ? 8 : (isCompact ? 12 : 20);
+    const availableLaneH = Math.max(20, h - topOffset - bottomPad);
+    const maxLaneH = isSmallLandscape ? 38 : 46;
+    const laneH = Math.max(isSmallLandscape ? 6 : 12, Math.min(maxLaneH, availableLaneH / boatCount));
 
     // Calcul de la caméra pour centrage sur le joueur actif ou le bateau suivi
     const targetUserId = this.effectiveFocusedUserId;
@@ -614,14 +627,14 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
       const x = marginX + trackW * pct - camOffset;
       if (x < -20 || x > w + 20) return;
       ctx.beginPath();
-      ctx.moveTo(x, 22);
-      ctx.lineTo(x, h - 8);
+      ctx.moveTo(x, topOffset);
+      ctx.lineTo(x, topOffset + boatCount * laneH);
       ctx.stroke();
 
       const label = `${Math.round(pct * this.targetDistance)}m`;
       const tw = ctx.measureText(label).width;
       const tx = Math.max(4, Math.min(w - tw - 4, x - tw / 2));
-      ctx.fillText(label, tx, 15);
+      ctx.fillText(label, tx, Math.max(10, topOffset - 4));
     });
 
     // Ligne d'arrivée
@@ -629,9 +642,29 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
     ctx.strokeStyle = '#ffe600';
     ctx.lineWidth = 2.5;
     ctx.beginPath();
-    ctx.moveTo(finishX, 22);
-    ctx.lineTo(finishX, h - 8);
+    ctx.moveTo(finishX, topOffset);
+    ctx.lineTo(finishX, topOffset + boatCount * laneH);
     ctx.stroke();
+
+    // Bouées de balisage le long des couloirs et de la ligne d'arrivée
+    for (let l = 0; l <= boatCount; l++) {
+      const buoyY = topOffset + l * laneH;
+      markers.forEach((pct) => {
+        const bx = marginX + trackW * pct - camOffset;
+        if (bx >= -10 && bx <= w + 10) {
+          ctx.fillStyle = '#ff0055';
+          ctx.beginPath();
+          ctx.arc(bx, buoyY, isSmallLandscape ? 1.5 : 2.5, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      });
+      if (finishX >= -10 && finishX <= w + 10) {
+        ctx.fillStyle = '#ffe600';
+        ctx.beginPath();
+        ctx.arc(finishX, buoyY, isSmallLandscape ? 2.0 : 3.0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
 
     if (this.boatsMap.size === 0) {
       ctx.font = isCompact ? '600 12px sans-serif' : '600 13px sans-serif';
@@ -648,7 +681,7 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
     const hullRy = isCompact ? 4.5 : 5;
 
     this.boatsMap.forEach((boat) => {
-      const y = 38 + laneIdx * laneH;
+      const y = topOffset + (laneIdx + 0.5) * laneH;
       const progress = Math.min(1.0, Math.max(0, boat.currentDisplayDist / (this.targetDistance || 2000)));
       const rawX = marginX + trackW * progress;
       const x = rawX - camOffset;
@@ -667,8 +700,8 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
       ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
       ctx.lineWidth = 1;
       ctx.beginPath();
-      ctx.moveTo(marginX, y + laneH / 2);
-      ctx.lineTo(finishX + camOffset, y + laneH / 2);
+      ctx.moveTo(marginX, topOffset + (laneIdx + 1) * laneH);
+      ctx.lineTo(finishX + camOffset, topOffset + (laneIdx + 1) * laneH);
       ctx.stroke();
 
       const isMoving = (boat.spm > 0 || (boat.splitSec > 0 && boat.currentDisplayDist > 0)) &&

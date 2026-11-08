@@ -59,6 +59,7 @@ class RowerView extends WatchUi.View {
     // G3 PIN Input state (5 alphanumeric characters)
     private var _pinIndices as Array<Number> = [0, 0, 0, 0, 0];
     private var _pinCurrentDigitIdx as Number = 0;
+    private var _assignedLane as Number = 1;
 
     // Garmin Pairing 6-character Code State
     private var _pairingIndices as Array<Number> = [0, 0, 0, 0, 0, 0];
@@ -306,16 +307,28 @@ class RowerView extends WatchUi.View {
         return _userId;
     }
 
-    // PIN helpers (5 alphanumeric characters 0..9 and A..Z)
-    public function incrementPinDigit() as Void {
-        _pinIndices[_pinCurrentDigitIdx] = (_pinIndices[_pinCurrentDigitIdx] + 1) % 36;
+    public function setAssignedLane(lane as Number) as Void {
+        _assignedLane = lane;
         WatchUi.requestUpdate();
     }
 
-    public function decrementPinDigit() as Void {
-        var v = _pinIndices[_pinCurrentDigitIdx] - 1;
-        _pinIndices[_pinCurrentDigitIdx] = v < 0 ? 35 : v;
+    public function getAssignedLane() as Number {
+        return _assignedLane;
+    }
+
+    // PIN helpers (5 alphanumeric characters 0..9 and A..Z)
+    public function cyclePinDigit(delta as Number) as Void {
+        var count = PIN_CHARSET.size();
+        _pinIndices[_pinCurrentDigitIdx] = (_pinIndices[_pinCurrentDigitIdx] + delta + count) % count;
         WatchUi.requestUpdate();
+    }
+
+    public function incrementPinDigit() as Void {
+        cyclePinDigit(1);
+    }
+
+    public function decrementPinDigit() as Void {
+        cyclePinDigit(-1);
     }
 
     public function advancePinDigit() as Boolean {
@@ -1161,7 +1174,9 @@ class RowerView extends WatchUi.View {
         dc.drawText(cx, hdrY, Graphics.FONT_XTINY, truncateToWidth(dc, hdrText, Graphics.FONT_XTINY, getSafeWidthAtY(w, h, hdrY, hdrY + 16)), Graphics.TEXT_JUSTIFY_CENTER);
 
         _userId = UserManager.getUserId();
-        var playerText = "ID Web: " + _userId;
+        var playerText = (_assignedLane > 0)
+            ? ("Ligne " + _assignedLane + " | " + _userId)
+            : ("ID Web: " + _userId);
         var playerY = (h * 11) / 100;
         dc.setColor(COL_ACCENT, Graphics.COLOR_TRANSPARENT);
         dc.drawText(cx, playerY, Graphics.FONT_XTINY, truncateToWidth(dc, playerText, Graphics.FONT_XTINY, getSafeWidthAtY(w, h, playerY, playerY + 16)), Graphics.TEXT_JUSTIFY_CENTER);

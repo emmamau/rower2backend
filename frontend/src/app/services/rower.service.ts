@@ -79,6 +79,15 @@ export class RowerService {
     return this.http.post<PrivateRacePayload>(`${this.apiUrl}/api/v1/races/private`, payload);
   }
 
+  joinRoom(code: string, userId?: string, userName?: string, deviceToken?: string): Observable<any> {
+    return this.http.post<any>(`${this.apiUrl}/api/rooms/join`, {
+      code,
+      userId,
+      userName,
+      deviceToken
+    });
+  }
+
   getPrivateRace(identifier: string): Observable<PrivateRacePayload> {
     return this.http.get<PrivateRacePayload>(
       `${this.apiUrl}/api/v1/races/private/${encodeURIComponent(identifier.trim())}`

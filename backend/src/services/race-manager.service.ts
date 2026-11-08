@@ -3,7 +3,8 @@ import db from "../models";
 import socketGateway, { LiveRacerMetric } from "../websocket/socket.gateway";
 import config from "../config";
 import userStore from "./user-store.service";
-import { calculateRacePoints, getLeagueByPoints, generateRealisticBotPace, calculateBotPhysics } from "../utils/league.util";
+import { isEmmaAdminUser } from "./auth.service";
+import { calculateRacePoints, getLeagueByPoints, generateRealisticBotPace, calculateBotPhysics, isLeagueEligible } from "../utils/league.util";
 
 const Races = db.races;
 const Activities = db.activities;
@@ -14,6 +15,7 @@ export interface PrivateParticipantInfo {
   userName: string;
   joinedAt: Date;
   country?: string;
+  lane?: number;
 }
 
 export interface RaceState {
@@ -40,6 +42,11 @@ export interface RaceState {
   autoStart?: boolean;
   hasBots?: boolean;
   isBotDuel?: boolean;
+  isDuel1v1?: boolean;
+  adminAsSpectator?: boolean;
+  hostParticipates?: boolean;
+  requiredLeague?: string;
+  requiresSubscription?: boolean;
   totalParticipants?: number;
   createdAt?: Date;
   requireApproval?: boolean;
@@ -544,6 +551,20 @@ export class RaceManager {
         continue;
       }
 
+      // Course planifiée : déclenchement automatique du compte à rebours 15s avant l'heure prévue
+      if (race.status === "LOBBY" && race.startMode === "scheduled" && race.scheduledStartTime) {
+        const msUntilStart = race.scheduledStartTime.getTime() - now.getTime();
+        if (msUntilStart <= 15000 && msUntilStart > 0) {
+          race.status = "COUNTDOWN";
+          race.autoStart = true;
+          race.lobbyEndsAt = race.scheduledStartTime;
+          socketGateway.broadcastRaceStatus(race.id, "COUNTDOWN", {
+            lobbyEndsAt: race.lobbyEndsAt,
+            countdownSeconds: Math.max(1, Math.ceil(msUntilStart / 1000))
+          });
+        }
+      }
+
       if ((race.status === "COUNTDOWN" || (race.status === "LOBBY" && race.autoStart)) && now >= race.lobbyEndsAt) {
         // En mode programmé, départ automatique uniquement s'il y a des participants connectés ou validés
         if (race.status === "LOBBY" && race.autoStart) {
@@ -612,7 +633,9 @@ export class RaceManager {
           }
 
           const activeHumans = rows.filter((r: any) => this.isActiveHuman(r, now));
-          if (activeHumans.length === 0) {
+          const hasMemoryHumans = Boolean(race.participants && race.participants.size > 0);
+          const justStarted = race.startedAt ? (now.getTime() - race.startedAt.getTime() < 10000) : true;
+          if (activeHumans.length === 0 && !hasMemoryHumans && !justStarted) {
             console.log(`[RaceManager] No active human racer left in private race ${race.id} (only bots). Closing race.`);
             await this.finishPrivateRace(race, "no_active_humans");
           }
@@ -898,6 +921,11 @@ export class RaceManager {
     botCount?: number;
     botMaxPace?: number;
     isBotDuel?: boolean;
+    isDuel1v1?: boolean;
+    adminAsSpectator?: boolean;
+    hostParticipates?: boolean;
+    requiredLeague?: string;
+    requiresSubscription?: boolean;
     botCustomName?: string;
   }): RaceState {
     const code = this.generateUniqueMeetCode();
@@ -906,6 +934,7 @@ export class RaceManager {
     const now = new Date();
 
     const isBotDuel = Boolean(options.isBotDuel);
+    const isDuel1v1 = Boolean(options.isDuel1v1);
 
     let cleanTitle = String(options.title || (isBotDuel ? "Duel 1v1 contre un Bot" : "Régate Privée"))
       .replace(/[\u0000-\u001F\u007F]/g, "")
@@ -956,12 +985,25 @@ export class RaceManager {
       ? String(options.hostUserName).trim().slice(0, 64)
       : undefined;
 
-    const requireApproval = isBotDuel
+    const isEmma = isEmmaAdminUser(hostUserId, hostUserName);
+    const adminAsSpectator = Boolean(options.adminAsSpectator !== undefined ? options.adminAsSpectator : isEmma);
+
+    const requireApproval = (isBotDuel || isDuel1v1 || adminAsSpectator)
       ? false
       : (options.requireApproval !== undefined ? Boolean(options.requireApproval) : true);
     const participants = new Map<string, PrivateParticipantInfo>();
     const pendingParticipants = new Map<string, PrivateParticipantInfo>();
     const rejectedParticipants = new Set<string>();
+
+    const hostParticipates = Boolean(options.hostParticipates !== undefined ? options.hostParticipates : !adminAsSpectator);
+    if (!adminAsSpectator && hostParticipates && hostUserId && hostUserId !== "anonymous") {
+      participants.set(hostUserId, {
+        userId: hostUserId,
+        userName: hostUserName || hostUserId,
+        joinedAt: now,
+        lane: 1
+      });
+    }
 
     let botCount = isBotDuel ? 1 : Math.min(10, Math.max(0, Number(options.botCount) || 0));
     let botMaxPace = Math.min(300, Math.max(60, Number(options.botMaxPace) || 120));
@@ -1005,7 +1047,12 @@ export class RaceManager {
       autoStart,
       hasBots: botCount > 0,
       isBotDuel,
-      totalParticipants: 0,
+      isDuel1v1,
+      adminAsSpectator,
+      hostParticipates,
+      requiredLeague: options.requiredLeague,
+      requiresSubscription: options.requiresSubscription,
+      totalParticipants: participants.size,
       createdAt: now,
       requireApproval,
       participants,
@@ -1172,8 +1219,14 @@ export class RaceManager {
     identifier: string,
     userId: string,
     userName?: string,
-    country?: string
-  ): { race: RaceState; alreadyJoined: boolean; pending?: boolean; rejected?: boolean } | { error: string; statusCode: number } {
+    country?: string,
+    options?: {
+      isSubscriber?: boolean;
+      isAdmin?: boolean;
+      userRole?: string;
+      userLeague?: string;
+    }
+  ): { race: RaceState; lane: number; alreadyJoined: boolean; pending?: boolean; rejected?: boolean } | { error: string; statusCode: number } {
     const race = this.findPrivateRace(identifier);
     if (!race) {
       return { error: "Salon privé introuvable ou expiré.", statusCode: 404 };
@@ -1199,8 +1252,56 @@ export class RaceManager {
     const alreadyApproved = race.participants.has(cleanUserId);
     const isHost = Boolean(cleanUserId && race.hostUserId && cleanUserId === race.hostUserId);
 
+    // Exception Administrateur : le créateur avec rôle Admin peut agir en pur régulateur/spectateur sans occuper de ligne d'eau
+    if (race.adminAsSpectator && (isHost || options?.isAdmin)) {
+      return { race, lane: 0, alreadyJoined: true, pending: false };
+    }
+
+    // 1. Salon "Duel contre un Bot" : strictement réservé au joueur qui a créé le salon
     if (race.isBotDuel && !isHost && !alreadyApproved) {
-      return { error: "Ce salon est un duel privé réservé exclusivement contre un bot.", statusCode: 403 };
+      return { error: "Ce duel contre un bot est réservé à son créateur", statusCode: 403 };
+    }
+
+    // 2. Salon "Duel 1 contre 1" (Joueur vs Joueur) : capacité maximale fixée à 2 joueurs (créateur + 1 invité)
+    const isDuel1v1 = Boolean(race.isDuel1v1);
+    if (isDuel1v1 && !alreadyApproved && race.participants.size >= 2) {
+      return { error: "Salon complet - quota atteint", statusCode: 409 };
+    }
+
+    // 3. Salon Régate Multijoueur / Privé standard : contrôle quota maximum de lignes d'eau
+    if (!alreadyApproved && race.participants.size >= race.maxParticipants) {
+      return { error: "Salon complet - quota atteint", statusCode: 409 };
+    }
+
+    // 4. Contrôle du profil du joueur et prérequis (niveau de ligue, abonnement)
+    if (race.requiresSubscription && !options?.isSubscriber && !isHost && !options?.isAdmin) {
+      return { error: "Abonnement requis pour ce salon", statusCode: 403 };
+    }
+    if (race.requiredLeague && !isHost && !options?.isAdmin) {
+      const eligible = isLeagueEligible(options?.userLeague, undefined, race.requiredLeague);
+      if (!eligible) {
+        return { error: `Niveau de ligue insuffisant pour ce salon (requis : ${race.requiredLeague})`, statusCode: 403 };
+      }
+    }
+
+    // 5. Attribution automatique et immédiate d'une ligne d'eau unique (Lane 1, Lane 2, etc.)
+    let assignedLane = 1;
+    if (alreadyApproved) {
+      const existing = race.participants.get(cleanUserId);
+      assignedLane = existing?.lane || 1;
+    } else {
+      const usedLanes = new Set<number>();
+      for (const p of race.participants.values()) {
+        if (p.lane) usedLanes.add(p.lane);
+      }
+      if (race.pendingParticipants) {
+        for (const p of race.pendingParticipants.values()) {
+          if (p.lane) usedLanes.add(p.lane);
+        }
+      }
+      while (usedLanes.has(assignedLane)) {
+        assignedLane++;
+      }
     }
 
     // If host requires approval, player is not host, and not yet approved -> put in pending queue
@@ -1209,19 +1310,17 @@ export class RaceManager {
         userId: cleanUserId,
         userName: cleanName,
         joinedAt: new Date(),
-        country
+        country,
+        lane: assignedLane
       };
       race.pendingParticipants.set(cleanUserId, pendingInfo);
       socketGateway.broadcastPrivateRoomUpdate(race.id, {
         type: "PARTICIPANT_PENDING",
         userId: cleanUserId,
-        userName: cleanName
+        userName: cleanName,
+        lane: assignedLane
       });
-      return { race, alreadyJoined: false, pending: true };
-    }
-
-    if (!alreadyApproved && race.participants.size >= race.maxParticipants) {
-      return { error: `Ce salon privé est complet (${race.maxParticipants} joueurs max).`, statusCode: 409 };
+      return { race, lane: assignedLane, alreadyJoined: false, pending: true };
     }
 
     // Moving to approved: remove from pending
@@ -1231,11 +1330,15 @@ export class RaceManager {
       userId: cleanUserId,
       userName: cleanName,
       joinedAt: new Date(),
-      country
+      country,
+      lane: assignedLane
     });
     race.totalParticipants = Math.max(race.totalParticipants || 0, race.participants.size);
+    if (race.pinCode) {
+      this.pinToRaceMap.set(race.pinCode.toUpperCase(), { raceId: race.id, lane: assignedLane });
+    }
 
-    return { race, alreadyJoined: alreadyApproved, pending: false };
+    return { race, lane: assignedLane, alreadyJoined: alreadyApproved, pending: false };
   }
 
   public toggleApprovalRequirement(
@@ -1461,8 +1564,8 @@ export class RaceManager {
       return { race };
     }
 
-    const rawSec = options.countdownSeconds !== undefined ? Number(options.countdownSeconds) : 10;
-    const countdownSec = Number.isFinite(rawSec) ? Math.min(3600, Math.max(0, Math.round(rawSec))) : 10;
+    const rawSec = options.countdownSeconds !== undefined ? Number(options.countdownSeconds) : 15;
+    const countdownSec = Number.isFinite(rawSec) ? Math.min(3600, Math.max(0, Math.round(rawSec))) : 15;
 
     if (countdownSec <= 0) {
       race.status = "RUNNING";

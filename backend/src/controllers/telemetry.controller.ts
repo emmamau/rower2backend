@@ -143,6 +143,7 @@ async function buildPrivateRacePayload(race: RaceState) {
     race: serializedRace,
     code: race.code,
     pinCode: race.pinCode,
+    lane: race.adminAsSpectator ? 0 : (race.participants?.get(race.hostUserId || "")?.lane || 1),
     inviteUrl: race.code ? `/r/${race.code}` : undefined,
     secondsRemaining,
     remainingSeconds,
@@ -230,6 +231,26 @@ export class TelemetryController {
       const targetDist = matchedRace?.targetDistance || Number(body.targetDistance) || 2000;
       const isFinished = effectiveDistance >= targetDist;
       const activityStatus = body.status === "abandoned" ? "abandoned" : (isFinished ? "finished" : "in_progress");
+
+      // Mode "Duel contre un Bot" : Départ réactif instantané ("Go" automatique) au premier coup de rame
+      if (matchedRace && matchedRace.isBotDuel && (matchedRace.status === "LOBBY" || matchedRace.status === "COUNTDOWN")) {
+        if (actualPower > 0 || actualSpm > 0) {
+          const startNow = new Date();
+          matchedRace.status = "RUNNING";
+          matchedRace.autoStart = true;
+          matchedRace.startedAt = startNow;
+          matchedRace.endedAt = undefined;
+          matchedRace.lobbyEndsAt = startNow;
+          try {
+            await Races.update({ status: "in_progress", startTime: startNow }, { where: { id: matchedRace.id } });
+            await Activities.update(
+              { status: "in_progress" },
+              { where: { activityId: matchedRace.id, status: "waiting" } }
+            );
+          } catch {}
+          socketGateway.broadcastRaceStatus(matchedRace.id, "RUNNING", { startedAt: startNow });
+        }
+      }
 
       const user = await userStore.findUser(String(userId));
       const country = user?.country || user?.pays || (await IpGeoService.resolveCountryFromRequest(req));
@@ -479,7 +500,11 @@ export class TelemetryController {
         botCount,
         botMaxPace,
         isBotDuel: reqIsBotDuel,
-        mode
+        mode,
+        isDuel1v1,
+        adminAsSpectator,
+        requiresSubscription,
+        requiredLeague
       } = req.body || {};
 
       const isBotDuel = Boolean(reqIsBotDuel || mode === "bot_duel");
@@ -499,6 +524,8 @@ export class TelemetryController {
       // Valider et borner les quotas selon le forfait d'abonnement
       const user = await userStore.findUser(hostUserId);
       const isEmma = isEmmaAdminUser(hostUserId, hostUserName);
+      const isUserAdmin = Boolean(isEmma || user?.isAdmin);
+      const allowAdminSpectator = isUserAdmin ? (adminAsSpectator !== undefined ? Boolean(adminAsSpectator) : true) : false;
 
       let maxAllowed = isBotDuel ? 2 : 30;
       let distAllowed = isBotDuel ? 10000 : 100000;
@@ -522,6 +549,8 @@ export class TelemetryController {
       const finalBots = isBotDuel ? 1 : Math.min(botsAllowed, Math.max(0, rawBots));
       const finalBotPace = Math.min(300, Math.max(60, Number(botMaxPace) || 120));
 
+      const hostParticipates = Boolean(req.body?.hostParticipates !== undefined ? req.body?.hostParticipates : !allowAdminSpectator);
+
       const race = raceManager.createPrivateRace({
         title: title || (isBotDuel ? "Duel 1v1 contre un Bot" : "Régate Privée"),
         targetDistance: finalDist,
@@ -531,10 +560,15 @@ export class TelemetryController {
         startMode: startMode === "scheduled" ? "scheduled" : "manual",
         scheduledStartTime,
         countdownMinutes: countdownMinutes !== undefined ? Number(countdownMinutes) : 0,
-        requireApproval: isBotDuel ? false : (requireApproval !== undefined ? Boolean(requireApproval) : true),
+        requireApproval: (isBotDuel || isDuel1v1 || allowAdminSpectator) ? false : (requireApproval !== undefined ? Boolean(requireApproval) : true),
         botCount: finalBots,
         botMaxPace: finalBotPace,
-        isBotDuel
+        isBotDuel,
+        isDuel1v1: Boolean(isDuel1v1),
+        adminAsSpectator: allowAdminSpectator,
+        hostParticipates,
+        requiresSubscription: Boolean(requiresSubscription),
+        requiredLeague: requiredLeague ? String(requiredLeague) : undefined
       });
 
       // Best-effort persistence in PostgreSQL Races table so bots & history work seamlessly
@@ -552,6 +586,41 @@ export class TelemetryController {
         });
       } catch {
         // Non-blocking if DB is offline during standalone/local execution
+      }
+
+      if (!allowAdminSpectator && hostParticipates && hostUserId && hostUserId !== "anonymous") {
+        try {
+          const compId = `${race.id}_${hostUserId}`;
+          await Activities.findOrCreate({
+            where: { id: compId },
+            defaults: {
+              id: compId,
+              activityId: race.id,
+              userId: hostUserId,
+              userName: hostUserName || hostUserId,
+              raceMode: "race",
+              targetDistance: race.targetDistance,
+              status: "waiting",
+              initialDistance: 0,
+              currentDistance: 0,
+              netDistance: 0,
+              progressPercent: 0,
+              lastStrokeRate: 0,
+              lastStrokeCount: 0,
+              lastPower: 0,
+              lastPace: 0,
+              lastHeartRate: 0,
+              lastResistance: 1,
+              avgPower: 0,
+              avgPace: 0,
+              avgStrokeRate: 0,
+              totalStrokes: 0,
+              totalEnergy: 0,
+              elapsedTime: 0,
+              avgSpeedKmh: 0
+            }
+          });
+        } catch {}
       }
 
       const payload = await buildPrivateRacePayload(race);
@@ -621,6 +690,7 @@ export class TelemetryController {
         return;
       }
 
+      let assignedLane = 1;
       if (registerLane && userId) {
         const user = await userStore.findUser(String(userId));
         const country = user?.country || user?.pays || (await IpGeoService.resolveCountryFromRequest(req));
@@ -630,6 +700,7 @@ export class TelemetryController {
           res.status(joined.statusCode).json({ error: joined.error });
           return;
         }
+        assignedLane = joined.lane;
 
         // Best-effort DB registration on starting line
         try {
@@ -674,7 +745,7 @@ export class TelemetryController {
       }
 
       const payload = await buildPrivateRacePayload(race);
-      res.status(200).json(payload);
+      res.status(200).json({ ...payload, lane: assignedLane });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       res.status(500).json({ error: "Erreur connexion salon privé: " + message });
@@ -940,18 +1011,50 @@ export class TelemetryController {
 
       if (userId && !isHost) {
         if (race.isBotDuel) {
-          if (race.hostUserId?.startsWith("guest_") && (!race.participants || race.participants.size === 0)) {
+          if (race.hostUserId?.startsWith("guest_")) {
+            const oldHostId = race.hostUserId;
             race.hostUserId = userId;
             race.hostUserName = userName || race.hostUserName;
+            if (race.participants) {
+              const oldInfo = race.participants.get(oldHostId);
+              race.participants.delete(oldHostId);
+              race.participants.set(userId, {
+                userId,
+                userName: userName || race.hostUserName || userId,
+                joinedAt: oldInfo?.joinedAt || new Date(),
+                lane: oldInfo?.lane || 1
+              });
+            }
           } else {
             res.status(403).json({
-              error: "Ce salon privé est réservé exclusivement au duel 1v1 contre un bot.",
+              error: "Ce duel contre un bot est réservé à son créateur",
               status: "rejected",
               approvalStatus: "rejected",
               raceId: race.id
             });
             return;
           }
+        }
+
+        const isDuel1v1 = Boolean(race.isDuel1v1);
+        if (isDuel1v1 && race.participants && !race.participants.has(userId) && race.participants.size >= 2) {
+          res.status(409).json({
+            error: "Salon complet - quota atteint",
+            status: "rejected",
+            approvalStatus: "rejected",
+            raceId: race.id
+          });
+          return;
+        }
+
+        if (race.participants && !race.participants.has(userId) && race.participants.size >= race.maxParticipants) {
+          res.status(409).json({
+            error: "Salon complet - quota atteint",
+            status: "rejected",
+            approvalStatus: "rejected",
+            raceId: race.id
+          });
+          return;
         }
 
         if (race.rejectedParticipants && race.rejectedParticipants.has(userId)) {

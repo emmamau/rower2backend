@@ -1,0 +1,484 @@
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const http = require('node:http');
+const express = require('express');
+
+const { RaceManager } = require('../dist/services/race-manager.service');
+const initRoomRoutes = require('../dist/routes/room.routes').default;
+const initTelemetryRoutes = require('../dist/routes/telemetry.routes').default;
+const initGarminRoutes = require('../dist/routes/garmin.routes').default;
+const pairingService = require('../dist/services/pairing.service').default;
+const userStore = require('../dist/services/user-store.service').default;
+const db = require('../dist/models').default;
+
+function createTestServer() {
+  const app = express();
+  app.use(express.json());
+  initRoomRoutes(app);
+  initTelemetryRoutes(app);
+  initGarminRoutes(app);
+  const server = http.createServer(app);
+  return new Promise((resolve) => {
+    server.listen(0, '127.0.0.1', () => {
+      const addr = server.address();
+      resolve({
+        server,
+        baseUrl: `http://127.0.0.1:${addr.port}`,
+        close: () => new Promise((resClose) => server.close(resClose)),
+      });
+    });
+  });
+}
+
+test('POST /api/rooms/join - Salon "Duel contre un Bot" strict creator-only access', async () => {
+  const { baseUrl, close } = await createTestServer();
+  try {
+    const raceManager = RaceManager.getInstance();
+    const botDuel = raceManager.createPrivateRace({
+      isBotDuel: true,
+      targetDistance: 2000,
+      hostUserId: 'creator_racer_1',
+      hostUserName: 'Creator'
+    });
+
+    // 1. Creator joins with code -> 200 OK and assigned Lane 1
+    const resCreator = await fetch(`${baseUrl}/api/rooms/join`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        code: botDuel.code,
+        userId: 'creator_racer_1',
+        userName: 'Creator'
+      })
+    });
+    assert.equal(resCreator.status, 200);
+    const dataCreator = await resCreator.json();
+    assert.equal(dataCreator.success, true);
+    assert.equal(dataCreator.lane, 1, 'Creator gets Lane 1');
+    assert.equal(dataCreator.isBotDuel, true);
+
+    // 2. Intruder attempts to join bot duel -> 403 Forbidden with exact message
+    const resIntruder = await fetch(`${baseUrl}/api/rooms/join`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        code: botDuel.code,
+        userId: 'intruder_racer_2',
+        userName: 'Intruder'
+      })
+    });
+    assert.equal(resIntruder.status, 403);
+    const dataIntruder = await resIntruder.json();
+    assert.equal(dataIntruder.success, false);
+    assert.equal(dataIntruder.error, 'Ce duel contre un bot est réservé à son créateur');
+  } finally {
+    await close();
+  }
+});
+
+test('POST /api/rooms/join - Salon "Duel 1 contre 1" quota enforcement (creator + 1 guest)', async () => {
+  const { baseUrl, close } = await createTestServer();
+  try {
+    const raceManager = RaceManager.getInstance();
+    const duel1v1 = raceManager.createPrivateRace({
+      isDuel1v1: true,
+      maxParticipants: 2,
+      targetDistance: 1000,
+      hostUserId: 'player_host_a',
+      hostUserName: 'PlayerA'
+    });
+
+    // Host joins and gets Lane 1
+    const resA = await fetch(`${baseUrl}/api/rooms/join`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        code: duel1v1.pinCode,
+        userId: 'player_host_a',
+        userName: 'PlayerA'
+      })
+    });
+    assert.equal(resA.status, 200);
+    const dataA = await resA.json();
+    assert.equal(dataA.lane, 1);
+
+    // 1st guest joins and gets Lane 2
+    const resB = await fetch(`${baseUrl}/api/rooms/join`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        code: duel1v1.pinCode,
+        userId: 'player_guest_b',
+        userName: 'PlayerB'
+      })
+    });
+    assert.equal(resB.status, 200);
+    const dataB = await resB.json();
+    assert.equal(dataB.lane, 2, 'Invited guest gets Lane 2');
+
+    // Re-joining same user is idempotent
+    const resBRejoin = await fetch(`${baseUrl}/api/rooms/join`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        code: duel1v1.pinCode,
+        userId: 'player_guest_b',
+        userName: 'PlayerB'
+      })
+    });
+    assert.equal(resBRejoin.status, 200);
+    const dataBRejoin = await resBRejoin.json();
+    assert.equal(dataBRejoin.lane, 2);
+
+    // 3rd player attempts to join -> 409 Conflict with exact message
+    const resC = await fetch(`${baseUrl}/api/rooms/join`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        code: duel1v1.pinCode,
+        userId: 'player_c',
+        userName: 'PlayerC'
+      })
+    });
+    assert.equal(resC.status, 409);
+    const dataC = await resC.json();
+    assert.equal(dataC.success, false);
+    assert.equal(dataC.error, 'Salon complet - quota atteint');
+  } finally {
+    await close();
+  }
+});
+
+test('POST /api/rooms/join - Admin role exception: admin acts as spectator, all lanes open for participants', async () => {
+  const { baseUrl, close } = await createTestServer();
+  try {
+    const raceManager = RaceManager.getInstance();
+    // Admin creates 2-player regatta as spectator
+    const adminRoom = raceManager.createPrivateRace({
+      maxParticipants: 2,
+      targetDistance: 2000,
+      hostUserId: 'EmmaRacer',
+      hostUserName: 'Emma Admin',
+      adminAsSpectator: true
+    });
+
+    // Participant 1 gets Lane 1 (since admin is spectator)
+    const resP1 = await fetch(`${baseUrl}/api/rooms/join`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        code: adminRoom.code,
+        userId: 'racer_p1',
+        userName: 'Racer1'
+      })
+    });
+    assert.equal(resP1.status, 200);
+    const dataP1 = await resP1.json();
+    assert.equal(dataP1.lane, 1, '1st racer gets Lane 1 when admin is spectator');
+
+    // Participant 2 gets Lane 2
+    const resP2 = await fetch(`${baseUrl}/api/rooms/join`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        code: adminRoom.code,
+        userId: 'racer_p2',
+        userName: 'Racer2'
+      })
+    });
+    assert.equal(resP2.status, 200);
+    const dataP2 = await resP2.json();
+    assert.equal(dataP2.lane, 2, '2nd racer gets Lane 2');
+
+    // Participant 3 gets 409 Conflict
+    const resP3 = await fetch(`${baseUrl}/api/rooms/join`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        code: adminRoom.code,
+        userId: 'racer_p3',
+        userName: 'Racer3'
+      })
+    });
+    assert.equal(resP3.status, 409);
+    const dataP3 = await resP3.json();
+    assert.equal(dataP3.error, 'Salon complet - quota atteint');
+  } finally {
+    await close();
+  }
+});
+
+test('POST /api/rooms/join - Garmin watch join with deviceToken authentication', async () => {
+  const { baseUrl, close } = await createTestServer();
+  try {
+    const raceManager = RaceManager.getInstance();
+    const salon = raceManager.createPrivateRace({
+      targetDistance: 2000,
+      maxParticipants: 4,
+      hostUserId: 'coach_123',
+      hostUserName: 'Coach'
+    });
+
+    // Generate pairing code & pair watch to obtain valid deviceToken
+    const pairCode = await pairingService.createPairingCode('garmin_user_77');
+    const pairResult = await pairingService.pairDevice(pairCode.pairingCode, 'watch_device_77');
+    assert.equal(pairResult.success, true);
+    const token = pairResult.deviceToken;
+
+    // Join room using deviceToken
+    const resJoin = await fetch(`${baseUrl}/api/rooms/join`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        code: salon.pinCode,
+        deviceToken: token
+      })
+    });
+    assert.equal(resJoin.status, 200);
+    const joinData = await resJoin.json();
+    assert.equal(joinData.success, true);
+    assert.ok(joinData.lane >= 1);
+    assert.equal(joinData.raceId, salon.id);
+
+    // Join with invalid token returns 401
+    const resBadToken = await fetch(`${baseUrl}/api/rooms/join`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        code: salon.pinCode,
+        deviceToken: 'invalid_token_999'
+      })
+    });
+    assert.equal(resBadToken.status, 401);
+  } finally {
+    await close();
+  }
+});
+
+test('Instant reactive start for Bot Duel on first stroke (power > 0 or strokeRate > 0)', async () => {
+  const { baseUrl, close } = await createTestServer();
+  try {
+    const raceManager = RaceManager.getInstance();
+    const botDuel = raceManager.createPrivateRace({
+      isBotDuel: true,
+      targetDistance: 2000,
+      hostUserId: 'solo_challenger',
+      hostUserName: 'SoloChallenger'
+    });
+
+    assert.equal(botDuel.status, 'LOBBY');
+
+    // First stroke received via telemetry
+    const resStroke = await fetch(`${baseUrl}/api/v1/telemetry`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        raceId: botDuel.id,
+        userId: 'solo_challenger',
+        userName: 'SoloChallenger',
+        seq: 1,
+        metrics: {
+          distanceM: 10,
+          splitSec: 125,
+          powerWatts: 240,
+          strokeRate: 28
+        }
+      })
+    });
+    assert.equal(resStroke.status, 200);
+    const strokeData = await resStroke.json();
+    assert.equal(strokeData.status, 'RUNNING', 'Race must transition to RUNNING immediately on first stroke');
+    assert.equal(botDuel.status, 'RUNNING');
+    assert.ok(botDuel.startedAt, 'startedAt must be set at the stroke timestamp');
+  } finally {
+    await close();
+  }
+});
+
+test('15-second countdown for multiplayer / scheduled races', async () => {
+  const raceManager = RaceManager.getInstance();
+  const scheduledTime = new Date(Date.now() + 10000); // starts in 10s (<= 15s)
+  const scheduledRace = raceManager.createPrivateRace({
+    targetDistance: 2000,
+    maxParticipants: 4,
+    hostUserId: 'organizer_host',
+    hostUserName: 'Organizer',
+    startMode: 'scheduled',
+    scheduledStartTime: scheduledTime
+  });
+
+  assert.equal(scheduledRace.status, 'LOBBY');
+
+  // Trigger ticker
+  await raceManager.tickPrivateRaces();
+
+  // Exactly 15s or less before start -> countdown triggered!
+  assert.equal(scheduledRace.status, 'COUNTDOWN');
+});
+
+test('Organizer automatically occupies Lane 1, preventing guests from claiming Lane 1', async () => {
+  const { baseUrl, close } = await createTestServer();
+  try {
+    const raceManager = RaceManager.getInstance();
+    const duel = raceManager.createPrivateRace({
+      isDuel1v1: true,
+      maxParticipants: 2,
+      targetDistance: 1000,
+      hostUserId: 'organizer_boss',
+      hostUserName: 'OrganizerBoss'
+    });
+
+    // Guest joins FIRST before organizer does any network call
+    const resGuest = await fetch(`${baseUrl}/api/rooms/join`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        code: duel.pinCode,
+        userId: 'guest_competitor',
+        userName: 'GuestCompetitor'
+      })
+    });
+    assert.equal(resGuest.status, 200);
+    const guestData = await resGuest.json();
+    assert.equal(guestData.lane, 2, 'Guest must get Lane 2 because Organizer already occupies Lane 1');
+
+    // Second guest attempts to join -> 409 Conflict (quota 2 is reached: organizer + 1 guest)
+    const resGuest2 = await fetch(`${baseUrl}/api/rooms/join`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        code: duel.pinCode,
+        userId: 'intruder_guest_3',
+        userName: 'Intruder3'
+      })
+    });
+    assert.equal(resGuest2.status, 409);
+    const guest2Data = await resGuest2.json();
+    assert.equal(guest2Data.error, 'Salon complet - quota atteint');
+
+    // Organizer joins and confirms Lane 1 without conflict
+    const resOrg = await fetch(`${baseUrl}/api/rooms/join`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        code: duel.pinCode,
+        userId: 'organizer_boss',
+        userName: 'OrganizerBoss'
+      })
+    });
+    assert.equal(resOrg.status, 200);
+    const orgData = await resOrg.json();
+    assert.equal(orgData.lane, 1);
+  } finally {
+    await close();
+  }
+});
+
+test('League requirement enforcement: blocks under-ranked players and admits eligible ones', async () => {
+  const { baseUrl, close } = await createTestServer();
+  try {
+    const raceManager = RaceManager.getInstance();
+    const goldRace = raceManager.createPrivateRace({
+      targetDistance: 2000,
+      maxParticipants: 4,
+      hostUserId: 'coach_pro',
+      hostUserName: 'CoachPro',
+      requiredLeague: 'gold' // Gold requires >= 300 points
+    });
+
+    // Create a bronze user in userStore (< 300 pts)
+    await userStore.createUser({
+      id: 'bronze_racer_1',
+      login: 'bronze_racer_1',
+      name: 'Bronze Racer',
+      email: 'bronze@example.com',
+      password: 'password123',
+      points: 50,
+      league: 'bronze'
+    });
+
+    // Create a platinum user in userStore (>= 600 pts)
+    await userStore.createUser({
+      id: 'plat_racer_1',
+      login: 'plat_racer_1',
+      name: 'Plat Racer',
+      email: 'plat@example.com',
+      password: 'password123',
+      points: 750,
+      league: 'platinum'
+    });
+
+    // 1. Bronze player joins -> 403 Forbidden
+    const resBronze = await fetch(`${baseUrl}/api/rooms/join`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        code: goldRace.code,
+        userId: 'bronze_racer_1'
+      })
+    });
+    assert.equal(resBronze.status, 403);
+    const bronzeData = await resBronze.json();
+    assert.ok(bronzeData.error.includes('Niveau de ligue insuffisant'));
+
+    // 2. Platinum player joins -> 200 OK
+    const resPlat = await fetch(`${baseUrl}/api/rooms/join`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        code: goldRace.code,
+        userId: 'plat_racer_1'
+      })
+    });
+    assert.equal(resPlat.status, 200);
+    const platData = await resPlat.json();
+    assert.equal(platData.success, true);
+    assert.equal(platData.lane, 2);
+  } finally {
+    await close();
+  }
+});
+
+test('Admin spectator calling /api/rooms/join gets lane: 0 and leaves Lane 1 to participants', async () => {
+  const { baseUrl, close } = await createTestServer();
+  try {
+    const raceManager = RaceManager.getInstance();
+    const adminSpectatorRace = raceManager.createPrivateRace({
+      targetDistance: 2000,
+      maxParticipants: 2,
+      hostUserId: 'EmmaRacer',
+      hostUserName: 'Emma Admin',
+      adminAsSpectator: true
+    });
+
+    // Admin calls joinRoom -> returns lane 0
+    const resAdmin = await fetch(`${baseUrl}/api/rooms/join`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        code: adminSpectatorRace.code,
+        userId: 'EmmaRacer',
+        userName: 'Emma Admin'
+      })
+    });
+    assert.equal(resAdmin.status, 200);
+    const adminData = await resAdmin.json();
+    assert.equal(adminData.lane, 0, 'Admin spectator must receive lane 0');
+
+    // Participant 1 calls joinRoom -> returns lane 1
+    const resP1 = await fetch(`${baseUrl}/api/rooms/join`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        code: adminSpectatorRace.code,
+        userId: 'athlete_1',
+        userName: 'Athlete1'
+      })
+    });
+    assert.equal(resP1.status, 200);
+    const p1Data = await resP1.json();
+    assert.equal(p1Data.lane, 1, '1st athlete gets Lane 1');
+  } finally {
+    await close();
+  }
+});

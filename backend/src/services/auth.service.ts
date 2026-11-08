@@ -35,7 +35,7 @@ export function isEmmaAdminUser(loginOrId?: string, name?: string): boolean {
       .replace(/[-_ ]/g, "");
   const n1 = normalize(loginOrId);
   const n2 = normalize(name);
-  return n1 === "emmaracer" || n2 === "emmaracer" || n1 === "admin" || n2 === "admin";
+  return n1 === "emmaracer" || n2 === "emmaracer" || n1 === "admin" || n2 === "admin" || n1 === "hostemma";
 }
 
 /**

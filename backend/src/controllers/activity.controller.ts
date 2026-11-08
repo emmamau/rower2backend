@@ -4,6 +4,7 @@ import db from "../models";
 import { getOrCreateCurrentRace } from "./race.controller";
 import raceManager, { RaceManager } from "../services/race-manager.service";
 import { calculateRacePoints, getLeagueByPoints } from "../utils/league.util";
+import socketGateway from "../websocket/socket.gateway";
 
 const Activities = db.activities;
 const Races = db.races;
@@ -42,6 +43,28 @@ export const syncActivity = async (req: Request, res: Response): Promise<void> =
 
     // Détection d'abandon : si le statut envoyé est "abandoned" ou "paused" ou si abandonné
     const isAbandoned = status === "abandoned" || status === "discarded";
+
+    // Mode "Duel contre un Bot" : Départ réactif instantané ("Go" automatique) au premier coup de rame
+    const matchedPrivate = raceManager.findPrivateRace(actualActivityId);
+    if (matchedPrivate && matchedPrivate.isBotDuel && (matchedPrivate.status === "LOBBY" || matchedPrivate.status === "COUNTDOWN")) {
+      const isRowing = Number(lastPower) > 0 || Number(lastStrokeRate) > 0 || (Number(lastPace) > 0 && Number(lastPace) < 360);
+      if (isRowing) {
+        const startNow = new Date();
+        matchedPrivate.status = "RUNNING";
+        matchedPrivate.autoStart = true;
+        matchedPrivate.startedAt = startNow;
+        matchedPrivate.endedAt = undefined;
+        matchedPrivate.lobbyEndsAt = startNow;
+        try {
+          await Races.update({ status: "in_progress", startTime: startNow }, { where: { id: matchedPrivate.id } });
+          await Activities.update(
+            { status: "in_progress" },
+            { where: { activityId: matchedPrivate.id, status: "waiting" } }
+          );
+        } catch {}
+        socketGateway.broadcastRaceStatus(matchedPrivate.id, "RUNNING", { startedAt: startNow });
+      }
+    }
 
     if (!activity) {
       const initialDist = Number(currentDistance) || 0;

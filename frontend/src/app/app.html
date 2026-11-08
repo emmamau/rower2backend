@@ -125,6 +125,7 @@
       <div class="pure-user-pill" *ngIf="isIdentified">
         <span class="pure-league-badge" [title]="currentUserLeague.name">{{ currentUserLeague.badge }}</span>
         <span class="pure-user-name">{{ currentUser.name }}</span>
+        <span class="pure-user-lane-badge" *ngIf="myAssignedLane" title="Ligne d'eau assignée">Ligne {{ myAssignedLane }}</span>
       </div>
     </div>
     <div class="pure-header-right">
@@ -1633,6 +1634,7 @@
       @if (focusedTelemetry || myActivity) {
         <section class="regatta-user-summary" aria-label="Mes statistiques en direct">
           <div class="regatta-summary-pill">
+            <span class="sum-lane" *ngIf="myAssignedLane" title="Ligne d'eau assignée">Ligne {{ myAssignedLane }}</span>
             <span class="sum-rank" title="Classement dans la course">{{ myRank ? ('#' + myRank) : '--' }}</span>
             <span class="sum-metric"><strong>{{ (focusedTelemetry || myActivity)?.netDistance || 0 }}</strong> m</span>
             <span class="sum-metric"><strong>{{ (focusedTelemetry || myActivity)?.lastPower || 0 }}</strong> W</span>

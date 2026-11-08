@@ -136,7 +136,7 @@ class RowerDelegate extends WatchUi.BehaviorDelegate {
             _view.togglePairingStatusMenu();
             return true;
         } else if (state == RowerView.STATE_PIN_INPUT) {
-            _view.decrementPinDigit();
+            _view.cyclePinDigit(1);
             return true;
         } else if (state == RowerView.STATE_LATE_CHOICE) {
             _view.toggleChoiceMenu();
@@ -169,7 +169,7 @@ class RowerDelegate extends WatchUi.BehaviorDelegate {
             _view.togglePairingStatusMenu();
             return true;
         } else if (state == RowerView.STATE_PIN_INPUT) {
-            _view.incrementPinDigit();
+            _view.cyclePinDigit(-1);
             return true;
         } else if (state == RowerView.STATE_LATE_CHOICE) {
             _view.toggleChoiceMenu();

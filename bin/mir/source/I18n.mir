@@ -1072,87 +1072,87 @@ C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_125_8_132_8_if
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_125_8_132_8_if_true:
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_125_40_132_8_start:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\I18n.mc" 126 12 ]
-C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_126_12_126_71_if_stmt:
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_126_12_126_72_if_stmt:
         symbol [ _currentLang %tmp.301 126 16 28 ];
         %tmp.301 = getv ? :_currentLang;
         symbol [ LANG_FR %tmp.303 126 32 39 ];
         %tmp.303 = getv ? :LANG_FR;
         %tmp.304 = eq %tmp.301 %tmp.303;
-        bf %tmp.304 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_126_12_126_71_if_end;
-C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_126_12_126_71_if_true:
-C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_126_41_126_71_start:
+        bf %tmp.304 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_126_12_126_72_if_end;
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_126_12_126_72_if_true:
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_126_41_126_72_start:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\I18n.mc" 126 43 ]
-        %tmp.305 = "Salon Prive (PIN)";
+        %tmp.305 = "Rejoindre un salon";
         ret %tmp.305;
-C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_126_41_126_71_stop:
-        goto @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_126_12_126_71_if_end;
-C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_126_12_126_71_if_end:
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_126_41_126_72_stop:
+        goto @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_126_12_126_72_if_end;
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_126_12_126_72_if_end:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\I18n.mc" 127 12 ]
-C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_127_12_127_70_if_stmt:
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_127_12_127_68_if_stmt:
         symbol [ _currentLang %tmp.307 127 16 28 ];
         %tmp.307 = getv ? :_currentLang;
         symbol [ LANG_DE %tmp.309 127 32 39 ];
         %tmp.309 = getv ? :LANG_DE;
         %tmp.310 = eq %tmp.307 %tmp.309;
-        bf %tmp.310 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_127_12_127_70_if_end;
-C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_127_12_127_70_if_true:
-C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_127_41_127_70_start:
+        bf %tmp.310 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_127_12_127_68_if_end;
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_127_12_127_68_if_true:
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_127_41_127_68_start:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\I18n.mc" 127 43 ]
-        %tmp.311 = "Privatraum (PIN)";
+        %tmp.311 = "Raum beitreten";
         ret %tmp.311;
-C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_127_41_127_70_stop:
-        goto @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_127_12_127_70_if_end;
-C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_127_12_127_70_if_end:
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_127_41_127_68_stop:
+        goto @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_127_12_127_68_if_end;
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_127_12_127_68_if_end:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\I18n.mc" 128 12 ]
-C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_128_12_128_72_if_stmt:
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_128_12_128_71_if_stmt:
         symbol [ _currentLang %tmp.313 128 16 28 ];
         %tmp.313 = getv ? :_currentLang;
         symbol [ LANG_ES %tmp.315 128 32 39 ];
         %tmp.315 = getv ? :LANG_ES;
         %tmp.316 = eq %tmp.313 %tmp.315;
-        bf %tmp.316 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_128_12_128_72_if_end;
-C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_128_12_128_72_if_true:
-C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_128_41_128_72_start:
+        bf %tmp.316 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_128_12_128_71_if_end;
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_128_12_128_71_if_true:
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_128_41_128_71_start:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\I18n.mc" 128 43 ]
-        %tmp.317 = "Sala Privada (PIN)";
+        %tmp.317 = "Unirse a una sala";
         ret %tmp.317;
-C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_128_41_128_72_stop:
-        goto @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_128_12_128_72_if_end;
-C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_128_12_128_72_if_end:
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_128_41_128_71_stop:
+        goto @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_128_12_128_71_if_end;
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_128_12_128_71_if_end:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\I18n.mc" 129 12 ]
-C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_129_12_129_74_if_stmt:
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_129_12_129_73_if_stmt:
         symbol [ _currentLang %tmp.319 129 16 28 ];
         %tmp.319 = getv ? :_currentLang;
         symbol [ LANG_IT %tmp.321 129 32 39 ];
         %tmp.321 = getv ? :LANG_IT;
         %tmp.322 = eq %tmp.319 %tmp.321;
-        bf %tmp.322 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_129_12_129_74_if_end;
-C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_129_12_129_74_if_true:
-C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_129_41_129_74_start:
+        bf %tmp.322 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_129_12_129_73_if_end;
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_129_12_129_73_if_true:
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_129_41_129_73_start:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\I18n.mc" 129 43 ]
-        %tmp.323 = "Stanza Privata (PIN)";
+        %tmp.323 = "Entra in una stanza";
         ret %tmp.323;
-C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_129_41_129_74_stop:
-        goto @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_129_12_129_74_if_end;
-C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_129_12_129_74_if_end:
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_129_41_129_73_stop:
+        goto @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_129_12_129_73_if_end;
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_129_12_129_73_if_end:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\I18n.mc" 130 12 ]
-C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_130_12_130_72_if_stmt:
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_130_12_130_70_if_stmt:
         symbol [ _currentLang %tmp.325 130 16 28 ];
         %tmp.325 = getv ? :_currentLang;
         symbol [ LANG_PT %tmp.327 130 32 39 ];
         %tmp.327 = getv ? :LANG_PT;
         %tmp.328 = eq %tmp.325 %tmp.327;
-        bf %tmp.328 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_130_12_130_72_if_end;
-C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_130_12_130_72_if_true:
-C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_130_41_130_72_start:
+        bf %tmp.328 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_130_12_130_70_if_end;
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_130_12_130_70_if_true:
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_130_41_130_70_start:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\I18n.mc" 130 43 ]
-        %tmp.329 = "Sala Privada (PIN)";
+        %tmp.329 = "Entrar numa sala";
         ret %tmp.329;
-C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_130_41_130_72_stop:
-        goto @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_130_12_130_72_if_end;
-C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_130_12_130_72_if_end:
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_130_41_130_70_stop:
+        goto @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_130_12_130_70_if_end;
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_130_12_130_70_if_end:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\I18n.mc" 131 12 ]
-        %tmp.330 = "Private Room (PIN)";
+        %tmp.330 = "Join a Room";
         ret %tmp.330;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_125_40_132_8_stop:
         goto @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_125_8_132_8_if_end;
@@ -2527,87 +2527,87 @@ C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_250_8_257_8_if
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_250_8_257_8_if_true:
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_250_37_257_8_start:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\I18n.mc" 251 12 ]
-C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_251_12_251_65_if_stmt:
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_251_12_251_72_if_stmt:
         symbol [ _currentLang %tmp.826 251 16 28 ];
         %tmp.826 = getv ? :_currentLang;
         symbol [ LANG_FR %tmp.828 251 32 39 ];
         %tmp.828 = getv ? :LANG_FR;
         %tmp.829 = eq %tmp.826 %tmp.828;
-        bf %tmp.829 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_251_12_251_65_if_end;
-C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_251_12_251_65_if_true:
-C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_251_41_251_65_start:
+        bf %tmp.829 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_251_12_251_72_if_end;
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_251_12_251_72_if_true:
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_251_41_251_72_start:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\I18n.mc" 251 43 ]
-        %tmp.830 = "SALON PRIVE";
+        %tmp.830 = "REJOINDRE UN SALON";
         ret %tmp.830;
-C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_251_41_251_65_stop:
-        goto @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_251_12_251_65_if_end;
-C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_251_12_251_65_if_end:
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_251_41_251_72_stop:
+        goto @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_251_12_251_72_if_end;
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_251_12_251_72_if_end:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\I18n.mc" 252 12 ]
-C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_252_12_252_64_if_stmt:
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_252_12_252_68_if_stmt:
         symbol [ _currentLang %tmp.832 252 16 28 ];
         %tmp.832 = getv ? :_currentLang;
         symbol [ LANG_DE %tmp.834 252 32 39 ];
         %tmp.834 = getv ? :LANG_DE;
         %tmp.835 = eq %tmp.832 %tmp.834;
-        bf %tmp.835 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_252_12_252_64_if_end;
-C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_252_12_252_64_if_true:
-C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_252_41_252_64_start:
+        bf %tmp.835 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_252_12_252_68_if_end;
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_252_12_252_68_if_true:
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_252_41_252_68_start:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\I18n.mc" 252 43 ]
-        %tmp.836 = "PRIVATRAUM";
+        %tmp.836 = "RAUM BEITRETEN";
         ret %tmp.836;
-C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_252_41_252_64_stop:
-        goto @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_252_12_252_64_if_end;
-C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_252_12_252_64_if_end:
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_252_41_252_68_stop:
+        goto @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_252_12_252_68_if_end;
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_252_12_252_68_if_end:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\I18n.mc" 253 12 ]
-C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_253_12_253_66_if_stmt:
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_253_12_253_71_if_stmt:
         symbol [ _currentLang %tmp.838 253 16 28 ];
         %tmp.838 = getv ? :_currentLang;
         symbol [ LANG_ES %tmp.840 253 32 39 ];
         %tmp.840 = getv ? :LANG_ES;
         %tmp.841 = eq %tmp.838 %tmp.840;
-        bf %tmp.841 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_253_12_253_66_if_end;
-C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_253_12_253_66_if_true:
-C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_253_41_253_66_start:
+        bf %tmp.841 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_253_12_253_71_if_end;
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_253_12_253_71_if_true:
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_253_41_253_71_start:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\I18n.mc" 253 43 ]
-        %tmp.842 = "SALA PRIVADA";
+        %tmp.842 = "UNIRSE A UNA SALA";
         ret %tmp.842;
-C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_253_41_253_66_stop:
-        goto @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_253_12_253_66_if_end;
-C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_253_12_253_66_if_end:
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_253_41_253_71_stop:
+        goto @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_253_12_253_71_if_end;
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_253_12_253_71_if_end:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\I18n.mc" 254 12 ]
-C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_254_12_254_68_if_stmt:
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_254_12_254_73_if_stmt:
         symbol [ _currentLang %tmp.844 254 16 28 ];
         %tmp.844 = getv ? :_currentLang;
         symbol [ LANG_IT %tmp.846 254 32 39 ];
         %tmp.846 = getv ? :LANG_IT;
         %tmp.847 = eq %tmp.844 %tmp.846;
-        bf %tmp.847 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_254_12_254_68_if_end;
-C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_254_12_254_68_if_true:
-C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_254_41_254_68_start:
+        bf %tmp.847 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_254_12_254_73_if_end;
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_254_12_254_73_if_true:
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_254_41_254_73_start:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\I18n.mc" 254 43 ]
-        %tmp.848 = "STANZA PRIVATA";
+        %tmp.848 = "ENTRA IN UNA STANZA";
         ret %tmp.848;
-C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_254_41_254_68_stop:
-        goto @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_254_12_254_68_if_end;
-C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_254_12_254_68_if_end:
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_254_41_254_73_stop:
+        goto @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_254_12_254_73_if_end;
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_254_12_254_73_if_end:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\I18n.mc" 255 12 ]
-C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_255_12_255_66_if_stmt:
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_255_12_255_70_if_stmt:
         symbol [ _currentLang %tmp.850 255 16 28 ];
         %tmp.850 = getv ? :_currentLang;
         symbol [ LANG_PT %tmp.852 255 32 39 ];
         %tmp.852 = getv ? :LANG_PT;
         %tmp.853 = eq %tmp.850 %tmp.852;
-        bf %tmp.853 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_255_12_255_66_if_end;
-C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_255_12_255_66_if_true:
-C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_255_41_255_66_start:
+        bf %tmp.853 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_255_12_255_70_if_end;
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_255_12_255_70_if_true:
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_255_41_255_70_start:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\I18n.mc" 255 43 ]
-        %tmp.854 = "SALA PRIVADA";
+        %tmp.854 = "ENTRAR NUMA SALA";
         ret %tmp.854;
-C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_255_41_255_66_stop:
-        goto @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_255_12_255_66_if_end;
-C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_255_12_255_66_if_end:
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_255_41_255_70_stop:
+        goto @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_255_12_255_70_if_end;
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_255_12_255_70_if_end:
 [ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\I18n.mc" 256 12 ]
-        %tmp.855 = "PRIVATE ROOM";
+        %tmp.855 = "JOIN A ROOM";
         ret %tmp.855;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_250_37_257_8_stop:
         goto @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_I18n_mc_250_8_257_8_if_end;

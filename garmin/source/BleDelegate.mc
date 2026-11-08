@@ -78,6 +78,7 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
     private var _userId as String = "";
     private var _activityId as String = "";
     private var _raceMode as String = "race"; // "race" or "solo"
+    private var _isBotDuel as Boolean = false;
     private var _activityStatus as String = "waiting"; // "waiting", "in_progress", "paused", "completed", "abandoned"
     private var _targetDistance as Number = 10000;
     private var _progressPercent as Float = 0.0f;
@@ -960,7 +961,13 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
             }
 
             var isRowing = (_model.strokeRate > 0 || _model.instantPower > 0);
-            if (cd <= 15 && cd > 0) {
+            // Mode "Duel contre un Bot" : Départ réactif instantané ("Go" automatique) au premier coup de rame
+            if (_isBotDuel) {
+                if (isRowing) {
+                    handleRaceStartTrigger(view, true);
+                    return;
+                }
+            } else if (cd <= 15 && cd > 0) {
                 if (isRowing) {
                     view.setFalseStartLocked(true);
                     view.showWarning(I18n.getText("WARN_FALSE_START"), 2);
@@ -1211,8 +1218,14 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
         var view = _view as RowerView;
         var state = view.getAppState();
 
-        // 1. If race is already running or countdown reached 0, transition immediately to racing
-        if ((_activityStatus.equals("in_progress") || view.getCountdown() <= 0) &&
+        // 1. If race is already running, countdown reached 0, or instant start in bot duel, transition immediately to racing
+        if (_isBotDuel && (state == RowerView.STATE_WAITING_START || state == RowerView.STATE_LOBBY)) {
+            var isRowing = (_model.strokeRate > 0 || _model.instantPower > 0);
+            if (isRowing) {
+                handleRaceStartTrigger(view, true);
+                state = view.getAppState();
+            }
+        } else if ((_activityStatus.equals("in_progress") || view.getCountdown() <= 0) &&
             (state == RowerView.STATE_WAITING_START || state == RowerView.STATE_COUNTDOWN_5S || state == RowerView.STATE_LOBBY)) {
             var isRowing = (_model.strokeRate > 0 || _model.instantPower > 0);
             handleRaceStartTrigger(view, isRowing);
@@ -1775,7 +1788,7 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
     }
 
     public function submitPinCode(pin as String) as Void {
-        _syncManager.checkPinCode(pin, _userId, _userId);
+        _syncManager.joinRoomByCode(pin, _userId, _userId);
     }
 
     public function onPinJoinSuccess(data as Dictionary) as Void {
@@ -1787,6 +1800,23 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
         }
         if (data.hasKey("targetDistance") && data.get("targetDistance") != null) {
             _targetDistance = data.get("targetDistance") as Number;
+        }
+        if (data.hasKey("isBotDuel") && data.get("isBotDuel") != null) {
+            _isBotDuel = data.get("isBotDuel") as Boolean;
+        } else {
+            _isBotDuel = false;
+        }
+
+        var assignedLane = 1;
+        if (data.hasKey("lane") && data.get("lane") != null) {
+            assignedLane = data.get("lane") as Number;
+        }
+
+        triggerApprovalVibe();
+
+        if (_view != null) {
+            (_view as RowerView).setAssignedLane(assignedLane);
+            (_view as RowerView).showWarning("Ligne " + assignedLane, 2);
         }
 
         var isPending = false;
@@ -1843,9 +1873,27 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
         }
     }
 
-    public function onPinJoinFailed() as Void {
+    public function onPinJoinFailed(responseCode as Number, data as Dictionary or String or Null) as Void {
+        triggerRejectVibe();
         if (_view != null) {
-            (_view as RowerView).showWarning(I18n.getText("PIN_INVALID"), 2);
+            var msg = "Invalide";
+            if (responseCode == 409) {
+                msg = "Complet";
+            } else if (responseCode == 403) {
+                msg = "Acces refuse";
+            } else if (responseCode == 401) {
+                msg = "Non appaire";
+            } else if (data != null && data instanceof Dictionary && (data as Dictionary).hasKey("error")) {
+                var errStr = (data as Dictionary).get("error").toString();
+                if (errStr.find("Complet") != null || errStr.find("quota") != null) {
+                    msg = "Complet";
+                } else if (errStr.find("réservé") != null || errStr.find("refusé") != null || errStr.find("requis") != null) {
+                    msg = "Acces refuse";
+                } else {
+                    msg = "Erreur salon";
+                }
+            }
+            (_view as RowerView).showWarning(msg, 3);
         }
     }
 }

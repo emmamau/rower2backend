@@ -319,20 +319,43 @@ class RestSyncManager {
         }
     }
 
-    // Check alphanumeric PIN for private race (passing userId and userName for organizer validation)
-    function checkPinCode(pin as String, userId as String, userName as String) as Void {
-        var endpoint = getBaseUrl() + "/api/v1/races/pin/" + pin + "?userId=" + userId + "&userName=" + userName;
+    // Join private room using POST /api/rooms/join with deviceToken & quota verification
+    function joinRoomByCode(code as String, userId as String, userName as String) as Void {
+        var endpoint = getBaseUrl() + "/api/rooms/join";
+        var devToken = UserManager.getDeviceToken();
+        var payload = {
+            "code" => code,
+            "userId" => userId,
+            "userName" => userName
+        };
+        if (devToken != null && (devToken as String).length() > 0) {
+            payload.put("deviceToken", devToken);
+        }
+
+        var headers = {
+            "Content-Type" => Communications.REQUEST_CONTENT_TYPE_JSON
+        };
+        if (devToken != null && (devToken as String).length() > 0) {
+            headers.put("Authorization", "Bearer " + (devToken as String));
+        }
+
         var options = {
-            :method => Communications.HTTP_REQUEST_METHOD_GET,
+            :method => Communications.HTTP_REQUEST_METHOD_POST,
+            :headers => headers,
             :responseType => Communications.HTTP_RESPONSE_CONTENT_TYPE_JSON
         };
 
         Communications.makeWebRequest(
             endpoint,
-            null,
+            payload,
             options,
             method(:onPinVerified)
         );
+    }
+
+    // Backward-compatible alias
+    function checkPinCode(pin as String, userId as String, userName as String) as Void {
+        joinRoomByCode(pin, userId, userName);
     }
 
     function onPinVerified(responseCode as Number, data as Dictionary or String or Null) as Void {
@@ -340,7 +363,7 @@ class RestSyncManager {
             if (responseCode == 200 && data != null && data instanceof Dictionary) {
                 (_delegate as BleDelegate).onPinJoinSuccess(data as Dictionary);
             } else {
-                (_delegate as BleDelegate).onPinJoinFailed();
+                (_delegate as BleDelegate).onPinJoinFailed(responseCode, data);
             }
         }
     }

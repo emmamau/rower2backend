@@ -47,6 +47,7 @@ export class AppComponent implements OnInit, OnDestroy {
   nextRaceInfo: NextRaceInfo | null = null;
   racers: RowerData[] = [];
   liveMetricsList: LiveRacerMetric[] = [];
+  myAssignedLane: number = 1;
   activeViewMode: 'canvas' | 'cockpit' = 'canvas';
   siteView: 'home' | 'regatta' | 'cockpit' = 'home';
   userExplicitlyNavigatedHome = false;
@@ -376,10 +377,23 @@ export class AppComponent implements OnInit, OnDestroy {
     const storedIsAdmin = typeof localStorage !== 'undefined' ? localStorage.getItem('rower_is_admin') === 'true' : false;
     const storedDeviceToken = typeof localStorage !== 'undefined' ? localStorage.getItem('rower_device_token') : null;
     const storedIsPaired = typeof localStorage !== 'undefined' ? localStorage.getItem('rower_is_paired') === 'true' : false;
-    this.isPaired = storedIsPaired && !!storedDeviceToken;
-    this.isWatchConfirmed = this.isPaired;
-    if (storedDeviceToken) {
-      this.deviceToken = storedDeviceToken;
+
+    // Liaison stricte au compte actif : le statut appairé est rattaché à la session du compte connecté
+    if (!storedLogin) {
+      this.isPaired = false;
+      this.isWatchConfirmed = false;
+      this.deviceToken = '';
+      try {
+        localStorage.removeItem('rower_is_paired');
+        localStorage.removeItem('rower_watch_confirmed');
+        localStorage.removeItem('rower_device_token');
+      } catch {}
+    } else {
+      this.isPaired = storedIsPaired && !!storedDeviceToken;
+      this.isWatchConfirmed = this.isPaired;
+      if (storedDeviceToken) {
+        this.deviceToken = storedDeviceToken;
+      }
     }
 
     if (typeof localStorage !== 'undefined') {
@@ -600,17 +614,21 @@ export class AppComponent implements OnInit, OnDestroy {
             // Calcul du classement et des écarts de distance en direct
             const activeList = this.racers.filter(r => r.status !== 'abandoned');
             this.totalActiveRacers = activeList.length;
-            this.liveMetricsList = activeList.map((r, idx) => ({
-              lane: idx + 1,
-              userId: r.userId,
-              name: r.userName || r.userId,
-              dist: r.netDistance || 0,
-              split: r.lastPace || r.avgPace || 120,
-              watts: r.lastPower || r.avgPower || 0,
-              spm: r.lastStrokeRate || r.avgStrokeRate || 0,
-              heartRate: r.lastHeartRate,
-              status: r.status || 'in_progress'
-            }));
+            this.liveMetricsList = activeList.map((r, idx) => {
+              const isMe = r.userId === this.activeUserId;
+              const assignedLane = isMe && this.myAssignedLane ? this.myAssignedLane : ((r as any).lane || idx + 1);
+              return {
+                lane: assignedLane,
+                userId: r.userId,
+                name: r.userName || r.userId,
+                dist: r.netDistance || 0,
+                split: r.lastPace || r.avgPace || 120,
+                watts: r.lastPower || r.avgPower || 0,
+                spm: r.lastStrokeRate || r.avgStrokeRate || 0,
+                heartRate: r.lastHeartRate,
+                status: r.status || 'in_progress'
+              };
+            });
             const myIdx = activeList.findIndex(r => r.userId === this.activeUserId);
 
             if (myIdx >= 0) {
@@ -1162,6 +1180,10 @@ export class AppComponent implements OnInit, OnDestroy {
       localStorage.removeItem('rower_is_subscriber');
       localStorage.removeItem('rower_is_admin');
     } catch {}
+
+    // Dès la déconnexion, réinitialiser immédiatement tout statut et affichage d'appairage Garmin
+    this.resetGarminPairing();
+    this.myAssignedLane = 1;
 
     const randId = Math.random().toString(36).substring(2, 8);
     this.activeUserId = `usr_${randId}`;
@@ -2498,7 +2520,12 @@ export class AppComponent implements OnInit, OnDestroy {
     }
     this.socketSub = this.socketService.onLeaderboardUpdate().subscribe((update) => {
       if (this.nextRaceInfo && update.raceId === this.nextRaceInfo.race.id) {
-        this.liveMetricsList = update.leaderboard;
+        this.liveMetricsList = update.leaderboard.map((m) => {
+          if (m.userId === this.activeUserId && this.myAssignedLane) {
+            return { ...m, lane: this.myAssignedLane };
+          }
+          return m;
+        });
 
         // 1. Sync racers array for spectators and reactive gauges
         update.leaderboard.forEach((m) => {
@@ -2834,17 +2861,30 @@ export class AppComponent implements OnInit, OnDestroy {
       return;
     }
 
-    const request$ =
-      extracted.kind === 'pin'
-        ? this.rowerService.getRaceByPin(extracted.value)
-        : this.rowerService.getPrivateRace(extracted.value);
-
-    request$.subscribe({
-      next: (room) => {
-        this.activatePrivateRoom(room, false);
+    this.rowerService.joinRoom(extracted.value, this.activeUserId, this.currentUser.name).subscribe({
+      next: (joinRes) => {
+        const assignedLane = joinRes.lane || 1;
+        this.myAssignedLane = assignedLane;
+        const roomIdent = joinRes.code || extracted.value;
+        this.rowerService.getPrivateRace(roomIdent).subscribe({
+          next: (room) => {
+            (room as any).lane = assignedLane;
+            this.activatePrivateRoom(room, false);
+          },
+          error: () => {
+            this.exitPrivateRoomToPublic(true, this.i18n.t('JOIN_ERR_NOT_FOUND'));
+            this.initGameLoop();
+          }
+        });
       },
-      error: () => {
-        this.exitPrivateRoomToPublic(true, this.i18n.t('JOIN_ERR_NOT_FOUND'));
+      error: (err) => {
+        let msg = this.i18n.t('JOIN_ERR_NOT_FOUND');
+        if (err?.status === 409) {
+          msg = err?.error?.error || "Salon complet - quota atteint";
+        } else if (err?.status === 403) {
+          msg = err?.error?.error || "Accès refusé pour ce salon";
+        }
+        this.exitPrivateRoomToPublic(true, msg);
         this.initGameLoop();
       }
     });
@@ -2853,6 +2893,9 @@ export class AppComponent implements OnInit, OnDestroy {
   private activatePrivateRoom(room: PrivateRacePayload, pushHistory: boolean): void {
     this.activePrivateRoom = room;
     this.nextRaceInfo = room;
+    if ((room as any).lane) {
+      this.myAssignedLane = (room as any).lane;
+    }
     this.privateUrlError = '';
 
     const code = room.code || room.race?.code;

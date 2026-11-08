@@ -1,0 +1,111 @@
+{
+  "datafields" : [ {
+    "id" : 0,
+    "chart-visible" : false,
+    "activity-visible" : true,
+    "lap-visible" : false,
+    "chart-title-key" : null,
+    "label-key" : "FitRaceRankLabel",
+    "unit-label-key" : "FitRaceRankUnits",
+    "sort-order" : 0,
+    "precision" : 0,
+    "fill-color" : null
+  }, {
+    "id" : 1,
+    "chart-visible" : false,
+    "activity-visible" : true,
+    "lap-visible" : false,
+    "chart-title-key" : null,
+    "label-key" : "FitRacePointsLabel",
+    "unit-label-key" : "FitRacePointsUnits",
+    "sort-order" : 1,
+    "precision" : 0,
+    "fill-color" : null
+  }, {
+    "id" : 2,
+    "chart-visible" : false,
+    "activity-visible" : true,
+    "lap-visible" : false,
+    "chart-title-key" : null,
+    "label-key" : "FitOfficialDistLabel",
+    "unit-label-key" : "FitOfficialDistUnits",
+    "sort-order" : 2,
+    "precision" : 0,
+    "fill-color" : null
+  }, {
+    "id" : 3,
+    "chart-visible" : false,
+    "activity-visible" : true,
+    "lap-visible" : false,
+    "chart-title-key" : null,
+    "label-key" : "FitAvgPaceLabel",
+    "unit-label-key" : "FitAvgPaceUnits",
+    "sort-order" : 3,
+    "precision" : 0,
+    "fill-color" : null
+  }, {
+    "id" : 4,
+    "chart-visible" : false,
+    "activity-visible" : true,
+    "lap-visible" : false,
+    "chart-title-key" : null,
+    "label-key" : "FitAvgPowerLabel",
+    "unit-label-key" : "FitAvgPowerUnits",
+    "sort-order" : 4,
+    "precision" : 0,
+    "fill-color" : null
+  }, {
+    "id" : 5,
+    "chart-visible" : false,
+    "activity-visible" : true,
+    "lap-visible" : false,
+    "chart-title-key" : null,
+    "label-key" : "FitMaxPowerLabel",
+    "unit-label-key" : "FitMaxPowerUnits",
+    "sort-order" : 5,
+    "precision" : 0,
+    "fill-color" : null
+  }, {
+    "id" : 6,
+    "chart-visible" : false,
+    "activity-visible" : true,
+    "lap-visible" : false,
+    "chart-title-key" : null,
+    "label-key" : "FitAvgCadenceLabel",
+    "unit-label-key" : "FitAvgCadenceUnits",
+    "sort-order" : 6,
+    "precision" : 0,
+    "fill-color" : null
+  }, {
+    "id" : 7,
+    "chart-visible" : false,
+    "activity-visible" : true,
+    "lap-visible" : false,
+    "chart-title-key" : null,
+    "label-key" : "FitMaxCadenceLabel",
+    "unit-label-key" : "FitMaxCadenceUnits",
+    "sort-order" : 7,
+    "precision" : 0,
+    "fill-color" : null
+  } ],
+  "strings" : {
+    "default" : {
+      "FitRaceRankLabel" : "Race Rank",
+      "FitRaceRankUnits" : "pos",
+      "FitRacePointsLabel" : "League Points",
+      "FitRacePointsUnits" : "pts",
+      "FitOfficialDistLabel" : "Race Distance",
+      "FitOfficialDistUnits" : "m",
+      "FitAvgPaceLabel" : "Avg Split 500m",
+      "FitAvgPaceUnits" : "mm:ss/500m",
+      "FitAvgPowerLabel" : "Avg Power",
+      "FitAvgPowerUnits" : "W",
+      "FitMaxPowerLabel" : "Max Power",
+      "FitMaxPowerUnits" : "W",
+      "FitAvgCadenceLabel" : "Avg Cadence",
+      "FitAvgCadenceUnits" : "spm",
+      "FitMaxCadenceLabel" : "Max Cadence",
+      "FitMaxCadenceUnits" : "spm"
+    }
+  }
+}

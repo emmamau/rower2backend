@@ -58,6 +58,21 @@ export const LEAGUES: LeagueInfo[] = [
 ];
 
 /**
+ * Détermine si le niveau de ligue d'un joueur satisfait les prérequis exigés pour un salon privé
+ */
+export function isLeagueEligible(userLeagueId?: string, userPoints?: number, requiredLeagueId?: string): boolean {
+  if (!requiredLeagueId) return true;
+  const target = LEAGUES.find(l => l.id.toLowerCase() === requiredLeagueId.toLowerCase());
+  if (!target) return true;
+  let pts = userPoints;
+  if (pts === undefined || pts === null || isNaN(pts)) {
+    const userL = LEAGUES.find(l => l.id.toLowerCase() === (userLeagueId || "bronze").toLowerCase());
+    pts = userL ? userL.minPoints : 0;
+  }
+  return pts >= target.minPoints;
+}
+
+/**
  * Détermine la ligue d'un joueur à partir de son total de points
  */
 export function getLeagueByPoints(points: number = 0): LeagueInfo {
