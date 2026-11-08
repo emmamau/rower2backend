@@ -192,7 +192,7 @@ test('Password authentication & EmmaRacer admin rights', async () => {
   }
 });
 
-test('Garmin Watch app confirmation flow using unique login', async () => {
+test('User registration directly activates subscriber account without legacy confirmation flow', async () => {
   const ctx = await createTestServer();
   try {
     const timestamp = Date.now();
@@ -215,33 +215,14 @@ test('Garmin Watch app confirmation flow using unique login', async () => {
     });
     const regData = await regRes.json();
     assert.equal(regData.success, true);
-    const reqId = regData.confirmationRequestId;
-    assert.ok(reqId);
+    assert.equal(regData.confirmationRequestId, undefined);
 
-    // Watch queries pending request with login
-    const watchPendingRes = await fetch(`${ctx.baseUrl}/api/user/auth/pending?userId=${login}`);
-    assert.equal(watchPendingRes.status, 200);
-    const pendingData = await watchPendingRes.json();
-    assert.equal(pendingData.hasPending, true);
-    assert.equal(pendingData.login, login);
-    assert.equal(pendingData.requestId, reqId);
-
-    // Watch responds approved
-    const watchRespondRes = await fetch(`${ctx.baseUrl}/api/user/auth/respond`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        requestId: reqId,
-        approved: true,
-      }),
-    });
-    assert.equal(watchRespondRes.status, 200);
-
-    // Account status is now confirmed
+    // Account status is directly confirmed
     const accountRes = await fetch(`${ctx.baseUrl}/api/user/account/${login}`);
     assert.equal(accountRes.status, 200);
     const accData = await accountRes.json();
     assert.equal(accData.account.isConfirmed, true);
+    assert.equal(accData.account.isSubscriber, true);
   } finally {
     await ctx.close();
   }
@@ -453,15 +434,7 @@ test('Security & Robustness: Emma substring does not grant admin, name is preser
     });
     assert.equal(regRes.status, 201);
     const regData = await regRes.json();
-    const reqId = regData.confirmationRequestId;
-
-    // Approve via Garmin
-    const approveRes = await fetch(`${ctx.baseUrl}/api/user/auth/respond`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ requestId: reqId, approved: true }),
-    });
-    assert.equal(approveRes.status, 200);
+    assert.equal(regData.success, true);
 
     // Profile check: name must remain "Pierre Dupont", NOT overwritten with "athlete_..."
     const accRes = await fetch(`${ctx.baseUrl}/api/user/account/${watchLogin}`);

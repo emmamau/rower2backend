@@ -931,10 +931,6 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
             }
         }
 
-        // Poll pending web login authorization every 3s (active in all states, including during a race)
-        if (_tickCounter % 3 == 0) {
-            _syncManager.checkPendingLogin(_userId);
-        }
 
         // Poll host approval status every 2s while in STATE_PENDING_APPROVAL
         if (state == RowerView.STATE_PENDING_APPROVAL) {
@@ -1091,21 +1087,28 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
         view.updateRowerData(_model, netDist, _progressPercent);
 
         if (_activityStatus.equals("in_progress") && _targetDistance > 0 && netDist >= _targetDistance) {
-            // Sanity check: athlete cannot legitimately complete a race in under (_targetDistance / 10)s or < 5 strokes!
-            var minElapsed = (_targetDistance / 10);
-            if (minElapsed < 15) { minElapsed = 15; }
-            if (_model.elapsedTime >= minElapsed && _model.strokeCount >= 5) {
+            // Physiological sanity check: athlete cannot legitimately complete a race in under (_targetDistance / 8.5)s or < (_targetDistance / 25) strokes!
+            var minElapsed = (_targetDistance * 100) / 850;
+            if (minElapsed < 10) { minElapsed = 10; }
+            var minStrokes = (_targetDistance / 25);
+            if (minStrokes < 3) { minStrokes = 3; }
+            if (_model.elapsedTime >= minElapsed && _model.strokeCount >= minStrokes) {
                 vibrateVictory();
                 saveAndExitSession();
                 return true;
             } else {
-                // Aberrant premature finish detected: clamp distance and keep racing!
+                // Aberrant premature finish detected: compute realistic physiological distance and keep racing!
                 System.println("Prevented premature finish: netDist=" + netDist + ", elapsed=" + _model.elapsedTime + ", strokes=" + _model.strokeCount);
-                if (_model.totalDistance >= _targetDistance) {
-                    _model.totalDistance = _targetDistance > 50 ? 50 : (_targetDistance / 2);
-                    _progressPercent = _model.totalDistance.toFloat() / _targetDistance.toFloat();
-                    view.updateRowerData(_model, _model.totalDistance, _progressPercent);
+                var realisticDist = _model.strokeCount * 10;
+                if (realisticDist <= 0 || realisticDist >= _targetDistance) {
+                    realisticDist = _model.elapsedTime * 5;
                 }
+                if (realisticDist >= _targetDistance) {
+                    realisticDist = _targetDistance - 1;
+                }
+                _model.alignDistance(realisticDist);
+                _progressPercent = _model.totalDistance.toFloat() / _targetDistance.toFloat();
+                view.updateRowerData(_model, _model.totalDistance, _progressPercent);
             }
         }
         return false;
@@ -1369,51 +1372,33 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
         return _activityStatus.equals("in_progress") || _activityStatus.equals("paused");
     }
 
-    // Web Login Auth Handlers
-    public function onAuthRequestReceived(requestId as String, login as String) as Void {
+    // Garmin Pairing Handlers
+    public function submitPairingCode(pairingCode as String) as Void {
+        _syncManager.pairWatch(pairingCode);
+    }
+
+    public function onPairingSuccess(data as Dictionary) as Void {
+        triggerApprovalVibe();
         if (_view != null) {
-            var view = _view as RowerView;
-            // Notify athlete with haptic pulse and show authorization modal on watch
-            // Athlete must confirm or reject on watch to unlock cockpit on web
-            triggerApprovalVibe();
-            view.showAuthPrompt(requestId, login);
+            (_view as RowerView).onPairingDone(true, I18n.getText("PAIR_SUCCESS_TITLE"));
         }
     }
 
-    public function onAuthRequestCleared() as Void {
+    public function onPairingFailed(responseCode as Number) as Void {
+        vibrateSingleTick(false);
         if (_view != null) {
-            var view = _view as RowerView;
-            if (view.hasPendingAuth()) {
-                view.clearAuthPrompt();
-            }
+            (_view as RowerView).onPairingDone(false, I18n.getText("PAIR_FAIL_TITLE"));
         }
     }
 
-    public function respondAuth(approved as Boolean) as Void {
+    public function requestResetPairing() as Void {
+        _syncManager.resetPairing();
+    }
+
+    public function onPairingResetDone() as Void {
+        triggerApprovalVibe();
         if (_view != null) {
-            var view = _view as RowerView;
-            var reqId = view.getAuthRequestId();
-            if (reqId.length() > 0) {
-                _syncManager.respondWebLogin(reqId, approved);
-            }
-            if (approved) {
-                var login = view.getAuthLogin();
-                if (login != null && login.length() > 0) {
-                    var p = login;
-                    if (p.length() > 10) {
-                        p = p.substring(0, 10);
-                    }
-                    Storage.setValue("userLoginPrefix", p);
-                    try {
-                        Properties.setValue("userLoginPrefix", p);
-                    } catch (ex) {}
-                    var suffix = UserManager.getSuffix();
-                    var fullId = p + "_" + suffix;
-                    Storage.setValue("userLogin", fullId);
-                    _userId = fullId;
-                }
-            }
-            view.clearAuthPrompt();
+            (_view as RowerView).onPairingResetComplete();
         }
     }
 
@@ -1540,8 +1525,13 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
 
             if (data.hasKey("normDistM") && data.get("normDistM") != null) {
                 var nd = data.get("normDistM") as Number;
-                if (nd > 0 && (_model.totalDistance == 0 || (nd > _model.totalDistance && (nd - _model.totalDistance) < 50))) {
-                    _model.totalDistance = nd;
+                if (nd > 0) {
+                    var diff = nd - _model.totalDistance;
+                    if (diff < 0) { diff = -diff; }
+                    // Re-align watch distance if initial packet, significant drift (> 25m), or if watch jumped prematurely to target
+                    if (_model.totalDistance == 0 || diff > 25 || _model.totalDistance >= _targetDistance) {
+                        _model.alignDistance(nd);
+                    }
                 }
             }
 

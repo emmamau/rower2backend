@@ -55,7 +55,7 @@ class RunNoEvil extends Test.Test {
         idToName[10] = "testSmartRowMultiFrameInSinglePacket";
         idToName[11] = "testSmartRowPreambleNoiseDelimiterReassembly";
         idToName[12] = "testSmartRowDefragmentationBufferResetOnConnect";
-        idToName[13] = "testWebAuthPromptDuringRacingState";
+        idToName[13] = "testGarminPairingInputAndStateNavigation";
     }
 
     function evaluate_test_entries_0_to_14(id as Number, logger as Logger) {
@@ -87,7 +87,7 @@ class RunNoEvil extends Test.Test {
         } else if (id == 12) {
             result = $.testSmartRowDefragmentationBufferResetOnConnect(logger);
         } else if (id == 13) {
-            result = $.testWebAuthPromptDuringRacingState(logger);
+            result = $.testGarminPairingInputAndStateNavigation(logger);
         }
 
         return result;

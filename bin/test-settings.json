@@ -15,6 +15,21 @@
     "configMax" : null,
     "configMaxLength" : 128
   }, {
+    "key" : "userLoginPrefix",
+    "valueType" : "string",
+    "defaultValue" : "",
+    "configTitle" : "UserLoginPrefixTitle",
+    "configPrompt" : "UserLoginPrefixPrompt",
+    "configType" : "alphaNumeric",
+    "configError" : null,
+    "configHelpUrl" : null,
+    "configReadonly" : false,
+    "configRequired" : false,
+    "configOptions" : null,
+    "configMin" : null,
+    "configMax" : null,
+    "configMaxLength" : 10
+  }, {
     "key" : "userLogin",
     "valueType" : "string",
     "defaultValue" : "",
@@ -33,8 +48,10 @@
   "supportsLiveValidation" : false,
   "languages" : {
     "valyrian" : {
+      "UserLoginPrefixPrompt" : "Personnalisez vos 10 caracteres libres",
       "StatusConnected" : "BLE: Connected",
       "UserLoginPrompt" : "Code joueur ou pseudo (6 car. base64)",
+      "UserLoginPrefixTitle" : "Mon Identifiant (10 car. libres)",
       "StatusDisconnected" : "BLE: Disconnected",
       "StatusScanning" : "BLE: Scanning...",
       "BackendUrlTitle" : "Backend API URL",

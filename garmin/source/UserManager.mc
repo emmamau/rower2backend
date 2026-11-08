@@ -94,12 +94,74 @@ class UserManager {
 
     // Full 2-part Unique Player ID: {Prefix}_{5-char Base64 Suffix}
     static function getUserId() as String {
-        // If legacy full ID stored and matches format, keep for backwards compatibility
+        var paired = getPairedUserId();
+        if (paired != null && paired.length() > 0) {
+            return paired;
+        }
         var prefix = getPrefix();
         var suffix = getSuffix();
         var fullId = prefix + "_" + suffix;
         Storage.setValue("userLogin", fullId);
         return fullId;
+    }
+
+    // Identifiant matériel unique de la montre pour l'appairage sécurisé
+    static function getDeviceId() as String {
+        var devId = Storage.getValue("deviceId");
+        if (devId != null && devId instanceof String && (devId as String).length() > 0) {
+            return devId as String;
+        }
+        try {
+            var settings = System.getDeviceSettings();
+            if (settings has :uniqueIdentifier && settings.uniqueIdentifier != null) {
+                devId = settings.uniqueIdentifier as String;
+                Storage.setValue("deviceId", devId);
+                return devId as String;
+            }
+        } catch (ex) {
+        }
+        var newDevId = "garmin_" + generateSuffix5() + "_" + (System.getTimer() % 10000);
+        Storage.setValue("deviceId", newDevId);
+        return newDevId;
+    }
+
+    // Jeton cryptographique persistant UUID v4 (deviceToken)
+    static function getDeviceToken() as String? {
+        var token = Storage.getValue("deviceToken");
+        if (token != null && token instanceof String && (token as String).length() > 0) {
+            return token as String;
+        }
+        return null;
+    }
+
+    static function setDeviceToken(token as String) as Void {
+        Storage.setValue("deviceToken", token);
+    }
+
+    static function deleteDeviceToken() as Void {
+        Storage.deleteValue("deviceToken");
+    }
+
+    static function isPaired() as Boolean {
+        var t = getDeviceToken();
+        return t != null && t.length() > 0;
+    }
+
+    static function getPairedUserId() as String? {
+        var uid = Storage.getValue("pairedUserId");
+        if (uid != null && uid instanceof String && (uid as String).length() > 0) {
+            return uid as String;
+        }
+        return null;
+    }
+
+    static function setPairedUserId(userId as String) as Void {
+        Storage.setValue("pairedUserId", userId);
+    }
+
+    static function clearPairing() as Void {
+        Storage.deleteValue("deviceToken");
+        Storage.deleteValue("pairedUserId");
     }
 
     // Alias for explicit user login display

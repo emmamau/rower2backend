@@ -220,6 +220,14 @@ class RowerDataModel {
         _accumulatedDistanceMetersFloat = 0.0f;
     }
 
+    //! Force align distance with server authoritative or realistic distance
+    public function alignDistance(dist as Number) as Void {
+        _baselineRawDistance = _lastRawDistance;
+        _distanceOffset = dist;
+        totalDistance = dist;
+        _accumulatedDistanceMetersFloat = dist.toFloat();
+    }
+
     //! Called by BleDelegate when BLE connection is established
     public function onBleConnected() as Void {
         _secondsSinceLastPacket = 0;
@@ -474,19 +482,13 @@ class RowerDataModel {
             offset += 1;
         }
 
-        // Bit 10: Metabolic Equivalent present (uint8)
-        if ((flags & 0x0400) != 0 && (offset + 1) <= size) {
-            metabolicEq = (bytes[offset] & 0xFF).toFloat() * 0.1f;
-            offset += 1;
-        }
-
-        // Bit 11: Elapsed Time present (uint16, seconds)
-        if ((flags & 0x0800) != 0 && (offset + 2) <= size) {
+        // Bit 10: Elapsed Time present (uint16, seconds)
+        if ((flags & 0x0400) != 0 && (offset + 2) <= size) {
             offset += 2;
         }
 
-        // Bit 12: Remaining Time present (uint16, seconds)
-        if ((flags & 0x1000) != 0 && (offset + 2) <= size) {
+        // Bit 11: Remaining Time present (uint16, seconds)
+        if ((flags & 0x0800) != 0 && (offset + 2) <= size) {
             var parsedRem = (bytes[offset] & 0xFF) | ((bytes[offset + 1] & 0xFF) << 8);
             if (parsedRem != 0xFFFF) {
                 rawRemaining = parsedRem;
@@ -621,6 +623,11 @@ class RowerDataModel {
             }
             speedCmS = (instantPace > 0) ? (50000 / instantPace).toNumber() : 0;
         } else {
+            if (_hasHardwareDistance) {
+                if (_baselineRawDistance == 0 && rawDistance > 0) {
+                    _baselineRawDistance = rawDistance;
+                }
+            }
             // True reset only occurs when the hardware counter goes back to near zero (<= 5m) from an active count
             var distReset = _hasHardwareDistance && (_lastRawDistance >= 20) && (rawDistance <= 5);
             var strokesReset = (_lastRawStrokes >= 10) && (rawStrokes <= 2);
@@ -640,9 +647,14 @@ class RowerDataModel {
             var curRelS = (rawStrokes >= _baselineRawStrokes) ? (rawStrokes - _baselineRawStrokes) : 0;
             if (_hasHardwareDistance) {
                 var candDist = _distanceOffset + curRelD;
-                // Protection against aberrant distance jumps (> 15m in a single update/stroke)
-                if (totalDistance > 0 && candDist > totalDistance + 15) {
-                    candDist = totalDistance + 10;
+                // Protection against aberrant distance jumps (> 15m in a single update/stroke or unaligned baseline)
+                if (candDist > totalDistance + 15) {
+                    // Hardware baseline jumped or counter was unaligned: heal baseline to current valid distance
+                    _distanceOffset = totalDistance;
+                    _baselineRawDistance = rawDistance;
+                    candDist = totalDistance;
+                } else if (candDist < totalDistance && (totalDistance - candDist) < 10) {
+                    candDist = totalDistance;
                 }
                 totalDistance = candDist;
                 _accumulatedDistanceMetersFloat = totalDistance.toFloat();
@@ -899,8 +911,12 @@ class RowerDataModel {
                 }
                 var curRelD = (rawDistance >= _baselineRawDistance) ? (rawDistance - _baselineRawDistance) : 0;
                 var candDist = _distanceOffset + curRelD;
-                if (totalDistance > 0 && candDist > totalDistance + 15) {
-                    candDist = totalDistance + 10;
+                if (candDist > totalDistance + 15) {
+                    _distanceOffset = totalDistance;
+                    _baselineRawDistance = rawDistance;
+                    candDist = totalDistance;
+                } else if (candDist < totalDistance && (totalDistance - candDist) < 10) {
+                    candDist = totalDistance;
                 }
                 totalDistance = candDist;
                 _accumulatedDistanceMetersFloat = totalDistance.toFloat();

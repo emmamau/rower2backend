@@ -22,7 +22,9 @@ class RowerView extends WatchUi.View {
     public static const STATE_LATE_CHOICE   = 11; // Choix course en cours
     public static const STATE_BOTS_PROMPT   = 12; // Choix ajout de bots
     public static const STATE_PENDING_APPROVAL = 13; // En attente de validation par l'hote (salon prive)
-    public static const STATE_PLAYER_ID        = 14; // Mon identifiant de joueur (appairage web)
+    public static const STATE_PAIRING_INPUT    = 14; // Saisie code 6 caracteres appairage web
+    public static const STATE_PAIRING_STATUS   = 15; // Statut appaire & reinitialisation
+    public static const STATE_PAIRING_RESULT   = 16; // Confirmation succes / erreur
 
     // Garmin Pro Dark Carbon Palette (64-color MIP & AMOLED compatible)
     private static const COL_BG        = Graphics.COLOR_BLACK;
@@ -48,16 +50,22 @@ class RowerView extends WatchUi.View {
     private var _currentState as Number = STATE_SCANNING;
 
     // Navigation & Page indices
-    private var _mainMenuIndex as Number = 0;   // 0..3
+    private var _mainMenuIndex as Number = 0;   // 0..4
     private var _pauseMenuIndex as Number = 0;  // 0..2
     private var _choiceMenuIndex as Number = 0; // 0..1 (Late choice & Bots prompt)
-    private var _authMenuIndex as Number = 0;   // 0..1 (Web auth prompt)
     private var _racePage as Number = 0;        // 0 = Main 2x2 Race Grid, 1 = Gaps & Averages 2x2 Grid
     private var _finishPage as Number = 0;      // 0 = Finish Stats 2x2 Grid, 1 = Official Top 3 Podium
 
     // G3 PIN Input state (5 alphanumeric characters)
     private var _pinIndices as Array<Number> = [0, 0, 0, 0, 0];
     private var _pinCurrentDigitIdx as Number = 0;
+
+    // Garmin Pairing 6-character Code State
+    private var _pairingIndices as Array<Number> = [0, 0, 0, 0, 0, 0];
+    private var _pairingCurrentSlot as Number = 0;
+    private var _pairingSuccess as Boolean = false;
+    private var _pairingResultMessage as String = "";
+    private var _pairingStatusMenuIndex as Number = 0;
 
     // G5 5-second countdown
     private var _countdown5sValue as Number = 5;
@@ -81,11 +89,6 @@ class RowerView extends WatchUi.View {
     private var _hasBotsEnabled as Boolean = false;
     private var _isAbandoned as Boolean = false;
     private var _gameRemainingSeconds as Number = 3300; // Max 55 minutes remaining timer
-
-    // Web login authorization overlay
-    private var _authRequestId as String = "";
-    private var _authLogin as String = "";
-    private var _authPromptStartTimer as Number = 0;
 
     // Warning toast overlay
     private var _warningText as String? = null;
@@ -328,6 +331,79 @@ class RowerView extends WatchUi.View {
         return res;
     }
 
+    // Garmin Pairing 6-char Code Helpers
+    public function advancePairingSlot() as Boolean {
+        if (_pairingCurrentSlot < 5) {
+            _pairingCurrentSlot++;
+            WatchUi.requestUpdate();
+            return false;
+        }
+        return true;
+    }
+
+    public function backspacePairingSlot() as Boolean {
+        if (_pairingCurrentSlot > 0) {
+            _pairingCurrentSlot--;
+            WatchUi.requestUpdate();
+            return false;
+        }
+        return true;
+    }
+
+    public function cyclePairingChar(delta as Number) as Void {
+        var count = PIN_CHARSET.size();
+        _pairingIndices[_pairingCurrentSlot] = (_pairingIndices[_pairingCurrentSlot] + delta + count) % count;
+        WatchUi.requestUpdate();
+    }
+
+    public function resetPairingDigits() as Void {
+        _pairingIndices = [0, 0, 0, 0, 0, 0];
+        _pairingCurrentSlot = 0;
+    }
+
+    public function getPairingLength() as Number {
+        return _pairingIndices.size();
+    }
+
+    public function getCurrentPairingSlotChar() as String {
+        return PIN_CHARSET[_pairingIndices[_pairingCurrentSlot]];
+    }
+
+    public function getFormattedPairingCode() as String {
+        var res = "";
+        for (var i = 0; i < 6; i++) {
+            res += PIN_CHARSET[_pairingIndices[i]];
+        }
+        return res;
+    }
+
+    public function togglePairingStatusMenu() as Void {
+        _pairingStatusMenuIndex = (_pairingStatusMenuIndex + 1) % 2;
+        WatchUi.requestUpdate();
+    }
+
+    public function resetPairingStatusMenu() as Void {
+        _pairingStatusMenuIndex = 0;
+    }
+
+    public function getPairingStatusMenuIndex() as Number {
+        return _pairingStatusMenuIndex;
+    }
+
+    public function onPairingDone(success as Boolean, message as String) as Void {
+        _pairingSuccess = success;
+        _pairingResultMessage = message;
+        _currentState = STATE_PAIRING_RESULT;
+        WatchUi.requestUpdate();
+    }
+
+    public function onPairingResetComplete() as Void {
+        _pairingSuccess = true;
+        _pairingResultMessage = "Appairage reinitialise !";
+        _currentState = STATE_PAIRING_RESULT;
+        WatchUi.requestUpdate();
+    }
+
     // Countdown & Lobby getters
     public function decrementCountdown() as Void {
         if (_nextRaceCountdown > 0) {
@@ -352,44 +428,6 @@ class RowerView extends WatchUi.View {
         WatchUi.requestUpdate();
     }
 
-    // Web Auth prompt helpers
-    public function showAuthPrompt(reqId as String, login as String) as Void {
-        if (!_authRequestId.equals(reqId)) {
-            _authRequestId = reqId;
-            _authLogin = login;
-            _authMenuIndex = 0;
-            _authPromptStartTimer = System.getTimer();
-            WatchUi.requestUpdate();
-        }
-    }
-
-    public function hasPendingAuth() as Boolean {
-        return (_authRequestId.length() > 0);
-    }
-
-    public function toggleAuthMenu() as Void {
-        _authMenuIndex = (_authMenuIndex + 1) % 2;
-        WatchUi.requestUpdate();
-    }
-
-    public function getAuthMenuIndex() as Number {
-        return _authMenuIndex;
-    }
-
-    public function getAuthRequestId() as String {
-        return _authRequestId;
-    }
-
-    public function getAuthLogin() as String {
-        return _authLogin;
-    }
-
-    public function clearAuthPrompt() as Void {
-        _authRequestId = "";
-        _authLogin = "";
-        WatchUi.requestUpdate();
-    }
-
     // =========================================================================
     // MAIN RENDER DISPATCHER
     // =========================================================================
@@ -400,34 +438,16 @@ class RowerView extends WatchUi.View {
         dc.setColor(COL_BG, COL_BG);
         dc.clear();
 
-        // Priority modal: Web Login Authorization (active during all phases including racing)
-        if (hasPendingAuth() && _currentState != STATE_COUNTDOWN_5S) {
-            // Auto-dismiss after 25s without input during active racing to avoid blocking display
-            if ((_currentState == STATE_RACING || _currentState == STATE_LATE_JOIN) &&
-                (System.getTimer() - _authPromptStartTimer > 25000)) {
-                clearAuthPrompt();
-            } else {
-                drawGarminMenuScreen(
-                    dc,
-                    I18n.getText("AUTH_TITLE"),
-                    COL_ACCENT,
-                    I18n.getText("AUTH_SUB") + " " + _authLogin,
-                    [I18n.getText("AUTH_APPROVE"), I18n.getText("AUTH_REJECT")] as Array<String>,
-                    _authMenuIndex,
-                    I18n.getText("MENU_FOOTER")
-                );
-                return;
-            }
-        }
-
         if (_currentState == STATE_SCANNING) {
             drawG1ConnectionScreen(dc, w, h);
         } else if (_currentState == STATE_MENU) {
+            var isPaired = UserManager.isPaired();
+            var pairItem = isPaired ? I18n.getText("MENU_PAIRED") : I18n.getText("MENU_PAIR");
             var menuItems = [
                 I18n.getText("MENU_PUBLIC"),
                 I18n.getText("MENU_PRIVATE"),
                 I18n.getText("MENU_SOLO"),
-                I18n.getText("MENU_PLAYER_ID"),
+                pairItem,
                 I18n.getText("MENU_HISTORY")
             ] as Array<String>;
             var menuSub = getBleProtocolTag();
@@ -447,8 +467,12 @@ class RowerView extends WatchUi.View {
             drawG3PinInput(dc, w, h);
         } else if (_currentState == STATE_PENDING_APPROVAL) {
             drawPendingApprovalScreen(dc, w, h);
-        } else if (_currentState == STATE_PLAYER_ID) {
-            drawPlayerIdScreen(dc, w, h);
+        } else if (_currentState == STATE_PAIRING_INPUT) {
+            drawPairingInput(dc, w, h);
+        } else if (_currentState == STATE_PAIRING_STATUS) {
+            drawPairingStatus(dc, w, h);
+        } else if (_currentState == STATE_PAIRING_RESULT) {
+            drawPairingResult(dc, w, h);
         } else if (_currentState == STATE_LOBBY || _currentState == STATE_WAITING_START) {
             drawG4LobbyGrid(dc, w, h);
         } else if (_currentState == STATE_COUNTDOWN_5S) {
@@ -1503,73 +1527,165 @@ class RowerView extends WatchUi.View {
     }
 
     // =========================================================================
-    // ECRAN IDENTIFIANT JOUEUR (APPAIRAGE PLATEFORME WEB & MONTRE)
+    // NOUVEL ECRAN DE SAISIE DU CODE D'APPAIRAGE (6 CARACTERES)
     // =========================================================================
-    private function drawPlayerIdScreen(dc as Graphics.Dc, w as Number, h as Number) as Void {
-        _userId = UserManager.getUserId();
-        var suffix = UserManager.getSuffix();
+    private function drawPairingInput(dc as Graphics.Dc, w as Number, h as Number) as Void {
         var cx = w / 2;
 
-        // Header band (5..18% h)
-        var hdrY = (h * 5) / 100;
-        var hdrMaxW = getSafeWidthAtY(w, h, hdrY, hdrY + 18);
+        var titleY = (h * 6) / 100;
         dc.setColor(COL_ACCENT, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, hdrY, Graphics.FONT_XTINY, truncateToWidth(dc, I18n.getText("ID_SCREEN_TITLE"), Graphics.FONT_XTINY, hdrMaxW), Graphics.TEXT_JUSTIFY_CENTER);
+        dc.drawText(cx, titleY, Graphics.FONT_XTINY, I18n.getText("PAIR_INPUT_TITLE"), Graphics.TEXT_JUSTIFY_CENTER);
 
-        var subY = (h * 12) / 100;
-        var subMaxW = getSafeWidthAtY(w, h, subY, subY + 16);
+        var subY = (h * 14) / 100;
         dc.setColor(COL_MUTED, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, subY, Graphics.FONT_XTINY, truncateToWidth(dc, I18n.getText("ID_SCREEN_SUB"), Graphics.FONT_XTINY, subMaxW), Graphics.TEXT_JUSTIFY_CENTER);
+        dc.drawText(cx, subY, Graphics.FONT_XTINY, I18n.getText("PAIR_INPUT_SUB"), Graphics.TEXT_JUSTIFY_CENTER);
 
-        var divY = (h * 19) / 100;
+        var divY = (h * 22) / 100;
         dc.setColor(COL_GRID, Graphics.COLOR_TRANSPARENT);
         dc.drawLine((w * 16) / 100, divY, w - ((w * 16) / 100), divY);
 
-        // Center card with Full Player ID (23..56% h)
-        var cardTop = (h * 23) / 100;
-        var cardH = (h * 32) / 100;
-        var safeW = getSafeWidthAtY(w, h, cardTop, cardTop + cardH) - 16;
-        var cardLeft = cx - (safeW / 2);
+        // 6 Slots de saisie (Slot 0..5)
+        var boxTop = (h * 30) / 100;
+        var boxH = (h * 24) / 100;
+        var boxW = (w * 12) / 100;
+        var gap = (w * 2) / 100;
+        var totalBoxesW = (boxW * 6) + (gap * 5);
+        var startX = cx - (totalBoxesW / 2);
 
-        dc.setColor(COL_PILL_BG, COL_PILL_BG);
-        dc.fillRoundedRectangle(cardLeft, cardTop, safeW, cardH, 8);
-        dc.setColor(COL_ACCENT, Graphics.COLOR_TRANSPARENT);
-        dc.drawRoundedRectangle(cardLeft, cardTop, safeW, cardH, 8);
+        for (var i = 0; i < 6; i++) {
+            var bx = startX + i * (boxW + gap);
+            var isCur = (i == _pairingCurrentSlot);
 
-        // ID text centered in card
-        var idFont = fitFontToBox(
-            dc,
-            _userId,
-            [Graphics.FONT_SMALL, Graphics.FONT_TINY, Graphics.FONT_XTINY] as Array<Graphics.FontDefinition>,
-            safeW - 12,
-            (cardH * 45) / 100
-        );
-        dc.setColor(COL_PRIMARY, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, cardTop + (cardH / 3), idFont, _userId, Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+            if (isCur) {
+                dc.setColor(COL_PILL_BG, COL_PILL_BG);
+                dc.fillRoundedRectangle(bx, boxTop, boxW, boxH, 4);
+                dc.setColor(COL_ACCENT, Graphics.COLOR_TRANSPARENT);
+                dc.drawRoundedRectangle(bx, boxTop, boxW, boxH, 4);
+            } else {
+                dc.setColor(COL_GRID, Graphics.COLOR_TRANSPARENT);
+                dc.drawRoundedRectangle(bx, boxTop, boxW, boxH, 4);
+            }
 
-        // Sub label inside card: 10 free chars block + encoded suffix
-        dc.setColor(COL_GOOD, Graphics.COLOR_TRANSPARENT);
-        var tagText = "10 car. | " + suffix;
-        dc.drawText(cx, cardTop + ((cardH * 73) / 100), Graphics.FONT_XTINY, truncateToWidth(dc, tagText, Graphics.FONT_XTINY, safeW - 10), Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+            var ch = PIN_CHARSET[_pairingIndices[i]];
+            dc.setColor(isCur ? COL_ACCENT : COL_PRIMARY, Graphics.COLOR_TRANSPARENT);
+            dc.drawText(bx + (boxW / 2), boxTop + (boxH / 2), Graphics.FONT_MEDIUM, ch, Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+        }
 
-        // Detail text below card
-        var infoY1 = (h * 59) / 100;
+        // Instructions
+        var instY1 = (h * 62) / 100;
         dc.setColor(COL_CYAN, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, infoY1, Graphics.FONT_XTINY, truncateToWidth(dc, I18n.getText("ID_SCREEN_PREFIX_HINT"), Graphics.FONT_XTINY, getSafeWidthAtY(w, h, infoY1, infoY1 + 16)), Graphics.TEXT_JUSTIFY_CENTER);
+        dc.drawText(cx, instY1, Graphics.FONT_XTINY, "UP / DOWN : Changer lettre", Graphics.TEXT_JUSTIFY_CENTER);
 
-        var infoY2 = (h * 68) / 100;
+        var instY2 = (h * 71) / 100;
         dc.setColor(COL_MUTED, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, infoY2, Graphics.FONT_XTINY, truncateToWidth(dc, I18n.getText("ID_SCREEN_SETTINGS_HINT"), Graphics.FONT_XTINY, getSafeWidthAtY(w, h, infoY2, infoY2 + 16)), Graphics.TEXT_JUSTIFY_CENTER);
+        dc.drawText(cx, instY2, Graphics.FONT_XTINY, "START : Suivant/Valider", Graphics.TEXT_JUSTIFY_CENTER);
 
-        // Footer hint (84% h)
         var footDivY = (h * 81) / 100;
         dc.setColor(COL_GRID, Graphics.COLOR_TRANSPARENT);
         dc.drawLine((w * 20) / 100, footDivY, w - ((w * 20) / 100), footDivY);
 
         var footY = (h * 85) / 100;
-        var footMaxW = getSafeWidthAtY(w, h, footY, footY + 16);
         dc.setColor(COL_MUTED, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, footY, Graphics.FONT_XTINY, truncateToWidth(dc, I18n.getText("ID_SCREEN_FOOTER"), Graphics.FONT_XTINY, footMaxW), Graphics.TEXT_JUSTIFY_CENTER);
+        dc.drawText(cx, footY, Graphics.FONT_XTINY, "BACK : Retour", Graphics.TEXT_JUSTIFY_CENTER);
+    }
+
+    // =========================================================================
+    // ECRAN STATUT APPAIRE & REINITIALISATION
+    // =========================================================================
+    private function drawPairingStatus(dc as Graphics.Dc, w as Number, h as Number) as Void {
+        var cx = w / 2;
+
+        var titleY = (h * 6) / 100;
+        dc.setColor(COL_GOOD, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, titleY, Graphics.FONT_XTINY, I18n.getText("PAIR_STATUS_TITLE"), Graphics.TEXT_JUSTIFY_CENTER);
+
+        var subY = (h * 14) / 100;
+        dc.setColor(COL_PRIMARY, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, subY, Graphics.FONT_XTINY, I18n.getText("MENU_PAIRED"), Graphics.TEXT_JUSTIFY_CENTER);
+
+        var divY = (h * 22) / 100;
+        dc.setColor(COL_GRID, Graphics.COLOR_TRANSPARENT);
+        dc.drawLine((w * 16) / 100, divY, w - ((w * 16) / 100), divY);
+
+        var cardTop = (h * 26) / 100;
+        var cardH = (h * 24) / 100;
+        var cardW = (w * 78) / 100;
+        dc.setColor(COL_PILL_BG, COL_PILL_BG);
+        dc.fillRoundedRectangle(cx - (cardW / 2), cardTop, cardW, cardH, 8);
+        dc.setColor(COL_GOOD, Graphics.COLOR_TRANSPARENT);
+        dc.drawRoundedRectangle(cx - (cardW / 2), cardTop, cardW, cardH, 8);
+
+        dc.setColor(COL_PRIMARY, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, cardTop + (cardH / 3), Graphics.FONT_XTINY, "Montre liee au web", Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+        var uidStr = UserManager.getUserId();
+        dc.setColor(COL_ACCENT, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, cardTop + ((cardH * 70) / 100), Graphics.FONT_XTINY, truncateToWidth(dc, uidStr, Graphics.FONT_XTINY, cardW - 10), Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+
+        // Menu options : 0 = Retour, 1 = Réinitialiser l'appairage
+        var optItems = ["< Retour au menu", I18n.getText("MENU_RESET_PAIRING")] as Array<String>;
+        var optTop = (h * 54) / 100;
+        var optH = (h * 14) / 100;
+        var optW = (w * 78) / 100;
+
+        for (var i = 0; i < 2; i++) {
+            var oy = optTop + i * (optH + 4);
+            var isSel = (i == _pairingStatusMenuIndex);
+
+            if (isSel) {
+                dc.setColor(i == 1 ? COL_WARN : COL_PILL_BG, i == 1 ? COL_WARN : COL_PILL_BG);
+                dc.fillRoundedRectangle(cx - (optW / 2), oy, optW, optH, 6);
+                dc.setColor(COL_PRIMARY, Graphics.COLOR_TRANSPARENT);
+                dc.drawText(cx, oy + (optH / 2), Graphics.FONT_XTINY, optItems[i], Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+            } else {
+                dc.setColor(COL_GRID, Graphics.COLOR_TRANSPARENT);
+                dc.drawRoundedRectangle(cx - (optW / 2), oy, optW, optH, 6);
+                dc.setColor(COL_MUTED, Graphics.COLOR_TRANSPARENT);
+                dc.drawText(cx, oy + (optH / 2), Graphics.FONT_XTINY, optItems[i], Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+            }
+        }
+
+        var footY = (h * 88) / 100;
+        dc.setColor(COL_MUTED, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, footY, Graphics.FONT_XTINY, "UP/DN: Choix | START: OK", Graphics.TEXT_JUSTIFY_CENTER);
+    }
+
+    // =========================================================================
+    // ECRAN RESULTAT APPAIRAGE (SUCCES OU ERREUR)
+    // =========================================================================
+    private function drawPairingResult(dc as Graphics.Dc, w as Number, h as Number) as Void {
+        var cx = w / 2;
+
+        var iconCol = _pairingSuccess ? COL_GOOD : COL_ALERT;
+        var titleCol = _pairingSuccess ? COL_GOOD : COL_WARN;
+
+        var titleY = (h * 12) / 100;
+        dc.setColor(titleCol, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, titleY, Graphics.FONT_XTINY, _pairingSuccess ? "APPAIRAGE REUSSI" : "ERREUR APPAIRAGE", Graphics.TEXT_JUSTIFY_CENTER);
+
+        var cardTop = (h * 24) / 100;
+        var cardH = (h * 44) / 100;
+        var cardW = (w * 80) / 100;
+        dc.setColor(COL_PILL_BG, COL_PILL_BG);
+        dc.fillRoundedRectangle(cx - (cardW / 2), cardTop, cardW, cardH, 8);
+        dc.setColor(iconCol, Graphics.COLOR_TRANSPARENT);
+        dc.drawRoundedRectangle(cx - (cardW / 2), cardTop, cardW, cardH, 8);
+
+        // Icon
+        dc.setColor(iconCol, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, cardTop + (cardH / 3), Graphics.FONT_LARGE, _pairingSuccess ? "OK" : "X", Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+
+        // Message
+        dc.setColor(COL_PRIMARY, Graphics.COLOR_TRANSPARENT);
+        var msgFont = fitFontToBox(dc, _pairingResultMessage, [Graphics.FONT_SMALL, Graphics.FONT_TINY, Graphics.FONT_XTINY] as Array<Graphics.FontDefinition>, cardW - 14, 30);
+        dc.drawText(cx, cardTop + ((cardH * 72) / 100), msgFont, truncateToWidth(dc, _pairingResultMessage, msgFont, cardW - 14), Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+
+        var footDivY = (h * 78) / 100;
+        dc.setColor(COL_GRID, Graphics.COLOR_TRANSPARENT);
+        dc.drawLine((w * 20) / 100, footDivY, w - ((w * 20) / 100), footDivY);
+
+        var footY = (h * 84) / 100;
+        dc.setColor(COL_MUTED, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, footY, Graphics.FONT_XTINY, "START / BACK : Continuer", Graphics.TEXT_JUSTIFY_CENTER);
     }
 
     // =========================================================================

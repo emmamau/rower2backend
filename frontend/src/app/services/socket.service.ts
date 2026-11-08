@@ -38,6 +38,7 @@ export class SocketService {
   private leaderboardSubject = new Subject<LeaderboardUpdatePayload>();
   private statusSubject = new Subject<{ raceId: string; status: string; details?: any }>();
   private privateRoomUpdateSubject = new Subject<PrivateRoomUpdatePayload>();
+  private garminPairedSubject = new Subject<{ userId: string; deviceId?: string; deviceToken: string }>();
 
   private currentRoomId: string | null = null;
 
@@ -73,6 +74,10 @@ export class SocketService {
       this.privateRoomUpdateSubject.next(data);
     });
 
+    this.socket.on('garmin:paired', (data: any) => {
+      this.garminPairedSubject.next(data);
+    });
+
     this.socket.on('disconnect', () => {
       console.log('[SocketService] Disconnected from real-time server');
     });
@@ -104,6 +109,10 @@ export class SocketService {
 
   public onPrivateRoomUpdate(): Observable<PrivateRoomUpdatePayload> {
     return this.privateRoomUpdateSubject.asObservable();
+  }
+
+  public onGarminPaired(): Observable<{ userId: string; deviceId?: string; deviceToken: string }> {
+    return this.garminPairedSubject.asObservable();
   }
 }
 

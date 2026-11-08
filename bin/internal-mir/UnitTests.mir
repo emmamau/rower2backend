@@ -258,7 +258,7 @@ C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTest
 [ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3906-00\source\UnitTests.mcgen" 58 8 ]
         symbol [ idToName %tmp.40 58 8 16 ];
         %tmp.40 = getv self :idToName;
-        %tmp.41 = "testWebAuthPromptDuringRacingState";
+        %tmp.41 = "testGarminPairingInputAndStateNavigation";
         %tmp.42 = 13;
         aputv %tmp.40 %tmp.42 %tmp.41;
 C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_44_53_59_4_stop:
@@ -571,10 +571,10 @@ C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTest
 [ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3906-00\source\UnitTests.mcgen" 90 12 ]
         symbol [ $ %tmp.96 90 21 22 ];
         %tmp.96 = getm $;
-        symbol [ testWebAuthPromptDuringRacingState %tmp.97 90 23 57 ];
-        %tmp.97 = getv function %tmp.96 :testWebAuthPromptDuringRacingState;
+        symbol [ testGarminPairingInputAndStateNavigation %tmp.97 90 23 63 ];
+        %tmp.97 = getv function %tmp.96 :testGarminPairingInputAndStateNavigation;
         %tmp.98 = lgetv %logger;
-        symbol [ logger %tmp.98 90 58 64 ];
+        symbol [ logger %tmp.98 90 64 70 ];
         %tmp.99 = invoke %tmp.96 %tmp.97(%tmp.98);
         lputv %result.1 %tmp.99;
         symbol [ result %result.1 90 12 18 ];

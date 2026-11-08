@@ -385,6 +385,70 @@ body.app-pseudo-fullscreen .game-container {
   color: #080e1e;
 }
 
+/* Header Ligne 1 : Bouton Profil / Connexion rapide */
+.header-line1-auth-box {
+  display: inline-flex;
+  align-items: center;
+}
+.btn-line1-auth {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0.8rem;
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(0, 240, 255, 0.45);
+  border-radius: 20px;
+  color: #e2e8f0;
+  font-family: var(--font-race), system-ui, sans-serif;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.btn-line1-auth:hover {
+  border-color: #00f0ff;
+  box-shadow: 0 0 14px rgba(0, 240, 255, 0.5);
+  transform: translateY(-1px);
+}
+.btn-line1-auth.guest-mode {
+  background: rgba(0, 240, 255, 0.12);
+  border-color: rgba(0, 240, 255, 0.6);
+  color: #00f0ff;
+}
+.btn-line1-auth .user-avatar-tag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 22px;
+  block-size: 22px;
+  border-radius: 50%;
+  background: rgba(0, 240, 255, 0.25);
+  color: #00f0ff;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+.btn-line1-auth .user-name-tag {
+  max-width: 110px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.btn-line1-auth .role-tag {
+  font-size: 0.68rem;
+  padding: 0.1rem 0.35rem;
+  border-radius: 6px;
+}
+.btn-line1-auth .role-tag.is-admin {
+  background: rgba(255, 0, 85, 0.25);
+  color: #ff3366;
+  border: 1px solid rgba(255, 0, 85, 0.5);
+}
+.btn-line1-auth .role-tag.is-sub {
+  background: rgba(255, 230, 0, 0.2);
+  color: #ffe600;
+  border: 1px solid rgba(255, 230, 0, 0.45);
+}
+
 .lang-dropdown-wrapper {
   display: inline-flex;
   align-items: center;
@@ -3800,108 +3864,444 @@ input[type="number"]:focus { border-color: var(--neon-cyan); box-shadow: 0 0 10p
 }
 
 /* ==========================================================================
-   GARMIN WATCH PAIRING & SMARTPHONE ERGONOMICS
+   GARMIN WATCH PAIRING & SMARTPHONE ERGONOMICS (NOUVEAU PROTOCOLE WEB -> MONTRE)
    ========================================================================== */
-.pairing-header-box {
-  background: rgba(17, 24, 39, 0.9);
-  border: 1px solid rgba(0, 240, 255, 0.4);
+.guest-hero-pill {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(0, 240, 255, 0.3);
   border-radius: 12px;
-  padding: 0.5rem 0.75rem;
+  padding: 0.45rem 0.85rem;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+.guest-avatar-icon {
+  font-size: 1.25rem;
+  background: rgba(0, 240, 255, 0.15);
+  padding: 0.25rem;
+  border-radius: 50%;
+  border: 1px solid rgba(0, 240, 255, 0.4);
+}
+.guest-pill-text {
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
-  box-shadow: 0 4px 16px rgba(0, 240, 255, 0.12);
-  min-inline-size: 280px;
 }
-.pairing-header-top {
+.guest-pill-name {
+  font-weight: 800;
+  font-size: 0.88rem;
+  color: #ffffff;
+}
+.guest-pill-sub {
+  font-size: 0.72rem;
+  color: #94a3b8;
+}
+
+/* Section d'appairage Garmin moderne et esport (Code Web -> Montre) */
+.garmin-pairing-section {
+  margin: 1rem 0;
+}
+.pairing-cyber-card {
+  position: relative;
+  background: linear-gradient(135deg, rgba(8, 14, 30, 0.95) 0%, rgba(15, 23, 42, 0.92) 100%);
+  border: 1.5px solid rgba(0, 240, 255, 0.45);
+  border-radius: 14px;
+  padding: 1.25rem 1.5rem;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6), 0 0 20px rgba(0, 240, 255, 0.15);
+  overflow: hidden;
+  transition: all 0.25s ease;
+}
+.pairing-cyber-card.is-paired {
+  border-color: rgba(34, 197, 94, 0.5);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6), 0 0 20px rgba(34, 197, 94, 0.15);
+}
+.cyber-header-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.5rem;
-}
-.pairing-title-group {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-}
-.pairing-icon {
-  font-size: 1.1rem;
-}
-.pairing-title {
-  font-weight: 700;
-  font-size: 0.85rem;
-  color: #00f0ff;
-  letter-spacing: 0.5px;
-}
-.pairing-inputs-row {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
+  gap: 1rem;
   flex-wrap: wrap;
 }
-.pairing-input-wrap {
-  flex: 1 1 110px;
-  min-inline-size: 0;
+.cyber-info-cluster {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
+  flex: 1 1 300px;
 }
-.input-pairing {
-  inline-size: 100%;
-  padding: 0.35rem 0.55rem;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+.cyber-icon {
+  font-size: 2rem;
+  background: rgba(0, 240, 255, 0.12);
+  border: 1px solid rgba(0, 240, 255, 0.35);
+  border-radius: 12px;
+  padding: 0.4rem 0.55rem;
+  box-shadow: 0 0 12px rgba(0, 240, 255, 0.25);
+}
+.cyber-titles {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.cyber-title-badge-row {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+}
+.cyber-card-title {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #ffffff;
+  letter-spacing: 0.5px;
+}
+.cyber-status-badge {
+  font-size: 0.72rem;
+  font-weight: 800;
+  padding: 0.2rem 0.6rem;
   border-radius: 6px;
-  background: rgba(10, 15, 30, 0.85);
-  color: #fff;
-  font-size: 0.82rem;
-  font-family: inherit;
-  outline: none;
-  transition: border-color 0.2s, box-shadow 0.2s;
+  letter-spacing: 0.4px;
 }
-.input-pairing:focus {
-  border-color: #00f0ff;
-  box-shadow: 0 0 8px rgba(0, 240, 255, 0.35);
+.cyber-status-badge.paired {
+  background: rgba(34, 197, 94, 0.2);
+  border: 1px solid rgba(34, 197, 94, 0.6);
+  color: #4ade80;
+  box-shadow: 0 0 10px rgba(34, 197, 94, 0.3);
 }
-.btn-launch-pairing {
-  background: linear-gradient(135deg, #00f0ff, #0077ff);
+.cyber-status-badge.unlinked {
+  background: rgba(234, 179, 8, 0.15);
+  border: 1px solid rgba(234, 179, 8, 0.5);
+  color: #fde047;
+}
+.cyber-card-desc {
+  margin: 0;
+  font-size: 0.84rem;
+  color: #94a3b8;
+  line-height: 1.45;
+  max-width: 650px;
+}
+.cyber-actions-cluster {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+.btn-cyber-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  background: linear-gradient(135deg, #00f0ff 0%, #0077ff 100%);
   color: #080e1e;
+  font-weight: 900;
+  font-size: 0.92rem;
+  padding: 0.65rem 1.25rem;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  letter-spacing: 0.5px;
+  box-shadow: 0 0 18px rgba(0, 240, 255, 0.4);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.btn-cyber-primary:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 0 24px rgba(0, 240, 255, 0.65);
+}
+.btn-cyber-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.btn-cyber-danger {
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.5);
+  color: #fca5a5;
   font-weight: 700;
   font-size: 0.82rem;
-  padding: 0.38rem 0.75rem;
+  padding: 0.55rem 1rem;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.btn-cyber-danger:hover {
+  background: rgba(239, 68, 68, 0.3);
+  color: #ffffff;
+}
+
+/* Scène du code à 6 chiffres avec compte à rebours */
+.cyber-code-stage {
+  margin-top: 1.25rem;
+  padding-top: 1.25rem;
+  border-top: 1px dashed rgba(0, 240, 255, 0.25);
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+.code-instruction-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  background: rgba(0, 240, 255, 0.08);
+  border: 1px solid rgba(0, 240, 255, 0.25);
+  border-radius: 8px;
+  padding: 0.55rem 0.85rem;
+  font-size: 0.88rem;
+  color: #e2e8f0;
+}
+.code-instruction-banner .step-num {
+  background: #00f0ff;
+  color: #080e1e;
+  font-weight: 900;
+  border-radius: 50%;
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+}
+.code-digits-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+.code-display-box {
+  background: rgba(10, 18, 38, 0.9);
+  border: 2px solid #00f0ff;
+  border-radius: 12px;
+  padding: 0.85rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  box-shadow: 0 0 20px rgba(0, 240, 255, 0.3);
+}
+.code-sub-tag {
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 1px;
+  color: #94a3b8;
+}
+.code-glow-digits {
+  font-family: var(--font-race, 'Courier New', monospace);
+  font-size: clamp(2.2rem, 5vw, 3.2rem);
+  font-weight: 900;
+  letter-spacing: 8px;
+  color: #00f0ff;
+  text-shadow: 0 0 16px rgba(0, 240, 255, 0.8), 0 0 32px rgba(0, 240, 255, 0.4);
+}
+.code-helper-text {
+  font-size: 0.76rem;
+  color: #64748b;
+}
+.code-timer-box {
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 12px;
+  padding: 0.85rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+}
+.timer-sub-tag {
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 1px;
+  color: #94a3b8;
+}
+.timer-digits-glow {
+  font-family: var(--font-race, 'Courier New', monospace);
+  font-size: 1.9rem;
+  font-weight: 900;
+  color: #ffe600;
+  text-shadow: 0 0 12px rgba(255, 230, 0, 0.6);
+}
+.timer-pulse-sub {
+  font-size: 0.74rem;
+  color: #38bdf8;
+  animation: pulse-op 1.5s infinite;
+}
+@keyframes pulse-op {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+.cyber-feedback-msg {
+  margin-top: 0.85rem;
+  padding: 0.55rem 0.85rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+.cyber-feedback-msg.ok {
+  background: rgba(34, 197, 94, 0.18);
+  border: 1px solid rgba(34, 197, 94, 0.5);
+  color: #4ade80;
+}
+.cyber-feedback-msg.err {
+  background: rgba(239, 68, 68, 0.18);
+  border: 1px solid rgba(239, 68, 68, 0.5);
+  color: #fca5a5;
+}
+
+/* Barre de suivi spectateur / focus caméra */
+.spectator-camera-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: rgba(10, 18, 38, 0.85);
+  border: 1px solid rgba(0, 240, 255, 0.35);
+  border-radius: 10px;
+  padding: 0.5rem 0.85rem;
+  margin-bottom: 0.75rem;
+  flex-wrap: wrap;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+.spectator-label-group {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.spectator-label-group .cam-icon {
+  font-size: 1.1rem;
+}
+.spectator-label-group .cam-title {
+  font-weight: 800;
+  font-size: 0.84rem;
+  color: #00f0ff;
+  letter-spacing: 0.4px;
+}
+.spectator-dropdown-wrap {
+  flex: 1 1 240px;
+}
+.spectator-select {
+  width: 100%;
+  background: rgba(6, 11, 24, 0.95);
+  border: 1.5px solid rgba(0, 240, 255, 0.4);
+  color: #ffffff;
+  padding: 0.45rem 0.75rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  outline: none;
+  transition: all 0.2s ease;
+}
+.spectator-select:focus {
+  border-color: #00f0ff;
+  box-shadow: 0 0 10px rgba(0, 240, 255, 0.4);
+}
+.spectator-tip {
+  font-size: 0.76rem;
+  color: #38bdf8;
+  font-weight: 600;
+  background: rgba(56, 189, 248, 0.12);
+  padding: 0.25rem 0.55rem;
+  border-radius: 6px;
+}
+
+/* Raccourci direct appairage cockpit */
+.cockpit-pair-shortcut-strip {
+  margin-bottom: 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+.cockpit-shortcut-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  background: linear-gradient(135deg, rgba(0, 240, 255, 0.15) 0%, rgba(15, 23, 42, 0.95) 100%);
+  border: 1px solid rgba(0, 240, 255, 0.4);
+  border-radius: 10px;
+  padding: 0.6rem 0.85rem;
+  flex-wrap: wrap;
+}
+.shortcut-info {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+.shortcut-icon {
+  font-size: 1.3rem;
+}
+.shortcut-info strong {
+  font-size: 0.88rem;
+  color: #ffffff;
+  display: block;
+}
+.shortcut-sub {
+  font-size: 0.75rem;
+  color: #94a3b8;
+}
+.btn-cockpit-pair-action {
+  background: #00f0ff;
+  color: #080e1e;
+  font-weight: 900;
+  font-size: 0.82rem;
+  padding: 0.45rem 0.85rem;
   border-radius: 6px;
   border: none;
   cursor: pointer;
-  white-space: nowrap;
-  transition: opacity 0.2s, transform 0.1s;
+  box-shadow: 0 0 12px rgba(0, 240, 255, 0.4);
+  transition: transform 0.15s ease;
 }
-.btn-launch-pairing:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-.btn-launch-pairing:not(:disabled):hover {
-  opacity: 0.92;
+.btn-cockpit-pair-action:hover:not(:disabled) {
   transform: translateY(-1px);
 }
-.btn-connect-compact {
-  font-size: 0.72rem;
-  padding: 0.25rem 0.5rem;
-  border-color: rgba(255, 255, 255, 0.25);
-  color: #e2e8f0;
-}
-.pairing-feedback {
-  font-size: 0.75rem;
-  padding: 0.25rem 0.4rem;
-  border-radius: 4px;
+.cockpit-code-floating-box {
   display: flex;
   align-items: center;
-  gap: 0.35rem;
+  justify-content: space-between;
+  background: rgba(10, 18, 38, 0.95);
+  border: 1.5px solid #00f0ff;
+  border-radius: 8px;
+  padding: 0.5rem 0.85rem;
+  box-shadow: 0 0 16px rgba(0, 240, 255, 0.3);
 }
-.pairing-feedback.ok {
-  background: rgba(34, 197, 94, 0.15);
-  color: #4ade80;
-  border: 1px solid rgba(34, 197, 94, 0.3);
+.code-digits-compact {
+  font-family: var(--font-race, 'Courier New', monospace);
+  font-size: 1.5rem;
+  font-weight: 900;
+  letter-spacing: 4px;
+  color: #00f0ff;
 }
-.pairing-feedback.err {
-  background: rgba(239, 68, 68, 0.15);
-  color: #f87171;
-  border: 1px solid rgba(239, 68, 68, 0.3);
+.code-instruction-compact {
+  font-size: 0.78rem;
+  color: #e2e8f0;
+}
+
+/* Garmin section inside account modal */
+.profile-garmin-box {
+  background: rgba(15, 23, 42, 0.75);
+  border: 1px solid rgba(0, 240, 255, 0.3);
+  border-radius: 10px;
+  padding: 0.85rem 1rem;
+  margin-top: 1rem;
+}
+.profile-garmin-box h5 {
+  margin: 0 0 0.4rem;
+  font-size: 0.92rem;
+  font-weight: 800;
+  color: #00f0ff;
+}
+.profile-code-display {
+  margin-top: 0.65rem;
+  background: rgba(8, 14, 30, 0.9);
+  border: 1.5px solid #00f0ff;
+  border-radius: 8px;
+  padding: 0.65rem;
+  text-align: center;
+}
+.code-glow-digits-profile {
+  font-family: var(--font-race, monospace);
+  font-size: 2rem;
+  font-weight: 900;
+  letter-spacing: 6px;
+  color: #00f0ff;
+  text-shadow: 0 0 14px rgba(0, 240, 255, 0.7);
+}
+.timer-sub-profile {
+  font-size: 0.75rem;
+  color: #ffe600;
 }
 
 .player-card-actions {
@@ -4067,5 +4467,292 @@ input[type="number"]:focus { border-color: var(--neon-cyan); box-shadow: 0 0 10p
   font-size: 0.76rem;
   color: #cbd5e1;
   white-space: nowrap;
+}
+
+/* ==========================================================================
+   EN-TÊTE ÉPURÉ POUR MODE RÉGATE & MODE COCKPIT (AVEC ICÔNE ACCUEIL)
+   ========================================================================== */
+.pure-screen-header {
+  position: sticky;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.6rem 1.25rem;
+  background: rgba(8, 14, 30, 0.95);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1.5px solid rgba(0, 240, 255, 0.35);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  gap: 0.75rem;
+}
+
+.pure-header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.pure-header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.btn-pure-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.85rem;
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(0, 240, 255, 0.3);
+  border-radius: 8px;
+  color: #e2e8f0;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.btn-pure-nav:hover {
+  background: rgba(0, 240, 255, 0.15);
+  border-color: #00f0ff;
+  color: #ffffff;
+  transform: translateY(-1px);
+}
+
+.btn-pure-nav.active {
+  background: linear-gradient(135deg, rgba(0, 240, 255, 0.3) 0%, rgba(255, 0, 85, 0.25) 100%);
+  border-color: #00f0ff;
+  color: #ffffff;
+  box-shadow: 0 0 12px rgba(0, 240, 255, 0.4);
+}
+
+.btn-pure-home {
+  background: linear-gradient(135deg, rgba(0, 240, 255, 0.2) 0%, rgba(15, 23, 42, 0.9) 100%);
+  border: 1.5px solid #00f0ff;
+  color: #ffffff;
+  font-weight: 800;
+  box-shadow: 0 0 10px rgba(0, 240, 255, 0.35);
+}
+
+.btn-pure-home:hover {
+  background: #00f0ff;
+  color: #080e1e;
+  box-shadow: 0 0 18px rgba(0, 240, 255, 0.7);
+}
+
+/* Navigation modes sur la page d'accueil */
+.home-nav-modes {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: rgba(8, 14, 30, 0.75);
+  padding: 0.25rem 0.35rem;
+  border-radius: 10px;
+  border: 1px solid rgba(0, 240, 255, 0.25);
+}
+
+.btn-nav-mode {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.75rem;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  color: #94a3b8;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.btn-nav-mode:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.btn-nav-mode.active {
+  background: linear-gradient(135deg, rgba(0, 240, 255, 0.25) 0%, rgba(255, 0, 85, 0.2) 100%);
+  border-color: #00f0ff;
+  color: #ffffff;
+  box-shadow: 0 0 10px rgba(0, 240, 255, 0.3);
+}
+
+/* Bandeau course en cours sur la page d'accueil */
+.home-active-race-callout {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: linear-gradient(90deg, rgba(255, 0, 85, 0.2) 0%, rgba(0, 240, 255, 0.15) 100%);
+  border: 1.5px solid rgba(255, 0, 85, 0.6);
+  border-radius: 10px;
+  padding: 0.75rem 1.25rem;
+  margin-bottom: 1.25rem;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.callout-left {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.92rem;
+  color: #ffffff;
+}
+
+.callout-pulse {
+  animation: pulseRaceDot 1.5s infinite;
+}
+
+@keyframes pulseRaceDot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(1.2); }
+}
+
+.callout-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.btn-callout-mode {
+  padding: 0.4rem 0.85rem;
+  background: rgba(15, 23, 42, 0.9);
+  border: 1px solid #00f0ff;
+  border-radius: 6px;
+  color: #ffffff;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-callout-mode:hover {
+  background: #00f0ff;
+  color: #080e1e;
+}
+
+/* ==========================================================================
+   ADAPTATION SMARTPHONE ET TABLETTE POUR LE GUIDE CONNECTÉ & ESPORT ROWING
+   ========================================================================== */
+.seo-mobile-link-wrapper {
+  margin: 1rem 0;
+}
+
+.seo-mobile-link {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.1rem 1.25rem;
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.95) 0%, rgba(8, 14, 28, 0.98) 100%);
+  border: 1.5px solid rgba(0, 240, 255, 0.4);
+  border-radius: 12px;
+  color: #ffffff;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+}
+
+.seo-mobile-link:hover, .seo-mobile-link:focus {
+  border-color: #00f0ff;
+  box-shadow: 0 6px 20px rgba(0, 240, 255, 0.3);
+  transform: translateY(-2px);
+}
+
+.seo-mobile-link-left {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.seo-mobile-link .seo-link-icon {
+  font-size: 1.8rem;
+}
+
+.seo-mobile-link .seo-link-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.seo-link-tag {
+  font-size: 0.7rem;
+  font-weight: 800;
+  color: #00f0ff;
+  letter-spacing: 1px;
+}
+
+.seo-link-title {
+  font-size: 0.98rem;
+  font-weight: 800;
+  color: #ffffff;
+}
+
+.seo-link-desc {
+  font-size: 0.78rem;
+  color: #94a3b8;
+}
+
+.seo-link-arrow {
+  font-size: 1.3rem;
+  color: #00f0ff;
+  font-weight: 900;
+}
+
+.seo-guide-body.mobile-collapsed {
+  display: none !important;
+}
+
+@media (min-width: 1025px) {
+  .seo-mobile-link-wrapper {
+    display: none !important;
+  }
+  .seo-guide-body {
+    display: block !important;
+  }
+}
+
+.game-container.pure-screen-active .hud-header,
+.game-container.pure-screen-active .mobile-bottom-nav,
+.game-container.pure-screen-active .watch-auth-strip,
+.game-container.pure-screen-active .smartphone-table-links,
+.game-container.pure-screen-active .dual-standings-history-container,
+.game-container.pure-screen-active .lobby-regatta-preview-section,
+.game-container.pure-screen-active .seo-hub-section,
+.game-container.pure-screen-active .app-footer {
+  display: none !important;
+}
+
+.pure-lang-dropdown {
+  margin-right: 0.35rem;
+}
+
+.pure-lang-select {
+  padding: 0.35rem 0.6rem;
+  font-size: 0.8rem;
+  background: rgba(15, 23, 42, 0.9);
+  border: 1px solid rgba(0, 240, 255, 0.35);
+  border-radius: 6px;
+  color: #e2e8f0;
+  cursor: pointer;
+}
+
+@media (max-width: 1024px) {
+  .pure-screen-header {
+    padding: 0.5rem 0.75rem;
+  }
+  .pure-btn-text {
+    display: none;
+  }
+  .pure-screen-tag {
+    font-size: 0.78rem;
+  }
 }
 

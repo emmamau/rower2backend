@@ -44,6 +44,9 @@ export class I18nService {
       'MODE_COCKPIT': 'Mode Cockpit',
       'SEO_GUIDE_LINK': '🌐 Guide Connecté & E-Sport Rowing',
       'SEO_GUIDE_DESC': 'Consulter le guide complet aviron connecté, télémétrie et régates',
+      'SEO_TAG': '🌐 ESPORT ROWING & GUIDE CONNECTÉ',
+      'SEO_TITLE': 'Rower Race — Plateforme Aviron Indoor & Régates Multijoueur',
+      'SEO_LEAD': 'Transformez chaque séance sur rameur Concept2, WaterRower SmartRow ou ergomètre FTMS en une véritable compétition d\'aviron connectée synchronisée avec votre montre Garmin.',
       'WAKELOCK_ON': '🔆 Écran ON',
       'WAKELOCK_OFF': '🌙 Écran Veille',
       
@@ -134,6 +137,9 @@ export class I18nService {
       'MODE_COCKPIT': 'Cockpit Mode',
       'SEO_GUIDE_LINK': '🌐 Connected Guide & E-Sport Rowing',
       'SEO_GUIDE_DESC': 'Read the complete connected rowing, telemetry and regattas guide',
+      'SEO_TAG': '🌐 ESPORT ROWING & CONNECTED GUIDE',
+      'SEO_TITLE': 'Rower Race — Indoor Rowing Platform & Multiplayer Regattas',
+      'SEO_LEAD': 'Transform every workout on your Concept2, WaterRower SmartRow or FTMS ergometer into a real connected rowing competition synced with your Garmin watch.',
       'WAKELOCK_ON': '🔆 Screen ON',
       'WAKELOCK_OFF': '🌙 Screen Sleep',
       
@@ -222,6 +228,9 @@ export class I18nService {
       'MODE_COCKPIT': 'Cockpit-Modus',
       'SEO_GUIDE_LINK': '🌐 Vernetzter Ratgeber & E-Sport Rudern',
       'SEO_GUIDE_DESC': 'Den vollständigen Leitfaden für Indoor-Rudern und Telemetrie lesen',
+      'SEO_TAG': '🌐 E-SPORT RUDERN & VERNETZTER RATGEBER',
+      'SEO_TITLE': 'Rower Race — Plattform für Indoor-Rudern & Mehrspieler-Regatten',
+      'SEO_LEAD': 'Verwandeln Sie jedes Training auf Concept2, WaterRower SmartRow oder FTMS Ergometern in einen echten vernetzten Ruderwettkampf synchronisiert mit Ihrer Garmin-Uhr.',
       'WAKELOCK_ON': '🔆 Display AN',
       'WAKELOCK_OFF': '🌙 Standby',
       
@@ -310,6 +319,9 @@ export class I18nService {
       'MODE_COCKPIT': 'Modo Cockpit',
       'SEO_GUIDE_LINK': '🌐 Guía Conectada & Remo E-Sport',
       'SEO_GUIDE_DESC': 'Consultar la guía completa de remo indoor, telemetría y regatas',
+      'SEO_TAG': '🌐 REMO E-SPORT & GUÍA CONECTADA',
+      'SEO_TITLE': 'Rower Race — Plataforma de Remo Indoor y Regatas Multijugador',
+      'SEO_LEAD': 'Transforme cada sesión en remo Concept2, WaterRower SmartRow o ergómetro FTMS en una auténtica competición de remo conectada sincronizada con su reloj Garmin.',
       'WAKELOCK_ON': '🔆 Pantalla ACTIVA',
       'WAKELOCK_OFF': '🌙 Reposo',
       
@@ -398,6 +410,9 @@ export class I18nService {
       'MODE_COCKPIT': 'Modalità Cockpit',
       'SEO_GUIDE_LINK': '🌐 Guida Connessa & Canottaggio E-Sport',
       'SEO_GUIDE_DESC': 'Consulta la guida completa su canottaggio indoor, telemetria e regate',
+      'SEO_TAG': '🌐 CANOTTAGGIO E-SPORT & GUIDA CONNESSA',
+      'SEO_TITLE': 'Rower Race — Piattaforma Canottaggio Indoor & Regate Multigiocatore',
+      'SEO_LEAD': 'Trasforma ogni sessione sul remoergometro Concept2, WaterRower SmartRow o FTMS in una vera competizione di canottaggio connessa sincronizzata con il tuo orologio Garmin.',
       'WAKELOCK_ON': '🔆 Schermo ACCESO',
       'WAKELOCK_OFF': '🌙 Standby',
       
@@ -486,6 +501,9 @@ export class I18nService {
       'MODE_COCKPIT': 'Modo Cockpit',
       'SEO_GUIDE_LINK': '🌐 Guia Conectado & Remo E-Sport',
       'SEO_GUIDE_DESC': 'Consulte o guia completo de remo indoor, telemetria e regatas',
+      'SEO_TAG': '🌐 REMO E-SPORT & GUIA CONECTADO',
+      'SEO_TITLE': 'Rower Race — Plataforma de Remo Indoor e Regatas Multijogador',
+      'SEO_LEAD': 'Transforme cada sessão no seu remo Concept2, WaterRower SmartRow ou ergômetro FTMS numa verdadeira competição de remo conectada sincronizada com o seu relógio Garmin.',
       'WAKELOCK_ON': '🔆 Ecrã LIGADO',
       'WAKELOCK_OFF': '🌙 Ecrã em Espera',
       

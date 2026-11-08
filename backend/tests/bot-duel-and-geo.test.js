@@ -7,6 +7,7 @@ const { RaceManager } = require('../dist/services/race-manager.service');
 const initTelemetryRoutes = require('../dist/routes/telemetry.routes').default;
 const initUserRoutes = require('../dist/routes/user.routes').default;
 const initRaceRoutes = require('../dist/routes/race.routes').default;
+const initGarminRoutes = require('../dist/routes/garmin.routes').default;
 const userStore = require('../dist/services/user-store.service').default;
 const { IpGeoService } = require('../dist/services/ip-geo.service');
 const db = require('../dist/models').default;
@@ -17,6 +18,7 @@ function createTestServer() {
   initTelemetryRoutes(app);
   initUserRoutes(app);
   initRaceRoutes(app);
+  initGarminRoutes(app);
   const server = http.createServer(app);
   return new Promise((resolve) => {
     server.listen(0, '127.0.0.1', () => {
@@ -241,49 +243,47 @@ test('Telemetry ingestion for guest player resolves country via IP headers', asy
   }
 });
 
-test('In-race web cockpit login authorization flow', async () => {
+test('In-race Garmin 6-character code pairing flow and real-time status check', async () => {
   process.env.NODE_ENV = 'test';
   const { baseUrl, close } = await createTestServer();
   try {
     const watchUserId = `RowTest_${Date.now()}`;
+    const deviceId = `fenix7_${Date.now()}`;
 
-    // 1. Web front requests cockpit login for this athlete
-    const resReq = await fetch(`${baseUrl}/api/user/auth/request`, {
+    // 1. Web front requests ephemeral 6-char code
+    const resReq = await fetch(`${baseUrl}/api/garmin/pairing-code`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         userId: watchUserId,
-        login: watchUserId
       })
     });
     assert.equal(resReq.status, 200);
     const reqData = await resReq.json();
     assert.equal(reqData.success, true);
-    assert.ok(reqData.requestId);
+    assert.equal(typeof reqData.pairingCode, 'string');
+    assert.equal(reqData.pairingCode.length, 6);
 
-    // 2. Watch polls and sees pending request
-    const resPending = await fetch(`${baseUrl}/api/user/auth/pending?userId=${watchUserId}`);
-    assert.equal(resPending.status, 200);
-    const pendingData = await resPending.json();
-    assert.equal(pendingData.hasPending, true);
-    assert.equal(pendingData.requestId, reqData.requestId);
-
-    // 3. Watch confirms connection
-    const resRespond = await fetch(`${baseUrl}/api/user/auth/respond`, {
+    // 2. Watch enters code and submits
+    const resPair = await fetch(`${baseUrl}/api/garmin/pair`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        requestId: reqData.requestId,
-        approved: true
+        pairingCode: reqData.pairingCode,
+        deviceId: deviceId,
       })
     });
-    assert.equal(resRespond.status, 200);
+    assert.equal(resPair.status, 200);
+    const pairData = await resPair.json();
+    assert.equal(pairData.success, true);
+    assert.ok(pairData.deviceToken);
 
-    // 4. Web front checks status and unlocks cockpit
-    const resStatus = await fetch(`${baseUrl}/api/user/auth/status/${reqData.requestId}`);
+    // 3. Web front checks status and detects watch is paired
+    const resStatus = await fetch(`${baseUrl}/api/garmin/pairing-status?userId=${watchUserId}`);
     assert.equal(resStatus.status, 200);
     const statusData = await resStatus.json();
-    assert.equal(statusData.status, 'approved');
+    assert.equal(statusData.paired, true);
+    assert.equal(statusData.status, 'paired');
   } finally {
     await close();
   }

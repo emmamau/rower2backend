@@ -138,13 +138,29 @@ module I18n {
             if (_currentLang == LANG_PT) { return "Remar Solo"; }
             return "Row Solo";
         }
-        if (key.equals("MENU_PLAYER_ID")) {
-            if (_currentLang == LANG_FR) { return "Mon identifiant de joueur"; }
-            if (_currentLang == LANG_DE) { return "Meine Spieler-ID"; }
-            if (_currentLang == LANG_ES) { return "Mi ID de jugador"; }
-            if (_currentLang == LANG_IT) { return "Il mio ID giocatore"; }
-            if (_currentLang == LANG_PT) { return "Meu ID de jogador"; }
-            return "My Player ID";
+        if (key.equals("MENU_PAIR")) {
+            if (_currentLang == LANG_FR) { return "Appairer la montre"; }
+            if (_currentLang == LANG_DE) { return "Uhr koppeln"; }
+            if (_currentLang == LANG_ES) { return "Vincular reloj"; }
+            if (_currentLang == LANG_IT) { return "Associa orologio"; }
+            if (_currentLang == LANG_PT) { return "Emparelhar relogio"; }
+            return "Pair Watch";
+        }
+        if (key.equals("MENU_PAIRED")) {
+            if (_currentLang == LANG_FR) { return "Statut : Appaire"; }
+            if (_currentLang == LANG_DE) { return "Status: Gekoppelt"; }
+            if (_currentLang == LANG_ES) { return "Estado: Vinculado"; }
+            if (_currentLang == LANG_IT) { return "Stato: Associato"; }
+            if (_currentLang == LANG_PT) { return "Status: Emparelhado"; }
+            return "Status: Paired";
+        }
+        if (key.equals("MENU_RESET_PAIRING")) {
+            if (_currentLang == LANG_FR) { return "Reinitialiser l'appairage"; }
+            if (_currentLang == LANG_DE) { return "Kopplung zurucksetzen"; }
+            if (_currentLang == LANG_ES) { return "Restablecer vinculacion"; }
+            if (_currentLang == LANG_IT) { return "Reimposta associazione"; }
+            if (_currentLang == LANG_PT) { return "Redefinir emparelhamento"; }
+            return "Reset Pairing";
         }
         if (key.equals("MENU_HISTORY")) {
             if (_currentLang == LANG_FR) { return "Historique Local"; }
@@ -172,38 +188,54 @@ module I18n {
             return "Player :";
         }
 
-        // --- ID PLAYER SCREEN (APPAIRAGE WEB) ---
-        if (key.equals("ID_SCREEN_TITLE")) {
-            if (_currentLang == LANG_FR) { return "MON IDENTIFIANT"; }
-            if (_currentLang == LANG_DE) { return "MEINE SPIELER-ID"; }
-            if (_currentLang == LANG_ES) { return "MI ID DE JUGADOR"; }
-            if (_currentLang == LANG_IT) { return "IL MIO ID GIOCATORE"; }
-            if (_currentLang == LANG_PT) { return "MEU ID DE JOGADOR"; }
-            return "MY PLAYER ID";
+        // --- NOUVEAU PROTOCOLE D'APPAIRAGE GARMIN <-> WEB ---
+        if (key.equals("PAIR_INPUT_TITLE")) {
+            if (_currentLang == LANG_FR) { return "CODE APPAIRAGE WEB"; }
+            if (_currentLang == LANG_DE) { return "WEB-KOPPLUNGSCODE"; }
+            if (_currentLang == LANG_ES) { return "CODIGO VINCULACION"; }
+            if (_currentLang == LANG_IT) { return "CODICE ASSOCIAZIONE"; }
+            if (_currentLang == LANG_PT) { return "CODIGO EMPARELHAMENTO"; }
+            return "WEB PAIRING CODE";
         }
-        if (key.equals("ID_SCREEN_SUB")) {
-            if (_currentLang == LANG_FR) { return "A saisir sur le site web :"; }
-            if (_currentLang == LANG_DE) { return "Im Web eingeben:"; }
-            if (_currentLang == LANG_ES) { return "Introducir en la web:"; }
-            if (_currentLang == LANG_IT) { return "Inserisci sul web:"; }
-            if (_currentLang == LANG_PT) { return "Inserir no site:"; }
-            return "Enter on web platform:";
+        if (key.equals("PAIR_INPUT_SUB")) {
+            if (_currentLang == LANG_FR) { return "Code a 6 caracteres :"; }
+            if (_currentLang == LANG_DE) { return "6-stelliger Code:"; }
+            if (_currentLang == LANG_ES) { return "Codigo de 6 car.:"; }
+            if (_currentLang == LANG_IT) { return "Codice a 6 caratteri:"; }
+            if (_currentLang == LANG_PT) { return "Codigo de 6 caracteres:"; }
+            return "6-character code:";
         }
-        if (key.equals("ID_SCREEN_PREFIX_HINT")) {
-            if (_currentLang == LANG_FR) { return "10 car. libres + suffixe lie"; }
-            if (_currentLang == LANG_DE) { return "10 Zeichen + verknupftes Suffix"; }
-            if (_currentLang == LANG_ES) { return "10 car. libres + sufijo"; }
-            if (_currentLang == LANG_IT) { return "10 car. liberi + suffisso"; }
-            if (_currentLang == LANG_PT) { return "10 car. livres + sufixo"; }
-            return "10 free chars + linked suffix";
+        if (key.equals("PAIR_SUCCESS_TITLE")) {
+            if (_currentLang == LANG_FR) { return "Montre associee avec succes !"; }
+            if (_currentLang == LANG_DE) { return "Uhr erfolgreich gekoppelt!"; }
+            if (_currentLang == LANG_ES) { return "Reloj vinculado con exito!"; }
+            if (_currentLang == LANG_IT) { return "Orologio associato!"; }
+            if (_currentLang == LANG_PT) { return "Relogio emparelhado!"; }
+            return "Watch Paired Successfully!";
         }
-        if (key.equals("ID_SCREEN_SETTINGS_HINT")) {
-            if (_currentLang == LANG_FR) { return "Reglage: Parametres montre"; }
-            if (_currentLang == LANG_DE) { return "Einstellung: App-Optionen"; }
-            if (_currentLang == LANG_ES) { return "Ajuste: Ajustes de App"; }
-            if (_currentLang == LANG_IT) { return "Modifica: Impostazioni App"; }
-            if (_currentLang == LANG_PT) { return "Modificar: Ajustes App"; }
-            return "Custom: Watch App Settings";
+        if (key.equals("PAIR_FAIL_TITLE")) {
+            if (_currentLang == LANG_FR) { return "Code invalide ou expire"; }
+            if (_currentLang == LANG_DE) { return "Ungultiger/abgelaufener Code"; }
+            if (_currentLang == LANG_ES) { return "Codigo invalido o caducado"; }
+            if (_currentLang == LANG_IT) { return "Codice non valido o scaduto"; }
+            if (_currentLang == LANG_PT) { return "Codigo invalido ou expirado"; }
+            return "Invalid or Expired Code";
+        }
+        if (key.equals("PAIR_STATUS_TITLE")) {
+            if (_currentLang == LANG_FR) { return "STATUT APPAIRAGE"; }
+            if (_currentLang == LANG_DE) { return "KOPPLUNGSSTATUS"; }
+            if (_currentLang == LANG_ES) { return "ESTADO VINCULACION"; }
+            if (_currentLang == LANG_IT) { return "STATO ASSOCIAZIONE"; }
+            if (_currentLang == LANG_PT) { return "STATUS EMPARELHAMENTO"; }
+            return "PAIRING STATUS";
+        }
+        if (key.equals("PAIR_CONFIRM_PROMPT")) {
+            if (_currentLang == LANG_FR) { return "START: Valider | BACK: Retour"; }
+            if (_currentLang == LANG_DE) { return "START: Bestatigen | BACK: Zuruck"; }
+            if (_currentLang == LANG_ES) { return "START: Validar | BACK: Volver"; }
+            if (_currentLang == LANG_IT) { return "START: Conferma | BACK: Indietro"; }
+            if (_currentLang == LANG_PT) { return "START: Confirmar | BACK: Voltar"; }
+            return "START: Confirm | BACK: Back";
         }
         if (key.equals("ID_SCREEN_FOOTER")) {
             if (_currentLang == LANG_FR) { return "START / BACK : Retour"; }
@@ -656,40 +688,6 @@ module I18n {
             if (_currentLang == LANG_IT) { return "No, senza bot"; }
             if (_currentLang == LANG_PT) { return "Nao, sem bots"; }
             return "No, keep human only";
-        }
-
-        // --- WEB AUTH PROMPT ---
-        if (key.equals("AUTH_TITLE")) {
-            if (_currentLang == LANG_FR) { return "CONNEXION WEB"; }
-            if (_currentLang == LANG_DE) { return "WEB-LOGIN"; }
-            if (_currentLang == LANG_ES) { return "ACCESO WEB"; }
-            if (_currentLang == LANG_IT) { return "ACCESSO WEB"; }
-            if (_currentLang == LANG_PT) { return "LOGIN WEB"; }
-            return "WEB LOGIN";
-        }
-        if (key.equals("AUTH_SUB")) {
-            if (_currentLang == LANG_FR) { return "Autoriser l'acces ?"; }
-            if (_currentLang == LANG_DE) { return "Zugriff erlauben?"; }
-            if (_currentLang == LANG_ES) { return "Autorizar acceso?"; }
-            if (_currentLang == LANG_IT) { return "Autorizzare accesso?"; }
-            if (_currentLang == LANG_PT) { return "Autorizar acesso?"; }
-            return "Authorize login?";
-        }
-        if (key.equals("AUTH_APPROVE")) {
-            if (_currentLang == LANG_FR) { return "Accepter"; }
-            if (_currentLang == LANG_DE) { return "Erlauben"; }
-            if (_currentLang == LANG_ES) { return "Aceptar"; }
-            if (_currentLang == LANG_IT) { return "Accetta"; }
-            if (_currentLang == LANG_PT) { return "Aceitar"; }
-            return "Approve";
-        }
-        if (key.equals("AUTH_REJECT")) {
-            if (_currentLang == LANG_FR) { return "Refuser"; }
-            if (_currentLang == LANG_DE) { return "Ablehnen"; }
-            if (_currentLang == LANG_ES) { return "Rechazar"; }
-            if (_currentLang == LANG_IT) { return "Rifiuta"; }
-            if (_currentLang == LANG_PT) { return "Recusar"; }
-            return "Reject";
         }
 
         return key;

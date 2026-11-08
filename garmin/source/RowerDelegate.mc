@@ -17,12 +17,6 @@ class RowerDelegate extends WatchUi.BehaviorDelegate {
     public function onSelect() as Boolean {
         var state = _view.getAppState();
 
-        // Priority modal: Web Login Authorization prompt
-        if (_view.hasPendingAuth() && state != RowerView.STATE_COUNTDOWN_5S) {
-            _bleDelegate.respondAuth(_view.getAuthMenuIndex() == 0);
-            return true;
-        }
-
         if (state == RowerView.STATE_SCANNING) {
             if (_bleDelegate.getModel().isConnected()) {
                 _view.setAppState(RowerView.STATE_MENU);
@@ -37,7 +31,7 @@ class RowerDelegate extends WatchUi.BehaviorDelegate {
                 _view.setRaceMode("race");
                 _bleDelegate.joinNextRaceWaiting();
             } else if (menuIdx == 1) {
-                // 2. Salon Prive -> Ecran de saisie PIN 4 chiffres (G3)
+                // 2. Salon Prive -> Ecran de saisie PIN 4-5 chiffres (G3)
                 _view.resetPinDigits();
                 _view.setAppState(RowerView.STATE_PIN_INPUT);
             } else if (menuIdx == 2) {
@@ -45,12 +39,35 @@ class RowerDelegate extends WatchUi.BehaviorDelegate {
                 _view.setRaceMode("solo");
                 _bleDelegate.startSoloSession();
             } else if (menuIdx == 3) {
-                // 4. Mon identifiant de joueur
-                _view.setAppState(RowerView.STATE_PLAYER_ID);
+                // 4. Appairer la montre OU Statut Appaire
+                if (UserManager.isPaired()) {
+                    _view.resetPairingStatusMenu();
+                    _view.setAppState(RowerView.STATE_PAIRING_STATUS);
+                } else {
+                    _view.resetPairingDigits();
+                    _view.setAppState(RowerView.STATE_PAIRING_INPUT);
+                }
             } else if (menuIdx == 4) {
                 // 5. Historique local (G9)
                 _view.setAppState(RowerView.STATE_HISTORY);
             }
+            return true;
+        } else if (state == RowerView.STATE_PAIRING_INPUT) {
+            var finished = _view.advancePairingSlot();
+            if (finished) {
+                _bleDelegate.submitPairingCode(_view.getFormattedPairingCode());
+            }
+            return true;
+        } else if (state == RowerView.STATE_PAIRING_STATUS) {
+            var pStatusIdx = _view.getPairingStatusMenuIndex();
+            if (pStatusIdx == 1) {
+                _bleDelegate.requestResetPairing();
+            } else {
+                _view.setAppState(RowerView.STATE_MENU);
+            }
+            return true;
+        } else if (state == RowerView.STATE_PAIRING_RESULT) {
+            _view.setAppState(RowerView.STATE_MENU);
             return true;
         } else if (state == RowerView.STATE_PIN_INPUT) {
             var finished = _view.advancePinDigit();
@@ -83,7 +100,7 @@ class RowerDelegate extends WatchUi.BehaviorDelegate {
                 _bleDelegate.discardSession();
             }
             return true;
-        } else if (state == RowerView.STATE_FINISHED || state == RowerView.STATE_HISTORY || state == RowerView.STATE_PLAYER_ID) {
+        } else if (state == RowerView.STATE_FINISHED || state == RowerView.STATE_HISTORY) {
             _view.setAppState(RowerView.STATE_MENU);
             return true;
         }
@@ -95,17 +112,18 @@ class RowerDelegate extends WatchUi.BehaviorDelegate {
     public function onNextPage() as Boolean {
         var state = _view.getAppState();
 
-        if (_view.hasPendingAuth() && state != RowerView.STATE_COUNTDOWN_5S) {
-            _view.toggleAuthMenu();
-            return true;
-        }
-
         if (state == RowerView.STATE_SCANNING) {
             // Allow entering Menu (Solo / History) even while BLE continues scanning
             _view.setAppState(RowerView.STATE_MENU);
             return true;
         } else if (state == RowerView.STATE_MENU) {
             _view.nextMainMenu();
+            return true;
+        } else if (state == RowerView.STATE_PAIRING_INPUT) {
+            _view.cyclePairingChar(1);
+            return true;
+        } else if (state == RowerView.STATE_PAIRING_STATUS) {
+            _view.togglePairingStatusMenu();
             return true;
         } else if (state == RowerView.STATE_PIN_INPUT) {
             _view.decrementPinDigit();
@@ -131,13 +149,14 @@ class RowerDelegate extends WatchUi.BehaviorDelegate {
     public function onPreviousPage() as Boolean {
         var state = _view.getAppState();
 
-        if (_view.hasPendingAuth() && state != RowerView.STATE_COUNTDOWN_5S) {
-            _view.toggleAuthMenu();
-            return true;
-        }
-
         if (state == RowerView.STATE_MENU) {
             _view.prevMainMenu();
+            return true;
+        } else if (state == RowerView.STATE_PAIRING_INPUT) {
+            _view.cyclePairingChar(-1);
+            return true;
+        } else if (state == RowerView.STATE_PAIRING_STATUS) {
+            _view.togglePairingStatusMenu();
             return true;
         } else if (state == RowerView.STATE_PIN_INPUT) {
             _view.incrementPinDigit();
@@ -162,7 +181,7 @@ class RowerDelegate extends WatchUi.BehaviorDelegate {
     // Handles touchscreen tap (on Venu / Epix / Forerunner / Fenix touch) without pausing race on water drops
     public function onTap(clickEvent as ClickEvent) as Boolean {
         var state = _view.getAppState();
-        if ((state == RowerView.STATE_SCANNING && _bleDelegate.getModel().isConnected()) || state == RowerView.STATE_PLAYER_ID) {
+        if (state == RowerView.STATE_SCANNING && _bleDelegate.getModel().isConnected()) {
             _view.setAppState(RowerView.STATE_MENU);
             return true;
         }
@@ -173,16 +192,20 @@ class RowerDelegate extends WatchUi.BehaviorDelegate {
     public function onBack() as Boolean {
         var state = _view.getAppState();
 
-        if (_view.hasPendingAuth() && state != RowerView.STATE_COUNTDOWN_5S) {
-            _bleDelegate.respondAuth(false);
-            return true;
-        }
-
         if (state == RowerView.STATE_SCANNING) {
             _bleDelegate.disconnect();
             return false; // Standard Garmin watch-app exit
         } else if (state == RowerView.STATE_MENU) {
             _view.setAppState(RowerView.STATE_SCANNING);
+            return true;
+        } else if (state == RowerView.STATE_PAIRING_INPUT) {
+            var canExit = _view.backspacePairingSlot();
+            if (canExit) {
+                _view.setAppState(RowerView.STATE_MENU);
+            }
+            return true;
+        } else if (state == RowerView.STATE_PAIRING_STATUS || state == RowerView.STATE_PAIRING_RESULT) {
+            _view.setAppState(RowerView.STATE_MENU);
             return true;
         } else if (state == RowerView.STATE_PIN_INPUT) {
             var canExit = _view.backspacePinDigit();
@@ -192,7 +215,6 @@ class RowerDelegate extends WatchUi.BehaviorDelegate {
             return true;
         } else if (state == RowerView.STATE_LATE_CHOICE || state == RowerView.STATE_LOBBY ||
                    state == RowerView.STATE_WAITING_START || state == RowerView.STATE_HISTORY ||
-                   state == RowerView.STATE_PLAYER_ID ||
                    state == RowerView.STATE_FINISHED || state == RowerView.STATE_PENDING_APPROVAL) {
             _view.setAppState(RowerView.STATE_MENU);
             return true;

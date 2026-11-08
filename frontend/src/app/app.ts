@@ -45,6 +45,9 @@ export class AppComponent implements OnInit, OnDestroy {
   racers: RowerData[] = [];
   liveMetricsList: LiveRacerMetric[] = [];
   activeViewMode: 'canvas' | 'cockpit' = 'canvas';
+  siteView: 'home' | 'regatta' | 'cockpit' = 'home';
+  userExplicitlyNavigatedHome = false;
+  isMobileSeoGuideOpen = false;
   userOverrodeViewMode = false;
   activeRacersCount = 0;
   myActivity: RowerData | null = null;
@@ -77,29 +80,23 @@ export class AppComponent implements OnInit, OnDestroy {
 
   // UI Modals
   isLoginModalOpen = false;
-  loginPendingRequestId: string | null = null;
-  loginStatusMessage = '';
-  loginErrorMessage = '';
-  isWaitingWatchApproval = false;
 
-  // Identification directe par montre Garmin
+  // Identification directe & Nouveau protocole d'appairage Garmin sécurisé (Code Web -> Montre)
   isWatchConfirmed = false;
   isPaired = false;
-  pairingSuffixInput = '';
-  pairingPrefixInput = '';
-  isPairingPending = false;
+  deviceToken = '';
+  pairingCode = '';
+  pairingCountdownSeconds = 300;
+  isGeneratingPairingCode = false;
   pairingSuccessMessage = '';
   pairingErrorMessage = '';
-  private pairingPollSub?: Subscription;
+  guestSessionId = '';
+  private pairingTimerSub?: Subscription;
+  private pairingStatusPollSub?: Subscription;
+  private garminPairedSub?: Subscription;
 
-  watchIdLoginInput = '';
-  isWatchIdLoginPending = false;
-  watchIdLoginMessage = '';
-  watchIdLoginError = '';
-  showCockpitBlockedModal = false;
-  cockpitAccessBlockedMessage = '';
-
-  // Sélection joueur cockpit dans la course
+  // Sélecteur de vue / Suivi de joueur (Caméra & Télémétrie spectateur)
+  selectedSpectatorUserId = '';
   selectedCockpitPlayerId = '';
 
   // Personnalisation préfixe identifiant joueur (abonnés)
@@ -200,7 +197,7 @@ export class AppComponent implements OnInit, OnDestroy {
   deleteAccountError = '';
 
   // Espace de contenu SEO multilingue
-  activeSeoLang: 'fr' | 'en' | 'de' | 'es' | 'it' = 'fr';
+  activeSeoLang: 'fr' | 'en' | 'de' | 'es' | 'it' | 'pt' = 'fr';
   isSeoSectionExpanded = false;
 
   // Classement général
@@ -219,7 +216,6 @@ export class AppComponent implements OnInit, OnDestroy {
   privateUrlError = '';
 
 
-  private authCheckSub?: Subscription;
   private socketSub?: Subscription;
   private statusSub?: Subscription;
   private privateUpdateSub?: Subscription;
@@ -336,19 +332,21 @@ export class AppComponent implements OnInit, OnDestroy {
 
     const storedIsSub = typeof localStorage !== 'undefined' ? localStorage.getItem('rower_is_subscriber') === 'true' : false;
     const storedIsAdmin = typeof localStorage !== 'undefined' ? localStorage.getItem('rower_is_admin') === 'true' : false;
-    const storedWatchConfirmed = typeof localStorage !== 'undefined' ? localStorage.getItem('rower_watch_confirmed') === 'true' : false;
+    const storedDeviceToken = typeof localStorage !== 'undefined' ? localStorage.getItem('rower_device_token') : null;
     const storedIsPaired = typeof localStorage !== 'undefined' ? localStorage.getItem('rower_is_paired') === 'true' : false;
-    this.isPaired = storedIsPaired || storedWatchConfirmed;
+    this.isPaired = storedIsPaired && !!storedDeviceToken;
     this.isWatchConfirmed = this.isPaired;
-    this.watchIdLoginInput = this.activeUserId;
-
-    const storedPrefix = typeof localStorage !== 'undefined' ? localStorage.getItem('rower_watch_prefix') : null;
-    const storedSuffix = typeof localStorage !== 'undefined' ? localStorage.getItem('rower_watch_suffix') : null;
-    if (storedPrefix) {
-      this.pairingPrefixInput = storedPrefix;
+    if (storedDeviceToken) {
+      this.deviceToken = storedDeviceToken;
     }
-    if (storedSuffix) {
-      this.pairingSuffixInput = storedSuffix;
+
+    if (typeof localStorage !== 'undefined') {
+      let gid = localStorage.getItem('guest_session_id');
+      if (!gid) {
+        gid = 'guest_' + Math.random().toString(36).substring(2, 9);
+        try { localStorage.setItem('guest_session_id', gid); } catch {}
+      }
+      this.guestSessionId = gid;
     }
 
     if (storedLogin) {
@@ -370,6 +368,7 @@ export class AppComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.activeViewMode = this.detectTerminalViewMode();
+    this.syncSeoLanguage(this.i18n.getCurrentLang());
     this.loadUserProfile();
     this.loadGeneralLeaderboard();
     this.loadPastRaces();
@@ -417,10 +416,6 @@ export class AppComponent implements OnInit, OnDestroy {
       this.pollingSub.unsubscribe();
       this.pollingSub = undefined;
     }
-    if (this.authCheckSub) {
-      this.authCheckSub.unsubscribe();
-      this.authCheckSub = undefined;
-    }
     if (this.socketSub) {
       this.socketSub.unsubscribe();
       this.socketSub = undefined;
@@ -437,9 +432,17 @@ export class AppComponent implements OnInit, OnDestroy {
       this.countdownTickerSub.unsubscribe();
       this.countdownTickerSub = undefined;
     }
-    if (this.pairingPollSub) {
-      this.pairingPollSub.unsubscribe();
-      this.pairingPollSub = undefined;
+    if (this.pairingTimerSub) {
+      this.pairingTimerSub.unsubscribe();
+      this.pairingTimerSub = undefined;
+    }
+    if (this.pairingStatusPollSub) {
+      this.pairingStatusPollSub.unsubscribe();
+      this.pairingStatusPollSub = undefined;
+    }
+    if (this.garminPairedSub) {
+      this.garminPairedSub.unsubscribe();
+      this.garminPairedSub = undefined;
     }
     if (this.joinedSocketRaceId) {
       this.socketService.leaveRaceRoom(this.joinedSocketRaceId);
@@ -462,99 +465,6 @@ export class AppComponent implements OnInit, OnDestroy {
     this.isPseudoFullscreen = false;
     this.syncPseudoFullscreenClass();
     this.wakeLockService.releaseWakeLock();
-  }
-
-  /**
-   * Envoi de la demande d'authentification sur le front web.
-   * La montre Garmin doit avoir lancé l'app pour valider la demande.
-   */
-  startWebLogin(): void {
-    if (!this.userIdInput || !this.userLoginInput) {
-      this.loginErrorMessage = 'Veuillez saisir votre login et le code de votre montre.';
-      return;
-    }
-
-    this.loginErrorMessage = '';
-    this.loginStatusMessage = 'Vérification de la connexion avec votre montre Garmin...';
-    this.isWaitingWatchApproval = true;
-
-    this.rowerService.requestWebLogin(this.userIdInput.trim(), this.userLoginInput.trim()).subscribe({
-      next: (res) => {
-        if (res.success && res.requestId) {
-          this.loginPendingRequestId = res.requestId;
-          this.loginStatusMessage = 'Notification envoyée sur votre montre ! Veuillez accepter la connexion sur votre montre.';
-          this.pollLoginApproval(res.requestId);
-        } else {
-          this.isWaitingWatchApproval = false;
-          this.loginErrorMessage = res.message || 'Connexion refusée.';
-        }
-        this.cdr.markForCheck();
-      },
-      error: (err) => {
-        this.isWaitingWatchApproval = false;
-        if (err.error && err.error.error === 'WATCH_NOT_CONNECTED') {
-          this.loginErrorMessage = "L'application Garmin Rower Race doit être lancée sur votre montre pour vous connecter !";
-        } else {
-          this.loginErrorMessage = err.error?.message || 'Erreur lors de la demande de connexion.';
-        }
-        this.cdr.markForCheck();
-      }
-    });
-  }
-
-  private pollLoginApproval(requestId: string): void {
-    if (this.authCheckSub) {
-      this.authCheckSub.unsubscribe();
-    }
-
-    this.authCheckSub = interval(1500).pipe(
-      switchMap(() => this.rowerService.checkWebLoginStatus(requestId))
-    ).subscribe({
-      next: (res) => {
-        if (res.status === 'approved') {
-          this.authCheckSub?.unsubscribe();
-          this.activeUserId = res.userId;
-          this.currentUser.id = res.userId;
-          this.currentUser.name = res.login;
-          this.isWatchConfirmed = true;
-          this.watchIdLoginInput = res.userId;
-          try {
-            localStorage.setItem('rower_user_id', res.userId);
-            localStorage.setItem('rower_user_login', res.login);
-            localStorage.setItem('rower_watch_confirmed', 'true');
-          } catch {}
-
-          this.isWaitingWatchApproval = false;
-          this.isLoginModalOpen = false;
-          this.loadUserProfile();
-          this.cdr.markForCheck();
-        } else if (res.status === 'rejected') {
-          this.authCheckSub?.unsubscribe();
-          this.isWaitingWatchApproval = false;
-          this.loginErrorMessage = 'Connexion refusée depuis votre montre.';
-          this.cdr.markForCheck();
-        } else if (res.status === 'expired') {
-          this.authCheckSub?.unsubscribe();
-          this.isWaitingWatchApproval = false;
-          this.loginErrorMessage = 'La demande a expiré.';
-          this.cdr.markForCheck();
-        }
-      },
-      error: () => {
-        this.authCheckSub?.unsubscribe();
-        this.isWaitingWatchApproval = false;
-      }
-    });
-  }
-
-  cancelLogin(): void {
-    if (this.authCheckSub) {
-      this.authCheckSub.unsubscribe();
-    }
-    this.isWaitingWatchApproval = false;
-    this.isLoginModalOpen = false;
-    this.loginErrorMessage = '';
-    this.loginStatusMessage = '';
   }
 
   /**
@@ -607,6 +517,9 @@ export class AppComponent implements OnInit, OnDestroy {
             this.countdownSeconds = 0;
             this.is3sCountdown = false;
             this.isPreStartCountdown = false;
+            if (this.siteView === 'home' && !this.userExplicitlyNavigatedHome) {
+              this.siteView = this.activeViewMode === 'cockpit' ? 'cockpit' : 'regatta';
+            }
           } else {
             const serverRemaining = raceData.secondsRemaining;
             if (serverRemaining !== undefined && serverRemaining !== null) {
@@ -862,7 +775,7 @@ export class AppComponent implements OnInit, OnDestroy {
     this.isCreatingBotDuel = true;
     this.botDuelError = '';
 
-    const hostUserId = this.activeUserId || this.watchIdLoginInput.trim() || `guest_${Math.random().toString(36).substring(2, 7)}`;
+    const hostUserId = this.activeUserId || this.guestSessionId || `guest_${Math.random().toString(36).substring(2, 7)}`;
     const hostUserName = this.botDuelName?.trim() || this.currentUser?.name || `Racer_${hostUserId.slice(-4)}`;
 
     if (!this.activeUserId) {
@@ -1316,6 +1229,43 @@ export class AppComponent implements OnInit, OnDestroy {
 
   changeLanguage(langCode: string): void {
     this.i18n.setLang(langCode as SupportedLang);
+    this.syncSeoLanguage(langCode);
+    this.cdr.markForCheck();
+  }
+
+  syncSeoLanguage(langCode: string): void {
+    const validLangs: Array<'fr' | 'en' | 'de' | 'es' | 'it' | 'pt'> = ['fr', 'en', 'de', 'es', 'it', 'pt'];
+    if (validLangs.includes(langCode as any)) {
+      this.activeSeoLang = langCode as 'fr' | 'en' | 'de' | 'es' | 'it' | 'pt';
+    } else {
+      this.activeSeoLang = 'en';
+    }
+  }
+
+  setSiteView(view: 'home' | 'regatta' | 'cockpit'): void {
+    this.siteView = view;
+    if (view === 'regatta') {
+      this.activeViewMode = 'canvas';
+      this.userExplicitlyNavigatedHome = false;
+    } else if (view === 'cockpit') {
+      this.activeViewMode = 'cockpit';
+      this.userExplicitlyNavigatedHome = false;
+    } else {
+      this.userExplicitlyNavigatedHome = true;
+    }
+    this.cdr.markForCheck();
+  }
+
+  isViewActive(view: string): boolean {
+    return this.siteView === view;
+  }
+
+  toggleMobileSeoGuide(event?: Event): void {
+    if (event) {
+      event.preventDefault();
+    }
+    this.isMobileSeoGuideOpen = !this.isMobileSeoGuideOpen;
+    this.cdr.markForCheck();
   }
 
   get activeTargetDistance(): number {
@@ -1348,7 +1298,6 @@ export class AppComponent implements OnInit, OnDestroy {
     this.isStandingsOpen = false;
     this.isLegalTermsOpen = false;
     this.isBotDuelModalOpen = false;
-    this.showCockpitBlockedModal = false;
     this.isStatisticsModalOpen = false;
   }
 
@@ -1527,8 +1476,9 @@ export class AppComponent implements OnInit, OnDestroy {
     this.cdr.markForCheck();
   }
 
-  setSeoLang(lang: 'fr' | 'en' | 'de' | 'es' | 'it'): void {
+  setSeoLang(lang: 'fr' | 'en' | 'de' | 'es' | 'it' | 'pt'): void {
     this.activeSeoLang = lang;
+    this.i18n.setLang(lang);
     this.cdr.markForCheck();
   }
 
@@ -1587,7 +1537,7 @@ export class AppComponent implements OnInit, OnDestroy {
     const width = window.innerWidth;
     const isTouch = typeof navigator !== 'undefined' && (((navigator as any).maxTouchPoints && (navigator as any).maxTouchPoints > 0) || 'ontouchstart' in window);
     const isMobileUA = /Android|iPhone|iPad|iPod|Mobile|IEMobile|Silk|Kindle/i.test(navigator.userAgent || '');
-    return isMobileUA || Boolean(isTouch) || width <= 1024;
+    return isMobileUA || width <= 1024 || (Boolean(isTouch) && width <= 1200);
   }
 
   get isSmartphone(): boolean {
@@ -1602,7 +1552,27 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   get canAccessCockpit(): boolean {
-    return Boolean((this.isWatchConfirmed || this.isPaired) && this.isUserAssociatedWithRace);
+    return true;
+  }
+
+  get formattedPairingCountdown(): string {
+    const m = Math.floor(this.pairingCountdownSeconds / 60);
+    const s = this.pairingCountdownSeconds % 60;
+    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  }
+
+  get selectedSpectatorRacerName(): string {
+    if (!this.selectedSpectatorUserId) return '';
+    const racer = this.racers.find(r => r.userId === this.selectedSpectatorUserId);
+    return racer?.userName || racer?.userId || this.selectedSpectatorUserId;
+  }
+
+  get focusedTelemetry(): RowerData | null {
+    if (this.selectedSpectatorUserId && this.selectedSpectatorUserId !== this.activeUserId) {
+      const found = this.racers.find(r => r.userId === this.selectedSpectatorUserId);
+      if (found) return found;
+    }
+    return this.myActivity;
   }
 
   get isFinished(): boolean {
@@ -1648,15 +1618,14 @@ export class AppComponent implements OnInit, OnDestroy {
     return `${prefix}_${suffix}`;
   }
 
-  onSelectCockpitPlayer(userId: string): void {
-    if (!userId) return;
+  onSpectatorSelect(userId: string): void {
+    this.selectedSpectatorUserId = userId;
     this.selectedCockpitPlayerId = userId;
-    this.watchIdLoginInput = userId;
-    if (this.isWatchConfirmed && this.activeUserId === userId) {
-      this.switchViewMode('cockpit');
-    } else {
-      this.identifyWithWatchId();
-    }
+    this.cdr.markForCheck();
+  }
+
+  onSelectCockpitPlayer(userId: string): void {
+    this.onSpectatorSelect(userId);
   }
 
   saveCustomPrefix(): void {
@@ -1802,218 +1771,163 @@ export class AppComponent implements OnInit, OnDestroy {
     return null;
   }
 
-  identifyWithWatchId(): void {
-    const rawWatchId = (this.watchIdLoginInput || '').trim() || (this.selectedCockpitPlayerId || '').trim();
-    if (!rawWatchId) {
-      this.watchIdLoginError = 'Veuillez sélectionner un coureur ou saisir votre identifiant de montre Garmin.';
-      return;
-    }
-    const watchId = rawWatchId;
-    this.watchIdLoginInput = watchId;
-    this.watchIdLoginError = '';
-    this.watchIdLoginMessage = 'Notification envoyée sur votre montre... Veuillez confirmer sur votre montre !';
-    this.isWatchIdLoginPending = true;
+  // =========================================================================
+  // NOUVEAU PROTOCOLE D'APPAIRAGE GARMIN SÉCURISÉ (Code Web -> Montre)
+  // =========================================================================
 
-    this.rowerService.requestWebLogin(watchId, watchId).subscribe({
+  generateGarminPairingCode(): void {
+    this.isGeneratingPairingCode = true;
+    this.pairingErrorMessage = '';
+    this.pairingSuccessMessage = '';
+    const targetUserId = this.activeUserId || this.currentUser?.id || this.guestSessionId;
+
+    this.rowerService.requestGarminPairingCode(targetUserId).subscribe({
       next: (res) => {
-        if (res.success && res.requestId) {
-          this.pollWatchIdApproval(res.requestId, watchId);
+        this.isGeneratingPairingCode = false;
+        if (res && res.success && res.pairingCode) {
+          this.pairingCode = res.pairingCode;
+          this.pairingCountdownSeconds = res.expiresInSeconds || 300;
+          this.startPairingCountdown();
+          this.startPairingStatusPolling(res.pairingCode);
         } else {
-          this.isWatchIdLoginPending = false;
-          this.watchIdLoginError = res.message || "Échec de la demande d'identification.";
+          this.pairingErrorMessage = "Erreur lors de la génération du code d'appairage.";
         }
         this.cdr.markForCheck();
       },
       error: (err) => {
-        this.isWatchIdLoginPending = false;
-        if (err.error?.error === 'WATCH_NOT_CONNECTED') {
-          this.watchIdLoginError = "L'application Garmin Rower Race doit être lancée sur votre montre pour confirmer !";
-        } else {
-          this.watchIdLoginError = err.error?.message || "Erreur lors de la demande d'identification.";
-        }
+        this.isGeneratingPairingCode = false;
+        this.pairingErrorMessage = err?.error?.message || "Impossible de contacter le serveur d'appairage.";
         this.cdr.markForCheck();
       }
     });
   }
 
-  private pollWatchIdApproval(requestId: string, watchId: string): void {
-    if (this.authCheckSub) {
-      this.authCheckSub.unsubscribe();
+  private startPairingCountdown(): void {
+    if (this.pairingTimerSub) {
+      this.pairingTimerSub.unsubscribe();
     }
-    this.authCheckSub = interval(1500).pipe(
-      switchMap(() => this.rowerService.checkWebLoginStatus(requestId))
+    this.pairingTimerSub = interval(1000).subscribe(() => {
+      if (this.pairingCountdownSeconds > 0) {
+        this.pairingCountdownSeconds--;
+        this.cdr.markForCheck();
+      } else {
+        if (this.pairingTimerSub) {
+          this.pairingTimerSub.unsubscribe();
+          this.pairingTimerSub = undefined;
+        }
+        if (this.pairingStatusPollSub) {
+          this.pairingStatusPollSub.unsubscribe();
+          this.pairingStatusPollSub = undefined;
+        }
+        this.pairingCode = '';
+        this.pairingErrorMessage = "Le code d'appairage a expiré. Veuillez en générer un nouveau.";
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  private startPairingStatusPolling(code: string): void {
+    if (this.pairingStatusPollSub) {
+      this.pairingStatusPollSub.unsubscribe();
+    }
+    this.pairingStatusPollSub = interval(2000).pipe(
+      switchMap(() => this.rowerService.getGarminPairingStatus({ pairingCode: code }))
     ).subscribe({
       next: (res) => {
-        if (res.status === 'approved') {
-          this.authCheckSub?.unsubscribe();
-          this.isWatchIdLoginPending = false;
-          this.isWatchConfirmed = true;
-          this.activeUserId = res.userId || watchId;
-          this.currentUser.id = this.activeUserId;
-          this.currentUser.name = res.login || watchId;
-          this.userIdInput = this.activeUserId;
-          this.userLoginInput = this.currentUser.name;
-          try {
-            localStorage.setItem('rower_user_id', this.activeUserId);
-            localStorage.setItem('rower_user_login', this.currentUser.name);
-            localStorage.setItem('rower_watch_confirmed', 'true');
-          } catch {}
-          this.watchIdLoginMessage = `✓ Montre [${this.activeUserId}] confirmée avec succès !`;
-          this.showCockpitBlockedModal = false;
-          this.loadUserProfile();
-          this.switchViewMode('cockpit');
-          this.cdr.markForCheck();
-        } else if (res.status === 'rejected') {
-          this.authCheckSub?.unsubscribe();
-          this.isWatchIdLoginPending = false;
-          this.watchIdLoginError = 'Identification refusée depuis votre montre.';
-          this.cdr.markForCheck();
-        } else if (res.status === 'expired') {
-          this.authCheckSub?.unsubscribe();
-          this.isWatchIdLoginPending = false;
-          this.watchIdLoginError = 'La demande a expiré.';
+        if (res && (res.status === 'paired' || res.paired) && res.deviceToken) {
+          this.onWatchPairedSuccess(res.deviceToken, res.userId);
+        } else if (res && res.status === 'expired') {
+          this.pairingCode = '';
+          this.pairingErrorMessage = "Le code d'appairage a expiré.";
+          if (this.pairingStatusPollSub) {
+            this.pairingStatusPollSub.unsubscribe();
+            this.pairingStatusPollSub = undefined;
+          }
           this.cdr.markForCheck();
         }
       },
-      error: () => {
-        this.authCheckSub?.unsubscribe();
-        this.isWatchIdLoginPending = false;
-        this.cdr.markForCheck();
-      }
+      error: () => {}
     });
   }
 
-  disconnectWatch(): void {
-    this.clearPairing();
-    this.activeViewMode = 'canvas';
+  onWatchPairedSuccess(deviceToken: string, userId?: string): void {
+    if (this.pairingTimerSub) {
+      this.pairingTimerSub.unsubscribe();
+      this.pairingTimerSub = undefined;
+    }
+    if (this.pairingStatusPollSub) {
+      this.pairingStatusPollSub.unsubscribe();
+      this.pairingStatusPollSub = undefined;
+    }
+    this.pairingCode = '';
+    this.isPaired = true;
+    this.isWatchConfirmed = true;
+    this.deviceToken = deviceToken;
+    this.pairingSuccessMessage = '✓ Montre Garmin connectée avec succès !';
+    this.pairingErrorMessage = '';
+
+    if (userId && (!this.activeUserId || this.activeUserId.startsWith('guest_'))) {
+      this.activeUserId = userId;
+      this.currentUser.id = userId;
+    }
+
+    try {
+      localStorage.setItem('rower_is_paired', 'true');
+      localStorage.setItem('rower_watch_confirmed', 'true');
+      localStorage.setItem('rower_device_token', deviceToken);
+      if (userId) {
+        localStorage.setItem('rower_user_id', userId);
+      }
+    } catch {}
+
+    this.loadUserProfile();
+    this.cdr.markForCheck();
+  }
+
+  resetGarminPairing(): void {
+    const tokenToRevoke = this.deviceToken;
+    const userToRevoke = this.activeUserId || this.guestSessionId;
+
+    if (tokenToRevoke) {
+      this.rowerService.resetGarminPairing(tokenToRevoke, userToRevoke).subscribe({
+        next: () => {},
+        error: () => {}
+      });
+    }
+
+    this.isPaired = false;
+    this.isWatchConfirmed = false;
+    this.deviceToken = '';
+    this.pairingCode = '';
+    this.pairingSuccessMessage = '';
+    this.pairingErrorMessage = '';
+
+    if (this.pairingTimerSub) {
+      this.pairingTimerSub.unsubscribe();
+      this.pairingTimerSub = undefined;
+    }
+    if (this.pairingStatusPollSub) {
+      this.pairingStatusPollSub.unsubscribe();
+      this.pairingStatusPollSub = undefined;
+    }
+
+    try {
+      localStorage.removeItem('rower_is_paired');
+      localStorage.removeItem('rower_watch_confirmed');
+      localStorage.removeItem('rower_device_token');
+    } catch {}
+
     this.cdr.markForCheck();
   }
 
   clearPairing(): void {
-    this.isPaired = false;
-    this.isWatchConfirmed = false;
-    this.pairingSuccessMessage = '';
-    this.pairingErrorMessage = '';
-    this.pairingSuffixInput = '';
-    this.pairingPrefixInput = '';
-    this.watchIdLoginMessage = '';
-    this.watchIdLoginError = '';
-    this.selectedCockpitPlayerId = '';
-    try {
-      localStorage.removeItem('rower_is_paired');
-      localStorage.removeItem('rower_watch_confirmed');
-      localStorage.removeItem('rower_watch_prefix');
-      localStorage.removeItem('rower_watch_suffix');
-    } catch {}
-
-    if (!this.isSubscriber && !this.isUserAdmin) {
-      const randId = Math.random().toString(36).substring(2, 8);
-      this.activeUserId = `usr_${randId}`;
-      this.userIdInput = this.activeUserId;
-      const guestName = `Racer_${this.activeUserId.slice(-4)}`;
-      this.currentUser = {
-        id: this.activeUserId,
-        name: guestName,
-        isSubscriber: false,
-        isAdmin: false
-      };
-      this.userLoginInput = guestName;
-      try {
-        localStorage.setItem('rower_user_id', this.activeUserId);
-        localStorage.setItem('rower_user_login', guestName);
-      } catch {}
-    }
-    this.cdr.markForCheck();
+    this.resetGarminPairing();
   }
 
-  startGarminPairing(): void {
-    const cleanSuffix = (this.pairingSuffixInput || '').trim();
-    const cleanPrefix = (this.pairingPrefixInput || '').trim().slice(0, 10);
-
-    if (!cleanSuffix) {
-      this.pairingErrorMessage = 'Veuillez saisir le suffixe de votre identifiant affiché sur la montre.';
-      return;
-    }
-    if (!cleanPrefix) {
-      this.pairingErrorMessage = 'Veuillez saisir votre pseudo / préfixe (10 caractères max).';
-      return;
-    }
-
-    this.isPairingPending = true;
-    this.pairingErrorMessage = '';
-    this.pairingSuccessMessage = 'Demande envoyée à votre montre... Veuillez valider sur votre montre Garmin.';
+  disconnectWatch(): void {
+    this.resetGarminPairing();
+    this.activeViewMode = 'canvas';
     this.cdr.markForCheck();
-
-    const computedUserId = `${cleanPrefix}_${cleanSuffix}`;
-
-    this.rowerService.requestWebLogin(computedUserId, cleanPrefix, cleanPrefix, cleanSuffix).subscribe({
-      next: (res) => {
-        if (res && res.success && res.requestId) {
-          this.pollPairingApproval(res.requestId, cleanPrefix, cleanSuffix);
-        } else {
-          this.isPairingPending = false;
-          this.pairingErrorMessage = res?.message || "Erreur lors de l'envoi de la demande d'appareillage.";
-          this.cdr.markForCheck();
-        }
-      },
-      error: (err) => {
-        this.isPairingPending = false;
-        this.pairingErrorMessage = err?.error?.message || "Erreur de connexion lors de l'envoi à la montre.";
-        this.cdr.markForCheck();
-      }
-    });
-  }
-
-  private pollPairingApproval(requestId: string, prefix: string, suffix: string): void {
-    if (this.pairingPollSub) {
-      this.pairingPollSub.unsubscribe();
-    }
-    this.pairingPollSub = interval(1500).pipe(
-      switchMap(() => this.rowerService.checkWebLoginStatus(requestId))
-    ).subscribe({
-      next: (res) => {
-        if (res.status === 'approved') {
-          this.pairingPollSub?.unsubscribe();
-          this.isPairingPending = false;
-          const fullId = res.userId || `${prefix}_${suffix}`;
-          const userName = res.login || prefix;
-          this.activeUserId = fullId;
-          this.currentUser.id = fullId;
-          this.currentUser.name = userName;
-          this.userIdInput = fullId;
-          this.userLoginInput = userName;
-          this.watchIdLoginInput = fullId;
-          this.isPaired = true;
-          this.isWatchConfirmed = true;
-          try {
-            localStorage.setItem('rower_user_id', fullId);
-            localStorage.setItem('rower_user_login', userName);
-            localStorage.setItem('rower_is_paired', 'true');
-            localStorage.setItem('rower_watch_confirmed', 'true');
-            localStorage.setItem('rower_watch_prefix', prefix);
-            localStorage.setItem('rower_watch_suffix', suffix);
-          } catch {}
-          this.pairingSuccessMessage = `✓ Appareillage réussi ! Identifiant [${fullId}] enregistré.`;
-          this.loadUserProfile();
-          this.cdr.markForCheck();
-        } else if (res.status === 'rejected') {
-          this.pairingPollSub?.unsubscribe();
-          this.isPairingPending = false;
-          this.pairingErrorMessage = "Appareillage refusé depuis votre montre.";
-          this.cdr.markForCheck();
-        } else if (res.status === 'expired') {
-          this.pairingPollSub?.unsubscribe();
-          this.isPairingPending = false;
-          this.pairingErrorMessage = "La demande d'appareillage a expiré.";
-          this.cdr.markForCheck();
-        }
-      },
-      error: () => {
-        this.pairingPollSub?.unsubscribe();
-        this.isPairingPending = false;
-        this.cdr.markForCheck();
-      }
-    });
   }
 
   openStandingsModal(): void {
@@ -2032,24 +1946,10 @@ export class AppComponent implements OnInit, OnDestroy {
 
   switchViewMode(mode: 'canvas' | 'cockpit'): void {
     this.closeAllOverlayModals();
-    if (mode === 'cockpit' && !this.canAccessCockpit) {
-      if (this.isMobileFullscreenOnly) {
-        // En mode plein écran mobile/tablette, afficher le cockpit avec la sélection du joueur
-        this.userOverrodeViewMode = true;
-        this.activeViewMode = 'cockpit';
-        this.cdr.markForCheck();
-        return;
-      }
-      this.cockpitAccessBlockedMessage = !this.isWatchConfirmed
-        ? "Pour accéder à votre cockpit, vous devez d'abord vous identifier avec votre montre Garmin sur la page d'accueil et valider la notification sur votre montre."
-        : "Votre montre est confirmée, mais vous n'êtes pas associé à la course en cours (publique ou invité dans un salon privé). Seule la vue Régate 2D est accessible aux spectateurs.";
-      this.showCockpitBlockedModal = true;
-      this.activeViewMode = 'canvas';
-      this.cdr.markForCheck();
-      return;
-    }
     this.userOverrodeViewMode = true;
     this.activeViewMode = mode;
+    this.siteView = mode === 'canvas' ? 'regatta' : 'cockpit';
+    this.userExplicitlyNavigatedHome = false;
     this.cdr.markForCheck();
   }
 
@@ -2222,6 +2122,18 @@ export class AppComponent implements OnInit, OnDestroy {
             this.cdr.markForCheck();
           }
         });
+      }
+    });
+
+    if (this.garminPairedSub) {
+      this.garminPairedSub.unsubscribe();
+    }
+    this.garminPairedSub = this.socketService.onGarminPaired().subscribe((data) => {
+      if (data && data.deviceToken) {
+        const currentId = this.activeUserId || this.currentUser?.id || this.guestSessionId;
+        if (!this.isPaired || data.userId === currentId) {
+          this.onWatchPairedSuccess(data.deviceToken, data.userId);
+        }
       }
     });
   }

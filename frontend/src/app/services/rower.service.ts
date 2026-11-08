@@ -219,19 +219,30 @@ export class RowerService {
     return this.http.get<GeneralLeaderboardResponse>(`${this.apiUrl}/api/user/leaderboard`, { params });
   }
 
-  // Demande d'authentification envoyée à la montre Garmin
-  requestWebLogin(userId: string, login: string, prefix?: string, suffix?: string): Observable<{ success: boolean; requestId?: string; message: string; error?: string }> {
-    return this.http.post<{ success: boolean; requestId?: string; message: string; error?: string }>(`${this.apiUrl}/api/user/auth/request`, {
-      userId,
-      login,
-      prefix,
-      suffix
-    });
+  // --- NOUVEAU PROTOCOLE D'APPAIRAGE GARMIN <-> WEB ---
+  requestGarminPairingCode(userId: string): Observable<{ success: boolean; pairingCode: string; expiresAt: string; expiresInSeconds: number; userId: string }> {
+    return this.http.post<{ success: boolean; pairingCode: string; expiresAt: string; expiresInSeconds: number; userId: string }>(
+      `${this.apiUrl}/api/garmin/pairing-code`,
+      { userId }
+    );
   }
 
-  // Vérification de la réponse d'acceptation de la montre
-  checkWebLoginStatus(requestId: string): Observable<{ success: boolean; status: 'pending' | 'approved' | 'rejected' | 'expired'; userId: string; login: string }> {
-    return this.http.get<{ success: boolean; status: 'pending' | 'approved' | 'rejected' | 'expired'; userId: string; login: string }>(`${this.apiUrl}/api/user/auth/status/${requestId}`);
+  getGarminPairingStatus(filter: { userId?: string; pairingCode?: string; deviceToken?: string }): Observable<{ success: boolean; paired: boolean; status: string; deviceToken?: string; userId?: string; deviceId?: string }> {
+    let params = new HttpParams();
+    if (filter.userId) params = params.set('userId', filter.userId);
+    if (filter.pairingCode) params = params.set('pairingCode', filter.pairingCode);
+    if (filter.deviceToken) params = params.set('deviceToken', filter.deviceToken);
+    return this.http.get<{ success: boolean; paired: boolean; status: string; deviceToken?: string; userId?: string; deviceId?: string }>(
+      `${this.apiUrl}/api/garmin/pairing-status`,
+      { params }
+    );
+  }
+
+  resetGarminPairing(deviceToken?: string, userId?: string): Observable<{ success: boolean; message: string }> {
+    return this.http.post<{ success: boolean; message: string }>(
+      `${this.apiUrl}/api/garmin/reset`,
+      { deviceToken, userId }
+    );
   }
 
   // Inscription abonné

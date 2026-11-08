@@ -4,6 +4,7 @@ import defineActivities, { ActivityModel } from "./activity.model";
 import defineRaces, { RaceSessionModel } from "./race.model";
 import defineUsers, { UserModel } from "./user.model";
 import defineLoginRequests, { LoginRequestModel } from "./login-request.model";
+import definePairings, { PairingModel } from "./pairing.model";
 
 const connectionUrl =
   process.env.DATABASE_URL ||
@@ -38,6 +39,7 @@ export interface Database {
   races: RaceSessionModel;
   users: UserModel;
   loginRequests: LoginRequestModel;
+  pairings: PairingModel;
 }
 
 export const db: Database = {
@@ -47,6 +49,7 @@ export const db: Database = {
   races: defineRaces(sequelize, DataTypes),
   users: defineUsers(sequelize, DataTypes),
   loginRequests: defineLoginRequests(sequelize, DataTypes),
+  pairings: definePairings(sequelize, DataTypes),
 };
 
 export default db;

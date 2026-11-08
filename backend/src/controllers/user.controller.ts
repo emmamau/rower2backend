@@ -158,7 +158,7 @@ export const registerUser = async (req: Request, res: Response): Promise<void> =
       passwordHash: hash,
       passwordSalt: salt,
       isSubscriber: true, // Les inscrits sont abonnés et ont le droit de créer des salons privés
-      isConfirmed: isEmmaAdmin, // EmmaRacer auto-confirmée, les autres confirmables via Garmin
+      isConfirmed: true,
       watchUserId: watchUserId ? String(watchUserId).trim() : undefined,
       isAdmin: isEmmaAdmin,
       totalRaces: 0,
@@ -169,23 +169,13 @@ export const registerUser = async (req: Request, res: Response): Promise<void> =
       lastRank: 0,
     });
 
-    // Créer une demande de confirmation d'inscription pour l'application Garmin
-    const confirmReqId = `REG_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-    await userStore.createLoginRequest({
-      id: confirmReqId,
-      userId: watchUserId ? String(watchUserId).trim() : cleanLogin,
-      login: cleanLogin,
-      status: "pending",
-    });
-
     // Envoi du courriel de bienvenue (préparé pour la production)
     emailService.sendWelcomeEmail(cleanEmail, `${cleanFirstName} ${cleanLastName}`, cleanLogin).catch(() => {});
 
     res.status(201).json({
       success: true,
-      message: "Compte abonné créé avec succès. Le login sert à confirmer l'inscription sur votre montre Garmin.",
+      message: "Compte abonné créé avec succès.",
       user: sanitizeUser(newUser),
-      confirmationRequestId: confirmReqId,
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
@@ -384,203 +374,6 @@ export const getUserAccount = async (req: Request, res: Response): Promise<void>
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     res.status(500).json({ success: false, message: "Erreur compte: " + message });
-  }
-};
-
-/**
- * POST /api/user/auth/request
- * Déclenché quand le joueur entre son login et son identifiant sur le front web.
- * Vérifie que la montre est active (activité récente).
- * Si oui, crée une demande d'autorisation pour la montre.
- */
-export const requestWebLogin = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { userId, login, prefix, suffix } = req.body || {};
-
-    let targetUserId = userId;
-    let targetLogin = login;
-
-    if (suffix) {
-      const cleanPrefix = String(prefix || "Rower").trim().slice(0, 10) || "Rower";
-      const cleanSuffix = String(suffix).trim();
-      targetUserId = `${cleanPrefix}_${cleanSuffix}`;
-      targetLogin = cleanPrefix;
-    }
-
-    if (!targetUserId || !targetLogin) {
-      res.status(400).json({ success: false, message: "userId et login (ou prefix et suffix) requis" });
-      return;
-    }
-
-    const isPairingAttempt = Boolean(suffix);
-
-    if (!isPairingAttempt) {
-      // Vérifier si la montre a lancé l'application (présence d'une activité au cours des 10 dernières minutes)
-      const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
-      let activeActivity = null;
-      try {
-        activeActivity = await Activities.findOne({
-          where: {
-            userId: targetUserId,
-            updatedAt: { [Op.gte]: tenMinutesAgo },
-          },
-          order: [["updatedAt", "DESC"]],
-        });
-      } catch {
-        // Tolérance test / hors-ligne
-      }
-
-      const inActiveRace = raceManager.isRacerActive(targetUserId) ||
-        Boolean(raceManager.getCurrentPublicRace()?.participants?.has(targetUserId));
-
-      if (!activeActivity && !inActiveRace && process.env.NODE_ENV !== "test" && !process.env.TEST_MODE) {
-        res.status(403).json({
-          success: false,
-          error: "WATCH_NOT_CONNECTED",
-          message: "L'application Garmin Rower Race doit être lancée sur votre montre pour vous connecter.",
-        });
-        return;
-      }
-    }
-
-    // Créer ou renouveler la demande d'authentification
-    const requestId = `REQ_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-    const loginReq = await userStore.createLoginRequest({
-      id: requestId,
-      userId: targetUserId,
-      login: targetLogin,
-      status: "pending",
-    });
-
-    res.status(200).json({
-      success: true,
-      requestId: loginReq.id,
-      userId: targetUserId,
-      login: targetLogin,
-      message: "Demande envoyée à votre montre. Veuillez accepter sur votre montre Garmin.",
-    });
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err);
-    res.status(500).json({ success: false, message: "Erreur demande login: " + message });
-  }
-};
-
-/**
- * GET /api/user/auth/status/:requestId
- * Le front Angular consulte si la montre a accepté la connexion
- */
-export const checkWebLoginStatus = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { requestId } = req.params;
-    const loginReq = await userStore.findLoginRequestById(requestId);
-
-    if (!loginReq) {
-      res.status(404).json({ success: false, message: "Demande de connexion introuvable" });
-      return;
-    }
-
-    res.status(200).json({
-      success: true,
-      status: loginReq.status,
-      userId: loginReq.userId,
-      login: loginReq.login,
-    });
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err);
-    res.status(500).json({ success: false, message: "Erreur statut login: " + message });
-  }
-};
-
-/**
- * GET /api/user/auth/pending?userId=...
- * La montre Garmin consulte régulièrement s'il y a une demande de connexion du front web ou confirmation d'inscription
- */
-export const getPendingLoginRequest = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { userId, login } = req.query;
-    const lookupId = String(userId || login || "").trim();
-
-    if (!lookupId) {
-      res.status(400).json({ success: false, message: "userId ou login requis" });
-      return;
-    }
-
-    const pending = await userStore.findPendingLoginRequest(lookupId);
-
-    if (!pending) {
-      res.status(200).json({ hasPending: false });
-      return;
-    }
-
-    res.status(200).json({
-      hasPending: true,
-      requestId: pending.id,
-      login: pending.login,
-    });
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err);
-    res.status(500).json({ success: false, message: "Erreur attente login: " + message });
-  }
-};
-
-/**
- * POST /api/user/auth/respond
- * La montre Garmin accepte ou refuse la connexion ou l'inscription
- */
-export const respondLoginRequest = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { requestId, approved } = req.body;
-    const pending = await userStore.findLoginRequestById(requestId);
-
-    if (!pending) {
-      res.status(404).json({ success: false, message: "Demande introuvable" });
-      return;
-    }
-
-    const updated = await userStore.updateLoginRequest(requestId, {
-      status: approved ? "approved" : "rejected",
-      respondedAt: new Date(),
-    });
-
-    if (approved) {
-      const uId = pending.userId;
-      const uLogin = pending.login;
-
-      let user = await userStore.findUser(uLogin) || await userStore.findUser(uId);
-      const isEmmaAdmin = isEmmaAdminUser(uLogin, uId);
-
-      if (!user) {
-        user = await userStore.createUser({
-          id: uId,
-          name: uLogin,
-          login: uLogin,
-          watchUserId: uId,
-          isSubscriber: isEmmaAdmin,
-          isConfirmed: true,
-          totalRaces: 0,
-          totalWins: 0,
-          podiums: 0,
-          isAdmin: isEmmaAdmin,
-        });
-      } else {
-        user = (await userStore.updateUser(user.id, {
-          name: user.name || uLogin,
-          isConfirmed: true,
-          watchUserId: uId,
-          isAdmin: Boolean(isEmmaAdmin || user.isAdmin),
-          isSubscriber: Boolean(isEmmaAdmin || user.isSubscriber),
-        })) || user;
-      }
-
-      if (user && user.email) {
-        emailService.sendRegistrationConfirmationEmail(user.email, uLogin).catch(() => {});
-      }
-    }
-
-    res.status(200).json({ success: true, status: updated?.status || (approved ? "approved" : "rejected") });
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err);
-    res.status(500).json({ success: false, message: "Erreur réponse login: " + message });
   }
 };
 
@@ -1009,10 +802,6 @@ export default {
   forgotPassword,
   resetPassword,
   getUserAccount,
-  requestWebLogin,
-  checkWebLoginStatus,
-  getPendingLoginRequest,
-  respondLoginRequest,
   getUserProfile,
   getGeneralLeaderboard,
   updateUserPrefix,

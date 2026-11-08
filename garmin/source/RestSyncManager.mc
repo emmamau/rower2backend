@@ -101,43 +101,12 @@ class RestSyncManager {
         }
     }
 
-    // Check pending login requests from the Angular web front
-    function checkPendingLogin(userId as String) as Void {
-        var endpoint = getBaseUrl() + "/api/user/auth/pending?userId=" + userId;
-        var options = {
-            :method => Communications.HTTP_REQUEST_METHOD_GET,
-            :responseType => Communications.HTTP_RESPONSE_CONTENT_TYPE_JSON
-        };
-
-        Communications.makeWebRequest(
-            endpoint,
-            null,
-            options,
-            method(:onPendingLoginReceived)
-        );
-    }
-
-    function onPendingLoginReceived(responseCode as Number, data as Dictionary or String or Null) as Void {
-        if (_delegate != null) {
-            if (responseCode == 200 && data != null && data instanceof Dictionary) {
-                var d = data as Dictionary;
-                if (d.hasKey("hasPending") && d.get("hasPending") == true) {
-                    var reqId = d.get("requestId").toString();
-                    var login = d.get("login").toString();
-                    (_delegate as BleDelegate).onAuthRequestReceived(reqId, login);
-                } else if (d.hasKey("hasPending") && d.get("hasPending") == false) {
-                    (_delegate as BleDelegate).onAuthRequestCleared();
-                }
-            }
-        }
-    }
-
-    // Respond to web login request
-    function respondWebLogin(requestId as String, approved as Boolean) as Void {
-        var endpoint = getBaseUrl() + "/api/user/auth/respond";
+    // Pair watch with 6-character code entered on watch
+    function pairWatch(pairingCode as String) as Void {
+        var endpoint = getBaseUrl() + "/api/garmin/pair";
         var payload = {
-            "requestId" => requestId,
-            "approved" => approved
+            "pairingCode" => pairingCode,
+            "deviceId" => UserManager.getDeviceId()
         };
         var options = {
             :method => Communications.HTTP_REQUEST_METHOD_POST,
@@ -151,12 +120,59 @@ class RestSyncManager {
             endpoint,
             payload,
             options,
-            method(:onLoginResponseDone)
+            method(:onPairResponse)
         );
     }
 
-    function onLoginResponseDone(responseCode as Number, data as Dictionary or String or Null) as Void {
-        System.println("Web login response submitted: " + responseCode);
+    function onPairResponse(responseCode as Number, data as Dictionary or String or Null) as Void {
+        System.println("Pair response: " + responseCode);
+        if (_delegate != null) {
+            if (responseCode == 200 && data != null && data instanceof Dictionary) {
+                var d = data as Dictionary;
+                if (d.hasKey("deviceToken") && d.get("deviceToken") != null) {
+                    var token = d.get("deviceToken").toString();
+                    UserManager.setDeviceToken(token);
+                    if (d.hasKey("userId") && d.get("userId") != null) {
+                        UserManager.setPairedUserId(d.get("userId").toString());
+                    }
+                    (_delegate as BleDelegate).onPairingSuccess(d);
+                    return;
+                }
+            }
+            (_delegate as BleDelegate).onPairingFailed(responseCode);
+        }
+    }
+
+    // Reset pairing from watch
+    function resetPairing() as Void {
+        var endpoint = getBaseUrl() + "/api/garmin/reset";
+        var token = UserManager.getDeviceToken();
+        var payload = {
+            "deviceToken" => (token != null ? token : "")
+        };
+        var options = {
+            :method => Communications.HTTP_REQUEST_METHOD_POST,
+            :headers => {
+                "Content-Type" => Communications.REQUEST_CONTENT_TYPE_JSON
+            },
+            :responseType => Communications.HTTP_RESPONSE_CONTENT_TYPE_JSON
+        };
+
+        UserManager.clearPairing();
+
+        Communications.makeWebRequest(
+            endpoint,
+            payload,
+            options,
+            method(:onResetPairingResponse)
+        );
+    }
+
+    function onResetPairingResponse(responseCode as Number, data as Dictionary or String or Null) as Void {
+        System.println("Reset pairing response: " + responseCode);
+        if (_delegate != null) {
+            (_delegate as BleDelegate).onPairingResetDone();
+        }
     }
 
     // Toggle Bot Racers in current race (calibrated with user level)
@@ -227,7 +243,7 @@ class RestSyncManager {
             return;
         }
 
-        var endpoint = getBaseUrl() + "/api/v1/telemetry";
+        var endpoint = getBaseUrl() + "/boost";
 
         var effPace = (model.instantPace > 0) ? model.instantPace : ((!model.isHalted && model.avgPace > 0) ? model.avgPace : 0);
         var effPower = (model.instantPower > 0) ? model.instantPower : ((!model.isHalted && model.avgPower > 0) ? model.avgPower : 0);
@@ -256,17 +272,27 @@ class RestSyncManager {
             "metrics" => metrics
         };
 
+        var devToken = UserManager.getDeviceToken();
+        if (devToken != null && (devToken as String).length() > 0) {
+            payload.put("deviceToken", devToken);
+        }
+
         if (deviceName != null) {
             payload.put("deviceName", deviceName);
             payload.put("rowerModel", deviceName);
         }
         payload.put("watchModel", UserManager.getWatchModel());
 
+        var headers = {
+            "Content-Type" => Communications.REQUEST_CONTENT_TYPE_JSON
+        };
+        if (devToken != null && (devToken as String).length() > 0) {
+            headers.put("Authorization", "Bearer " + (devToken as String));
+        }
+
         var options = {
             :method => Communications.HTTP_REQUEST_METHOD_POST,
-            :headers => {
-                "Content-Type" => Communications.REQUEST_CONTENT_TYPE_JSON
-            },
+            :headers => headers,
             :responseType => Communications.HTTP_RESPONSE_CONTENT_TYPE_JSON
         };
 

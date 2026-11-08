@@ -434,46 +434,42 @@ test('Lobby engaged rowers panel displays Race In Progress banner with Top 3 and
   assert.equal(formattedGameRemaining, '54m 59s');
 });
 
-test('Garmin Watch app: 10-char prefix, encoded suffix, and menu positioning before local history', () => {
+test('Garmin Watch app: pairing protocol, no Mon identifiant de joueur, secure deviceId/deviceToken management and menu positioning', () => {
   const userManagerMc = fs.readFileSync(path.join(__dirname, '../../garmin/source/UserManager.mc'), 'utf8');
   const rowerDelegateMc = fs.readFileSync(path.join(__dirname, '../../garmin/source/RowerDelegate.mc'), 'utf8');
   const rowerViewMc = fs.readFileSync(path.join(__dirname, '../../garmin/source/RowerView.mc'), 'utf8');
+  const restSyncManagerMc = fs.readFileSync(path.join(__dirname, '../../garmin/source/RestSyncManager.mc'), 'utf8');
   const i18nMc = fs.readFileSync(path.join(__dirname, '../../garmin/source/I18n.mc'), 'utf8');
-  const settingsXml = fs.readFileSync(path.join(__dirname, '../../garmin/resources/settings/settings.xml'), 'utf8');
 
-  // Verify 10-character free prefix generator in UserManager.mc
-  assert.match(userManagerMc, /for \(var i = 0; i < 7; i\+\+\)/, 'Row + 7 chars = 10 chars');
-  assert.match(userManagerMc, /p\.length\(\)\s*>\s*10[\s\S]*?p\.substring\(0,\s*10\)/);
-  assert.match(userManagerMc, /userLoginPrefix/);
+  // Verify UserManager has device token and ID storage methods
+  assert.match(userManagerMc, /function getDeviceId\(\)/, 'Must have getDeviceId()');
+  assert.match(userManagerMc, /function getDeviceToken\(\)/, 'Must have getDeviceToken()');
+  assert.match(userManagerMc, /function setDeviceToken\(/, 'Must have setDeviceToken()');
+  assert.match(userManagerMc, /function deleteDeviceToken\(\)/, 'Must have deleteDeviceToken()');
+  assert.match(userManagerMc, /function isPaired\(\)/, 'Must have isPaired()');
 
-  // Verify settings.xml has userLoginPrefix with maxLength 10
-  assert.match(settingsXml, /property id="userLoginPrefix"/);
-  assert.match(settingsXml, /setting propertyKey="@Properties\.userLoginPrefix"/);
-  assert.match(settingsXml, /maxLength="10"/);
+  // Verify RestSyncManager makes pairing web request and syncs to /boost with Bearer token
+  assert.match(restSyncManagerMc, /function pairWatch\(pairingCode as String\)/, 'Must have pairWatch');
+  assert.match(restSyncManagerMc, /\/api\/garmin\/pair/, 'Must call /api/garmin/pair');
+  assert.match(restSyncManagerMc, /\/boost/, 'Must sync activity to /boost');
+  assert.match(restSyncManagerMc, /headers\.put\("Authorization",\s*"Bearer\s*"\s*\+\s*\(devToken as String\)\)/, 'Must inject Bearer deviceToken');
 
-  // Verify menu order: MENU_PLAYER_ID is added right before MENU_HISTORY
-  const menuPublicIdx = rowerViewMc.indexOf('I18n.getText("MENU_PUBLIC")');
-  const menuPrivateIdx = rowerViewMc.indexOf('I18n.getText("MENU_PRIVATE")');
-  const menuSoloIdx = rowerViewMc.indexOf('I18n.getText("MENU_SOLO")');
-  const menuPlayerIdIdx = rowerViewMc.indexOf('I18n.getText("MENU_PLAYER_ID")');
-  const menuHistoryIdx = rowerViewMc.indexOf('I18n.getText("MENU_HISTORY")');
+  // Verify MENU_PLAYER_ID is completely purged from watch view & translations
+  assert.ok(!rowerViewMc.includes('MENU_PLAYER_ID'), 'MENU_PLAYER_ID must be purged from RowerView.mc');
+  assert.ok(!i18nMc.includes('MENU_PLAYER_ID'), 'MENU_PLAYER_ID must be purged from I18n.mc');
 
-  assert.ok(menuPublicIdx > 0 && menuPrivateIdx > menuPublicIdx, 'Public then Private');
-  assert.ok(menuSoloIdx > menuPrivateIdx, 'Private then Solo');
-  assert.ok(menuPlayerIdIdx > menuSoloIdx, 'Solo then Player ID');
-  assert.ok(menuHistoryIdx > menuPlayerIdIdx, 'Player ID immediately before History');
+  // Verify Menu items include pairing options
+  assert.match(rowerViewMc, /I18n\.getText\("MENU_PAIR"\)/, 'Must offer MENU_PAIR');
+  assert.match(rowerViewMc, /I18n\.getText\("MENU_PAIRED"\)/, 'Must offer MENU_PAIRED');
 
-  // Verify delegate menu indices
-  assert.match(rowerDelegateMc, /else if \(menuIdx == 3\) \{\s*\/\/\s*4\.\s*Mon identifiant de joueur\s*_view\.setAppState\(RowerView\.STATE_PLAYER_ID\);/);
-  assert.match(rowerDelegateMc, /else if \(menuIdx == 4\) \{\s*\/\/\s*5\.\s*Historique local/);
+  // Verify delegate menu indices for pairing (item 3)
+  assert.match(rowerDelegateMc, /else if \(menuIdx == 3\) \{/, 'Item 3 handles pairing flow');
+  assert.match(rowerDelegateMc, /STATE_PAIRING_INPUT/, 'Switches to STATE_PAIRING_INPUT');
 
-  // Verify French translation
-  assert.match(i18nMc, /return "Mon identifiant de joueur";/);
-  assert.match(i18nMc, /return "MON IDENTIFIANT";/);
-
-  // Verify suffix does not contain underscore delimiter collision
-  assert.match(userManagerMc, /BASE64_CHARS\s*=\s*"[A-Za-z0-9]+";/);
-  assert.ok(!userManagerMc.includes('BASE64_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"'), 'Suffix chars should not contain underscore delimiter');
+  // Verify French translations for pairing
+  assert.match(i18nMc, /return "Appairer la montre";/);
+  assert.match(i18nMc, /return "Statut : Appaire";/);
+  assert.match(i18nMc, /return "Reinitialiser l'appairage";/);
 });
 
 test('Mobile and Tablet Fullscreen display logic: only cockpit with player selection or regatta view', () => {
@@ -506,41 +502,36 @@ test('Mobile and Tablet Fullscreen display logic: only cockpit with player selec
   assert.match(appHtml, /@if \(isRaceActive \|\| isMobileFullscreenOnly\)/);
 });
 
-test('Garmin Watch pairing with suffix and 10-char prefix, persistence, and clearPairing', () => {
-  // Test pairing validation
-  function validatePairingInputs(suffix, prefix) {
-    const cleanSuffix = (suffix || '').trim();
-    const cleanPrefix = (prefix || '').trim().slice(0, 10);
-    if (!cleanSuffix) return { valid: false, error: 'SUFFIX_REQUIRED' };
-    if (!cleanPrefix) return { valid: false, error: 'PREFIX_REQUIRED' };
-    return {
-      valid: true,
-      userId: `${cleanPrefix}_${cleanSuffix}`,
-      login: cleanPrefix
-    };
+test('Garmin Web pairing: 6-char ephemeral code, countdown, real-time paired status, guest session ID, and resetGarminPairing', () => {
+  // Test 6-char pairing code format validation
+  function validatePairingCode(code) {
+    if (!code || typeof code !== 'string') return false;
+    const clean = code.trim().toUpperCase();
+    return clean.length === 6 && /^[A-Z0-9]{6}$/.test(clean);
   }
 
-  // Empty suffix or prefix rejected
-  assert.equal(validatePairingInputs('', 'EmmaRacer').valid, false);
-  assert.equal(validatePairingInputs('k9Yz1', '').valid, false);
+  assert.equal(validatePairingCode('K8F2M9'), true, 'Valid 6-char alphanumeric code');
+  assert.equal(validatePairingCode('ABC123'), true, 'Valid 6-char code');
+  assert.equal(validatePairingCode('AB12'), false, 'Too short rejected');
+  assert.equal(validatePairingCode('ABCDEF12'), false, 'Too long rejected');
+  assert.equal(validatePairingCode('AB@12!'), false, 'Special chars rejected');
 
-  // Valid inputs: truncates prefix at 10 chars, formats userId
-  const res = validatePairingInputs('k9Yz1', 'EmmaRacerSuperLong');
-  assert.equal(res.valid, true);
-  assert.equal(res.userId, 'EmmaRacerS_k9Yz1');
-  assert.equal(res.login, 'EmmaRacerS');
-
-  // Verify app.html contains pairing inputs and Lancer l'appareillage button
+  // Verify app.html contains new pairing section and buttons
   const appHtml = fs.readFileSync(path.join(__dirname, '../src/app/app.html'), 'utf8');
-  assert.match(appHtml, /id="pairing-suffix-input"/);
-  assert.match(appHtml, /id="pairing-prefix-input"/);
-  assert.match(appHtml, /maxlength="10"/);
-  assert.match(appHtml, /Lancer l'appareillage/);
-  assert.match(appHtml, /Effacer l'appareillage/);
+  assert.match(appHtml, /class="garmin-pairing-section"/, 'Must contain garmin-pairing-section');
+  assert.match(appHtml, /generateGarminPairingCode\(\)/, 'Must call generateGarminPairingCode');
+  assert.match(appHtml, /resetGarminPairing\(\)/, 'Must call resetGarminPairing');
 
-  // Verify watch app UserManager.mc stores userLoginPrefix on approval
-  const bleDelegateMc = fs.readFileSync(path.join(__dirname, '../../garmin/source/BleDelegate.mc'), 'utf8');
-  assert.match(bleDelegateMc, /Storage\.setValue\("userLoginPrefix",\s*p\)/);
+  // Verify old pairing inputs are purged from app.html
+  assert.ok(!appHtml.includes('id="pairing-suffix-input"'), 'pairing-suffix-input must be purged');
+  assert.ok(!appHtml.includes('id="pairing-prefix-input"'), 'pairing-prefix-input must be purged');
+
+  // Verify watch app RestSyncManager and UserManager store deviceToken
+  const restSyncManagerMc = fs.readFileSync(path.join(__dirname, '../../garmin/source/RestSyncManager.mc'), 'utf8');
+  assert.match(restSyncManagerMc, /UserManager\.setDeviceToken\(token\)/, 'RestSyncManager sets device token');
+  const userManagerMc = fs.readFileSync(path.join(__dirname, '../../garmin/source/UserManager.mc'), 'utf8');
+  assert.match(userManagerMc, /Storage\.setValue\("deviceToken",\s*token\)/, 'UserManager sets deviceToken in storage');
+  assert.match(userManagerMc, /Storage\.deleteValue\("deviceToken"\)/, 'UserManager deletes deviceToken on reset');
 });
 
 test('Duel 1v1 Bot mode only proposed if player is paired', () => {
@@ -596,12 +587,16 @@ test('Leaderboard only includes players who finished a race', () => {
   assert.deepEqual(filtered.map(p => p.id), ['u1', 'u4']);
 });
 
-test('Account creation and subscription possible without prior pairing', () => {
+test('Account creation and subscription possible without prior pairing, and old watch login purged', () => {
   const appHtml = fs.readFileSync(path.join(__dirname, '../src/app/app.html'), 'utf8');
-  // Account modal button is available on un-paired header
+  // Account modal button is available on un-paired header (line 1 and line 2)
   assert.match(appHtml, /class="btn-hud btn-connect-compact"[\s\S]*?openAccountModal\('login'\)/);
-  // Watch ID is optional on registration
-  assert.match(appHtml, /Identifiant de joueur Garmin \(optionnel/);
+  assert.match(appHtml, /class="header-line1-auth-box"/, 'Header line 1 has connection / profile trigger');
+  // Old watch ID and login input must be completely purged from registration and login modals
+  assert.ok(!appHtml.includes('Identifiant de joueur Garmin (optionnel'), 'Old watch ID input purged');
+  assert.ok(!appHtml.includes('Mon identifiant de joueur'), 'Old watch menu reference purged from web');
+  assert.ok(!appHtml.includes('btn-watch-sync'), 'Old watch sync button purged from web');
+  assert.ok(!appHtml.includes('btn-reset-pairing-inline'), 'Pairing display purged from header line 2');
 });
 
 test('Mobile and Tablet Fullscreen: in-cockpit player selection, bottom nav hidden, and robust state persistence', () => {
@@ -609,10 +604,10 @@ test('Mobile and Tablet Fullscreen: in-cockpit player selection, bottom nav hidd
   const appCss = fs.readFileSync(path.join(__dirname, '../src/app/app.css'), 'utf8');
   const appTs = fs.readFileSync(path.join(__dirname, '../src/app/app.ts'), 'utf8');
 
-  // In-cockpit player selection when not yet identified
-  assert.match(appHtml, /class="cockpit-player-select-card" \*ngIf="!canAccessCockpit"/);
-  assert.match(appHtml, /Sélectionnez votre coureur pour activer votre cockpit/);
-  assert.match(appHtml, /id="cockpit-inner-select"/);
+  // Spectator / Camera tracking dropdown in Cockpit and Regatta views
+  assert.match(appHtml, /class="spectator-camera-bar"/, 'Must contain spectator-camera-bar');
+  assert.match(appHtml, /class="spectator-select"/, 'Must contain spectator-select');
+  assert.match(appHtml, /class="btn-cockpit-pair-action"/, 'Must provide direct pairing shortcut in cockpit');
 
   // Mobile bottom nav hidden when in mobile fullscreen
   assert.match(appHtml, /class="mobile-bottom-nav" \*ngIf="!isMobileFullscreenOnly"/);
@@ -622,15 +617,121 @@ test('Mobile and Tablet Fullscreen: in-cockpit player selection, bottom nav hidd
   // Fullscreen exit button in arena-mode-bar handles pseudo-fullscreen (iOS Safari)
   assert.match(appHtml, /@if\s*\(fullscreenSupported\s*\|\|\s*isFullscreen\s*\|\|\s*isPseudoFullscreen\)/);
 
-  // Account modal does not propose watch identification if already paired
-  assert.match(appHtml, /@if\s*\(!isWatchConfirmed\s*&&\s*!isPaired\)\s*\{[\s\S]*?Appairer la montre[\s\S]*?\}\s*@else\s*\{[\s\S]*?Votre montre Garmin est déjà appareillée/);
-
-  // Polling loadCurrentRace does not reset cockpit view when in mobile fullscreen
-  assert.match(appTs, /this\.activeViewMode === 'cockpit' && !this\.canAccessCockpit && !this\.isMobileFullscreenOnly/);
+  // Account modal profile tab provides Garmin pairing section
+  assert.match(appHtml, /class="profile-garmin-box" \*ngIf="!isPaired"/);
+  assert.match(appHtml, /class="profile-garmin-box is-paired" \*ngIf="isPaired"/);
 
   // Bot duel method check
   assert.match(appTs, /openBotDuelModal\(\)[\s\S]*?if\s*\(!this\.isPaired\s*&&\s*!this\.isWatchConfirmed\)/);
 
-  // clearPairing resets guest identity so isIdentified becomes false
-  assert.match(appTs, /clearPairing\(\)[\s\S]*?if\s*\(!this\.isSubscriber\s*&&\s*!this\.isUserAdmin\)[\s\S]*?this\.activeUserId = `usr_\$\{randId\}`/);
+  // resetGarminPairing revokes token and clears pairing state
+  assert.match(appTs, /resetGarminPairing\(\)[\s\S]*?this\.isPaired = false/);
 });
+
+test('Pure Screen Modes & Navigation: Mode Regate shows only 2D canvas, Mode Cockpit shows only cockpit HUD, Home displays full dashboard', () => {
+  const appHtml = fs.readFileSync(path.join(__dirname, '../src/app/app.html'), 'utf8');
+  const appCss = fs.readFileSync(path.join(__dirname, '../src/app/app.css'), 'utf8');
+  const appTs = fs.readFileSync(path.join(__dirname, '../src/app/app.ts'), 'utf8');
+
+  // Pure screen header has Home button, view modes, language selector and fullscreen toggle
+  assert.match(appHtml, /class="pure-screen-header" \*ngIf="siteView === 'regatta' \|\| siteView === 'cockpit'"/);
+  assert.match(appHtml, /class="btn-pure-nav btn-pure-home"[\s\S]*?\(click\)="setSiteView\('home'\)"/);
+  assert.match(appHtml, /<span class="pure-icon" aria-hidden="true">🏠<\/span>/);
+  assert.match(appHtml, /id="pure-lang-select"/);
+
+  // Mode Regate displays only regatta canvas and summary pill, removing cluttering podium-banner
+  assert.match(appHtml, /@if \(siteView === 'regatta'\) \{[\s\S]*?<app-regatta-canvas/);
+  assert.doesNotMatch(appHtml, /@if \(siteView === 'regatta'\) \{[\s\S]*?<section class="podium-banner"/);
+
+  // Mode Cockpit displays only cockpit elements
+  assert.match(appHtml, /@else if \(siteView === 'cockpit'\) \{[\s\S]*?<section class="cockpit-hud cockpit-expanded">/);
+
+  // Home view renders full dashboard without being swallowed by race active condition
+  assert.match(appHtml, /@else \{\s*<!-- =+ -->\s*<!-- PAGE D'ACCUEIL : TOUTES LES INFORMATIONS NÉCESSAIRES -->/);
+  assert.match(appHtml, /class="home-active-race-callout" \*ngIf="isRaceActive"/);
+  assert.match(appHtml, /class="garmin-pairing-section"/);
+  assert.match(appHtml, /class="dual-standings-history-container"/);
+  assert.match(appHtml, /class="lobby-regatta-preview-section"/);
+
+  // CSS ensures pure-screen-active hides all non-essential widgets
+  assert.match(appCss, /\.game-container\.pure-screen-active \.hud-header/);
+  assert.match(appCss, /\.game-container\.pure-screen-active \.mobile-bottom-nav/);
+  assert.match(appCss, /\.game-container\.pure-screen-active \.dual-standings-history-container/);
+});
+
+test('Mobile/Tablet SEO guide is replaced by interactive link and adapts dynamically to dropdown language', () => {
+  const appHtml = fs.readFileSync(path.join(__dirname, '../src/app/app.html'), 'utf8');
+  const appTs = fs.readFileSync(path.join(__dirname, '../src/app/app.ts'), 'utf8');
+  const appCss = fs.readFileSync(path.join(__dirname, '../src/app/app.css'), 'utf8');
+  const i18nServiceTs = fs.readFileSync(path.join(__dirname, '../src/app/services/i18n.service.ts'), 'utf8');
+
+  // On smartphone/tablet, lower SEO guide is replaced by a link card
+  assert.match(appHtml, /class="seo-mobile-link-wrapper" \*ngIf="isMobileOrTablet"/);
+  assert.match(appHtml, /class="seo-mobile-link"[\s\S]*?\(click\)="toggleMobileSeoGuide\(\$event\)"/);
+  assert.match(appHtml, /class="seo-guide-body" \[class\.mobile-collapsed\]="isMobileOrTablet && !isMobileSeoGuideOpen"/);
+  assert.match(appCss, /\.seo-guide-body\.mobile-collapsed[\s\S]*?display:\s*none\s*!important/);
+
+  // Desktop media query ensures link is hidden and guide body is displayed
+  assert.match(appCss, /@media \(min-width:\s*1025px\) \{[\s\S]*?\.seo-mobile-link-wrapper[\s\S]*?display:\s*none\s*!important/);
+
+  // Dynamic localization: header dropdown change synchronizes activeSeoLang across all 6 supported languages
+  assert.match(appTs, /syncSeoLanguage\(langCode:\s*string\)/);
+  assert.match(appTs, /\['fr',\s*'en',\s*'de',\s*'es',\s*'it',\s*'pt'\]/);
+
+  // All 6 languages provide SEO_TAG, SEO_TITLE, SEO_LEAD, SEO_GUIDE_LINK and SEO_GUIDE_DESC
+  for (const lang of ['fr', 'en', 'de', 'es', 'it', 'pt']) {
+    assert.match(i18nServiceTs, new RegExp(`(?:'${lang}'|\\b${lang}):\\s*\\{[\\s\\S]*?'SEO_GUIDE_LINK'`));
+    assert.match(i18nServiceTs, new RegExp(`(?:'${lang}'|\\b${lang}):\\s*\\{[\\s\\S]*?'SEO_TAG'`));
+    assert.match(i18nServiceTs, new RegExp(`(?:'${lang}'|\\b${lang}):\\s*\\{[\\s\\S]*?'SEO_TITLE'`));
+    assert.match(i18nServiceTs, new RegExp(`(?:'${lang}'|\\b${lang}):\\s*\\{[\\s\\S]*?'SEO_LEAD'`));
+  }
+
+  // Articles exist for fr, en, de, es, it, and pt
+  assert.match(appHtml, /<article class="seo-article" \*ngIf="activeSeoLang === 'fr'"/);
+  assert.match(appHtml, /<article class="seo-article" \*ngIf="activeSeoLang === 'en'"/);
+  assert.match(appHtml, /<article class="seo-article" \*ngIf="activeSeoLang === 'de'"/);
+  assert.match(appHtml, /<article class="seo-article" \*ngIf="activeSeoLang === 'es'"/);
+  assert.match(appHtml, /<article class="seo-article" \*ngIf="activeSeoLang === 'it'"/);
+  assert.match(appHtml, /<article class="seo-article" \*ngIf="activeSeoLang === 'pt'"/);
+});
+
+test('Garmin Watch: Aberrant jump filtering, baseline healing, and physiological finish sanity checks', () => {
+  const bleDelegateMc = fs.readFileSync(path.join(__dirname, '../../garmin/source/BleDelegate.mc'), 'utf8');
+  const rowerDataModelMc = fs.readFileSync(path.join(__dirname, '../../garmin/source/RowerDataModel.mc'), 'utf8');
+
+  // Verify that arbitrary hardcoded 50m fallback is removed from BleDelegate.mc
+  assert.doesNotMatch(bleDelegateMc, /_model\.totalDistance = _targetDistance > 50 \? 50 : \(_targetDistance \/ 2\);/, 'Hardcoded 50m fallback must not exist');
+
+  // Verify physiological sanity checks in updateProgressAndCheckFinish
+  assert.match(bleDelegateMc, /var minElapsed = \(_targetDistance \* 100\) \/ 850;/);
+  assert.match(bleDelegateMc, /var minStrokes = \(_targetDistance \/ 25\);/);
+  assert.match(bleDelegateMc, /_model\.alignDistance\(realisticDist\);/);
+
+  // Verify bidirectional sync with normDistM
+  assert.match(bleDelegateMc, /if \(data\.hasKey\("normDistM"\) && data\.get\("normDistM"\) != null\)/);
+  assert.match(bleDelegateMc, /_model\.alignDistance\(nd\);/);
+
+  // Verify alignDistance method in RowerDataModel.mc
+  assert.match(rowerDataModelMc, /public function alignDistance\(dist as Number\) as Void/);
+
+  // Verify baseline healing when single packet jump > 15m
+  assert.match(rowerDataModelMc, /if \(candDist > totalDistance \+ 15\) \{[\s\S]*?_distanceOffset = totalDistance;[\s\S]*?_baselineRawDistance = rawDistance;/);
+
+  // Verify FTMS Rower Data 0x2AD1 Elapsed Time (Bit 10) & Remaining Time (Bit 11) 2-byte consumption
+  assert.match(rowerDataModelMc, /\/\/ Bit 10: Elapsed Time present \(uint16, seconds\)[\s\S]*?if \(\(flags & 0x0400\) != 0 && \(offset \+ 2\) <= size\) \{[\s\S]*?offset \+= 2;/);
+  assert.match(rowerDataModelMc, /\/\/ Bit 11: Remaining Time present \(uint16, seconds\)[\s\S]*?if \(\(flags & 0x0800\) != 0 && \(offset \+ 2\) <= size\) \{[\s\S]*?offset \+= 2;/);
+});
+
+test('robots.txt and meta noindex prevent SEO crawling of frontend', () => {
+  const robotsPath = path.join(__dirname, '../public/robots.txt');
+  assert.ok(fs.existsSync(robotsPath), 'robots.txt must exist in public folder');
+
+  const robotsContent = fs.readFileSync(robotsPath, 'utf8');
+  assert.match(robotsContent, /User-agent:\s*\*/i, 'robots.txt must target all user agents');
+  assert.match(robotsContent, /Disallow:\s*\//i, 'robots.txt must disallow all root routes');
+
+  const indexHtmlPath = path.join(__dirname, '../src/index.html');
+  const indexHtml = fs.readFileSync(indexHtmlPath, 'utf8');
+  assert.match(indexHtml, /<meta\s+name=["']robots["']\s+content=["'][^"']*noindex[^"']*["']/i, 'index.html must have noindex meta tag');
+});
+

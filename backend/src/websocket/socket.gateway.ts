@@ -99,6 +99,11 @@ export class SocketGateway {
     this.io.emit("race:private_update", payload);
   }
 
+  public broadcast(event: string, data: any): void {
+    if (!this.io) return;
+    this.io.emit(event, data);
+  }
+
   public getIO(): Server | null {
     return this.io;
   }

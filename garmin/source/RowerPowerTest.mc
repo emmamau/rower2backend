@@ -353,32 +353,44 @@ function testSmartRowDefragmentationBufferResetOnConnect(logger as Logger) as Bo
     return true;
 }
 
-//! Regression test 14: Web login authorization modal can be shown and toggled during active racing.
+//! Regression test 14: Garmin 6-character code pairing input cycle and slot navigation.
 (:test)
-function testWebAuthPromptDuringRacingState(logger as Logger) as Boolean {
+function testGarminPairingInputAndStateNavigation(logger as Logger) as Boolean {
     var model = new RowerDataModel();
     var view = new RowerView(model);
-    view.setAppState(RowerView.STATE_RACING);
+    view.setAppState(RowerView.STATE_MENU);
 
-    // Initial state: no pending auth
-    Test.assertEqual(false, view.hasPendingAuth());
+    // Initial state: reset pairing slots
+    view.resetPairingDigits();
+    view.setAppState(RowerView.STATE_PAIRING_INPUT);
+    Test.assertEqual(RowerView.STATE_PAIRING_INPUT, view.getAppState());
+    Test.assertEqual(6, view.getPairingLength());
 
-    // Prompt arrives
-    view.showAuthPrompt("REQ_TEST_99", "Coach_Pierre");
-    Test.assertEqual(true, view.hasPendingAuth());
-    Test.assertEqual("REQ_TEST_99", view.getAuthRequestId());
-    Test.assertEqual(0, view.getAuthMenuIndex());
+    // Cycle character on first slot (0 -> 1 -> 0)
+    view.cyclePairingChar(1);
+    Test.assertEqual("1", view.getCurrentPairingSlotChar());
+    view.cyclePairingChar(-1);
+    Test.assertEqual("0", view.getCurrentPairingSlotChar());
 
-    // Toggle option (Approve <-> Reject)
-    view.toggleAuthMenu();
-    Test.assertEqual(1, view.getAuthMenuIndex());
-    view.toggleAuthMenu();
-    Test.assertEqual(0, view.getAuthMenuIndex());
+    // Advance 5 slots
+    for (var i = 0; i < 5; i++) {
+        var isDone = view.advancePairingSlot();
+        Test.assertEqual(false, isDone);
+    }
+    // 6th slot advance finishes input
+    var finished = view.advancePairingSlot();
+    Test.assertEqual(true, finished);
 
-    // Clearing prompt
-    view.clearAuthPrompt();
-    Test.assertEqual(false, view.hasPendingAuth());
-    Test.assertEqual(RowerView.STATE_RACING, view.getAppState());
+    // Backspace navigation
+    Test.assertEqual(false, view.backspacePairingSlot());
+
+    // Pairing token persistence check in UserManager
+    UserManager.setDeviceToken("test-uuid-v4-token");
+    Test.assertEqual(true, UserManager.isPaired());
+    Test.assertEqual("test-uuid-v4-token", UserManager.getDeviceToken());
+    UserManager.clearPairing();
+    Test.assertEqual(false, UserManager.isPaired());
+
     return true;
 }
 

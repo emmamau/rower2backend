@@ -11,12 +11,6 @@ export default (app: Application): void => {
   router.post("/reset-password", userController.resetPassword);
   router.get("/account/:identifier", userController.getUserAccount);
 
-  // Authentification front web sécurisée par la montre Garmin
-  router.post("/auth/request", userController.requestWebLogin);
-  router.get("/auth/status/:requestId", userController.checkWebLoginStatus);
-  router.get("/auth/pending", userController.getPendingLoginRequest);
-  router.post("/auth/respond", userController.respondLoginRequest);
-
   // Profil et historique des courses (uniquement les classements)
   router.get("/profile/:userId", userController.getUserProfile);
   router.put("/prefix", userController.updateUserPrefix);
