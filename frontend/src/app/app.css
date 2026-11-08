@@ -5034,3 +5034,319 @@ input[type="number"]:focus { border-color: var(--neon-cyan); box-shadow: 0 0 10p
   }
 }
 
+
+
+/* ==========================================================================
+   IMMERSION AUTOMATIQUE (MODE COCKPIT & RÉGATE)
+   ========================================================================== */
+.pure-screen-header,
+.btn-floating-fullscreen {
+  transition: opacity 0.45s ease, visibility 0.45s ease, transform 0.45s ease;
+}
+
+.game-container.immersion-mode.controls-faded .pure-screen-header {
+  opacity: 0 !important;
+  visibility: hidden;
+  pointer-events: none !important;
+  transform: translateY(-16px);
+}
+
+.game-container.immersion-mode.controls-faded .btn-floating-fullscreen {
+  opacity: 0 !important;
+  visibility: hidden;
+  pointer-events: none !important;
+  transform: translateY(16px);
+}
+
+/* Positionnement sécurisé au-dessus du dock mobile */
+@media (max-width: 1024px) {
+  body:not(.app-pseudo-fullscreen) .game-container:not(.pure-screen-active):not(.mobile-fullscreen-view) .btn-floating-fullscreen {
+    bottom: calc(76px + var(--safe-bottom, 0px)) !important;
+    right: max(16px, var(--safe-right, 16px));
+    z-index: 9999;
+  }
+}
+
+/* ==========================================================================
+   LIGUES, BADGES ET IDENTITÉ COMPÉTITIVE
+   ========================================================================== */
+.user-league-badge-tag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  line-height: 1;
+  margin-inline-end: 0.35rem;
+  filter: drop-shadow(0 0 4px rgba(255, 230, 0, 0.4));
+  vertical-align: middle;
+}
+
+.pure-user-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.25rem 0.65rem;
+  background: rgba(0, 240, 255, 0.12);
+  border: 1px solid rgba(0, 240, 255, 0.35);
+  border-radius: 20px;
+  margin-left: 0.75rem;
+}
+
+.pure-league-badge {
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.pure-user-name {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #e6f1ff;
+  letter-spacing: 0.3px;
+}
+
+.profile-league-card {
+  background: linear-gradient(135deg, rgba(14, 26, 54, 0.9), rgba(6, 12, 28, 0.95));
+  border: 1px solid rgba(255, 230, 0, 0.35);
+  border-radius: 12px;
+  padding: 1rem 1.25rem;
+  margin-top: 1rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4), 0 0 14px rgba(255, 230, 0, 0.12);
+}
+
+.profile-league-card h5 {
+  margin: 0 0 0.75rem 0;
+  font-size: 0.95rem;
+  color: #ffe600;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.profile-league-badge-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.profile-league-badge-icon {
+  font-size: 2.2rem;
+  line-height: 1;
+  padding: 0.5rem;
+  background: rgba(255, 230, 0, 0.1);
+  border: 1px solid rgba(255, 230, 0, 0.3);
+  border-radius: 50%;
+  box-shadow: 0 0 12px rgba(255, 230, 0, 0.25);
+}
+
+.profile-league-details {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.profile-league-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.profile-league-name {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #ffffff;
+  letter-spacing: 0.4px;
+}
+
+.profile-league-points {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #00f0ff;
+  background: rgba(0, 240, 255, 0.12);
+  padding: 0.15rem 0.5rem;
+  border-radius: 12px;
+  border: 1px solid rgba(0, 240, 255, 0.25);
+}
+
+.profile-league-desc {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #8da2c0;
+}
+
+/* ==========================================================================
+   HISTORIQUE : CLASSEMENT DÉTAILLÉ & MODALE COURSE PASSÉE
+   ========================================================================== */
+.history-race-item.is-clickable {
+  cursor: pointer;
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.history-race-item.is-clickable:hover {
+  border-color: rgba(0, 240, 255, 0.6);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 240, 255, 0.2);
+}
+
+.history-item-footer {
+  margin-top: 0.6rem;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.btn-history-view-details {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #00f0ff;
+  background: rgba(0, 240, 255, 0.1);
+  border: 1px solid rgba(0, 240, 255, 0.3);
+  padding: 0.3rem 0.75rem;
+  border-radius: 14px;
+  transition: all 0.2s ease;
+}
+
+.history-race-item.is-clickable:hover .btn-history-view-details {
+  background: rgba(0, 240, 255, 0.25);
+  color: #ffffff;
+  box-shadow: 0 0 10px rgba(0, 240, 255, 0.4);
+}
+
+.modal-race-leaderboard {
+  max-width: 900px;
+  width: 95%;
+}
+
+.modal-title-cluster {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.race-id-badge {
+  font-size: 0.8rem;
+  color: #8da2c0;
+  font-weight: 500;
+}
+
+.leaderboard-loading-box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 2.5rem;
+  color: #00f0ff;
+  font-size: 1rem;
+}
+
+.race-leaderboard-table-container {
+  overflow-x: auto;
+  margin-top: 1rem;
+  border-radius: 8px;
+  border: 1px solid rgba(0, 240, 255, 0.2);
+}
+
+.race-leaderboard-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 0.88rem;
+}
+
+.race-leaderboard-table th {
+  background: rgba(10, 20, 42, 0.95);
+  color: #8da2c0;
+  padding: 0.75rem 0.9rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  border-bottom: 1px solid rgba(0, 240, 255, 0.25);
+}
+
+.race-leaderboard-table td {
+  padding: 0.7rem 0.9rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  color: #d1dced;
+}
+
+.race-leaderboard-table tr:hover td {
+  background: rgba(0, 240, 255, 0.05);
+}
+
+.race-leaderboard-table tr.is-winner td {
+  background: rgba(255, 230, 0, 0.06);
+}
+
+.race-leaderboard-table tr.is-abandoned td {
+  opacity: 0.6;
+}
+
+.rank-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 24px;
+  padding: 0 0.35rem;
+  font-weight: 800;
+  font-size: 0.85rem;
+  border-radius: 4px;
+  color: #8da2c0;
+}
+
+.rank-badge.rank-1 {
+  background: linear-gradient(135deg, #ffe600, #ffaa00);
+  color: #040814;
+  box-shadow: 0 0 10px rgba(255, 230, 0, 0.4);
+}
+
+.rank-badge.rank-2 {
+  background: linear-gradient(135deg, #e0e0e0, #a0a0a0);
+  color: #040814;
+}
+
+.rank-badge.rank-3 {
+  background: linear-gradient(135deg, #cd7f32, #8b4513);
+  color: #ffffff;
+}
+
+.user-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.bot-indicator {
+  font-size: 0.85rem;
+}
+
+.points-pill {
+  display: inline-block;
+  padding: 0.15rem 0.45rem;
+  background: rgba(0, 240, 255, 0.15);
+  border: 1px solid rgba(0, 240, 255, 0.35);
+  border-radius: 10px;
+  color: #00f0ff;
+  font-weight: 700;
+  font-size: 0.78rem;
+}
+
+.status-chip {
+  display: inline-block;
+  padding: 0.15rem 0.5rem;
+  border-radius: 10px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.status-chip.status-finished {
+  background: rgba(0, 255, 128, 0.15);
+  color: #00ff80;
+  border: 1px solid rgba(0, 255, 128, 0.3);
+}
+
+.status-chip.status-abandoned {
+  background: rgba(255, 60, 60, 0.15);
+  color: #ff3c3c;
+  border: 1px solid rgba(255, 60, 60, 0.3);
+}

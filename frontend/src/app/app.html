@@ -1,4 +1,13 @@
-<div class="game-container" [class.mobile-fullscreen-view]="isMobileFullscreenOnly" [class.pure-screen-active]="siteView !== 'home'">
+<div
+  class="game-container"
+  [class.mobile-fullscreen-view]="isMobileFullscreenOnly"
+  [class.pure-screen-active]="siteView !== 'home'"
+  [class.immersion-mode]="isImmersionActive"
+  [class.controls-faded]="isImmersionActive && !isImmersionControlsVisible"
+  (pointerdown)="onImmersionPointerDown($event)"
+  (pointermove)="onImmersionPointerMove($event)"
+  (pointerup)="onImmersionPointerUp()"
+  (pointercancel)="onImmersionPointerUp()">
   <!-- INVITATION VISUELLE À FAIRE PIVOTER L'APPAREIL EN MODE PAYSAGE -->
   <aside
     class="orientation-rotate-notice"
@@ -22,12 +31,11 @@
     </div>
   </aside>
 
-  <!-- BOUTON FLOTTANT PLEIN ÉCRAN ACCESSIBLE (MOBILE / TABLETTE / COCKPIT / RÉGATE) -->
+  <!-- BOUTON FLOTTANT UNIQUE PLEIN ÉCRAN ACCESSIBLE (AU-DESSUS DU DOCK / BARRE INFÉRIEURE) -->
   <button
     type="button"
     class="btn-floating-fullscreen"
     [class.active]="isFullscreen"
-    *ngIf="siteView === 'regatta' || siteView === 'cockpit' || isMobileOrTablet || isFullscreen || isPseudoFullscreen"
     (click)="toggleFullscreen()"
     [title]="isFullscreen ? i18n.t('FULLSCREEN_EXIT') : i18n.t('FULLSCREEN_ENTER')"
     [attr.aria-label]="isFullscreen ? i18n.t('FULLSCREEN_EXIT') : i18n.t('FULLSCREEN_ENTER')"
@@ -105,6 +113,10 @@
       <span class="pure-screen-tag">
         {{ siteView === 'regatta' ? i18n.t('MODE_REGATTA') : i18n.t('MODE_COCKPIT') }}
       </span>
+      <div class="pure-user-pill" *ngIf="isIdentified">
+        <span class="pure-league-badge" [title]="currentUserLeague.name">{{ currentUserLeague.badge }}</span>
+        <span class="pure-user-name">{{ currentUser.name }}</span>
+      </div>
     </div>
     <div class="pure-header-right">
       <!-- Sélecteur de langue épuré -->
@@ -137,15 +149,6 @@
         (click)="setSiteView('cockpit')">
         📱 <span class="pure-btn-text">{{ i18n.t('MODE_COCKPIT') }}</span>
       </button>
-      @if (fullscreenSupported || isFullscreen || isPseudoFullscreen) {
-        <button
-          type="button"
-          class="btn-pure-nav btn-pure-fullscreen"
-          (click)="toggleFullscreen()"
-          [title]="isFullscreen ? i18n.t('FULLSCREEN_EXIT') : i18n.t('FULLSCREEN_ENTER')">
-          {{ isFullscreen ? '✕' : '⛶' }}
-        </button>
-      }
     </div>
   </header>
 
@@ -234,6 +237,7 @@
             <div class="badge-timer">
               <div class="timer-display-box" [class.is-running]="nextRaceInfo.status === 'in_progress'">
                 <span class="timer-label-sub" *ngIf="nextRaceInfo.status === 'in_progress'">⏱️ Temps restant : </span>
+                <span class="timer-label-sub" *ngIf="nextRaceInfo.status === 'post_race_pause'">⏸️ Pause : </span>
                 <span class="timer-digits">
                   {{ activePrivateRoom?.waitingForHost ? i18n.t('STATUS_WAITING_HOST') : (nextRaceInfo.status === 'in_progress' ? formattedGameRemaining : formattedPreRaceCountdown) }}
                 </span>
@@ -245,18 +249,6 @@
             </div>
           </div>
 
-          <!-- Bouton Plein écran très accessible juste à droite du compteur de course -->
-          <button
-            type="button"
-            class="btn-fullscreen hero-fullscreen"
-            [class.active]="isFullscreen"
-            (click)="toggleFullscreen()"
-            [title]="isFullscreen ? i18n.t('FULLSCREEN_EXIT') : i18n.t('FULLSCREEN_ENTER')"
-            [attr.aria-label]="isFullscreen ? i18n.t('FULLSCREEN_EXIT') : i18n.t('FULLSCREEN_ENTER')"
-            [attr.aria-pressed]="isFullscreen">
-            <span class="fullscreen-icon" aria-hidden="true">{{ isFullscreen ? '✕' : '⛶' }}</span>
-            <span class="fullscreen-label">{{ isFullscreen ? i18n.t('FULLSCREEN_EXIT_LABEL') : i18n.t('FULLSCREEN_ENTER_LABEL') }}</span>
-          </button>
 
           <!-- Bouton Compte / Connexion sur la Ligne 1 du Header -->
           <div class="header-line1-auth-box">
@@ -267,6 +259,7 @@
                 (click)="openAccountModal(isSubscriber || isUserAdmin ? 'profile' : 'login')"
                 title="Gérer mon compte et abonnement">
                 <span class="user-avatar-tag">{{ currentUser.name.slice(0, 2).toUpperCase() }}</span>
+                <span class="user-league-badge-tag" [title]="currentUserLeague.name">{{ currentUserLeague.badge }}</span>
                 <span class="user-name-tag">{{ currentUser.name }}</span>
                 @if (isUserAdmin) {
                   <span class="role-tag is-admin">👑 Admin</span>
@@ -318,6 +311,7 @@
             </div>
             <div class="player-info">
               <div class="player-name">
+                <span class="user-league-badge-tag" [title]="currentUserLeague.name">{{ currentUserLeague.badge }}</span>
                 {{ currentUser.name }}
                 @if (isUserAdmin) {
                   <span class="badge-role-tag is-admin" title="Administratrice">👑 Admin</span>
@@ -341,12 +335,12 @@
             </div>
           </div>
         } @else {
-          <!-- Zone profil invité épurée (l'appairage est déplacé sous la section compte/abonnement) -->
+          <!-- Zone profil invité épurée : pseudo invité modifiable au clic tant que non connecté -->
           <div class="guest-hero-pill">
             <span class="guest-avatar-icon">👤</span>
-            <div class="guest-pill-text">
-              <span class="guest-pill-name">{{ currentUser.name }}</span>
-              <span class="guest-pill-sub">Mode Invité</span>
+            <div class="guest-pill-text is-clickable" (click)="editGuestPseudo()" title="Cliquer pour modifier votre pseudo invité temporaire">
+              <span class="guest-pill-name">{{ currentUser.name }} <span class="guest-edit-icon" aria-hidden="true">✏️</span></span>
+              <span class="guest-pill-sub">Mode Invité (cliquer pour changer)</span>
             </div>
             <button
               type="button"
@@ -727,26 +721,19 @@
                 </button>
               </div>
 
-              <!-- Personnalisation du préfixe identifiant pour les abonnés -->
-              <div class="profile-prefix-customizer" *ngIf="isSubscriber || isUserAdmin">
-                <h5>🎨 Personnaliser mon identifiant joueur</h5>
-                <p class="field-hint">
-                  En tant qu'abonné, vous pouvez choisir votre préfixe personnalisé. Votre suffixe de sécurité base64 garantit l'unicité mondiale.
-                </p>
-                <div class="prefix-input-row">
-                  <input
-                    type="text"
-                    [(ngModel)]="customPrefixInput"
-                    placeholder="ex: Emma, RowHero, Viking"
-                    maxlength="12"
-                    class="prefix-text-input" />
-                  <span class="suffix-badge">_{{ currentUser.userSuffix || 'IQ01' }}</span>
-                  <button type="button" class="btn-prefix-save" (click)="saveCustomPrefix()" [disabled]="isSavingPrefix">
-                    {{ isSavingPrefix ? 'Sauvegarde...' : 'Enregistrer mon préfixe' }}
-                  </button>
+              <!-- Système de Ligue & Progression compétitive -->
+              <div class="profile-league-card">
+                <h5>🏆 Ligue & Progression Compétitive</h5>
+                <div class="profile-league-badge-row">
+                  <span class="profile-league-badge-icon">{{ currentUserLeague.badge }}</span>
+                  <div class="profile-league-details">
+                    <div class="profile-league-header">
+                      <strong class="profile-league-name">{{ currentUserLeague.name }}</strong>
+                      <span class="profile-league-points">{{ currentUser.points || 0 }} pts</span>
+                    </div>
+                    <p class="profile-league-desc">{{ currentUserLeague.description }}</p>
+                  </div>
                 </div>
-                <div class="prefix-feedback ok" *ngIf="prefixUpdateMessage">{{ prefixUpdateMessage }}</div>
-                <div class="prefix-feedback err" *ngIf="prefixUpdateError">{{ prefixUpdateError }}</div>
               </div>
             </div>
 
@@ -872,7 +859,7 @@
 
         <div class="history-list">
           @for (item of raceHistory; track item.race.id) {
-            <div class="history-race-item">
+            <div class="history-race-item is-clickable" (click)="openRaceLeaderboard(item.race.id)" title="Cliquez pour consulter le classement complet de cette course">
               <div class="race-item-header">
                 <span class="race-tag">🏁 {{ i18n.t('RACE_AT') }} {{ item.race.startTime ? (item.race.startTime | date:'short') : '' }}</span>
                 <span class="race-details">
@@ -896,11 +883,96 @@
               <div class="no-podium" *ngIf="item.podium.length === 0">
                 Aucun participant n'a pris le départ de cette course.
               </div>
+              <div class="history-item-footer">
+                <span class="btn-history-view-details">📊 Consulter le classement complet &rarr;</span>
+              </div>
             </div>
           } @empty {
             <div class="empty-notice">Aucune course précédente enregistrée.</div>
           }
         </div>
+      </div>
+    </div>
+  }
+
+  <!-- MODAL CLASSEMENT COMPLET ET DÉTAILLÉ DE LA COURSE PASSÉE -->
+  @if (isRaceLeaderboardModalOpen) {
+    <div class="modal-overlay" (click)="closeRaceLeaderboardModal()">
+      <div class="modal-card modal-large modal-race-leaderboard" (click)="$event.stopPropagation()">
+        <div class="modal-header-row">
+          <div class="modal-title-cluster">
+            <h3>🏆 Classement Officiel de la Régate</h3>
+            <span class="race-id-badge" *ngIf="selectedRaceInfo">
+              {{ selectedRaceInfo.title || 'Course' }} ({{ selectedRaceInfo.targetDistance }}m) · {{ selectedRaceInfo.startTime ? (selectedRaceInfo.startTime | date:'short') : '' }}
+            </span>
+          </div>
+          <button type="button" class="btn-close" (click)="closeRaceLeaderboardModal()" aria-label="Fermer">✕</button>
+        </div>
+
+        @if (isLoadingRaceLeaderboard) {
+          <div class="leaderboard-loading-box">
+            <span class="spinner-icon">🔄</span>
+            <span>Chargement du classement détaillé...</span>
+          </div>
+        } @else if (selectedRaceLeaderboard.length === 0) {
+          <div class="empty-notice">Aucun résultat enregistré pour cette course.</div>
+        } @else {
+          <div class="race-leaderboard-table-container">
+            <table class="race-leaderboard-table">
+              <thead>
+                <tr>
+                  <th>Rang</th>
+                  <th>Coureur</th>
+                  <th>Chrono</th>
+                  <th>Allure moy. /500m</th>
+                  <th>Écart</th>
+                  <th>Distance</th>
+                  <th>Points</th>
+                  <th>Statut</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (entry of selectedRaceLeaderboard; track entry.userId || $index) {
+                  <tr [class.is-winner]="entry.position === 1" [class.is-abandoned]="entry.status === 'abandoned'">
+                    <td class="col-rank">
+                      <span class="rank-badge" [class.rank-1]="entry.position === 1" [class.rank-2]="entry.position === 2" [class.rank-3]="entry.position === 3">
+                        {{ entry.status === 'abandoned' ? '—' : ('#' + entry.position) }}
+                      </span>
+                    </td>
+                    <td class="col-user">
+                      <div class="user-cell">
+                        <span class="user-league-badge" *ngIf="entry.league" [title]="entry.league.name">{{ entry.league.badge }}</span>
+                        <span class="bot-indicator" *ngIf="entry.isBot" title="Robot / IA">🤖</span>
+                        <strong class="user-name">{{ entry.userName }}</strong>
+                      </div>
+                    </td>
+                    <td class="col-time font-mono">
+                      {{ entry.formattedDuration || '--' }}
+                    </td>
+                    <td class="col-pace font-mono">
+                      {{ formatPace(entry.avgPace) }}
+                    </td>
+                    <td class="col-gap font-mono">
+                      {{ entry.gap || '--' }}
+                    </td>
+                    <td class="col-dist font-mono">
+                      {{ entry.netDistance }} m
+                    </td>
+                    <td class="col-points">
+                      <span class="points-pill" *ngIf="entry.points">+{{ entry.points }} pts</span>
+                      <span *ngIf="!entry.points">—</span>
+                    </td>
+                    <td class="col-status">
+                      <span class="status-chip" [class.status-finished]="entry.status === 'finished'" [class.status-abandoned]="entry.status === 'abandoned'">
+                        {{ entry.status === 'finished' ? 'Terminé' : (entry.status === 'abandoned' ? 'Abandonné' : 'En cours') }}
+                      </span>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
       </div>
     </div>
   }
@@ -1203,7 +1275,10 @@
                     <span class="rank-medal" *ngIf="pIdx === 2">🥉</span>
                     #{{ pIdx + 1 }}
                   </td>
-                  <th scope="row" class="col-name">{{ player.name || player.id }}</th>
+                  <th scope="row" class="col-name">
+                    <span class="user-league-badge-tag" [title]="getLeagueName(player.points)">{{ getLeagueBadge(player.points) }}</span>
+                    {{ player.name || player.id }}
+                  </th>
                   <td class="col-country">{{ getCountryFlag(player.country) }} {{ player.country || '--' }}</td>
                   <td class="col-category">{{ getAgeCategoryLabel(player.birthYear) }}</td>
                   <td class="col-pts col-stat-pts">{{ player.points || 0 }} {{ i18n.t('POINTS') }}</td>
@@ -1413,6 +1488,20 @@
           </div>
         </section>
       }
+
+      <!-- BANNIÈRE ÉGALITÉ SPORTIVE CONCEPT2 (POSITIONNÉE EN DESSOUS DE LA PRÉSENTATION DE LA RÉGATE) -->
+      <aside class="concept2-fairness-banner regatta-fairness-banner" aria-label="Égalité sportive Concept2">
+        <div class="fairness-content">
+          <span class="fairness-icon">⚖️</span>
+          <div class="fairness-text">
+            <strong>Égalité sportive garantie :</strong>
+            <span>
+              Les données FTMS de distance variant selon les modèles de rameurs, la distance parcourue est calculée en temps réel selon l'algorithme officiel Concept2 basé sur votre puissance en Watts (<span class="code-math">v = (Watts / 2.80)<sup>1/3</sup></span>).
+              Cette distance normalisée garantit une parfaite équité sportive entre tous les compétiteurs et peut légèrement différer de celle affichée sur votre console de rameur.
+            </span>
+          </div>
+        </div>
+      </aside>
     } @else if (siteView === 'cockpit') {
       <!-- ======================================================== -->
       <!-- MODE COCKPIT ÉPURÉ : UNIQUEMENT LE COCKPIT -->
@@ -1553,7 +1642,7 @@
             🚣 {{ myActivity?.netDistance || 0 }}m / {{ activeTargetDistance }}m ({{ myProgressPercent }}%)
           </span>
           <span class="cockpit-prog-meta">
-            👥 {{ activeRacersCount }} · ⏱️ {{ activePrivateRoom?.waitingForHost ? i18n.t('STATUS_WAITING_HOST') : (nextRaceInfo?.status === 'in_progress' ? ('Fin dans : ' + formattedGameRemaining) : formattedPreRaceCountdown) }}
+            👥 {{ activeRacersCount }} · ⏱️ {{ activePrivateRoom?.waitingForHost ? i18n.t('STATUS_WAITING_HOST') : (nextRaceInfo?.status === 'post_race_pause' ? ('Pause : ' + formattedPreRaceCountdown) : (nextRaceInfo?.status === 'in_progress' ? ('Fin dans : ' + formattedGameRemaining) : formattedPreRaceCountdown)) }}
           </span>
         </div>
         <div class="cockpit-progress-track">
@@ -1647,53 +1736,35 @@
 
       <!-- ZONE D'APPAIRAGE GARMIN MODERNE (CODE WEB -> MONTRE, VISIBLE SI NON APPAIRÉE) -->
       <section class="garmin-pairing-section" *ngIf="!isMobileFullscreenOnly && !isPaired" aria-label="Appairage Montre Garmin Connect IQ">
-        <div class="pairing-cyber-card" [class.is-paired]="isPaired">
+        <div class="pairing-cyber-card">
           <div class="cyber-header-row">
             <div class="cyber-info-cluster">
               <span class="cyber-icon">⌚</span>
               <div class="cyber-titles">
                 <div class="cyber-title-badge-row">
                   <h3 class="cyber-card-title">Liaison Montre Garmin (Connect IQ)</h3>
-                  @if (isPaired) {
-                    <span class="cyber-status-badge paired">✓ Montre connectée</span>
-                  } @else {
-                    <span class="cyber-status-badge unlinked">Montre non liée</span>
-                  }
+                  <span class="cyber-status-badge unlinked">Montre non liée</span>
                 </div>
                 <p class="cyber-card-desc">
-                  @if (isPaired) {
-                    Votre montre est synchronisée avec la plateforme. Vos métriques de rameur sont transmises via le protocole sécurisé /boost.
-                  } @else {
-                    Générez un code temporaire ci-dessous et saisissez-le sur votre montre Garmin pour transmettre vos métriques en direct.
-                  }
+                  Générez un code temporaire ci-dessous et saisissez-le sur votre montre Garmin pour transmettre vos métriques en direct.
                 </p>
               </div>
             </div>
 
             <div class="cyber-actions-cluster">
-              @if (!isPaired) {
-                <button
-                  type="button"
-                  class="btn-cyber-primary"
-                  [disabled]="isGeneratingPairingCode"
-                  (click)="generateGarminPairingCode()">
-                  <span class="btn-icon">⚡</span>
-                  {{ pairingCode ? 'Regénérer un code' : 'Lier ma montre Garmin' }}
-                </button>
-              } @else {
-                <button
-                  type="button"
-                  class="btn-cyber-danger"
-                  (click)="resetGarminPairing()"
-                  title="Révoquer le jeton et dissocier la montre">
-                  Réinitialiser l'appairage
-                </button>
-              }
+              <button
+                type="button"
+                class="btn-cyber-primary"
+                [disabled]="isGeneratingPairingCode"
+                (click)="generateGarminPairingCode()">
+                <span class="btn-icon">⚡</span>
+                {{ pairingCode ? 'Regénérer un code' : 'Lier ma montre Garmin' }}
+              </button>
             </div>
           </div>
 
           <!-- AFFICHAGE DU CODE TEMPORAIRE 6 CARACTÈRES AVEC COMPTE À REBOURS -->
-          @if (!isPaired && pairingCode) {
+          @if (pairingCode) {
             <div class="cyber-code-stage">
               <div class="code-instruction-banner">
                 <span class="step-num">1</span>
@@ -1723,20 +1794,6 @@
           @if (pairingErrorMessage) {
             <div class="cyber-feedback-msg err">⚠️ {{ pairingErrorMessage }}</div>
           }
-        </div>
-
-        <!-- BANNIÈRE ÉGALITÉ SPORTIVE CONCEPT2 / CALCUL EN WATTS -->
-        <div class="concept2-fairness-banner">
-          <div class="fairness-content">
-            <span class="fairness-icon">⚖️</span>
-            <div class="fairness-text">
-              <strong>Égalité sportive garantie :</strong>
-              <span>
-                Les données FTMS de distance variant selon les modèles de rameurs, la distance parcourue est calculée en temps réel selon l'algorithme officiel Concept2 basé sur votre puissance en Watts (<span class="code-math">v = (Watts / 2.80)<sup>1/3</sup></span>).
-                Cette distance normalisée garantit une parfaite équité sportive entre tous les compétiteurs et peut légèrement différer de celle affichée sur votre console de rameur.
-              </span>
-            </div>
-          </div>
         </div>
       </section>
 
@@ -1848,7 +1905,10 @@
                       <span class="rank-medal" *ngIf="pIdx === 2">🥉</span>
                       #{{ pIdx + 1 }}
                     </td>
-                    <th scope="row" class="col-name">{{ player.name || player.id }}</th>
+                    <th scope="row" class="col-name">
+                    <span class="user-league-badge-tag" [title]="getLeagueName(player.points)">{{ getLeagueBadge(player.points) }}</span>
+                    {{ player.name || player.id }}
+                  </th>
                     <td class="col-country">{{ getCountryFlag(player.country) }} {{ player.country || '--' }}</td>
                     <td class="col-category">{{ getAgeCategoryLabel(player.birthYear) }}</td>
                     <td class="col-pts col-stat-pts">{{ player.points || 0 }} {{ i18n.t('POINTS') }}</td>
@@ -1881,7 +1941,7 @@
           <div class="scroll-elevator-container" tabindex="0">
             <div class="history-list">
               @for (item of raceHistory; track item.race.id) {
-                <div class="history-race-item">
+                <div class="history-race-item is-clickable" (click)="openRaceLeaderboard(item.race.id)" title="Cliquez pour consulter le classement complet de cette course">
                   <div class="race-item-header">
                     <span class="race-tag">🏁 {{ i18n.t('RACE_AT') }} {{ item.race.startTime ? (item.race.startTime | date:'short') : '' }}</span>
                     <span class="race-details">
@@ -1904,6 +1964,9 @@
                   </div>
                   <div class="no-podium" *ngIf="item.podium.length === 0">
                     Aucun participant n'a pris le départ de cette course.
+                  </div>
+                  <div class="history-item-footer">
+                    <span class="btn-history-view-details">📊 Consulter le classement complet &rarr;</span>
                   </div>
                 </div>
               } @empty {
@@ -1959,6 +2022,20 @@
               [targetDistance]="nextRaceInfo?.race?.targetDistance || 2000"
               [activeUserId]="activeUserId">
             </app-regatta-canvas>
+          </div>
+
+          <!-- BANNIÈRE ÉGALITÉ SPORTIVE CONCEPT2 (POSITIONNÉE EN DESSOUS DE LA PRÉSENTATION DE LA RÉGATE) -->
+          <div class="concept2-fairness-banner lobby-fairness-banner">
+            <div class="fairness-content">
+              <span class="fairness-icon">⚖️</span>
+              <div class="fairness-text">
+                <strong>Égalité sportive garantie :</strong>
+                <span>
+                  Les données FTMS de distance variant selon les modèles de rameurs, la distance parcourue est calculée en temps réel selon l'algorithme officiel Concept2 basé sur votre puissance en Watts (<span class="code-math">v = (Watts / 2.80)<sup>1/3</sup></span>).
+                  Cette distance normalisée garantit une parfaite équité sportive entre tous les compétiteurs et peut légèrement différer de celle affichée sur votre console de rameur.
+                </span>
+              </div>
+            </div>
           </div>
         </div>
       </section>

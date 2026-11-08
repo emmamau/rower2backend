@@ -15,12 +15,13 @@ export interface UserProfile {
   watchUserId?: string; // ID de la montre Garmin
   watchModel?: string;
   rowerModel?: string;
-  userPrefix?: string;
-  userSuffix?: string;
   totalRaces?: number;
   totalWins?: number;
   podiums?: number;
   points?: number;
+  league?: string;
+  leagueName?: string;
+  leagueBadge?: string;
   bestRank?: number;
   lastRank?: number;
   isAdmin?: boolean;

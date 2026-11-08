@@ -13,6 +13,7 @@ import {
 import { RowerData, NextRaceInfo, PastRaceResult, PrivateRacePayload } from './models/rower-data.model';
 import { extractRoomFromLocation } from './utils/room-link.util';
 import { UserProfile, UserHistoryItem } from './models/user.model';
+import { getLeagueByPoints, LeagueInfo } from './utils/league.util';
 import { interval, Subscription, of, Observable } from 'rxjs';
 import { switchMap, startWith, catchError } from 'rxjs/operators';
 
@@ -101,11 +102,19 @@ export class AppComponent implements OnInit, OnDestroy {
   selectedSpectatorUserId = '';
   selectedCockpitPlayerId = '';
 
-  // Personnalisation préfixe identifiant joueur (abonnés)
-  customPrefixInput = '';
-  prefixUpdateMessage = '';
-  prefixUpdateError = '';
-  isSavingPrefix = false;
+  // Immersion tactile automatique (Mode Cockpit & Régate)
+  isImmersionControlsVisible = true;
+  private immersionHoldTimer: any = null;
+  private immersionInactivityTimer: any = null;
+  private immersionTouchStart = { x: 0, y: 0 };
+  private immersionTouchActive = false;
+
+  // Vue Historique : Modale de consultation du classement complet d'une régate
+  isRaceLeaderboardModalOpen = false;
+  selectedRaceLeaderboard: any[] = [];
+  selectedRaceInfo: any = null;
+  isLoadingRaceLeaderboard = false;
+  raceLeaderboardError = '';
 
   // Offres d'abonnement & Lemon Squeezy
   isSubscriptionModalOpen = false;
@@ -639,7 +648,7 @@ export class AppComponent implements OnInit, OnDestroy {
       catchError(() => of(null))
     ).subscribe((res) => {
       if (res && res.user) {
-        this.currentUser = res.user;
+        this.currentUser = { ...res.user, name: res.user.login || res.user.name };
         this.userHistory = res.history || [];
         this.generalUserRank = res.generalRank || 1;
         this.generalTotalPlayers = res.totalPlayers || 1;
@@ -978,12 +987,13 @@ export class AppComponent implements OnInit, OnDestroy {
           const userLogin = res.user.login || res.user.id;
           this.activeUserId = userLogin;
           this.userIdInput = res.user.watchUserId || userLogin;
-          this.currentUser = res.user;
-          this.userLoginInput = res.user.name || userLogin;
+          // Règle stricte d'identité joueur : utilisateur connecté => login/username exclusif
+          this.currentUser = { ...res.user, name: userLogin };
+          this.userLoginInput = userLogin;
 
           try {
             localStorage.setItem('rower_user_id', userLogin);
-            localStorage.setItem('rower_user_login', res.user.name || userLogin);
+            localStorage.setItem('rower_user_login', userLogin);
             localStorage.setItem('rower_is_subscriber', String(Boolean(res.isSubscriber)));
             localStorage.setItem('rower_is_admin', String(Boolean(res.isAdmin)));
           } catch {}
@@ -1289,6 +1299,7 @@ export class AppComponent implements OnInit, OnDestroy {
       if (this.isMobileOrTablet && !this.checkIsFullscreen()) {
         this.enterFullscreen().catch(() => {});
       }
+      this.startImmersionAutoFade();
     } else if (view === 'cockpit') {
       this.userOverrodeViewMode = true;
       this.activeViewMode = 'cockpit';
@@ -1296,8 +1307,10 @@ export class AppComponent implements OnInit, OnDestroy {
       if (this.isMobileOrTablet && !this.checkIsFullscreen()) {
         this.enterFullscreen().catch(() => {});
       }
+      this.startImmersionAutoFade();
     } else {
       this.userExplicitlyNavigatedHome = true;
+      this.isImmersionControlsVisible = true;
     }
     this.cdr.markForCheck();
   }
@@ -1822,9 +1835,7 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   get fullPlayerId(): string {
-    const prefix = this.currentUser?.userPrefix || 'Row';
-    const suffix = this.currentUser?.userSuffix || 'IQ01';
-    return `${prefix}_${suffix}`;
+    return this.currentUser?.login || this.currentUser?.name || this.activeUserId;
   }
 
   onSpectatorSelect(userId: string): void {
@@ -1837,30 +1848,151 @@ export class AppComponent implements OnInit, OnDestroy {
     this.onSpectatorSelect(userId);
   }
 
-  saveCustomPrefix(): void {
-    if (!this.customPrefixInput || !this.customPrefixInput.trim()) {
-      this.prefixUpdateError = 'Veuillez saisir un préfixe de 3 à 12 caractères alphanumériques.';
+  // Immersion Mode (Mode Cockpit & Régate)
+  get isImmersionActive(): boolean {
+    return (this.siteView === 'regatta' || this.siteView === 'cockpit') && (this.isFullscreen || this.isPseudoFullscreen || this.isRaceActive);
+  }
+
+  startImmersionAutoFade(): void {
+    if (!this.isImmersionActive) {
+      this.isImmersionControlsVisible = true;
       return;
     }
-    this.prefixUpdateError = '';
-    this.prefixUpdateMessage = '';
-    this.isSavingPrefix = true;
-    this.rowerService.updateUserPrefix(this.activeUserId, this.customPrefixInput.trim()).subscribe({
+    if (this.immersionInactivityTimer) {
+      clearTimeout(this.immersionInactivityTimer);
+    }
+    this.immersionInactivityTimer = setTimeout(() => {
+      if (this.isImmersionActive) {
+        this.isImmersionControlsVisible = false;
+        this.cdr.markForCheck();
+      }
+    }, 1200);
+  }
+
+  revealImmersionControls(): void {
+    this.isImmersionControlsVisible = true;
+    this.cdr.markForCheck();
+    if (this.immersionInactivityTimer) {
+      clearTimeout(this.immersionInactivityTimer);
+    }
+    // S'estompe à nouveau après 4 secondes d'inactivité
+    this.immersionInactivityTimer = setTimeout(() => {
+      if (this.isImmersionActive) {
+        this.isImmersionControlsVisible = false;
+        this.cdr.markForCheck();
+      }
+    }, 4000);
+  }
+
+  onImmersionPointerDown(event: any): void {
+    if (!this.isImmersionActive) return;
+    const pt = event.touches ? event.touches[0] : event;
+    if (!pt) return;
+    this.immersionTouchStart = { x: pt.clientX, y: pt.clientY };
+    this.immersionTouchActive = true;
+    if (this.immersionHoldTimer) clearTimeout(this.immersionHoldTimer);
+    // Appui prolongé (~800ms) n'importe où sur l'écran tactile
+    this.immersionHoldTimer = setTimeout(() => {
+      if (this.immersionTouchActive) {
+        this.revealImmersionControls();
+      }
+    }, 800);
+  }
+
+  onImmersionPointerMove(event: any): void {
+    if (!this.immersionTouchActive) return;
+    const pt = event.touches ? event.touches[0] : event;
+    if (!pt) return;
+    const dx = Math.abs(pt.clientX - this.immersionTouchStart.x);
+    const dy = Math.abs(pt.clientY - this.immersionTouchStart.y);
+    if (dx > 12 || dy > 12) {
+      this.immersionTouchActive = false;
+      if (this.immersionHoldTimer) clearTimeout(this.immersionHoldTimer);
+    }
+  }
+
+  onImmersionPointerUp(): void {
+    this.immersionTouchActive = false;
+    if (this.immersionHoldTimer) {
+      clearTimeout(this.immersionHoldTimer);
+      this.immersionHoldTimer = null;
+    }
+    if (this.isImmersionActive && this.isImmersionControlsVisible) {
+      if (this.immersionInactivityTimer) clearTimeout(this.immersionInactivityTimer);
+      this.immersionInactivityTimer = setTimeout(() => {
+        if (this.isImmersionActive) {
+          this.isImmersionControlsVisible = false;
+          this.cdr.markForCheck();
+        }
+      }, 4000);
+    }
+  }
+
+  // Résolution stricte de l'identité joueur : modification du pseudo invité uniquement pour utilisateur non connecté
+  editGuestPseudo(): void {
+    if (this.isIdentified) return;
+    const current = this.currentUser.name || '';
+    const chosen = typeof window !== 'undefined' ? window.prompt("Choisissez votre pseudo invité temporaire :", current) : null;
+    if (chosen !== null) {
+      const clean = chosen.trim().slice(0, 32);
+      if (clean) {
+        this.currentUser.name = clean;
+        this.userLoginInput = clean;
+        try {
+          localStorage.setItem('rower_user_login', clean);
+        } catch {}
+        this.cdr.markForCheck();
+      }
+    }
+  }
+
+  // Vue Historique : Consultation des classements passés
+  openRaceLeaderboard(raceId: string): void {
+    if (!raceId) return;
+    this.isRaceLeaderboardModalOpen = true;
+    this.isLoadingRaceLeaderboard = true;
+    this.raceLeaderboardError = '';
+    this.selectedRaceLeaderboard = [];
+    this.selectedRaceInfo = null;
+    this.cdr.markForCheck();
+
+    this.rowerService.getRaceLeaderboard(raceId).subscribe({
       next: (res) => {
-        this.isSavingPrefix = false;
-        if (res.success) {
-          this.prefixUpdateMessage = '✓ Préfixe mis à jour avec succès !';
-          this.currentUser.userPrefix = res.userPrefix;
-          this.currentUser.userSuffix = res.userSuffix;
+        this.isLoadingRaceLeaderboard = false;
+        if (res && res.success) {
+          this.selectedRaceInfo = res.race;
+          this.selectedRaceLeaderboard = res.leaderboard || [];
+        } else {
+          this.raceLeaderboardError = 'Impossible de charger le classement de cette régate.';
         }
         this.cdr.markForCheck();
       },
       error: (err) => {
-        this.isSavingPrefix = false;
-        this.prefixUpdateError = err.error?.message || 'Erreur mise à jour préfixe.';
+        this.isLoadingRaceLeaderboard = false;
+        this.raceLeaderboardError = err?.error?.message || 'Erreur lors du chargement du classement.';
         this.cdr.markForCheck();
       }
     });
+  }
+
+  closeRaceLeaderboardModal(): void {
+    this.isRaceLeaderboardModalOpen = false;
+    this.selectedRaceLeaderboard = [];
+    this.selectedRaceInfo = null;
+    this.cdr.markForCheck();
+  }
+
+  // Système de Ligues
+  getLeagueBadge(points?: number): string {
+    return getLeagueByPoints(points || 0).badge;
+  }
+
+  getLeagueName(points?: number): string {
+    return getLeagueByPoints(points || 0).name;
+  }
+
+  get currentUserLeague(): LeagueInfo {
+    return getLeagueByPoints(this.currentUser?.points || 0);
   }
 
   openSubscriptionModal(): void {
@@ -2202,6 +2334,9 @@ export class AppComponent implements OnInit, OnDestroy {
       if (this.isMobileFullscreenOnly && !this.userOverrodeViewMode) {
         this.activeViewMode = 'cockpit';
       }
+      if (this.siteView === 'regatta' || this.siteView === 'cockpit') {
+        this.startImmersionAutoFade();
+      }
       this.enableScreenWakeLock();
       this.clampCurrentCockpitPosition();
       this.cdr.markForCheck();
@@ -2229,6 +2364,7 @@ export class AppComponent implements OnInit, OnDestroy {
     } finally {
       this.syncPseudoFullscreenClass();
       this.isFullscreen = this.checkIsFullscreen();
+      this.isImmersionControlsVisible = true;
       this.clampCurrentCockpitPosition();
       this.cdr.markForCheck();
     }
@@ -2334,6 +2470,19 @@ export class AppComponent implements OnInit, OnDestroy {
               this.nextRaceInfo.race.status = 'RUNNING';
             }
           }
+          if (this.siteView === 'regatta' || this.siteView === 'cockpit') {
+            this.startImmersionAutoFade();
+          }
+        } else if (update.status === 'POST_RACE_PAUSE') {
+          const sec = update.details?.pauseSeconds ?? 120;
+          this.countdownSeconds = sec;
+          if (this.nextRaceInfo) {
+            this.nextRaceInfo.status = 'post_race_pause';
+            if (this.nextRaceInfo.race) {
+              this.nextRaceInfo.race.status = 'post_race_pause';
+            }
+          }
+          this.syncCountdownUI();
         }
         this.cdr.markForCheck();
       }
@@ -2383,10 +2532,17 @@ export class AppComponent implements OnInit, OnDestroy {
         }
         this.syncCountdownUI();
         if (this.countdownSeconds === 0) {
-          if (this.nextRaceInfo) {
-            this.nextRaceInfo.status = 'in_progress';
-            if (this.nextRaceInfo.race) {
-              this.nextRaceInfo.race.status = 'RUNNING';
+          if (this.nextRaceInfo?.status === 'post_race_pause') {
+            this.loadNextRaceInfo();
+          } else {
+            if (this.nextRaceInfo) {
+              this.nextRaceInfo.status = 'in_progress';
+              if (this.nextRaceInfo.race) {
+                this.nextRaceInfo.race.status = 'RUNNING';
+              }
+            }
+            if (this.siteView === 'regatta' || this.siteView === 'cockpit') {
+              this.startImmersionAutoFade();
             }
           }
         }

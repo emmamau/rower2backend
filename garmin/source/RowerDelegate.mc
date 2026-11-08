@@ -67,7 +67,17 @@ class RowerDelegate extends WatchUi.BehaviorDelegate {
             }
             return true;
         } else if (state == RowerView.STATE_PAIRING_RESULT) {
-            _view.setAppState(RowerView.STATE_MENU);
+            if (UserManager.isPaired()) {
+                if (_bleDelegate.getModel().isConnected()) {
+                    _view.setAppState(RowerView.STATE_MENU);
+                } else {
+                    _view.setAppState(RowerView.STATE_SCANNING);
+                    _bleDelegate.startScan();
+                }
+            } else {
+                _view.resetPairingDigits();
+                _view.setAppState(RowerView.STATE_PAIRING_INPUT);
+            }
             return true;
         } else if (state == RowerView.STATE_PIN_INPUT) {
             var finished = _view.advancePinDigit();
@@ -201,11 +211,29 @@ class RowerDelegate extends WatchUi.BehaviorDelegate {
         } else if (state == RowerView.STATE_PAIRING_INPUT) {
             var canExit = _view.backspacePairingSlot();
             if (canExit) {
-                _view.setAppState(RowerView.STATE_MENU);
+                if (UserManager.isPaired()) {
+                    _view.setAppState(RowerView.STATE_MENU);
+                    return true;
+                } else {
+                    return false; // Exit app if not paired
+                }
             }
             return true;
-        } else if (state == RowerView.STATE_PAIRING_STATUS || state == RowerView.STATE_PAIRING_RESULT) {
+        } else if (state == RowerView.STATE_PAIRING_STATUS) {
             _view.setAppState(RowerView.STATE_MENU);
+            return true;
+        } else if (state == RowerView.STATE_PAIRING_RESULT) {
+            if (UserManager.isPaired()) {
+                if (_bleDelegate.getModel().isConnected()) {
+                    _view.setAppState(RowerView.STATE_MENU);
+                } else {
+                    _view.setAppState(RowerView.STATE_SCANNING);
+                    _bleDelegate.startScan();
+                }
+            } else {
+                _view.resetPairingDigits();
+                _view.setAppState(RowerView.STATE_PAIRING_INPUT);
+            }
             return true;
         } else if (state == RowerView.STATE_PIN_INPUT) {
             var canExit = _view.backspacePinDigit();

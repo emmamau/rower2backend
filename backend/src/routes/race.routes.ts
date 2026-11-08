@@ -13,6 +13,9 @@ export default (app: Application): void => {
   // GET /api/race/history (Historique des résultats des précédentes courses)
   router.get("/history", raceController.getRaceHistory);
 
+  // GET /api/races/:id/leaderboard & /api/race/:id/leaderboard (Classement complet d'une régate passée)
+  router.get("/:id/leaderboard", raceController.getRaceLeaderboard);
+
   // PUT /api/race/config (Mise à jour distance / intervalle)
   router.put("/config", raceController.updateRaceConfig);
 

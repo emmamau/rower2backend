@@ -5,6 +5,7 @@ import { hashPassword, verifyPassword, isEmmaAdminUser, generateSecureToken } fr
 import emailService from "../services/email.service";
 import userStore from "../services/user-store.service";
 import raceManager from "../services/race-manager.service";
+import { getLeagueByPoints } from "../utils/league.util";
 
 const Activities = db.activities;
 
@@ -17,6 +18,10 @@ function sanitizeUser(user: any): Record<string, any> {
   delete plain.passwordSalt;
   delete plain.resetPasswordToken;
   delete plain.resetPasswordExpires;
+  const leagueInfo = getLeagueByPoints(plain.points || 0);
+  plain.league = plain.league || leagueInfo.id;
+  plain.leagueName = leagueInfo.name;
+  plain.leagueBadge = leagueInfo.badge;
   return plain;
 }
 
@@ -476,21 +481,27 @@ export const getGeneralLeaderboard = async (req: Request, res: Response): Promis
       });
     }
 
-    const players = all.slice(0, 100).map((u) => ({
-      id: u.id,
-      name: u.name,
-      points: u.points,
-      totalRaces: u.totalRaces,
-      totalWins: u.totalWins,
-      podiums: u.podiums,
-      bestRank: u.bestRank,
-      lastRank: u.lastRank,
-      isSubscriber: u.isSubscriber,
-      isAdmin: u.isAdmin,
-      country: u.country || u.pays || "",
-      gender: u.gender || u.sexe || "",
-      birthYear: u.birthYear || u.anneeNaissance || null,
-    }));
+    const players = all.slice(0, 100).map((u) => {
+      const league = getLeagueByPoints(u.points);
+      return {
+        id: u.id,
+        name: u.login || u.name,
+        points: u.points,
+        league: u.league || league.id,
+        leagueName: league.name,
+        leagueBadge: league.badge,
+        totalRaces: u.totalRaces,
+        totalWins: u.totalWins,
+        podiums: u.podiums,
+        bestRank: u.bestRank,
+        lastRank: u.lastRank,
+        isSubscriber: u.isSubscriber,
+        isAdmin: u.isAdmin,
+        country: u.country || u.pays || "",
+        gender: u.gender || u.sexe || "",
+        birthYear: u.birthYear || u.anneeNaissance || null,
+      };
+    });
 
     res.status(200).json({
       success: true,
@@ -499,64 +510,6 @@ export const getGeneralLeaderboard = async (req: Request, res: Response): Promis
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     res.status(500).json({ message: "Erreur classement général: " + message });
-  }
-};
-
-/**
- * PUT /api/user/prefix
- * Permet aux utilisateurs abonnés de personnaliser la première partie de leur identifiant joueur.
- */
-export const updateUserPrefix = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { userId, userPrefix } = req.body || {};
-    const cleanUserId = String(userId || "").trim();
-    const cleanPrefix = String(userPrefix || "").trim();
-
-    if (!cleanUserId) {
-      res.status(400).json({ success: false, message: "L'identifiant utilisateur est obligatoire." });
-      return;
-    }
-
-    if (!cleanPrefix || !/^[a-zA-Z0-9]{3,12}$/.test(cleanPrefix)) {
-      res.status(400).json({
-        success: false,
-        message: "Le préfixe doit comporter entre 3 et 12 caractères alphanumériques (sans espaces ni caractères spéciaux)."
-      });
-      return;
-    }
-
-    const user = await userStore.findUser(cleanUserId);
-    if (!user) {
-      res.status(404).json({ success: false, message: "Utilisateur introuvable." });
-      return;
-    }
-
-    const isEmma = isEmmaAdminUser(user.login || user.id, user.name);
-    if (!user.isSubscriber && !user.isAdmin && !isEmma) {
-      res.status(403).json({
-        success: false,
-        message: "Seuls les abonnés actifs ont le privilège de personnaliser leur préfixe d'identifiant joueur."
-      });
-      return;
-    }
-
-    const suffix = user.userSuffix || "IQ" + Math.random().toString(36).substring(2, 5).toUpperCase();
-    const updated = await userStore.updateUser(user.id, {
-      userPrefix: cleanPrefix,
-      userSuffix: suffix
-    });
-
-    res.status(200).json({
-      success: true,
-      message: "Préfixe mis à jour avec succès.",
-      userPrefix: cleanPrefix,
-      userSuffix: suffix,
-      fullPlayerId: `${cleanPrefix}_${suffix}`,
-      user: sanitizeUser(updated || user)
-    });
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err);
-    res.status(500).json({ success: false, message: "Erreur mise à jour préfixe: " + message });
   }
 };
 
@@ -804,7 +757,6 @@ export default {
   getUserAccount,
   getUserProfile,
   getGeneralLeaderboard,
-  updateUserPrefix,
   unsubscribeUser,
   deleteUserAccount,
   getUserStatistics,

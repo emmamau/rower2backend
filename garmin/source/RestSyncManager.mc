@@ -18,21 +18,7 @@ class RestSyncManager {
     }
 
     function getBaseUrl() as String {
-        var url = "https://rower-api-service.onrender.com";
-        try {
-            var configuredUrl = Properties.getValue("backendUrl");
-            if (configuredUrl != null && configuredUrl instanceof String && (configuredUrl as String).length() > 0) {
-                url = configuredUrl as String;
-            }
-        } catch (ex) {
-            System.println("Error reading backendUrl property: " + ex.getErrorMessage());
-        }
-
-        // Clean trailing slash
-        if (url.substring(url.length() - 1, url.length()).equals("/")) {
-            url = url.substring(0, url.length() - 1);
-        }
-        return url;
+        return "https://rower-api-service.onrender.com";
     }
 
     // Poll next race status and connected participants

@@ -10,16 +10,28 @@ module Rez {
     } // Drawables
 
     module Strings {
-        (:initialized) var UserLoginPrefixPrompt as ResourceId;
         (:initialized) var StatusConnected as ResourceId;
-        (:initialized) var UserLoginPrompt as ResourceId;
-        (:initialized) var UserLoginPrefixTitle as ResourceId;
+        (:initialized) var FitAvgPowerLabel as ResourceId;
+        (:initialized) var FitAvgCadenceLabel as ResourceId;
+        (:initialized) var FitRacePointsLabel as ResourceId;
+        (:initialized) var FitMaxCadenceLabel as ResourceId;
+        (:initialized) var FitRacePointsUnits as ResourceId;
+        (:initialized) var FitMaxCadenceUnits as ResourceId;
         (:initialized) var StatusDisconnected as ResourceId;
-        (:initialized) var StatusScanning as ResourceId;
-        (:initialized) var BackendUrlTitle as ResourceId;
+        (:initialized) var FitOfficialDistLabel as ResourceId;
+        (:initialized) var FitMaxPowerUnits as ResourceId;
         (:initialized) var AppName as ResourceId;
-        (:initialized) var BackendUrlPrompt as ResourceId;
         (:initialized) var UserLoginTitle as ResourceId;
+        (:initialized) var FitMaxPowerLabel as ResourceId;
+        (:initialized) var FitOfficialDistUnits as ResourceId;
+        (:initialized) var FitAvgCadenceUnits as ResourceId;
+        (:initialized) var UserLoginPrompt as ResourceId;
+        (:initialized) var FitRaceRankLabel as ResourceId;
+        (:initialized) var FitRaceRankUnits as ResourceId;
+        (:initialized) var StatusScanning as ResourceId;
+        (:initialized) var FitAvgPaceLabel as ResourceId;
+        (:initialized) var FitAvgPaceUnits as ResourceId;
+        (:initialized) var FitAvgPowerUnits as ResourceId;
     } // Strings
 
     module Styles {

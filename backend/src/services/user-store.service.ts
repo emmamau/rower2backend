@@ -1,6 +1,7 @@
 import { Op } from "sequelize";
 import db from "../models";
 import { isEmmaAdminUser, hashPassword } from "./auth.service";
+import { getLeagueByPoints } from "../utils/league.util";
 
 const Users = db.users;
 const LoginRequests = db.loginRequests;
@@ -31,8 +32,6 @@ export interface StoredUser {
   stripeSubscriptionId?: string;
   watchModel?: string;
   rowerModel?: string;
-  userPrefix?: string;
-  userSuffix?: string;
   isConfirmed: boolean;
   watchUserId?: string;
   resetPasswordToken?: string;
@@ -41,6 +40,7 @@ export interface StoredUser {
   totalWins: number;
   podiums: number;
   points: number;
+  league?: string;
   bestRank: number;
   lastRank: number;
   isAdmin: boolean;
@@ -77,7 +77,7 @@ export class UserStoreService {
   }
 
   public findActivitiesForUser(userId: string, additionalIds: string[] = []): any[] {
-    if (!userId) return [];
+    if (!userId) return [...this.inMemoryActivities];
     const valid = new Set([
       userId.trim().toLowerCase(),
       ...additionalIds.map((id) => String(id || '').trim().toLowerCase()).filter(Boolean),
@@ -85,6 +85,15 @@ export class UserStoreService {
     return this.inMemoryActivities.filter((a) => {
       const u = String(a.userId || '').toLowerCase();
       return valid.has(u);
+    });
+  }
+
+  public findActivitiesByRaceId(raceId: string): any[] {
+    if (!raceId) return [];
+    const clean = raceId.trim().toLowerCase();
+    return this.inMemoryActivities.filter((a) => {
+      const actId = String(a.activityId || a.id || '').toLowerCase();
+      return actId.includes(clean);
     });
   }
 
@@ -136,14 +145,13 @@ export class UserStoreService {
       isSubscriber: true,
       subscriptionTier: "premium",
       subscriptionStatus: "active",
-      userPrefix: "Emma",
-      userSuffix: "RCR01",
       isAdmin: true,
       isConfirmed: true,
       totalRaces: 0,
       totalWins: 0,
       podiums: 0,
       points: 100,
+      league: "silver",
       bestRank: 1,
       lastRank: 1,
       createdAt: new Date(),
@@ -289,6 +297,7 @@ export class UserStoreService {
       totalWins: data.totalWins || 0,
       podiums: data.podiums || 0,
       points: data.points || 0,
+      league: data.league || getLeagueByPoints(data.points || 0).id,
       bestRank: data.bestRank || 0,
       lastRank: data.lastRank || 0,
       isAdmin: isEmma ? true : Boolean(data.isAdmin),
@@ -317,9 +326,14 @@ export class UserStoreService {
     const gender = updates.gender || updates.sexe || existing.gender || existing.sexe;
     const country = updates.country || updates.pays || existing.country || existing.pays;
 
+    const updatedPoints = updates.points !== undefined ? updates.points : existing.points;
+    const league = updates.league || (updates.points !== undefined ? getLeagueByPoints(updatedPoints).id : existing.league || getLeagueByPoints(updatedPoints).id);
+
     const updated: StoredUser = {
       ...existing,
       ...updates,
+      points: updatedPoints,
+      league,
       lastName,
       nom: lastName,
       firstName,
@@ -336,7 +350,7 @@ export class UserStoreService {
     this.cacheUser(updated);
 
     try {
-      await Users.update(updates as any, {
+      await Users.update({ ...updates, points: updatedPoints, league } as any, {
         where: {
           [Op.or]: [{ id: existing.id }, { login: existing.login }]
         }

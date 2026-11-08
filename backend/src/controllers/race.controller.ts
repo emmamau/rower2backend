@@ -2,10 +2,11 @@ import { Request, Response } from "express";
 import { Op } from "sequelize";
 import db from "../models";
 import config from "../config";
-import raceManager, { RaceState } from "../services/race-manager.service";
+import raceManager, { RaceState, RaceManager } from "../services/race-manager.service";
 import { isEmmaAdminUser } from "../services/auth.service";
 import userStore from "../services/user-store.service";
 import { IpGeoService } from "../services/ip-geo.service";
+import { generateRealisticBotPace, calculateBotPhysics, getLeagueByPoints, calculateRacePoints } from "../utils/league.util";
 
 const Activities = db.activities;
 const Races = db.races;
@@ -22,9 +23,23 @@ const Users = db.users;
  * cycle de vie concurrent côté base de données.
  */
 export async function ensurePublicRaceRow(state: RaceState): Promise<any> {
-  let row = await Races.findByPk(state.id);
-  if (!row) {
-    row = await Races.create({
+  try {
+    let row = await Races.findByPk(state.id);
+    if (!row) {
+      row = await Races.create({
+        id: state.id,
+        title: state.title,
+        targetDistance: state.targetDistance,
+        startTime: state.startedAt || state.lobbyEndsAt,
+        intervalMinutes: config.raceIntervalMinutes || 15,
+        maxDurationMinutes: state.maxDurationMinutes || 55,
+        status: state.status === "RUNNING" ? "in_progress" : "waiting",
+        totalParticipants: 0,
+      });
+    }
+    return row;
+  } catch (err) {
+    return {
       id: state.id,
       title: state.title,
       targetDistance: state.targetDistance,
@@ -33,9 +48,10 @@ export async function ensurePublicRaceRow(state: RaceState): Promise<any> {
       maxDurationMinutes: state.maxDurationMinutes || 55,
       status: state.status === "RUNNING" ? "in_progress" : "waiting",
       totalParticipants: 0,
-    });
+      update: async () => {},
+      toJSON: () => ({ id: state.id })
+    };
   }
-  return row;
 }
 
 export async function getOrCreateCurrentRace(): Promise<any> {
@@ -63,15 +79,22 @@ export async function buildPublicRacePayload(): Promise<any> {
   const state = await raceManager.tickPublicRace();
   const row = await ensurePublicRaceRow(state);
   const timing = raceManager.getRaceTiming(state);
-  const apiStatus = mapStateToApiStatus(state.status);
 
-  const count = await Activities.count({
-    where: { activityId: state.id, status: { [Op.ne]: "abandoned" } },
-  });
+  const isPostRacePause = Boolean(state.pauseEndsAt && state.pauseEndsAt.getTime() > Date.now());
+  const pauseRemaining = isPostRacePause
+    ? Math.max(0, Math.ceil((state.pauseEndsAt!.getTime() - Date.now()) / 1000))
+    : 0;
+
+  const apiStatus = isPostRacePause ? "post_race_pause" : mapStateToApiStatus(state.status);
+
+  let count = 0;
   try {
+    count = await Activities.count({
+      where: { activityId: state.id, status: { [Op.ne]: "abandoned" } },
+    });
     await row.update({ totalParticipants: count });
   } catch {
-    // Non-blocking
+    // Non-blocking fallback when DB offline
   }
 
   const plainRow = typeof row.toJSON === "function" ? row.toJSON() : row;
@@ -92,14 +115,16 @@ export async function buildPublicRacePayload(): Promise<any> {
 
   return {
     race,
-    secondsRemaining: timing.secondsUntilStart,
-    remainingSeconds: timing.remainingSeconds,
+    secondsRemaining: isPostRacePause ? pauseRemaining : timing.secondsUntilStart,
+    remainingSeconds: isPostRacePause ? pauseRemaining : timing.remainingSeconds,
     elapsedSeconds: timing.elapsedSeconds,
     maxDurationSeconds: timing.maxDurationSeconds,
-    formattedCountdown: formatMinSec(state.status === "RUNNING" ? timing.remainingSeconds : timing.secondsUntilStart),
+    formattedCountdown: formatMinSec(isPostRacePause ? pauseRemaining : (state.status === "RUNNING" ? timing.remainingSeconds : timing.secondsUntilStart)),
     totalParticipants: count,
     status: apiStatus,
     pinCode: state.pinCode,
+    isPostRacePause,
+    pauseRemainingSeconds: pauseRemaining,
   };
 }
 
@@ -130,6 +155,20 @@ export const joinRace = async (req: Request, res: Response): Promise<void> => {
     const now = new Date();
     const isRunning = state.status === "RUNNING";
     const timing = raceManager.getRaceTiming(state, now);
+
+    if (state.pauseEndsAt && state.pauseEndsAt.getTime() > now.getTime()) {
+      const pauseRemaining = Math.max(0, Math.ceil((state.pauseEndsAt.getTime() - now.getTime()) / 1000));
+      res.status(200).json({
+        success: true,
+        action: "wait_next",
+        isPostRacePause: true,
+        pauseRemainingSeconds: pauseRemaining,
+        secondsRemaining: pauseRemaining,
+        formattedCountdown: formatMinSec(pauseRemaining),
+        message: `Pause d'après-course en cours (2 minutes). Prochaine épreuve dans ${pauseRemaining}s.`,
+      });
+      return;
+    }
 
     if (isRunning && action === "wait_next") {
       // La prochaine partie publique démarre après la fin de celle-ci ; on indique le temps restant
@@ -279,6 +318,184 @@ export const getRaceHistory = async (_req: Request, res: Response): Promise<void
 };
 
 /**
+ * GET /api/races/:id/leaderboard ou GET /api/race/:id/leaderboard
+ * Fournit le classement complet et détaillé d'une session passée
+ * (position, pseudos, chronos, allure moyenne /500m, écarts, statut, ligue).
+ */
+export const getRaceLeaderboard = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const cleanId = String(id || "").trim();
+    if (!cleanId) {
+      res.status(400).json({ success: false, message: "Identifiant de course requis." });
+      return;
+    }
+
+    let race: any = null;
+    try {
+      race = await Races.findByPk(cleanId);
+    } catch {
+      // Tolérance DB hors-ligne
+    }
+
+    let targetDistance = 2000;
+    let raceInfo: any = null;
+
+    if (race) {
+      targetDistance = (race.get("targetDistance") as number) || 2000;
+      raceInfo = {
+        id: race.get("id"),
+        targetDistance,
+        status: race.get("status"),
+        startTime: race.get("startTime"),
+        endedAt: race.get("endedAt"),
+      };
+    } else {
+      const managed = raceManager.getRaceById(cleanId) || raceManager.findPrivateRace(cleanId);
+      if (managed) {
+        targetDistance = managed.targetDistance || 2000;
+        raceInfo = {
+          id: managed.id,
+          title: managed.title,
+          targetDistance,
+          status: managed.status,
+          startTime: managed.startedAt || managed.createdAt,
+          endedAt: managed.endedAt,
+        };
+      }
+    }
+
+    let activities: any[] = [];
+    try {
+      activities = await Activities.findAll({
+        where: { activityId: cleanId },
+      });
+    } catch {
+      // Tolérance DB hors-ligne
+    }
+
+    if (activities.length === 0) {
+      // Tolérance in-memory / userStore
+      const memActs = userStore.findActivitiesByRaceId(cleanId);
+      if (memActs.length > 0) {
+        activities = memActs as any;
+      }
+    }
+
+    if (!race && !raceInfo) {
+      if (activities.length > 0) {
+        const first = activities[0];
+        targetDistance = (typeof first.get === "function" ? first.get("targetDistance") : first.targetDistance) || 2000;
+        raceInfo = {
+          id: cleanId,
+          title: "Régate officielle",
+          targetDistance,
+          status: "finished",
+          startTime: (typeof first.get === "function" ? first.get("date") : first.date) || new Date(),
+        };
+      } else {
+        res.status(404).json({ success: false, message: "Course introuvable." });
+        return;
+      }
+    }
+
+    const nonAbandoned = activities.filter((a: any) => (typeof a.get === "function" ? a.get("status") : a.status) !== "abandoned");
+    const abandoned = activities.filter((a: any) => (typeof a.get === "function" ? a.get("status") : a.status) === "abandoned");
+    const sortedActive = RaceManager.sortRanking(nonAbandoned);
+    const sortedAll = [...sortedActive, ...abandoned];
+
+    const leaderRow = sortedActive[0] as any;
+    const leaderTime = leaderRow && (typeof leaderRow.get === "function" ? leaderRow.get("status") : leaderRow.status) === "finished"
+      ? (typeof leaderRow.get === "function" ? leaderRow.get("elapsedTime") : leaderRow.elapsedTime) || 0
+      : null;
+    const leaderDist = leaderRow ? (typeof leaderRow.get === "function" ? leaderRow.get("netDistance") : leaderRow.netDistance) || 0 : 0;
+
+    const leaderboard = await Promise.all(
+      sortedAll.map(async (act: any, idx: number) => {
+        const getVal = (field: string) => (typeof act.get === "function" ? act.get(field) : act[field]);
+        const status = getVal("status") || "in_progress";
+        const isFinisher = status === "finished";
+        const elapsed = Number(getVal("elapsedTime")) || 0;
+        const dist = Number(getVal("netDistance")) || 0;
+        const rank = Number(getVal("finalRank")) || (idx + 1);
+        const isBot = Boolean(getVal("isBot"));
+        const userId = getVal("userId") || `athlete_${idx + 1}`;
+        const storedUser = !isBot ? await userStore.findUser(userId) : null;
+        const userName = storedUser ? storedUser.login : (getVal("userName") || userId);
+
+        // Allure moyenne /500m
+        let rawPace = Number(getVal("avgPace")) || Number(getVal("lastPace")) || 0;
+        if (!rawPace && dist > 0 && elapsed > 0) {
+          rawPace = Math.round((elapsed / dist) * 500);
+        }
+        const paceM = Math.floor(rawPace / 60);
+        const paceS = Math.floor(rawPace % 60);
+        const formattedPace = rawPace > 0 ? `${paceM}'${paceS.toString().padStart(2, "0")}"` : "--";
+
+        // Chrono mm:ss
+        const mins = Math.floor(elapsed / 60);
+        const secs = Math.floor(elapsed % 60);
+        const chrono = `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+
+        // Calcul de l'écart (gap)
+        let gap = "-";
+        if (status === "abandoned") {
+          gap = "Abandon";
+        } else if (idx === 0) {
+          gap = isFinisher ? "Vainqueur" : (sortedActive.length > 0 ? "Leader" : "Non classé");
+        } else if (isFinisher && leaderTime !== null) {
+          const deltaSec = Math.max(0, elapsed - leaderTime);
+          const m = Math.floor(deltaSec / 60);
+          const s = Math.floor(deltaSec % 60);
+          gap = `+${m > 0 ? `${m}m ` : ""}${s.toString().padStart(2, "0")}s`;
+        } else if (leaderDist > dist) {
+          const deltaM = Math.round(leaderDist - dist);
+          gap = `-${deltaM}m`;
+        }
+
+        // Ligue du joueur
+        let league = null;
+        if (!isBot) {
+          const pts = storedUser ? storedUser.points || 0 : 0;
+          league = getLeagueByPoints(pts);
+        }
+
+        // Points attribués pour la course (0 si abandon)
+        const rawPoints = getVal("points");
+        const earnedPoints = status === "abandoned"
+          ? 0
+          : (rawPoints !== undefined && rawPoints !== null ? Number(rawPoints) : calculateRacePoints(rank, sortedAll.length, isFinisher));
+
+        return {
+          position: rank,
+          userId,
+          userName,
+          isBot,
+          status,
+          chrono,
+          elapsedTime: elapsed,
+          avgPace: formattedPace,
+          avgPaceSec: rawPace,
+          netDistance: dist,
+          gap,
+          points: earnedPoints,
+          league,
+        };
+      })
+    );
+
+    res.status(200).json({
+      success: true,
+      race: raceInfo || { id: cleanId, targetDistance, status: "finished" },
+      leaderboard,
+    });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ success: false, message: "Erreur récupération classement: " + message });
+  }
+};
+
+/**
  * PUT /api/race/config
  * Dédié au mode administrateur
  */
@@ -335,34 +552,22 @@ const BOT_FIRSTNAMES = [
 ];
 
 /**
- * Génère des bots adaptés au niveau du joueur (établi par ses points).
- * Les allures s'échelonnent entre 1min50s (110s) et 2min30s (150s) pour 500m.
+ * Équilibrage des Bots (Allures réalistes et distribution asymétrique) :
+ * - Plage d'allure : 1 min 50 s / 500 m (110s) à 2 min 45 s / 500 m (165s)
+ * - Distribution pondérée :
+ *   - 60 % de bots entre 2m20s (140s) et 2m45s (165s) (niveau loisir / modéré)
+ *   - 30 % de bots entre 2m05s (125s) et 2m20s (140s) (niveau intermédiaire)
+ *   - 10 % de bots rapides entre 1m50s (110s) et 2m05s (125s) (challenge de tête)
  */
 function generateTunedBots(playerPoints: number, botCount: number = 3) {
-  let minPace = 110; // 1m50s
-  let maxPace = 150; // 2m30s
-
-  if (playerPoints >= 250) {
-    minPace = 110; // 1m50s
-    maxPace = 128; // 2m08s
-  } else if (playerPoints >= 80) {
-    minPace = 118; // 1m58s
-    maxPace = 138; // 2m18s
-  } else {
-    minPace = 125; // 2m05s
-    maxPace = 150; // 2m30s
-  }
-
   // Tirage au sort de prénoms uniques
   const shuffledNames = [...BOT_FIRSTNAMES].sort(() => 0.5 - Math.random());
   const selectedBots = [];
 
   for (let i = 0; i < botCount; i++) {
     const firstName = shuffledNames[i % shuffledNames.length];
-    const pace = Math.floor(minPace + Math.random() * (maxPace - minPace));
-    const ratio = (150 - pace) / (150 - 110);
-    const power = Math.round(135 + ratio * 145);
-    const spm = Math.round(22 + ratio * 9);
+    const pace = generateRealisticBotPace();
+    const { power, spm } = calculateBotPhysics(pace);
 
     selectedBots.push({
       id: `bot_${firstName.toLowerCase()}_${Math.floor(Math.random() * 900 + 100)}`,
@@ -658,6 +863,7 @@ export default {
   getNextRace,
   joinRace,
   getRaceHistory,
+  getRaceLeaderboard,
   updateRaceConfig,
   toggleBots,
   getPublicRaceAdminConfig,

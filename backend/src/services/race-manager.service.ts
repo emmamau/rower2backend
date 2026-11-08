@@ -2,6 +2,8 @@ import { Op } from "sequelize";
 import db from "../models";
 import socketGateway, { LiveRacerMetric } from "../websocket/socket.gateway";
 import config from "../config";
+import userStore from "./user-store.service";
+import { calculateRacePoints, getLeagueByPoints, generateRealisticBotPace, calculateBotPhysics } from "../utils/league.util";
 
 const Races = db.races;
 const Activities = db.activities;
@@ -26,6 +28,8 @@ export interface RaceState {
   lobbyEndsAt: Date;
   startedAt?: Date;
   endedAt?: Date;
+  pauseEndsAt?: Date;
+  finalRanking?: RaceRankingEntry[];
   pinCode?: string; // Alphanumeric PIN (5 chars) for Garmin watch & quick join
   hostUserId?: string;
   hostUserName?: string;
@@ -61,6 +65,7 @@ export interface RaceRankingEntry {
   netDistance: number;
   status: string;
   isBot: boolean;
+  points?: number;
 }
 
 export class RaceManager {
@@ -81,7 +86,7 @@ export class RaceManager {
     maxParticipants: 20,
     maxDurationMinutes: 55,
     defaultBotsCount: 3,
-    defaultBotsPace: 120, // 2:00 / 500m
+    defaultBotsPace: 145, // 2:25 / 500m (palier débutant/loisir 2m20s - 2m45s)
     countdownAfterLastJoinSeconds: 15,
     lobbyWaitMinutes: 15,
   };
@@ -152,6 +157,9 @@ export class RaceManager {
       elapsedSeconds = Math.max(0, Math.floor((now.getTime() - startMs) / 1000));
       remainingSeconds = Math.max(0, maxDurationSeconds - elapsedSeconds);
     } else {
+      if (race.pauseEndsAt && race.pauseEndsAt.getTime() > now.getTime()) {
+        secondsUntilStart = Math.max(0, Math.ceil((race.pauseEndsAt.getTime() - now.getTime()) / 1000));
+      }
       if (race.startedAt) {
         const endMs = (race.endedAt || now).getTime();
         elapsedSeconds = Math.max(0, Math.floor((endMs - race.startedAt.getTime()) / 1000));
@@ -173,6 +181,9 @@ export class RaceManager {
       return Number.isFinite(t) ? t : Number.MAX_SAFE_INTEGER;
     };
     return [...rows].sort((a, b) => {
+      const aAb = a.get("status") === "abandoned" ? 1 : 0;
+      const bAb = b.get("status") === "abandoned" ? 1 : 0;
+      if (aAb !== bAb) return aAb - bAb;
       const aFin = a.get("status") === "finished" ? 0 : 1;
       const bFin = b.get("status") === "finished" ? 0 : 1;
       if (aFin !== bFin) return aFin - bFin;
@@ -275,23 +286,73 @@ export class RaceManager {
     return advanced;
   }
 
-  /** Writes finalRank on every non-abandoned racer and returns the official classification. */
+  /** Writes finalRank on every non-abandoned racer, calculates points/leagues and returns the official classification. */
   private async finalizeRanking(raceId: string): Promise<RaceRankingEntry[]> {
     const rows = await this.loadRaceActivities(raceId);
     const ranked = RaceManager.sortRanking(rows.filter((r: any) => r.get("status") !== "abandoned"));
+    const totalParticipants = ranked.length;
     const result: RaceRankingEntry[] = [];
     for (let i = 0; i < ranked.length; i++) {
       const r = ranked[i];
+      const rank = i + 1;
+      const isFinisher = r.get("status") === "finished";
+      const pts = calculateRacePoints(rank, totalParticipants, isFinisher);
+
+      const alreadyAwarded = Number(r.get("points") || 0) > 0;
       try {
-        await r.update({ finalRank: i + 1 });
+        await r.update({ finalRank: rank, points: pts } as any);
       } catch {}
+
+      // Mettre à jour les points et le statut de ligue du joueur humain si non déjà comptabilisés
+      let resolvedUserName = r.get("userName") || r.get("userId");
+      if (!r.get("isBot") && r.get("userId")) {
+        try {
+          const u = await userStore.findUser(r.get("userId"));
+          if (u) {
+            resolvedUserName = u.login || u.name;
+            const currentPts = (u.points as number) || 0;
+            const newPts = alreadyAwarded ? currentPts : (currentPts + pts);
+            const league = getLeagueByPoints(newPts);
+            const totalWins = (u.totalWins || 0) + (rank === 1 && isFinisher ? 1 : 0);
+            const podiums = (u.podiums || 0) + (rank <= 3 && isFinisher ? 1 : 0);
+            const bestRank = !u.bestRank || rank < u.bestRank ? rank : u.bestRank;
+            await userStore.updateUser(u.id, {
+              points: newPts,
+              league: league.id,
+              totalWins,
+              podiums,
+              lastRank: rank,
+              bestRank,
+            });
+          }
+        } catch {}
+      }
+
       result.push({
-        rank: i + 1,
+        rank,
         userId: r.get("userId"),
-        userName: r.get("userName") || r.get("userId"),
+        userName: resolvedUserName,
         netDistance: (r.get("netDistance") as number) || 0,
         status: r.get("status"),
-        isBot: r.get("isBot") === true
+        isBot: r.get("isBot") === true,
+        points: pts
+      });
+    }
+
+    // Inclusion explicite des abandons (DNF) : 0 points et statut "abandoned"
+    const abandoned = rows.filter((r: any) => r.get("status") === "abandoned");
+    for (const ab of abandoned) {
+      try {
+        await ab.update({ finalRank: 0, points: 0 } as any);
+      } catch {}
+      result.push({
+        rank: 0,
+        userId: ab.get("userId"),
+        userName: ab.get("userName") || ab.get("userId"),
+        netDistance: (ab.get("netDistance") as number) || 0,
+        status: "abandoned",
+        isBot: ab.get("isBot") === true,
+        points: 0
       });
     }
     return result;
@@ -322,6 +383,23 @@ export class RaceManager {
     }
 
     const race = this.currentPublicRace;
+
+    if (race.status === "COMPLETED" || (race.status as any) === "POST_RACE_PAUSE") {
+      if (race.pauseEndsAt) {
+        if (now.getTime() >= race.pauseEndsAt.getTime()) {
+          console.log(`[RaceManager] Fin des 2 minutes de pause post-course pour ${race.id}. Enchaînement vers le nouveau lobby.`);
+          await this.initNextPublicRace(15);
+        } else {
+          const pauseRemainingSec = Math.max(0, Math.ceil((race.pauseEndsAt.getTime() - now.getTime()) / 1000));
+          socketGateway.broadcastRaceStatus(race.id, "POST_RACE_PAUSE", {
+            pauseSeconds: pauseRemainingSec,
+            pauseEndsAt: race.pauseEndsAt,
+            ranking: race.finalRanking || []
+          });
+        }
+      }
+      return this.currentPublicRace!;
+    }
 
     if (race.status === "LOBBY" || race.status === "COUNTDOWN") {
       const remainingSec = Math.max(0, Math.floor((race.lobbyEndsAt.getTime() - now.getTime()) / 1000));
@@ -403,9 +481,24 @@ export class RaceManager {
       } else {
         try {
           const rows = await this.loadRaceActivities(race.id);
+
+          // Détection de rupture de flux post-départ (déconnexion / fermeture app Garmin) -> passage en Abandon (DNF)
+          for (const row of rows) {
+            if (!row.get("isBot") && (row.get("status") === "in_progress" || row.get("status") === "paused")) {
+              const updatedAt = row.get("updatedAt");
+              if (updatedAt) {
+                const ageMs = now.getTime() - new Date(updatedAt).getTime();
+                if (ageMs > 25000) {
+                  console.log(`[RaceManager] Rupture de flux détectée pour ${row.get("userId")} (${Math.round(ageMs / 1000)}s). Marquage Abandon (DNF).`);
+                  await row.update({ status: "abandoned", speed: 0, powerWatts: 0, strokeRate: 0 } as any);
+                }
+              }
+            }
+          }
+
           await this.advanceBots(race, rows, now);
 
-          const live = RaceManager.sortRanking(rows.filter((r: any) => r.get("status") !== "abandoned"));
+          const live = RaceManager.sortRanking(rows);
           if (live.length > 0) {
             socketGateway.broadcastLeaderboard(race.id, RaceManager.toLiveMetrics(live));
           }
@@ -473,13 +566,29 @@ export class RaceManager {
 
         try {
           const rows = await this.loadRaceActivities(race.id);
+
+          // Détection de rupture de flux post-départ (déconnexion / fermeture app Garmin) -> passage en Abandon (DNF)
+          for (const row of rows) {
+            if (!row.get("isBot") && (row.get("status") === "in_progress" || row.get("status") === "paused")) {
+              const updatedAt = row.get("updatedAt");
+              if (updatedAt) {
+                const ageMs = now.getTime() - new Date(updatedAt).getTime();
+                if (ageMs > 25000) {
+                  console.log(`[RaceManager] Rupture de flux détectée pour ${row.get("userId")} (${Math.round(ageMs / 1000)}s). Marquage Abandon (DNF).`);
+                  await row.update({ status: "abandoned", speed: 0, powerWatts: 0, strokeRate: 0 } as any);
+                }
+              }
+            }
+          }
+
           await this.advanceBots(race, rows, now);
 
-          const live = RaceManager.sortRanking(rows.filter((r: any) => r.get("status") !== "abandoned"));
+          const live = RaceManager.sortRanking(rows);
           if (live.length > 0) {
             socketGateway.broadcastLeaderboard(race.id, RaceManager.toLiveMetrics(live));
 
-            const allFinished = live.every(
+            const nonAbandoned = live.filter((act: any) => act.get("status") !== "abandoned");
+            const allFinished = nonAbandoned.length > 0 && nonAbandoned.every(
               (act: any) => act.get("status") === "finished" || ((act.get("netDistance") as number) || 0) >= race.targetDistance
             );
             if (allFinished) {
@@ -661,14 +770,14 @@ export class RaceManager {
 
   private async ensureDefaultPublicBots(raceId: string, count: number, pace: number, targetDistance: number): Promise<void> {
     if (count <= 0) return;
-    const names = ["Bot Argonaut", "Bot Poseidon", "Bot Nautilus", "Bot Triton", "Bot Thalassa"];
+    const names = ["Bot Argonaut", "Bot Poseidon", "Bot Nautilus", "Bot Triton", "Bot Thalassa", "Bot Albatros", "Bot Sirius", "Bot Orion"];
     for (let i = 0; i < count; i++) {
       const botId = `bot_pub_${i + 1}`;
       const compositeId = `${raceId}_${botId}`;
       const name = names[i % names.length];
-      const botPace = pace + (i * 3);
-      const speedMs = 500 / botPace;
-      const power = Math.round(2.80 * Math.pow(speedMs, 3));
+      // Distribution réaliste pondérée : 60% entre 140s et 165s, 30% entre 125s et 140s, 10% entre 110s et 125s
+      const botPace = generateRealisticBotPace();
+      const { power, spm, speedMs } = calculateBotPhysics(botPace);
       try {
         await Activities.findOrCreate({
           where: { id: compositeId },
@@ -685,7 +794,7 @@ export class RaceManager {
             currentDistance: 0,
             netDistance: 0,
             progressPercent: 0,
-            lastStrokeRate: 26,
+            lastStrokeRate: spm,
             lastStrokeCount: 0,
             lastHeartRate: 155,
             lastResistance: 4,
@@ -695,7 +804,7 @@ export class RaceManager {
             lastPace: botPace,
             avgPower: power,
             avgPace: botPace,
-            avgStrokeRate: 26,
+            avgStrokeRate: spm,
             elapsedTime: 0,
             avgSpeedKmh: Number((speedMs * 3.6).toFixed(1)),
           }
@@ -714,9 +823,13 @@ export class RaceManager {
     if (managed && (managed.status === "COMPLETED" || managed.status === "ABANDONED")) {
       return [];
     }
+    const isPublic = Boolean(this.currentPublicRace && this.currentPublicRace.id === raceId);
     if (managed) {
       managed.status = "COMPLETED";
       managed.endedAt = new Date();
+      if (isPublic && reason !== "no_active_humans") {
+        managed.pauseEndsAt = new Date(Date.now() + 120 * 1000); // 2 minutes post-race restitution pause
+      }
     }
 
     let ranking: RaceRankingEntry[] = [];
@@ -736,13 +849,21 @@ export class RaceManager {
       console.error(`[RaceManager] Unable to finalise race ${raceId}:`, err);
     }
 
+    if (managed) {
+      managed.finalRanking = ranking;
+    }
+
     socketGateway.broadcastRaceStatus(raceId, "COMPLETED", {
       reason: reason || (timeoutTriggered ? "timeout" : "completed"),
+      pauseSeconds: managed?.pauseEndsAt ? 120 : 0,
+      pauseEndsAt: managed?.pauseEndsAt,
       ranking
     });
 
-    if (this.currentPublicRace && this.currentPublicRace.id === raceId) {
-      await this.initNextPublicRace(15);
+    if (isPublic) {
+      if (reason === "no_active_humans") {
+        await this.initNextPublicRace(15);
+      }
     }
     return ranking;
   }
@@ -890,14 +1011,13 @@ export class RaceManager {
   }
 
   private async ensureSalonBots(raceId: string, botCount: number, botMaxPace: number, targetDistance: number, customName?: string): Promise<void> {
-    const names = ["Bot Challenger", "Bot Pacer", "Bot Tempo", "Bot Shadow", "Bot Swift"];
+    const names = ["Bot Challenger", "Bot Pacer", "Bot Tempo", "Bot Shadow", "Bot Swift", "Bot Titan", "Bot Veloce"];
     for (let i = 0; i < botCount; i++) {
       const botId = `bot_salon_${i + 1}`;
       const compositeId = `${raceId}_${botId}`;
       const name = customName || names[i % names.length];
-      const botPace = botMaxPace + (i * 2);
-      const speedMs = 500 / botPace;
-      const power = Math.round(2.80 * Math.pow(speedMs, 3));
+      const botPace = botMaxPace && botMaxPace > 0 && botCount === 1 ? Math.max(110, Math.min(165, botMaxPace)) : generateRealisticBotPace();
+      const { power, spm, speedMs } = calculateBotPhysics(botPace);
       try {
         await Activities.findOrCreate({
           where: { id: compositeId },
@@ -914,7 +1034,7 @@ export class RaceManager {
             currentDistance: 0,
             netDistance: 0,
             progressPercent: 0,
-            lastStrokeRate: 26,
+            lastStrokeRate: spm,
             lastStrokeCount: 0,
             lastHeartRate: 155,
             lastResistance: 4,
@@ -924,7 +1044,7 @@ export class RaceManager {
             lastPace: botPace,
             avgPower: power,
             avgPace: botPace,
-            avgStrokeRate: 26,
+            avgStrokeRate: spm,
             elapsedTime: 0,
             avgSpeedKmh: Number((speedMs * 3.6).toFixed(1)),
           }

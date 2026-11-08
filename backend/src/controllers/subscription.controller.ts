@@ -54,7 +54,7 @@ export const SUBSCRIPTION_TIERS: Record<string, SubscriptionTierConfig> = {
       "Courses jusqu'à 5 000 m (5 km)",
       "Jusqu'à 3 bots avec allure configurable",
       "Historique illimité des courses et classements",
-      "Personnalisation de votre préfixe joueur",
+      "Progression en ligues et classement compétitif",
       "Départ manuel ou programmé à date/heure précise",
     ],
   },

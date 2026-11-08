@@ -516,6 +516,22 @@ module I18n {
         }
 
         // --- WARNINGS & PENALTIES ---
+        if (key.equals("WARN_FALSE_START")) {
+            if (_currentLang == LANG_FR) { return "Départ arrêté requis - Arrêtez de ramer !"; }
+            if (_currentLang == LANG_DE) { return "Stehender Start - Nicht rudern !"; }
+            if (_currentLang == LANG_ES) { return "Salida parada - Deje de remar !"; }
+            if (_currentLang == LANG_IT) { return "Partenza da fermo - Non vogare !"; }
+            if (_currentLang == LANG_PT) { return "Largada parada - Pare de remar !"; }
+            return "Standing start required - Stop rowing !";
+        }
+        if (key.equals("POST_RACE_PAUSE_LABEL")) {
+            if (_currentLang == LANG_FR) { return "Prochaine manche : "; }
+            if (_currentLang == LANG_DE) { return "Naechstes Rennen : "; }
+            if (_currentLang == LANG_ES) { return "Prox. regata : "; }
+            if (_currentLang == LANG_IT) { return "Prossima regata : "; }
+            if (_currentLang == LANG_PT) { return "Prox. regata : "; }
+            return "Next race : ";
+        }
         if (key.equals("WARN_NO_ROW")) {
             if (_currentLang == LANG_FR) { return "NE RAMEZ PAS"; }
             if (_currentLang == LANG_DE) { return "NICHT RUDERN"; }

@@ -28,14 +28,13 @@ export interface UserAttributes {
   watchUserId?: string;     // Identifiant renvoyé par la montre Garmin
   watchModel?: string;      // Modèle de montre Garmin (ex: Fenix 7, Forerunner 965...)
   rowerModel?: string;      // Modèle de rameur connecté (ex: SmartRow, Concept2 PM5, FTMS...)
-  userPrefix?: string;      // Préfixe personnalisable (abonnés uniquement)
-  userSuffix?: string;      // Suffixe unique 5 caractères base64 généré par le système
   resetPasswordToken?: string;   // Token de réinitialisation de mot de passe
   resetPasswordExpires?: Date;   // Expiration du token de réinitialisation
   totalRaces?: number;      // Nombre de courses disputées
   totalWins?: number;       // Nombre de 1ères places
   podiums?: number;         // Nombre de podiums (top 3)
   points?: number;          // Points au classement général
+  league?: string;          // Division de ligue (bronze, silver, gold, platinum, diamond)
   bestRank?: number;        // Meilleur classement jamais obtenu (ex: 1, 2...)
   lastRank?: number;        // Classement à la précédente course
   isAdmin?: boolean;        // Rôle administrateur (EmmaRacer en dur)
@@ -150,14 +149,6 @@ export default (sequelize: Sequelize, _DataTypesInstance: typeof DataTypes): Use
         type: DataTypes.STRING(64),
         allowNull: true,
       },
-      userPrefix: {
-        type: DataTypes.STRING(32),
-        allowNull: true,
-      },
-      userSuffix: {
-        type: DataTypes.STRING(16),
-        allowNull: true,
-      },
       isConfirmed: {
         type: DataTypes.BOOLEAN,
         defaultValue: false,
@@ -189,6 +180,10 @@ export default (sequelize: Sequelize, _DataTypesInstance: typeof DataTypes): Use
       points: {
         type: DataTypes.INTEGER,
         defaultValue: 0,
+      },
+      league: {
+        type: DataTypes.STRING(32),
+        defaultValue: "bronze",
       },
       bestRank: {
         type: DataTypes.INTEGER,

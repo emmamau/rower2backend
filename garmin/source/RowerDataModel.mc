@@ -18,6 +18,7 @@ class RowerDataModel {
     public var strokeRate as Float = 0.0f;       // strokes/min (SPM)
     public var strokeCount as Number = 0;        // tared session strokes
     public var avgStrokeRate as Float = 0.0f;    // strokes/min
+    public var maxStrokeRate as Float = 0.0f;    // strokes/min
     public var totalDistance as Number = 0;      // tared session distance in meters
     public var instantPace as Number = 0;        // seconds per 500m
     public var avgPace as Number = 0;            // seconds per 500m
@@ -100,6 +101,7 @@ class RowerDataModel {
         strokeRate = 0.0f;
         strokeCount = 0;
         avgStrokeRate = 0.0f;
+        maxStrokeRate = 0.0f;
         totalDistance = 0;
         instantPace = 0;
         avgPace = 0;
@@ -191,6 +193,7 @@ class RowerDataModel {
         maxPower = 0;
         strokeRate = 0.0f;
         avgStrokeRate = 0.0f;
+        maxStrokeRate = 0.0f;
         work = 0.0f;
         force = 0;
         avgForce = 0;
@@ -207,6 +210,11 @@ class RowerDataModel {
         _forceSamples = 0;
         _srRxFrameLen = 0;
         _srRxIsRecord = false;
+    }
+
+    //! Returns authoritative race session timer seconds
+    public function getSessionTimerSec() as Number {
+        return _sessionTimerSec;
     }
 
     //! Re-tare current hardware counters (e.g. after false start penalty unlock)
@@ -255,6 +263,7 @@ class RowerDataModel {
         avgPower = 0;
         strokeRate = 0.0f;
         avgStrokeRate = 0.0f;
+        maxStrokeRate = 0.0f;
         speedCmS = 0;
         work = 0.0f;
         force = 0;
@@ -781,6 +790,9 @@ class RowerDataModel {
         if (strokeRate > 0.0f) {
             _spmSum += strokeRate;
             _spmSamples += 1;
+            if (strokeRate > maxStrokeRate) {
+                maxStrokeRate = strokeRate;
+            }
             if (!hasPacketAvgSpm || avgStrokeRate <= 0.0f) {
                 avgStrokeRate = _spmSum / _spmSamples.toFloat();
             }

@@ -13,7 +13,6 @@ export default (app: Application): void => {
 
   // Profil et historique des courses (uniquement les classements)
   router.get("/profile/:userId", userController.getUserProfile);
-  router.put("/prefix", userController.updateUserPrefix);
   router.get("/leaderboard", userController.getGeneralLeaderboard);
 
   // Espace Statistiques & Analyses de courses (abonnés = illimité, gratuits = 10 jours)

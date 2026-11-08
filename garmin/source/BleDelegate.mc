@@ -1,6 +1,7 @@
 import Toybox.Activity;
 import Toybox.Attention;
 import Toybox.BluetoothLowEnergy;
+import Toybox.FitContributor;
 import Toybox.Lang;
 import Toybox.StringUtil;
 import Toybox.System;
@@ -85,6 +86,18 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
     private var _lastFallbackSendSec as Number = 0;
     private var _tickCounter as Number = 0;
     private var _lastVibeSecond as Number = -1;
+    private var _lastAlertVibeSec as Number = -1;
+    private var _isFalseStartPenalized as Boolean = false;
+
+    // FitContributor developer fields
+    private var _fitFieldRaceRank as FitContributor.Field?;
+    private var _fitFieldRacePoints as FitContributor.Field?;
+    private var _fitFieldOfficialDist as FitContributor.Field?;
+    private var _fitFieldAvgPace as FitContributor.Field?;
+    private var _fitFieldAvgPower as FitContributor.Field?;
+    private var _fitFieldMaxPower as FitContributor.Field?;
+    private var _fitFieldAvgCadence as FitContributor.Field?;
+    private var _fitFieldMaxCadence as FitContributor.Field?;
 
     public function initialize(model as RowerDataModel) {
         BleDelegate.initialize();
@@ -149,6 +162,10 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
     }
 
     public function startScan() as Void {
+        // Appairage obligatoire avant toute détection/connexion BLE au rameur
+        if (!UserManager.isPaired()) {
+            return;
+        }
         _isManualDisconnect = false;
         _bleWriteBusy = false;
         _bleBusyTicks = 0;
@@ -888,7 +905,25 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
 
         // Update race progress if dead-reckoning advanced distance
         if (state == RowerView.STATE_RACING || state == RowerView.STATE_LATE_JOIN) {
-            if (!updateProgressAndCheckFinish()) {
+            if (_isFalseStartPenalized) {
+                var isRowerStopped = (_model.strokeRate == 0 && _model.instantPower == 0);
+                if (isRowerStopped) {
+                    _isFalseStartPenalized = false;
+                    view.setFalseStartLocked(false);
+                    _model.reTareToZero();
+                    _model.elapsedTime = _model.getSessionTimerSec();
+                    vibrateGo();
+                } else {
+                    _model.reTareToZero();
+                    _model.totalDistance = 0;
+                    _model.strokeCount = 0;
+                    _model.elapsedTime = 0;
+                    view.setFalseStartLocked(true);
+                    view.showWarning(I18n.getText("WARN_FALSE_START"), 2);
+                    vibrateContinuousAlert();
+                    view.updateRowerData(_model, 0, 0.0f);
+                }
+            } else if (!updateProgressAndCheckFinish()) {
                 if (_activityStatus.equals("in_progress") && _raceMode.equals("race") && _activityId.length() > 0) {
                     var secSinceSend = _tickCounter - _lastFallbackSendSec;
                     if (_pendingStrokeSync || (secSinceSend >= 2 && (_model.totalDistance > 0 || _model.instantPower > 0))) {
@@ -904,6 +939,17 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
             }
         }
 
+        // 2-minute post-race pause management & automatic reset to next race lobby
+        if (state == RowerView.STATE_FINISHED) {
+            var pauseSec = view.getPostRacePauseSec();
+            if (pauseSec > 0) {
+                view.setPostRacePauseSec(pauseSec - 1);
+                if (pauseSec - 1 <= 0) {
+                    waitNextRaceSlot();
+                }
+            }
+        }
+
         // Countdown & synchronous 5s start management
         if (state == RowerView.STATE_LOBBY || state == RowerView.STATE_WAITING_START || state == RowerView.STATE_COUNTDOWN_5S) {
             view.decrementCountdown();
@@ -911,6 +957,17 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
 
             if (_tickCounter % 3 == 0) {
                 _syncManager.fetchNextRace();
+            }
+
+            var isRowing = (_model.strokeRate > 0 || _model.instantPower > 0);
+            if (cd <= 15 && cd > 0) {
+                if (isRowing) {
+                    view.setFalseStartLocked(true);
+                    view.showWarning(I18n.getText("WARN_FALSE_START"), 2);
+                    vibrateContinuousAlert();
+                } else if (view.isFalseStartLocked() && !_isFalseStartPenalized) {
+                    view.setFalseStartLocked(false);
+                }
             }
 
             if (state == RowerView.STATE_WAITING_START && cd <= 5 && cd > 0) {
@@ -922,12 +979,10 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
                     view.set5sCountdown(cd);
                     vibrateSingleTick(false);
                 } else {
-                    vibrateSingleTick(true);
-                    launchRaceFromWaiting();
+                    handleRaceStartTrigger(view, isRowing);
                 }
             } else if ((state == RowerView.STATE_WAITING_START || state == RowerView.STATE_LOBBY) && cd <= 0) {
-                vibrateSingleTick(true);
-                launchRaceFromWaiting();
+                handleRaceStartTrigger(view, isRowing);
             }
         }
 
@@ -1012,6 +1067,136 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
         }
     }
 
+    private function vibrateContinuousAlert() as Void {
+        var nowSec = System.getTimer() / 1000;
+        if (nowSec == _lastAlertVibeSec) {
+            return;
+        }
+        _lastAlertVibeSec = nowSec;
+        try {
+            if (Attention has :playTone) {
+                Attention.playTone(Attention.TONE_LOUD_BEEP);
+            }
+        } catch (e) {
+        }
+        try {
+            if (Attention has :vibrate) {
+                Attention.vibrate([
+                    new Attention.VibeProfile(100, 700),
+                    new Attention.VibeProfile(0, 100),
+                    new Attention.VibeProfile(100, 200)
+                ]);
+            }
+        } catch (e) {
+        }
+    }
+
+    private function handleRaceStartTrigger(view as RowerView, isRowing as Boolean) as Void {
+        if (isRowing) {
+            _isFalseStartPenalized = true;
+            view.setFalseStartLocked(true);
+            view.showWarning(I18n.getText("WARN_FALSE_START"), 2);
+            vibrateContinuousAlert();
+        } else {
+            _isFalseStartPenalized = false;
+            view.setFalseStartLocked(false);
+            vibrateSingleTick(true);
+        }
+        launchRaceFromWaiting();
+    }
+
+    private function createFitFields() as Void {
+        if (_session == null) {
+            return;
+        }
+        var sess = _session as ActivityRecording.Session;
+        try {
+            _fitFieldRaceRank = sess.createField("race_rank", 0, FitContributor.DATA_TYPE_UINT16, {
+                :mesgType => FitContributor.MESG_TYPE_SESSION,
+                :units => "pos"
+            });
+            _fitFieldRacePoints = sess.createField("race_points", 1, FitContributor.DATA_TYPE_UINT32, {
+                :mesgType => FitContributor.MESG_TYPE_SESSION,
+                :units => "pts"
+            });
+            _fitFieldOfficialDist = sess.createField("official_distance", 2, FitContributor.DATA_TYPE_UINT32, {
+                :mesgType => FitContributor.MESG_TYPE_SESSION,
+                :units => "m"
+            });
+            _fitFieldAvgPace = sess.createField("avg_split_500m", 3, FitContributor.DATA_TYPE_UINT16, {
+                :mesgType => FitContributor.MESG_TYPE_SESSION,
+                :units => "s/500m"
+            });
+            _fitFieldAvgPower = sess.createField("avg_power", 4, FitContributor.DATA_TYPE_UINT16, {
+                :mesgType => FitContributor.MESG_TYPE_SESSION,
+                :units => "W"
+            });
+            _fitFieldMaxPower = sess.createField("max_power", 5, FitContributor.DATA_TYPE_UINT16, {
+                :mesgType => FitContributor.MESG_TYPE_SESSION,
+                :units => "W"
+            });
+            _fitFieldAvgCadence = sess.createField("avg_cadence", 6, FitContributor.DATA_TYPE_UINT16, {
+                :mesgType => FitContributor.MESG_TYPE_SESSION,
+                :units => "spm"
+            });
+            _fitFieldMaxCadence = sess.createField("max_cadence", 7, FitContributor.DATA_TYPE_UINT16, {
+                :mesgType => FitContributor.MESG_TYPE_SESSION,
+                :units => "spm"
+            });
+        } catch (ex) {
+            System.println("FitContributor createField error: " + ex.getErrorMessage());
+        }
+    }
+
+    private function populateFitFieldsOnFinish(finalRank as Number, finalPoints as Number) as Void {
+        if (_session == null) {
+            return;
+        }
+        try {
+            if (_fitFieldRaceRank != null) {
+                (_fitFieldRaceRank as FitContributor.Field).setData(finalRank);
+            }
+            if (_fitFieldRacePoints != null) {
+                (_fitFieldRacePoints as FitContributor.Field).setData(finalPoints);
+            }
+            if (_fitFieldOfficialDist != null) {
+                var dist = (_targetDistance > 0 && _model.totalDistance >= _targetDistance) ? _targetDistance : _model.totalDistance;
+                (_fitFieldOfficialDist as FitContributor.Field).setData(dist);
+            }
+            if (_fitFieldAvgPace != null) {
+                var avgPaceSec = _model.getEffectiveAvgPace(_model.elapsedTime);
+                (_fitFieldAvgPace as FitContributor.Field).setData(avgPaceSec);
+            }
+            if (_fitFieldAvgPower != null) {
+                (_fitFieldAvgPower as FitContributor.Field).setData(_model.avgPower);
+            }
+            if (_fitFieldMaxPower != null) {
+                (_fitFieldMaxPower as FitContributor.Field).setData(_model.maxPower);
+            }
+            if (_fitFieldAvgCadence != null) {
+                (_fitFieldAvgCadence as FitContributor.Field).setData(_model.avgStrokeRate.toNumber());
+            }
+            if (_fitFieldMaxCadence != null) {
+                var maxSpm = _model.maxStrokeRate.toNumber();
+                if (maxSpm < _model.avgStrokeRate.toNumber()) {
+                    maxSpm = _model.avgStrokeRate.toNumber();
+                }
+                (_fitFieldMaxCadence as FitContributor.Field).setData(maxSpm);
+            }
+        } catch (ex) {
+            System.println("FitContributor setData error: " + ex.getErrorMessage());
+        }
+    }
+
+    private function estimatePointsForRank(rank as Number) as Number {
+        if (rank == 1) { return 100; }
+        if (rank == 2) { return 75; }
+        if (rank == 3) { return 60; }
+        if (rank == 4) { return 50; }
+        if (rank == 5) { return 40; }
+        return 25;
+    }
+
     private function onModelUpdated() as Void {
         if (_view == null) {
             return;
@@ -1022,17 +1207,47 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
         // 1. If race is already running or countdown reached 0, transition immediately to racing
         if ((_activityStatus.equals("in_progress") || view.getCountdown() <= 0) &&
             (state == RowerView.STATE_WAITING_START || state == RowerView.STATE_COUNTDOWN_5S || state == RowerView.STATE_LOBBY)) {
-            view.setFalseStartLocked(false);
-            launchRaceFromWaiting();
+            var isRowing = (_model.strokeRate > 0 || _model.instantPower > 0);
+            handleRaceStartTrigger(view, isRowing);
             state = view.getAppState();
         }
 
         // 2. Pre-start: tare distance to zero and do not accumulate race distance before green light
         if (state == RowerView.STATE_WAITING_START || state == RowerView.STATE_COUNTDOWN_5S || state == RowerView.STATE_LOBBY) {
-            view.setFalseStartLocked(false);
+            var cd = view.getCountdown();
+            var isMoving = (_model.strokeRate > 0 || _model.instantPower > 0);
+            if (cd <= 15 && cd > 0 && isMoving) {
+                view.setFalseStartLocked(true);
+                view.showWarning(I18n.getText("WARN_FALSE_START"), 2);
+                vibrateContinuousAlert();
+            } else if (!isMoving && view.isFalseStartLocked() && !_isFalseStartPenalized) {
+                view.setFalseStartLocked(false);
+            }
             _model.reTareToZero();
             WatchUi.requestUpdate();
             return;
+        }
+
+        // 3. Penalty enforcement during racing: block tracking until complete standstill
+        if (_isFalseStartPenalized && (state == RowerView.STATE_RACING || state == RowerView.STATE_LATE_JOIN)) {
+            if (_model.strokeRate == 0 && _model.instantPower == 0) {
+                _isFalseStartPenalized = false;
+                view.setFalseStartLocked(false);
+                _model.reTareToZero();
+                _model.elapsedTime = _model.getSessionTimerSec();
+                vibrateGo();
+            } else {
+                _model.reTareToZero();
+                _model.totalDistance = 0;
+                _model.strokeCount = 0;
+                _model.elapsedTime = 0;
+                view.setFalseStartLocked(true);
+                view.showWarning(I18n.getText("WARN_FALSE_START"), 2);
+                vibrateContinuousAlert();
+                view.updateRowerData(_model, 0, 0.0f);
+                WatchUi.requestUpdate();
+                return;
+            }
         }
 
         // 3. Active race progress, UI refresh & stroke-by-stroke HTTP telemetry
@@ -1178,8 +1393,8 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
             var view = _view as RowerView;
             var curState = view.getAppState();
             if ((isRunning || countdown <= 0) && (curState == RowerView.STATE_LOBBY || curState == RowerView.STATE_WAITING_START || curState == RowerView.STATE_PENDING_APPROVAL)) {
-                vibrateGo();
-                launchRaceFromWaiting();
+                var isRowing = (_model.strokeRate > 0 || _model.instantPower > 0);
+                handleRaceStartTrigger(view, isRowing);
             }
         }
     }
@@ -1279,6 +1494,7 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
                 :sport => Activity.SPORT_ROWING,
                 :subSport => Activity.SUB_SPORT_INDOOR_ROWING
             });
+            createFitFields();
             (_session as ActivityRecording.Session).start();
         } catch (ex) {
             System.println("ActivityRecording start error: " + ex.getErrorMessage());
@@ -1286,7 +1502,9 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
 
         if (_view != null) {
             var view = _view as RowerView;
-            view.setFalseStartLocked(false);
+            if (!_isFalseStartPenalized) {
+                view.setFalseStartLocked(false);
+            }
             view.resetRacePages();
             view.updateRowerData(_model, 0, 0.0f);
             view.setAppState(RowerView.STATE_RACING);
@@ -1316,6 +1534,10 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
     }
 
     public function saveAndExitSession() as Void {
+        var rank = (_view != null) ? (_view as RowerView).getCurrentRank() : 1;
+        var points = estimatePointsForRank(rank);
+        populateFitFieldsOnFinish(rank, points);
+
         if (_session != null) {
             try {
                 if ((_session as ActivityRecording.Session).isRecording()) {
@@ -1379,6 +1601,12 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
 
     public function onPairingSuccess(data as Dictionary) as Void {
         triggerApprovalVibe();
+        // Une fois la montre appairée, activer les profils BLE et lancer la recherche du rameur
+        if (!_profilesRegistered) {
+            registerProfiles();
+        } else if (_model.connectionState == RowerDataModel.STATE_DISCONNECTED && !_isManualDisconnect) {
+            startScan();
+        }
         if (_view != null) {
             (_view as RowerView).onPairingDone(true, I18n.getText("PAIR_SUCCESS_TITLE"));
         }

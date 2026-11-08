@@ -94,6 +94,7 @@ class RowerView extends WatchUi.View {
     private var _warningText as String? = null;
     private var _warningUntilTimerMs as Number = 0;
     private var _falseStartLocked as Boolean = false;
+    private var _postRacePauseSec as Number = 0;
 
     // User Career Stats (shown in Lobby G4 grid)
     private var _userPoints as Number = 0;
@@ -107,6 +108,13 @@ class RowerView extends WatchUi.View {
         _model = model;
         _userId = UserManager.getUserId();
         I18n.init();
+        // Appairage prioritaire au lancement : si non appairé, basculer immédiatement vers la saisie du code OTP 6 caractères
+        if (!UserManager.isPaired()) {
+            _currentState = STATE_PAIRING_INPUT;
+            resetPairingDigits();
+        } else {
+            _currentState = STATE_SCANNING;
+        }
     }
 
     public function setAppState(state as Number) as Void {
@@ -191,6 +199,7 @@ class RowerView extends WatchUi.View {
         _top3Podium = podium;
         _finishPage = 0;
         _isAbandoned = isAbandoned;
+        _postRacePauseSec = 120;
         _currentState = STATE_FINISHED;
 
         // Persist compact session entry in local Storage for G9 History
@@ -236,6 +245,15 @@ class RowerView extends WatchUi.View {
 
     public function isFalseStartLocked() as Boolean {
         return _falseStartLocked;
+    }
+
+    public function setPostRacePauseSec(sec as Number) as Void {
+        _postRacePauseSec = sec;
+        WatchUi.requestUpdate();
+    }
+
+    public function getPostRacePauseSec() as Number {
+        return _postRacePauseSec;
     }
 
     public function setIsLateJoiner(isLate as Boolean) as Void {
@@ -1461,8 +1479,17 @@ class RowerView extends WatchUi.View {
         var footY = (h * 84) / 100;
         dc.setColor(COL_GRID, Graphics.COLOR_TRANSPARENT);
         dc.drawLine((w * 20) / 100, (h * 82) / 100, w - ((w * 20) / 100), (h * 82) / 100);
-        dc.setColor(COL_MUTED, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, footY, Graphics.FONT_XTINY, truncateToWidth(dc, I18n.getText("FINISH_FOOTER"), Graphics.FONT_XTINY, getSafeWidthAtY(w, h, footY, footY + 16)), Graphics.TEXT_JUSTIFY_CENTER);
+        var footText = I18n.getText("FINISH_FOOTER");
+        var footCol = COL_MUTED;
+        if (_postRacePauseSec > 0) {
+            var minP = _postRacePauseSec / 60;
+            var secP = _postRacePauseSec % 60;
+            var secStr = (secP < 10) ? ("0" + secP) : secP.toString();
+            footText = I18n.getText("POST_RACE_PAUSE_LABEL") + minP + ":" + secStr;
+            footCol = COL_ACCENT;
+        }
+        dc.setColor(footCol, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, footY, Graphics.FONT_XTINY, truncateToWidth(dc, footText, Graphics.FONT_XTINY, getSafeWidthAtY(w, h, footY, footY + 16)), Graphics.TEXT_JUSTIFY_CENTER);
 
         drawRightPageCarousel(dc, w, h, 2, _finishPage);
     }
@@ -1694,8 +1721,8 @@ class RowerView extends WatchUi.View {
     private function drawWarningBanner(dc as Graphics.Dc, w as Number, h as Number, text as String) as Void {
         var cx = w / 2;
         var cy = h / 2;
-        var boxH = (h * 26) / 100;
-        if (boxH < 48) { boxH = 48; }
+        var boxH = (h * 32) / 100;
+        if (boxH < 52) { boxH = 52; }
         var boxY = cy - (boxH / 2);
         var boxW = getSafeWidthAtY(w, h, boxY, boxY + boxH) - 12;
         var boxX = cx - (boxW / 2);
@@ -1707,14 +1734,24 @@ class RowerView extends WatchUi.View {
         dc.drawRoundedRectangle(boxX, boxY, boxW, boxH, 8);
         dc.setPenWidth(1);
 
-        var mainTop = boxY + 4;
-        var mainH = (boxH * 52) / 100;
-        var mainFont = fitFontToBox(dc, text, [Graphics.FONT_SMALL, Graphics.FONT_TINY, Graphics.FONT_XTINY] as Array<Graphics.FontDefinition>, boxW - 12, mainH);
-        dc.drawText(cx, mainTop + (mainH / 2), mainFont, truncateToWidth(dc, text, mainFont, boxW - 12), Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+        if (text.find(" - ") != null) {
+            var sepIdx = text.find(" - ");
+            var l1 = text.substring(0, sepIdx);
+            var l2 = text.substring(sepIdx + 3, text.length());
+            dc.setColor(COL_PRIMARY, Graphics.COLOR_TRANSPARENT);
+            dc.drawText(cx, boxY + (boxH * 30) / 100, Graphics.FONT_XTINY, truncateToWidth(dc, l1, Graphics.FONT_XTINY, boxW - 12), Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+            dc.setColor(COL_ACCENT, Graphics.COLOR_TRANSPARENT);
+            dc.drawText(cx, boxY + (boxH * 70) / 100, Graphics.FONT_XTINY, truncateToWidth(dc, l2, Graphics.FONT_XTINY, boxW - 12), Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+        } else {
+            var mainTop = boxY + 4;
+            var mainH = (boxH * 52) / 100;
+            var mainFont = fitFontToBox(dc, text, [Graphics.FONT_SMALL, Graphics.FONT_TINY, Graphics.FONT_XTINY] as Array<Graphics.FontDefinition>, boxW - 12, mainH);
+            dc.drawText(cx, mainTop + (mainH / 2), mainFont, truncateToWidth(dc, text, mainFont, boxW - 12), Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
 
-        var subText = _falseStartLocked ? I18n.getText("WARN_ZERO_SPEED") : I18n.getText("WARN_WAIT_START");
-        var subCy = boxY + ((boxH * 76) / 100);
-        dc.setColor(COL_ACCENT, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, subCy, Graphics.FONT_XTINY, truncateToWidth(dc, subText, Graphics.FONT_XTINY, boxW - 12), Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+            var subText = _falseStartLocked ? I18n.getText("WARN_ZERO_SPEED") : I18n.getText("WARN_WAIT_START");
+            var subCy = boxY + ((boxH * 76) / 100);
+            dc.setColor(COL_ACCENT, Graphics.COLOR_TRANSPARENT);
+            dc.drawText(cx, subCy, Graphics.FONT_XTINY, truncateToWidth(dc, subText, Graphics.FONT_XTINY, boxW - 12), Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+        }
     }
 }

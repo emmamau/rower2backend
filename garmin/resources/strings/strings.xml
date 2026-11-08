@@ -1,13 +1,26 @@
 <resources>
     <string id="AppName">Rower Race</string>
-    <string id="BackendUrlTitle">Backend API URL</string>
-    <string id="BackendUrlPrompt">URL (e.g. https://...onrender.com)</string>
-    <string id="UserLoginPrefixTitle">Mon Identifiant (10 car. libres)</string>
-    <string id="UserLoginPrefixPrompt">Personnalisez vos 10 caracteres libres</string>
-    <string id="UserLoginTitle">Player Login / Code</string>
-    <string id="UserLoginPrompt">Code joueur ou pseudo (6 car. base64)</string>
+    <string id="UserLoginTitle">Login / Pseudo</string>
+    <string id="UserLoginPrompt">Pseudo ou login invite</string>
     <string id="StatusDisconnected">BLE: Disconnected</string>
     <string id="StatusScanning">BLE: Scanning...</string>
     <string id="StatusConnected">BLE: Connected</string>
-</resources>
 
+    <!-- FIT Contributions -->
+    <string id="FitRaceRankLabel">Race Rank</string>
+    <string id="FitRaceRankUnits">pos</string>
+    <string id="FitRacePointsLabel">League Points</string>
+    <string id="FitRacePointsUnits">pts</string>
+    <string id="FitOfficialDistLabel">Race Distance</string>
+    <string id="FitOfficialDistUnits">m</string>
+    <string id="FitAvgPaceLabel">Avg Split 500m</string>
+    <string id="FitAvgPaceUnits">s/500m</string>
+    <string id="FitAvgPowerLabel">Avg Power</string>
+    <string id="FitAvgPowerUnits">W</string>
+    <string id="FitMaxPowerLabel">Max Power</string>
+    <string id="FitMaxPowerUnits">W</string>
+    <string id="FitAvgCadenceLabel">Avg Cadence</string>
+    <string id="FitAvgCadenceUnits">spm</string>
+    <string id="FitMaxCadenceLabel">Max Cadence</string>
+    <string id="FitMaxCadenceUnits">spm</string>
+</resources>

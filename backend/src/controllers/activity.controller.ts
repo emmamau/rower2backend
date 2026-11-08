@@ -3,6 +3,7 @@ import { Op } from "sequelize";
 import db from "../models";
 import { getOrCreateCurrentRace } from "./race.controller";
 import raceManager, { RaceManager } from "../services/race-manager.service";
+import { calculateRacePoints, getLeagueByPoints } from "../utils/league.util";
 
 const Activities = db.activities;
 const Races = db.races;
@@ -111,6 +112,7 @@ export const syncActivity = async (req: Request, res: Response): Promise<void> =
       const prevLastPower = (activity.get("lastPower") as number) || 0;
       const effectiveLastPower = derivedPower > 0 ? derivedPower : (isFinished ? prevLastPower : 0);
 
+      const wasAlreadyFinished = activity.get("status") === "finished";
       let finalStatus = status;
       if (isAbandoned) {
         finalStatus = "abandoned";
@@ -139,42 +141,40 @@ export const syncActivity = async (req: Request, res: Response): Promise<void> =
         finishedAt: isFinished ? new Date() : (activity.get("finishedAt") as Date),
       });
 
-      // Mettre à jour les stats du coureur s'il termine
-      if (isFinished && activity.get("status") !== "finished") {
+      // Mettre à jour les stats du coureur s'il termine pour la première fois
+      if (isFinished && !wasAlreadyFinished) {
         let user = await Users.findByPk(userId);
         if (user) {
           await user.increment("totalRaces");
 
-          // Calcul des points collectés lors de cette course :
-          // 1ère place : 100 pts
-          // 2ème place : 70 pts
-          // 3ème place : 50 pts
-          // Finisher hors podium : 25 pts
-          // Abandon : 5 pts de participation
-          let ptsEarned = 25;
+          // Calcul des points collectés lors de cette course (formule officielle de ligue) :
+          // BaseFinish (10 pts) + ((N - position + 1) / N) * (FacteurCourse * N)
+          const totalParticipants = (await Activities.count({ where: { activityId: actualActivityId, status: { [Op.ne]: "abandoned" } } })) || 1;
           const assignedRank = (activity.get("finalRank") as number) || 1;
+          const ptsEarned = calculateRacePoints(assignedRank, totalParticipants, true);
           if (assignedRank === 1) {
-            ptsEarned = 100;
             await user.increment("totalWins");
             await user.increment("podiums");
-          } else if (assignedRank === 2) {
-            ptsEarned = 70;
-            await user.increment("podiums");
-          } else if (assignedRank === 3) {
-            ptsEarned = 50;
+          } else if (assignedRank <= 3) {
             await user.increment("podiums");
           }
 
-          const currentPts = (user.get("points") as number) || 0;
-          const newPts = currentPts + ptsEarned;
-          const bestR = (user.get("bestRank") as number) || 0;
-          const newBestRank = (bestR === 0 || assignedRank < bestR) ? assignedRank : bestR;
+          const existingActPoints = Number(activity.get("points") || 0);
+          if (existingActPoints === 0 && ptsEarned > 0) {
+            const currentPts = (user.get("points") as number) || 0;
+            const newPts = currentPts + ptsEarned;
+            const league = getLeagueByPoints(newPts);
+            const bestR = (user.get("bestRank") as number) || 0;
+            const newBestRank = (bestR === 0 || assignedRank < bestR) ? assignedRank : bestR;
 
-          await user.update({
-            points: newPts,
-            lastRank: assignedRank,
-            bestRank: newBestRank,
-          });
+            await user.update({
+              points: newPts,
+              league: league.id,
+              lastRank: assignedRank,
+              bestRank: newBestRank,
+            });
+            await activity.update({ points: ptsEarned } as any);
+          }
         }
       }
     }

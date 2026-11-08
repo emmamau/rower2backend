@@ -195,7 +195,7 @@ export class RowerService {
     );
   }
 
-  getRaceLeaderboard(raceId: string): Observable<LeaderboardResponse> {
+  getActivityLeaderboard(raceId: string): Observable<LeaderboardResponse> {
     return this.http.get<LeaderboardResponse>(`${this.apiUrl}/api/activity/race/${encodeURIComponent(raceId)}/leaderboard`);
   }
 
@@ -265,17 +265,16 @@ export class RowerService {
     return this.http.post<{ success: boolean; message: string }>(`${this.apiUrl}/api/user/reset-password`, { token, newPassword });
   }
 
+  // Consultation du classement complet et détaillé d'une régate passée
+  getRaceLeaderboard(raceId: string): Observable<{ success: boolean; race: any; leaderboard: any[] }> {
+    return this.http.get<{ success: boolean; race: any; leaderboard: any[] }>(
+      `${this.apiUrl}/api/races/${encodeURIComponent(raceId)}/leaderboard`
+    );
+  }
+
   // Consultation fiche compte
   getUserAccount(identifier: string): Observable<{ success: boolean; account: any }> {
     return this.http.get<{ success: boolean; account: any }>(`${this.apiUrl}/api/user/account/${encodeURIComponent(identifier)}`);
-  }
-
-  // Mise à jour personnalisée du préfixe identifiant (réservé aux abonnés)
-  updateUserPrefix(userId: string, userPrefix: string): Observable<{ success: boolean; userPrefix: string; userSuffix: string; fullPlayerId: string; user: any; message?: string }> {
-    return this.http.put<{ success: boolean; userPrefix: string; userSuffix: string; fullPlayerId: string; user: any; message?: string }>(
-      `${this.apiUrl}/api/user/prefix`,
-      { userId, userPrefix }
-    );
   }
 
   // Abonnements Lemon Squeezy (3 offres)
