@@ -607,3 +607,147 @@ test('Admin spectator calling /api/rooms/join gets lane: 0 and leaves Lane 1 to 
     await close();
   }
 });
+
+test('Duel 1v1 Bot via POST /api/rooms/join: Garmin watch PIN join accepts creator (guest, paired deviceToken, or Admin), assigns Lane 1 & Bot Lane 2, starts 15s countdown, and auto-launches at T=0', async () => {
+  const { baseUrl, close } = await createTestServer();
+  try {
+    const raceManager = RaceManager.getInstance();
+
+    // Case A: User creates a Bot Duel on web with usr_xxx session ID, then enters 5-char PIN on Garmin watch (RowIQ_xxx)
+    const createResA = await fetch(`${baseUrl}/api/v1/races/private`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        mode: 'duel_bot',
+        targetDistance: 2000,
+        hostUserId: 'usr_web_session_777',
+        hostUserName: 'Rameur Solo'
+      })
+    });
+    assert.equal(createResA.status, 201);
+    const duelA = await createResA.json();
+    assert.equal(duelA.race.isBotDuel, true);
+    assert.equal(duelA.race.internalStatus, 'LOBBY', 'Must stay in LOBBY until PIN is validated');
+
+    // Passive web sync (registerLane: false) must NOT trigger countdown prematurely
+    const passiveSync = await fetch(`${baseUrl}/api/v1/races/private/${duelA.code}/join`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId: 'usr_web_session_777',
+        userName: 'Rameur Solo',
+        registerLane: false
+      })
+    });
+    assert.equal(passiveSync.status, 200);
+    const passiveData = await passiveSync.json();
+    assert.equal(passiveData.race.internalStatus, 'LOBBY', 'Passive web view sync must not start 15s timer');
+
+    // Garmin watch submits 5-char PIN via POST /api/rooms/join
+    const watchJoinA = await fetch(`${baseUrl}/api/rooms/join`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        pin: duelA.pinCode,
+        code: duelA.pinCode,
+        userId: 'RowIQ_watch_777',
+        userName: 'RowIQ_watch_777'
+      })
+    });
+    assert.equal(watchJoinA.status, 200, 'Watch PIN join on Bot Duel must succeed immediately without 403');
+    const joinDataA = await watchJoinA.json();
+    assert.equal(joinDataA.success, true);
+    assert.equal(joinDataA.lane, 1, 'Human player must be assigned to Lane 1');
+    assert.equal(joinDataA.botLane, 2, 'Bot must be assigned to Lane 2');
+    assert.equal(joinDataA.internalStatus, 'COUNTDOWN', 'Must immediately start 15s countdown');
+    assert.ok(joinDataA.secondsRemaining > 0 && joinDataA.secondsRemaining <= 15, 'Countdown must be 15s');
+    assert.equal(joinDataA.hasBots, true);
+
+    // Original web session hostUserId can still manage/reset the room
+    assert.equal(
+      raceManager.canManagePrivateRace(raceManager.findPrivateRace(duelA.code), 'usr_web_session_777', false),
+      true,
+      'Original web host session must retain management rights'
+    );
+
+    // Intruder trying to join the same Bot Duel via PIN after creator claimed seat -> 403
+    const intruderJoin = await fetch(`${baseUrl}/api/rooms/join`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        pin: duelA.pinCode,
+        code: duelA.pinCode,
+        userId: 'RowIQ_intruder_999',
+        userName: 'Intruder'
+      })
+    });
+    assert.equal(intruderJoin.status, 403, 'Second human must be blocked from 1v1 Bot Duel');
+
+    // Case B: Admin (EmmaRacer) creates a 1v1_bot duel -> must NOT be spectator (lane 0), must get Lane 1 and start 15s countdown!
+    const createResB = await fetch(`${baseUrl}/api/v1/races/private`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        mode: '1v1_bot',
+        targetDistance: 1000,
+        hostUserId: 'EmmaRacer',
+        hostUserName: 'EmmaRacer'
+      })
+    });
+    assert.equal(createResB.status, 201);
+    const duelB = await createResB.json();
+
+    const adminWatchJoin = await fetch(`${baseUrl}/api/rooms/join`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        pin: duelB.pinCode,
+        code: duelB.pinCode,
+        userId: 'EmmaRacer',
+        userName: 'EmmaRacer'
+      })
+    });
+    assert.equal(adminWatchJoin.status, 200);
+    const joinDataB = await adminWatchJoin.json();
+    assert.equal(joinDataB.lane, 1, 'Admin creating a Bot Duel is a competitor on Lane 1, not spectator on Lane 0');
+    assert.equal(joinDataB.botLane, 2);
+    assert.equal(joinDataB.internalStatus, 'COUNTDOWN');
+    assert.ok(joinDataB.secondsRemaining > 0 && joinDataB.secondsRemaining <= 15);
+
+    // Case C: Paired watch with deviceToken (paired under guest ID) joining registered user's Bot Duel, then T=0 auto-start
+    const pairCode = await pairingService.createPairingCode('usr_paired_before_login');
+    const paired = await pairingService.pairDevice(pairCode.pairingCode, 'garmin_fenix_duel_device');
+    assert.equal(paired.success, true);
+
+    const duelC = raceManager.createPrivateRace({
+      isBotDuel: true,
+      targetDistance: 500,
+      hostUserId: 'registered_login_after_pair',
+      hostUserName: 'Athlete Pro'
+    });
+
+    const tokenJoinRes = await fetch(`${baseUrl}/api/rooms/join`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        pin: duelC.pinCode,
+        code: duelC.pinCode,
+        userId: 'RowIQ_fenix',
+        deviceToken: paired.deviceToken
+      })
+    });
+    assert.equal(tokenJoinRes.status, 200, 'Authenticated Garmin deviceToken must be accepted for Bot Duel creator');
+    const tokenJoinData = await tokenJoinRes.json();
+    assert.equal(tokenJoinData.lane, 1);
+    assert.equal(tokenJoinData.botLane, 2);
+    assert.equal(tokenJoinData.internalStatus, 'COUNTDOWN');
+
+    // Simulate end of 15s countdown (T = 0)
+    duelC.lobbyEndsAt = new Date(Date.now() - 500);
+    await raceManager.tickPrivateRaces();
+    assert.equal(duelC.status, 'RUNNING', 'Race must automatically transition to RUNNING at T = 0');
+    assert.ok(duelC.startedAt instanceof Date, 'startedAt must be set at T = 0');
+  } finally {
+    await close();
+  }
+});

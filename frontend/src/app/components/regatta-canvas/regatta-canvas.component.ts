@@ -24,6 +24,8 @@ interface BoatRenderState {
   spm: number;
   lastPacketTime: number;
   color: string;
+  ready?: boolean;
+  connectionState?: 'CONNECTED' | 'READY';
 }
 
 @Component({
@@ -66,6 +68,11 @@ interface BoatRenderState {
             [class.focused-racer]="racer.userId === effectiveFocusedUserId"
             (click)="selectRacerToFollow(racer.userId)">
             <span class="mini-lead-rank">{{ rank + 1 }}</span>
+            <span
+              class="ble-state-dot"
+              [class.is-ready]="racer.ready !== false && racer.connectionState !== 'CONNECTED'"
+              [class.is-waiting]="racer.ready === false || racer.connectionState === 'CONNECTED'"
+              [title]="(racer.ready === false || racer.connectionState === 'CONNECTED') ? 'En attente du rameur' : 'Rameur prêt'"></span>
             <span class="mini-lead-name">{{ racer.name }}</span>
             <span class="mini-lead-dist">{{ Math.round(racer.dist) }}m</span>
             <span class="mini-lead-gap" [class.leader]="rank === 0">
@@ -77,9 +84,19 @@ interface BoatRenderState {
     </div>
   `,
   styles: [`
+    :host {
+      display: flex;
+      flex-direction: column;
+      flex: 1 1 0;
+      min-height: 0;
+      height: 100%;
+      inline-size: 100%;
+    }
     .canvas-wrapper {
       inline-size: 100%;
-      block-size: clamp(240px, 44dvh, 400px);
+      block-size: clamp(240px, 50dvh, 520px);
+      flex: 1 1 auto;
+      min-height: 220px;
       position: relative;
       border-radius: 14px;
       overflow: clip;
@@ -92,13 +109,13 @@ interface BoatRenderState {
       inline-size: 100%;
       block-size: 100%;
     }
-    @media (max-height: 500px) and (orientation: landscape) {
+    @media (max-width: 768px), (max-height: 600px) and (orientation: landscape) {
       .canvas-wrapper {
         block-size: 100% !important;
         height: 100% !important;
         flex: 1 1 0 !important;
-        min-height: 0 !important;
-        border-radius: 4px;
+        min-height: 180px !important;
+        border-radius: 8px;
         margin: 0 !important;
       }
     }
@@ -195,6 +212,18 @@ interface BoatRenderState {
       color: #ffe600;
       min-width: 14px;
       text-align: center;
+    }
+    .ble-state-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      background: #22c55e;
+      box-shadow: 0 0 6px rgba(34, 197, 94, 0.8);
+    }
+    .ble-state-dot.is-waiting {
+      background: #f97316;
+      box-shadow: 0 0 6px rgba(249, 115, 22, 0.85);
     }
     .mini-lead-name {
       flex: 1;
@@ -524,7 +553,9 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
           watts: r.watts || 0,
           spm: r.spm || 0,
           lastPacketTime: now,
-          color: this.boatColors[idx % this.boatColors.length]
+          color: this.boatColors[idx % this.boatColors.length],
+          ready: r.ready !== undefined ? r.ready : (r.connectionState !== 'CONNECTED'),
+          connectionState: r.connectionState || (r.ready === false ? 'CONNECTED' : 'READY')
         };
         this.boatsMap.set(r.userId, boat);
       } else {
@@ -535,6 +566,8 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
         boat.spm = r.spm;
         boat.lastPacketTime = now;
         boat.color = this.boatColors[idx % this.boatColors.length];
+        boat.ready = r.ready !== undefined ? r.ready : (r.connectionState !== 'CONNECTED');
+        boat.connectionState = r.connectionState || (r.ready === false ? 'CONNECTED' : 'READY');
       }
     });
 
@@ -689,12 +722,18 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
       const isUser = boat.userId === this.activeUserId;
       const isFocused = boat.userId === this.effectiveFocusedUserId;
 
-      // Numéro de ligne d'eau
+      // Numéro de ligne d'eau + Voyant BLE (Orange = CONNECTED / En attente du rameur, Vert = READY / Rameur prêt)
       const laneNum = boat.lane || (laneIdx + 1);
+      const isBoatReady = boat.ready !== false && boat.connectionState !== 'CONNECTED';
+      ctx.fillStyle = isBoatReady ? '#22c55e' : '#f97316';
+      ctx.beginPath();
+      ctx.arc(7, y, isCompact ? 3 : 3.8, 0, Math.PI * 2);
+      ctx.fill();
+
       ctx.font = isCompact ? 'bold 9.5px monospace' : 'bold 11px monospace';
       ctx.fillStyle = isUser ? '#00f0ff' : (isFocused ? '#ffe600' : 'rgba(0, 240, 255, 0.85)');
       const laneLabel = isCompact ? `L${laneNum}` : `Ligne ${laneNum}`;
-      ctx.fillText(laneLabel, 4, y + 4);
+      ctx.fillText(laneLabel, 14, y + 4);
 
       // Séparateur de ligne
       ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';

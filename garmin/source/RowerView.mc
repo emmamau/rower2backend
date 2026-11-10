@@ -23,8 +23,9 @@ class RowerView extends WatchUi.View {
     public static const STATE_BOTS_PROMPT   = 12; // Choix ajout de bots
     public static const STATE_PENDING_APPROVAL = 13; // En attente de validation par l'hote (salon prive)
     public static const STATE_PAIRING_INPUT    = 14; // Saisie code 6 caracteres appairage web
-    public static const STATE_PAIRING_STATUS   = 15; // Statut appaire & reinitialisation
+    public static const STATE_PAIRING_STATUS   = 15; // Mon Profil & Identifiant (statut, edition pseudo invite, reinitialisation)
     public static const STATE_PAIRING_RESULT   = 16; // Confirmation succes / erreur
+    public static const STATE_PSEUDO_INPUT     = 17; // Saisie pseudo invite local (UnifiedCodePickerView)
 
     // Garmin Pro Dark Carbon Palette (64-color MIP & AMOLED compatible)
     private static const COL_BG        = Graphics.COLOR_BLACK;
@@ -48,9 +49,10 @@ class RowerView extends WatchUi.View {
     private var _racePage as Number = 0;        // 0 = Main 2x2 Race Grid, 1 = Gaps & Averages 2x2 Grid
     private var _finishPage as Number = 0;      // 0 = Finish Stats 2x2 Grid, 1 = Official Top 3 Podium
 
-    // Composant unifié de saisie (Appairage 6 caractères & Salon Privé 5 caractères)
+    // Composant unifié de saisie (Appairage 6 caractères, Salon Privé 5 caractères, Pseudo Invité 6 caractères)
     private var _pairingPicker as UnifiedCodePickerView;
     private var _roomPinPicker as UnifiedCodePickerView;
+    private var _pseudoPicker as UnifiedCodePickerView;
     private var _assignedLane as Number = 1;
 
     // Garmin Pairing Result & Status State
@@ -59,6 +61,7 @@ class RowerView extends WatchUi.View {
     private var _pairingStatusMenuIndex as Number = 0;
     private var _pairingCompletedCallback as Method? = null;
     private var _roomPinCompletedCallback as Method? = null;
+    private var _pseudoCompletedCallback as Method? = null;
 
     // G5 5-second countdown
     private var _countdown5sValue as Number = 5;
@@ -104,6 +107,7 @@ class RowerView extends WatchUi.View {
         I18n.init();
         _pairingPicker = new UnifiedCodePickerView(6, "APPAIRAGE", method(:onPairingCodeCompleted));
         _roomPinPicker = new UnifiedCodePickerView(5, "CODE SALON", method(:onRoomPinCompleted));
+        _pseudoPicker = new UnifiedCodePickerView(6, "MON PSEUDO", method(:onPseudoCompleted));
         // Appairage prioritaire au lancement : si non appairé, basculer immédiatement vers la saisie du code OTP 6 caractères
         if (!UserManager.isPaired()) {
             _currentState = STATE_PAIRING_INPUT;
@@ -121,6 +125,10 @@ class RowerView extends WatchUi.View {
         _roomPinCompletedCallback = cb;
     }
 
+    public function setPseudoCompletedCallback(cb as Method?) as Void {
+        _pseudoCompletedCallback = cb;
+    }
+
     public function onPairingCodeCompleted(code as String) as Void {
         if (_pairingCompletedCallback != null) {
             (_pairingCompletedCallback as Method).invoke(code);
@@ -133,12 +141,26 @@ class RowerView extends WatchUi.View {
         }
     }
 
+    public function onPseudoCompleted(pseudo as String) as Void {
+        if (_pseudoCompletedCallback != null) {
+            (_pseudoCompletedCallback as Method).invoke(pseudo);
+        }
+    }
+
     public function getPairingPicker() as UnifiedCodePickerView {
         return _pairingPicker;
     }
 
     public function getRoomPinPicker() as UnifiedCodePickerView {
         return _roomPinPicker;
+    }
+
+    public function getPseudoPicker() as UnifiedCodePickerView {
+        return _pseudoPicker;
+    }
+
+    public function resetPseudoDigits() as Void {
+        _pseudoPicker.reset();
     }
 
     public function setAppState(state as Number) as Void {
@@ -290,12 +312,12 @@ class RowerView extends WatchUi.View {
 
     // Menu navigation helpers
     public function nextMainMenu() as Void {
-        _mainMenuIndex = (_mainMenuIndex + 1) % 5;
+        _mainMenuIndex = (_mainMenuIndex + 1) % 6;
         WatchUi.requestUpdate();
     }
 
     public function prevMainMenu() as Void {
-        _mainMenuIndex = (_mainMenuIndex + 4) % 5;
+        _mainMenuIndex = (_mainMenuIndex + 5) % 6;
         WatchUi.requestUpdate();
     }
 
@@ -407,7 +429,12 @@ class RowerView extends WatchUi.View {
     }
 
     public function togglePairingStatusMenu() as Void {
-        _pairingStatusMenuIndex = (_pairingStatusMenuIndex + 1) % 2;
+        _pairingStatusMenuIndex = (_pairingStatusMenuIndex + 1) % 3;
+        WatchUi.requestUpdate();
+    }
+
+    public function prevPairingStatusMenu() as Void {
+        _pairingStatusMenuIndex = (_pairingStatusMenuIndex + 2) % 3;
         WatchUi.requestUpdate();
     }
 
@@ -477,9 +504,11 @@ class RowerView extends WatchUi.View {
                 I18n.getText("MENU_PRIVATE"),
                 I18n.getText("MENU_SOLO"),
                 pairItem,
+                I18n.getText("MENU_PROFILE"),
                 I18n.getText("MENU_HISTORY")
             ] as Array<String>;
             var menuSub = getBleProtocolTag();
+            _userId = UserManager.getUserId();
             if (_userId.length() > 0) {
                 menuSub = menuSub + " | " + I18n.getText("PLAYER_LABEL") + " " + _userId;
             }
@@ -498,6 +527,8 @@ class RowerView extends WatchUi.View {
             drawPendingApprovalScreen(dc, w, h);
         } else if (_currentState == STATE_PAIRING_INPUT) {
             drawPairingInput(dc, w, h);
+        } else if (_currentState == STATE_PSEUDO_INPUT) {
+            _pseudoPicker.renderToDc(dc, w, h);
         } else if (_currentState == STATE_PAIRING_STATUS) {
             drawPairingStatus(dc, w, h);
         } else if (_currentState == STATE_PAIRING_RESULT) {
@@ -811,7 +842,7 @@ class RowerView extends WatchUi.View {
         dc.setColor(COL_MUTED, Graphics.COLOR_TRANSPARENT);
         dc.drawText((w * 16) / 100, topY, Graphics.FONT_XTINY, clockStr, Graphics.TEXT_JUSTIFY_LEFT);
 
-        var playerTag = _userId;
+        var playerTag = UserManager.getDisplayPseudo();
         dc.setColor(COL_CYAN, Graphics.COLOR_TRANSPARENT);
         dc.drawText(cx, topY, Graphics.FONT_XTINY, truncateToWidth(dc, playerTag, Graphics.FONT_XTINY, (w * 44) / 100), Graphics.TEXT_JUSTIFY_CENTER);
 
@@ -1044,7 +1075,7 @@ class RowerView extends WatchUi.View {
         dc.drawText(cx, (h * 5) / 100, Graphics.FONT_XTINY, I18n.getText("PIN_TITLE"), Graphics.TEXT_JUSTIFY_CENTER);
 
         // Athlete Login display (12..19% h)
-        _userId = UserManager.getUserId();
+        _userId = UserManager.getDisplayPseudo();
         var userStr = "ID Web: " + _userId;
         var userMaxW = getSafeWidthAtY(w, h, (h * 12) / 100, (h * 12) / 100 + 16);
         dc.setColor(COL_ACCENT, Graphics.COLOR_TRANSPARENT);
@@ -1107,7 +1138,7 @@ class RowerView extends WatchUi.View {
         dc.setColor(hdrCol, Graphics.COLOR_TRANSPARENT);
         dc.drawText(cx, hdrY, Graphics.FONT_XTINY, truncateToWidth(dc, hdrText, Graphics.FONT_XTINY, getSafeWidthAtY(w, h, hdrY, hdrY + 16)), Graphics.TEXT_JUSTIFY_CENTER);
 
-        _userId = UserManager.getUserId();
+        _userId = UserManager.getDisplayPseudo();
         var playerText = (_assignedLane > 0)
             ? ("Ligne " + _assignedLane + " | " + _userId)
             : ("ID Web: " + _userId);
@@ -1513,61 +1544,70 @@ class RowerView extends WatchUi.View {
     }
 
     // =========================================================================
-    // ECRAN STATUT APPAIRE & REINITIALISATION
+    // SECTION 6 : MENU "MON PROFIL & IDENTIFIANT" SUR LA MONTRE GARMIN
     // =========================================================================
     private function drawPairingStatus(dc as Graphics.Dc, w as Number, h as Number) as Void {
         var cx = w / 2;
+        var isGuest = UserManager.isGuestSession();
+        var profileLabel = UserManager.getActiveProfileLabel();
 
         var titleY = (h * 6) / 100;
-        dc.setColor(COL_GOOD, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, titleY, Graphics.FONT_XTINY, I18n.getText("PAIR_STATUS_TITLE"), Graphics.TEXT_JUSTIFY_CENTER);
+        dc.setColor(COL_ACCENT, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, titleY, Graphics.FONT_XTINY, truncateToWidth(dc, I18n.getText("MENU_PROFILE"), Graphics.FONT_XTINY, w - 36), Graphics.TEXT_JUSTIFY_CENTER);
 
-        var subY = (h * 14) / 100;
-        dc.setColor(COL_PRIMARY, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, subY, Graphics.FONT_XTINY, I18n.getText("MENU_PAIRED"), Graphics.TEXT_JUSTIFY_CENTER);
-
-        var divY = (h * 22) / 100;
+        var divY = (h * 16) / 100;
         dc.setColor(COL_GRID, Graphics.COLOR_TRANSPARENT);
         dc.drawLine((w * 16) / 100, divY, w - ((w * 16) / 100), divY);
 
-        var cardTop = (h * 26) / 100;
-        var cardH = (h * 24) / 100;
-        var cardW = (w * 78) / 100;
+        var cardTop = (h * 19) / 100;
+        var cardH = (h * 22) / 100;
+        var cardW = (w * 82) / 100;
         dc.setColor(COL_PILL_BG, COL_PILL_BG);
         dc.fillRoundedRectangle(cx - (cardW / 2), cardTop, cardW, cardH, 8);
-        dc.setColor(COL_GOOD, Graphics.COLOR_TRANSPARENT);
+        dc.setColor(isGuest ? COL_WARN : COL_GOOD, Graphics.COLOR_TRANSPARENT);
         dc.drawRoundedRectangle(cx - (cardW / 2), cardTop, cardW, cardH, 8);
 
         dc.setColor(COL_PRIMARY, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, cardTop + (cardH / 3), Graphics.FONT_XTINY, "Montre liee au web", Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
-        var uidStr = UserManager.getUserId();
+        dc.drawText(cx, cardTop + (cardH / 3), Graphics.FONT_XTINY, truncateToWidth(dc, profileLabel, Graphics.FONT_XTINY, cardW - 10), Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+
+        var syncInfo = isGuest ? "Mode Invite (modifiable)" : I18n.getText("PROFILE_SYNCED_WEB");
         dc.setColor(COL_ACCENT, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, cardTop + ((cardH * 70) / 100), Graphics.FONT_XTINY, truncateToWidth(dc, uidStr, Graphics.FONT_XTINY, cardW - 10), Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+        dc.drawText(cx, cardTop + ((cardH * 72) / 100), Graphics.FONT_XTINY, truncateToWidth(dc, syncInfo, Graphics.FONT_XTINY, cardW - 10), Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
 
-        // Menu options : 0 = Retour, 1 = Réinitialiser l'appairage
-        var optItems = ["< Retour au menu", I18n.getText("MENU_RESET_PAIRING")] as Array<String>;
-        var optTop = (h * 54) / 100;
-        var optH = (h * 14) / 100;
-        var optW = (w * 78) / 100;
+        // Menu options :
+        // 0 = Modifier pseudo (Mode Invité) ou Verrouillé (Compte Web)
+        // 1 = Réinitialiser / Dissocier
+        // 2 = Retour au menu
+        var editOpt = isGuest ? I18n.getText("PROFILE_EDIT_PSEUDO") : "Pseudo synchronise web";
+        var optItems = [
+            editOpt,
+            "Reinitialiser / Dissocier",
+            "< Retour au menu"
+        ] as Array<String>;
 
-        for (var i = 0; i < 2; i++) {
-            var oy = optTop + i * (optH + 4);
+        var optTop = (h * 44) / 100;
+        var optH = (h * 11) / 100;
+        var optW = (w * 80) / 100;
+
+        for (var i = 0; i < 3; i++) {
+            var oy = optTop + i * (optH + 3);
             var isSel = (i == _pairingStatusMenuIndex);
 
             if (isSel) {
-                dc.setColor(i == 1 ? COL_WARN : COL_PILL_BG, i == 1 ? COL_WARN : COL_PILL_BG);
+                var bgCol = (i == 1) ? COL_WARN : COL_PILL_BG;
+                dc.setColor(bgCol, bgCol);
                 dc.fillRoundedRectangle(cx - (optW / 2), oy, optW, optH, 6);
                 dc.setColor(COL_PRIMARY, Graphics.COLOR_TRANSPARENT);
-                dc.drawText(cx, oy + (optH / 2), Graphics.FONT_XTINY, optItems[i], Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+                dc.drawText(cx, oy + (optH / 2), Graphics.FONT_XTINY, truncateToWidth(dc, optItems[i], Graphics.FONT_XTINY, optW - 10), Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
             } else {
                 dc.setColor(COL_GRID, Graphics.COLOR_TRANSPARENT);
                 dc.drawRoundedRectangle(cx - (optW / 2), oy, optW, optH, 6);
                 dc.setColor(COL_MUTED, Graphics.COLOR_TRANSPARENT);
-                dc.drawText(cx, oy + (optH / 2), Graphics.FONT_XTINY, optItems[i], Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+                dc.drawText(cx, oy + (optH / 2), Graphics.FONT_XTINY, truncateToWidth(dc, optItems[i], Graphics.FONT_XTINY, optW - 10), Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
             }
         }
 
-        var footY = (h * 88) / 100;
+        var footY = (h * 86) / 100;
         dc.setColor(COL_MUTED, Graphics.COLOR_TRANSPARENT);
         dc.drawText(cx, footY, Graphics.FONT_XTINY, "UP/DN: Choix | START: OK", Graphics.TEXT_JUSTIFY_CENTER);
     }
@@ -1612,11 +1652,52 @@ class RowerView extends WatchUi.View {
     }
 
     // =========================================================================
-    // PROPORTIONAL WARNING BANNER OVERLAY
+    // PROPORTIONAL WARNING BANNER & FULL-SCREEN FLASHING ANTI-CHEAT OVERLAY
     // =========================================================================
     private function drawWarningBanner(dc as Graphics.Dc, w as Number, h as Number, text as String) as Void {
         var cx = w / 2;
         var cy = h / 2;
+
+        // Section 5.2 & 5.3 : Alerte visuelle plein écran clignotante si faux départ ou départ raté
+        if (_falseStartLocked) {
+            var flashPhase = (System.getTimer() / 350) % 2;
+            var bgCol = (flashPhase == 0) ? COL_ALERT : COL_BG;
+            var fgCol = (flashPhase == 0) ? COL_PRIMARY : COL_ALERT;
+            var subCol = (flashPhase == 0) ? COL_ACCENT : COL_WARN;
+
+            dc.setColor(bgCol, bgCol);
+            dc.clear();
+            dc.setPenWidth(5);
+            dc.setColor(COL_ALERT, Graphics.COLOR_TRANSPARENT);
+            var minDim = (w < h) ? w : h;
+            dc.drawCircle(cx, cy, (minDim / 2) - 4);
+            dc.setPenWidth(1);
+
+            if (text.find(" - ") != null) {
+                var sepIdx = text.find(" - ");
+                var l1 = text.substring(0, sepIdx);
+                var l2 = text.substring(sepIdx + 3, text.length());
+                dc.setColor(fgCol, Graphics.COLOR_TRANSPARENT);
+                dc.drawText(cx, (h * 38) / 100, Graphics.FONT_SMALL, truncateToWidth(dc, l1, Graphics.FONT_SMALL, w - 24), Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+                dc.setColor(subCol, Graphics.COLOR_TRANSPARENT);
+                dc.drawText(cx, (h * 60) / 100, Graphics.FONT_XTINY, truncateToWidth(dc, l2, Graphics.FONT_XTINY, w - 24), Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+            } else if (text.find(" ! ") != null) {
+                var sepIdx2 = text.find(" ! ");
+                var p1 = text.substring(0, sepIdx2 + 2);
+                var p2 = text.substring(sepIdx2 + 3, text.length());
+                dc.setColor(fgCol, Graphics.COLOR_TRANSPARENT);
+                dc.drawText(cx, (h * 38) / 100, Graphics.FONT_SMALL, truncateToWidth(dc, p1, Graphics.FONT_SMALL, w - 24), Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+                dc.setColor(subCol, Graphics.COLOR_TRANSPARENT);
+                dc.drawText(cx, (h * 60) / 100, Graphics.FONT_XTINY, truncateToWidth(dc, p2, Graphics.FONT_XTINY, w - 24), Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+            } else {
+                dc.setColor(fgCol, Graphics.COLOR_TRANSPARENT);
+                dc.drawText(cx, (h * 42) / 100, Graphics.FONT_SMALL, truncateToWidth(dc, text, Graphics.FONT_SMALL, w - 24), Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+                dc.setColor(subCol, Graphics.COLOR_TRANSPARENT);
+                dc.drawText(cx, (h * 62) / 100, Graphics.FONT_XTINY, truncateToWidth(dc, I18n.getText("WARN_ZERO_SPEED"), Graphics.FONT_XTINY, w - 24), Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+            }
+            return;
+        }
+
         var boxH = (h * 32) / 100;
         if (boxH < 52) { boxH = 52; }
         var boxY = cy - (boxH / 2);

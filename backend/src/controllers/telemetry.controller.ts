@@ -1,13 +1,14 @@
 import { Request, Response } from "express";
 import { Op } from "sequelize";
 import db from "../models";
-import raceManager, { RaceState } from "../services/race-manager.service";
+import raceManager, { RaceManager, RaceState } from "../services/race-manager.service";
 import socketGateway, { LiveRacerMetric } from "../websocket/socket.gateway";
 import { TelemetryValidator } from "../services/telemetry-validator.service";
 import { isEmmaAdminUser } from "../services/auth.service";
 import userStore from "../services/user-store.service";
 import { SUBSCRIPTION_TIERS } from "./subscription.controller";
 import { IpGeoService } from "../services/ip-geo.service";
+import pairingService from "../services/pairing.service";
 
 const Activities = db.activities;
 const Races = db.races;
@@ -129,6 +130,9 @@ async function buildPrivateRacePayload(race: RaceState) {
     botMaxPace: race.botMaxPace || 120,
     autoStart: Boolean(race.autoStart),
     hasBots: Boolean(race.hasBots),
+    isBotDuel: Boolean(race.isBotDuel),
+    isDuel1v1: Boolean(race.isDuel1v1),
+    originalHostUserId: race.originalHostUserId,
     status: apiStatus,
     internalStatus: race.status,
     totalParticipants,
@@ -144,8 +148,12 @@ async function buildPrivateRacePayload(race: RaceState) {
     code: race.code,
     pinCode: race.pinCode,
     lane: race.adminAsSpectator ? 0 : (race.participants?.get(race.hostUserId || "")?.lane || 1),
+    botLane: race.isBotDuel ? 2 : undefined,
+    isBotDuel: Boolean(race.isBotDuel),
+    isDuel1v1: Boolean(race.isDuel1v1),
     inviteUrl: race.code ? `/r/${race.code}` : undefined,
     secondsRemaining,
+    countdownSeconds: secondsRemaining,
     remainingSeconds,
     elapsedSeconds,
     maxDurationSeconds,
@@ -154,7 +162,8 @@ async function buildPrivateRacePayload(race: RaceState) {
     totalParticipants,
     requireApproval: race.requireApproval !== undefined ? race.requireApproval : true,
     pendingParticipants: pendingList,
-    status: apiStatus
+    status: apiStatus,
+    internalStatus: race.status
   };
 }
 
@@ -169,11 +178,47 @@ export class TelemetryController {
     try {
       const body = req.body;
       const raceId = body.raceId || raceManager.getCurrentPublicRace()?.id;
-      const userId = body.userId || "anonymous";
+      let userId = body.userId || "anonymous";
+      let resolvedUserName = body.userName ? String(body.userName) : "";
 
       if (!raceId) {
         res.status(400).json({ error: "Missing raceId" });
         return;
+      }
+
+      // Resolve deviceToken or guestName participant mapping for Parcours 1 & Parcours 2
+      const matchedRaceForUser = raceManager.getRaceById(raceId);
+      const authHeader = String(req.headers.authorization || "");
+      const bearerToken = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
+      const rawToken = bearerToken || (body.deviceToken ? String(body.deviceToken).trim() : "");
+      if (rawToken) {
+        const tokenValidation = await pairingService.validateDeviceToken(rawToken);
+        const paired = tokenValidation.valid ? tokenValidation.pairing : null;
+        if (paired && paired.userId) {
+          if (matchedRaceForUser?.participants?.has(paired.userId)) {
+            userId = paired.userId;
+            const p = matchedRaceForUser.participants.get(paired.userId);
+            if (p?.userName && (!resolvedUserName || resolvedUserName === paired.userId)) {
+              resolvedUserName = p.userName;
+            }
+          } else if (userId === "anonymous" || !matchedRaceForUser?.participants?.has(userId)) {
+            userId = paired.userId;
+          }
+        }
+      }
+      if (matchedRaceForUser?.participants && !matchedRaceForUser.participants.has(userId)) {
+        for (const p of matchedRaceForUser.participants.values()) {
+          if (p.userName && p.userName.toLowerCase() === String(userId).toLowerCase()) {
+            userId = p.userId;
+            if (!resolvedUserName) {
+              resolvedUserName = p.userName;
+            }
+            break;
+          }
+        }
+      }
+      if (!resolvedUserName && matchedRaceForUser?.participants?.has(userId)) {
+        resolvedUserName = matchedRaceForUser.participants.get(userId)?.userName || "";
       }
 
       // Extract metrics either from standard format or legacy flat format
@@ -253,12 +298,17 @@ export class TelemetryController {
         if (isNewParticipant) {
           matchedRace.participants.set(userId, {
             userId,
-            userName: body.userName || `Racer_${userId.slice(-4)}`,
+            userName: resolvedUserName || body.userName || `Racer_${userId.slice(-4)}`,
             joinedAt: new Date(),
             country
           });
           if (matchedRace.type === "PUBLIC_HOURLY" && (matchedRace.status === "LOBBY" || matchedRace.status === "COUNTDOWN")) {
             raceManager.notifyPlayerJoinedPublic(userId);
+          }
+        } else if (actualPower > 0 || actualSpm > 0) {
+          const existingP = matchedRace.participants.get(userId);
+          if (existingP && existingP.ready === false) {
+            raceManager.setParticipantReadyStatus(matchedRace.id, userId, true);
           }
         }
       }
@@ -269,7 +319,7 @@ export class TelemetryController {
             id: compositeId,
             activityId: raceId,
             userId,
-            userName: body.userName || `Racer_${userId.slice(-4)}`,
+            userName: resolvedUserName || body.userName || `Racer_${userId.slice(-4)}`,
             country,
             raceMode: "race",
             targetDistance: targetDist,
@@ -406,33 +456,30 @@ export class TelemetryController {
       }
 
       // Broadcast WebSocket leaderboard update to web clients
-      const liveList: LiveRacerMetric[] = activeRacers.map((r: any, idx: number) => {
-        const rUserId = typeof r.get === "function" ? r.get("userId") : r.userId;
-        const isMe = rUserId === userId;
-        const netDist = isMe ? effectiveDistance : (typeof r.get === "function" ? (r.get("netDistance") as number) : r.netDistance) || 0;
-        const split = isMe ? actualSplit : (typeof r.get === "function" ? (r.get("lastPace") as number) : r.lastPace) || 120;
-        const watts = isMe ? actualPower : (typeof r.get === "function" ? (r.get("lastPower") as number) : r.lastPower) || 0;
-        const spm = isMe ? actualSpm : (typeof r.get === "function" ? (r.get("lastStrokeRate") as number) : r.lastStrokeRate) || 0;
-        const hr = isMe ? heartRate : (typeof r.get === "function" ? (r.get("lastHeartRate") as number) : r.lastHeartRate);
-        const st = isMe ? activityStatus : (typeof r.get === "function" ? r.get("status") : r.status);
-        const name = (typeof r.get === "function" ? (r.get("userName") || r.get("userId")) : (r.userName || r.userId)) || rUserId;
-        const countryVal = typeof r.get === "function" ? r.get("country") : r.country;
-        const elapsed = isMe ? currentElapsed : ((typeof r.get === "function" ? (r.get("elapsedTime") as number) : r.elapsedTime) || 0);
-
-        return {
-          lane: idx + 1,
-          userId: rUserId,
-          name,
-          dist: netDist,
-          split,
-          watts,
-          spm,
-          heartRate: hr,
-          status: st,
-          country: countryVal || undefined,
-          elapsedTime: elapsed
-        };
-      });
+      const liveList: LiveRacerMetric[] = RaceManager.toLiveMetrics(
+        activeRacers.map((r: any) => {
+          const rUserId = typeof r.get === "function" ? r.get("userId") : r.userId;
+          const isMe = rUserId === userId;
+          if (!isMe) return r;
+          return {
+            get: (field: string) => {
+              if (field === "userId") return rUserId;
+              if (field === "userName") return (typeof r.get === "function" ? r.get("userName") : r.userName) || body.userName || rUserId;
+              if (field === "isBot") return false;
+              if (field === "netDistance") return effectiveDistance;
+              if (field === "lastPace") return actualSplit;
+              if (field === "lastPower") return actualPower;
+              if (field === "lastStrokeRate") return actualSpm;
+              if (field === "lastHeartRate") return heartRate;
+              if (field === "status") return activityStatus;
+              if (field === "country") return country || (typeof r.get === "function" ? r.get("country") : r.country);
+              if (field === "elapsedTime") return currentElapsed;
+              return typeof r.get === "function" ? r.get(field) : r[field];
+            }
+          };
+        }),
+        matchedRace
+      );
       socketGateway.broadcastLeaderboard(raceId, liveList);
 
       res.status(200).json({
@@ -499,7 +546,13 @@ export class TelemetryController {
         requiredLeague
       } = req.body || {};
 
-      const isBotDuel = Boolean(reqIsBotDuel || mode === "bot_duel");
+      const rawMode = String(mode || req.body?.type || "").trim().toLowerCase();
+      const isBotDuel = Boolean(
+        reqIsBotDuel ||
+        rawMode === "bot_duel" ||
+        rawMode === "duel_bot" ||
+        rawMode === "1v1_bot"
+      );
 
       if (!isBotDuel) {
         const authCheck = await isUserSubscriberOrAdmin(hostUserId, hostUserName);
@@ -517,7 +570,9 @@ export class TelemetryController {
       const user = await userStore.findUser(hostUserId);
       const isEmma = isEmmaAdminUser(hostUserId, hostUserName);
       const isUserAdmin = Boolean(isEmma || user?.isAdmin);
-      const allowAdminSpectator = isUserAdmin ? (adminAsSpectator !== undefined ? Boolean(adminAsSpectator) : true) : false;
+      const allowAdminSpectator = isBotDuel
+        ? false
+        : (isUserAdmin ? (adminAsSpectator !== undefined ? Boolean(adminAsSpectator) : true) : false);
 
       let maxAllowed = isBotDuel ? 2 : 30;
       let distAllowed = isBotDuel ? 10000 : 100000;
@@ -999,22 +1054,36 @@ export class TelemetryController {
 
     if (matched.race && matched.race.type === "PRIVATE_INVITE") {
       const race = matched.race;
-      const isHost = Boolean(userId && race.hostUserId && userId === race.hostUserId);
+      const isHost = Boolean(
+        userId &&
+        ((race.hostUserId && userId.toLowerCase() === race.hostUserId.toLowerCase()) ||
+          (race.originalHostUserId && userId.toLowerCase() === race.originalHostUserId.toLowerCase()))
+      );
 
       if (userId && !isHost) {
         if (race.isBotDuel) {
-          if (race.hostUserId?.startsWith("guest_")) {
+          const currentHost = String(race.hostUserId || "");
+          const isWebSessionHost =
+            !currentHost ||
+            currentHost === "anonymous" ||
+            currentHost.startsWith("guest_") ||
+            currentHost.startsWith("usr_");
+          if (isWebSessionHost && !race.botDuelSeatClaimed) {
             const oldHostId = race.hostUserId;
+            if (!race.originalHostUserId && oldHostId) {
+              race.originalHostUserId = oldHostId;
+            }
             race.hostUserId = userId;
             race.hostUserName = userName || race.hostUserName;
-            if (race.participants) {
+            race.botDuelSeatClaimed = true;
+            if (race.participants && oldHostId) {
               const oldInfo = race.participants.get(oldHostId);
               race.participants.delete(oldHostId);
               race.participants.set(userId, {
                 userId,
                 userName: userName || race.hostUserName || userId,
                 joinedAt: oldInfo?.joinedAt || new Date(),
-                lane: oldInfo?.lane || 1
+                lane: 1
               });
             }
           } else {
@@ -1091,6 +1160,24 @@ export class TelemetryController {
             message: "En attente de validation par l'hôte"
           });
           return;
+        }
+      }
+
+      if (userId && race.isBotDuel && race.status === "LOBBY") {
+        const allParticipantsReady =
+          !race.participants ||
+          race.participants.size === 0 ||
+          Array.from(race.participants.values()).every((p) => p.ready !== false);
+        if (allParticipantsReady) {
+          const startNow = new Date();
+          race.status = "COUNTDOWN";
+          race.autoStart = true;
+          race.lobbyEndsAt = new Date(startNow.getTime() + 15 * 1000);
+          socketGateway.broadcastRaceStatus(race.id, "COUNTDOWN", {
+            lobbyEndsAt: race.lobbyEndsAt,
+            secondsUntilStart: 15,
+            countdownSeconds: 15
+          });
         }
       }
 

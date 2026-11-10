@@ -1,5 +1,6 @@
 import { Application, Router } from "express";
 import TelemetryController from "../controllers/telemetry.controller";
+import RoomController from "../controllers/room.controller";
 
 export default (app: Application): void => {
   const router = Router();
@@ -21,6 +22,12 @@ export default (app: Application): void => {
 
   // POST /api/v1/races/private/:identifier/join (Join private salon / register starting lane)
   router.post("/races/private/:identifier/join", TelemetryController.joinPrivateRace);
+
+  // POST /api/v1/races/private/:roomId/guest-ticket (Parcours 2 : Ticket Invité 5 caractères)
+  router.post("/races/private/:roomId/guest-ticket", RoomController.createGuestTicket);
+
+  // POST /api/v1/races/private/:roomId/status (Machine à États BLE : Notification READY)
+  router.post("/races/private/:roomId/status", RoomController.updateParticipantStatus);
 
   // POST /api/v1/races/private/:identifier/start (Host starts countdown or resets private salon)
   router.post("/races/private/:identifier/start", TelemetryController.startPrivateRace);

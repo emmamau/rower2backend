@@ -236,6 +236,56 @@ export class RowerService {
     );
   }
 
+  // Parcours 2 : Ticket Invité de Salon (Code à 5 caractères atomique)
+  createGuestTicket(
+    roomId: string,
+    guestName: string,
+    socketId?: string,
+    userId?: string
+  ): Observable<{
+    success: boolean;
+    ticketPin: string;
+    pinCode: string;
+    guestName: string;
+    guestUserId: string;
+    lane: number;
+    raceId: string;
+    roomCode: string;
+    targetDistance: number;
+    expiresAt: string;
+    expiresInSeconds: number;
+  }> {
+    return this.http.post<any>(
+      `${this.apiUrl}/api/rooms/${encodeURIComponent(roomId.trim())}/guest-ticket`,
+      { guestName, socketId, userId }
+    );
+  }
+
+  claimGarminTicket(
+    ticketPin: string,
+    deviceId: string,
+    userName?: string
+  ): Observable<any> {
+    return this.http.post<any>(`${this.apiUrl}/api/garmin/claim-ticket`, {
+      ticketPin,
+      deviceId,
+      userName
+    });
+  }
+
+  // Machine à États BLE : Statut READY du rameur en salon
+  updateRoomReadyStatus(
+    roomId: string,
+    ready: boolean,
+    userId?: string,
+    deviceToken?: string
+  ): Observable<any> {
+    return this.http.post<any>(
+      `${this.apiUrl}/api/rooms/${encodeURIComponent(roomId.trim())}/status`,
+      { ready, userId, deviceToken }
+    );
+  }
+
   getGarminPairingStatus(filter: { userId?: string; pairingCode?: string; deviceToken?: string }): Observable<{ success: boolean; paired: boolean; status: string; deviceToken?: string; userId?: string; deviceId?: string }> {
     let params = new HttpParams();
     if (filter.userId) params = params.set('userId', filter.userId);

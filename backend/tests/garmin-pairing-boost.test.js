@@ -319,3 +319,237 @@ test('Pairing model definition: index fields must match database column names an
   }
 });
 
+test('Parcours 2: Atomic 5-char Guest Ticket in Private Room + BLE READY State Machine & Start Lock', async () => {
+  process.env.NODE_ENV = 'test';
+  const { baseUrl, close } = await createTestServer();
+
+  try {
+    // 1. Create a private room (Group Regatta) using admin host EmmaRacer
+    const hostId = 'EmmaRacer';
+    const resCreate = await fetch(`${baseUrl}/api/rooms`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        hostUserId: hostId,
+        hostUserName: 'EmmaRacer',
+        title: 'Test Regatta Room',
+        targetDistance: 500,
+        startMode: 'manual',
+        hostParticipates: true,
+        adminAsSpectator: false,
+      }),
+    });
+    assert.equal(resCreate.status, 201);
+    const roomData = await resCreate.json();
+    const roomId = roomData.race.id;
+    assert.ok(roomId);
+
+    // 2. Generate a 5-character guest boarding ticket on Web
+    const resTicket = await fetch(`${baseUrl}/api/rooms/${roomId}/guest-ticket`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        guestName: 'Alex',
+        socketId: 'sock_test_123',
+      }),
+    });
+    assert.equal(resTicket.status, 200);
+    const ticketData = await resTicket.json();
+    assert.equal(ticketData.ticketPin.length, 5, 'Guest ticket PIN must be 5 characters');
+    assert.match(ticketData.ticketPin, /^[0-9A-Z]{5}$/, 'Guest ticket PIN must be alphanumeric');
+    assert.ok(ticketData.lane >= 2, 'Guest must be assigned a reserved water lane');
+
+    // 3. Claim the 5-char ticket on the Garmin Watch (POST /api/garmin/claim-ticket)
+    const watchDeviceId = `garmin_guest_hw_${Date.now()}`;
+    const resClaim = await fetch(`${baseUrl}/api/garmin/claim-ticket`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ticketPin: ticketData.ticketPin,
+        deviceId: watchDeviceId,
+      }),
+    });
+    assert.equal(resClaim.status, 200);
+    const claimData = await resClaim.json();
+    assert.equal(claimData.success, true);
+    assert.equal(claimData.status, 'waiting');
+    assert.ok(claimData.deviceToken, 'Must issue a persistent deviceToken');
+    assert.equal(claimData.guestName, 'Alex');
+    assert.equal(claimData.lane, ticketData.lane);
+    assert.equal(claimData.connectionState, 'CONNECTED');
+    assert.equal(claimData.ready, false);
+    assert.match(claimData.message, /Bienvenue Alex ! Ligne \d+ attribuée/);
+
+    // 4. Attempting to start the race while participants are NOT READY must be blocked (409)
+    const resStartBlocked = await fetch(`${baseUrl}/api/rooms/${roomId}/start`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        hostUserId: hostId,
+        countdownSeconds: 15,
+      }),
+    });
+    assert.equal(resStartBlocked.status, 409, 'Manual start must be locked until all participants are READY');
+
+    // 5. Transition both host and guest to READY via POST /api/rooms/:roomId/status
+    const resReadyHost = await fetch(`${baseUrl}/api/rooms/${roomId}/status`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId: hostId,
+        ready: true,
+      }),
+    });
+    assert.equal(resReadyHost.status, 200);
+
+    const resReadyGuest = await fetch(`${baseUrl}/api/rooms/${roomId}/status`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${claimData.deviceToken}`,
+      },
+      body: JSON.stringify({
+        ready: true,
+      }),
+    });
+    assert.equal(resReadyGuest.status, 200);
+    const readyGuestBody = await resReadyGuest.json();
+    assert.equal(readyGuestBody.connectionState, 'READY');
+    assert.equal(readyGuestBody.allHumansReady, true);
+
+    // 6. Now manual start succeeds because all participants are READY
+    const resStartOk = await fetch(`${baseUrl}/api/rooms/${roomId}/start`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        hostUserId: hostId,
+        countdownSeconds: 15,
+      }),
+    });
+    assert.equal(resStartOk.status, 200);
+
+    // 7. Live telemetry sent with guest deviceToken (even if userId in body is guestName "Alex")
+    // updates the exact guest participant (claimData.userId) instead of creating a duplicate boat!
+    const resStartImmediate = await fetch(`${baseUrl}/api/rooms/${roomId}/start`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        hostUserId: hostId,
+        countdownSeconds: 0,
+      }),
+    });
+    assert.equal(resStartImmediate.status, 200);
+
+    const resGuestBoost = await fetch(`${baseUrl}/boost`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${claimData.deviceToken}`,
+      },
+      body: JSON.stringify({
+        raceId: roomId,
+        userId: 'Alex', // legacy/display name sent instead of guest_xxx id
+        userName: 'Alex',
+        deviceToken: claimData.deviceToken,
+        raceMode: 'race',
+        status: 'in_progress',
+        targetDistance: 2000,
+        seq: 5,
+        elapsedTime: 15,
+        currentDistance: 65,
+        instantPower: 220,
+        instantPace: 112,
+        strokeRate: 28,
+        metrics: {
+          distanceM: 65,
+          splitSec: 112,
+          powerWatts: 220,
+          strokeRate: 28,
+          heartRate: 152,
+        },
+      }),
+    });
+    assert.equal(resGuestBoost.status, 200);
+    const guestBoostBody = await resGuestBoost.json();
+    assert.equal(guestBoostBody.status, 'RUNNING');
+
+    const resRoomAfterBoost = await fetch(`${baseUrl}/api/v1/races/private/${roomId}`);
+    assert.equal(resRoomAfterBoost.status, 200);
+    const roomAfterBoost = await resRoomAfterBoost.json();
+    const humanParticipants = (roomAfterBoost.participants || []).filter((p) => !p.isBot);
+    assert.equal(humanParticipants.length, 2, 'Must not create a duplicate 3rd participant when guest sends /boost');
+  } finally {
+    await close();
+  }
+});
+
+test('Scheduled private race auto-start is locked until all connected participants are BLE READY', async () => {
+  const { baseUrl, close } = await startTestServer();
+  try {
+    const hostId = 'EmmaRacer';
+    const scheduledTime = new Date(Date.now() + 10 * 1000).toISOString();
+    const resRoom = await fetch(`${baseUrl}/api/v1/races/private`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        hostUserId: hostId,
+        hostUserName: 'EmmaRacer',
+        title: 'Scheduled Ready Lock Test',
+        targetDistance: 2000,
+        hasBots: false,
+        startMode: 'scheduled',
+        scheduledStartTime: scheduledTime,
+      }),
+    });
+    assert.equal(resRoom.status, 201);
+    const roomData = await resRoom.json();
+    const roomId = roomData.id;
+
+    // Guest claims a boarding ticket (joins with ready = false, connectionState = CONNECTED)
+    const resTicket = await fetch(`${baseUrl}/api/rooms/${roomId}/guest-ticket`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ guestName: 'Lucas' }),
+    });
+    const ticketData = await resTicket.json();
+    const resClaim = await fetch(`${baseUrl}/api/garmin/claim-ticket`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ticketPin: ticketData.ticketPin,
+        deviceId: `garmin_sched_${Date.now()}`,
+      }),
+    });
+    assert.equal(resClaim.status, 200);
+    const claimData = await resClaim.json();
+
+    // Tick private races: because Lucas has ready === false, scheduled race MUST stay in LOBBY (not COUNTDOWN)
+    const raceManager = require('../dist/services/race-manager.service').default;
+    await raceManager.tickPrivateRaces();
+    const raceWhileNotReady = raceManager.getRaceById(roomId);
+    assert.equal(raceWhileNotReady.status, 'LOBBY', 'Scheduled race must remain in LOBBY while a connected participant is not READY');
+
+    // Now both host and Lucas become READY -> scheduled race within 15s window transitions to COUNTDOWN!
+    await fetch(`${baseUrl}/api/rooms/${roomId}/status`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: hostId, ready: true }),
+    });
+    const resGuestReady = await fetch(`${baseUrl}/api/rooms/${roomId}/status`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${claimData.deviceToken}`,
+      },
+      body: JSON.stringify({ ready: true }),
+    });
+    assert.equal(resGuestReady.status, 200);
+    const readyBody = await resGuestReady.json();
+    assert.equal(readyBody.countdownTriggered, true, 'Scheduled race within 15s window must trigger countdown once all participants are READY');
+    assert.equal(readyBody.raceStatus, 'COUNTDOWN');
+  } finally {
+    await close();
+  }
+});
+
+

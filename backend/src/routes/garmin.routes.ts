@@ -23,6 +23,9 @@ export default (app: Application): void => {
   // GET /api/garmin/status (Vérification validité token)
   router.get("/status", GarminController.getDeviceStatus);
 
+  // POST /api/garmin/claim-ticket (Parcours 2 : Validation atomique du Ticket Invité 5 caractères)
+  router.post("/claim-ticket", GarminController.claimTicket);
+
   // 2. Envoi des données d'activité avec middleware /boost sécurisé par deviceToken
   router.post("/boost", verifyDeviceToken, TelemetryController.ingestTelemetry);
 

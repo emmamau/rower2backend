@@ -1042,6 +1042,107 @@ test('Garmin FIT Activity Split Formatting: mm:ss/500m string formatting in BleD
   assert.match(fitContribXml, /<fitField id="3"[\s\S]*?unitLabel="@Strings\.FitAvgPaceUnits"/);
 });
 
+test('Duel 1v1 Bot automatic 15s countdown, Garmin watch admission, and collapsible Private Room banner on Smartphone', () => {
+  const privTs = fs.readFileSync(path.resolve(__dirname, '../src/app/components/private-room-manager/private-room-manager.component.ts'), 'utf8');
+  const privHtml = fs.readFileSync(path.resolve(__dirname, '../src/app/components/private-room-manager/private-room-manager.component.html'), 'utf8');
+  const privCss = fs.readFileSync(path.resolve(__dirname, '../src/app/components/private-room-manager/private-room-manager.component.css'), 'utf8');
+  const appTs = fs.readFileSync(path.resolve(__dirname, '../src/app/app.ts'), 'utf8');
+  const appHtml = fs.readFileSync(path.resolve(__dirname, '../src/app/app.html'), 'utf8');
+  const appCss = fs.readFileSync(path.resolve(__dirname, '../src/app/app.css'), 'utf8');
+  const canvasTs = fs.readFileSync(path.resolve(__dirname, '../src/app/components/regatta-canvas/regatta-canvas.component.ts'), 'utf8');
+  const bleDelegateMc = fs.readFileSync(path.resolve(__dirname, '../../garmin/source/BleDelegate.mc'), 'utf8');
+
+  // 1. Private Room Banner Collapse/Toggle on Smartphone
+  assert.match(privTs, /isBannerCollapsed\s*=\s*false/);
+  assert.match(privTs, /toggleBannerCollapse\(event\?:\s*Event\):\s*void/);
+  assert.match(privTs, /setBannerCollapsed\(collapsed:\s*boolean\):\s*void/);
+  assert.match(privTs, /@Output\(\)\s*bannerCollapsedChange\s*=\s*new\s+EventEmitter<boolean>\(\)/);
+  assert.match(privHtml, /class="priv-collapsed-strip"/);
+  assert.match(privHtml, /class="priv-btn-collapse-toggle is-expand"[\s\S]*?\(click\)="toggleBannerCollapse\(\)"[\s\S]*?▼ Détails/);
+  assert.match(privHtml, /class="priv-btn-collapse-toggle"[\s\S]*?\(click\)="toggleBannerCollapse\(\)"[\s\S]*?▲ Masquer les détails/);
+  assert.match(privCss, /\.priv-collapsed-strip\s*\{[\s\S]*?min-height:\s*34px;/);
+
+  // 2. Regatta 2D water space redistribution when collapsed
+  assert.match(appHtml, /\[class\.priv-banner-collapsed\]="isPrivateBannerCollapsed"/);
+  assert.match(appHtml, /\(bannerCollapsedChange\)="onPrivateBannerCollapsedChange\(\$event\)"/);
+  assert.match(appHtml, /class="regatta-waiting-banner" \*ngIf="activePrivateRoom && !isPrivateBannerCollapsed/);
+  assert.match(appCss, /\.game-container\.priv-banner-collapsed \.regatta-canvas-section/);
+  assert.match(appCss, /\.game-container\.priv-banner-collapsed \.canvas-display-card[\s\S]*?flex:\s*1\s+1\s+0\s*!important/);
+  assert.match(canvasTs, /:host\s*\{[\s\S]*?flex:\s*1\s+1\s+0;/);
+
+  // 3. Duel 1v1 Bot UI: no manual start button required, automatic 15s start & Lane 1 vs Lane 2 Bot
+  assert.match(privHtml, /@if\s*\(!isBotDuelRoom\)\s*\{[\s\S]*?BTN_START_10S/);
+  assert.match(privHtml, /Ligne 1 \(Vous\) vs 🤖 Ligne 2 \(Bot\) — Départ auto 15s après validation PIN/);
+  assert.match(appTs, /update\.type === 'PARTICIPANT_JOINED'[\s\S]*?this\.myAssignedLane = assignedLaneVal[\s\S]*?this\.countdownSeconds = cdSec/);
+
+  // 4. Garmin Monkey C: admission handles 15s countdown or lobby wait and transitions to STATE_WAITING_START without premature stroke auto-launch
+  assert.match(bleDelegateMc, /public function onPinJoinSuccess\(data as Dictionary\) as Void[\s\S]*?data\.hasKey\("secondsRemaining"\)/);
+  assert.match(bleDelegateMc, /view\.setLobbyInfo\(countdown,\s*totalPlayers,\s*_targetDistance\)/);
+  assert.match(bleDelegateMc, /\(_view as RowerView\)\.setAppState\(RowerView\.STATE_WAITING_START\)/);
+  assert.match(bleDelegateMc, /_isWaitingForReadyOrHost/);
+});
+
+test('Unified Onboarding Specification: Home Banner, 3 Action Cards, 3-Step Modal, 5-Char Guest Ticket, BLE READY State Machine, Garmin Start Lock & Profile Menu', () => {
+  const appHtml = fs.readFileSync(path.resolve(__dirname, '../src/app/app.html'), 'utf8');
+  const appCss = fs.readFileSync(path.resolve(__dirname, '../src/app/app.css'), 'utf8');
+  const appTs = fs.readFileSync(path.resolve(__dirname, '../src/app/app.ts'), 'utf8');
+  const privHtml = fs.readFileSync(path.resolve(__dirname, '../src/app/components/private-room-manager/private-room-manager.component.html'), 'utf8');
+  const privTs = fs.readFileSync(path.resolve(__dirname, '../src/app/components/private-room-manager/private-room-manager.component.ts'), 'utf8');
+  const canvasTs = fs.readFileSync(path.resolve(__dirname, '../src/app/components/regatta-canvas/regatta-canvas.component.ts'), 'utf8');
+  const rowerDelegateMc = fs.readFileSync(path.resolve(__dirname, '../../garmin/source/RowerDelegate.mc'), 'utf8');
+  const rowerViewMc = fs.readFileSync(path.resolve(__dirname, '../../garmin/source/RowerView.mc'), 'utf8');
+  const i18nMc = fs.readFileSync(path.resolve(__dirname, '../../garmin/source/I18n.mc'), 'utf8');
+  const bleDelegateMc = fs.readFileSync(path.resolve(__dirname, '../../garmin/source/BleDelegate.mc'), 'utf8');
+  const userManagerMc = fs.readFileSync(path.resolve(__dirname, '../../garmin/source/UserManager.mc'), 'utf8');
+  const restSyncManagerMc = fs.readFileSync(path.resolve(__dirname, '../../garmin/source/RestSyncManager.mc'), 'utf8');
+
+  // Section 2: Home Welcome Banner & 3 Action Cards & 3-Step Illustrated Guidance Modal
+  assert.match(appHtml, /class="home-welcome-banner"/);
+  assert.match(appHtml, /Ravi de vous revoir, \{\{ currentUser\.name \}\}/);
+  assert.match(appHtml, /Montre Garmin liée/);
+  assert.match(appHtml, /Prêt à ramer \? Rejoignez une course ou lancez un entraînement libre en quelques secondes/);
+  assert.match(appHtml, /class="home-action-tunnel"/);
+  assert.match(appHtml, /Course Rapide \/ Salon Public/);
+  assert.match(appHtml, /Rejoindre un Salon Privé/);
+  assert.match(appHtml, /Cockpit \/ Entraînement Libre/);
+  assert.match(appHtml, /class="modal-content modal-watch-guidance"/);
+  assert.match(appHtml, /Ouvrez l'application RowerRace sur votre montre Garmin\./);
+  assert.match(appHtml, /Sélectionnez 'Appairer la montre'\./);
+  assert.match(appHtml, /Saisissez le code affiché à l'écran\./);
+
+  // Section 3: UnifiedCodePickerView (5 or 6 chars) & Guest 5-char Boarding Ticket
+  assert.match(rowerViewMc, /new UnifiedCodePickerView\(6,\s*"APPAIRAGE"/);
+  assert.match(rowerViewMc, /new UnifiedCodePickerView\(5,\s*"CODE SALON"/);
+  assert.match(restSyncManagerMc, /function claimGuestTicket\(ticketPin as String\)/);
+  assert.match(privHtml, /Obtenir mon code d'embarquement/);
+  assert.match(privTs, /requestGuestBoardingTicket\(/);
+
+  // Section 4: BLE READY Check indicators (Orange vs Green) & Start Lock
+  assert.match(privHtml, /Rameur prêt/);
+  assert.match(privHtml, /En attente du rameur/);
+  assert.match(privHtml, /\[disabled\]="isActionBusy \|\| !areAllParticipantsReady"/);
+  assert.match(canvasTs, /class="ble-state-dot"/);
+  assert.match(bleDelegateMc, /notifyRoomReady\(_activityId,\s*true,\s*_userId\)/);
+
+  // Section 5: Garmin START button neutralization (onKey), flashing false-start screen & standing-start 0m lock
+  assert.match(rowerDelegateMc, /public function onKey\(keyEvent as WatchUi\.KeyEvent\) as Boolean/);
+  assert.match(i18nMc, /ARRÊTEZ DE RAMER ! DÉPART ARRÊTÉ/);
+  assert.match(i18nMc, /DÉPART RATÉ - ARRÊTEZ LE RAMEUR POUR PARTIR/);
+  assert.match(bleDelegateMc, /if \(_isFalseStartPenalized &&[\s\S]*?_model\.totalDistance = 0;/);
+
+  // Section 6: Mon Profil & Identifiant menu on Garmin Watch
+  assert.match(rowerDelegateMc, /STATE_PAIRING_STATUS/);
+  assert.match(userManagerMc, /getActiveProfileLabel\(\)/);
+  assert.match(userManagerMc, /setGuestPseudo\(/);
+
+  // Section 8.4: Smartphone fullscreen hides private room banner & single Watch Guidance modal in app.html
+  assert.match(appCss, /\.game-container\.mobile-fullscreen-view app-private-room-manager[\s\S]*?display:\s*none\s*!important/);
+  const watchGuidanceModalOccurrences = (appHtml.match(/isWatchGuidanceModalOpen/g) || []).length;
+  assert.equal(watchGuidanceModalOccurrences, 1, 'app.html must contain exactly one Watch Guidance modal');
+});
+
+
+
 
 
 

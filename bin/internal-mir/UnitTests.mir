@@ -1,36 +1,36 @@
-[ @file = "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3906-00\source\UnitTests.mcgen"; @line = 1; @symbol_importdef<0> = [Toybox,1,7,13]; @symbol_importdef<1> = [Lang,1,14,18]; ]
+[ @file = "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3290-00\source\UnitTests.mcgen"; @line = 1; @symbol_importdef<0> = [Toybox,1,7,13]; @symbol_importdef<1> = [Lang,1,14,18]; ]
 import Toybox.Lang;
-[ @file = "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3906-00\source\UnitTests.mcgen"; @line = 2; @symbol_importdef<0> = [Toybox,2,7,13]; @symbol_importdef<1> = [Test,2,14,18]; ]
+[ @file = "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3290-00\source\UnitTests.mcgen"; @line = 2; @symbol_importdef<0> = [Toybox,2,7,13]; @symbol_importdef<1> = [Test,2,14,18]; ]
 import Toybox.Test;
-[ @file = "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3906-00\source\UnitTests.mcgen"; @line = 5; typecheck = false; languageServer = do_not_complete; @symbol_functiondef = [getTestObject,5,9,22]; @symbol_return<0> = [RunNoEvil,5,28,37]; ]
+[ @file = "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3290-00\source\UnitTests.mcgen"; @line = 5; typecheck = false; languageServer = do_not_complete; @symbol_functiondef = [getTestObject,5,9,22]; @symbol_return<0> = [RunNoEvil,5,28,37]; ]
 function getTestObject() as RunNoEvil {
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_5_38_7_0_start:
-[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3906-00\source\UnitTests.mcgen" 6 4 ]
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_5_38_7_0_start:
+[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3290-00\source\UnitTests.mcgen" 6 4 ]
     symbol [ RunNoEvil %tmp.4 6 15 24 ];
     %tmp.4 = getv ? :RunNoEvil;
     %tmp.1 = newc %tmp.4 ();
     ret %tmp.1;
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_5_38_7_0_stop:
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_5_38_7_0_stop:
 }
-[ @file = "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3906-00\source\UnitTests.mcgen"; @line = 10; typecheck = false; languageServer = do_not_complete; @symbol_classdef = [RunNoEvil,10,6,15]; @symbol_extends<0> = [Test,10,24,28]; @symbol_extends<1> = [Test,10,29,33]; ]
+[ @file = "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3290-00\source\UnitTests.mcgen"; @line = 10; typecheck = false; languageServer = do_not_complete; @symbol_classdef = [RunNoEvil,10,6,15]; @symbol_extends<0> = [Test,10,24,28]; @symbol_extends<1> = [Test,10,29,33]; ]
 class RunNoEvil extends Test.Test {
-    [ @file = "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3906-00\source\UnitTests.mcgen"; @line = 10; ]
+    [ @file = "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3290-00\source\UnitTests.mcgen"; @line = 10; ]
     <init> {
     }
-    [ @file = "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3906-00\source\UnitTests.mcgen"; @line = 10; ]
+    [ @file = "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3290-00\source\UnitTests.mcgen"; @line = 10; ]
     static
     <init> {
     }
-    [ @file = "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3906-00\source\UnitTests.mcgen"; @line = 11; @position = 16; @symbol_vardef = [logger,11,16,22]; @symbol_type<0> = [Logger,11,26,32]; ]
+    [ @file = "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3290-00\source\UnitTests.mcgen"; @line = 11; @position = 16; @symbol_vardef = [logger,11,16,22]; @symbol_type<0> = [Logger,11,26,32]; ]
     private
     var logger as Logger;
-    [ @file = "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3906-00\source\UnitTests.mcgen"; @line = 12; @position = 16; @symbol_vardef = [idToName,12,16,24]; @symbol_type<0> = [Array,12,28,33]; ]
+    [ @file = "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3290-00\source\UnitTests.mcgen"; @line = 12; @position = 16; @symbol_vardef = [idToName,12,16,24]; @symbol_type<0> = [Array,12,28,33]; ]
     private
     var idToName as Array;
-    [ @file = "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3906-00\source\UnitTests.mcgen"; @line = 14; @symbol_functiondef = [initialize,14,13,23]; ]
+    [ @file = "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3290-00\source\UnitTests.mcgen"; @line = 14; @symbol_functiondef = [initialize,14,13,23]; ]
     function initialize() as Void {
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_14_26_19_4_start:
-[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3906-00\source\UnitTests.mcgen" 15 8 ]
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_14_26_19_4_start:
+[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3290-00\source\UnitTests.mcgen" 15 8 ]
         symbol [ Test %tmp.1 15 8 12 ];
         %tmp.1 = getm $.Toybox.Test;
         symbol [ Test %tmp.2 15 13 17 ];
@@ -38,7 +38,7 @@ C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTest
         symbol [ initialize %tmp.3 15 18 28 ];
         %tmp.3 = getv function %tmp.2 :initialize;
         invoke %tmp.2 %tmp.3();
-[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3906-00\source\UnitTests.mcgen" 16 8 ]
+[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3290-00\source\UnitTests.mcgen" 16 8 ]
         symbol [ Test %tmp.6 16 21 25 ];
         %tmp.6 = getm $.Toybox.Test;
         symbol [ Logger %tmp.7 16 26 32 ];
@@ -46,32 +46,32 @@ C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTest
         %tmp.4 = newc %tmp.7 ();
         symbol [ logger ? 16 8 14 ];
         putv self :logger %tmp.4;
-[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3906-00\source\UnitTests.mcgen" 17 8 ]
-        %tmp.9 = 15;
+[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3290-00\source\UnitTests.mcgen" 17 8 ]
+        %tmp.9 = 17;
         %tmp.8 = newa %tmp.9;
         symbol [ idToName ? 17 8 16 ];
         putv self :idToName %tmp.8;
-[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3906-00\source\UnitTests.mcgen" 18 8 ]
+[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3290-00\source\UnitTests.mcgen" 18 8 ]
         %tmp.10 = self;
-        symbol [ populate_test_entries_0_to_15 %tmp.11 18 8 37 ];
-        %tmp.11 = getv function %tmp.10 :populate_test_entries_0_to_15;
+        symbol [ populate_test_entries_0_to_17 %tmp.11 18 8 37 ];
+        %tmp.11 = getv function %tmp.10 :populate_test_entries_0_to_17;
         invoke %tmp.10 %tmp.11();
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_14_26_19_4_stop:
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_14_26_19_4_stop:
     }
-    [ @file = "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3906-00\source\UnitTests.mcgen"; @line = 21; @symbol_functiondef = [getIndexOf,21,13,23]; @symbol_param<0> = [name,21,24,28]; @symbol_param<0>_type<0> = [String,21,32,38]; @symbol_return<0> = [Number,21,43,49]; ]
+    [ @file = "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3290-00\source\UnitTests.mcgen"; @line = 21; @symbol_functiondef = [getIndexOf,21,13,23]; @symbol_param<0> = [name,21,24,28]; @symbol_param<0>_type<0> = [String,21,32,38]; @symbol_return<0> = [Number,21,43,49]; ]
     function getIndexOf(name as String) as Number {
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_21_50_34_4_start:
-[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3906-00\source\UnitTests.mcgen" 22 8 ]
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_22_8_24_8_if_stmt:
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_21_50_34_4_start:
+[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3290-00\source\UnitTests.mcgen" 22 8 ]
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_22_8_24_8_if_stmt:
         symbol [ idToName %tmp.2 22 12 20 ];
         %tmp.2 = getv ? :idToName;
         %tmp.4 = const :indexOf;
         symbol [ indexOf %tmp.4 22 26 33 const ];
         %tmp.5 = canhazplz %tmp.2 %tmp.4;
-        bf %tmp.5 @C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_22_8_24_8_if_end;
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_22_8_24_8_if_true:
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_22_35_24_8_start:
-[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3906-00\source\UnitTests.mcgen" 23 12 ]
+        bf %tmp.5 @C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_22_8_24_8_if_end;
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_22_8_24_8_if_true:
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_22_35_24_8_start:
+[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3290-00\source\UnitTests.mcgen" 23 12 ]
         symbol [ idToName %tmp.7 23 19 27 ];
         %tmp.7 = getv ? :idToName;
         %tmp.8 = as %tmp.7 { (interface { var indexOf; }) };
@@ -81,11 +81,11 @@ C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTest
         symbol [ name %tmp.10 23 36 40 ];
         %tmp.11 = invoke %tmp.8 %tmp.9(%tmp.10);
         ret %tmp.11;
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_22_35_24_8_stop:
-        goto @C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_22_8_24_8_if_end;
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_22_8_24_8_if_end:
-[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3906-00\source\UnitTests.mcgen" 26 8 ]
-        [ "C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_21_50_34_4_start" "C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_21_50_34_4_stop" ]
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_22_35_24_8_stop:
+        goto @C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_22_8_24_8_if_end;
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_22_8_24_8_if_end:
+[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3290-00\source\UnitTests.mcgen" 26 8 ]
+        [ "C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_21_50_34_4_start" "C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_21_50_34_4_stop" ]
         %j.1 = local;
         symbol [ j %j.1 26 12 13 ];
         symbol [ idToName %tmp.13 26 16 24 ];
@@ -95,26 +95,26 @@ C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTest
         %tmp.15 = invoke %tmp.13 %tmp.14();
         lputv %j.1 %tmp.15;
         symbol [ j %j.1 26 12 13 ];
-[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3906-00\source\UnitTests.mcgen" 27 8 ]
-        for @C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_27_8_31_8_for_test @C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_27_8_31_8_for_incr @C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_27_8_31_8_for_end;
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_27_8_31_8_for_init:
-        [ "C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_27_8_31_8_for_begin" "C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_27_8_31_8_for_end" ]
+[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3290-00\source\UnitTests.mcgen" 27 8 ]
+        for @C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_27_8_31_8_for_test @C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_27_8_31_8_for_incr @C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_27_8_31_8_for_end;
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_27_8_31_8_for_init:
+        [ "C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_27_8_31_8_for_begin" "C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_27_8_31_8_for_end" ]
         %i.2 = local;
         symbol [ i %i.2 27 17 18 ];
         %tmp.16 = 0;
         lputv %i.2 %tmp.16;
         symbol [ i %i.2 27 17 18 ];
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_27_8_31_8_for_test:
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_27_8_31_8_for_test:
         %tmp.17 = lgetv %i.2;
         symbol [ i %tmp.17 27 24 25 ];
         %tmp.18 = lgetv %j.1;
         symbol [ j %tmp.18 27 28 29 ];
         %tmp.19 = lt %tmp.17 %tmp.18;
-        bf %tmp.19 @C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_27_8_31_8_for_end;
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_27_8_31_8_for_begin:
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_27_36_31_8_start:
-[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3906-00\source\UnitTests.mcgen" 28 12 ]
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_28_12_30_12_if_stmt:
+        bf %tmp.19 @C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_27_8_31_8_for_end;
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_27_8_31_8_for_begin:
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_27_36_31_8_start:
+[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3290-00\source\UnitTests.mcgen" 28 12 ]
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_28_12_30_12_if_stmt:
         symbol [ idToName %tmp.21 28 16 24 ];
         %tmp.21 = getv ? :idToName;
         %tmp.22 = lgetv %i.2;
@@ -125,616 +125,674 @@ C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTest
         %tmp.25 = lgetv %name;
         symbol [ name %tmp.25 28 35 39 ];
         %tmp.26 = invoke %tmp.23 %tmp.24(%tmp.25);
-        bf %tmp.26 @C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_28_12_30_12_if_end;
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_28_12_30_12_if_true:
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_28_42_30_12_start:
-[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3906-00\source\UnitTests.mcgen" 29 16 ]
+        bf %tmp.26 @C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_28_12_30_12_if_end;
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_28_12_30_12_if_true:
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_28_42_30_12_start:
+[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3290-00\source\UnitTests.mcgen" 29 16 ]
         %tmp.27 = lgetv %i.2;
         symbol [ i %tmp.27 29 23 24 ];
         ret %tmp.27;
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_28_42_30_12_stop:
-        goto @C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_28_12_30_12_if_end;
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_28_12_30_12_if_end:
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_27_36_31_8_stop:
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_27_8_31_8_for_incr:
-[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3906-00\source\UnitTests.mcgen" 27 ]
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_28_42_30_12_stop:
+        goto @C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_28_12_30_12_if_end;
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_28_12_30_12_if_end:
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_27_36_31_8_stop:
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_27_8_31_8_for_incr:
+[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3290-00\source\UnitTests.mcgen" 27 ]
         %tmp.30 = lgetv %i.2;
         symbol [ i %tmp.30 27 33 34 ];
         %tmp.31 = add %tmp.30 1;
         lputv %i.2 %tmp.31;
         symbol [ i %i.2 27 33 34 ];
-        goto @C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_27_8_31_8_for_test;
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_27_8_31_8_for_end:
-[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3906-00\source\UnitTests.mcgen" 33 8 ]
+        goto @C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_27_8_31_8_for_test;
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_27_8_31_8_for_end:
+[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3290-00\source\UnitTests.mcgen" 33 8 ]
         %tmp.32 = -1;
         ret %tmp.32;
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_21_50_34_4_stop:
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_21_50_34_4_stop:
     }
-    [ @file = "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3906-00\source\UnitTests.mcgen"; @line = 36; @symbol_functiondef = [getTestName,36,13,24]; @symbol_param<0> = [id,36,25,27]; @symbol_param<0>_type<0> = [Number,36,31,37]; @symbol_return<0> = [String,36,42,48]; ]
+    [ @file = "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3290-00\source\UnitTests.mcgen"; @line = 36; @symbol_functiondef = [getTestName,36,13,24]; @symbol_param<0> = [id,36,25,27]; @symbol_param<0>_type<0> = [Number,36,31,37]; @symbol_return<0> = [String,36,42,48]; ]
     function getTestName(id as Number) as String {
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_36_49_38_4_start:
-[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3906-00\source\UnitTests.mcgen" 37 8 ]
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_36_49_38_4_start:
+[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3290-00\source\UnitTests.mcgen" 37 8 ]
         symbol [ idToName %tmp.2 37 15 23 ];
         %tmp.2 = getv ? :idToName;
         %tmp.3 = lgetv %id;
         symbol [ id %tmp.3 37 24 26 ];
         %tmp.4 = agetv %tmp.2 %tmp.3;
         ret %tmp.4;
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_36_49_38_4_stop:
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_36_49_38_4_stop:
     }
-    [ @file = "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3906-00\source\UnitTests.mcgen"; @line = 40; @symbol_functiondef = [getNumberOfTests,40,13,29]; @symbol_return<0> = [Number,40,35,41]; ]
+    [ @file = "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3290-00\source\UnitTests.mcgen"; @line = 40; @symbol_functiondef = [getNumberOfTests,40,13,29]; @symbol_return<0> = [Number,40,35,41]; ]
     function getNumberOfTests() as Number {
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_40_42_42_4_start:
-[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3906-00\source\UnitTests.mcgen" 41 8 ]
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_40_42_42_4_start:
+[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3290-00\source\UnitTests.mcgen" 41 8 ]
         symbol [ idToName %tmp.2 41 15 23 ];
         %tmp.2 = getv ? :idToName;
         symbol [ size %tmp.3 41 24 28 ];
         %tmp.3 = getv function %tmp.2 :size;
         %tmp.4 = invoke %tmp.2 %tmp.3();
         ret %tmp.4;
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_40_42_42_4_stop:
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_40_42_42_4_stop:
     }
-    [ @file = "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3906-00\source\UnitTests.mcgen"; @line = 44; @symbol_functiondef = [populate_test_entries_0_to_15,44,13,42]; ]
-    function populate_test_entries_0_to_15() as Void {
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_44_53_60_4_start:
-[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3906-00\source\UnitTests.mcgen" 45 8 ]
+    [ @file = "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3290-00\source\UnitTests.mcgen"; @line = 44; @symbol_functiondef = [populate_test_entries_0_to_17,44,13,42]; ]
+    function populate_test_entries_0_to_17() as Void {
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_44_53_62_4_start:
+[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3290-00\source\UnitTests.mcgen" 45 8 ]
         symbol [ idToName %tmp.1 45 8 16 ];
         %tmp.1 = getv self :idToName;
         %tmp.2 = "testFtmsSplitContinuationPreservesWatts";
         %tmp.3 = 0;
         aputv %tmp.1 %tmp.3 %tmp.2;
-[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3906-00\source\UnitTests.mcgen" 46 8 ]
+[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3290-00\source\UnitTests.mcgen" 46 8 ]
         symbol [ idToName %tmp.4 46 8 16 ];
         %tmp.4 = getv self :idToName;
         %tmp.5 = "testFtmsZeroWattsFlagDerivesPowerFromPace";
         %tmp.6 = 1;
         aputv %tmp.4 %tmp.6 %tmp.5;
-[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3906-00\source\UnitTests.mcgen" 47 8 ]
+[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3290-00\source\UnitTests.mcgen" 47 8 ]
         symbol [ idToName %tmp.7 47 8 16 ];
         %tmp.7 = getv self :idToName;
         %tmp.8 = "testSmartRowFirstStrokeOrderPreservesWatts";
         %tmp.9 = 2;
         aputv %tmp.7 %tmp.9 %tmp.8;
-[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3906-00\source\UnitTests.mcgen" 48 8 ]
+[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3290-00\source\UnitTests.mcgen" 48 8 ]
         symbol [ idToName %tmp.10 48 8 16 ];
         %tmp.10 = getv self :idToName;
         %tmp.11 = "testSmartRowV3LockedPacketDerivesWatts";
         %tmp.12 = 3;
         aputv %tmp.10 %tmp.12 %tmp.11;
-[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3906-00\source\UnitTests.mcgen" 49 8 ]
+[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3290-00\source\UnitTests.mcgen" 49 8 ]
         symbol [ idToName %tmp.13 49 8 16 ];
         %tmp.13 = getv self :idToName;
         %tmp.14 = "testSmartRowV3LockDetectionAndKeylockMath";
         %tmp.15 = 4;
         aputv %tmp.13 %tmp.15 %tmp.14;
-[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3906-00\source\UnitTests.mcgen" 50 8 ]
+[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3290-00\source\UnitTests.mcgen" 50 8 ]
         symbol [ idToName %tmp.16 50 8 16 ];
         %tmp.16 = getv self :idToName;
         %tmp.17 = "testSmartRowLivePreviewBeforeWorkoutStarted";
         %tmp.18 = 5;
         aputv %tmp.16 %tmp.18 %tmp.17;
-[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3906-00\source\UnitTests.mcgen" 51 8 ]
+[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3290-00\source\UnitTests.mcgen" 51 8 ]
         symbol [ idToName %tmp.19 51 8 16 ];
         %tmp.19 = getv self :idToName;
         %tmp.20 = "testSmartRowBurstOrderDerivesWattsWithoutDeadlock";
         %tmp.21 = 6;
         aputv %tmp.19 %tmp.21 %tmp.20;
-[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3906-00\source\UnitTests.mcgen" 52 8 ]
+[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3290-00\source\UnitTests.mcgen" 52 8 ]
         symbol [ idToName %tmp.22 52 8 16 ];
         %tmp.22 = getv self :idToName;
         %tmp.23 = "testAlphanumericPinEntry";
         %tmp.24 = 7;
         aputv %tmp.22 %tmp.24 %tmp.23;
-[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3906-00\source\UnitTests.mcgen" 53 8 ]
+[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3290-00\source\UnitTests.mcgen" 53 8 ]
         symbol [ idToName %tmp.25 53 8 16 ];
         %tmp.25 = getv self :idToName;
         %tmp.26 = "testUserLoginAndPendingState";
         %tmp.27 = 8;
         aputv %tmp.25 %tmp.27 %tmp.26;
-[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3906-00\source\UnitTests.mcgen" 54 8 ]
+[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3290-00\source\UnitTests.mcgen" 54 8 ]
         symbol [ idToName %tmp.28 54 8 16 ];
         %tmp.28 = getv self :idToName;
         %tmp.29 = "testSmartRowSplitPacketReassembly";
         %tmp.30 = 9;
         aputv %tmp.28 %tmp.30 %tmp.29;
-[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3906-00\source\UnitTests.mcgen" 55 8 ]
+[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3290-00\source\UnitTests.mcgen" 55 8 ]
         symbol [ idToName %tmp.31 55 8 16 ];
         %tmp.31 = getv self :idToName;
         %tmp.32 = "testSmartRowMultiFrameInSinglePacket";
         %tmp.33 = 10;
         aputv %tmp.31 %tmp.33 %tmp.32;
-[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3906-00\source\UnitTests.mcgen" 56 8 ]
+[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3290-00\source\UnitTests.mcgen" 56 8 ]
         symbol [ idToName %tmp.34 56 8 16 ];
         %tmp.34 = getv self :idToName;
         %tmp.35 = "testSmartRowPreambleNoiseDelimiterReassembly";
         %tmp.36 = 11;
         aputv %tmp.34 %tmp.36 %tmp.35;
-[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3906-00\source\UnitTests.mcgen" 57 8 ]
+[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3290-00\source\UnitTests.mcgen" 57 8 ]
         symbol [ idToName %tmp.37 57 8 16 ];
         %tmp.37 = getv self :idToName;
         %tmp.38 = "testSmartRowDefragmentationBufferResetOnConnect";
         %tmp.39 = 12;
         aputv %tmp.37 %tmp.39 %tmp.38;
-[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3906-00\source\UnitTests.mcgen" 58 8 ]
+[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3290-00\source\UnitTests.mcgen" 58 8 ]
         symbol [ idToName %tmp.40 58 8 16 ];
         %tmp.40 = getv self :idToName;
         %tmp.41 = "testGarminPairingInputAndStateNavigation";
         %tmp.42 = 13;
         aputv %tmp.40 %tmp.42 %tmp.41;
-[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3906-00\source\UnitTests.mcgen" 59 8 ]
+[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3290-00\source\UnitTests.mcgen" 59 8 ]
         symbol [ idToName %tmp.43 59 8 16 ];
         %tmp.43 = getv self :idToName;
         %tmp.44 = "testUnifiedCodePickerComponent";
         %tmp.45 = 14;
         aputv %tmp.43 %tmp.45 %tmp.44;
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_44_53_60_4_stop:
+[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3290-00\source\UnitTests.mcgen" 60 8 ]
+        symbol [ idToName %tmp.46 60 8 16 ];
+        %tmp.46 = getv self :idToName;
+        %tmp.47 = "testUserManagerProfileAndGuestPseudo";
+        %tmp.48 = 15;
+        aputv %tmp.46 %tmp.48 %tmp.47;
+[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3290-00\source\UnitTests.mcgen" 61 8 ]
+        symbol [ idToName %tmp.49 61 8 16 ];
+        %tmp.49 = getv self :idToName;
+        %tmp.50 = "testLobbyWaitingForReadyDoesNotSelfStartRace";
+        %tmp.51 = 16;
+        aputv %tmp.49 %tmp.51 %tmp.50;
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_44_53_62_4_stop:
     }
-    [ @file = "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3906-00\source\UnitTests.mcgen"; @line = 62; @symbol_functiondef = [evaluate_test_entries_0_to_15,62,13,42]; @symbol_param<0> = [id,62,43,45]; @symbol_param<0>_type<0> = [Number,62,49,55]; @symbol_param<1> = [logger,62,57,63]; @symbol_param<1>_type<0> = [Logger,62,67,73]; ]
-    function evaluate_test_entries_0_to_15(id as Number, logger as Logger) {
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_62_75_97_4_start:
-[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3906-00\source\UnitTests.mcgen" 63 8 ]
-        [ "C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_62_75_97_4_start" "C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_62_75_97_4_stop" ]
+    [ @file = "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3290-00\source\UnitTests.mcgen"; @line = 64; @symbol_functiondef = [evaluate_test_entries_0_to_17,64,13,42]; @symbol_param<0> = [id,64,43,45]; @symbol_param<0>_type<0> = [Number,64,49,55]; @symbol_param<1> = [logger,64,57,63]; @symbol_param<1>_type<0> = [Logger,64,67,73]; ]
+    function evaluate_test_entries_0_to_17(id as Number, logger as Logger) {
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_64_75_103_4_start:
+[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3290-00\source\UnitTests.mcgen" 65 8 ]
+        [ "C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_64_75_103_4_start" "C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_64_75_103_4_stop" ]
         %result.1 = local;
-        symbol [ result %result.1 63 12 18 ];
+        symbol [ result %result.1 65 12 18 ];
         %tmp.1 = false;
         lputv %result.1 %tmp.1;
-        symbol [ result %result.1 63 12 18 ];
-[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3906-00\source\UnitTests.mcgen" 64 8 ]
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_64_8_94_8_if_stmt:
+        symbol [ result %result.1 65 12 18 ];
+[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3290-00\source\UnitTests.mcgen" 66 8 ]
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_66_8_100_8_if_stmt:
         %tmp.2 = lgetv %id;
-        symbol [ id %tmp.2 64 12 14 ];
+        symbol [ id %tmp.2 66 12 14 ];
         %tmp.3 = 0;
         %tmp.4 = eq %tmp.2 %tmp.3;
-        bf %tmp.4 @C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_64_8_94_8_if_false;
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_64_8_94_8_if_true:
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_64_21_66_8_start:
-[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3906-00\source\UnitTests.mcgen" 65 12 ]
-        symbol [ $ %tmp.5 65 21 22 ];
+        bf %tmp.4 @C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_66_8_100_8_if_false;
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_66_8_100_8_if_true:
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_66_21_68_8_start:
+[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3290-00\source\UnitTests.mcgen" 67 12 ]
+        symbol [ $ %tmp.5 67 21 22 ];
         %tmp.5 = getm $;
-        symbol [ testFtmsSplitContinuationPreservesWatts %tmp.6 65 23 62 ];
+        symbol [ testFtmsSplitContinuationPreservesWatts %tmp.6 67 23 62 ];
         %tmp.6 = getv function %tmp.5 :testFtmsSplitContinuationPreservesWatts;
         %tmp.7 = lgetv %logger;
-        symbol [ logger %tmp.7 65 63 69 ];
+        symbol [ logger %tmp.7 67 63 69 ];
         %tmp.8 = invoke %tmp.5 %tmp.6(%tmp.7);
         lputv %result.1 %tmp.8;
-        symbol [ result %result.1 65 12 18 ];
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_64_21_66_8_stop:
-        goto @C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_64_8_94_8_if_end;
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_64_8_94_8_if_false:
-[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3906-00\source\UnitTests.mcgen" 66 15 ]
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_66_15_94_8_if_stmt:
+        symbol [ result %result.1 67 12 18 ];
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_66_21_68_8_stop:
+        goto @C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_66_8_100_8_if_end;
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_66_8_100_8_if_false:
+[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3290-00\source\UnitTests.mcgen" 68 15 ]
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_68_15_100_8_if_stmt:
         %tmp.9 = lgetv %id;
-        symbol [ id %tmp.9 66 19 21 ];
+        symbol [ id %tmp.9 68 19 21 ];
         %tmp.10 = 1;
         %tmp.11 = eq %tmp.9 %tmp.10;
-        bf %tmp.11 @C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_66_15_94_8_if_false;
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_66_15_94_8_if_true:
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_66_28_68_8_start:
-[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3906-00\source\UnitTests.mcgen" 67 12 ]
-        symbol [ $ %tmp.12 67 21 22 ];
+        bf %tmp.11 @C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_68_15_100_8_if_false;
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_68_15_100_8_if_true:
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_68_28_70_8_start:
+[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3290-00\source\UnitTests.mcgen" 69 12 ]
+        symbol [ $ %tmp.12 69 21 22 ];
         %tmp.12 = getm $;
-        symbol [ testFtmsZeroWattsFlagDerivesPowerFromPace %tmp.13 67 23 64 ];
+        symbol [ testFtmsZeroWattsFlagDerivesPowerFromPace %tmp.13 69 23 64 ];
         %tmp.13 = getv function %tmp.12 :testFtmsZeroWattsFlagDerivesPowerFromPace;
         %tmp.14 = lgetv %logger;
-        symbol [ logger %tmp.14 67 65 71 ];
+        symbol [ logger %tmp.14 69 65 71 ];
         %tmp.15 = invoke %tmp.12 %tmp.13(%tmp.14);
         lputv %result.1 %tmp.15;
-        symbol [ result %result.1 67 12 18 ];
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_66_28_68_8_stop:
-        goto @C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_66_15_94_8_if_end;
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_66_15_94_8_if_false:
-[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3906-00\source\UnitTests.mcgen" 68 15 ]
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_68_15_94_8_if_stmt:
+        symbol [ result %result.1 69 12 18 ];
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_68_28_70_8_stop:
+        goto @C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_68_15_100_8_if_end;
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_68_15_100_8_if_false:
+[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3290-00\source\UnitTests.mcgen" 70 15 ]
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_70_15_100_8_if_stmt:
         %tmp.16 = lgetv %id;
-        symbol [ id %tmp.16 68 19 21 ];
+        symbol [ id %tmp.16 70 19 21 ];
         %tmp.17 = 2;
         %tmp.18 = eq %tmp.16 %tmp.17;
-        bf %tmp.18 @C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_68_15_94_8_if_false;
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_68_15_94_8_if_true:
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_68_28_70_8_start:
-[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3906-00\source\UnitTests.mcgen" 69 12 ]
-        symbol [ $ %tmp.19 69 21 22 ];
+        bf %tmp.18 @C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_70_15_100_8_if_false;
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_70_15_100_8_if_true:
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_70_28_72_8_start:
+[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3290-00\source\UnitTests.mcgen" 71 12 ]
+        symbol [ $ %tmp.19 71 21 22 ];
         %tmp.19 = getm $;
-        symbol [ testSmartRowFirstStrokeOrderPreservesWatts %tmp.20 69 23 65 ];
+        symbol [ testSmartRowFirstStrokeOrderPreservesWatts %tmp.20 71 23 65 ];
         %tmp.20 = getv function %tmp.19 :testSmartRowFirstStrokeOrderPreservesWatts;
         %tmp.21 = lgetv %logger;
-        symbol [ logger %tmp.21 69 66 72 ];
+        symbol [ logger %tmp.21 71 66 72 ];
         %tmp.22 = invoke %tmp.19 %tmp.20(%tmp.21);
         lputv %result.1 %tmp.22;
-        symbol [ result %result.1 69 12 18 ];
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_68_28_70_8_stop:
-        goto @C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_68_15_94_8_if_end;
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_68_15_94_8_if_false:
-[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3906-00\source\UnitTests.mcgen" 70 15 ]
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_70_15_94_8_if_stmt:
+        symbol [ result %result.1 71 12 18 ];
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_70_28_72_8_stop:
+        goto @C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_70_15_100_8_if_end;
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_70_15_100_8_if_false:
+[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3290-00\source\UnitTests.mcgen" 72 15 ]
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_72_15_100_8_if_stmt:
         %tmp.23 = lgetv %id;
-        symbol [ id %tmp.23 70 19 21 ];
+        symbol [ id %tmp.23 72 19 21 ];
         %tmp.24 = 3;
         %tmp.25 = eq %tmp.23 %tmp.24;
-        bf %tmp.25 @C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_70_15_94_8_if_false;
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_70_15_94_8_if_true:
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_70_28_72_8_start:
-[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3906-00\source\UnitTests.mcgen" 71 12 ]
-        symbol [ $ %tmp.26 71 21 22 ];
+        bf %tmp.25 @C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_72_15_100_8_if_false;
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_72_15_100_8_if_true:
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_72_28_74_8_start:
+[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3290-00\source\UnitTests.mcgen" 73 12 ]
+        symbol [ $ %tmp.26 73 21 22 ];
         %tmp.26 = getm $;
-        symbol [ testSmartRowV3LockedPacketDerivesWatts %tmp.27 71 23 61 ];
+        symbol [ testSmartRowV3LockedPacketDerivesWatts %tmp.27 73 23 61 ];
         %tmp.27 = getv function %tmp.26 :testSmartRowV3LockedPacketDerivesWatts;
         %tmp.28 = lgetv %logger;
-        symbol [ logger %tmp.28 71 62 68 ];
+        symbol [ logger %tmp.28 73 62 68 ];
         %tmp.29 = invoke %tmp.26 %tmp.27(%tmp.28);
         lputv %result.1 %tmp.29;
-        symbol [ result %result.1 71 12 18 ];
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_70_28_72_8_stop:
-        goto @C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_70_15_94_8_if_end;
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_70_15_94_8_if_false:
-[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3906-00\source\UnitTests.mcgen" 72 15 ]
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_72_15_94_8_if_stmt:
+        symbol [ result %result.1 73 12 18 ];
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_72_28_74_8_stop:
+        goto @C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_72_15_100_8_if_end;
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_72_15_100_8_if_false:
+[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3290-00\source\UnitTests.mcgen" 74 15 ]
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_74_15_100_8_if_stmt:
         %tmp.30 = lgetv %id;
-        symbol [ id %tmp.30 72 19 21 ];
+        symbol [ id %tmp.30 74 19 21 ];
         %tmp.31 = 4;
         %tmp.32 = eq %tmp.30 %tmp.31;
-        bf %tmp.32 @C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_72_15_94_8_if_false;
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_72_15_94_8_if_true:
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_72_28_74_8_start:
-[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3906-00\source\UnitTests.mcgen" 73 12 ]
-        symbol [ $ %tmp.33 73 21 22 ];
+        bf %tmp.32 @C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_74_15_100_8_if_false;
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_74_15_100_8_if_true:
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_74_28_76_8_start:
+[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3290-00\source\UnitTests.mcgen" 75 12 ]
+        symbol [ $ %tmp.33 75 21 22 ];
         %tmp.33 = getm $;
-        symbol [ testSmartRowV3LockDetectionAndKeylockMath %tmp.34 73 23 64 ];
+        symbol [ testSmartRowV3LockDetectionAndKeylockMath %tmp.34 75 23 64 ];
         %tmp.34 = getv function %tmp.33 :testSmartRowV3LockDetectionAndKeylockMath;
         %tmp.35 = lgetv %logger;
-        symbol [ logger %tmp.35 73 65 71 ];
+        symbol [ logger %tmp.35 75 65 71 ];
         %tmp.36 = invoke %tmp.33 %tmp.34(%tmp.35);
         lputv %result.1 %tmp.36;
-        symbol [ result %result.1 73 12 18 ];
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_72_28_74_8_stop:
-        goto @C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_72_15_94_8_if_end;
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_72_15_94_8_if_false:
-[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3906-00\source\UnitTests.mcgen" 74 15 ]
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_74_15_94_8_if_stmt:
+        symbol [ result %result.1 75 12 18 ];
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_74_28_76_8_stop:
+        goto @C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_74_15_100_8_if_end;
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_74_15_100_8_if_false:
+[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3290-00\source\UnitTests.mcgen" 76 15 ]
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_76_15_100_8_if_stmt:
         %tmp.37 = lgetv %id;
-        symbol [ id %tmp.37 74 19 21 ];
+        symbol [ id %tmp.37 76 19 21 ];
         %tmp.38 = 5;
         %tmp.39 = eq %tmp.37 %tmp.38;
-        bf %tmp.39 @C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_74_15_94_8_if_false;
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_74_15_94_8_if_true:
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_74_28_76_8_start:
-[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3906-00\source\UnitTests.mcgen" 75 12 ]
-        symbol [ $ %tmp.40 75 21 22 ];
+        bf %tmp.39 @C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_76_15_100_8_if_false;
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_76_15_100_8_if_true:
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_76_28_78_8_start:
+[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3290-00\source\UnitTests.mcgen" 77 12 ]
+        symbol [ $ %tmp.40 77 21 22 ];
         %tmp.40 = getm $;
-        symbol [ testSmartRowLivePreviewBeforeWorkoutStarted %tmp.41 75 23 66 ];
+        symbol [ testSmartRowLivePreviewBeforeWorkoutStarted %tmp.41 77 23 66 ];
         %tmp.41 = getv function %tmp.40 :testSmartRowLivePreviewBeforeWorkoutStarted;
         %tmp.42 = lgetv %logger;
-        symbol [ logger %tmp.42 75 67 73 ];
+        symbol [ logger %tmp.42 77 67 73 ];
         %tmp.43 = invoke %tmp.40 %tmp.41(%tmp.42);
         lputv %result.1 %tmp.43;
-        symbol [ result %result.1 75 12 18 ];
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_74_28_76_8_stop:
-        goto @C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_74_15_94_8_if_end;
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_74_15_94_8_if_false:
-[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3906-00\source\UnitTests.mcgen" 76 15 ]
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_76_15_94_8_if_stmt:
+        symbol [ result %result.1 77 12 18 ];
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_76_28_78_8_stop:
+        goto @C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_76_15_100_8_if_end;
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_76_15_100_8_if_false:
+[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3290-00\source\UnitTests.mcgen" 78 15 ]
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_78_15_100_8_if_stmt:
         %tmp.44 = lgetv %id;
-        symbol [ id %tmp.44 76 19 21 ];
+        symbol [ id %tmp.44 78 19 21 ];
         %tmp.45 = 6;
         %tmp.46 = eq %tmp.44 %tmp.45;
-        bf %tmp.46 @C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_76_15_94_8_if_false;
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_76_15_94_8_if_true:
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_76_28_78_8_start:
-[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3906-00\source\UnitTests.mcgen" 77 12 ]
-        symbol [ $ %tmp.47 77 21 22 ];
+        bf %tmp.46 @C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_78_15_100_8_if_false;
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_78_15_100_8_if_true:
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_78_28_80_8_start:
+[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3290-00\source\UnitTests.mcgen" 79 12 ]
+        symbol [ $ %tmp.47 79 21 22 ];
         %tmp.47 = getm $;
-        symbol [ testSmartRowBurstOrderDerivesWattsWithoutDeadlock %tmp.48 77 23 72 ];
+        symbol [ testSmartRowBurstOrderDerivesWattsWithoutDeadlock %tmp.48 79 23 72 ];
         %tmp.48 = getv function %tmp.47 :testSmartRowBurstOrderDerivesWattsWithoutDeadlock;
         %tmp.49 = lgetv %logger;
-        symbol [ logger %tmp.49 77 73 79 ];
+        symbol [ logger %tmp.49 79 73 79 ];
         %tmp.50 = invoke %tmp.47 %tmp.48(%tmp.49);
         lputv %result.1 %tmp.50;
-        symbol [ result %result.1 77 12 18 ];
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_76_28_78_8_stop:
-        goto @C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_76_15_94_8_if_end;
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_76_15_94_8_if_false:
-[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3906-00\source\UnitTests.mcgen" 78 15 ]
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_78_15_94_8_if_stmt:
+        symbol [ result %result.1 79 12 18 ];
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_78_28_80_8_stop:
+        goto @C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_78_15_100_8_if_end;
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_78_15_100_8_if_false:
+[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3290-00\source\UnitTests.mcgen" 80 15 ]
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_80_15_100_8_if_stmt:
         %tmp.51 = lgetv %id;
-        symbol [ id %tmp.51 78 19 21 ];
+        symbol [ id %tmp.51 80 19 21 ];
         %tmp.52 = 7;
         %tmp.53 = eq %tmp.51 %tmp.52;
-        bf %tmp.53 @C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_78_15_94_8_if_false;
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_78_15_94_8_if_true:
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_78_28_80_8_start:
-[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3906-00\source\UnitTests.mcgen" 79 12 ]
-        symbol [ $ %tmp.54 79 21 22 ];
+        bf %tmp.53 @C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_80_15_100_8_if_false;
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_80_15_100_8_if_true:
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_80_28_82_8_start:
+[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3290-00\source\UnitTests.mcgen" 81 12 ]
+        symbol [ $ %tmp.54 81 21 22 ];
         %tmp.54 = getm $;
-        symbol [ testAlphanumericPinEntry %tmp.55 79 23 47 ];
+        symbol [ testAlphanumericPinEntry %tmp.55 81 23 47 ];
         %tmp.55 = getv function %tmp.54 :testAlphanumericPinEntry;
         %tmp.56 = lgetv %logger;
-        symbol [ logger %tmp.56 79 48 54 ];
+        symbol [ logger %tmp.56 81 48 54 ];
         %tmp.57 = invoke %tmp.54 %tmp.55(%tmp.56);
         lputv %result.1 %tmp.57;
-        symbol [ result %result.1 79 12 18 ];
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_78_28_80_8_stop:
-        goto @C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_78_15_94_8_if_end;
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_78_15_94_8_if_false:
-[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3906-00\source\UnitTests.mcgen" 80 15 ]
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_80_15_94_8_if_stmt:
+        symbol [ result %result.1 81 12 18 ];
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_80_28_82_8_stop:
+        goto @C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_80_15_100_8_if_end;
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_80_15_100_8_if_false:
+[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3290-00\source\UnitTests.mcgen" 82 15 ]
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_82_15_100_8_if_stmt:
         %tmp.58 = lgetv %id;
-        symbol [ id %tmp.58 80 19 21 ];
+        symbol [ id %tmp.58 82 19 21 ];
         %tmp.59 = 8;
         %tmp.60 = eq %tmp.58 %tmp.59;
-        bf %tmp.60 @C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_80_15_94_8_if_false;
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_80_15_94_8_if_true:
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_80_28_82_8_start:
-[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3906-00\source\UnitTests.mcgen" 81 12 ]
-        symbol [ $ %tmp.61 81 21 22 ];
+        bf %tmp.60 @C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_82_15_100_8_if_false;
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_82_15_100_8_if_true:
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_82_28_84_8_start:
+[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3290-00\source\UnitTests.mcgen" 83 12 ]
+        symbol [ $ %tmp.61 83 21 22 ];
         %tmp.61 = getm $;
-        symbol [ testUserLoginAndPendingState %tmp.62 81 23 51 ];
+        symbol [ testUserLoginAndPendingState %tmp.62 83 23 51 ];
         %tmp.62 = getv function %tmp.61 :testUserLoginAndPendingState;
         %tmp.63 = lgetv %logger;
-        symbol [ logger %tmp.63 81 52 58 ];
+        symbol [ logger %tmp.63 83 52 58 ];
         %tmp.64 = invoke %tmp.61 %tmp.62(%tmp.63);
         lputv %result.1 %tmp.64;
-        symbol [ result %result.1 81 12 18 ];
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_80_28_82_8_stop:
-        goto @C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_80_15_94_8_if_end;
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_80_15_94_8_if_false:
-[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3906-00\source\UnitTests.mcgen" 82 15 ]
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_82_15_94_8_if_stmt:
+        symbol [ result %result.1 83 12 18 ];
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_82_28_84_8_stop:
+        goto @C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_82_15_100_8_if_end;
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_82_15_100_8_if_false:
+[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3290-00\source\UnitTests.mcgen" 84 15 ]
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_84_15_100_8_if_stmt:
         %tmp.65 = lgetv %id;
-        symbol [ id %tmp.65 82 19 21 ];
+        symbol [ id %tmp.65 84 19 21 ];
         %tmp.66 = 9;
         %tmp.67 = eq %tmp.65 %tmp.66;
-        bf %tmp.67 @C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_82_15_94_8_if_false;
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_82_15_94_8_if_true:
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_82_28_84_8_start:
-[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3906-00\source\UnitTests.mcgen" 83 12 ]
-        symbol [ $ %tmp.68 83 21 22 ];
+        bf %tmp.67 @C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_84_15_100_8_if_false;
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_84_15_100_8_if_true:
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_84_28_86_8_start:
+[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3290-00\source\UnitTests.mcgen" 85 12 ]
+        symbol [ $ %tmp.68 85 21 22 ];
         %tmp.68 = getm $;
-        symbol [ testSmartRowSplitPacketReassembly %tmp.69 83 23 56 ];
+        symbol [ testSmartRowSplitPacketReassembly %tmp.69 85 23 56 ];
         %tmp.69 = getv function %tmp.68 :testSmartRowSplitPacketReassembly;
         %tmp.70 = lgetv %logger;
-        symbol [ logger %tmp.70 83 57 63 ];
+        symbol [ logger %tmp.70 85 57 63 ];
         %tmp.71 = invoke %tmp.68 %tmp.69(%tmp.70);
         lputv %result.1 %tmp.71;
-        symbol [ result %result.1 83 12 18 ];
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_82_28_84_8_stop:
-        goto @C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_82_15_94_8_if_end;
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_82_15_94_8_if_false:
-[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3906-00\source\UnitTests.mcgen" 84 15 ]
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_84_15_94_8_if_stmt:
+        symbol [ result %result.1 85 12 18 ];
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_84_28_86_8_stop:
+        goto @C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_84_15_100_8_if_end;
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_84_15_100_8_if_false:
+[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3290-00\source\UnitTests.mcgen" 86 15 ]
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_86_15_100_8_if_stmt:
         %tmp.72 = lgetv %id;
-        symbol [ id %tmp.72 84 19 21 ];
+        symbol [ id %tmp.72 86 19 21 ];
         %tmp.73 = 10;
         %tmp.74 = eq %tmp.72 %tmp.73;
-        bf %tmp.74 @C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_84_15_94_8_if_false;
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_84_15_94_8_if_true:
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_84_29_86_8_start:
-[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3906-00\source\UnitTests.mcgen" 85 12 ]
-        symbol [ $ %tmp.75 85 21 22 ];
+        bf %tmp.74 @C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_86_15_100_8_if_false;
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_86_15_100_8_if_true:
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_86_29_88_8_start:
+[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3290-00\source\UnitTests.mcgen" 87 12 ]
+        symbol [ $ %tmp.75 87 21 22 ];
         %tmp.75 = getm $;
-        symbol [ testSmartRowMultiFrameInSinglePacket %tmp.76 85 23 59 ];
+        symbol [ testSmartRowMultiFrameInSinglePacket %tmp.76 87 23 59 ];
         %tmp.76 = getv function %tmp.75 :testSmartRowMultiFrameInSinglePacket;
         %tmp.77 = lgetv %logger;
-        symbol [ logger %tmp.77 85 60 66 ];
+        symbol [ logger %tmp.77 87 60 66 ];
         %tmp.78 = invoke %tmp.75 %tmp.76(%tmp.77);
         lputv %result.1 %tmp.78;
-        symbol [ result %result.1 85 12 18 ];
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_84_29_86_8_stop:
-        goto @C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_84_15_94_8_if_end;
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_84_15_94_8_if_false:
-[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3906-00\source\UnitTests.mcgen" 86 15 ]
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_86_15_94_8_if_stmt:
+        symbol [ result %result.1 87 12 18 ];
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_86_29_88_8_stop:
+        goto @C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_86_15_100_8_if_end;
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_86_15_100_8_if_false:
+[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3290-00\source\UnitTests.mcgen" 88 15 ]
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_88_15_100_8_if_stmt:
         %tmp.79 = lgetv %id;
-        symbol [ id %tmp.79 86 19 21 ];
+        symbol [ id %tmp.79 88 19 21 ];
         %tmp.80 = 11;
         %tmp.81 = eq %tmp.79 %tmp.80;
-        bf %tmp.81 @C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_86_15_94_8_if_false;
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_86_15_94_8_if_true:
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_86_29_88_8_start:
-[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3906-00\source\UnitTests.mcgen" 87 12 ]
-        symbol [ $ %tmp.82 87 21 22 ];
+        bf %tmp.81 @C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_88_15_100_8_if_false;
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_88_15_100_8_if_true:
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_88_29_90_8_start:
+[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3290-00\source\UnitTests.mcgen" 89 12 ]
+        symbol [ $ %tmp.82 89 21 22 ];
         %tmp.82 = getm $;
-        symbol [ testSmartRowPreambleNoiseDelimiterReassembly %tmp.83 87 23 67 ];
+        symbol [ testSmartRowPreambleNoiseDelimiterReassembly %tmp.83 89 23 67 ];
         %tmp.83 = getv function %tmp.82 :testSmartRowPreambleNoiseDelimiterReassembly;
         %tmp.84 = lgetv %logger;
-        symbol [ logger %tmp.84 87 68 74 ];
+        symbol [ logger %tmp.84 89 68 74 ];
         %tmp.85 = invoke %tmp.82 %tmp.83(%tmp.84);
         lputv %result.1 %tmp.85;
-        symbol [ result %result.1 87 12 18 ];
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_86_29_88_8_stop:
-        goto @C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_86_15_94_8_if_end;
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_86_15_94_8_if_false:
-[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3906-00\source\UnitTests.mcgen" 88 15 ]
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_88_15_94_8_if_stmt:
+        symbol [ result %result.1 89 12 18 ];
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_88_29_90_8_stop:
+        goto @C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_88_15_100_8_if_end;
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_88_15_100_8_if_false:
+[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3290-00\source\UnitTests.mcgen" 90 15 ]
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_90_15_100_8_if_stmt:
         %tmp.86 = lgetv %id;
-        symbol [ id %tmp.86 88 19 21 ];
+        symbol [ id %tmp.86 90 19 21 ];
         %tmp.87 = 12;
         %tmp.88 = eq %tmp.86 %tmp.87;
-        bf %tmp.88 @C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_88_15_94_8_if_false;
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_88_15_94_8_if_true:
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_88_29_90_8_start:
-[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3906-00\source\UnitTests.mcgen" 89 12 ]
-        symbol [ $ %tmp.89 89 21 22 ];
+        bf %tmp.88 @C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_90_15_100_8_if_false;
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_90_15_100_8_if_true:
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_90_29_92_8_start:
+[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3290-00\source\UnitTests.mcgen" 91 12 ]
+        symbol [ $ %tmp.89 91 21 22 ];
         %tmp.89 = getm $;
-        symbol [ testSmartRowDefragmentationBufferResetOnConnect %tmp.90 89 23 70 ];
+        symbol [ testSmartRowDefragmentationBufferResetOnConnect %tmp.90 91 23 70 ];
         %tmp.90 = getv function %tmp.89 :testSmartRowDefragmentationBufferResetOnConnect;
         %tmp.91 = lgetv %logger;
-        symbol [ logger %tmp.91 89 71 77 ];
+        symbol [ logger %tmp.91 91 71 77 ];
         %tmp.92 = invoke %tmp.89 %tmp.90(%tmp.91);
         lputv %result.1 %tmp.92;
-        symbol [ result %result.1 89 12 18 ];
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_88_29_90_8_stop:
-        goto @C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_88_15_94_8_if_end;
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_88_15_94_8_if_false:
-[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3906-00\source\UnitTests.mcgen" 90 15 ]
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_90_15_94_8_if_stmt:
+        symbol [ result %result.1 91 12 18 ];
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_90_29_92_8_stop:
+        goto @C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_90_15_100_8_if_end;
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_90_15_100_8_if_false:
+[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3290-00\source\UnitTests.mcgen" 92 15 ]
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_92_15_100_8_if_stmt:
         %tmp.93 = lgetv %id;
-        symbol [ id %tmp.93 90 19 21 ];
+        symbol [ id %tmp.93 92 19 21 ];
         %tmp.94 = 13;
         %tmp.95 = eq %tmp.93 %tmp.94;
-        bf %tmp.95 @C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_90_15_94_8_if_false;
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_90_15_94_8_if_true:
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_90_29_92_8_start:
-[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3906-00\source\UnitTests.mcgen" 91 12 ]
-        symbol [ $ %tmp.96 91 21 22 ];
+        bf %tmp.95 @C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_92_15_100_8_if_false;
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_92_15_100_8_if_true:
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_92_29_94_8_start:
+[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3290-00\source\UnitTests.mcgen" 93 12 ]
+        symbol [ $ %tmp.96 93 21 22 ];
         %tmp.96 = getm $;
-        symbol [ testGarminPairingInputAndStateNavigation %tmp.97 91 23 63 ];
+        symbol [ testGarminPairingInputAndStateNavigation %tmp.97 93 23 63 ];
         %tmp.97 = getv function %tmp.96 :testGarminPairingInputAndStateNavigation;
         %tmp.98 = lgetv %logger;
-        symbol [ logger %tmp.98 91 64 70 ];
+        symbol [ logger %tmp.98 93 64 70 ];
         %tmp.99 = invoke %tmp.96 %tmp.97(%tmp.98);
         lputv %result.1 %tmp.99;
-        symbol [ result %result.1 91 12 18 ];
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_90_29_92_8_stop:
-        goto @C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_90_15_94_8_if_end;
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_90_15_94_8_if_false:
-[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3906-00\source\UnitTests.mcgen" 92 15 ]
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_92_15_94_8_if_stmt:
+        symbol [ result %result.1 93 12 18 ];
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_92_29_94_8_stop:
+        goto @C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_92_15_100_8_if_end;
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_92_15_100_8_if_false:
+[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3290-00\source\UnitTests.mcgen" 94 15 ]
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_94_15_100_8_if_stmt:
         %tmp.100 = lgetv %id;
-        symbol [ id %tmp.100 92 19 21 ];
+        symbol [ id %tmp.100 94 19 21 ];
         %tmp.101 = 14;
         %tmp.102 = eq %tmp.100 %tmp.101;
-        bf %tmp.102 @C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_92_15_94_8_if_end;
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_92_15_94_8_if_true:
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_92_29_94_8_start:
-[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3906-00\source\UnitTests.mcgen" 93 12 ]
-        symbol [ $ %tmp.103 93 21 22 ];
+        bf %tmp.102 @C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_94_15_100_8_if_false;
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_94_15_100_8_if_true:
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_94_29_96_8_start:
+[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3290-00\source\UnitTests.mcgen" 95 12 ]
+        symbol [ $ %tmp.103 95 21 22 ];
         %tmp.103 = getm $;
-        symbol [ testUnifiedCodePickerComponent %tmp.104 93 23 53 ];
+        symbol [ testUnifiedCodePickerComponent %tmp.104 95 23 53 ];
         %tmp.104 = getv function %tmp.103 :testUnifiedCodePickerComponent;
         %tmp.105 = lgetv %logger;
-        symbol [ logger %tmp.105 93 54 60 ];
+        symbol [ logger %tmp.105 95 54 60 ];
         %tmp.106 = invoke %tmp.103 %tmp.104(%tmp.105);
         lputv %result.1 %tmp.106;
-        symbol [ result %result.1 93 12 18 ];
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_92_29_94_8_stop:
-        goto @C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_92_15_94_8_if_end;
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_92_15_94_8_if_end:
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_90_15_94_8_if_end:
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_88_15_94_8_if_end:
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_86_15_94_8_if_end:
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_84_15_94_8_if_end:
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_82_15_94_8_if_end:
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_80_15_94_8_if_end:
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_78_15_94_8_if_end:
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_76_15_94_8_if_end:
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_74_15_94_8_if_end:
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_72_15_94_8_if_end:
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_70_15_94_8_if_end:
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_68_15_94_8_if_end:
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_66_15_94_8_if_end:
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_64_8_94_8_if_end:
-[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3906-00\source\UnitTests.mcgen" 96 8 ]
-        %tmp.107 = lgetv %result.1;
-        symbol [ result %tmp.107 96 15 21 ];
-        ret %tmp.107;
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_62_75_97_4_stop:
+        symbol [ result %result.1 95 12 18 ];
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_94_29_96_8_stop:
+        goto @C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_94_15_100_8_if_end;
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_94_15_100_8_if_false:
+[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3290-00\source\UnitTests.mcgen" 96 15 ]
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_96_15_100_8_if_stmt:
+        %tmp.107 = lgetv %id;
+        symbol [ id %tmp.107 96 19 21 ];
+        %tmp.108 = 15;
+        %tmp.109 = eq %tmp.107 %tmp.108;
+        bf %tmp.109 @C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_96_15_100_8_if_false;
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_96_15_100_8_if_true:
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_96_29_98_8_start:
+[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3290-00\source\UnitTests.mcgen" 97 12 ]
+        symbol [ $ %tmp.110 97 21 22 ];
+        %tmp.110 = getm $;
+        symbol [ testUserManagerProfileAndGuestPseudo %tmp.111 97 23 59 ];
+        %tmp.111 = getv function %tmp.110 :testUserManagerProfileAndGuestPseudo;
+        %tmp.112 = lgetv %logger;
+        symbol [ logger %tmp.112 97 60 66 ];
+        %tmp.113 = invoke %tmp.110 %tmp.111(%tmp.112);
+        lputv %result.1 %tmp.113;
+        symbol [ result %result.1 97 12 18 ];
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_96_29_98_8_stop:
+        goto @C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_96_15_100_8_if_end;
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_96_15_100_8_if_false:
+[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3290-00\source\UnitTests.mcgen" 98 15 ]
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_98_15_100_8_if_stmt:
+        %tmp.114 = lgetv %id;
+        symbol [ id %tmp.114 98 19 21 ];
+        %tmp.115 = 16;
+        %tmp.116 = eq %tmp.114 %tmp.115;
+        bf %tmp.116 @C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_98_15_100_8_if_end;
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_98_15_100_8_if_true:
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_98_29_100_8_start:
+[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3290-00\source\UnitTests.mcgen" 99 12 ]
+        symbol [ $ %tmp.117 99 21 22 ];
+        %tmp.117 = getm $;
+        symbol [ testLobbyWaitingForReadyDoesNotSelfStartRace %tmp.118 99 23 67 ];
+        %tmp.118 = getv function %tmp.117 :testLobbyWaitingForReadyDoesNotSelfStartRace;
+        %tmp.119 = lgetv %logger;
+        symbol [ logger %tmp.119 99 68 74 ];
+        %tmp.120 = invoke %tmp.117 %tmp.118(%tmp.119);
+        lputv %result.1 %tmp.120;
+        symbol [ result %result.1 99 12 18 ];
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_98_29_100_8_stop:
+        goto @C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_98_15_100_8_if_end;
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_98_15_100_8_if_end:
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_96_15_100_8_if_end:
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_94_15_100_8_if_end:
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_92_15_100_8_if_end:
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_90_15_100_8_if_end:
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_88_15_100_8_if_end:
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_86_15_100_8_if_end:
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_84_15_100_8_if_end:
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_82_15_100_8_if_end:
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_80_15_100_8_if_end:
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_78_15_100_8_if_end:
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_76_15_100_8_if_end:
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_74_15_100_8_if_end:
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_72_15_100_8_if_end:
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_70_15_100_8_if_end:
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_68_15_100_8_if_end:
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_66_8_100_8_if_end:
+[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3290-00\source\UnitTests.mcgen" 102 8 ]
+        %tmp.121 = lgetv %result.1;
+        symbol [ result %tmp.121 102 15 21 ];
+        ret %tmp.121;
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_64_75_103_4_stop:
     }
-    [ @file = "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3906-00\source\UnitTests.mcgen"; @line = 99; @symbol_functiondef = [runTest,99,13,20]; @symbol_param<0> = [test,99,21,25]; @symbol_param<0>_type<0> = [String,99,29,35]; @symbol_param<0>_type<1> = [Number,99,39,45]; @symbol_return<0> = [Boolean,99,50,57]; ]
+    [ @file = "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3290-00\source\UnitTests.mcgen"; @line = 105; @symbol_functiondef = [runTest,105,13,20]; @symbol_param<0> = [test,105,21,25]; @symbol_param<0>_type<0> = [String,105,29,35]; @symbol_param<0>_type<1> = [Number,105,39,45]; @symbol_return<0> = [Boolean,105,50,57]; ]
     function runTest(test as String or Number) as Boolean {
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_99_58_116_4_start:
-[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3906-00\source\UnitTests.mcgen" 100 8 ]
-        [ "C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_99_58_116_4_start" "C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_99_58_116_4_stop" ]
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_105_58_122_4_start:
+[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3290-00\source\UnitTests.mcgen" 106 8 ]
+        [ "C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_105_58_122_4_start" "C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_105_58_122_4_stop" ]
         %id.1 = local;
-        symbol [ id %id.1 100 12 14 ];
+        symbol [ id %id.1 106 12 14 ];
         %tmp.1 = lgetv %test;
-        symbol [ test %tmp.1 100 17 21 ];
+        symbol [ test %tmp.1 106 17 21 ];
         lputv %id.1 %tmp.1;
-        symbol [ id %id.1 100 12 14 ];
-[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3906-00\source\UnitTests.mcgen" 101 8 ]
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_101_8_103_8_if_stmt:
+        symbol [ id %id.1 106 12 14 ];
+[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3290-00\source\UnitTests.mcgen" 107 8 ]
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_107_8_109_8_if_stmt:
         %tmp.2 = lgetv %test;
-        symbol [ test %tmp.2 101 12 16 ];
-        symbol [ Lang %tmp.3 101 28 32 ];
+        symbol [ test %tmp.2 107 12 16 ];
+        symbol [ Lang %tmp.3 107 28 32 ];
         %tmp.3 = getm $.Toybox.Lang;
-        symbol [ String %tmp.4 101 33 39 ];
+        symbol [ String %tmp.4 107 33 39 ];
         %tmp.4 = getv %tmp.3 :String;
         %tmp.5 = isa %tmp.2 %tmp.4;
-        bf %tmp.5 @C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_101_8_103_8_if_end;
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_101_8_103_8_if_true:
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_101_41_103_8_start:
-[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3906-00\source\UnitTests.mcgen" 102 12 ]
+        bf %tmp.5 @C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_107_8_109_8_if_end;
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_107_8_109_8_if_true:
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_107_41_109_8_start:
+[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3290-00\source\UnitTests.mcgen" 108 12 ]
         %tmp.6 = self;
-        symbol [ getIndexOf %tmp.7 102 17 27 ];
+        symbol [ getIndexOf %tmp.7 108 17 27 ];
         %tmp.7 = getv function %tmp.6 :getIndexOf;
         %tmp.8 = lgetv %test;
-        symbol [ test %tmp.8 102 28 32 ];
+        symbol [ test %tmp.8 108 28 32 ];
         %tmp.9 = as %tmp.8 { (Lang.String) };
         %tmp.10 = invoke %tmp.6 %tmp.7(%tmp.9);
         lputv %id.1 %tmp.10;
-        symbol [ id %id.1 102 12 14 ];
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_101_41_103_8_stop:
-        goto @C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_101_8_103_8_if_end;
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_101_8_103_8_if_end:
-[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3906-00\source\UnitTests.mcgen" 105 8 ]
+        symbol [ id %id.1 108 12 14 ];
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_107_41_109_8_stop:
+        goto @C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_107_8_109_8_if_end;
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_107_8_109_8_if_end:
+[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3290-00\source\UnitTests.mcgen" 111 8 ]
         %tmp.11 = self;
-        symbol [ assertMessage %tmp.12 105 8 21 ];
+        symbol [ assertMessage %tmp.12 111 8 21 ];
         %tmp.12 = getv function %tmp.11 :assertMessage;
         %tmp.13 = lgetv %id.1;
-        symbol [ id %tmp.13 105 22 24 ];
+        symbol [ id %tmp.13 111 22 24 ];
         %tmp.14 = 0;
         %tmp.15 = gte %tmp.13 %tmp.14;
         %tmp.16 = "Could not find '";
         %tmp.17 = lgetv %test;
-        symbol [ test %tmp.17 105 52 56 ];
+        symbol [ test %tmp.17 111 52 56 ];
         %tmp.18 = add %tmp.16 %tmp.17;
         %tmp.19 = "'";
         %tmp.20 = add %tmp.18 %tmp.19;
         invoke %tmp.11 %tmp.12(%tmp.15, %tmp.20);
-[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3906-00\source\UnitTests.mcgen" 106 8 ]
-        [ "C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_99_58_116_4_start" "C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_99_58_116_4_stop" ]
+[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3290-00\source\UnitTests.mcgen" 112 8 ]
+        [ "C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_105_58_122_4_start" "C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_105_58_122_4_stop" ]
         %result.2 = local;
-        symbol [ result %result.2 106 12 18 ];
+        symbol [ result %result.2 112 12 18 ];
         %tmp.21 = false;
         lputv %result.2 %tmp.21;
-        symbol [ result %result.2 106 12 18 ];
-[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3906-00\source\UnitTests.mcgen" 107 8 ]
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_107_8_109_8_if_stmt:
+        symbol [ result %result.2 112 12 18 ];
+[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3290-00\source\UnitTests.mcgen" 113 8 ]
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_113_8_115_8_if_stmt:
         %tmp.22 = lgetv %id.1;
-        symbol [ id %tmp.22 107 12 14 ];
-        %tmp.23 = 15;
+        symbol [ id %tmp.22 113 12 14 ];
+        %tmp.23 = 17;
         %tmp.24 = lt %tmp.22 %tmp.23;
-        bf %tmp.24 @C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_107_8_109_8_if_end;
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_107_8_109_8_if_true:
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_107_21_109_8_start:
-[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3906-00\source\UnitTests.mcgen" 108 12 ]
+        bf %tmp.24 @C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_113_8_115_8_if_end;
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_113_8_115_8_if_true:
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_113_21_115_8_start:
+[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3290-00\source\UnitTests.mcgen" 114 12 ]
         %tmp.25 = self;
-        symbol [ self %tmp.25 108 21 25 ];
-        symbol [ evaluate_test_entries_0_to_15 %tmp.26 108 26 55 ];
-        %tmp.26 = getv function %tmp.25 :evaluate_test_entries_0_to_15;
+        symbol [ self %tmp.25 114 21 25 ];
+        symbol [ evaluate_test_entries_0_to_17 %tmp.26 114 26 55 ];
+        %tmp.26 = getv function %tmp.25 :evaluate_test_entries_0_to_17;
         %tmp.27 = lgetv %id.1;
-        symbol [ id %tmp.27 108 56 58 ];
-        symbol [ logger %tmp.29 108 60 66 ];
+        symbol [ id %tmp.27 114 56 58 ];
+        symbol [ logger %tmp.29 114 60 66 ];
         %tmp.29 = getv ? :logger;
         %tmp.30 = invoke %tmp.25 %tmp.26(%tmp.27, %tmp.29);
         lputv %result.2 %tmp.30;
-        symbol [ result %result.2 108 12 18 ];
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_107_21_109_8_stop:
-        goto @C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_107_8_109_8_if_end;
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_107_8_109_8_if_end:
-[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3906-00\source\UnitTests.mcgen" 111 8 ]
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_111_8_113_8_if_stmt:
+        symbol [ result %result.2 114 12 18 ];
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_113_21_115_8_stop:
+        goto @C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_113_8_115_8_if_end;
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_113_8_115_8_if_end:
+[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3290-00\source\UnitTests.mcgen" 117 8 ]
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_117_8_119_8_if_stmt:
         %tmp.31 = lgetv %result.2;
-        symbol [ result %tmp.31 111 12 18 ];
-        symbol [ Boolean %tmp.33 111 30 37 ];
+        symbol [ result %tmp.31 117 12 18 ];
+        symbol [ Boolean %tmp.33 117 30 37 ];
         %tmp.33 = getv ? :Boolean;
         %tmp.34 = isa %tmp.31 %tmp.33;
-        bf %tmp.34 @C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_111_8_113_8_if_end;
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_111_8_113_8_if_true:
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_111_39_113_8_start:
-[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3906-00\source\UnitTests.mcgen" 112 12 ]
+        bf %tmp.34 @C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_117_8_119_8_if_end;
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_117_8_119_8_if_true:
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_117_39_119_8_start:
+[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3290-00\source\UnitTests.mcgen" 118 12 ]
         %tmp.35 = lgetv %result.2;
-        symbol [ result %tmp.35 112 19 25 ];
+        symbol [ result %tmp.35 118 19 25 ];
         %tmp.36 = as %tmp.35 { (Boolean) };
         ret %tmp.36;
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_111_39_113_8_stop:
-        goto @C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_111_8_113_8_if_end;
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_111_8_113_8_if_end:
-[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3906-00\source\UnitTests.mcgen" 115 8 ]
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_117_39_119_8_stop:
+        goto @C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_117_8_119_8_if_end;
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_117_8_119_8_if_end:
+[ "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3290-00\source\UnitTests.mcgen" 121 8 ]
         %tmp.37 = false;
         ret %tmp.37;
-C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3906_00_source_UnitTests_mcgen_99_58_116_4_stop:
+C__Users_Emma_repos_connectiq_rower2backend_bin_gen_006_B3290_00_source_UnitTests_mcgen_105_58_122_4_stop:
     }
 }
-[ @file = "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3906-00\source\UnitTests.mcgen"; @line = 1; ]
+[ @file = "C:\Users\Emma\repos\connectiq\rower2backend\bin\gen\006-B3290-00\source\UnitTests.mcgen"; @line = 1; ]
 <init> {
 }

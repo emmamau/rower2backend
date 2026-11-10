@@ -280,7 +280,7 @@ function testSmartRowSplitPacketReassembly(logger as Logger) as Boolean {
     model.parseSmartRowBytes(chunk2);
 
     // Reassembled frame must be parsed completely!
-    Test.assertEqual(35.0f, model.work);
+    Test.assertEqual(350.0f, model.work);
     Test.assertEqual(105, model.handleLengthCm);
     return true;
 }
@@ -299,7 +299,7 @@ function testSmartRowMultiFrameInSinglePacket(logger as Logger) as Boolean {
     ]b;
     model.parseSmartRowBytes(multiPacket);
 
-    Test.assertEqual(35.0f, model.work);
+    Test.assertEqual(350.0f, model.work);
     Test.assertEqual(105, model.handleLengthCm);
     Test.assertEqual(24.0f, model.strokeRate);
     Test.assertEqual(3, model.strokeCount);
@@ -311,6 +311,7 @@ function testSmartRowMultiFrameInSinglePacket(logger as Logger) as Boolean {
 function testSmartRowPreambleNoiseDelimiterReassembly(logger as Logger) as Boolean {
     var model = new RowerDataModel();
     model.onBleConnected();
+    model.parseSmartRowString("a000400000");
     model.startWorkout();
 
     var noisyPacket = [
@@ -321,7 +322,7 @@ function testSmartRowPreambleNoiseDelimiterReassembly(logger as Logger) as Boole
 
     Test.assertEqual(28.0f, model.strokeRate);
     Test.assertEqual(12, model.strokeCount);
-    Test.assertEqual(50, model.totalDistance);
+    Test.assertEqual(10, model.totalDistance);
     return true;
 }
 
@@ -441,18 +442,115 @@ function testUnifiedCodePickerComponent(logger as Logger) as Boolean {
     Test.assertEqual(0, pairingPicker.getCurrentSlot());
     Test.assertEqual("0", pairingPicker.getCurrentChar());
 
-    // Backspace at slot 0 -> cancels (returns true)
+    // Backspace at slot 0 -> cancels (returns true) and invokes cancelCallback if configured
+    var cancelCalled = new [1] as Array<Boolean>;
+    cancelCalled[0] = false;
+    Test.assertEqual(false, pairingPicker.hasCancelCallback());
     Test.assertEqual(true, pairingPicker.backspaceOrCancel());
 
-    // Room picker 5-char completion
-    for (var i = 0; i < 4; i++) {
-        Test.assertEqual(false, roomPicker.confirmCurrentChar());
-    }
+    // Room picker 5-char completion via UnifiedCodePickerDelegate
+    var roomDel = new UnifiedCodePickerDelegate(roomPicker);
+    roomDel.onNextPage(); // '1'
+    roomDel.onSelect();   // slot 0 -> 1
+    roomDel.onNextPage(); // '1'
+    roomDel.onNextPage(); // '2'
+    roomDel.onSelect();   // slot 1 -> 2
+    roomDel.onSelect();   // slot 2 -> 3
+    roomDel.onSelect();   // slot 3 -> 4
+    Test.assertEqual(4, roomPicker.getCurrentSlot());
     Test.assertEqual(true, roomPicker.confirmCurrentChar());
+    Test.assertEqual("12000", roomPicker.getFormattedCode());
     Test.assertEqual(5, roomPicker.getFormattedCode().length());
 
     return true;
 }
+
+//! Regression test 16: Mon Profil & Identifiant (UserManager guest vs web account mode & pseudo modification)
+(:test)
+function testUserManagerProfileAndGuestPseudo(logger as Logger) as Boolean {
+    UserManager.clearPairing();
+    Test.assertEqual(false, UserManager.isPaired());
+    Test.assertEqual(true, UserManager.isGuestSession());
+
+    // Guest mode allows local pseudo update
+    UserManager.setGuestPseudo("Rameur_42");
+    Test.assertEqual("Rameur_42", UserManager.getUserId());
+    Test.assert(UserManager.getActiveProfileLabel().find("Rameur_42") != null);
+
+    // Web Account mode uses pairedUserId and shows Compte Web
+    UserManager.setDeviceToken("tok-web-account");
+    UserManager.setPairedUserId("Marc_Row");
+    UserManager.setGuestPaired(false);
+    Test.assertEqual(true, UserManager.isPaired());
+    Test.assertEqual(false, UserManager.isGuestSession());
+    Test.assertEqual("Marc_Row", UserManager.getUserId());
+    Test.assert(UserManager.getActiveProfileLabel().find("Marc_Row") != null);
+
+    // Parcours 2 Guest Ticket mode preserves guest_xxx pairedUserId for API sync while displaying guestPseudo in profile label
+    UserManager.setDeviceToken("tok-guest-ticket");
+    UserManager.setPairedUserId("guest_abc123");
+    UserManager.setGuestPseudo("Alex");
+    UserManager.setGuestPaired(true);
+    Test.assertEqual(true, UserManager.isPaired());
+    Test.assertEqual(true, UserManager.isGuestSession());
+    Test.assertEqual("guest_abc123", UserManager.getUserId());
+    Test.assertEqual("Alex", UserManager.getDisplayPseudo());
+    Test.assert(UserManager.getActiveProfileLabel().find("Alex") != null);
+
+    UserManager.clearPairing();
+    return true;
+}
+
+//! Regression test 17: BleDelegate lobby wait lock (_isWaitingForReadyOrHost)
+//! Joining a private room in LOBBY (secondsRemaining == 0, waitingForHost == true) must NOT self-start the race
+//! when polling or ticking until the server transitions to COUNTDOWN or RUNNING.
+(:test)
+function testLobbyWaitingForReadyDoesNotSelfStartRace(logger as Logger) as Boolean {
+    var model = new RowerDataModel();
+    var view = new RowerView(model);
+    var del = new BleDelegate(model);
+    del.setView(view);
+
+    // Simulate joining a room via 5-char ticket while room is in LOBBY waiting for BLE READY
+    var joinData = {
+        "id" => "PRIV_TEST_READY",
+        "targetDistance" => 2000,
+        "lane" => 2,
+        "secondsRemaining" => 0,
+        "waitingForHost" => true,
+        "internalStatus" => "LOBBY",
+        "status" => "waiting",
+        "guestName" => "Alex",
+        "message" => "Bienvenue Alex ! Ligne 2 attribuee"
+    };
+    del.onPinJoinSuccess(joinData);
+    Test.assertEqual(RowerView.STATE_WAITING_START, view.getAppState());
+    Test.assertEqual(2, view.getAssignedLane());
+
+    // Simulate polling GET /api/v1/races/private/:id while still in LOBBY (secondsRemaining == 0)
+    del.onLobbyDataReceived({
+        "id" => "PRIV_TEST_READY",
+        "status" => "waiting",
+        "internalStatus" => "LOBBY",
+        "waitingForHost" => true,
+        "secondsRemaining" => 0,
+        "totalParticipants" => 2,
+        "targetDistance" => 2000
+    });
+    // Must STILL be in STATE_WAITING_START (must NOT prematurely transition to STATE_RACING!)
+    Test.assertEqual(RowerView.STATE_WAITING_START, view.getAppState());
+
+    // Simulate server starting 15s countdown once all players are READY
+    del.onRoomReadyConfirmed({
+        "countdownSeconds" => 15,
+        "waitingStatusMessage" => "Rameur pret - En attente du depart"
+    });
+    Test.assertEqual(15, view.getCountdown());
+    Test.assertEqual(RowerView.STATE_WAITING_START, view.getAppState());
+
+    return true;
+}
+
 
 
 

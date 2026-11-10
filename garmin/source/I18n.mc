@@ -541,12 +541,44 @@ module I18n {
 
         // --- WARNINGS & PENALTIES ---
         if (key.equals("WARN_FALSE_START")) {
-            if (_currentLang == LANG_FR) { return "Départ arrêté requis - Arrêtez de ramer !"; }
-            if (_currentLang == LANG_DE) { return "Stehender Start - Nicht rudern !"; }
-            if (_currentLang == LANG_ES) { return "Salida parada - Deje de remar !"; }
-            if (_currentLang == LANG_IT) { return "Partenza da fermo - Non vogare !"; }
-            if (_currentLang == LANG_PT) { return "Largada parada - Pare de remar !"; }
-            return "Standing start required - Stop rowing !";
+            if (_currentLang == LANG_FR) { return "ARRÊTEZ DE RAMER ! DÉPART ARRÊTÉ"; }
+            if (_currentLang == LANG_DE) { return "NICHT RUDERN ! STEHENDER START"; }
+            if (_currentLang == LANG_ES) { return "DEJE DE REMAR ! SALIDA PARADA"; }
+            if (_currentLang == LANG_IT) { return "FERMATI ! PARTENZA DA FERMO"; }
+            if (_currentLang == LANG_PT) { return "PARE DE REMAR ! LARGADA PARADA"; }
+            return "STOP ROWING ! STANDING START";
+        }
+        if (key.equals("WARN_MISSED_START")) {
+            if (_currentLang == LANG_FR) { return "DÉPART RATÉ - ARRÊTEZ LE RAMEUR POUR PARTIR"; }
+            if (_currentLang == LANG_DE) { return "FEHLSTART - STOPPEN ZUM STARTEN"; }
+            if (_currentLang == LANG_ES) { return "SALIDA NULA - PARE EL REMO PARA SALIR"; }
+            if (_currentLang == LANG_IT) { return "PARTENZA FALSA - FERMA IL REMO PER PARTIRE"; }
+            if (_currentLang == LANG_PT) { return "LARGADA QUEIMADA - PARE O REMO PARA SAIR"; }
+            return "MISSED START - STOP ROWER TO START";
+        }
+        if (key.equals("MENU_PROFILE")) {
+            if (_currentLang == LANG_FR) { return "Mon Profil & Identifiant"; }
+            if (_currentLang == LANG_DE) { return "Mein Profil & ID"; }
+            if (_currentLang == LANG_ES) { return "Mi Perfil e ID"; }
+            if (_currentLang == LANG_IT) { return "Mio Profilo e ID"; }
+            if (_currentLang == LANG_PT) { return "Meu Perfil e ID"; }
+            return "My Profile & ID";
+        }
+        if (key.equals("PROFILE_SYNCED_WEB")) {
+            if (_currentLang == LANG_FR) { return "Pseudo synchronise avec votre compte web"; }
+            return "Nickname synced with your web account";
+        }
+        if (key.equals("PROFILE_EDIT_PSEUDO")) {
+            if (_currentLang == LANG_FR) { return "Modifier pseudo invite"; }
+            return "Edit guest nickname";
+        }
+        if (key.equals("BLE_WAIT_WAKE")) {
+            if (_currentLang == LANG_FR) { return "Donnez un coup de rame pour reveiller le rameur"; }
+            return "Pull handle once to wake rower";
+        }
+        if (key.equals("BLE_READY_WAIT_START")) {
+            if (_currentLang == LANG_FR) { return "Rameur pret - En attente du depart"; }
+            return "Rower ready - Waiting for start";
         }
         if (key.equals("POST_RACE_PAUSE_LABEL")) {
             if (_currentLang == LANG_FR) { return "Prochaine manche : "; }

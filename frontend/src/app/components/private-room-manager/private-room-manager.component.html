@@ -1,130 +1,233 @@
 <!-- INLINE ACTIVE PRIVATE SALON BANNER (visible whenever the user is inside a private room) -->
 @if (activeRoom) {
-  <section class="priv-active-banner" aria-label="Salon privé actif">
-    <div class="priv-banner-top">
-      <div class="priv-banner-identity">
-        <span class="priv-pill-lock">🔒 {{ i18n.t('PRIVATE_ROOM_BADGE') }}</span>
-        <span class="priv-role-chip" [class.is-host]="canManageActiveRoom">
-          {{ canManageActiveRoom ? i18n.t('HOST_TAG') : i18n.t('GUEST_TAG') }}
-        </span>
-        <h2 class="priv-banner-title">{{ activeRoom.race.title }}</h2>
-        <span class="priv-meta-chip">🏁 {{ activeRoom.race.targetDistance }}m</span>
-        <span class="priv-meta-chip">
-          👥 {{ activeRacersCount }} / {{ activeRoom.race.maxParticipants || 8 }}
-        </span>
-        <span class="priv-status-chip" [class.in-progress]="activeRoom.status === 'in_progress'">
-          @if (activeRoom.waitingForHost) {
-            ⏳ {{ i18n.t('STATUS_WAITING_HOST') }}
-          } @else {
-            ⏱️ {{ activeRoom.formattedCountdown }}
-          }
-        </span>
+  <section
+    class="priv-active-banner"
+    [class.is-collapsed]="isBannerCollapsed"
+    aria-label="Salon privé actif">
+    @if (isBannerCollapsed) {
+      <!-- COMPACT MINIMALIST SINGLE-LINE STRIP (Smartphone / Regatta View) -->
+      <div class="priv-collapsed-strip">
+        <div class="priv-collapsed-left">
+          <span class="priv-pill-lock priv-pill-lock-sm">🔒</span>
+          <span class="priv-collapsed-pin" (click)="copyText(activeRoomPin)" title="Toucher pour copier le PIN">
+            ⌚ PIN : <strong>{{ activeRoomPin || '----' }}</strong>
+          </span>
+          <span class="priv-status-chip priv-status-chip-sm" [class.in-progress]="activeRoom.status === 'in_progress'">
+            @if (activeRoom.waitingForHost) {
+              ⏳ {{ isBotDuelRoom ? 'Saisir PIN montre' : 'En attente' }}
+            } @else {
+              ⏱️ {{ activeRoom.formattedCountdown }}
+            }
+          </span>
+        </div>
+
+        <div class="priv-collapsed-right">
+          <button
+            type="button"
+            class="priv-btn-mini priv-btn-mini-cyan"
+            (click)="openModalRequest.emit('share')"
+            aria-label="Gérer le salon privé"
+            title="Gérer le salon privé">
+            ⚙️
+          </button>
+          <button
+            type="button"
+            class="priv-btn-collapse-toggle is-expand"
+            (click)="toggleBannerCollapse()"
+            [attr.aria-expanded]="false"
+            aria-label="Afficher les détails du salon privé">
+            ▼ Détails
+          </button>
+        </div>
+      </div>
+    } @else {
+      <div class="priv-banner-top">
+        <div class="priv-banner-identity">
+          <span class="priv-pill-lock">🔒 {{ i18n.t('PRIVATE_ROOM_BADGE') }}</span>
+          <span class="priv-role-chip" [class.is-host]="canManageActiveRoom">
+            {{ canManageActiveRoom ? i18n.t('HOST_TAG') : i18n.t('GUEST_TAG') }}
+          </span>
+          <h2 class="priv-banner-title">{{ activeRoom.race.title }}</h2>
+          <span class="priv-meta-chip">🏁 {{ activeRoom.race.targetDistance }}m</span>
+          <span class="priv-meta-chip">
+            👥 {{ activeRacersCount }} / {{ activeRoom.race.maxParticipants || 8 }}
+          </span>
+          <span class="priv-status-chip" [class.in-progress]="activeRoom.status === 'in_progress'">
+            @if (activeRoom.waitingForHost) {
+              ⏳ {{ isBotDuelRoom ? 'Saisissez le PIN sur votre montre (départ auto 15s)' : i18n.t('STATUS_WAITING_HOST') }}
+            } @else {
+              ⏱️ {{ activeRoom.formattedCountdown }}
+            }
+          </span>
+        </div>
+
+        <div class="priv-banner-nav">
+          <button
+            type="button"
+            class="priv-btn priv-btn-cyan"
+            (click)="openModalRequest.emit('share')">
+            {{ i18n.t('BTN_MANAGE_CODES') }}
+          </button>
+          <button
+            type="button"
+            class="priv-btn priv-btn-ghost"
+            (click)="leaveToPublicRace()">
+            {{ i18n.t('BTN_BACK_PUBLIC') }}
+          </button>
+          <button
+            type="button"
+            class="priv-btn-collapse-toggle"
+            (click)="toggleBannerCollapse()"
+            [attr.aria-expanded]="true"
+            aria-label="Masquer les détails du salon privé"
+            title="Masquer les détails pour libérer la vue régate">
+            ▲ Masquer les détails
+          </button>
+        </div>
       </div>
 
-      <div class="priv-banner-nav">
-        <button
-          type="button"
-          class="priv-btn priv-btn-cyan"
-          (click)="openModalRequest.emit('share')">
-          {{ i18n.t('BTN_MANAGE_CODES') }}
-        </button>
-        <button
-          type="button"
-          class="priv-btn priv-btn-ghost"
-          (click)="leaveToPublicRace()">
-          {{ i18n.t('BTN_BACK_PUBLIC') }}
-        </button>
-      </div>
-    </div>
-
-    <!-- Quick Share & Garmin Watch PIN Strip -->
-    <div class="priv-banner-codes">
-      <div class="priv-code-box pin-highlight">
-        <span class="priv-code-label">⌚ PIN Garmin :</span>
-        <strong class="priv-pin-inline">{{ activeRoomPin || '----' }}</strong>
-        <button
-          type="button"
-          class="priv-btn-mini"
-          (click)="copyText(activeRoomPin)"
-          [attr.aria-label]="i18n.t('BTN_COPY_PIN')">
-          {{ i18n.t('BTN_COPY_PIN') }}
-        </button>
-      </div>
-
-      <div class="priv-code-box url-highlight">
-        <span class="priv-code-label">🔗 URL :</span>
-        <code class="priv-url-inline" [title]="shareUrl">{{ shareUrl }}</code>
-        <button
-          type="button"
-          class="priv-btn-mini priv-btn-mini-primary"
-          (click)="copyText(shareUrl)">
-          {{ i18n.t('BTN_COPY_URL') }}
-        </button>
-        <button
-          type="button"
-          class="priv-btn-mini"
-          (click)="copyText(fullInviteMessage)">
-          {{ i18n.t('BTN_COPY_INVITE') }}
-        </button>
-        @if (canNativeShare) {
+      <!-- Quick Share & Garmin Watch PIN Strip -->
+      <div class="priv-banner-codes">
+        <div class="priv-code-box pin-highlight">
+          <span class="priv-code-label">⌚ PIN Garmin :</span>
+          <strong class="priv-pin-inline">{{ activeRoomPin || '----' }}</strong>
           <button
             type="button"
             class="priv-btn-mini"
-            (click)="shareRoomNative()">
-            {{ i18n.t('BTN_NATIVE_SHARE') }}
+            (click)="copyText(activeRoomPin)"
+            [attr.aria-label]="i18n.t('BTN_COPY_PIN')">
+            {{ i18n.t('BTN_COPY_PIN') }}
           </button>
-        }
-      </div>
-    </div>
+        </div>
 
-    <!-- Quick Action Controls (Lane registration + Host Start / Bots / Reset) -->
-    <div class="priv-banner-actions">
-      <button
-        type="button"
-        class="priv-btn priv-btn-outline"
-        [disabled]="isActionBusy"
-        (click)="registerMyLane()">
-        {{ i18n.t('BTN_REGISTER_LANE') }}
-      </button>
-
-      @if (canManageActiveRoom) {
-        @if (activeRoom.status === 'countdown') {
+        <div class="priv-code-box url-highlight">
+          <span class="priv-code-label">🔗 URL :</span>
+          <code class="priv-url-inline" [title]="shareUrl">{{ shareUrl }}</code>
           <button
             type="button"
-            class="priv-btn priv-btn-launch"
-            [disabled]="isActionBusy"
-            (click)="triggerStart(10)">
-            {{ i18n.t('BTN_START_10S') }}
+            class="priv-btn-mini priv-btn-mini-primary"
+            (click)="copyText(shareUrl)">
+            {{ i18n.t('BTN_COPY_URL') }}
           </button>
+          <button
+            type="button"
+            class="priv-btn-mini"
+            (click)="copyText(fullInviteMessage)">
+            {{ i18n.t('BTN_COPY_INVITE') }}
+          </button>
+          @if (canNativeShare) {
+            <button
+              type="button"
+              class="priv-btn-mini"
+              (click)="shareRoomNative()">
+              {{ i18n.t('BTN_NATIVE_SHARE') }}
+            </button>
+          }
+        </div>
+      </div>
+
+        <!-- Quick Action Controls (Lane registration + Host Start / Bots / Reset + Guest Ticket + BLE READY status) -->
+      <div class="priv-banner-actions">
+        @if (!isBotDuelRoom) {
+          <button
+            type="button"
+            class="priv-btn priv-btn-outline"
+            [disabled]="isActionBusy"
+            (click)="registerMyLane()">
+            {{ i18n.t('BTN_REGISTER_LANE') }}
+          </button>
+
           <button
             type="button"
             class="priv-btn priv-btn-yellow"
-            [disabled]="isActionBusy"
-            (click)="triggerStart(3)">
-            {{ i18n.t('BTN_START_3S') }}
+            [disabled]="isGeneratingGuestTicket"
+            (click)="requestGuestBoardingTicket()">
+            🎟️ Obtenir mon code d'embarquement
           </button>
         } @else {
-          <button
-            type="button"
-            class="priv-btn priv-btn-yellow"
-            [disabled]="isActionBusy"
-            (click)="triggerResetRoom()">
-            {{ i18n.t('BTN_RESET_ROOM') }}
-          </button>
+          <span class="priv-meta-chip">🚣 Ligne 1 (Vous) vs 🤖 Ligne 2 (Bot) — Départ auto 15s après validation PIN</span>
         }
 
-        <button
-          type="button"
-          class="priv-btn priv-btn-outline"
-          [disabled]="isActionBusy"
-          (click)="onToggleBots()">
-          {{ activeRoom.race.hasBots ? i18n.t('BTN_TOGGLE_BOTS_OFF') : i18n.t('BTN_TOGGLE_BOTS_ON') }}
-        </button>
-      }
-    </div>
+        @if (canManageActiveRoom) {
+          @if (!isBotDuelRoom) {
+            @if (activeRoom.status === 'countdown' || activeRoom.status === 'waiting') {
+              <button
+                type="button"
+                class="priv-btn priv-btn-launch"
+                [disabled]="isActionBusy || !areAllParticipantsReady"
+                [title]="areAllParticipantsReady ? 'Lancer la course' : 'Tous les participants doivent avoir leur rameur prêt (voyant vert)'"
+                (click)="triggerStart(10)">
+                {{ i18n.t('BTN_START_10S') }}
+              </button>
+              <button
+                type="button"
+                class="priv-btn priv-btn-yellow"
+                [disabled]="isActionBusy || !areAllParticipantsReady"
+                (click)="triggerStart(3)">
+                {{ i18n.t('BTN_START_3S') }}
+              </button>
+            } @else {
+              <button
+                type="button"
+                class="priv-btn priv-btn-yellow"
+                [disabled]="isActionBusy"
+                (click)="triggerResetRoom()">
+                {{ i18n.t('BTN_RESET_ROOM') }}
+              </button>
+            }
 
-    @if (actionError) {
-      <p class="priv-error-msg" role="alert">⚠️ {{ actionError }}</p>
+            <button
+              type="button"
+              class="priv-btn priv-btn-outline"
+              [disabled]="isActionBusy"
+              (click)="onToggleBots()">
+              {{ activeRoom.race.hasBots ? i18n.t('BTN_TOGGLE_BOTS_OFF') : i18n.t('BTN_TOGGLE_BOTS_ON') }}
+            </button>
+          } @else if (activeRoom.status === 'in_progress' || activeRoom.status === 'finished') {
+            <button
+              type="button"
+              class="priv-btn priv-btn-yellow"
+              [disabled]="isActionBusy"
+              (click)="triggerResetRoom()">
+              {{ i18n.t('BTN_RESET_ROOM') }}
+            </button>
+          }
+        }
+      </div>
+
+      <!-- PARCOURS 2 : TICKET INVITÉ DE SALON (CODE 5 CARACTÈRES ATOMIQUE) -->
+      @if (guestTicketPin) {
+        <div class="priv-guest-ticket-banner" role="status" aria-live="polite">
+          <div class="priv-ticket-info">
+            <span class="priv-ticket-badge">🎟️ Code d'embarquement Invité (5 caractères) :</span>
+            <strong class="priv-ticket-code">{{ guestTicketPin }}</strong>
+            <span class="priv-ticket-lane">🚣 Ligne {{ guestTicketLane }} réservée</span>
+            <span class="priv-ticket-timer">⏱️ {{ formattedGuestTicketCountdown }}</span>
+          </div>
+          <p class="priv-ticket-help">
+            Sur votre montre Garmin, sélectionnez <strong>« Rejoindre un salon »</strong> et saisissez ce code à 5 caractères. Votre kayak sera positionné automatiquement sur l'eau.
+          </p>
+        </div>
+      }
+
+      <!-- MACHINE À ÉTATS BLE : VOYANT ORANGE ("En attente du rameur") / VERT ("Rameur prêt") PAR BATEAU -->
+      @if (roomParticipants.length > 0) {
+        <div class="priv-ble-status-strip" aria-label="Statut matériel des rameurs">
+          @for (p of roomParticipants; track p.userId) {
+            <div class="priv-ble-racer-pill" [class.is-ready]="p.ready !== false && p.connectionState !== 'CONNECTED'" [class.is-waiting]="p.ready === false || p.connectionState === 'CONNECTED'">
+              <span class="ble-status-dot" [class.dot-green]="p.ready !== false && p.connectionState !== 'CONNECTED'" [class.dot-orange]="p.ready === false || p.connectionState === 'CONNECTED'"></span>
+              <span class="ble-racer-name">{{ p.userName || p.userId }} (L{{ p.lane || $index + 1 }}) :</span>
+              <span class="ble-racer-state">
+                {{ (p.ready === false || p.connectionState === 'CONNECTED') ? 'En attente du rameur' : 'Rameur prêt' }}
+              </span>
+            </div>
+          }
+        </div>
+      }
+
+      @if (actionError) {
+        <p class="priv-error-msg" role="alert">⚠️ {{ actionError }}</p>
+      }
     }
   </section>
 }
@@ -534,6 +637,45 @@
           </div>
         </div>
 
+        <!-- 2b. Parcours 2 : Ticket Invité de Salon (Code à 5 caractères atomique) -->
+        <div class="priv-share-card priv-guest-ticket-card">
+          <div class="priv-label">🎟️ Embarquement Invité Direct (Ticket Unique à 5 caractères)</div>
+          <p class="priv-hint">
+            Sans compte requis : renseignez votre pseudo pour réserver votre ligne d'eau et obtenir un code unique à 5 caractères à saisir sur votre montre (« Rejoindre un salon »).
+          </p>
+          <div class="priv-join-row">
+            <input
+              id="priv-guest-ticket-name"
+              name="guestTicketName"
+              type="text"
+              maxlength="24"
+              placeholder="Votre pseudo (ex: Alex, Rameur_42)"
+              class="priv-input"
+              [(ngModel)]="guestTicketName" />
+            <button
+              type="button"
+              class="priv-btn priv-btn-yellow"
+              [disabled]="isGeneratingGuestTicket"
+              (click)="requestGuestBoardingTicket()">
+              {{ isGeneratingGuestTicket ? 'Génération...' : 'Obtenir mon code d\'embarquement' }}
+            </button>
+          </div>
+
+          @if (guestTicketPin) {
+            <div class="priv-pin-digits" aria-label="Code Ticket Invité 5 caractères">
+              @for (digit of guestTicketPinDigits; track $index) {
+                <span class="priv-pin-digit">{{ digit }}</span>
+              }
+            </div>
+            <p class="priv-hint">
+              🚣 Ligne {{ guestTicketLane }} réservée · Valide {{ formattedGuestTicketCountdown }} · Saisissez <strong>{{ guestTicketPin }}</strong> dans « Rejoindre un salon » sur votre montre Garmin.
+            </p>
+          }
+          @if (guestTicketError) {
+            <p class="priv-error-msg" role="alert">⚠️ {{ guestTicketError }}</p>
+          }
+        </div>
+
         <!-- 3. Organizer Access Control & Player Validation -->
         @if (canManageActiveRoom) {
           <div class="priv-share-card priv-approval-card">
@@ -621,18 +763,20 @@
             </button>
 
             @if (canManageActiveRoom) {
-              @if (activeRoom.status === 'countdown') {
+              @if (activeRoom.status === 'countdown' || activeRoom.status === 'waiting') {
                 <button
                   type="button"
                   class="priv-btn priv-btn-launch"
-                  [disabled]="isActionBusy"
+                  [disabled]="isActionBusy || !areAllParticipantsReady"
+                  [title]="!areAllParticipantsReady ? 'En attente de la connexion BLE du rameur de tous les joueurs' : ''"
                   (click)="triggerStart(10)">
                   {{ i18n.t('BTN_START_10S') }}
                 </button>
                 <button
                   type="button"
                   class="priv-btn priv-btn-yellow"
-                  [disabled]="isActionBusy"
+                  [disabled]="isActionBusy || !areAllParticipantsReady"
+                  [title]="!areAllParticipantsReady ? 'En attente de la connexion BLE du rameur de tous les joueurs' : ''"
                   (click)="triggerStart(3)">
                   {{ i18n.t('BTN_START_3S') }}
                 </button>
@@ -710,7 +854,7 @@
                 autocorrect="off"
                 autocapitalize="off"
                 spellcheck="false"
-                placeholder="ex: krm-wzx-qpl, 4829, https://.../r/krm-wzx-qpl"
+                placeholder="ex: krm-wzx-qpl, A7X9K, https://.../r/krm-wzx-qpl"
                 class="priv-input"
                 [(ngModel)]="joinInput"
                 (blur)="onJoinInputBlur()"
@@ -731,6 +875,44 @@
             }
           </div>
         </form>
+
+        <!-- Parcours 2 dans l'onglet Rejoindre : Ticket d'embarquement invité -->
+        <div class="priv-share-card priv-guest-ticket-card">
+          <div class="priv-label">🎟️ Invité sans compte ? Obtenir mon code d'embarquement (5 caractères)</div>
+          <p class="priv-hint">
+            Indiquez votre pseudo ci-dessous (avec le code salon renseigné ci-dessus) pour obtenir un Ticket unique à 5 caractères qui appaire votre montre et vous place sur votre ligne d'eau en une seule saisie.
+          </p>
+          <div class="priv-join-row">
+            <input
+              id="priv-join-guest-name"
+              name="joinGuestName"
+              type="text"
+              maxlength="24"
+              placeholder="Pseudo invité (ex: Alex)"
+              class="priv-input"
+              [(ngModel)]="guestTicketName" />
+            <button
+              type="button"
+              class="priv-btn priv-btn-yellow"
+              [disabled]="isGeneratingGuestTicket"
+              (click)="requestGuestBoardingTicket(joinInput)">
+              {{ isGeneratingGuestTicket ? 'Génération...' : 'Obtenir mon code d\'embarquement' }}
+            </button>
+          </div>
+          @if (guestTicketPin) {
+            <div class="priv-pin-digits" aria-label="Code Ticket Invité">
+              @for (digit of guestTicketPinDigits; track $index) {
+                <span class="priv-pin-digit">{{ digit }}</span>
+              }
+            </div>
+            <p class="priv-hint">
+              🚣 Ligne {{ guestTicketLane }} réservée · Valide {{ formattedGuestTicketCountdown }} · Sur votre montre Garmin : <strong>Rejoindre un salon &rarr; {{ guestTicketPin }}</strong>
+            </p>
+          }
+          @if (guestTicketError) {
+            <p class="priv-error-msg" role="alert">⚠️ {{ guestTicketError }}</p>
+          }
+        </div>
 
         <!-- Saved & Active Private Salons List -->
         <div class="priv-saved-section">

@@ -16,6 +16,23 @@ export interface PrivateParticipantInfo {
   joinedAt: Date;
   country?: string;
   lane?: number;
+  ready?: boolean;
+  connectionState?: "CONNECTED" | "READY";
+  socketId?: string;
+  deviceToken?: string;
+}
+
+export interface GuestBoardingTicket {
+  ticketPin: string;
+  roomId: string;
+  guestName: string;
+  userId: string;
+  socketId?: string;
+  lane: number;
+  expiresAt: Date;
+  claimedAt?: Date;
+  deviceId?: string;
+  deviceToken?: string;
 }
 
 export interface RaceState {
@@ -45,6 +62,8 @@ export interface RaceState {
   isDuel1v1?: boolean;
   adminAsSpectator?: boolean;
   hostParticipates?: boolean;
+  originalHostUserId?: string;
+  botDuelSeatClaimed?: boolean;
   requiredLeague?: string;
   requiresSubscription?: boolean;
   organizerCapacity?: number;
@@ -72,9 +91,21 @@ export function getWaitingStatusMessage(race: RaceState, now: Date = new Date())
     if (count < 2) {
       return "En attente de l'adversaire...";
     }
+    const anyNotReady = race.participants
+      ? Array.from(race.participants.values()).some((p) => p.ready === false)
+      : false;
+    if (anyNotReady) {
+      return "Adversaire en cours de connexion au rameur...";
+    }
     return "Adversaire connecté - Préparez-vous";
   }
   if (race.isBotDuel) {
+    const anyNotReady = race.participants
+      ? Array.from(race.participants.values()).some((p) => p.ready === false)
+      : false;
+    if (anyNotReady) {
+      return "Ligne 1 attribuée - Donnez un coup de rame pour réveiller le rameur";
+    }
     return "En attente du départ contre le bot...";
   }
   if (race.startMode === "scheduled" && race.scheduledStartTime) {
@@ -121,7 +152,8 @@ export class RaceManager {
   private currentPublicRace: RaceState | null = null;
   private privateRaces: Map<string, RaceState> = new Map(); // code -> RaceState
   private privateRacesById: Map<string, RaceState> = new Map(); // raceId -> RaceState
-  private pinToRaceMap: Map<string, { raceId: string; lane: number }> = new Map(); // 4 digits PIN -> race
+  private pinToRaceMap: Map<string, { raceId: string; lane: number }> = new Map(); // 4-5 chars PIN -> race
+  private guestTicketsByPin: Map<string, GuestBoardingTicket> = new Map(); // 5-char ticketPin -> GuestBoardingTicket
   private loopTimer: NodeJS.Timeout | null = null;
   private loopBusy = false;
   private publicTickChain: Promise<void> = Promise.resolve();
@@ -243,10 +275,34 @@ export class RaceManager {
     });
   }
 
-  public static toLiveMetrics(sortedRows: any[]): LiveRacerMetric[] {
+  public static toLiveMetrics(sortedRows: any[], race?: RaceState | null): LiveRacerMetric[] {
+    const usedLanes = new Set<number>();
+    const preassignedLanes = new Map<string, number>();
+
+    if (race?.participants) {
+      for (const [uid, p] of race.participants.entries()) {
+        if (p.lane && p.lane > 0) {
+          preassignedLanes.set(uid, p.lane);
+          usedLanes.add(p.lane);
+        }
+      }
+    }
+
+    let nextFreeLane = 1;
+    const allocNextLane = (): number => {
+      while (usedLanes.has(nextFreeLane)) {
+        nextFreeLane++;
+      }
+      const chosen = nextFreeLane;
+      usedLanes.add(chosen);
+      nextFreeLane++;
+      return chosen;
+    };
+
     return sortedRows.map((r: any, idx: number) => {
       const getVal = (f: string) => (typeof r.get === "function" ? r.get(f) : r[f]);
       const userId = getVal("userId");
+      const isBot = Boolean(getVal("isBot")) || String(userId || "").startsWith("bot_");
       const name = getVal("userName") || userId;
       const dist = (getVal("netDistance") as number) || 0;
       const split = (getVal("lastPace") as number) || (getVal("avgPace") as number) || 120;
@@ -256,8 +312,29 @@ export class RaceManager {
       const country = getVal("country") || undefined;
       const status = getVal("status") || "in_progress";
       const elapsedTime = (getVal("elapsedTime") as number) || 0;
+
+      let lane = preassignedLanes.get(userId) || 0;
+      if (!lane) {
+        if (race?.isBotDuel) {
+          lane = isBot ? 2 : 1;
+          usedLanes.add(lane);
+        } else if (race) {
+          lane = allocNextLane();
+        } else {
+          lane = idx + 1;
+        }
+      }
+
+      const participantInfo = race?.participants?.get(userId);
+      const isParticipantReady = isBot
+        ? true
+        : (participantInfo?.ready !== undefined ? participantInfo.ready : (watts > 0 || spm > 0 || dist > 0 || true));
+      const connectionState: "CONNECTED" | "READY" = isBot
+        ? "READY"
+        : (participantInfo?.connectionState || (participantInfo?.ready === false ? "CONNECTED" : "READY"));
+
       return {
-        lane: idx + 1,
+        lane,
         userId,
         name,
         dist,
@@ -267,7 +344,9 @@ export class RaceManager {
         heartRate,
         country,
         status,
-        elapsedTime
+        elapsedTime,
+        ready: isParticipantReady,
+        connectionState
       };
     });
   }
@@ -559,7 +638,7 @@ export class RaceManager {
 
           const live = RaceManager.sortRanking(rows);
           if (live.length > 0) {
-            socketGateway.broadcastLeaderboard(race.id, RaceManager.toLiveMetrics(live));
+            socketGateway.broadcastLeaderboard(race.id, RaceManager.toLiveMetrics(live, race));
           }
 
           const activeHumans = rows.filter((r: any) => this.isActiveHuman(r, now));
@@ -590,9 +669,14 @@ export class RaceManager {
       }
 
       // Course planifiée : déclenchement automatique du compte à rebours 15s avant l'heure prévue
+      // Verrouillé par le statut BLE "READY" de tous les compétiteurs connectés (Section 4.2 & 7.3)
       if (race.status === "LOBBY" && race.startMode === "scheduled" && race.scheduledStartTime) {
         const msUntilStart = race.scheduledStartTime.getTime() - now.getTime();
-        if (msUntilStart <= 15000 && msUntilStart > 0) {
+        const allParticipantsReady =
+          !race.participants ||
+          race.participants.size === 0 ||
+          Array.from(race.participants.values()).every((p) => p.ready !== false);
+        if (msUntilStart <= 15000 && msUntilStart > 0 && allParticipantsReady) {
           race.status = "COUNTDOWN";
           race.autoStart = true;
           race.lobbyEndsAt = race.scheduledStartTime;
@@ -604,14 +688,18 @@ export class RaceManager {
       }
 
       if ((race.status === "COUNTDOWN" || (race.status === "LOBBY" && race.autoStart)) && now >= race.lobbyEndsAt) {
-        // En mode programmé, départ automatique uniquement s'il y a des participants connectés ou validés
+        // En mode programmé, départ automatique uniquement s'il y a des participants connectés ET tous à l'état READY
         if (race.status === "LOBBY" && race.autoStart) {
           const rows = await this.loadRaceActivities(race.id);
           const hasParticipants =
             (race.participants && race.participants.size > 0) ||
             rows.some((r: any) => !r.get("isBot") && ["waiting", "in_progress"].includes(r.get("status")));
-          if (!hasParticipants) {
-            // Pas encore de participant, on laisse le lobby ouvert
+          const allParticipantsReady =
+            !race.participants ||
+            race.participants.size === 0 ||
+            Array.from(race.participants.values()).every((p) => p.ready !== false);
+          if (!hasParticipants || !allParticipantsReady) {
+            // Pas encore de participant ou au moins un rameur en veille (CONNECTED), on laisse le lobby ouvert
             continue;
           }
         }
@@ -624,6 +712,12 @@ export class RaceManager {
             { status: "in_progress" },
             { where: { activityId: race.id, status: "waiting" } }
           );
+          const startRows = await this.loadRaceActivities(race.id);
+          await this.advanceBots(race, startRows, now);
+          const liveStart = RaceManager.sortRanking(startRows);
+          if (liveStart.length > 0) {
+            socketGateway.broadcastLeaderboard(race.id, RaceManager.toLiveMetrics(liveStart, race));
+          }
         } catch (err) {
           console.error("[RaceManager] Unable to persist private race start:", err);
         }
@@ -658,7 +752,7 @@ export class RaceManager {
 
           const live = RaceManager.sortRanking(rows);
           if (live.length > 0) {
-            socketGateway.broadcastLeaderboard(race.id, RaceManager.toLiveMetrics(live));
+            socketGateway.broadcastLeaderboard(race.id, RaceManager.toLiveMetrics(live, race));
 
             const nonAbandoned = live.filter((act: any) => act.get("status") !== "abandoned");
             const allFinished = nonAbandoned.length > 0 && nonAbandoned.every(
@@ -971,7 +1065,13 @@ export class RaceManager {
     const raceId = `PRIV_${code.replace(/-/g, "")}`;
     const now = new Date();
 
-    const isBotDuel = Boolean(options.isBotDuel);
+    const rawMode = String((options as any).mode || (options as any).type || "").trim().toLowerCase();
+    const isBotDuel = Boolean(
+      options.isBotDuel ||
+      rawMode === "bot_duel" ||
+      rawMode === "duel_bot" ||
+      rawMode === "1v1_bot"
+    );
     const isDuel1v1 = Boolean(options.isDuel1v1);
 
     let cleanTitle = String(options.title || (isBotDuel ? "Duel 1v1 contre un Bot" : "Régate Privée"))
@@ -1024,7 +1124,9 @@ export class RaceManager {
       : undefined;
 
     const isEmma = isEmmaAdminUser(hostUserId, hostUserName);
-    const adminAsSpectator = Boolean(options.adminAsSpectator !== undefined ? options.adminAsSpectator : isEmma);
+    const adminAsSpectator = isBotDuel
+      ? false
+      : Boolean(options.adminAsSpectator !== undefined ? options.adminAsSpectator : isEmma);
 
     const requireApproval = (isBotDuel || isDuel1v1 || adminAsSpectator)
       ? false
@@ -1033,7 +1135,9 @@ export class RaceManager {
     const pendingParticipants = new Map<string, PrivateParticipantInfo>();
     const rejectedParticipants = new Set<string>();
 
-    const hostParticipates = Boolean(options.hostParticipates !== undefined ? options.hostParticipates : !adminAsSpectator);
+    const hostParticipates = isBotDuel
+      ? true
+      : Boolean(options.hostParticipates !== undefined ? options.hostParticipates : !adminAsSpectator);
     if (!adminAsSpectator && hostParticipates && hostUserId && hostUserId !== "anonymous") {
       participants.set(hostUserId, {
         userId: hostUserId,
@@ -1077,6 +1181,8 @@ export class RaceManager {
       lobbyEndsAt,
       pinCode: pin,
       hostUserId,
+      originalHostUserId: hostUserId,
+      botDuelSeatClaimed: false,
       hostUserName,
       startMode,
       scheduledStartTime: scheduledDate,
@@ -1210,9 +1316,15 @@ export class RaceManager {
     const byId = this.privateRacesById.get(trimmed);
     if (byId && byId.status !== "ABANDONED") return byId;
 
-    // 3. Alphanumeric PIN (4 to 8 characters, case-insensitive)
+    // 3. Alphanumeric PIN (4 to 8 characters, case-insensitive) or Guest Boarding Ticket
     if (/^[a-zA-Z0-9]{4,8}$/.test(trimmed)) {
-      const pinHit = this.pinToRaceMap.get(trimmed.toUpperCase());
+      const upper = trimmed.toUpperCase();
+      const ticketHit = this.guestTicketsByPin.get(upper);
+      if (ticketHit && ticketHit.expiresAt.getTime() > Date.now()) {
+        const priv = this.privateRacesById.get(ticketHit.roomId);
+        if (priv && priv.status !== "ABANDONED") return priv;
+      }
+      const pinHit = this.pinToRaceMap.get(upper);
       if (pinHit) {
         const priv = this.privateRacesById.get(pinHit.raceId);
         if (priv && priv.status !== "ABANDONED") return priv;
@@ -1239,7 +1351,9 @@ export class RaceManager {
     const matches: RaceState[] = [];
     for (const race of this.privateRacesById.values()) {
       if (race.status === "ABANDONED") continue;
-      const isHostMatch = Boolean(cleanHost && race.hostUserId === cleanHost);
+      const isHostMatch = Boolean(
+        cleanHost && (race.hostUserId === cleanHost || race.originalHostUserId === cleanHost)
+      );
       const isCodeMatch = Boolean(race.code && normalizedCodes.has(race.code));
       if (isHostMatch || isCodeMatch) {
         matches.push(race);
@@ -1263,8 +1377,16 @@ export class RaceManager {
       isAdmin?: boolean;
       userRole?: string;
       userLeague?: string;
+      isDeviceAuthenticated?: boolean;
+      viaPin?: boolean;
+      sameAccountAsHost?: boolean;
+      fallbackUserId?: string;
+      ready?: boolean;
+      socketId?: string;
+      deviceToken?: string;
+      bypassApproval?: boolean;
     }
-  ): { race: RaceState; lane: number; alreadyJoined: boolean; pending?: boolean; rejected?: boolean } | { error: string; statusCode: number } {
+  ): { race: RaceState; lane: number; alreadyJoined: boolean; pending?: boolean; rejected?: boolean; ready?: boolean; connectionState?: "CONNECTED" | "READY" } | { error: string; statusCode: number } {
     const race = this.findPrivateRace(identifier);
     if (!race) {
       return { error: "Salon privé introuvable ou expiré.", statusCode: 404 };
@@ -1282,6 +1404,7 @@ export class RaceManager {
 
     const cleanUserId = String(userId || "anonymous").trim().slice(0, 64) || "anonymous";
     const cleanName = String(userName || `Racer_${cleanUserId.slice(-4)}`).trim().slice(0, 64);
+    const cleanFallbackId = options?.fallbackUserId ? String(options.fallbackUserId).trim() : "";
 
     if (race.rejectedParticipants.has(cleanUserId)) {
       return { error: "Votre demande de participation a été refusée par l'hôte.", statusCode: 403, rejected: true };
@@ -1291,11 +1414,58 @@ export class RaceManager {
       return { error: "Ce salon est déjà terminé.", statusCode: 410 };
     }
 
-    const alreadyApproved = race.participants.has(cleanUserId);
-    const isHost = Boolean(cleanUserId && race.hostUserId && cleanUserId === race.hostUserId);
+    let alreadyApproved = race.participants.has(cleanUserId);
+    let isHost = Boolean(
+      (cleanUserId && race.hostUserId && cleanUserId.toLowerCase() === race.hostUserId.toLowerCase()) ||
+      (cleanUserId && race.originalHostUserId && cleanUserId.toLowerCase() === race.originalHostUserId.toLowerCase()) ||
+      (cleanFallbackId && race.hostUserId && cleanFallbackId.toLowerCase() === race.hostUserId.toLowerCase()) ||
+      (cleanFallbackId && race.originalHostUserId && cleanFallbackId.toLowerCase() === race.originalHostUserId.toLowerCase()) ||
+      (cleanName && race.hostUserName && cleanName.toLowerCase() === race.hostUserName.toLowerCase()) ||
+      options?.sameAccountAsHost
+    );
 
-    // Exception Administrateur : le créateur avec rôle Admin peut agir en pur régulateur/spectateur sans occuper de ligne d'eau
-    if (race.adminAsSpectator && (isHost || options?.isAdmin)) {
+    // En mode Duel 1v1 Bot, le créateur est le seul compétiteur humain attendu.
+    // Si le créateur rejoint depuis sa montre Garmin (authentifiée par deviceToken ou via le code PIN sur un salon créé en session web),
+    // rattacher immédiatement son identifiant de montre au siège Ligne 1 du créateur.
+    if (race.isBotDuel && !isHost && !alreadyApproved) {
+      const currentHost = String(race.hostUserId || "");
+      const isWebSessionHost =
+        !currentHost ||
+        currentHost === "anonymous" ||
+        currentHost.startsWith("guest_") ||
+        currentHost.startsWith("usr_");
+      const canClaimCreatorSeat =
+        !race.botDuelSeatClaimed &&
+        (Boolean(options?.isDeviceAuthenticated) || (isWebSessionHost && Boolean(options?.viaPin)));
+
+      if (canClaimCreatorSeat) {
+        isHost = true;
+      }
+    }
+
+    if (race.isBotDuel && isHost) {
+      const oldHostId = race.hostUserId;
+      if (!race.originalHostUserId && oldHostId) {
+        race.originalHostUserId = oldHostId;
+      }
+      if (oldHostId && oldHostId !== cleanUserId && race.participants.has(oldHostId)) {
+        const oldEntry = race.participants.get(oldHostId);
+        race.participants.delete(oldHostId);
+        race.participants.set(cleanUserId, {
+          userId: cleanUserId,
+          userName: cleanName || oldEntry?.userName || race.hostUserName || cleanUserId,
+          joinedAt: oldEntry?.joinedAt || new Date(),
+          country: country || oldEntry?.country,
+          lane: 1
+        });
+      }
+      race.hostUserId = cleanUserId;
+      race.botDuelSeatClaimed = true;
+      alreadyApproved = race.participants.has(cleanUserId);
+    }
+
+    // Exception Administrateur : le créateur avec rôle Admin peut agir en pur régulateur/spectateur sans occuper de ligne d'eau (hors Duel 1v1 Bot)
+    if (!race.isBotDuel && race.adminAsSpectator && (isHost || options?.isAdmin)) {
       return { race, lane: 0, alreadyJoined: true, pending: false };
     }
 
@@ -1337,7 +1507,13 @@ export class RaceManager {
 
     // 5. Attribution automatique et immédiate d'une ligne d'eau unique (Lane 1, Lane 2, etc.)
     let assignedLane = 1;
-    if (alreadyApproved) {
+    if (race.isBotDuel) {
+      // En Duel 1v1 Bot, le joueur humain est sur la Ligne d'eau 1 et le Bot sur la Ligne d'eau 2
+      assignedLane = 1;
+      race.botCount = Math.max(1, race.botCount || 1);
+      race.hasBots = true;
+      this.ensureSalonBots(race.id, race.botCount, race.botMaxPace || 125, race.targetDistance).catch(() => {});
+    } else if (alreadyApproved) {
       const existing = race.participants.get(cleanUserId);
       assignedLane = existing?.lane || 1;
     } else {
@@ -1356,7 +1532,7 @@ export class RaceManager {
     }
 
     // If host requires approval, player is not host, and not yet approved -> put in pending queue
-    if (race.requireApproval && !isHost && !alreadyApproved) {
+    if (race.requireApproval && !isHost && !alreadyApproved && !options?.bypassApproval) {
       const pendingInfo: PrivateParticipantInfo = {
         userId: cleanUserId,
         userName: cleanName,
@@ -1377,21 +1553,30 @@ export class RaceManager {
     // Moving to approved: remove from pending
     race.pendingParticipants.delete(cleanUserId);
 
+    const isReady = options?.ready === false ? false : true;
+    const connectionState: "CONNECTED" | "READY" = isReady ? "READY" : "CONNECTED";
+
     race.participants.set(cleanUserId, {
       userId: cleanUserId,
       userName: cleanName,
       joinedAt: new Date(),
       country,
-      lane: assignedLane
+      lane: assignedLane,
+      ready: isReady,
+      connectionState,
+      socketId: options?.socketId,
+      deviceToken: options?.deviceToken
     });
     race.totalParticipants = Math.max(race.totalParticipants || 0, race.participants.size);
     if (race.pinCode) {
       this.pinToRaceMap.set(race.pinCode.toUpperCase(), { raceId: race.id, lane: assignedLane });
     }
 
+    const allParticipantsReady = Array.from(race.participants.values()).every((p) => p.ready !== false);
+
     // 4. Logiques de départ avec décompte impératif de 15 secondes
-    // Duel 1v1 Joueur vs Joueur : déclenchement automatique du décompte de 15 s dès que le 2e joueur (invité) valide son PIN et rejoint sa ligne
-    if (isDuel1v1 && race.participants.size === 2 && race.status === "LOBBY") {
+    // Duel 1v1 Joueur vs Joueur : déclenchement automatique du décompte de 15 s dès que les 2 joueurs sont READY
+    if (isDuel1v1 && race.participants.size === 2 && allParticipantsReady && race.status === "LOBBY") {
       const startNow = new Date();
       race.status = "COUNTDOWN";
       race.autoStart = true;
@@ -1402,19 +1587,236 @@ export class RaceManager {
       });
     }
 
-    // Duel 1v1 Bot : dès validation ou entrée sur le plan d'eau, décompte 15 s immédiat, départ simultané humain + bot à T=0
-    if (race.isBotDuel && race.status === "LOBBY") {
+    // Duel 1v1 Bot : dès que le joueur humain est READY, décompte 15 s immédiat, départ simultané humain + bot à T=0
+    if (race.isBotDuel && allParticipantsReady && (race.status === "LOBBY" || (race.status === "COUNTDOWN" && options?.viaPin))) {
       const startNow = new Date();
       race.status = "COUNTDOWN";
       race.autoStart = true;
       race.lobbyEndsAt = new Date(startNow.getTime() + 15 * 1000);
       socketGateway.broadcastRaceStatus(race.id, "COUNTDOWN", {
         lobbyEndsAt: race.lobbyEndsAt,
+        secondsUntilStart: 15,
         countdownSeconds: 15
       });
     }
 
-    return { race, lane: assignedLane, alreadyJoined: alreadyApproved, pending: false };
+    return {
+      race,
+      lane: assignedLane,
+      alreadyJoined: alreadyApproved,
+      pending: false,
+      ready: isReady,
+      connectionState
+    };
+  }
+
+  /**
+   * Parcours 2 : Génère un Ticket Invité à 5 caractères pour un salon privé (valide 10 min)
+   * Réserve immédiatement une ligne d'eau libre dans le salon en état CONNECTED (ready = false)
+   */
+  public createGuestTicket(
+    identifier: string,
+    guestName?: string,
+    socketId?: string,
+    existingUserId?: string,
+    country?: string
+  ): { ticket: GuestBoardingTicket; race: RaceState } | { error: string; statusCode: number } {
+    const race = this.findPrivateRace(identifier);
+    if (!race) {
+      return { error: "Salon privé introuvable ou expiré.", statusCode: 404 };
+    }
+    if (race.status === "COMPLETED" || race.status === "ABANDONED") {
+      return { error: "Ce salon est déjà terminé.", statusCode: 410 };
+    }
+
+    if (!race.participants) {
+      race.participants = new Map();
+    }
+
+    const cleanGuestName =
+      String(guestName || "").trim().slice(0, 32) ||
+      `Rameur_${Math.floor(Math.random() * 90 + 10)}`;
+    const cleanUserId =
+      existingUserId && String(existingUserId).trim() && String(existingUserId).trim() !== "anonymous"
+        ? String(existingUserId).trim()
+        : `guest_${Math.random().toString(36).slice(2, 8)}`;
+
+    const joinRes = this.joinPrivateRace(race.id, cleanUserId, cleanGuestName, country, {
+      ready: false,
+      socketId,
+      viaPin: false,
+      bypassApproval: true
+    });
+    if ("error" in joinRes) {
+      return joinRes;
+    }
+
+    const ticketPin = this.generateUniquePinCode(race.pinCode);
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+    const ticket: GuestBoardingTicket = {
+      ticketPin,
+      roomId: race.id,
+      guestName: cleanGuestName,
+      userId: cleanUserId,
+      socketId,
+      lane: joinRes.lane,
+      expiresAt
+    };
+
+    this.guestTicketsByPin.set(ticketPin.toUpperCase(), ticket);
+    return { ticket, race };
+  }
+
+  /**
+   * Parcours 2 : Validation atomique du Ticket Invité 5 caractères saisi sur la montre Garmin
+   */
+  public getGuestTicket(ticketPin: string): GuestBoardingTicket | null {
+    if (!ticketPin) return null;
+    const clean = String(ticketPin).trim().toUpperCase();
+    const ticket = this.guestTicketsByPin.get(clean);
+    if (!ticket) return null;
+    if (ticket.expiresAt.getTime() < Date.now()) {
+      this.guestTicketsByPin.delete(clean);
+      return null;
+    }
+    return ticket;
+  }
+
+  /**
+   * Machine à états BLE : Met à jour le statut READY d'un compétiteur dans le salon
+   * Déclenche le compte à rebours de 15 s si les conditions du mode de jeu sont réunies
+   */
+  public setParticipantReadyStatus(
+    identifier: string,
+    userIdOrTokenUser: string | undefined,
+    ready: boolean
+  ): {
+    race: RaceState;
+    participant?: PrivateParticipantInfo;
+    countdownTriggered: boolean;
+    allReady: boolean;
+    waitingStatusMessage: string;
+  } | { error: string; statusCode: number } {
+    const race = this.findPrivateRace(identifier) || this.getRaceById(identifier);
+    if (!race) {
+      return { error: "Salon introuvable ou expiré.", statusCode: 404 };
+    }
+    if (!race.participants) {
+      race.participants = new Map();
+    }
+
+    let targetParticipant: PrivateParticipantInfo | undefined;
+    const cleanUser = userIdOrTokenUser ? String(userIdOrTokenUser).trim() : "";
+
+    if (cleanUser && race.participants.has(cleanUser)) {
+      targetParticipant = race.participants.get(cleanUser);
+    } else if (cleanUser) {
+      for (const p of race.participants.values()) {
+        if (p.userId.toLowerCase() === cleanUser.toLowerCase() || p.deviceToken === cleanUser) {
+          targetParticipant = p;
+          break;
+        }
+      }
+    }
+
+    // Si un seul participant humain (ex: Duel contre un Bot) et userId non fourni, cibler ce participant
+    if (!targetParticipant && race.participants.size === 1) {
+      targetParticipant = Array.from(race.participants.values())[0];
+    }
+
+    if (targetParticipant) {
+      targetParticipant.ready = Boolean(ready);
+      targetParticipant.connectionState = ready ? "READY" : "CONNECTED";
+      race.participants.set(targetParticipant.userId, targetParticipant);
+    } else if (cleanUser) {
+      targetParticipant = {
+        userId: cleanUser,
+        userName: `Rameur_${cleanUser.slice(-4)}`,
+        joinedAt: new Date(),
+        lane: 1,
+        ready: Boolean(ready),
+        connectionState: ready ? "READY" : "CONNECTED"
+      };
+      race.participants.set(cleanUser, targetParticipant);
+    }
+
+    const participantsList = Array.from(race.participants.values());
+    const allReady =
+      participantsList.length > 0 && participantsList.every((p) => p.ready !== false);
+
+    let countdownTriggered = false;
+    const now = new Date();
+
+    if (race.status === "LOBBY" && ready) {
+      // Mode 1 : Duel contre un Bot -> dès que le joueur humain passe à READY, le compte à rebours de 15 s se lance automatiquement
+      if (race.isBotDuel && allReady) {
+        race.status = "COUNTDOWN";
+        race.autoStart = true;
+        race.lobbyEndsAt = new Date(now.getTime() + 15 * 1000);
+        countdownTriggered = true;
+        socketGateway.broadcastRaceStatus(race.id, "COUNTDOWN", {
+          lobbyEndsAt: race.lobbyEndsAt,
+          secondsUntilStart: 15,
+          countdownSeconds: 15,
+          reason: "ble_ready"
+        });
+      }
+      // Mode 2 : Duel 1v1 Joueur vs Joueur -> dès que les DEUX joueurs humains sont à l'état READY, le compte à rebours de 15 s se lance
+      else if (race.isDuel1v1 && race.participants.size === 2 && allReady) {
+        race.status = "COUNTDOWN";
+        race.autoStart = true;
+        race.lobbyEndsAt = new Date(now.getTime() + 15 * 1000);
+        countdownTriggered = true;
+        socketGateway.broadcastRaceStatus(race.id, "COUNTDOWN", {
+          lobbyEndsAt: race.lobbyEndsAt,
+          secondsUntilStart: 15,
+          countdownSeconds: 15,
+          reason: "both_players_ble_ready"
+        });
+      }
+      // Mode 3 : Salon Privé programmé -> si l'heure programmée (-15s) est déjà atteinte et que tous les compétiteurs passent à READY
+      else if (race.startMode === "scheduled" && race.scheduledStartTime && allReady) {
+        const msUntilScheduled = race.scheduledStartTime.getTime() - now.getTime();
+        if (msUntilScheduled <= 15000) {
+          const countdownSec = msUntilScheduled > 0 ? Math.max(1, Math.ceil(msUntilScheduled / 1000)) : 15;
+          race.status = "COUNTDOWN";
+          race.autoStart = true;
+          race.lobbyEndsAt = new Date(now.getTime() + countdownSec * 1000);
+          countdownTriggered = true;
+          socketGateway.broadcastRaceStatus(race.id, "COUNTDOWN", {
+            lobbyEndsAt: race.lobbyEndsAt,
+            secondsUntilStart: countdownSec,
+            countdownSeconds: countdownSec,
+            reason: "scheduled_all_players_ble_ready"
+          });
+        }
+      }
+    }
+
+    const waitingStatusMessage = getWaitingStatusMessage(race, now);
+
+    socketGateway.broadcastPrivateRoomUpdate(race.id, {
+      type: "PARTICIPANT_STATUS_UPDATED",
+      userId: targetParticipant?.userId,
+      userName: targetParticipant?.userName,
+      lane: targetParticipant?.lane,
+      ready: Boolean(ready),
+      connectionState: ready ? "READY" : "CONNECTED",
+      allReady,
+      countdownTriggered,
+      status: race.status,
+      lobbyEndsAt: race.lobbyEndsAt ? race.lobbyEndsAt.toISOString() : undefined,
+      countdownSeconds: countdownTriggered ? 15 : undefined,
+      waitingStatusMessage
+    });
+
+    return {
+      race,
+      participant: targetParticipant,
+      countdownTriggered,
+      allReady,
+      waitingStatusMessage
+    };
   }
 
   public toggleApprovalRequirement(
@@ -1544,7 +1946,10 @@ export class RaceManager {
     }
 
     const cleanUserId = String(userId || "").trim();
-    if (race.hostUserId && cleanUserId === race.hostUserId) {
+    if (
+      (race.hostUserId && cleanUserId === race.hostUserId) ||
+      (race.originalHostUserId && cleanUserId === race.originalHostUserId)
+    ) {
       return {
         raceId: race.id,
         status: "approved",
@@ -1638,6 +2043,18 @@ export class RaceManager {
       race.lobbyEndsAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
       socketGateway.broadcastRaceStatus(race.id, "LOBBY", { reset: true });
       return { race };
+    }
+
+    // Verrouillage du départ par le statut "READY" (Section 4.2) :
+    // Si au moins un compétiteur connecté est en état CONNECTED (ready === false), empêcher le lancement
+    if (race.participants && race.participants.size > 0) {
+      const anyNotReady = Array.from(race.participants.values()).some((p) => p.ready === false);
+      if (anyNotReady) {
+        return {
+          error: "Tous les compétiteurs connectés doivent avoir leur rameur prêt (READY) avant de lancer le départ.",
+          statusCode: 409
+        };
+      }
     }
 
     const rawSec = options.countdownSeconds !== undefined ? Number(options.countdownSeconds) : 15;
@@ -1742,7 +2159,10 @@ export class RaceManager {
   public canManagePrivateRace(race: RaceState, hostUserId?: string, isAdmin?: boolean): boolean {
     if (isAdmin) return true;
     if (!race.hostUserId || race.hostUserId === "anonymous") return true;
-    return Boolean(hostUserId && hostUserId.trim() === race.hostUserId);
+    const clean = hostUserId ? hostUserId.trim() : "";
+    return Boolean(
+      clean && (clean === race.hostUserId || (race.originalHostUserId && clean === race.originalHostUserId))
+    );
   }
 
   private removePrivateRaceInternal(race: RaceState): void {
@@ -1764,7 +2184,7 @@ export class RaceManager {
       for (let i = 0; i < 5; i++) {
         candidate += chars[Math.floor(Math.random() * chars.length)];
       }
-      if (candidate !== avoidUpper && !this.pinToRaceMap.has(candidate)) {
+      if (candidate !== avoidUpper && !this.pinToRaceMap.has(candidate) && !this.guestTicketsByPin.has(candidate)) {
         return candidate;
       }
     }

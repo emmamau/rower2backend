@@ -15,6 +15,8 @@ export interface LiveRacerMetric {
   country?: string;
   status: string;
   elapsedTime?: number;
+  ready?: boolean;
+  connectionState?: 'CONNECTED' | 'READY';
 }
 
 export interface LeaderboardUpdatePayload {
@@ -40,7 +42,17 @@ export class SocketService {
   private leaderboardSubject = new Subject<LeaderboardUpdatePayload>();
   private statusSubject = new Subject<{ raceId: string; status: string; details?: any }>();
   private privateRoomUpdateSubject = new Subject<PrivateRoomUpdatePayload>();
-  private garminPairedSubject = new Subject<{ userId: string; deviceId?: string; deviceToken: string }>();
+  private garminPairedSubject = new Subject<{
+    userId: string;
+    deviceId?: string;
+    deviceToken: string;
+    ticketClaimed?: boolean;
+    guestName?: string;
+    lane?: number;
+    raceId?: string;
+    roomCode?: string;
+    socketId?: string;
+  }>();
 
   private currentRoomId: string | null = null;
 
@@ -113,7 +125,21 @@ export class SocketService {
     return this.privateRoomUpdateSubject.asObservable();
   }
 
-  public onGarminPaired(): Observable<{ userId: string; deviceId?: string; deviceToken: string }> {
+  public getSocketId(): string | undefined {
+    return this.socket?.id;
+  }
+
+  public onGarminPaired(): Observable<{
+    userId: string;
+    deviceId?: string;
+    deviceToken: string;
+    ticketClaimed?: boolean;
+    guestName?: string;
+    lane?: number;
+    raceId?: string;
+    roomCode?: string;
+    socketId?: string;
+  }> {
     return this.garminPairedSubject.asObservable();
   }
 }

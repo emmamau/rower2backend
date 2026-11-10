@@ -95,6 +95,7 @@ export class AppComponent implements OnInit, OnDestroy {
   // Identification directe & Nouveau protocole d'appairage Garmin sécurisé (Code Web -> Montre)
   isWatchConfirmed = false;
   isPaired = false;
+  isWatchGuidanceModalOpen = false;
   deviceToken = '';
   pairingCode = '';
   pairingCountdownSeconds = 300;
@@ -244,6 +245,12 @@ export class AppComponent implements OnInit, OnDestroy {
   isPrivateModalOpen = false;
   privateModalTab: PrivateModalTab = 'create';
   privateUrlError = '';
+  isPrivateBannerCollapsed = false;
+
+  onPrivateBannerCollapsedChange(collapsed: boolean): void {
+    this.isPrivateBannerCollapsed = collapsed;
+    this.cdr.markForCheck();
+  }
 
 
   private socketSub?: Subscription;
@@ -614,9 +621,13 @@ export class AppComponent implements OnInit, OnDestroy {
             // Calcul du classement et des écarts de distance en direct
             const activeList = this.racers.filter(r => r.status !== 'abandoned');
             this.totalActiveRacers = activeList.length;
+            const roomParts = this.activePrivateRoom?.race?.participants || [];
             this.liveMetricsList = activeList.map((r, idx) => {
               const isMe = r.userId === this.activeUserId;
               const assignedLane = isMe && this.myAssignedLane ? this.myAssignedLane : ((r as any).lane || idx + 1);
+              const partInfo = roomParts.find(p => p.userId === r.userId);
+              const isRowerAwake = (r.lastPower || 0) > 0 || (r.lastStrokeRate || 0) > 0 || (r.netDistance || 0) > 0;
+              const readyVal = partInfo && partInfo.ready !== undefined ? partInfo.ready : (isRowerAwake || Boolean(r.userId?.startsWith('bot_')));
               return {
                 lane: assignedLane,
                 userId: r.userId,
@@ -626,7 +637,9 @@ export class AppComponent implements OnInit, OnDestroy {
                 watts: r.lastPower || r.avgPower || 0,
                 spm: r.lastStrokeRate || r.avgStrokeRate || 0,
                 heartRate: r.lastHeartRate,
-                status: r.status || 'in_progress'
+                status: r.status || 'in_progress',
+                ready: readyVal,
+                connectionState: readyVal ? 'READY' : 'CONNECTED'
               };
             });
             const myIdx = activeList.findIndex(r => r.userId === this.activeUserId);
@@ -1184,6 +1197,11 @@ export class AppComponent implements OnInit, OnDestroy {
     // Dès la déconnexion, réinitialiser immédiatement tout statut et affichage d'appairage Garmin
     this.resetGarminPairing();
     this.myAssignedLane = 1;
+    this.myActivity = null;
+    this.selectedSpectatorUserId = '';
+    this.activePrivateRoom = null;
+    this.isWatchGuidanceModalOpen = false;
+    this.isLoginModalOpen = false;
 
     const randId = Math.random().toString(36).substring(2, 8);
     this.activeUserId = `usr_${randId}`;
@@ -1424,6 +1442,20 @@ export class AppComponent implements OnInit, OnDestroy {
     this.isLegalTermsOpen = false;
     this.isBotDuelModalOpen = false;
     this.isStatisticsModalOpen = false;
+    this.isWatchGuidanceModalOpen = false;
+  }
+
+  openWatchGuidanceAndPair(): void {
+    this.isWatchGuidanceModalOpen = true;
+    if (!this.pairingCode && !this.isGeneratingPairingCode) {
+      this.generateGarminPairingCode();
+    }
+    this.cdr.markForCheck();
+  }
+
+  closeWatchGuidanceModal(): void {
+    this.isWatchGuidanceModalOpen = false;
+    this.cdr.markForCheck();
   }
 
   // --------------------------------------------------------------------------
@@ -2278,6 +2310,7 @@ export class AppComponent implements OnInit, OnDestroy {
     this.pairingCode = '';
     this.isPaired = true;
     this.isWatchConfirmed = true;
+    this.isWatchGuidanceModalOpen = false;
     this.deviceToken = deviceToken;
     this.pairingSuccessMessage = '✓ Montre Garmin connectée avec succès !';
     this.pairingErrorMessage = '';
@@ -2725,12 +2758,56 @@ export class AppComponent implements OnInit, OnDestroy {
       this.privateUpdateSub.unsubscribe();
     }
     this.privateUpdateSub = this.socketService.onPrivateRoomUpdate().subscribe((update) => {
-      // Si la montre liée ou l'utilisateur actif vient de rejoindre le salon via PIN
+      // Si la montre liée ou l'utilisateur actif vient de rejoindre le salon via PIN ou Ticket Invité 5 caractères
       const currentActiveId = this.activeUserId || this.currentUser?.id || this.guestSessionId;
+      const mySocketId = this.socketService.getSocketId();
       const assignedLaneVal = Number(update?.['lane'] || 0);
-      if (update && update.type === 'PARTICIPANT_JOINED' && update.userId && (update.userId === currentActiveId || update.userId === this.currentUser?.id)) {
+      const updateHostId = update?.['hostUserId'] ? String(update['hostUserId']) : '';
+      const isMyGuestTicketClaim = Boolean(
+        update?.['ticketClaimed'] &&
+        ((mySocketId && update?.['socketId'] === mySocketId) ||
+          (update.userId && update.userId === currentActiveId) ||
+          (this.activePrivateRoom && (this.activePrivateRoom.race?.id === update.raceId || this.activePrivateRoom.code === update.raceId)))
+      );
+      const isMyRoomJoin = Boolean(
+        update &&
+        update.type === 'PARTICIPANT_JOINED' &&
+        (isMyGuestTicketClaim ||
+          (update.userId && (update.userId === currentActiveId || update.userId === this.currentUser?.id)) ||
+          (updateHostId && (updateHostId === currentActiveId || updateHostId === this.currentUser?.id)) ||
+          (this.activePrivateRoom && (this.activePrivateRoom.race?.id === update.raceId || this.activePrivateRoom.code === update.raceId)))
+      );
+
+      if (isMyGuestTicketClaim) {
+        if (update?.['deviceToken']) {
+          this.onWatchPairedSuccess(String(update['deviceToken']), update.userId);
+        }
+        if (update?.['guestName'] || update.userName) {
+          const gName = String(update['guestName'] || update.userName);
+          this.currentUser.name = gName;
+          this.userLoginInput = gName;
+          try {
+            localStorage.setItem('rower_user_login', gName);
+          } catch {}
+        }
         if (assignedLaneVal > 0) {
           this.myAssignedLane = assignedLaneVal;
+        }
+        this.isPrivateModalOpen = false;
+        this.setSiteView('regatta');
+      }
+
+      if (isMyRoomJoin) {
+        if (assignedLaneVal > 0 && (isMyGuestTicketClaim || update.userId === currentActiveId || updateHostId === currentActiveId || Boolean(update?.['isBotDuel']))) {
+          this.myAssignedLane = assignedLaneVal;
+        }
+        const cdSec = Number(update?.['countdownSeconds'] ?? update?.['secondsRemaining'] ?? 0);
+        if (cdSec > 0) {
+          this.countdownSeconds = cdSec;
+          this.syncCountdownUI();
+        }
+        if (Boolean(update?.['isBotDuel']) || isMyGuestTicketClaim) {
+          this.setSiteView('regatta');
         }
         if (!this.activePrivateRoom || (this.activePrivateRoom.race?.id !== update.raceId && this.activePrivateRoom.code !== update.raceId)) {
           this.rowerService.getPrivateRace(update.raceId).subscribe({
@@ -2749,6 +2826,10 @@ export class AppComponent implements OnInit, OnDestroy {
           if (data) {
             this.activePrivateRoom = data as PrivateRacePayload;
             this.nextRaceInfo = data;
+            if (typeof data.secondsRemaining === 'number' && data.secondsRemaining > 0 && !data.waitingForHost) {
+              this.countdownSeconds = data.secondsRemaining;
+              this.syncCountdownUI();
+            }
             this.cdr.markForCheck();
           }
         });
@@ -2761,8 +2842,23 @@ export class AppComponent implements OnInit, OnDestroy {
     this.garminPairedSub = this.socketService.onGarminPaired().subscribe((data) => {
       if (data && data.deviceToken) {
         const currentId = this.activeUserId || this.currentUser?.id || this.guestSessionId;
-        if (!this.isPaired || data.userId === currentId) {
+        const mySocketId = this.socketService.getSocketId();
+        const isMyTicket = Boolean(data.ticketClaimed && ((mySocketId && data.socketId === mySocketId) || (this.activePrivateRoom && this.activePrivateRoom.race?.id === data.raceId)));
+        if (!this.isPaired || data.userId === currentId || isMyTicket) {
           this.onWatchPairedSuccess(data.deviceToken, data.userId);
+          if (isMyTicket) {
+            if (data.guestName) {
+              this.currentUser.name = data.guestName;
+              this.userLoginInput = data.guestName;
+            }
+            if (data.lane) {
+              this.myAssignedLane = data.lane;
+            }
+            this.isPrivateModalOpen = false;
+            this.setSiteView('regatta');
+          } else if (this.siteView === 'home') {
+            this.setSiteView(this.activePrivateRoom ? 'regatta' : 'cockpit');
+          }
         }
       }
     });
@@ -2924,17 +3020,32 @@ export class AppComponent implements OnInit, OnDestroy {
     if (this.isPreStartCountdown || this.is3sCountdown || status === 'countdown') {
       return `Départ dans ${this.formattedPreRaceCountdown}`;
     }
+    const serverMsg = (this.activePrivateRoom as any)?.waitingStatusMessage || race?.waitingStatusMessage;
+    if (serverMsg) {
+      return serverMsg;
+    }
+    const parts: any[] = race?.participants || (this.activePrivateRoom as any)?.participants || [];
+    const anyNotReady = parts.some((p: any) => p.ready === false || p.connectionState === 'CONNECTED');
     const isDuel = Boolean(race?.isDuel1v1 || (this.activePrivateRoom as any)?.isDuel1v1);
     if (isDuel) {
-      const pCount = (this.activePrivateRoom as any)?.participants?.length || (this.activePrivateRoom as any)?.totalParticipants || 0;
+      const pCount = parts.length || (this.activePrivateRoom as any)?.totalParticipants || 0;
       if (pCount < 2) {
         return "En attente de l'adversaire...";
       }
-      return "Adversaire connecté - Préparez-vous";
+      if (anyNotReady) {
+        return "Adversaire en cours de connexion au rameur...";
+      }
+      return "Rameur prêt - En attente du départ";
     }
     const isBot = Boolean(race?.isBotDuel || (this.activePrivateRoom as any)?.isBotDuel);
     if (isBot) {
-      return "En attente du départ contre le bot...";
+      if (anyNotReady) {
+        return `Ligne ${this.myAssignedLane || 1} attribuée - Donnez un coup de rame pour réveiller le rameur`;
+      }
+      return "Rameur prêt - En attente du départ";
+    }
+    if (anyNotReady) {
+      return "En attente de connexion au rameur...";
     }
     const isScheduled = race?.startMode === 'scheduled' || (this.activePrivateRoom as any)?.startMode === 'scheduled';
     if (isScheduled) {

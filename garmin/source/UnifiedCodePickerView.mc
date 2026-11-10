@@ -53,6 +53,10 @@ class UnifiedCodePickerView extends WatchUi.View {
         _cancelCallback = cancelCb;
     }
 
+    public function hasCancelCallback() as Boolean {
+        return (_cancelCallback != null);
+    }
+
     public function getCodeLength() as Number {
         return _codeLength;
     }
@@ -337,7 +341,7 @@ class UnifiedCodePickerDelegate extends WatchUi.BehaviorDelegate {
     //! - Si index == 0 : annule la saisie et revient au menu précédent
     public function onBack() as Boolean {
         var cancelled = _pickerView.backspaceOrCancel();
-        if (cancelled) {
+        if (cancelled && !_pickerView.hasCancelCallback()) {
             WatchUi.popView(WatchUi.SLIDE_RIGHT);
         }
         return true;

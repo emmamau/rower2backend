@@ -13,6 +13,8 @@ export interface LiveRacerMetric {
   country?: string;
   status: string;
   elapsedTime?: number;
+  ready?: boolean;
+  connectionState?: "CONNECTED" | "READY";
 }
 
 export interface LeaderboardUpdatePayload {

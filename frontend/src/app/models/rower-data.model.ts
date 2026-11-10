@@ -38,6 +38,23 @@ export interface PrivateRoomParticipant {
   userId: string;
   userName: string;
   joinedAt: string;
+  lane?: number;
+  ready?: boolean;
+  connectionState?: 'CONNECTED' | 'READY';
+}
+
+export interface GuestTicketResponse {
+  success: boolean;
+  ticketPin: string;
+  pinCode: string;
+  guestName: string;
+  guestUserId: string;
+  lane: number;
+  raceId: string;
+  roomCode: string;
+  targetDistance: number;
+  expiresAt: string;
+  expiresInSeconds: number;
 }
 
 export interface NextRaceInfo {
@@ -61,6 +78,8 @@ export interface NextRaceInfo {
     autoStart?: boolean;
     hasBots?: boolean;
     isBotDuel?: boolean;
+    isDuel1v1?: boolean;
+    waitingStatusMessage?: string;
     internalStatus?: string;
     status: string;
     totalParticipants: number;
@@ -77,6 +96,7 @@ export interface NextRaceInfo {
   maxDurationSeconds?: number;
   elapsedSeconds?: number;
   waitingForHost?: boolean;
+  waitingStatusMessage?: string;
   formattedCountdown: string;
   totalParticipants: number;
   requireApproval?: boolean;

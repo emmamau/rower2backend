@@ -22,7 +22,57 @@ class UserManager {
         if (stored != null && stored instanceof String && (stored as String).length() > 0) {
             return stored as String;
         }
-        return "Garmin_Watch";
+        var guestPseudo = Storage.getValue("guestPseudo");
+        if (guestPseudo != null && guestPseudo instanceof String && (guestPseudo as String).length() > 0) {
+            return guestPseudo as String;
+        }
+        return "Rameur_42";
+    }
+
+    static function isGuestSession() as Boolean {
+        var isGuestFlag = Storage.getValue("isGuestPaired");
+        if (isGuestFlag != null && isGuestFlag instanceof Boolean && (isGuestFlag as Boolean) == true) {
+            return true;
+        }
+        if (!isPaired()) {
+            return true;
+        }
+        var uid = getPairedUserId();
+        if (uid != null && (uid as String).find("guest_") == 0) {
+            return true;
+        }
+        return false;
+    }
+
+    static function setGuestPaired(isGuest as Boolean) as Void {
+        Storage.setValue("isGuestPaired", isGuest);
+    }
+
+    static function setGuestPseudo(pseudo as String) as Void {
+        Storage.setValue("guestPseudo", pseudo);
+        Storage.setValue("userLogin", pseudo);
+    }
+
+    static function getDisplayPseudo() as String {
+        if (isGuestSession()) {
+            var gp = Storage.getValue("guestPseudo");
+            if (gp != null && gp instanceof String && (gp as String).length() > 0) {
+                return gp as String;
+            }
+            var ul = Storage.getValue("userLogin");
+            if (ul != null && ul instanceof String && (ul as String).length() > 0 && (ul as String).find("guest_") != 0) {
+                return ul as String;
+            }
+        }
+        return getUserId();
+    }
+
+    static function getActiveProfileLabel() as String {
+        var displayName = getDisplayPseudo();
+        if (isPaired() && !isGuestSession()) {
+            return "Joueur : " + displayName + " (Compte Web)";
+        }
+        return "Joueur : " + displayName + " (Invite)";
     }
 
     // Identifiant matériel unique de la montre pour l'appairage sécurisé
@@ -82,6 +132,7 @@ class UserManager {
     static function clearPairing() as Void {
         Storage.deleteValue("deviceToken");
         Storage.deleteValue("pairedUserId");
+        Storage.deleteValue("isGuestPaired");
     }
 
     // Alias for explicit user login display

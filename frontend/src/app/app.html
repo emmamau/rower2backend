@@ -3,6 +3,7 @@
   [class.mobile-fullscreen-view]="isMobileFullscreenOnly"
   [class.rigid-viewport]="isRigidViewportActive"
   [class.pure-screen-active]="siteView !== 'home'"
+  [class.priv-banner-collapsed]="isPrivateBannerCollapsed"
   [class.immersion-mode]="isImmersionActive"
   [class.controls-faded]="isImmersionActive && !isImmersionControlsVisible"
   (pointerdown)="onImmersionPointerDown($event)"
@@ -40,10 +41,11 @@
     </div>
   </aside>
 
-  <!-- BOUTON FLOTTANT UNIQUE PLEIN ÉCRAN ACCESSIBLE (AU-DESSUS DU DOCK / BARRE INFÉRIEURE) -->
+  <!-- BOUTON FLOTTANT UNIQUE PLEIN ÉCRAN ACCESSIBLE (MASQUÉ POUR NE JAMAIS CHEVAUCHER LE DOCK MOBILE) -->
   <button
     type="button"
     class="btn-floating-fullscreen"
+    style="display: none !important;"
     [class.active]="isFullscreen"
     (click)="toggleFullscreen()"
     [title]="isFullscreen ? i18n.t('FULLSCREEN_EXIT') : i18n.t('FULLSCREEN_ENTER')"
@@ -375,8 +377,6 @@
                   <span class="badge-role-tag is-admin" title="Administratrice">👑 Admin</span>
                 } @else if (isSubscriber) {
                   <span class="badge-role-tag is-sub" title="Abonné(e)">⭐ Abonné</span>
-                } @else {
-                  <span class="badge-role-tag is-paired" title="Montre connectée">⌚ Appairé</span>
                 }
               </div>
               <div class="player-code">
@@ -1417,13 +1417,15 @@
       [isRegisteredUser]="isRegisteredUser"
       [activeRacersCount]="activeRacersCount"
       [externalError]="privateUrlError"
+      [siteView]="siteView"
       (modalClose)="onPrivateModalClosed()"
       (openModalRequest)="openPrivateModal($event)"
       (roomSelected)="onPrivateRoomSelected($event)"
       (roomUpdated)="onPrivateRoomUpdated($event)"
       (roomClosedOrLeft)="onPrivateRoomClosedOrLeft($event)"
       (botsToggled)="onPrivateRoomBotsToggled($event)"
-      (requestAccountModal)="openAccountModal($event)">
+      (requestAccountModal)="openAccountModal($event)"
+      (bannerCollapsedChange)="onPrivateBannerCollapsedChange($event)">
     </app-private-room-manager>
 
     <!-- Mode plein écran épuré et compatibilité: @if (isRaceActive || isMobileFullscreenOnly) -->
@@ -1553,7 +1555,7 @@
       </section>
 
       <!-- BANDEAU DE STATUT D'ATTENTE DE SALON PRIVÉ / DUEL / PROGRAMMÉ -->
-      <aside class="regatta-waiting-banner" *ngIf="activePrivateRoom && nextRaceInfo?.status !== 'in_progress' && nextRaceInfo?.status !== 'finished'" role="status" aria-live="polite">
+      <aside class="regatta-waiting-banner" *ngIf="activePrivateRoom && !isPrivateBannerCollapsed && nextRaceInfo?.status !== 'in_progress' && nextRaceInfo?.status !== 'finished'" role="status" aria-live="polite">
         <div class="rwb-content">
           <span class="rwb-icon">⏳</span>
           <span class="rwb-text">{{ getWaitingStatusText() }}</span>
@@ -1880,6 +1882,113 @@
       <!-- ========================================================================= -->
       <!-- PAGE D'ACCUEIL : TOUTES LES INFORMATIONS NÉCESSAIRES -->
       <!-- ========================================================================= -->
+
+      <!-- 2.1 BANNIÈRE D'ACCUEIL & STATUT MATÉRIEL EN UN COUP D'ŒIL -->
+      <section class="home-welcome-banner" *ngIf="!isMobileFullscreenOnly" aria-label="Accueil et statut matériel">
+        @if (isRegisteredUser || isSubscriber || isUserAdmin) {
+          <div class="welcome-banner-card is-connected">
+            <div class="welcome-left">
+              <span class="welcome-league-badge" [title]="currentUserLeague.name">{{ currentUserLeague.badge }}</span>
+              <div class="welcome-texts">
+                <h2 class="welcome-title">Ravi de vous revoir, {{ currentUser.name }}</h2>
+                <span class="welcome-sub">Ligue {{ currentUserLeague.name }} · {{ currentUser.points || 0 }} pts</span>
+              </div>
+            </div>
+            <div class="welcome-right">
+              @if (isPaired || isWatchConfirmed) {
+                <div class="hardware-status-pill is-linked">
+                  <span class="hw-status-dot dot-green"></span>
+                  <span class="hw-status-label">Montre Garmin liée</span>
+                </div>
+              } @else {
+                <button
+                  type="button"
+                  class="btn-welcome-link-watch"
+                  [disabled]="isGeneratingPairingCode"
+                  (click)="openWatchGuidanceAndPair()">
+                  ⌚ Lier ma montre Garmin
+                </button>
+              }
+            </div>
+          </div>
+        } @else {
+          <div class="welcome-banner-card is-visitor">
+            <div class="welcome-left">
+              <span class="welcome-icon">🚣</span>
+              <div class="welcome-texts">
+                <h2 class="welcome-title">Prêt à ramer ? Rejoignez une course ou lancez un entraînement libre en quelques secondes</h2>
+                <span class="welcome-sub">Synchronisation directe Garmin Connect IQ · Concept2 PM5 · WaterRower SmartRow · FTMS</span>
+              </div>
+            </div>
+            <div class="welcome-right">
+              @if (isPaired || isWatchConfirmed) {
+                <div class="hardware-status-pill is-linked">
+                  <span class="hw-status-dot dot-green"></span>
+                  <span class="hw-status-label">Montre Garmin liée</span>
+                </div>
+              } @else {
+                <button
+                  type="button"
+                  class="btn-welcome-link-watch"
+                  [disabled]="isGeneratingPairingCode"
+                  (click)="openWatchGuidanceAndPair()">
+                  ⌚ Lier ma montre Garmin
+                </button>
+              }
+            </div>
+          </div>
+        }
+      </section>
+
+      <!-- 2.2 TUNNEL D'ACTION EN 3 CARTES DIRECTES -->
+      <section class="home-action-tunnel" *ngIf="!isMobileFullscreenOnly" aria-label="Tunnel d'action rapide">
+        <div class="action-tunnel-grid">
+          <!-- Carte 1 : Course Rapide / Salon Public -->
+          <div class="action-tunnel-card card-public-race" (click)="setSiteView('regatta')" role="button" tabindex="0">
+            <div class="atc-header">
+              <span class="atc-icon">🏁</span>
+              <span class="atc-badge">Départ Automatique</span>
+            </div>
+            <h3 class="atc-title">Course Rapide / Salon Public</h3>
+            <p class="atc-desc">
+              Rejoignez le lobby de la prochaine rotation publique ({{ nextRaceInfo?.race?.targetDistance || 2000 }}m) et affrontez les rameurs connectés en direct.
+            </p>
+            <div class="atc-footer">
+              <span class="atc-cta">Rejoindre le plan d'eau &rarr;</span>
+            </div>
+          </div>
+
+          <!-- Carte 2 : Rejoindre un Salon Privé -->
+          <div class="action-tunnel-card card-private-room" (click)="openPrivateModal('join')" role="button" tabindex="0">
+            <div class="atc-header">
+              <span class="atc-icon">🎟️</span>
+              <span class="atc-badge">Code 5 caractères</span>
+            </div>
+            <h3 class="atc-title">Rejoindre un Salon Privé</h3>
+            <p class="atc-desc">
+              Saisissez un code de salon ou obtenez votre code d'embarquement invité à 5 caractères pour rejoindre directement votre ligne d'eau.
+            </p>
+            <div class="atc-footer">
+              <span class="atc-cta">Entrer un code / Ticket invité &rarr;</span>
+            </div>
+          </div>
+
+          <!-- Carte 3 : Cockpit / Entraînement Libre -->
+          <div class="action-tunnel-card card-free-cockpit" (click)="setSiteView('cockpit')" role="button" tabindex="0">
+            <div class="atc-header">
+              <span class="atc-icon">📱</span>
+              <span class="atc-badge">Télémétrie Solo</span>
+            </div>
+            <h3 class="atc-title">Cockpit / Entraînement Libre</h3>
+            <p class="atc-desc">
+              Accès direct aux jauges de télémétrie solo en temps réel : Puissance (Watts), Allure (/500m), Cadence (SPM), Distance et Cardio.
+            </p>
+            <div class="atc-footer">
+              <span class="atc-cta">Ouvrir le Cockpit &rarr;</span>
+            </div>
+          </div>
+        </div>
+      </section>
 
       <!-- BANNIÈRE RAPIDE COURSE EN COURS DEPUIS L'ACCUEIL -->
       <div class="home-active-race-callout" *ngIf="isRaceActive">
@@ -2876,14 +2985,67 @@
         </div>
       }
 
-      <div class="modal-buttons">
-        <button type="button" class="btn-cyan" (click)="openSubscriptionModal()">
-          ⭐ {{ userStatisticsData?.isSubscriber ? 'Gérer mon abonnement' : 'Débloquer l\'illimité (Abonnements)' }}
-        </button>
-        <button type="button" class="btn-secondary" (click)="closeStatisticsModal()">
-          Fermer
-        </button>
+          <div class="modal-buttons">
+            <button type="button" class="btn-cyan" (click)="openSubscriptionModal()">
+              ⭐ {{ userStatisticsData?.isSubscriber ? 'Gérer mon abonnement' : 'Débloquer l\'illimité (Abonnements)' }}
+            </button>
+            <button type="button" class="btn-secondary" (click)="closeStatisticsModal()">
+              Fermer
+            </button>
+          </div>
+        </div>
       </div>
-    </div>
-  </div>
+
+      <!-- 2.3 MODALE DE GUIDAGE PAS-À-PAS EN 3 ÉTAPES ILLUSTRÉES (SI MONTRE NON LIÉE) -->
+      <div class="modal-overlay" *ngIf="isWatchGuidanceModalOpen" (click)="closeWatchGuidanceModal()">
+        <div class="modal-content modal-watch-guidance" (click)="$event.stopPropagation()">
+          <div class="modal-header-row">
+            <h3>⌚ Lier votre montre Garmin en 3 étapes</h3>
+            <button type="button" class="btn-close" (click)="closeWatchGuidanceModal()" aria-label="Fermer">✕</button>
+          </div>
+          <p class="modal-desc">
+            Suivez ces 3 étapes rapides pour associer votre montre Garmin à votre session :
+          </p>
+          <div class="guidance-steps-grid">
+            <div class="guidance-step-card">
+              <span class="guidance-step-badge">Étape 1</span>
+              <div class="guidance-step-illus" aria-hidden="true">⌚</div>
+              <p class="guidance-step-text">Ouvrez l'application RowerRace sur votre montre Garmin.</p>
+            </div>
+            <div class="guidance-step-card">
+              <span class="guidance-step-badge">Étape 2</span>
+              <div class="guidance-step-illus" aria-hidden="true">📲</div>
+              <p class="guidance-step-text">Sélectionnez 'Appairer la montre'.</p>
+            </div>
+            <div class="guidance-step-card">
+              <span class="guidance-step-badge">Étape 3</span>
+              <div class="guidance-step-illus" aria-hidden="true">🔢</div>
+              <p class="guidance-step-text">Saisissez le code affiché à l'écran.</p>
+            </div>
+          </div>
+
+          @if (pairingCode) {
+            <div class="guidance-active-code-box">
+              <span class="guidance-code-lbl">VOTRE CODE À 6 CARACTÈRES</span>
+              <strong class="guidance-code-digits">{{ pairingCode }}</strong>
+              <span class="guidance-code-timer">⏱️ Valide pendant {{ formattedPairingCountdown }}</span>
+            </div>
+          }
+
+          <div class="guidance-modal-actions">
+            @if (!pairingCode) {
+              <button
+                type="button"
+                class="btn-cyber-primary"
+                [disabled]="isGeneratingPairingCode"
+                (click)="generateGarminPairingCode()">
+                🔑 {{ isGeneratingPairingCode ? 'Génération...' : 'Afficher mon code à 6 caractères' }}
+              </button>
+            }
+            <button type="button" class="btn-secondary" (click)="closeWatchGuidanceModal()">
+              Fermer
+            </button>
+          </div>
+        </div>
+      </div>
 </div>

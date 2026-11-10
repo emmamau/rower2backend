@@ -26,6 +26,110 @@
   display: flex;
   flex-direction: column;
   gap: 0.7rem;
+  transition: padding 0.2s ease, margin 0.2s ease;
+}
+
+.priv-active-banner.is-collapsed {
+  padding: 0.2rem 0.6rem;
+  margin-bottom: 0.25rem;
+  border-radius: 9px;
+  min-height: 36px;
+  gap: 0;
+  justify-content: center;
+}
+
+.priv-collapsed-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.45rem;
+  width: 100%;
+  min-height: 32px;
+}
+
+.priv-collapsed-left,
+.priv-collapsed-right {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.priv-pill-lock-sm {
+  padding: 0.12rem 0.35rem !important;
+  font-size: 0.68rem !important;
+  line-height: 1;
+}
+
+.priv-collapsed-pin {
+  font-size: 0.78rem;
+  color: #e2e8f0;
+  cursor: pointer;
+  white-space: nowrap;
+  background: rgba(6, 9, 19, 0.85);
+  border: 1px solid rgba(255, 230, 0, 0.55);
+  border-radius: 6px;
+  padding: 0.15rem 0.45rem;
+}
+
+.priv-collapsed-pin strong {
+  font-family: monospace;
+  font-size: 0.88rem;
+  font-weight: 900;
+  letter-spacing: 1.5px;
+  color: #ffe600;
+}
+
+.priv-status-chip-sm {
+  font-size: 0.72rem !important;
+  padding: 0.14rem 0.45rem !important;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 150px;
+}
+
+.priv-btn-mini-cyan {
+  background: rgba(0, 240, 255, 0.16);
+  border: 1px solid rgba(0, 240, 255, 0.55);
+  color: #00f0ff;
+  min-width: 30px;
+  min-height: 28px;
+  padding: 0.1rem 0.4rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.78rem;
+}
+
+.priv-btn-collapse-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  min-height: 34px;
+  padding: 0.3rem 0.7rem;
+  border-radius: 8px;
+  border: 1.5px solid rgba(0, 240, 255, 0.65);
+  background: rgba(0, 240, 255, 0.14);
+  color: #00f0ff;
+  font-size: 0.78rem;
+  font-weight: 800;
+  cursor: pointer;
+  white-space: nowrap;
+  touch-action: manipulation;
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.priv-btn-collapse-toggle:hover,
+.priv-btn-collapse-toggle:active {
+  background: rgba(0, 240, 255, 0.28);
+  color: #ffffff;
+}
+
+.priv-btn-collapse-toggle.is-expand {
+  min-height: 28px;
+  padding: 0.18rem 0.55rem;
+  font-size: 0.72rem;
 }
 
 .priv-banner-top {
@@ -867,5 +971,172 @@
   font-size: 0.78rem;
   color: #94a3b8;
 }
+
+/* ==========================================================================
+   PARCOURS 2 : TICKET INVITÉ À 5 CARACTÈRES & STATUT BLE "READY"
+   ========================================================================== */
+.priv-guest-ticket-banner {
+  background: linear-gradient(135deg, rgba(10, 20, 42, 0.95), rgba(6, 12, 28, 0.98));
+  border: 1.5px solid #00f0ff;
+  border-radius: 12px;
+  padding: 0.75rem 1rem;
+  margin-top: 0.45rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  box-shadow: 0 0 18px rgba(0, 240, 255, 0.2);
+}
+
+.priv-guest-ticket-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.priv-guest-ticket-badge {
+  font-size: 0.74rem;
+  font-weight: 900;
+  letter-spacing: 0.6px;
+  color: #00f0ff;
+  background: rgba(0, 240, 255, 0.14);
+  border: 1px solid rgba(0, 240, 255, 0.45);
+  border-radius: 6px;
+  padding: 0.18rem 0.5rem;
+}
+
+.priv-guest-ticket-sub {
+  font-size: 0.76rem;
+  color: #cbd5e1;
+}
+
+.priv-guest-ticket-form {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.priv-guest-name-input {
+  flex: 1 1 180px;
+  min-width: 150px;
+  min-height: 38px;
+  font-size: 0.88rem;
+}
+
+.priv-guest-ticket-active {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  background: rgba(6, 9, 19, 0.88);
+  border: 1px solid rgba(57, 255, 20, 0.45);
+  border-radius: 10px;
+  padding: 0.6rem 0.85rem;
+}
+
+.priv-ticket-pin-box {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.priv-ticket-lbl {
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.8px;
+  color: #94a3b8;
+}
+
+.priv-ticket-digits {
+  font-family: monospace;
+  font-size: 1.65rem;
+  font-weight: 900;
+  letter-spacing: 5px;
+  color: #39ff14;
+  text-shadow: 0 0 12px rgba(57, 255, 20, 0.65);
+}
+
+.priv-ticket-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  font-size: 0.78rem;
+  color: #e2e8f0;
+}
+
+.priv-ticket-lane {
+  background: rgba(0, 240, 255, 0.18);
+  border: 1px solid rgba(0, 240, 255, 0.45);
+  color: #00f0ff;
+  font-weight: 800;
+  padding: 0.15rem 0.5rem;
+  border-radius: 6px;
+}
+
+.priv-ticket-timer {
+  color: #ffe600;
+  font-family: monospace;
+  font-weight: 800;
+}
+
+/* BLE READY STATUS STRIP */
+.priv-ble-status-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-top: 0.35rem;
+}
+
+.priv-ble-racer-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.28rem 0.65rem;
+  border-radius: 9999px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  background: rgba(15, 23, 42, 0.9);
+  border: 1px solid rgba(255, 152, 0, 0.45);
+  color: #fde68a;
+}
+
+.priv-ble-racer-pill.is-ready {
+  border-color: rgba(57, 255, 20, 0.55);
+  color: #dcfce7;
+  background: rgba(20, 83, 45, 0.35);
+}
+
+.ble-status-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.ble-status-dot.dot-green {
+  background: #39ff14;
+  box-shadow: 0 0 8px #39ff14;
+}
+
+.ble-status-dot.dot-orange {
+  background: #ff9800;
+  box-shadow: 0 0 8px #ff9800;
+}
+
+.ble-racer-name {
+  font-weight: 800;
+  color: #ffffff;
+}
+
+.ble-racer-state {
+  font-size: 0.72rem;
+  opacity: 0.92;
+}
+
 
 

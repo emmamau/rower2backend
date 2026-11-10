@@ -4588,11 +4588,24 @@ body.rigid-viewport {
   text-shadow: 0 0 10px rgba(255, 230, 0, 0.5);
 }
 
-/* Regatta Canvas in Rigid Viewport */
-.game-container.rigid-viewport .regatta-canvas-section,
-.game-container.mobile-fullscreen-view .regatta-canvas-section {
-  flex: 1 1 auto;
+/* Regatta Canvas in Rigid Viewport or when Private Salon Banner is Collapsed */
+.game-container.rigid-viewport .race-arena,
+.game-container.mobile-fullscreen-view .race-arena,
+.game-container.priv-banner-collapsed .race-arena {
+  flex: 1 1 0;
   min-height: 0;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.game-container.rigid-viewport .regatta-canvas-section,
+.game-container.mobile-fullscreen-view .regatta-canvas-section,
+.game-container.priv-banner-collapsed .regatta-canvas-section {
+  flex: 1 1 0 !important;
+  min-height: 0;
+  max-height: none !important;
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -4600,8 +4613,9 @@ body.rigid-viewport {
 }
 
 .game-container.rigid-viewport .canvas-display-card,
-.game-container.mobile-fullscreen-view .canvas-display-card {
-  flex: 1 1 auto;
+.game-container.mobile-fullscreen-view .canvas-display-card,
+.game-container.priv-banner-collapsed .canvas-display-card {
+  flex: 1 1 0 !important;
   min-height: 0;
   display: flex;
   flex-direction: column;
@@ -4609,8 +4623,9 @@ body.rigid-viewport {
 }
 
 .game-container.rigid-viewport app-regatta-canvas,
-.game-container.mobile-fullscreen-view app-regatta-canvas {
-  flex: 1 1 auto;
+.game-container.mobile-fullscreen-view app-regatta-canvas,
+.game-container.priv-banner-collapsed app-regatta-canvas {
+  flex: 1 1 0 !important;
   min-height: 0;
   height: 100%;
   display: flex;
@@ -4655,7 +4670,7 @@ body.rigid-viewport {
   }
 }
 
-/* Smartphone Portrait: 2-column or 3-column compact HUD under 2D canvas */
+/* Smartphone Portrait: Stretch 2D Regatta canvas to fill available viewport height when salon banner is collapsed */
 @media (orientation: portrait) and (max-width: 768px) {
   .game-container.rigid-viewport,
   .game-container.mobile-fullscreen-view {
@@ -4663,22 +4678,23 @@ body.rigid-viewport {
   }
   .game-container.rigid-viewport .regatta-canvas-section,
   .game-container.mobile-fullscreen-view .regatta-canvas-section {
-    max-height: 52dvh !important;
-    flex: 1 1 50% !important;
+    max-height: none !important;
+    flex: 1 1 0 !important;
+    min-height: 220px !important;
   }
   .regatta-unified-hud {
     flex: 0 0 auto !important;
-    margin-top: 0.35rem !important;
+    margin-block: 0.2rem !important;
   }
   .regatta-hud-grid {
     grid-template-columns: repeat(3, 1fr) !important;
-    gap: 0.35rem !important;
+    gap: 0.28rem !important;
   }
   .hud-mini-card {
-    padding: 0.35rem 0.45rem !important;
+    padding: 0.28rem 0.4rem !important;
   }
   .hud-mini-card .hm-val {
-    font-size: 1.05rem !important;
+    font-size: 1rem !important;
   }
   .spectator-camera-bar,
   .regatta-user-summary,
@@ -5949,3 +5965,326 @@ body.rigid-viewport {
 .compact-finish-table tr.is-me td {
   background: rgba(0, 240, 255, 0.1) !important;
 }
+
+/* ==========================================================================
+   SECTION 2 : BANNIÈRE D'ACCUEIL, TUNNEL D'ACTION 3 CARTES & MODALE GUIDAGE
+   ========================================================================== */
+.home-welcome-banner {
+  margin: 0.75rem 0 0.65rem;
+}
+
+.welcome-banner-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  background: linear-gradient(135deg, rgba(8, 16, 36, 0.94), rgba(14, 24, 52, 0.92));
+  border: 1.5px solid rgba(0, 240, 255, 0.42);
+  border-radius: 14px;
+  padding: 0.9rem 1.2rem;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.55), 0 0 18px rgba(0, 240, 255, 0.15);
+}
+
+.welcome-banner-card.is-guest {
+  border-color: rgba(255, 230, 0, 0.42);
+}
+
+.welcome-user-cluster {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  flex: 1 1 280px;
+}
+
+.welcome-greeting-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.welcome-league-icon {
+  font-size: 1.45rem;
+  line-height: 1;
+}
+
+.welcome-greeting-title {
+  margin: 0;
+  font-size: clamp(1rem, 2.5vw, 1.25rem);
+  font-weight: 900;
+  color: #ffffff;
+  letter-spacing: 0.3px;
+}
+
+.welcome-league-pill {
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: #ffe600;
+  background: rgba(255, 230, 0, 0.14);
+  border: 1px solid rgba(255, 230, 0, 0.45);
+  border-radius: 9999px;
+  padding: 0.15rem 0.55rem;
+}
+
+.welcome-sub-text {
+  margin: 0;
+  font-size: 0.84rem;
+  color: #cbd5e1;
+}
+
+.welcome-hardware-cluster {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+}
+
+.hardware-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.4rem 0.85rem;
+  border-radius: 9999px;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.hardware-status-pill.is-linked {
+  background: rgba(22, 101, 52, 0.35);
+  border: 1.5px solid #39ff14;
+  color: #dcfce7;
+  box-shadow: 0 0 12px rgba(57, 255, 20, 0.25);
+}
+
+.hw-status-dot.dot-green {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #39ff14;
+  box-shadow: 0 0 8px #39ff14;
+  display: inline-block;
+}
+
+.btn-welcome-link-watch {
+  background: linear-gradient(135deg, #00f0ff, #0077ff);
+  color: #060913;
+  border: none;
+  border-radius: 10px;
+  padding: 0.5rem 0.95rem;
+  font-size: 0.84rem;
+  font-weight: 900;
+  cursor: pointer;
+  box-shadow: 0 0 14px rgba(0, 240, 255, 0.35);
+  transition: transform 0.15s ease;
+}
+
+.btn-welcome-link-watch:hover {
+  transform: translateY(-1px);
+}
+
+.btn-welcome-guide {
+  background: rgba(15, 23, 42, 0.9);
+  border: 1px solid rgba(0, 240, 255, 0.45);
+  color: #e2e8f0;
+  border-radius: 10px;
+  padding: 0.48rem 0.85rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* Tunnel d'Action en 3 Cartes Directes */
+.home-action-tunnel {
+  margin: 0.65rem 0 1rem;
+}
+
+.action-tunnel-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 0.75rem;
+}
+
+.action-tunnel-card {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  text-align: left;
+  background: rgba(10, 18, 38, 0.9);
+  border: 1.5px solid rgba(0, 240, 255, 0.35);
+  border-radius: 12px;
+  padding: 0.85rem 1rem;
+  color: #f8fafc;
+  cursor: pointer;
+  transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.action-tunnel-card:hover {
+  transform: translateY(-2px);
+  border-color: #00f0ff;
+  box-shadow: 0 8px 22px rgba(0, 240, 255, 0.22);
+}
+
+.action-tunnel-card.card-private {
+  border-color: rgba(255, 230, 0, 0.45);
+}
+
+.action-tunnel-card.card-cockpit {
+  border-color: rgba(57, 255, 20, 0.45);
+}
+
+.tunnel-card-icon {
+  font-size: 1.65rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.tunnel-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.18rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.tunnel-card-title {
+  font-size: 0.92rem;
+  font-weight: 900;
+  color: #ffffff;
+}
+
+.tunnel-card-desc {
+  font-size: 0.76rem;
+  color: #94a3b8;
+  line-height: 1.3;
+}
+
+.tunnel-card-arrow {
+  font-size: 1.1rem;
+  font-weight: 900;
+  color: #00f0ff;
+}
+
+/* Modale Guidage Pas-à-Pas en 3 Étapes Illustrées */
+.modal-watch-guidance {
+  max-width: 680px;
+  width: 94vw;
+}
+
+.guidance-steps-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.85rem;
+  margin: 0.75rem 0 1rem;
+}
+
+.guidance-step-card {
+  background: rgba(10, 18, 38, 0.88);
+  border: 1px solid rgba(0, 240, 255, 0.35);
+  border-radius: 12px;
+  padding: 0.9rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0.45rem;
+}
+
+.guidance-step-badge {
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.8px;
+  color: #060913;
+  background: #00f0ff;
+  padding: 0.15rem 0.55rem;
+  border-radius: 9999px;
+}
+
+.guidance-step-illus {
+  font-size: 2rem;
+  margin: 0.2rem 0;
+}
+
+.guidance-step-text {
+  margin: 0;
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: #f1f5f9;
+  line-height: 1.35;
+}
+
+.guidance-active-code-box {
+  background: rgba(6, 11, 24, 0.95);
+  border: 2px solid #00f0ff;
+  border-radius: 12px;
+  padding: 0.85rem 1.2rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  margin-bottom: 1rem;
+}
+
+.guidance-code-lbl {
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: #94a3b8;
+}
+
+.guidance-code-digits {
+  font-family: monospace;
+  font-size: 2.2rem;
+  font-weight: 900;
+  letter-spacing: 6px;
+  color: #00f0ff;
+}
+
+.guidance-code-timer {
+  font-size: 0.78rem;
+  color: #ffe600;
+  font-weight: 700;
+}
+
+.guidance-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+}
+
+/* ==========================================================================
+   SECTION 8.4 : ÉCRAN SMARTPHONE 100% RÉGATE + DATA JOUEUR (ZÉRO SCROLL)
+   ========================================================================== */
+.btn-floating-fullscreen {
+  display: none !important;
+}
+
+.game-container.mobile-fullscreen-view app-private-room-manager,
+.game-container.mobile-fullscreen-view .priv-active-banner,
+.game-container.mobile-fullscreen-view .home-welcome-banner,
+.game-container.mobile-fullscreen-view .home-action-tunnel {
+  display: none !important;
+}
+
+@media (max-width: 768px) {
+  .game-container.rigid-viewport.mobile-fullscreen-view {
+    height: 100dvh !important;
+    width: 100vw !important;
+    overflow: hidden !important;
+    position: fixed !important;
+    inset: 0 !important;
+    overscroll-behavior: none !important;
+    touch-action: none !important;
+  }
+
+  .game-container.rigid-viewport app-private-room-manager,
+  .game-container.rigid-viewport .priv-active-banner,
+  .game-container.rigid-viewport .regatta-waiting-banner,
+  .game-container.rigid-viewport .spectator-camera-bar,
+  .game-container.rigid-viewport .regatta-user-summary,
+  .game-container.rigid-viewport .concept2-fairness-banner,
+  .game-container.rigid-viewport .regatta-fairness-banner {
+    display: none !important;
+  }
+}
+

@@ -345,6 +345,68 @@ export class PairingService {
   }
 
   /**
+   * Associe directement une montre Garmin (deviceId) à un utilisateur ou invité (Parcours 2 Ticket Invité Salon)
+   * Génère un deviceToken persistant UUID v4 et le stocke
+   */
+  public async pairGuestDirect(
+    userId: string,
+    deviceId: string,
+    extraPayload?: Record<string, any>
+  ): Promise<{
+    success: boolean;
+    deviceToken: string;
+    userId: string;
+    deviceId: string;
+  }> {
+    const cleanUserId = String(userId || "").trim() || `guest_${crypto.randomBytes(4).toString("hex")}`;
+    const cleanDeviceId = String(deviceId || "GARMIN_GUEST").trim();
+    const deviceToken = crypto.randomUUID();
+    const now = new Date();
+    const id = crypto.randomUUID();
+
+    const record: StoredPairing = {
+      id,
+      pairingCode: null,
+      userId: cleanUserId,
+      deviceId: cleanDeviceId,
+      deviceToken,
+      status: "paired",
+      expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+      pairedAt: now,
+      revokedAt: null,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    this.inMemoryPairings.set(id, record);
+    this.tokenIndex.set(deviceToken, id);
+
+    try {
+      await Pairings.create(record as any);
+    } catch (err) {
+      console.warn("[PairingService] DB pairGuestDirect fallback:", err);
+    }
+
+    try {
+      socketGateway.broadcast("garmin:paired", {
+        userId: cleanUserId,
+        deviceId: cleanDeviceId,
+        deviceToken,
+        ...(extraPayload || {}),
+      });
+    } catch (wsErr) {
+      console.warn("[PairingService] Socket broadcast garmin:paired warning:", wsErr);
+    }
+
+    return {
+      success: true,
+      deviceToken,
+      userId: cleanUserId,
+      deviceId: cleanDeviceId,
+    };
+  }
+
+  /**
    * Révoque un token d'appairage depuis le web ou la montre
    */
   public async revokePairing(identifier: {

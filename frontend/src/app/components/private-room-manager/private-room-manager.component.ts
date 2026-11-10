@@ -48,6 +48,7 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
   @Input() isRegisteredUser = false;
   @Input() activeRacersCount = 0;
   @Input() externalError = '';
+  @Input() siteView: 'home' | 'regatta' | 'cockpit' = 'home';
 
   @Output() modalClose = new EventEmitter<void>();
   @Output() openModalRequest = new EventEmitter<PrivateModalTab>();
@@ -56,8 +57,10 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
   @Output() roomClosedOrLeft = new EventEmitter<{ closedOnServer: boolean; raceId?: string }>();
   @Output() botsToggled = new EventEmitter<boolean>();
   @Output() requestAccountModal = new EventEmitter<'login' | 'register'>();
+  @Output() bannerCollapsedChange = new EventEmitter<boolean>();
 
   activeTab: PrivateModalTab = 'create';
+  isBannerCollapsed = false;
 
   // Create form fields
   roomTitle = '';
@@ -79,6 +82,15 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
   joinInput = '';
   joinError = '';
   isJoining = false;
+
+  // Parcours 2 : Ticket Invité de Salon (Code à 5 caractères atomique)
+  guestTicketName = '';
+  guestTicketPin = '';
+  guestTicketLane = 0;
+  guestTicketCountdownSeconds = 0;
+  isGeneratingGuestTicket = false;
+  guestTicketError = '';
+  private guestTicketTimerSub?: Subscription;
 
   // Share & host action state
   feedbackMessage = '';
@@ -108,6 +120,9 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
     if (!this.roomTitle) {
       this.roomTitle = this.defaultRoomTitle();
     }
+    if (!this.guestTicketName) {
+      this.guestTicketName = this.activeUserName || `Rameur_${Math.floor(10 + Math.random() * 89)}`;
+    }
     this.socketSub = this.socketService.onPrivateRoomUpdate().subscribe((update) => {
       if (this.activeRoom && (update.raceId === this.activeRoom.race?.id || update.raceId === this.activeRoom.code)) {
         this.refreshActiveRoom();
@@ -122,6 +137,9 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
     if (this.modalPollSub) {
       this.modalPollSub.unsubscribe();
     }
+    if (this.guestTicketTimerSub) {
+      this.guestTicketTimerSub.unsubscribe();
+    }
     if (this.feedbackTimer) {
       clearTimeout(this.feedbackTimer);
     }
@@ -132,6 +150,12 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
       if (this.activeRoom?.race?.code) {
         this.rememberSalon(this.activeRoom);
       }
+      this.checkAutoCollapseOnMobile();
+      this.cdr.markForCheck();
+    }
+
+    if (changes['siteView']) {
+      this.checkAutoCollapseOnMobile();
       this.cdr.markForCheck();
     }
 
@@ -282,8 +306,45 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
     if (!this.activeRoom) return false;
     if (this.isUserAdmin) return true;
     const hostId = this.activeRoom.race.hostUserId;
+    const origHostId = (this.activeRoom.race as any).originalHostUserId;
     if (!hostId || hostId === 'anonymous') return true;
-    return hostId === this.activeUserId;
+    return hostId === this.activeUserId || (Boolean(origHostId) && origHostId === this.activeUserId);
+  }
+
+  get isBotDuelRoom(): boolean {
+    return Boolean(this.activeRoom?.race?.isBotDuel || (this.activeRoom as any)?.isBotDuel);
+  }
+
+  toggleBannerCollapse(event?: Event): void {
+    if (event) {
+      event.stopPropagation();
+    }
+    this.isBannerCollapsed = !this.isBannerCollapsed;
+    this.bannerCollapsedChange.emit(this.isBannerCollapsed);
+    this.cdr.markForCheck();
+  }
+
+  setBannerCollapsed(collapsed: boolean): void {
+    if (this.isBannerCollapsed !== collapsed) {
+      this.isBannerCollapsed = collapsed;
+      this.bannerCollapsedChange.emit(this.isBannerCollapsed);
+      this.cdr.markForCheck();
+    }
+  }
+
+  private checkAutoCollapseOnMobile(): void {
+    if (typeof window === 'undefined' || !this.activeRoom) return;
+    const isSmallScreen = window.innerWidth <= 768 || window.innerHeight <= 600;
+    const internalSt = (this.activeRoom as any)?.internalStatus || (this.activeRoom.race as any)?.internalStatus;
+    const isRaceStartingOrRunning =
+      this.activeRoom.status === 'in_progress' ||
+      this.activeRoom.race?.status === 'RUNNING' ||
+      this.activeRoom.race?.status === 'in_progress' ||
+      internalSt === 'COUNTDOWN' ||
+      internalSt === 'RUNNING';
+    if (isSmallScreen && (this.siteView === 'regatta' || this.siteView === 'cockpit' || isRaceStartingOrRunning)) {
+      this.setBannerCollapsed(true);
+    }
   }
 
   get activeRoomCode(): string {
@@ -305,6 +366,94 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
 
   get pendingParticipants(): any[] {
     return this.activeRoom?.pendingParticipants ?? this.activeRoom?.race?.pendingParticipants ?? [];
+  }
+
+  get roomParticipants(): any[] {
+    return this.activeRoom?.race?.participants ?? [];
+  }
+
+  get areAllParticipantsReady(): boolean {
+    const parts = this.roomParticipants;
+    if (parts.length === 0) return true;
+    return parts.every((p) => p.ready !== false && p.connectionState !== 'CONNECTED');
+  }
+
+  get formattedGuestTicketCountdown(): string {
+    const m = Math.floor(this.guestTicketCountdownSeconds / 60);
+    const s = this.guestTicketCountdownSeconds % 60;
+    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  }
+
+  get guestTicketPinDigits(): string[] {
+    return this.guestTicketPin ? this.guestTicketPin.split('') : ['-', '-', '-', '-', '-'];
+  }
+
+  requestGuestBoardingTicket(roomIdentifier?: string): void {
+    const identifier = (roomIdentifier || this.activeRoomCode || this.activeRoom?.race?.id || this.joinInput || '').trim();
+    if (!identifier) {
+      this.guestTicketError = 'Veuillez saisir ou sélectionner un code salon.';
+      this.cdr.markForCheck();
+      return;
+    }
+
+    const parsed = parseRoomInviteInput(identifier);
+    const targetCode = parsed.valid ? parsed.value : identifier;
+    const cleanGuestName = (this.guestTicketName || this.activeUserName || `Rameur_${Math.floor(10 + Math.random() * 89)}`).trim();
+
+    this.isGeneratingGuestTicket = true;
+    this.guestTicketError = '';
+    const socketId = this.socketService.getSocketId();
+
+    this.rowerService
+      .createGuestTicket(targetCode, cleanGuestName, socketId, this.activeUserId)
+      .subscribe({
+        next: (res) => {
+          this.isGeneratingGuestTicket = false;
+          this.guestTicketPin = res.ticketPin || res.pinCode;
+          this.guestTicketLane = res.lane || 1;
+          this.guestTicketCountdownSeconds = res.expiresInSeconds || 600;
+          this.startGuestTicketCountdown();
+          this.showFeedback(`✓ Code d'embarquement ${this.guestTicketPin} généré (Ligne ${this.guestTicketLane}) !`);
+          if (!this.activeRoom && res.roomCode) {
+            this.rowerService.getPrivateRace(res.roomCode).subscribe({
+              next: (room) => {
+                (room as any).lane = this.guestTicketLane;
+                this.rememberSalon(room);
+                this.roomSelected.emit({ payload: room, pushUrl: true });
+                this.cdr.markForCheck();
+              },
+              error: () => {}
+            });
+          } else {
+            this.refreshActiveRoom();
+          }
+          this.cdr.markForCheck();
+        },
+        error: (err) => {
+          this.isGeneratingGuestTicket = false;
+          this.guestTicketError = err?.error?.error || err?.error?.message || "Impossible de générer le ticket invité.";
+          this.cdr.markForCheck();
+        }
+      });
+  }
+
+  private startGuestTicketCountdown(): void {
+    if (this.guestTicketTimerSub) {
+      this.guestTicketTimerSub.unsubscribe();
+    }
+    this.guestTicketTimerSub = interval(1000).subscribe(() => {
+      if (this.guestTicketCountdownSeconds > 0) {
+        this.guestTicketCountdownSeconds--;
+        this.cdr.markForCheck();
+      } else {
+        this.guestTicketPin = '';
+        if (this.guestTicketTimerSub) {
+          this.guestTicketTimerSub.unsubscribe();
+          this.guestTicketTimerSub = undefined;
+        }
+        this.cdr.markForCheck();
+      }
+    });
   }
 
   get shareUrl(): string {

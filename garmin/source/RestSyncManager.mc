@@ -118,6 +118,7 @@ class RestSyncManager {
                 if (d.hasKey("deviceToken") && d.get("deviceToken") != null) {
                     var token = d.get("deviceToken").toString();
                     UserManager.setDeviceToken(token);
+                    UserManager.setGuestPaired(false);
                     if (d.hasKey("userId") && d.get("userId") != null) {
                         UserManager.setPairedUserId(d.get("userId").toString());
                     }
@@ -319,15 +320,117 @@ class RestSyncManager {
         }
     }
 
+    // Parcours 2 : Validation atomique du Ticket Invité 5 caractères (POST /api/garmin/claim-ticket)
+    function claimGuestTicket(ticketPin as String) as Void {
+        var endpoint = getBaseUrl() + "/api/garmin/claim-ticket";
+        var payload = {
+            "ticketPin" => ticketPin,
+            "pin" => ticketPin,
+            "deviceId" => UserManager.getDeviceId()
+        };
+        var options = {
+            :method => Communications.HTTP_REQUEST_METHOD_POST,
+            :headers => {
+                "Content-Type" => Communications.REQUEST_CONTENT_TYPE_JSON
+            },
+            :responseType => Communications.HTTP_RESPONSE_CONTENT_TYPE_JSON
+        };
+
+        Communications.makeWebRequest(
+            endpoint,
+            payload,
+            options,
+            method(:onClaimTicketResponse)
+        );
+    }
+
+    function onClaimTicketResponse(responseCode as Number, data as Dictionary or String or Null) as Void {
+        if (_delegate != null) {
+            if (responseCode == 200 && data != null && data instanceof Dictionary) {
+                var d = data as Dictionary;
+                if (d.hasKey("deviceToken") && d.get("deviceToken") != null) {
+                    UserManager.setDeviceToken(d.get("deviceToken").toString());
+                    UserManager.setGuestPaired(true);
+                }
+                if (d.hasKey("guestName") && d.get("guestName") != null) {
+                    UserManager.setGuestPseudo(d.get("guestName").toString());
+                } else if (d.hasKey("userName") && d.get("userName") != null) {
+                    UserManager.setGuestPseudo(d.get("userName").toString());
+                }
+                if (d.hasKey("userId") && d.get("userId") != null) {
+                    UserManager.setPairedUserId(d.get("userId").toString());
+                } else if (d.hasKey("guestName") && d.get("guestName") != null) {
+                    UserManager.setPairedUserId(d.get("guestName").toString());
+                }
+                (_delegate as BleDelegate).onPinJoinSuccess(d);
+            } else {
+                (_delegate as BleDelegate).onPinJoinFailed(responseCode, data);
+            }
+        }
+    }
+
+    // Machine à États BLE : Notification READY du rameur au serveur (POST /api/rooms/:roomId/status)
+    function notifyRoomReady(roomId as String, ready as Boolean, userId as String) as Void {
+        if (roomId == null || roomId.length() == 0) {
+            return;
+        }
+        var endpoint = getBaseUrl() + "/api/rooms/" + roomId + "/status";
+        var devToken = UserManager.getDeviceToken();
+        var payload = {
+            "ready" => ready,
+            "userId" => userId
+        };
+        if (devToken != null && (devToken as String).length() > 0) {
+            payload.put("deviceToken", devToken);
+        }
+
+        var headers = {
+            "Content-Type" => Communications.REQUEST_CONTENT_TYPE_JSON
+        };
+        if (devToken != null && (devToken as String).length() > 0) {
+            headers.put("Authorization", "Bearer " + (devToken as String));
+        }
+
+        var options = {
+            :method => Communications.HTTP_REQUEST_METHOD_POST,
+            :headers => headers,
+            :responseType => Communications.HTTP_RESPONSE_CONTENT_TYPE_JSON
+        };
+
+        Communications.makeWebRequest(
+            endpoint,
+            payload,
+            options,
+            method(:onRoomReadyResponse)
+        );
+    }
+
+    function onRoomReadyResponse(responseCode as Number, data as Dictionary or String or Null) as Void {
+        if (_delegate != null && responseCode == 200 && data != null && data instanceof Dictionary) {
+            (_delegate as BleDelegate).onRoomReadyConfirmed(data as Dictionary);
+        }
+    }
+
     // Join private room using POST /api/rooms/join with deviceToken & quota verification
     function joinRoomByCode(code as String, userId as String, userName as String) as Void {
+        // Si la montre n'est pas encore liée à un compte web, tenter le Parcours 2 atomique (claim-ticket)
+        if (!UserManager.isPaired() || UserManager.isGuestSession()) {
+            claimGuestTicket(code);
+            return;
+        }
         var endpoint = getBaseUrl() + "/api/rooms/join";
         var devToken = UserManager.getDeviceToken();
+        var isRowerAwake = false;
+        if (_delegate != null) {
+            var mdl = (_delegate as BleDelegate).getModel();
+            isRowerAwake = (mdl.instantPower > 0 || mdl.strokeRate > 0.0f);
+        }
         var payload = {
             "pin" => code,
             "code" => code,
             "userId" => userId,
-            "userName" => userName
+            "userName" => userName,
+            "ready" => isRowerAwake
         };
         if (devToken != null && (devToken as String).length() > 0) {
             payload.put("deviceToken", devToken);

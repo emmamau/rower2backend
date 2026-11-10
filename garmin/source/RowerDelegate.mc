@@ -6,6 +6,9 @@ class RowerDelegate extends WatchUi.BehaviorDelegate {
 
     private var _bleDelegate as BleDelegate;
     private var _view as RowerView;
+    private var _pairingPickerDelegate as UnifiedCodePickerDelegate;
+    private var _roomPinPickerDelegate as UnifiedCodePickerDelegate;
+    private var _pseudoPickerDelegate as UnifiedCodePickerDelegate;
 
     public function initialize(bleDelegate as BleDelegate, view as RowerView) {
         BehaviorDelegate.initialize();
@@ -13,6 +16,13 @@ class RowerDelegate extends WatchUi.BehaviorDelegate {
         _view = view;
         _view.setPairingCompletedCallback(method(:onPairingCodeCompleted));
         _view.setRoomPinCompletedCallback(method(:onRoomPinCompleted));
+        _view.setPseudoCompletedCallback(method(:onPseudoCompleted));
+        _view.getPairingPicker().setCancelCallback(method(:onPickerCancelled));
+        _view.getRoomPinPicker().setCancelCallback(method(:onPickerCancelled));
+        _view.getPseudoPicker().setCancelCallback(method(:onPseudoPickerCancelled));
+        _pairingPickerDelegate = new UnifiedCodePickerDelegate(_view.getPairingPicker());
+        _roomPinPickerDelegate = new UnifiedCodePickerDelegate(_view.getRoomPinPicker());
+        _pseudoPickerDelegate = new UnifiedCodePickerDelegate(_view.getPseudoPicker());
     }
 
     public function onPairingCodeCompleted(code as String) as Void {
@@ -21,6 +31,35 @@ class RowerDelegate extends WatchUi.BehaviorDelegate {
 
     public function onRoomPinCompleted(pin as String) as Void {
         _bleDelegate.submitPinCode(pin);
+    }
+
+    public function onPseudoCompleted(pseudo as String) as Void {
+        UserManager.setGuestPseudo(pseudo);
+        _view.showWarning("Pseudo : " + pseudo, 2);
+        _view.setAppState(RowerView.STATE_PAIRING_STATUS);
+    }
+
+    public function onPseudoPickerCancelled() as Void {
+        _view.setAppState(RowerView.STATE_PAIRING_STATUS);
+    }
+
+    public function onPickerCancelled() as Void {
+        _view.setAppState(RowerView.STATE_MENU);
+    }
+
+    // Section 5.1 : Neutralisation formelle du bouton START / STOP / ENTER durant l'attente et les 15s de compte à rebours
+    public function onKey(keyEvent as WatchUi.KeyEvent) as Boolean {
+        var key = keyEvent.getKey();
+        var state = _view.getAppState();
+        if (state == RowerView.STATE_LOBBY ||
+            state == RowerView.STATE_WAITING_START ||
+            state == RowerView.STATE_COUNTDOWN_5S) {
+            if (key == WatchUi.KEY_ENTER || key == WatchUi.KEY_START) {
+                // Neutralisé jusqu'à T=0 : le départ est piloté exclusivement par le serveur
+                return true;
+            }
+        }
+        return BehaviorDelegate.onKey(keyEvent);
     }
 
     // Handles START / SELECT button
@@ -49,7 +88,7 @@ class RowerDelegate extends WatchUi.BehaviorDelegate {
                 _view.setRaceMode("solo");
                 _bleDelegate.startSoloSession();
             } else if (menuIdx == 3) {
-                // 4. Appairer la montre OU Statut Appaire
+                // 4. Appairer la montre OU Mon Profil & Identifiant
                 if (UserManager.isPaired()) {
                     _view.resetPairingStatusMenu();
                     _view.setAppState(RowerView.STATE_PAIRING_STATUS);
@@ -58,16 +97,30 @@ class RowerDelegate extends WatchUi.BehaviorDelegate {
                     _view.setAppState(RowerView.STATE_PAIRING_INPUT);
                 }
             } else if (menuIdx == 4) {
-                // 5. Historique local (G9)
+                // 5. Mon Profil & Identifiant (accessible à tout moment)
+                _view.resetPairingStatusMenu();
+                _view.setAppState(RowerView.STATE_PAIRING_STATUS);
+            } else if (menuIdx == 5) {
+                // 6. Historique local (G9)
                 _view.setAppState(RowerView.STATE_HISTORY);
             }
             return true;
         } else if (state == RowerView.STATE_PAIRING_INPUT) {
-            _view.advancePairingSlot();
-            return true;
+            return _pairingPickerDelegate.onSelect();
+        } else if (state == RowerView.STATE_PSEUDO_INPUT) {
+            return _pseudoPickerDelegate.onSelect();
         } else if (state == RowerView.STATE_PAIRING_STATUS) {
             var pStatusIdx = _view.getPairingStatusMenuIndex();
-            if (pStatusIdx == 1) {
+            if (pStatusIdx == 0) {
+                // Modifier le pseudo (uniquement en mode Invité ; verrouillé en mode Compte Lié)
+                if (UserManager.isGuestSession()) {
+                    _view.resetPseudoDigits();
+                    _view.setAppState(RowerView.STATE_PSEUDO_INPUT);
+                } else {
+                    _view.showWarning(I18n.getText("PROFILE_SYNCED_WEB"), 3);
+                }
+            } else if (pStatusIdx == 1) {
+                // Réinitialiser / Dissocier
                 _bleDelegate.requestResetPairing();
             } else {
                 _view.setAppState(RowerView.STATE_MENU);
@@ -87,10 +140,9 @@ class RowerDelegate extends WatchUi.BehaviorDelegate {
             }
             return true;
         } else if (state == RowerView.STATE_PIN_INPUT) {
-            _view.advancePinDigit();
-            return true;
+            return _roomPinPickerDelegate.onSelect();
         } else if (state == RowerView.STATE_LOBBY || state == RowerView.STATE_WAITING_START) {
-            _bleDelegate.launchRaceFromWaiting();
+            // Section 5.1 : Neutralisation formelle du bouton START durant l'attente et les 15s de compte à rebours
             return true;
         } else if (state == RowerView.STATE_LATE_CHOICE) {
             if (_view.getChoiceMenuIndex() == 0) {
@@ -134,14 +186,14 @@ class RowerDelegate extends WatchUi.BehaviorDelegate {
             _view.nextMainMenu();
             return true;
         } else if (state == RowerView.STATE_PAIRING_INPUT) {
-            _view.cyclePairingChar(1);
-            return true;
+            return _pairingPickerDelegate.onNextPage();
+        } else if (state == RowerView.STATE_PSEUDO_INPUT) {
+            return _pseudoPickerDelegate.onNextPage();
         } else if (state == RowerView.STATE_PAIRING_STATUS) {
             _view.togglePairingStatusMenu();
             return true;
         } else if (state == RowerView.STATE_PIN_INPUT) {
-            _view.cyclePinDigit(1);
-            return true;
+            return _roomPinPickerDelegate.onNextPage();
         } else if (state == RowerView.STATE_LATE_CHOICE) {
             _view.toggleChoiceMenu();
             return true;
@@ -167,14 +219,14 @@ class RowerDelegate extends WatchUi.BehaviorDelegate {
             _view.prevMainMenu();
             return true;
         } else if (state == RowerView.STATE_PAIRING_INPUT) {
-            _view.cyclePairingChar(-1);
-            return true;
+            return _pairingPickerDelegate.onPreviousPage();
+        } else if (state == RowerView.STATE_PSEUDO_INPUT) {
+            return _pseudoPickerDelegate.onPreviousPage();
         } else if (state == RowerView.STATE_PAIRING_STATUS) {
-            _view.togglePairingStatusMenu();
+            _view.prevPairingStatusMenu();
             return true;
         } else if (state == RowerView.STATE_PIN_INPUT) {
-            _view.cyclePinDigit(-1);
-            return true;
+            return _roomPinPickerDelegate.onPreviousPage();
         } else if (state == RowerView.STATE_LATE_CHOICE) {
             _view.toggleChoiceMenu();
             return true;
@@ -199,11 +251,11 @@ class RowerDelegate extends WatchUi.BehaviorDelegate {
             _view.setAppState(RowerView.STATE_MENU);
             return true;
         } else if (state == RowerView.STATE_PAIRING_INPUT) {
-            _view.advancePairingSlot();
-            return true;
+            return _pairingPickerDelegate.onTap(clickEvent);
+        } else if (state == RowerView.STATE_PSEUDO_INPUT) {
+            return _pseudoPickerDelegate.onTap(clickEvent);
         } else if (state == RowerView.STATE_PIN_INPUT) {
-            _view.advancePinDigit();
-            return true;
+            return _roomPinPickerDelegate.onTap(clickEvent);
         }
         return false;
     }
@@ -212,23 +264,11 @@ class RowerDelegate extends WatchUi.BehaviorDelegate {
     public function onSwipe(swipeEvent as SwipeEvent) as Boolean {
         var state = _view.getAppState();
         if (state == RowerView.STATE_PAIRING_INPUT) {
-            var dir = swipeEvent.getDirection();
-            if (dir == WatchUi.SWIPE_UP) {
-                _view.cyclePairingChar(-1);
-                return true;
-            } else if (dir == WatchUi.SWIPE_DOWN) {
-                _view.cyclePairingChar(1);
-                return true;
-            }
+            return _pairingPickerDelegate.onSwipe(swipeEvent);
+        } else if (state == RowerView.STATE_PSEUDO_INPUT) {
+            return _pseudoPickerDelegate.onSwipe(swipeEvent);
         } else if (state == RowerView.STATE_PIN_INPUT) {
-            var dir2 = swipeEvent.getDirection();
-            if (dir2 == WatchUi.SWIPE_UP) {
-                _view.cyclePinDigit(-1);
-                return true;
-            } else if (dir2 == WatchUi.SWIPE_DOWN) {
-                _view.cyclePinDigit(1);
-                return true;
-            }
+            return _roomPinPickerDelegate.onSwipe(swipeEvent);
         }
         return false;
     }
@@ -244,16 +284,9 @@ class RowerDelegate extends WatchUi.BehaviorDelegate {
             _view.setAppState(RowerView.STATE_SCANNING);
             return true;
         } else if (state == RowerView.STATE_PAIRING_INPUT) {
-            var canExit = _view.backspacePairingSlot();
-            if (canExit) {
-                if (UserManager.isPaired()) {
-                    _view.setAppState(RowerView.STATE_MENU);
-                    return true;
-                } else {
-                    return false; // Exit app if not paired
-                }
-            }
-            return true;
+            return _pairingPickerDelegate.onBack();
+        } else if (state == RowerView.STATE_PSEUDO_INPUT) {
+            return _pseudoPickerDelegate.onBack();
         } else if (state == RowerView.STATE_PAIRING_STATUS) {
             _view.setAppState(RowerView.STATE_MENU);
             return true;
@@ -271,11 +304,7 @@ class RowerDelegate extends WatchUi.BehaviorDelegate {
             }
             return true;
         } else if (state == RowerView.STATE_PIN_INPUT) {
-            var canExit = _view.backspacePinDigit();
-            if (canExit) {
-                _view.setAppState(RowerView.STATE_MENU);
-            }
-            return true;
+            return _roomPinPickerDelegate.onBack();
         } else if (state == RowerView.STATE_LATE_CHOICE || state == RowerView.STATE_LOBBY ||
                    state == RowerView.STATE_WAITING_START || state == RowerView.STATE_HISTORY ||
                    state == RowerView.STATE_FINISHED || state == RowerView.STATE_PENDING_APPROVAL) {
