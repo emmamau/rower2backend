@@ -6288,3 +6288,202 @@ body.rigid-viewport {
   }
 }
 
+/* ==========================================================================
+   OPTIMISATION COCKPIT SMARTPHONE PORTRAIT (ZÉRO SCROLL & ANTI-TRONCATURE)
+   ========================================================================== */
+@media (max-width: 768px) and (orientation: portrait) {
+  html, body {
+    overflow: hidden !important;
+    height: 100dvh !important;
+    max-height: 100dvh !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Conteneur principal plein écran rigide en mode Cockpit portrait */
+  .game-container:has(.cockpit-hud),
+  .game-container.pure-screen-active:has(.cockpit-hud),
+  .game-container.rigid-viewport:has(.cockpit-hud) {
+    position: fixed !important;
+    inset: 0 !important;
+    width: 100vw !important;
+    height: 100dvh !important;
+    max-height: 100dvh !important;
+    overflow: hidden !important;
+    overscroll-behavior: none !important;
+    touch-action: none !important;
+    padding-top: max(6px, env(safe-area-inset-top, 0px)) !important;
+    padding-bottom: max(6px, env(safe-area-inset-bottom, 0px)) !important;
+    padding-left: max(6px, env(safe-area-inset-left, 0px)) !important;
+    padding-right: max(6px, env(safe-area-inset-right, 0px)) !important;
+    margin: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: flex-start !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Compacter le header supérieur pour éliminer l'espace mort au-dessus */
+  .pure-screen-header {
+    padding: 4px 8px !important;
+    min-height: 32px !important;
+    height: 32px !important;
+    margin: 0 !important;
+    flex: 0 0 32px !important;
+    border-bottom: 1px solid rgba(0, 240, 255, 0.25) !important;
+    display: flex !important;
+    align-items: center !important;
+  }
+  .pure-screen-header .pure-screen-tag,
+  .pure-screen-header .pure-league-badge,
+  .pure-screen-header .pure-lang-dropdown {
+    display: none !important;
+  }
+  .pure-screen-header .btn-pure-nav {
+    padding: 2px 8px !important;
+    font-size: 0.72rem !important;
+    min-height: 24px !important;
+  }
+  .pure-screen-header .pure-user-pill {
+    padding: 2px 6px !important;
+    font-size: 0.70rem !important;
+  }
+
+  /* Arène de course dédiée au Cockpit : flex-start, pas de scroll, plein viewport utile */
+  .race-arena {
+    padding: 0 !important;
+    margin: 0 !important;
+    gap: 4px !important;
+    flex: 1 1 0 !important;
+    min-height: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: flex-start !important;
+    overflow: hidden !important;
+    width: 100% !important;
+  }
+
+  /* Masquer éléments secondaires encombrants en cockpit portrait sur mobile */
+  .cockpit-spectator-bar,
+  .cockpit-pair-shortcut-strip,
+  .spectator-camera-bar {
+    display: none !important;
+  }
+
+  /* Barre de progression compacte */
+  .cockpit-progress-strip {
+    flex: 0 0 auto !important;
+    padding: 4px 8px !important;
+    margin: 2px 0 !important;
+    border-radius: 8px !important;
+  }
+  .cockpit-progress-head {
+    margin-bottom: 2px !important;
+    font-size: 0.74rem !important;
+    gap: 2px !important;
+  }
+  .cockpit-progress-track {
+    block-size: 6px !important;
+  }
+
+  /* Grille des métriques du cockpit : 2 colonnes équilibrées en hauteur */
+  .cockpit-hud {
+    flex: 1 1 0 !important;
+    min-height: 0 !important;
+    height: 100% !important;
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    grid-template-rows: auto repeat(3, 1fr) !important;
+    gap: 5px !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: hidden !important;
+    align-content: stretch !important;
+  }
+
+  /* Carte classement et écarts en haut occupant toute la largeur */
+  .cockpit-hud .rank-gap-card {
+    grid-column: 1 / -1 !important;
+    padding: 4px 8px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+  }
+  .cockpit-hud .rank-gap-card .hud-label {
+    margin-bottom: 1px !important;
+    font-size: 0.62rem !important;
+  }
+  .cockpit-hud .rank-gap-card .rank-val {
+    font-size: 1.35rem !important;
+    line-height: 1 !important;
+  }
+  .cockpit-hud .rank-gap-card .gap-metrics-grid {
+    margin-top: 3px !important;
+    padding-top: 2px !important;
+    gap: 4px !important;
+  }
+  .cockpit-hud .rank-gap-card .gap-col {
+    padding: 2px 4px !important;
+  }
+  .cockpit-hud .rank-gap-card .gap-title {
+    font-size: 0.55rem !important;
+  }
+  .cockpit-hud .rank-gap-card .gap-val {
+    font-size: 0.72rem !important;
+    margin-top: 0 !important;
+  }
+
+  /* Les 6 cartes de métriques réparties en 3 rangées de 2 colonnes */
+  .cockpit-hud .primary-card {
+    grid-column: auto !important;
+  }
+  .cockpit-hud .hud-card:last-child {
+    grid-column: auto !important;
+  }
+
+  .cockpit-hud .hud-card {
+    padding: 4px 6px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+    border-radius: 8px !important;
+    min-height: 0 !important;
+  }
+
+  .cockpit-hud .hud-label {
+    font-size: 0.60rem !important;
+    letter-spacing: 0.8px !important;
+    margin-bottom: 2px !important;
+  }
+
+  .cockpit-hud .hud-value-huge,
+  .cockpit-expanded .hud-value-huge {
+    font-size: 1.45rem !important;
+    line-height: 1.05 !important;
+  }
+
+  .cockpit-hud .hud-value,
+  .cockpit-expanded .hud-value {
+    font-size: 1.25rem !important;
+    line-height: 1.05 !important;
+  }
+
+  .cockpit-hud .unit {
+    font-size: 0.70rem !important;
+  }
+
+  .cockpit-hud .hud-sub {
+    margin-top: 2px !important;
+    font-size: 0.62rem !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  /* Carte Cardio & Calories parfaitement visible et bien détachée */
+  .cockpit-hud .hud-card:last-child {
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.12), rgba(10, 15, 30, 0.96)) !important;
+    border-color: rgba(239, 68, 68, 0.45) !important;
+  }
+}
+
