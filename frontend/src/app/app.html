@@ -1628,6 +1628,28 @@
         </span>
       </div>
 
+      <!-- BARRE FLOTTANTE D'ACTION RAPIDE VUE RÉGATE : BASCULE COCKPIT & ACCUEIL -->
+      <aside class="regatta-quick-nav-bar" role="toolbar" aria-label="Navigation rapide régate">
+        <button
+          type="button"
+          class="btn-cockpit-quick btn-quick-cockpit"
+          (click)="setSiteView('cockpit')"
+          title="Bascule instantanée vers le Cockpit (données pures)"
+          aria-label="Mode Cockpit">
+          <span class="btn-quick-icon">📱</span>
+          <span class="btn-quick-label">Cockpit</span>
+        </button>
+        <button
+          type="button"
+          class="btn-cockpit-quick btn-quick-home"
+          (click)="setSiteView('home')"
+          title="Retour à l'accueil"
+          aria-label="Accueil">
+          <span class="btn-quick-icon">🏠</span>
+          <span class="btn-quick-label">Accueil</span>
+        </button>
+      </aside>
+
       <!-- Vue Régate Canvas 2D (Tableau de la Régate) -->
       <section class="regatta-canvas-section">
         <div class="canvas-display-card">
@@ -1804,9 +1826,32 @@
       <!-- Dedicated Ergometer Cockpit Live Progress Bar -->
       <section class="cockpit-progress-strip" aria-label="Progression de course">
         <div class="cockpit-progress-head">
-          <span class="cockpit-prog-title">
-            🚣 {{ myActivity?.netDistance || 0 }}m / {{ activeTargetDistance }}m ({{ myProgressPercent }}%)
-          </span>
+          <div class="cockpit-head-left">
+            <!-- BOUTONS D'ACTION RAPIDE / BASCULE DIRECTE RÉGATE & ACCUEIL -->
+            <div class="cockpit-quick-nav" role="toolbar" aria-label="Navigation rapide">
+              <button
+                type="button"
+                class="btn-cockpit-quick btn-quick-regatta"
+                (click)="setSiteView('regatta')"
+                title="Bascule instantanée vers la vue Régate (plan d'eau 2D)"
+                aria-label="Vue Régate">
+                <span class="btn-quick-icon">🛶</span>
+                <span class="btn-quick-label">Régate</span>
+              </button>
+              <button
+                type="button"
+                class="btn-cockpit-quick btn-quick-home"
+                (click)="setSiteView('home')"
+                title="Retour à l'accueil"
+                aria-label="Accueil">
+                <span class="btn-quick-icon">🏠</span>
+                <span class="btn-quick-label">Accueil</span>
+              </button>
+            </div>
+            <span class="cockpit-prog-title">
+              🚣 {{ myActivity?.netDistance || 0 }}m / {{ activeTargetDistance }}m ({{ myProgressPercent }}%)
+            </span>
+          </div>
           <span class="cockpit-prog-meta">
             👥 {{ activeRacersCount }} · ⏱️ {{ activePrivateRoom?.waitingForHost ? i18n.t('STATUS_WAITING_HOST') : (nextRaceInfo?.status === 'post_race_pause' ? ('Pause : ' + formattedPreRaceCountdown) : (nextRaceInfo?.status === 'in_progress' ? ('Fin dans : ' + formattedGameRemaining) : formattedPreRaceCountdown)) }}
           </span>

@@ -1452,6 +1452,7 @@ body.app-pseudo-fullscreen .game-container {
   border: 1px solid rgba(0, 240, 255, 0.4);
   border-radius: 14px;
   padding: 0.85rem 1.05rem;
+  margin-top: 0;
 }
 .cockpit-progress-head {
   display: flex;
@@ -1462,6 +1463,63 @@ body.app-pseudo-fullscreen .game-container {
   margin-bottom: 0.55rem;
   font-size: 0.84rem;
   font-weight: 800;
+}
+.cockpit-head-left {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+}
+.cockpit-quick-nav,
+.regatta-quick-nav-bar {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.regatta-quick-nav-bar {
+  margin-bottom: 0.35rem;
+}
+.btn-cockpit-quick {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.25rem 0.55rem;
+  background: rgba(15, 23, 42, 0.9);
+  border: 1.2px solid rgba(0, 240, 255, 0.4);
+  border-radius: 6px;
+  color: #ffffff;
+  font-size: 0.75rem;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 0 10px rgba(0, 240, 255, 0.2);
+  transition: all 0.15s ease-in-out;
+  touch-action: manipulation;
+  user-select: none;
+}
+.btn-cockpit-quick:hover {
+  background: rgba(0, 240, 255, 0.25);
+  border-color: #00f0ff;
+  transform: translateY(-1px);
+  box-shadow: 0 0 14px rgba(0, 240, 255, 0.5);
+}
+.btn-cockpit-quick:active {
+  transform: translateY(0);
+}
+.btn-quick-regatta {
+  border-color: rgba(0, 240, 255, 0.6);
+}
+.btn-quick-cockpit {
+  border-color: rgba(57, 255, 20, 0.6);
+}
+.btn-quick-home {
+  border-color: rgba(255, 230, 0, 0.6);
+}
+.btn-quick-icon {
+  font-size: 0.85rem;
+  line-height: 1;
+}
+.btn-quick-label {
+  letter-spacing: 0.4px;
 }
 .cockpit-prog-title { color: var(--neon-cyan); font-variant-numeric: tabular-nums; }
 .cockpit-prog-meta { color: var(--neon-yellow); font-variant-numeric: tabular-nums; }
@@ -6289,7 +6347,7 @@ body.rigid-viewport {
 }
 
 /* ==========================================================================
-   OPTIMISATION COCKPIT SMARTPHONE PORTRAIT (ZÉRO SCROLL & ANTI-TRONCATURE)
+   OPTIMISATION COCKPIT SMARTPHONE PORTRAIT & PAYSAGE (ZÉRO SCROLL & ZÉRO VIDE HAUT)
    ========================================================================== */
 @media (max-width: 768px) and (orientation: portrait) {
   html, body {
@@ -6312,7 +6370,7 @@ body.rigid-viewport {
     overflow: hidden !important;
     overscroll-behavior: none !important;
     touch-action: none !important;
-    padding-top: max(6px, env(safe-area-inset-top, 0px)) !important;
+    padding-top: max(4px, env(safe-area-inset-top, 0px)) !important;
     padding-bottom: max(6px, env(safe-area-inset-bottom, 0px)) !important;
     padding-left: max(6px, env(safe-area-inset-left, 0px)) !important;
     padding-right: max(6px, env(safe-area-inset-right, 0px)) !important;
@@ -6323,13 +6381,18 @@ body.rigid-viewport {
     box-sizing: border-box !important;
   }
 
-  /* Compacter le header supérieur pour éliminer l'espace mort au-dessus */
+  /* En mode Cockpit smartphone, le header pure-screen est masqué car la bascule se fait directement via la barre de progression */
+  .game-container:has(.cockpit-hud) .pure-screen-header {
+    display: none !important;
+  }
+
+  /* Compacter le header supérieur pour la vue régate */
   .pure-screen-header {
     padding: 4px 8px !important;
-    min-height: 32px !important;
-    height: 32px !important;
+    min-height: 30px !important;
+    height: 30px !important;
     margin: 0 !important;
-    flex: 0 0 32px !important;
+    flex: 0 0 30px !important;
     border-bottom: 1px solid rgba(0, 240, 255, 0.25) !important;
     display: flex !important;
     align-items: center !important;
@@ -6349,7 +6412,7 @@ body.rigid-viewport {
     font-size: 0.70rem !important;
   }
 
-  /* Arène de course dédiée au Cockpit : flex-start, pas de scroll, plein viewport utile */
+  /* Arène de course dédiée au Cockpit : flex-start, pas de scroll, calée immédiatement en haut */
   .race-arena {
     padding: 0 !important;
     margin: 0 !important;
@@ -6370,17 +6433,27 @@ body.rigid-viewport {
     display: none !important;
   }
 
-  /* Barre de progression compacte */
+  /* Barre de progression calée tout en haut avec boutons de bascule intégrés */
   .cockpit-progress-strip {
     flex: 0 0 auto !important;
-    padding: 4px 8px !important;
-    margin: 2px 0 !important;
+    padding: 3px 6px !important;
+    margin: 0 0 3px 0 !important;
     border-radius: 8px !important;
   }
   .cockpit-progress-head {
     margin-bottom: 2px !important;
-    font-size: 0.74rem !important;
-    gap: 2px !important;
+    font-size: 0.72rem !important;
+    gap: 3px !important;
+  }
+  .cockpit-head-left {
+    gap: 0.4rem !important;
+  }
+  .btn-cockpit-quick {
+    padding: 2px 5px !important;
+    font-size: 0.68rem !important;
+  }
+  .btn-quick-icon {
+    font-size: 0.75rem !important;
   }
   .cockpit-progress-track {
     block-size: 6px !important;
@@ -6484,6 +6557,85 @@ body.rigid-viewport {
   .cockpit-hud .hud-card:last-child {
     background: linear-gradient(135deg, rgba(239, 68, 68, 0.12), rgba(10, 15, 30, 0.96)) !important;
     border-color: rgba(239, 68, 68, 0.45) !important;
+  }
+}
+
+/* ==========================================================================
+   OPTIMISATION COCKPIT EN PAYSAGE (ELIMINATION DE L'ESPACE HAUT & VUE ZERO-SCROLL)
+   ========================================================================== */
+@media (max-width: 950px) and (orientation: landscape) {
+  /* Conteneur calé au plus près du bord supérieur en paysage */
+  .game-container:has(.cockpit-hud),
+  .game-container.pure-screen-active:has(.cockpit-hud),
+  .game-container.rigid-viewport:has(.cockpit-hud) {
+    padding-top: max(2px, env(safe-area-inset-top, 0px)) !important;
+    padding-bottom: max(2px, env(safe-area-inset-bottom, 0px)) !important;
+    padding-left: max(6px, env(safe-area-inset-left, 0px)) !important;
+    padding-right: max(6px, env(safe-area-inset-right, 0px)) !important;
+    justify-content: flex-start !important;
+  }
+
+  /* En cockpit paysage, masquer le header pour supprimer le vide au-dessus de la barre de distance */
+  .game-container:has(.cockpit-hud) .pure-screen-header {
+    display: none !important;
+  }
+
+  .cockpit-progress-strip {
+    margin: 0 0 2px 0 !important;
+    padding: 3px 6px !important;
+  }
+  .cockpit-progress-head {
+    margin-bottom: 2px !important;
+    font-size: 0.70rem !important;
+  }
+  .btn-cockpit-quick {
+    padding: 2px 5px !important;
+    font-size: 0.68rem !important;
+  }
+  .cockpit-progress-track {
+    block-size: 5px !important;
+  }
+
+  .cockpit-hud {
+    grid-template-columns: repeat(4, 1fr) !important;
+    gap: 4px !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    flex: 1 1 0 !important;
+    min-height: 0 !important;
+  }
+  .cockpit-hud .rank-gap-card {
+    grid-column: 1 / 3 !important;
+    padding: 2px 4px !important;
+  }
+  .cockpit-hud .primary-card {
+    grid-column: 3 / 5 !important;
+    padding: 2px 4px !important;
+  }
+  .cockpit-hud .hud-card {
+    padding: 2px 4px !important;
+    min-height: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+  }
+  .cockpit-hud .hud-value,
+  .cockpit-expanded .hud-value {
+    font-size: 1.1rem !important;
+    line-height: 1 !important;
+  }
+  .cockpit-hud .hud-value-huge,
+  .cockpit-expanded .hud-value-huge {
+    font-size: 1.25rem !important;
+    line-height: 1 !important;
+  }
+  .cockpit-hud .hud-label {
+    font-size: 0.55rem !important;
+    margin-bottom: 1px !important;
+  }
+  .cockpit-hud .hud-sub {
+    font-size: 0.58rem !important;
+    margin-top: 1px !important;
   }
 }
 
