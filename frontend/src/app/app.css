@@ -5426,7 +5426,7 @@ body.rigid-viewport {
 }
 
 @media (max-height: 500px) and (orientation: landscape) {
-  html, body {
+  html.rigid-viewport, body.rigid-viewport {
     overflow: hidden !important;
     height: 100% !important;
     max-height: 100dvh !important;
@@ -6350,7 +6350,7 @@ body.rigid-viewport {
    OPTIMISATION COCKPIT SMARTPHONE PORTRAIT & PAYSAGE (ZÉRO SCROLL & ZÉRO VIDE HAUT)
    ========================================================================== */
 @media (max-width: 768px) and (orientation: portrait) {
-  html, body {
+  html.rigid-viewport, body.rigid-viewport {
     overflow: hidden !important;
     height: 100dvh !important;
     max-height: 100dvh !important;

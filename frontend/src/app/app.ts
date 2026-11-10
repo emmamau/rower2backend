@@ -545,6 +545,17 @@ export class AppComponent implements OnInit, OnDestroy {
     this.isPseudoFullscreen = false;
     this.syncPseudoFullscreenClass();
     this.wakeLockService.releaseWakeLock();
+    // Nettoyage garanti du plein écran et des styles de verrouillage lors de la destruction
+    if (this.checkIsFullscreen()) {
+      this.exitFullscreen().catch(() => {});
+    }
+    this.siteView = 'home';
+    this.syncRigidViewport();
+    if (typeof screen !== 'undefined' && (screen as any).orientation && (screen as any).orientation.unlock) {
+      try {
+        (screen as any).orientation.unlock();
+      } catch {}
+    }
   }
 
   /**
@@ -1394,6 +1405,16 @@ export class AppComponent implements OnInit, OnDestroy {
     } else {
       this.userExplicitlyNavigatedHome = true;
       this.isImmersionControlsVisible = true;
+      // DÉVERROUILLAGE AUTOMATIQUE DU PLEIN ÉCRAN LORS DU RETOUR À L'ACCUEIL
+      if (this.checkIsFullscreen()) {
+        this.exitFullscreen().catch(() => {});
+      }
+      // Libération éventuelle du verrouillage d'orientation écran
+      if (typeof screen !== 'undefined' && (screen as any).orientation && (screen as any).orientation.unlock) {
+        try {
+          (screen as any).orientation.unlock();
+        } catch {}
+      }
     }
     this.syncRigidViewport();
     this.cdr.markForCheck();
