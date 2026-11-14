@@ -109,17 +109,22 @@
         <span class="pure-icon" aria-hidden="true">🏠</span>
         <span class="pure-label">{{ i18n.t('NAV_HOME') }}</span>
       </button>
-      <span class="pure-screen-tag">
-        {{ siteView === 'regatta' ? i18n.t('MODE_REGATTA') : i18n.t('MODE_COCKPIT') }}
-      </span>
-      <div class="pure-user-pill" *ngIf="isIdentified">
-        <span class="pure-league-badge" [title]="currentUserLeague.name">{{ currentUserLeague.badge }}</span>
-        <span class="pure-user-name">{{ currentUser.name }}</span>
-        <span class="pure-user-lane-badge" *ngIf="myAssignedLane" title="Ligne d'eau assignée">Ligne {{ myAssignedLane }}</span>
+
+      <!-- Profil utilisateur cliquable immédiatement à droite du bouton Accueil -->
+      <div
+        class="pure-user-pill is-clickable"
+        (click)="openAccountModal(isSubscriber || isUserAdmin ? 'profile' : 'login')"
+        title="Gérer mon compte">
+        @if (isIdentified) {
+          <span class="pure-league-badge" [title]="currentUserLeague.name">{{ currentUserLeague.badge }}</span>
+          <span class="pure-user-name">{{ currentUser.name }}</span>
+          <span class="pure-user-lane-badge" *ngIf="myAssignedLane" title="Ligne d'eau assignée">Ligne {{ myAssignedLane }}</span>
+        } @else {
+          <span class="pure-user-name">👤 Invité</span>
+        }
       </div>
-    </div>
-    <div class="pure-header-right">
-      <!-- Sélecteur de langue épuré -->
+
+      <!-- Sélecteur de langue épuré immédiatement à droite du User -->
       <div class="lang-dropdown-wrapper pure-lang-dropdown">
         <label for="pure-lang-select" class="lang-icon" title="Changer de langue">🌐</label>
         <select
@@ -135,29 +140,12 @@
           }
         </select>
       </div>
-      <button
-        type="button"
-        class="btn-pure-nav"
-        [class.active]="isViewActive('regatta')"
-        (click)="setSiteView('regatta')">
-        🛶 <span class="pure-btn-text">{{ i18n.t('MODE_REGATTA') }}</span>
-      </button>
-      <button
-        type="button"
-        class="btn-pure-nav"
-        [class.active]="isViewActive('cockpit')"
-        (click)="setSiteView('cockpit')">
-        📱 <span class="pure-btn-text">{{ i18n.t('MODE_COCKPIT') }}</span>
-      </button>
-      @if (fullscreenSupported || isFullscreen || isPseudoFullscreen) {
-        <button
-          type="button"
-          class="btn-pure-nav btn-pure-fullscreen"
-          (click)="toggleFullscreen()"
-          [title]="isFullscreen ? i18n.t('FULLSCREEN_EXIT') : i18n.t('FULLSCREEN_ENTER')">
-          {{ isFullscreen ? '✕' : '⛶' }}
-        </button>
-      }
+    </div>
+
+    <div class="pure-header-right">
+      <span class="pure-screen-tag">
+        {{ siteView === 'regatta' ? i18n.t('MODE_REGATTA') : i18n.t('MODE_COCKPIT') }}
+      </span>
     </div>
   </header>
 
@@ -1062,6 +1050,12 @@
                   <input id="admin-duration" type="number" [(ngModel)]="adminConfig.maxDurationMinutes" name="durationMin" min="10" max="180" />
                   <span class="field-hint">Défaut : 55 minutes</span>
                 </div>
+              </div>
+
+              <div class="form-group">
+                <label for="admin-private-duration">Durée max des salons privés (minutes) :</label>
+                <input id="admin-private-duration" type="number" [(ngModel)]="adminConfig.privateMaxDurationMinutes" name="privateDurationMin" min="5" max="180" step="5" />
+                <span class="field-hint">Défaut : 55 minutes. La course privée s'arrêtera automatiquement à expiration.</span>
               </div>
 
               <div class="feedback-msg ok" *ngIf="adminConfigMessage">{{ adminConfigMessage }}</div>

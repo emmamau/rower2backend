@@ -501,8 +501,9 @@ export class RoomController {
     try {
       const body = req.body || {};
       const query = req.query || {};
+      const params = req.params || {};
 
-      const code = String(body.code || query.code || body.pin || query.pin || body.roomId || query.roomId || body.roomCode || "").trim();
+      const code = String(params.identifier || body.code || query.code || body.pin || query.pin || body.roomId || query.roomId || body.roomCode || "").trim();
       let deviceToken = body.deviceToken || query.deviceToken || req.headers["x-device-token"];
       if (!deviceToken && req.headers.authorization?.startsWith("Bearer ")) {
         deviceToken = req.headers.authorization.slice(7).trim();

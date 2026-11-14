@@ -113,3 +113,36 @@ test('2. POST /api/rooms/leave: HTTP endpoint allows leaving and returns status'
     await close();
   }
 });
+
+test('3. POST /api/rooms/:identifier/leave: HTTP endpoint handles identifier param', async () => {
+  const { baseUrl, close } = await createTestServer();
+  const raceManager = RaceManager.getInstance();
+
+  try {
+    const race = raceManager.createPrivateRace({
+      title: 'HTTP Leave Room Param',
+      targetDistance: 500,
+      hostUserId: 'user_param',
+      requireApproval: false,
+    });
+
+    const res = await fetch(`${baseUrl}/api/rooms/${race.code}/leave`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId: 'user_param',
+      }),
+    });
+
+    assert.equal(res.status, 200);
+    const data = await res.json();
+    assert.equal(data.success, true);
+    assert.equal(data.roomClosed, true);
+    assert.equal(data.remainingParticipants, 0);
+
+    // Salon is closed
+    assert.equal(raceManager.findPrivateRace(race.id), null);
+  } finally {
+    await close();
+  }
+});

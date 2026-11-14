@@ -142,6 +142,7 @@ export class AppComponent implements OnInit, OnDestroy {
     targetDistance: 2000,
     maxParticipants: 20,
     maxDurationMinutes: 55,
+    privateMaxDurationMinutes: 55,
     defaultBotsCount: 3,
     defaultBotsPace: 120,
     countdownAfterLastJoinSeconds: 15,
@@ -2896,6 +2897,22 @@ export class AppComponent implements OnInit, OnDestroy {
             this.isPostRaceRankingActive = true;
           }
           this.syncCountdownUI();
+        } else if (update.status === 'COMPLETED' || update.status === 'ABANDONED') {
+          const isPrivateTarget = Boolean(
+            this.activePrivateRoom &&
+            (update.raceId === this.activePrivateRoom.race?.id || update.raceId === this.activePrivateRoom.code)
+          );
+          if (isPrivateTarget) {
+            if (update.details?.ranking && update.details.ranking.length > 0 && update.raceId) {
+              this.openRaceLeaderboard(update.raceId);
+              this.isPostRaceRankingActive = true;
+            } else if (update.details?.reason) {
+              this.triggerFinishToast(`Course privée terminée (${update.details.reason === 'all_players_left' ? 'salon fermé' : 'terminée'})`);
+            }
+            if (update.details?.roomClosed) {
+              this.exitPrivateRoomToPublic(true);
+            }
+          }
         }
         this.cdr.markForCheck();
       }
@@ -2969,10 +2986,21 @@ export class AppComponent implements OnInit, OnDestroy {
       }
 
       if (this.activePrivateRoom && (update.raceId === this.activePrivateRoom.race?.id || update.raceId === this.activePrivateRoom.code)) {
+        if (Boolean((update as any)?.roomClosed) || update?.['type'] === 'ROOM_CLOSED') {
+          this.exitPrivateRoomToPublic(true);
+          return;
+        }
         this.pollActiveRaceSource().subscribe((data) => {
           if (data) {
             this.activePrivateRoom = data as PrivateRacePayload;
             this.nextRaceInfo = data;
+            if (data.remainingSeconds !== undefined) {
+              this.gameRemainingSeconds = data.remainingSeconds;
+              this.gameMaxDurationSeconds = data.maxDurationSeconds || this.gameMaxDurationSeconds;
+              const remMin = Math.floor(this.gameRemainingSeconds / 60);
+              const remSec = this.gameRemainingSeconds % 60;
+              this.formattedGameRemaining = `${remMin}m ${remSec < 10 ? '0' : ''}${remSec}s`;
+            }
             if (typeof data.secondsRemaining === 'number' && data.secondsRemaining > 0 && !data.waitingForHost) {
               this.countdownSeconds = data.secondsRemaining;
               this.syncCountdownUI();
@@ -3158,10 +3186,10 @@ export class AppComponent implements OnInit, OnDestroy {
       return '';
     }
     const status = this.nextRaceInfo?.status || race?.status;
-    if (status === 'in_progress') {
-      return 'Course en cours';
+    if (status === 'in_progress' || status === 'RUNNING') {
+      return this.formattedGameRemaining ? ('Fin dans : ' + this.formattedGameRemaining) : 'Course en cours';
     }
-    if (status === 'finished' || status === 'completed') {
+    if (status === 'finished' || status === 'completed' || status === 'COMPLETED') {
       return 'Course terminée';
     }
     if (this.isPreStartCountdown || this.is3sCountdown || status === 'countdown') {
@@ -3222,6 +3250,14 @@ export class AppComponent implements OnInit, OnDestroy {
       this.myAssignedLane = (room as any).lane;
     }
     this.privateUrlError = '';
+
+    if (room.remainingSeconds !== undefined) {
+      this.gameRemainingSeconds = room.remainingSeconds;
+      this.gameMaxDurationSeconds = room.maxDurationSeconds || this.gameMaxDurationSeconds;
+      const remMin = Math.floor(this.gameRemainingSeconds / 60);
+      const remSec = this.gameRemainingSeconds % 60;
+      this.formattedGameRemaining = `${remMin}m ${remSec < 10 ? '0' : ''}${remSec}s`;
+    }
 
     const code = room.code || room.race?.code;
     if (typeof window !== 'undefined' && code) {
