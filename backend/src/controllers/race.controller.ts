@@ -756,7 +756,10 @@ export const toggleBots = async (req: Request, res: Response): Promise<void> => 
 export const getPublicRaceAdminConfig = async (_req: Request, res: Response): Promise<void> => {
   res.status(200).json({
     success: true,
-    config: raceManager.adminPublicRaceConfig,
+    config: {
+      ...raceManager.adminPublicRaceConfig,
+      privateMaxDurationMinutes: raceManager.adminPrivateRaceConfig?.maxDurationMinutes ?? raceManager.adminPublicRaceConfig?.privateMaxDurationMinutes ?? 55,
+    },
   });
 };
 
@@ -772,6 +775,7 @@ export const updatePublicRaceAdminConfig = async (req: Request, res: Response): 
       targetDistance,
       maxParticipants,
       maxDurationMinutes,
+      privateMaxDurationMinutes,
       defaultBotsCount,
       defaultBotsPace,
       countdownAfterLastJoinSeconds,
@@ -789,6 +793,7 @@ export const updatePublicRaceAdminConfig = async (req: Request, res: Response): 
       targetDistance,
       maxParticipants,
       maxDurationMinutes,
+      privateMaxDurationMinutes,
       defaultBotsCount,
       defaultBotsPace,
       countdownAfterLastJoinSeconds,

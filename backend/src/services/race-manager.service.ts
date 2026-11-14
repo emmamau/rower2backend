@@ -163,10 +163,15 @@ export class RaceManager {
   private loopBusy = false;
   private publicTickChain: Promise<void> = Promise.resolve();
 
+  public adminPrivateRaceConfig = {
+    maxDurationMinutes: 55,
+  };
+
   public adminPublicRaceConfig = {
     targetDistance: 2000,
     maxParticipants: 20,
     maxDurationMinutes: 55,
+    privateMaxDurationMinutes: 55,
     defaultBotsCount: 3,
     defaultBotsPace: 145, // 2:25 / 500m (palier débutant/loisir 2m20s - 2m45s)
     countdownAfterLastJoinSeconds: 15,
@@ -934,6 +939,11 @@ export class RaceManager {
     if (newCfg.lobbyWaitMinutes !== undefined && Number.isFinite(Number(newCfg.lobbyWaitMinutes))) {
       this.adminPublicRaceConfig.lobbyWaitMinutes = Math.min(120, Math.max(1, Math.round(Number(newCfg.lobbyWaitMinutes))));
     }
+    if (newCfg.privateMaxDurationMinutes !== undefined && Number.isFinite(Number(newCfg.privateMaxDurationMinutes))) {
+      const clamped = Math.min(180, Math.max(5, Math.round(Number(newCfg.privateMaxDurationMinutes))));
+      this.adminPublicRaceConfig.privateMaxDurationMinutes = clamped;
+      this.adminPrivateRaceConfig.maxDurationMinutes = clamped;
+    }
     if (this.currentPublicRace && (this.currentPublicRace.status === "LOBBY" || this.currentPublicRace.status === "COUNTDOWN")) {
       this.currentPublicRace.targetDistance = this.adminPublicRaceConfig.targetDistance;
       this.currentPublicRace.maxParticipants = this.adminPublicRaceConfig.maxParticipants;
@@ -1049,6 +1059,7 @@ export class RaceManager {
     title: string;
     targetDistance: number;
     maxParticipants?: number;
+    maxDurationMinutes?: number;
     hostUserId: string;
     hostUserName?: string;
     startMode?: "manual" | "scheduled";
@@ -1207,7 +1218,7 @@ export class RaceManager {
       status: "LOBBY",
       targetDistance,
       maxParticipants,
-      maxDurationMinutes: 55,
+      maxDurationMinutes: options.maxDurationMinutes || this.adminPrivateRaceConfig?.maxDurationMinutes || 55,
       lobbyEndsAt,
       pinCode: pin,
       hostUserId,
