@@ -418,6 +418,17 @@ export class RoomController {
         const check = await pairingService.validateDeviceToken(String(deviceToken));
         if (check.valid && check.pairing) {
           resolvedUserId = check.pairing.userId;
+        } else {
+          // If not in pairing DB, search participants in the room with matching deviceToken
+          const raceObj = raceManager.getRaceById(roomId);
+          if (raceObj?.participants) {
+            for (const p of raceObj.participants.values()) {
+              if (p.deviceToken === deviceToken) {
+                resolvedUserId = p.userId;
+                break;
+              }
+            }
+          }
         }
       }
 

@@ -5,6 +5,7 @@ import { hashPassword, verifyPassword, isEmmaAdminUser, generateSecureToken } fr
 import emailService from "../services/email.service";
 import userStore from "../services/user-store.service";
 import raceManager from "../services/race-manager.service";
+import pairingService from "../services/pairing.service";
 import { getLeagueByPoints } from "../utils/league.util";
 
 const Activities = db.activities;
@@ -48,6 +49,8 @@ export const registerUser = async (req: Request, res: Response): Promise<void> =
       email,
       password,
       watchUserId,
+      guestPairingToken,
+      guestToken,
     } = req.body || {};
 
     const cleanLastName = String(lastName || nom || "").trim();
@@ -174,13 +177,30 @@ export const registerUser = async (req: Request, res: Response): Promise<void> =
       lastRank: 0,
     });
 
+    // Migration automatique de l'appairage invité vers le nouveau compte abonné
+    const tokenToMigrate = guestPairingToken || guestToken;
+    let migratedPairing = false;
+    if (tokenToMigrate) {
+      try {
+        migratedPairing = await pairingService.transferPairingTokenToUser(String(tokenToMigrate), newUser.id);
+      } catch (migErr) {
+        console.warn("[Register] Erreur migration appairage invité vers utilisateur:", migErr);
+      }
+    }
+
     // Envoi du courriel de bienvenue (préparé pour la production)
     emailService.sendWelcomeEmail(cleanEmail, `${cleanFirstName} ${cleanLastName}`, cleanLogin).catch(() => {});
+
+    const sanitized = sanitizeUser(newUser);
+    if (migratedPairing) {
+      sanitized.isGarminPaired = true;
+    }
 
     res.status(201).json({
       success: true,
       message: "Compte abonné créé avec succès.",
-      user: sanitizeUser(newUser),
+      user: sanitized,
+      isGarminPaired: Boolean(sanitized.isGarminPaired),
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
@@ -245,10 +265,41 @@ export const loginUser = async (req: Request, res: Response): Promise<void> => {
       user = (await userStore.updateUser(user.id, { watchUserId: String(watchUserId).trim() })) || user;
     }
 
+    // Résolution du statut d'appairage Garmin associé de façon centrale au compte utilisateur
+    let isGarminPaired = false;
+    let pairedDevice: { deviceId?: string; deviceToken?: string } | null = null;
+    try {
+      const pairingStatus = await pairingService.getPairingStatus({ userId: user.id });
+      if (pairingStatus && pairingStatus.paired) {
+        isGarminPaired = true;
+        pairedDevice = {
+          deviceId: pairingStatus.deviceId,
+          deviceToken: pairingStatus.deviceToken,
+        };
+      } else if (user.login && user.login !== user.id) {
+        const pairingByLogin = await pairingService.getPairingStatus({ userId: user.login });
+        if (pairingByLogin && pairingByLogin.paired) {
+          isGarminPaired = true;
+          pairedDevice = {
+            deviceId: pairingByLogin.deviceId,
+            deviceToken: pairingByLogin.deviceToken,
+          };
+        }
+      }
+    } catch {
+      // Tolérance
+    }
+
+    const sanitized = sanitizeUser(user);
+    sanitized.isGarminPaired = isGarminPaired;
+    if (pairedDevice) sanitized.pairedDevice = pairedDevice;
+
     res.status(200).json({
       success: true,
       message: "Connexion réussie.",
-      user: sanitizeUser(user),
+      user: sanitized,
+      isGarminPaired,
+      pairedDevice,
       isSubscriber: Boolean(user.isSubscriber || isEmma),
       isAdmin: Boolean(user.isAdmin || isEmma),
     });
@@ -372,9 +423,30 @@ export const getUserAccount = async (req: Request, res: Response): Promise<void>
       return;
     }
 
+    const sanitized = sanitizeUser(user);
+    try {
+      const pairingStatus = await pairingService.getPairingStatus({ userId: user.id });
+      if (pairingStatus && pairingStatus.paired) {
+        sanitized.isGarminPaired = true;
+        sanitized.pairedDevice = {
+          deviceId: pairingStatus.deviceId,
+          deviceToken: pairingStatus.deviceToken,
+        };
+      } else if (user.login && user.login !== user.id) {
+        const pairingByLogin = await pairingService.getPairingStatus({ userId: user.login });
+        if (pairingByLogin && pairingByLogin.paired) {
+          sanitized.isGarminPaired = true;
+          sanitized.pairedDevice = {
+            deviceId: pairingByLogin.deviceId,
+            deviceToken: pairingByLogin.deviceToken,
+          };
+        }
+      }
+    } catch {}
+
     res.status(200).json({
       success: true,
-      account: sanitizeUser(user),
+      account: sanitized,
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
@@ -427,8 +499,39 @@ export const getUserProfile = async (req: Request, res: Response): Promise<void>
     const allUsers = await userStore.getAllUsersForLeaderboard();
     const generalRank = allUsers.findIndex((u) => u.id === userId || u.login === userId) + 1;
 
+    // Résolution du statut d'appairage Garmin pour le profil
+    let isGarminPaired = false;
+    let pairedDevice: { deviceId?: string; deviceToken?: string } | null = null;
+    try {
+      const pairingStatus = await pairingService.getPairingStatus({ userId: user.id });
+      if (pairingStatus && pairingStatus.paired) {
+        isGarminPaired = true;
+        pairedDevice = {
+          deviceId: pairingStatus.deviceId,
+          deviceToken: pairingStatus.deviceToken,
+        };
+      } else if (user.login && user.login !== user.id) {
+        const pairingByLogin = await pairingService.getPairingStatus({ userId: user.login });
+        if (pairingByLogin && pairingByLogin.paired) {
+          isGarminPaired = true;
+          pairedDevice = {
+            deviceId: pairingByLogin.deviceId,
+            deviceToken: pairingByLogin.deviceToken,
+          };
+        }
+      }
+    } catch {
+      // Tolérance
+    }
+
+    const sanitized = sanitizeUser(user);
+    sanitized.isGarminPaired = isGarminPaired;
+    if (pairedDevice) sanitized.pairedDevice = pairedDevice;
+
     res.status(200).json({
-      user: sanitizeUser(user),
+      user: sanitized,
+      isGarminPaired,
+      pairedDevice,
       generalRank: generalRank > 0 ? generalRank : 1,
       totalPlayers: allUsers.length,
       history: pastActivities,

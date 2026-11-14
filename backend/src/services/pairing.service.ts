@@ -463,6 +463,185 @@ export class PairingService {
   }
 
   /**
+   * Enregistre un code personnalisé (ex: code 5 caractères universel) pour un userId
+   */
+  public createCustomPairingCode(code: string, userId: string, expiresAt: Date): StoredPairing {
+    const cleanUserId = String(userId || "").trim();
+    const cleanCode = String(code || "").trim().toUpperCase();
+
+    // Révoquer les anciens codes pending
+    for (const [id, item] of this.inMemoryPairings.entries()) {
+      if (item.userId === cleanUserId && item.status === "pending") {
+        item.status = "expired";
+        if (item.pairingCode) {
+          this.codeIndex.delete(item.pairingCode);
+        }
+      }
+    }
+
+    const id = crypto.randomUUID();
+    const record: StoredPairing = {
+      id,
+      pairingCode: cleanCode,
+      userId: cleanUserId,
+      deviceId: null,
+      deviceToken: null,
+      status: "pending",
+      expiresAt,
+      pairedAt: null,
+      revokedAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    this.inMemoryPairings.set(id, record);
+    this.codeIndex.set(cleanCode, id);
+
+    Pairings.create(record as any).catch((err) => {
+      console.warn("[PairingService] DB createCustomPairingCode fallback:", err);
+    });
+
+    return record;
+  }
+
+  /**
+   * Lie immédiatement une montre avec son deviceId à un compte utilisateur et génère le deviceToken
+   */
+  public async pairDeviceDirectly(
+    userId: string,
+    deviceId: string
+  ): Promise<{
+    success: boolean;
+    deviceToken: string;
+    userId: string;
+    deviceId: string;
+  }> {
+    const cleanUserId = String(userId || "").trim();
+    const cleanDeviceId = String(deviceId || "").trim();
+    const now = new Date();
+
+    // Révoquer les anciens appairages de l'utilisateur pour maintenir 1 montre active par compte
+    for (const item of this.inMemoryPairings.values()) {
+      if (item.userId === cleanUserId && item.status === "paired") {
+        item.status = "revoked";
+        item.revokedAt = now;
+        if (item.deviceToken) this.tokenIndex.delete(item.deviceToken);
+      }
+    }
+
+    const deviceToken = crypto.randomUUID();
+    const id = crypto.randomUUID();
+    const expiresAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000); // 1 an
+
+    const record: StoredPairing = {
+      id,
+      pairingCode: null,
+      userId: cleanUserId,
+      deviceId: cleanDeviceId,
+      deviceToken,
+      status: "paired",
+      expiresAt,
+      pairedAt: now,
+      revokedAt: null,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    this.inMemoryPairings.set(id, record);
+    this.tokenIndex.set(deviceToken, id);
+
+    try {
+      await Pairings.create(record as any);
+    } catch (err) {
+      console.warn("[PairingService] DB pairDeviceDirectly fallback:", err);
+    }
+
+    try {
+      socketGateway.broadcast("garmin:paired", {
+        userId: cleanUserId,
+        deviceId: cleanDeviceId,
+        deviceToken,
+      });
+    } catch (wsErr) {
+      console.warn("[PairingService] Socket broadcast garmin:paired warning:", wsErr);
+    }
+
+    return {
+      success: true,
+      deviceToken,
+      userId: cleanUserId,
+      deviceId: cleanDeviceId,
+    };
+  }
+
+  /**
+   * Transfère un appairage (ou token) invité vers un compte nouvellement créé
+   */
+  public async transferPairingTokenToUser(guestPairingTokenOrUserId: string, newUserId: string): Promise<boolean> {
+    const cleanFrom = String(guestPairingTokenOrUserId || "").trim();
+    const cleanTo = String(newUserId || "").trim();
+    if (!cleanFrom || !cleanTo) return false;
+
+    let targetRecord: StoredPairing | null = null;
+
+    // Recherche par deviceToken
+    const idByToken = this.tokenIndex.get(cleanFrom);
+    if (idByToken) {
+      targetRecord = this.inMemoryPairings.get(idByToken) || null;
+    }
+
+    // Recherche par userId/guest_id
+    if (!targetRecord) {
+      for (const rec of this.inMemoryPairings.values()) {
+        if (rec.userId === cleanFrom && rec.status === "paired") {
+          targetRecord = rec;
+          break;
+        }
+      }
+    }
+
+    if (!targetRecord) {
+      try {
+        const dbRec = await Pairings.findOne({
+          where: {
+            status: "paired",
+            userId: cleanFrom,
+          },
+        });
+        if (dbRec) {
+          targetRecord = dbRec.toJSON() as StoredPairing;
+        }
+      } catch {}
+    }
+
+    if (targetRecord && targetRecord.status === "paired") {
+      targetRecord.userId = cleanTo;
+      targetRecord.updatedAt = new Date();
+      this.inMemoryPairings.set(targetRecord.id, targetRecord);
+
+      try {
+        await Pairings.update({ userId: cleanTo, updatedAt: new Date() } as any, {
+          where: { id: targetRecord.id },
+        });
+      } catch (err) {
+        console.warn("[PairingService] DB transfer error:", err);
+      }
+
+      try {
+        socketGateway.broadcast("garmin:paired", {
+          userId: cleanTo,
+          deviceId: targetRecord.deviceId,
+          deviceToken: targetRecord.deviceToken,
+        });
+      } catch {}
+
+      return true;
+    }
+
+    return false;
+  }
+
+  /**
    * Nettoie les codes d'appairage expirés
    */
   public cleanupExpiredCodes(): void {

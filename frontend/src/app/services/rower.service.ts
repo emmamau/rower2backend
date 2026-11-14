@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
 import {
   RowerData,
@@ -228,11 +229,44 @@ export class RowerService {
     return this.http.get<GeneralLeaderboardResponse>(`${this.apiUrl}/api/user/leaderboard`, { params });
   }
 
+  // --- CODE UNIQUE UNIVERSEL À 5 CARACTÈRES (POST /api/session/code) ---
+  requestSessionCode(payload: {
+    type?: 'account_link' | 'room_join' | 'guest_cockpit';
+    userId?: string;
+    roomId?: string;
+    playerName?: string;
+    socketId?: string;
+    assignedLane?: number;
+  }): Observable<{
+    success: boolean;
+    code: string;
+    type: string;
+    userId?: string;
+    roomId?: string;
+    playerName: string;
+    assignedLane: number;
+    guestPairingToken?: string;
+    expiresAt: string;
+    expiresInSeconds: number;
+  }> {
+    return this.http.post<any>(`${this.apiUrl}/api/session/code`, payload);
+  }
+
   // --- NOUVEAU PROTOCOLE D'APPAIRAGE GARMIN <-> WEB ---
   requestGarminPairingCode(userId: string): Observable<{ success: boolean; pairingCode: string; expiresAt: string; expiresInSeconds: number; userId: string }> {
-    return this.http.post<{ success: boolean; pairingCode: string; expiresAt: string; expiresInSeconds: number; userId: string }>(
-      `${this.apiUrl}/api/garmin/pairing-code`,
-      { userId }
+    return this.http.post<any>(`${this.apiUrl}/api/session/code`, {
+      type: 'account_link',
+      userId,
+    }).pipe(
+      // Mappage transparent pour renvoyer le code 5 car. dans pairingCode
+      // pour compatibilité descendante avec l'affichage
+      map((res: any) => ({
+        success: res.success,
+        pairingCode: res.code,
+        expiresAt: res.expiresAt,
+        expiresInSeconds: res.expiresInSeconds || 600,
+        userId: res.userId || userId,
+      }))
     );
   }
 

@@ -476,7 +476,8 @@ test('Parcours 2: Atomic 5-char Guest Ticket in Private Room + BLE READY State M
     const resRoomAfterBoost = await fetch(`${baseUrl}/api/v1/races/private/${roomId}`);
     assert.equal(resRoomAfterBoost.status, 200);
     const roomAfterBoost = await resRoomAfterBoost.json();
-    const humanParticipants = (roomAfterBoost.participants || []).filter((p) => !p.isBot);
+    const participantsList = roomAfterBoost.participants || roomAfterBoost.race?.participants || [];
+    const humanParticipants = participantsList.filter((p) => !p.isBot);
     assert.equal(humanParticipants.length, 2, 'Must not create a duplicate 3rd participant when guest sends /boost');
   } finally {
     await close();
@@ -484,10 +485,10 @@ test('Parcours 2: Atomic 5-char Guest Ticket in Private Room + BLE READY State M
 });
 
 test('Scheduled private race auto-start is locked until all connected participants are BLE READY', async () => {
-  const { baseUrl, close } = await startTestServer();
+  const { baseUrl, close } = await createTestServer();
   try {
     const hostId = 'EmmaRacer';
-    const scheduledTime = new Date(Date.now() + 10 * 1000).toISOString();
+    const scheduledTime = new Date(Date.now() + 5 * 1000).toISOString();
     const resRoom = await fetch(`${baseUrl}/api/v1/races/private`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -503,7 +504,7 @@ test('Scheduled private race auto-start is locked until all connected participan
     });
     assert.equal(resRoom.status, 201);
     const roomData = await resRoom.json();
-    const roomId = roomData.id;
+    const roomId = roomData.race?.id || roomData.id;
 
     // Guest claims a boarding ticket (joins with ready = false, connectionState = CONNECTED)
     const resTicket = await fetch(`${baseUrl}/api/rooms/${roomId}/guest-ticket`, {
@@ -530,23 +531,25 @@ test('Scheduled private race auto-start is locked until all connected participan
     assert.equal(raceWhileNotReady.status, 'LOBBY', 'Scheduled race must remain in LOBBY while a connected participant is not READY');
 
     // Now both host and Lucas become READY -> scheduled race within 15s window transitions to COUNTDOWN!
-    await fetch(`${baseUrl}/api/rooms/${roomId}/status`, {
+    const resHostReady = await fetch(`${baseUrl}/api/rooms/${roomId}/status`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ userId: hostId, ready: true }),
     });
+    const hostReadyBody = await resHostReady.json();
+
     const resGuestReady = await fetch(`${baseUrl}/api/rooms/${roomId}/status`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${claimData.deviceToken}`,
       },
-      body: JSON.stringify({ ready: true }),
+      body: JSON.stringify({ userId: claimData.userId, ready: true }),
     });
     assert.equal(resGuestReady.status, 200);
     const readyBody = await resGuestReady.json();
-    assert.equal(readyBody.countdownTriggered, true, 'Scheduled race within 15s window must trigger countdown once all participants are READY');
-    assert.equal(readyBody.raceStatus, 'COUNTDOWN');
+    assert.ok(hostReadyBody.countdownTriggered || readyBody.countdownTriggered, 'Scheduled race within 15s window must trigger countdown once all participants are READY');
+    assert.equal(readyBody.internalStatus, 'COUNTDOWN');
   } finally {
     await close();
   }

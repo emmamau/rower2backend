@@ -6,8 +6,10 @@ import telemetryRoutes from "./telemetry.routes";
 import subscriptionRoutes from "./subscription.routes";
 import garminRoutes from "./garmin.routes";
 import roomRoutes from "./room.routes";
+import sessionRoutes from "./session.routes";
 
 export default (app: Application): void => {
+  sessionRoutes(app);
   garminRoutes(app);
   telemetryRoutes(app);
   roomRoutes(app);

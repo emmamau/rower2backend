@@ -25,6 +25,12 @@ export interface UserProfile {
   bestRank?: number;
   lastRank?: number;
   isAdmin?: boolean;
+  isGarminPaired?: boolean;
+  pairedDevice?: {
+    deviceId?: string;
+    deviceToken?: string;
+    pairedAt?: string;
+  };
   createdAt?: string;
   updatedAt?: string;
 }
@@ -53,6 +59,12 @@ export interface AuthResponse {
   user: UserProfile;
   isSubscriber?: boolean;
   isAdmin?: boolean;
+  isGarminPaired?: boolean;
+  pairedDevice?: {
+    deviceId?: string;
+    deviceToken?: string;
+    pairedAt?: string;
+  };
   confirmationRequestId?: string;
 }
 
@@ -68,6 +80,12 @@ export interface UserHistoryItem {
 
 export interface UserProfileResponse {
   user: UserProfile;
+  isGarminPaired?: boolean;
+  pairedDevice?: {
+    deviceId?: string;
+    deviceToken?: string;
+    pairedAt?: string;
+  };
   generalRank?: number;
   totalPlayers?: number;
   history: UserHistoryItem[];

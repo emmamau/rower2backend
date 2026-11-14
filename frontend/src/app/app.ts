@@ -706,6 +706,25 @@ export class AppComponent implements OnInit, OnDestroy {
         this.userHistory = res.history || [];
         this.generalUserRank = res.generalRank || 1;
         this.generalTotalPlayers = res.totalPlayers || 1;
+
+        // Restauration automatique et transparente de l'appairage Garmin rattaché au compte utilisateur
+        const isPairedOnAccount = Boolean(res.isGarminPaired || res.user.isGarminPaired);
+        const resolvedToken = res.pairedDevice?.deviceToken || res.user.pairedDevice?.deviceToken;
+        if (isPairedOnAccount) {
+          this.isPaired = true;
+          this.isWatchConfirmed = true;
+          if (resolvedToken) {
+            this.deviceToken = resolvedToken;
+          }
+          try {
+            localStorage.setItem('rower_is_paired', 'true');
+            localStorage.setItem('rower_watch_confirmed', 'true');
+            if (resolvedToken) {
+              localStorage.setItem('rower_device_token', resolvedToken);
+            }
+          } catch {}
+        }
+
         this.cdr.markForCheck();
       }
     });
@@ -1052,6 +1071,24 @@ export class AppComponent implements OnInit, OnDestroy {
             localStorage.setItem('rower_is_admin', String(Boolean(res.isAdmin)));
           } catch {}
 
+          // Prise en charge multi-terminal transparente : réactivation automatique de la montre si appairée au compte
+          const isPairedOnAccount = Boolean(res.isGarminPaired || res.user.isGarminPaired);
+          const resolvedToken = res.pairedDevice?.deviceToken || res.user.pairedDevice?.deviceToken;
+          if (isPairedOnAccount) {
+            this.isPaired = true;
+            this.isWatchConfirmed = true;
+            if (resolvedToken) {
+              this.deviceToken = resolvedToken;
+            }
+            try {
+              localStorage.setItem('rower_is_paired', 'true');
+              localStorage.setItem('rower_watch_confirmed', 'true');
+              if (resolvedToken) {
+                localStorage.setItem('rower_device_token', resolvedToken);
+              }
+            } catch {}
+          }
+
           this.accountAuthSuccess = 'Connexion réussie ! Vous avez accès aux salons privés.';
           this.loadUserProfile();
           this.loadGeneralLeaderboard();
@@ -1203,10 +1240,28 @@ export class AppComponent implements OnInit, OnDestroy {
       localStorage.removeItem('rower_user_login');
       localStorage.removeItem('rower_is_subscriber');
       localStorage.removeItem('rower_is_admin');
+      // Nettoyage local uniquement sur le terminal sans révoquer l'appairage sur le serveur
+      localStorage.removeItem('rower_is_paired');
+      localStorage.removeItem('rower_watch_confirmed');
+      localStorage.removeItem('rower_device_token');
     } catch {}
 
-    // Dès la déconnexion, réinitialiser immédiatement tout statut et affichage d'appairage Garmin
-    this.resetGarminPairing();
+    // Déconnexion locale : réinitialisation de l'affichage local uniquement.
+    // L'appairage en base reste pérenne et lié au compte de l'utilisateur.
+    this.isPaired = false;
+    this.isWatchConfirmed = false;
+    this.deviceToken = '';
+    this.pairingCode = '';
+    this.pairingSuccessMessage = '';
+    this.pairingErrorMessage = '';
+    if (this.pairingTimerSub) {
+      this.pairingTimerSub.unsubscribe();
+      this.pairingTimerSub = undefined;
+    }
+    if (this.pairingStatusPollSub) {
+      this.pairingStatusPollSub.unsubscribe();
+      this.pairingStatusPollSub = undefined;
+    }
     this.myAssignedLane = 1;
     this.myActivity = null;
     this.selectedSpectatorUserId = '';

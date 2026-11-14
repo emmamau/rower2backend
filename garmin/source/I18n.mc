@@ -114,6 +114,14 @@ module I18n {
             if (_currentLang == LANG_PT) { return "MODO CORRIDA"; }
             return "RACE MODE";
         }
+        if (key.equals("MENU_ENTER_CODE")) {
+            if (_currentLang == LANG_FR) { return "Entrer un code"; }
+            if (_currentLang == LANG_DE) { return "Code eingeben"; }
+            if (_currentLang == LANG_ES) { return "Introducir codigo"; }
+            if (_currentLang == LANG_IT) { return "Inserisci codice"; }
+            if (_currentLang == LANG_PT) { return "Introduzir codigo"; }
+            return "Enter a code";
+        }
         if (key.equals("MENU_PUBLIC")) {
             if (_currentLang == LANG_FR) { return "Course Publique"; }
             if (_currentLang == LANG_DE) { return "Offenes Rennen"; }

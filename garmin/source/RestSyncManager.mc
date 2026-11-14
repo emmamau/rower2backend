@@ -320,6 +320,56 @@ class RestSyncManager {
         }
     }
 
+    // Code Unique Universel à 5 Caractères (POST /api/session/claim)
+    function claimSessionCode(code as String) as Void {
+        var endpoint = getBaseUrl() + "/api/session/claim";
+        var payload = {
+            "code" => code,
+            "deviceId" => UserManager.getDeviceId()
+        };
+        var options = {
+            :method => Communications.HTTP_REQUEST_METHOD_POST,
+            :headers => {
+                "Content-Type" => Communications.REQUEST_CONTENT_TYPE_JSON
+            },
+            :responseType => Communications.HTTP_RESPONSE_CONTENT_TYPE_JSON
+        };
+
+        Communications.makeWebRequest(
+            endpoint,
+            payload,
+            options,
+            method(:onClaimSessionResponse)
+        );
+    }
+
+    function onClaimSessionResponse(responseCode as Number, data as Dictionary or String or Null) as Void {
+        if (_delegate != null) {
+            if (responseCode == 200 && data != null && data instanceof Dictionary) {
+                var d = data as Dictionary;
+                if (d.hasKey("deviceToken") && d.get("deviceToken") != null) {
+                    UserManager.setDeviceToken(d.get("deviceToken").toString());
+                }
+                var mode = d.hasKey("mode") ? d.get("mode").toString() : "paired";
+                if (mode.equals("room")) {
+                    UserManager.setGuestPaired(true);
+                } else if (mode.equals("paired")) {
+                    UserManager.setGuestPaired(false);
+                }
+                if (d.hasKey("playerName") && d.get("playerName") != null) {
+                    UserManager.setGuestPseudo(d.get("playerName").toString());
+                }
+                if (d.hasKey("userId") && d.get("userId") != null) {
+                    UserManager.setPairedUserId(d.get("userId").toString());
+                }
+                (_delegate as BleDelegate).onPinJoinSuccess(d);
+            } else {
+                // En cas d'échec sur /api/session/claim, tenter le fallback claimGuestTicket pour compatibilité
+                claimGuestTicket(UserManager.getDeviceId());
+            }
+        }
+    }
+
     // Parcours 2 : Validation atomique du Ticket Invité 5 caractères (POST /api/garmin/claim-ticket)
     function claimGuestTicket(ticketPin as String) as Void {
         var endpoint = getBaseUrl() + "/api/garmin/claim-ticket";

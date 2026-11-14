@@ -41,19 +41,7 @@
     </div>
   </aside>
 
-  <!-- BOUTON FLOTTANT UNIQUE PLEIN ÉCRAN ACCESSIBLE (MASQUÉ POUR NE JAMAIS CHEVAUCHER LE DOCK MOBILE) -->
-  <button
-    type="button"
-    class="btn-floating-fullscreen"
-    style="display: none !important;"
-    [class.active]="isFullscreen"
-    (click)="toggleFullscreen()"
-    [title]="isFullscreen ? i18n.t('FULLSCREEN_EXIT') : i18n.t('FULLSCREEN_ENTER')"
-    [attr.aria-label]="isFullscreen ? i18n.t('FULLSCREEN_EXIT') : i18n.t('FULLSCREEN_ENTER')"
-    [attr.aria-pressed]="isFullscreen">
-    <span class="floating-fs-icon" aria-hidden="true">{{ isFullscreen ? '✕' : '⛶' }}</span>
-    <span class="floating-fs-text">{{ isFullscreen ? (i18n.t('FULLSCREEN_EXIT_LABEL') || 'Quitter') : (i18n.t('TOGGLE_FULLSCREEN') || 'Basculer Plein Écran') }}</span>
-  </button>
+
 
   <!-- 3 SECONDS RACE COUNTDOWN OVERLAY -->
   <div class="three-sec-overlay" *ngIf="is3sCountdown">
@@ -1405,8 +1393,9 @@
 
   <!-- MAIN RACING ARENA (2D KAYAK RACE VISUALIZATION) -->
   <main class="race-arena">
-    <!-- Private Salons Banner & Modal -->
+    <!-- Private Salons Banner & Modal (Totalement masqué sur smartphone plein écran conformément à la spécification) -->
     <app-private-room-manager
+      *ngIf="!isMobileFullscreenOnly"
       [isOpen]="isPrivateModalOpen"
       [initialTab]="privateModalTab"
       [activeRoom]="activePrivateRoom"
@@ -1797,7 +1786,7 @@
         </div>
         <div class="cockpit-code-floating-box" *ngIf="pairingCode">
           <div class="code-digits-compact">{{ pairingCode }}</div>
-          <div class="code-instruction-compact">Entrez ce code sur votre montre (Menu > Appairer la montre) · ⏱️ {{ formattedPairingCountdown }}</div>
+          <div class="code-instruction-compact">Sur votre montre Garmin, sélectionnez « Entrer un code » et saisissez : [{{ pairingCode }}] · ⏱️ {{ formattedPairingCountdown }}</div>
         </div>
       </section>
 
@@ -2081,19 +2070,19 @@
             </div>
           </div>
 
-          <!-- AFFICHAGE DU CODE TEMPORAIRE 6 CARACTÈRES AVEC COMPTE À REBOURS -->
+          <!-- AFFICHAGE DU CODE UNIQUE 5 CARACTÈRES AVEC COMPTE À REBOURS -->
           @if (pairingCode) {
             <div class="cyber-code-stage">
               <div class="code-instruction-banner">
                 <span class="step-num">1</span>
-                <span>Sur votre montre Garmin, ouvrez le menu et lancez <strong>« Appairer la montre »</strong></span>
+                <span>Sur votre montre Garmin, sélectionnez <strong>« Entrer un code »</strong> et saisissez : <strong>[{{ pairingCode }}]</strong></span>
               </div>
 
               <div class="code-digits-wrapper">
                 <div class="code-display-box">
                   <span class="code-sub-tag">VOTRE CODE UNIQUE :</span>
                   <div class="code-glow-digits">{{ pairingCode }}</div>
-                  <span class="code-helper-text">Entrez ce code sur votre montre</span>
+                  <span class="code-helper-text">Sur votre montre Garmin, sélectionnez « Entrer un code » et saisissez : [{{ pairingCode }}]</span>
                 </div>
 
                 <div class="code-timer-box">

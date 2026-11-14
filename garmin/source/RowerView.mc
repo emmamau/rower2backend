@@ -105,16 +105,11 @@ class RowerView extends WatchUi.View {
         _model = model;
         _userId = UserManager.getUserId();
         I18n.init();
-        _pairingPicker = new UnifiedCodePickerView(6, "APPAIRAGE", method(:onPairingCodeCompleted));
-        _roomPinPicker = new UnifiedCodePickerView(5, "CODE SALON", method(:onRoomPinCompleted));
+        _pairingPicker = new UnifiedCodePickerView(5, "ENTRER UN CODE", method(:onPairingCodeCompleted));
+        _roomPinPicker = new UnifiedCodePickerView(5, "ENTRER UN CODE", method(:onRoomPinCompleted));
         _pseudoPicker = new UnifiedCodePickerView(6, "MON PSEUDO", method(:onPseudoCompleted));
-        // Appairage prioritaire au lancement : si non appairé, basculer immédiatement vers la saisie du code OTP 6 caractères
-        if (!UserManager.isPaired()) {
-            _currentState = STATE_PAIRING_INPUT;
-            resetPairingDigits();
-        } else {
-            _currentState = STATE_SCANNING;
-        }
+        // Lancement direct sur le menu ou scanner BLE
+        _currentState = STATE_MENU;
     }
 
     public function setPairingCompletedCallback(cb as Method?) as Void {
@@ -497,13 +492,10 @@ class RowerView extends WatchUi.View {
         if (_currentState == STATE_SCANNING) {
             drawG1ConnectionScreen(dc, w, h);
         } else if (_currentState == STATE_MENU) {
-            var isPaired = UserManager.isPaired();
-            var pairItem = isPaired ? I18n.getText("MENU_PAIRED") : I18n.getText("MENU_PAIR");
             var menuItems = [
+                I18n.getText("MENU_ENTER_CODE"),
                 I18n.getText("MENU_PUBLIC"),
-                I18n.getText("MENU_PRIVATE"),
                 I18n.getText("MENU_SOLO"),
-                pairItem,
                 I18n.getText("MENU_PROFILE"),
                 I18n.getText("MENU_HISTORY")
             ] as Array<String>;

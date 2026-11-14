@@ -1651,9 +1651,13 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
         return _activityStatus.equals("in_progress") || _activityStatus.equals("paused");
     }
 
-    // Garmin Pairing Handlers
+    // Garmin Pairing Handlers - Code Unique Universel à 5 Caractères
     public function submitPairingCode(pairingCode as String) as Void {
-        _syncManager.pairWatch(pairingCode);
+        if (pairingCode != null && pairingCode.length() == 5) {
+            _syncManager.claimSessionCode(pairingCode);
+        } else {
+            _syncManager.pairWatch(pairingCode);
+        }
     }
 
     public function onPairingSuccess(data as Dictionary) as Void {
