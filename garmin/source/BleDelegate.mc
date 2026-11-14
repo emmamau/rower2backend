@@ -529,13 +529,19 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
             if (_model.connectionState == RowerDataModel.STATE_CONNECTED_SMARTROW) {
                 initSmartRowDirect();
             }
-            // Rameur connecté : notifier l'athlète et basculer sur le menu principal si sur l'écran scanning
+            // Rameur connecté : notifier l'athlète et aiguiller selon le statut d'enregistrement
             triggerApprovalVibe();
             if (_view != null) {
                 var v = _view as RowerView;
                 if (v.getAppState() == RowerView.STATE_SCANNING) {
-                    v.showWarning("Rameur connecte !", 2);
-                    v.setAppState(RowerView.STATE_MENU);
+                    if (!UserManager.isPaired()) {
+                        v.showWarning("Rameur connecte !\nEntrez un code", 2);
+                        v.resetPairingDigits();
+                        v.setAppState(RowerView.STATE_PAIRING_INPUT);
+                    } else {
+                        v.showWarning("Rameur connecte !", 2);
+                        v.setAppState(RowerView.STATE_MENU);
+                    }
                 }
             }
         } else {

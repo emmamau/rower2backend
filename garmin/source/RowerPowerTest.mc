@@ -551,6 +551,45 @@ function testLobbyWaitingForReadyDoesNotSelfStartRace(logger as Logger) as Boole
     return true;
 }
 
+//! Regression test 19: Dynamic main menu items and navigation based on pairing state
+(:test)
+function testDynamicMainMenuItems(logger as Logger) as Boolean {
+    var model = new RowerDataModel();
+    var view = new RowerView(model);
+
+    // 1. Unpaired state
+    UserManager.clearPairing();
+    Test.assertEqual(false, UserManager.isPaired());
+    Test.assertEqual(3, view.getMainMenuItemCount());
+
+    // Navigation cycle on 3 items
+    view.nextMainMenu(); // 0 -> 1
+    Test.assertEqual(1, view.getMainMenuIndex());
+    view.nextMainMenu(); // 1 -> 2
+    Test.assertEqual(2, view.getMainMenuIndex());
+    view.nextMainMenu(); // 2 -> 0
+    Test.assertEqual(0, view.getMainMenuIndex());
+    view.prevMainMenu(); // 0 -> 2
+    Test.assertEqual(2, view.getMainMenuIndex());
+
+    // 2. Paired state
+    UserManager.setDeviceToken("test-paired-device-token");
+    Test.assertEqual(true, UserManager.isPaired());
+    Test.assertEqual(4, view.getMainMenuItemCount());
+
+    // Navigation cycle on 4 items
+    view.nextMainMenu(); // 2 -> 3
+    Test.assertEqual(3, view.getMainMenuIndex());
+    view.nextMainMenu(); // 3 -> 0
+    Test.assertEqual(0, view.getMainMenuIndex());
+    view.prevMainMenu(); // 0 -> 3
+    Test.assertEqual(3, view.getMainMenuIndex());
+
+    // Clean up
+    UserManager.clearPairing();
+    return true;
+}
+
 
 
 

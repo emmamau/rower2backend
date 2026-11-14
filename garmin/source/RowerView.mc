@@ -307,14 +307,23 @@ class RowerView extends WatchUi.View {
         _countdown5sValue = val;
     }
 
-    // Menu navigation helpers (3 options allégées)
+    public function getMainMenuItemCount() as Number {
+        if (UserManager.isPaired()) {
+            return 4; // 0: Course Publique, 1: Rejoindre un salon, 2: Pseudo/Compte, 3: Historique
+        }
+        return 3; // 0: Entrer un code, 1: Pseudo, 2: Historique
+    }
+
+    // Menu navigation helpers (options dynamiques selon l'appairage)
     public function nextMainMenu() as Void {
-        _mainMenuIndex = (_mainMenuIndex + 1) % 3;
+        var count = getMainMenuItemCount();
+        _mainMenuIndex = (_mainMenuIndex + 1) % count;
         WatchUi.requestUpdate();
     }
 
     public function prevMainMenu() as Void {
-        _mainMenuIndex = (_mainMenuIndex + 2) % 3;
+        var count = getMainMenuItemCount();
+        _mainMenuIndex = (_mainMenuIndex + count - 1) % count;
         WatchUi.requestUpdate();
     }
 
@@ -515,11 +524,20 @@ class RowerView extends WatchUi.View {
                 pseudoLabel = UserManager.getDisplayPseudo() + " (Compte)";
             }
 
-            var menuItems = [
-                I18n.getText("MENU_ENTER_CODE"),
-                pseudoLabel,
-                I18n.getText("MENU_HISTORY")
-            ] as Array<String>;
+            var menuItems = [] as Array<String>;
+            if (UserManager.isPaired()) {
+                menuItems.add(I18n.getText("MENU_PUBLIC"));
+                menuItems.add(I18n.getText("MENU_PRIVATE"));
+                menuItems.add(pseudoLabel);
+                menuItems.add(I18n.getText("MENU_HISTORY"));
+            } else {
+                menuItems.add(I18n.getText("MENU_ENTER_CODE"));
+                menuItems.add(pseudoLabel);
+                menuItems.add(I18n.getText("MENU_HISTORY"));
+            }
+            if (_mainMenuIndex >= menuItems.size()) {
+                _mainMenuIndex = 0;
+            }
             var menuSub = getBleProtocolTag();
             _userId = UserManager.getUserId();
             if (_userId.length() > 0) {

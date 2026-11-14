@@ -75,21 +75,41 @@ class RowerDelegate extends WatchUi.BehaviorDelegate {
             return true;
         } else if (state == RowerView.STATE_MENU) {
             var menuIdx = _view.getMainMenuIndex();
-            if (menuIdx == 0) {
-                // 1. Entrer un code unique à 5 caractères (Universel : Course, Salon, Solo ou Appairage)
-                _view.resetPairingDigits();
-                _view.setAppState(RowerView.STATE_PAIRING_INPUT);
-            } else if (menuIdx == 1) {
-                // 2. Gestion pseudo (modifiable pour invité, synchronisé pour compte lié)
-                if (UserManager.isGuestSession()) {
+            var isPaired = UserManager.isPaired();
+            if (isPaired) {
+                if (menuIdx == 0) {
+                    // 1. Course Publique -> Rejoint directement la file d'attente / lobby
+                    _view.setRaceMode("race");
+                    _bleDelegate.joinNextRaceWaiting();
+                } else if (menuIdx == 1) {
+                    // 2. Rejoindre un salon (code unique à 5 caractères)
+                    _view.resetPairingDigits();
+                    _view.setAppState(RowerView.STATE_PAIRING_INPUT);
+                } else if (menuIdx == 2) {
+                    // 3. Gestion pseudo / profil
+                    if (UserManager.isGuestSession()) {
+                        _view.resetPseudoDigits();
+                        _view.setAppState(RowerView.STATE_PSEUDO_INPUT);
+                    } else {
+                        _view.showWarning(I18n.getText("PROFILE_SYNCED_WEB"), 2);
+                    }
+                } else if (menuIdx == 3) {
+                    // 4. Historique local (G9)
+                    _view.setAppState(RowerView.STATE_HISTORY);
+                }
+            } else {
+                if (menuIdx == 0) {
+                    // 1. Entrer un code d'appairage montre
+                    _view.resetPairingDigits();
+                    _view.setAppState(RowerView.STATE_PAIRING_INPUT);
+                } else if (menuIdx == 1) {
+                    // 2. Gestion pseudo
                     _view.resetPseudoDigits();
                     _view.setAppState(RowerView.STATE_PSEUDO_INPUT);
-                } else {
-                    _view.showWarning(I18n.getText("PROFILE_SYNCED_WEB"), 2);
+                } else if (menuIdx == 2) {
+                    // 3. Historique local (G9)
+                    _view.setAppState(RowerView.STATE_HISTORY);
                 }
-            } else if (menuIdx == 2) {
-                // 3. Historique local (G9)
-                _view.setAppState(RowerView.STATE_HISTORY);
             }
             return true;
         } else if (state == RowerView.STATE_PAIRING_INPUT) {
