@@ -374,10 +374,12 @@ export class RaceManager {
 
   private async loadRaceActivities(raceId: string): Promise<any[]> {
     try {
-      return (await Activities.findAll({ where: { activityId: raceId } })) as any[];
+      const rows = (await Activities.findAll({ where: { activityId: raceId } })) as any[];
+      if (rows && rows.length > 0) return rows;
     } catch {
-      return [];
+      // Tolérance DB hors ligne
     }
+    return userStore.findActivitiesByRaceId(raceId);
   }
 
   /**
@@ -803,7 +805,8 @@ export class RaceManager {
     } catch (err) {
       console.error(`[RaceManager] Unable to finalise private race ${race.id}:`, err);
     }
-    socketGateway.broadcastRaceStatus(race.id, "COMPLETED", { reason, ranking });
+    this.removePrivateRaceInternal(race, "COMPLETED");
+    socketGateway.broadcastRaceStatus(race.id, "COMPLETED", { reason, ranking, roomClosed: true });
   }
 
   /**
@@ -2185,8 +2188,8 @@ export class RaceManager {
     );
   }
 
-  private removePrivateRaceInternal(race: RaceState): void {
-    race.status = "ABANDONED";
+  private removePrivateRaceInternal(race: RaceState, finalStatus: "ABANDONED" | "COMPLETED" = "ABANDONED"): void {
+    race.status = finalStatus;
     if (race.pinCode) {
       this.pinToRaceMap.delete(race.pinCode);
     }

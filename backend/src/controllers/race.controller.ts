@@ -59,9 +59,50 @@ export async function getOrCreateCurrentRace(): Promise<any> {
   return ensurePublicRaceRow(state);
 }
 
-function formatMinSec(totalSeconds: number): string {
+export function formatMinSec(totalSeconds: number): string {
   const s = Math.max(0, Math.floor(totalSeconds));
   return `${Math.floor(s / 60)}m ${s % 60}s`;
+}
+
+export function formatRaceStateResponse(race: RaceState, now: Date = new Date()): any {
+  const timing = raceManager.getRaceTiming(race, now);
+  const isPostRacePause = Boolean(race.pauseEndsAt && race.pauseEndsAt.getTime() > now.getTime());
+  const pauseRemaining = isPostRacePause
+    ? Math.max(0, Math.ceil((race.pauseEndsAt!.getTime() - now.getTime()) / 1000))
+    : 0;
+
+  const apiStatus = isPostRacePause ? "post_race_pause" : mapStateToApiStatus(race.status);
+
+  return {
+    race: {
+      id: race.id,
+      code: race.code,
+      pinCode: race.pinCode,
+      type: race.type,
+      title: race.title,
+      targetDistance: race.targetDistance,
+      startTime: (race.startedAt || race.lobbyEndsAt).toISOString(),
+      maxDurationMinutes: race.maxDurationMinutes || 55,
+      hasBots: Boolean(race.hasBots),
+      internalStatus: race.status,
+      status: apiStatus,
+      totalParticipants: race.totalParticipants || (race.participants ? race.participants.size : 0),
+    },
+    timing,
+    secondsRemaining: isPostRacePause ? pauseRemaining : timing.secondsUntilStart,
+    remainingSeconds: isPostRacePause ? pauseRemaining : timing.remainingSeconds,
+    elapsedSeconds: timing.elapsedSeconds,
+    maxDurationSeconds: timing.maxDurationSeconds,
+    formattedCountdown: formatMinSec(
+      isPostRacePause
+        ? pauseRemaining
+        : (race.status === "RUNNING" ? timing.remainingSeconds : timing.secondsUntilStart)
+    ),
+    status: apiStatus,
+    pinCode: race.pinCode,
+    isPostRacePause,
+    pauseRemainingSeconds: pauseRemaining,
+  };
 }
 
 function mapStateToApiStatus(status: RaceState["status"]): string {
@@ -874,4 +915,6 @@ export default {
   getPublicRaceAdminConfig,
   updatePublicRaceAdminConfig,
   stopRace,
+  formatRaceStateResponse,
+  formatMinSec,
 };
