@@ -560,7 +560,13 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
         this.boatsMap.set(r.userId, boat);
       } else {
         boat.name = r.name;
-        boat.targetPacketDist = r.dist;
+        // Protection anti-recul : la distance cible ne régresse jamais, sauf réinitialisation de course (r.dist === 0)
+        if ((r.dist || 0) === 0 && boat.targetPacketDist > 50) {
+          boat.targetPacketDist = 0;
+          boat.currentDisplayDist = 0;
+        } else {
+          boat.targetPacketDist = Math.max(boat.targetPacketDist, r.dist || 0);
+        }
         boat.splitSec = r.split > 0 ? r.split : boat.splitSec;
         boat.watts = r.watts;
         boat.spm = r.spm;
@@ -598,11 +604,16 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
   private updateBoatsPhysics(deltaT: number): void {
     this.boatsMap.forEach((boat) => {
       const vInst = boat.splitSec > 0 && boat.spm > 0 ? 500 / boat.splitSec : 0;
-      const predictedDist = boat.targetPacketDist + vInst * deltaT;
+      const predictedDist = Math.max(boat.targetPacketDist, boat.targetPacketDist + vInst * deltaT);
       boat.targetPacketDist = predictedDist;
 
+      const prevDisplay = boat.currentDisplayDist;
       const diff = boat.targetPacketDist - boat.currentDisplayDist;
-      boat.currentDisplayDist += diff * 0.12;
+      if (diff > 0) {
+        boat.currentDisplayDist += diff * 0.12;
+      }
+      // Règle d'or : le kayak ne recule jamais sur l'eau (monotonie absolue)
+      boat.currentDisplayDist = Math.max(prevDisplay, boat.currentDisplayDist);
 
       if (boat.currentDisplayDist > this.targetDistance) {
         boat.currentDisplayDist = this.targetDistance;

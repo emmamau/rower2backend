@@ -1573,22 +1573,22 @@ body.app-pseudo-fullscreen .game-container {
 
 .hud-value-huge {
   font-family: var(--font-race);
-  font-size: clamp(1.85rem, 1.35rem + 2.2vw, 2.8rem);
+  font-size: clamp(2.2rem, 1.6rem + 2.8vw, 3.8rem);
   color: #fff;
-  line-height: 1.05;
+  line-height: 1.02;
   font-variant-numeric: tabular-nums;
   text-shadow: 0 0 15px rgba(255, 0, 85, 0.65);
 }
 .hud-value {
   font-family: var(--font-race);
-  font-size: clamp(1.45rem, 1.1rem + 1.6vw, 2.2rem);
+  font-size: clamp(1.8rem, 1.3rem + 2.2vw, 3.0rem);
   color: #fff;
-  line-height: 1.05;
+  line-height: 1.02;
   font-variant-numeric: tabular-nums;
   text-shadow: 0 0 12px rgba(0, 240, 255, 0.45);
 }
-.cockpit-expanded .hud-value-huge { font-size: clamp(2.15rem, 1.5rem + 2.8vw, 3.2rem); }
-.cockpit-expanded .hud-value { font-size: clamp(1.65rem, 1.25rem + 2vw, 2.55rem); }
+.cockpit-expanded .hud-value-huge { font-size: clamp(2.6rem, 2.0rem + 3.2vw, 4.4rem); }
+.cockpit-expanded .hud-value { font-size: clamp(2.1rem, 1.6rem + 2.5vw, 3.4rem); }
 
 .rank-val { color: var(--neon-yellow); text-shadow: 0 0 16px rgba(255, 230, 0, 0.6); }
 .unit { font-size: 0.85rem; font-family: 'Segoe UI', sans-serif; font-weight: 800; color: var(--neon-yellow); }
@@ -3131,16 +3131,7 @@ input[type="number"]:focus { border-color: var(--neon-cyan); box-shadow: 0 0 10p
     min-inline-size: 0;
   }
   .hero-schedule-cluster .hero-fullscreen {
-    inline-size: 100%;
-    width: 100%;
-    min-block-size: 48px;
-    padding: 0.6rem 1rem;
-    font-size: 0.88rem;
-    font-weight: 700;
-    gap: 0.5rem;
-    justify-content: center;
-    border-radius: 10px;
-    box-shadow: 0 4px 14px rgba(0, 240, 255, 0.22);
+    display: none !important;
   }
   .dual-standings-history-container {
     display: none !important;
@@ -5462,8 +5453,7 @@ body.rigid-viewport {
     align-items: center !important;
   }
   .pure-screen-header .pure-screen-tag,
-  .pure-screen-header .pure-league-badge,
-  .pure-screen-header .pure-lang-dropdown {
+  .pure-screen-header .pure-league-badge {
     display: none !important;
   }
   .pure-screen-header .btn-pure-nav {
@@ -6398,8 +6388,7 @@ body.rigid-viewport {
     align-items: center !important;
   }
   .pure-screen-header .pure-screen-tag,
-  .pure-screen-header .pure-league-badge,
-  .pure-screen-header .pure-lang-dropdown {
+  .pure-screen-header .pure-league-badge {
     display: none !important;
   }
   .pure-screen-header .btn-pure-nav {
@@ -6524,25 +6513,25 @@ body.rigid-viewport {
   }
 
   .cockpit-hud .hud-label {
-    font-size: 0.60rem !important;
+    font-size: 0.62rem !important;
     letter-spacing: 0.8px !important;
     margin-bottom: 2px !important;
   }
 
   .cockpit-hud .hud-value-huge,
   .cockpit-expanded .hud-value-huge {
-    font-size: 1.45rem !important;
-    line-height: 1.05 !important;
+    font-size: clamp(1.85rem, 5.5vw, 2.7rem) !important;
+    line-height: 1.0 !important;
   }
 
   .cockpit-hud .hud-value,
   .cockpit-expanded .hud-value {
-    font-size: 1.25rem !important;
-    line-height: 1.05 !important;
+    font-size: clamp(1.55rem, 4.8vw, 2.3rem) !important;
+    line-height: 1.0 !important;
   }
 
   .cockpit-hud .unit {
-    font-size: 0.70rem !important;
+    font-size: 0.78rem !important;
   }
 
   .cockpit-hud .hud-sub {
@@ -6621,12 +6610,12 @@ body.rigid-viewport {
   }
   .cockpit-hud .hud-value,
   .cockpit-expanded .hud-value {
-    font-size: 1.1rem !important;
+    font-size: clamp(1.4rem, 4.2vh, 2.1rem) !important;
     line-height: 1 !important;
   }
   .cockpit-hud .hud-value-huge,
   .cockpit-expanded .hud-value-huge {
-    font-size: 1.25rem !important;
+    font-size: clamp(1.6rem, 4.8vh, 2.4rem) !important;
     line-height: 1 !important;
   }
   .cockpit-hud .hud-label {

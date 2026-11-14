@@ -126,25 +126,9 @@
         </div>
       </div>
 
-        <!-- Quick Action Controls (Lane registration + Host Start / Bots / Reset + Guest Ticket + BLE READY status) -->
+        <!-- Quick Action Controls (Host Start / Bots / Reset + BLE READY status) -->
       <div class="priv-banner-actions">
-        @if (!isBotDuelRoom) {
-          <button
-            type="button"
-            class="priv-btn priv-btn-outline"
-            [disabled]="isActionBusy"
-            (click)="registerMyLane()">
-            {{ i18n.t('BTN_REGISTER_LANE') }}
-          </button>
-
-          <button
-            type="button"
-            class="priv-btn priv-btn-yellow"
-            [disabled]="isGeneratingGuestTicket"
-            (click)="requestGuestBoardingTicket()">
-            🎟️ Obtenir mon code d'embarquement
-          </button>
-        } @else {
+        @if (isBotDuelRoom) {
           <span class="priv-meta-chip">🚣 Ligne 1 (Vous) vs 🤖 Ligne 2 (Bot) — Départ auto 15s après validation PIN</span>
         }
 
@@ -194,21 +178,6 @@
           }
         }
       </div>
-
-      <!-- PARCOURS 2 : TICKET INVITÉ DE SALON (CODE 5 CARACTÈRES ATOMIQUE) -->
-      @if (guestTicketPin) {
-        <div class="priv-guest-ticket-banner" role="status" aria-live="polite">
-          <div class="priv-ticket-info">
-            <span class="priv-ticket-badge">🎟️ Code d'embarquement Invité (5 caractères) :</span>
-            <strong class="priv-ticket-code">{{ guestTicketPin }}</strong>
-            <span class="priv-ticket-lane">🚣 Ligne {{ guestTicketLane }} réservée</span>
-            <span class="priv-ticket-timer">⏱️ {{ formattedGuestTicketCountdown }}</span>
-          </div>
-          <p class="priv-ticket-help">
-            Sur votre montre Garmin, sélectionnez <strong>« Rejoindre un salon »</strong> et saisissez ce code à 5 caractères. Votre kayak sera positionné automatiquement sur l'eau.
-          </p>
-        </div>
-      }
 
       <!-- MACHINE À ÉTATS BLE : VOYANT ORANGE ("En attente du rameur") / VERT ("Rameur prêt") PAR BATEAU -->
       @if (roomParticipants.length > 0) {
@@ -683,45 +652,6 @@
           </div>
         </div>
 
-        <!-- 2b. Parcours 2 : Ticket Invité de Salon (Code à 5 caractères atomique) -->
-        <div class="priv-share-card priv-guest-ticket-card">
-          <div class="priv-label">🎟️ Embarquement Invité Direct (Ticket Unique à 5 caractères)</div>
-          <p class="priv-hint">
-            Sans compte requis : renseignez votre pseudo pour réserver votre ligne d'eau et obtenir un code unique à 5 caractères à saisir sur votre montre (« Rejoindre un salon »).
-          </p>
-          <div class="priv-join-row">
-            <input
-              id="priv-guest-ticket-name"
-              name="guestTicketName"
-              type="text"
-              maxlength="24"
-              placeholder="Votre pseudo (ex: Alex, Rameur_42)"
-              class="priv-input"
-              [(ngModel)]="guestTicketName" />
-            <button
-              type="button"
-              class="priv-btn priv-btn-yellow"
-              [disabled]="isGeneratingGuestTicket"
-              (click)="requestGuestBoardingTicket()">
-              {{ isGeneratingGuestTicket ? 'Génération...' : 'Obtenir mon code d\'embarquement' }}
-            </button>
-          </div>
-
-          @if (guestTicketPin) {
-            <div class="priv-pin-digits" aria-label="Code Ticket Invité 5 caractères">
-              @for (digit of guestTicketPinDigits; track $index) {
-                <span class="priv-pin-digit">{{ digit }}</span>
-              }
-            </div>
-            <p class="priv-hint">
-              🚣 Ligne {{ guestTicketLane }} réservée · Valide {{ formattedGuestTicketCountdown }} · Saisissez <strong>{{ guestTicketPin }}</strong> dans « Rejoindre un salon » sur votre montre Garmin.
-            </p>
-          }
-          @if (guestTicketError) {
-            <p class="priv-error-msg" role="alert">⚠️ {{ guestTicketError }}</p>
-          }
-        </div>
-
         <!-- 3. Organizer Access Control & Player Validation -->
         @if (canManageActiveRoom) {
           <div class="priv-share-card priv-approval-card">
@@ -800,14 +730,6 @@
         <div class="priv-host-box">
           <div class="priv-label">🎛️ {{ i18n.t('HOST_CONTROLS_TITLE') }}</div>
           <div class="priv-share-btn-row">
-            <button
-              type="button"
-              class="priv-btn priv-btn-outline"
-              [disabled]="isActionBusy"
-              (click)="registerMyLane()">
-              {{ i18n.t('BTN_REGISTER_LANE') }}
-            </button>
-
             @if (canManageActiveRoom) {
               @if (activeRoom.status === 'countdown' || activeRoom.status === 'waiting') {
                 <button
@@ -921,44 +843,6 @@
             }
           </div>
         </form>
-
-        <!-- Parcours 2 dans l'onglet Rejoindre : Ticket d'embarquement invité -->
-        <div class="priv-share-card priv-guest-ticket-card">
-          <div class="priv-label">🎟️ Invité sans compte ? Obtenir mon code d'embarquement (5 caractères)</div>
-          <p class="priv-hint">
-            Indiquez votre pseudo ci-dessous (avec le code salon renseigné ci-dessus) pour obtenir un Ticket unique à 5 caractères qui appaire votre montre et vous place sur votre ligne d'eau en une seule saisie.
-          </p>
-          <div class="priv-join-row">
-            <input
-              id="priv-join-guest-name"
-              name="joinGuestName"
-              type="text"
-              maxlength="24"
-              placeholder="Pseudo invité (ex: Alex)"
-              class="priv-input"
-              [(ngModel)]="guestTicketName" />
-            <button
-              type="button"
-              class="priv-btn priv-btn-yellow"
-              [disabled]="isGeneratingGuestTicket"
-              (click)="requestGuestBoardingTicket(joinInput)">
-              {{ isGeneratingGuestTicket ? 'Génération...' : 'Obtenir mon code d\'embarquement' }}
-            </button>
-          </div>
-          @if (guestTicketPin) {
-            <div class="priv-pin-digits" aria-label="Code Ticket Invité">
-              @for (digit of guestTicketPinDigits; track $index) {
-                <span class="priv-pin-digit">{{ digit }}</span>
-              }
-            </div>
-            <p class="priv-hint">
-              🚣 Ligne {{ guestTicketLane }} réservée · Valide {{ formattedGuestTicketCountdown }} · Sur votre montre Garmin : <strong>Rejoindre un salon &rarr; {{ guestTicketPin }}</strong>
-            </p>
-          }
-          @if (guestTicketError) {
-            <p class="priv-error-msg" role="alert">⚠️ {{ guestTicketError }}</p>
-          }
-        </div>
 
         <!-- Saved & Active Private Salons List -->
         <div class="priv-saved-section">

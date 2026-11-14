@@ -2692,10 +2692,16 @@ export class AppComponent implements OnInit, OnDestroy {
     this.socketSub = this.socketService.onLeaderboardUpdate().subscribe((update) => {
       if (this.nextRaceInfo && update.raceId === this.nextRaceInfo.race.id) {
         this.liveMetricsList = update.leaderboard.map((m) => {
+          const existing = this.liveMetricsList.find(x => x.userId === m.userId);
+          const safeDist = (existing && (existing.dist || 0) > 0 && (m.dist || 0) > 0)
+            ? Math.max(existing.dist || 0, m.dist || 0)
+            : (m.dist || 0);
+
+          let updated = { ...m, dist: safeDist };
           if (m.userId === this.activeUserId && this.myAssignedLane) {
-            return { ...m, lane: this.myAssignedLane };
+            updated.lane = this.myAssignedLane;
           }
-          return m;
+          return updated;
         });
 
         // 1. Sync racers array for spectators and reactive gauges
