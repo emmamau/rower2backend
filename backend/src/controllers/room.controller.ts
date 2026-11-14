@@ -493,6 +493,68 @@ export class RoomController {
       res.status(500).json({ success: false, error: message, message });
     }
   }
+  /**
+   * POST /api/rooms/leave
+   * Quitter un salon privé et libérer la place/ligne
+   */
+  public static async leaveRoom(req: Request, res: Response): Promise<void> {
+    try {
+      const body = req.body || {};
+      const query = req.query || {};
+
+      const code = String(body.code || query.code || body.pin || query.pin || body.roomId || query.roomId || body.roomCode || "").trim();
+      let deviceToken = body.deviceToken || query.deviceToken || req.headers["x-device-token"];
+      if (!deviceToken && req.headers.authorization?.startsWith("Bearer ")) {
+        deviceToken = req.headers.authorization.slice(7).trim();
+      }
+
+      let userId = body.userId || query.userId;
+
+      if (!userId && deviceToken) {
+        const check = await pairingService.validateDeviceToken(String(deviceToken));
+        if (check.valid && check.pairing) {
+          userId = check.pairing.userId;
+        }
+      }
+
+      if (!code) {
+        res.status(400).json({
+          success: false,
+          error: "Identifiant de salon requis.",
+          message: "Identifiant de salon requis."
+        });
+        return;
+      }
+
+      if (!userId) {
+        res.status(400).json({
+          success: false,
+          error: "Identifiant d'utilisateur requis.",
+          message: "Identifiant d'utilisateur requis."
+        });
+        return;
+      }
+
+      const outcome = raceManager.leavePrivateRace(code, String(userId));
+      if ("error" in outcome) {
+        res.status(outcome.statusCode).json({
+          success: false,
+          error: outcome.error,
+          message: outcome.error
+        });
+        return;
+      }
+
+      res.status(200).json({
+        success: true,
+        roomClosed: outcome.roomClosed,
+        remainingParticipants: outcome.remainingParticipants
+      });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      res.status(500).json({ success: false, error: message, message });
+    }
+  }
 }
 
 export default RoomController;

@@ -89,6 +89,13 @@ export class RowerService {
     });
   }
 
+  leaveRoom(codeOrId: string, userId: string): Observable<{ success: boolean; roomClosed?: boolean; remainingParticipants?: number }> {
+    return this.http.post<{ success: boolean; roomClosed?: boolean; remainingParticipants?: number }>(
+      `${this.apiUrl}/api/rooms/leave`,
+      { code: codeOrId, userId }
+    );
+  }
+
   getPrivateRace(identifier: string): Observable<PrivateRacePayload> {
     return this.http.get<PrivateRacePayload>(
       `${this.apiUrl}/api/v1/races/private/${encodeURIComponent(identifier.trim())}`

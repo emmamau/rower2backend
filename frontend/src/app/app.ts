@@ -670,21 +670,33 @@ export class AppComponent implements OnInit, OnDestroy {
               this.distToNext = 0;
             }
 
-            // CORRECTION AFFICHAGE DONNÉES UTILISATEUR :
+            // CORRECTION AFFICHAGE DONNÉES UTILISATEUR & ANTI-SCINTILLEMENT :
             // 1. Chercher d'abord dans le leaderboard de la course
             const foundInRace = this.racers.find(r => r.userId === this.activeUserId);
             if (foundInRace) {
-              this.myActivity = foundInRace;
+              // Mettre à jour en douceur sans écraser par des valeurs régressives
+              if (!this.myActivity) {
+                this.myActivity = { ...foundInRace };
+              } else {
+                if (foundInRace.netDistance !== undefined && foundInRace.netDistance >= (this.myActivity.netDistance || 0)) {
+                  this.myActivity.netDistance = foundInRace.netDistance;
+                }
+                if ((foundInRace.lastPower || 0) > 0) this.myActivity.lastPower = foundInRace.lastPower;
+                if ((foundInRace.lastStrokeRate || 0) > 0) this.myActivity.lastStrokeRate = foundInRace.lastStrokeRate;
+                if ((foundInRace.lastPace || 0) > 0) this.myActivity.lastPace = foundInRace.lastPace;
+                if (foundInRace.status) this.myActivity.status = foundInRace.status;
+                if (foundInRace.lastHeartRate) this.myActivity.lastHeartRate = foundInRace.lastHeartRate;
+              }
               this.cdr.markForCheck();
-            } else {
-              // 2. Si pas encore dans cette course, interroger son activité récente directement par son userId
+            } else if (!this.myActivity) {
+              // 2. Si AUCUNE donnée en mémoire, interroger son activité récente une seule fois
               this.rowerService.getUserLatestActivity(this.activeUserId).pipe(
                 catchError(() => of(null))
               ).subscribe((latest) => {
-                if (latest) {
+                if (latest && !this.myActivity) {
                   this.myActivity = latest;
+                  this.cdr.markForCheck();
                 }
-                this.cdr.markForCheck();
               });
             }
           });
@@ -2754,10 +2766,20 @@ export class AppComponent implements OnInit, OnDestroy {
               lastHeartRate: myMetric.heartRate
             } as any;
           } else {
-            this.myActivity.netDistance = myMetric.dist;
-            this.myActivity.lastPower = myMetric.watts;
-            this.myActivity.lastStrokeRate = myMetric.spm;
-            this.myActivity.lastPace = myMetric.split;
+            // Lissage et protection anti-scintillement
+            if (myMetric.dist !== undefined && myMetric.dist >= (this.myActivity.netDistance || 0)) {
+              this.myActivity.netDistance = myMetric.dist;
+              this.myActivity.currentDistance = myMetric.dist;
+            }
+            if (myMetric.watts > 0 || (this.myActivity.lastPower || 0) === 0) {
+              this.myActivity.lastPower = myMetric.watts;
+            }
+            if (myMetric.spm > 0 || (this.myActivity.lastStrokeRate || 0) === 0) {
+              this.myActivity.lastStrokeRate = myMetric.spm;
+            }
+            if (myMetric.split > 0 || (this.myActivity.lastPace || 0) === 0) {
+              this.myActivity.lastPace = myMetric.split;
+            }
             if (myMetric.elapsedTime !== undefined && myMetric.elapsedTime > 0) {
               this.myActivity.elapsedTime = myMetric.elapsedTime;
             } else if (this.nextRaceInfo?.status === 'in_progress') {
@@ -3227,6 +3249,15 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   private exitPrivateRoomToPublic(resetUrl: boolean, notFoundMessage?: string): void {
+    if (this.activePrivateRoom) {
+      const roomIdent = this.activePrivateRoom.race?.id || this.activePrivateRoom.code;
+      if (roomIdent && this.activeUserId) {
+        this.rowerService.leaveRoom(roomIdent, this.activeUserId).subscribe({
+          next: () => {},
+          error: (err) => console.warn('Could not notify leaveRoom to backend in exitPrivateRoomToPublic:', err)
+        });
+      }
+    }
     this.activePrivateRoom = null;
     if (resetUrl && typeof window !== 'undefined') {
       if (window.location.pathname !== '/' || window.location.search) {

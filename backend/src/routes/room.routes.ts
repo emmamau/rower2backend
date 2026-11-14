@@ -11,6 +11,10 @@ export default (app: Application): void => {
   // POST /api/rooms/join (Validation du code de salon avec quota, profil et attribution immédiate de ligne d'eau)
   router.post("/join", RoomController.joinRoom);
 
+  // POST /api/rooms/leave (Départ d'un joueur et libération de place / clôture automatique si dernier joueur)
+  router.post("/leave", RoomController.leaveRoom);
+  router.post("/:identifier/leave", RoomController.leaveRoom);
+
   // POST /api/rooms/:roomId/guest-ticket (Parcours 2 : Génération du code d'embarquement invité à 5 caractères)
   router.post("/:roomId/guest-ticket", RoomController.createGuestTicket);
 

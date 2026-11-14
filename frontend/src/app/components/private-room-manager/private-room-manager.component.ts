@@ -949,6 +949,15 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
   }
 
   leaveToPublicRace(): void {
+    if (this.activeRoom) {
+      const roomIdent = this.activeRoom.race?.id || this.activeRoom.code;
+      if (roomIdent && this.activeUserId) {
+        this.rowerService.leaveRoom(roomIdent, this.activeUserId).subscribe({
+          next: () => {},
+          error: (err) => console.warn('Could not notify leaveRoom to backend:', err)
+        });
+      }
+    }
     this.closeModal();
     this.roomClosedOrLeft.emit({ closedOnServer: false });
   }

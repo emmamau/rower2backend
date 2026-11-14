@@ -2161,6 +2161,54 @@ export class RaceManager {
     return { race, code: nextCode };
   }
 
+  public leavePrivateRace(
+    identifier: string,
+    userId: string
+  ): { success: boolean; roomClosed: boolean; remainingParticipants: number } | { error: string; statusCode: number } {
+    const race = this.findPrivateRace(identifier);
+    if (!race) {
+      return { error: "Salon introuvable ou déjà fermé.", statusCode: 404 };
+    }
+
+    const cleanUserId = String(userId || "").trim();
+
+    if (race.participants) {
+      race.participants.delete(cleanUserId);
+    }
+    if (race.pendingParticipants) {
+      race.pendingParticipants.delete(cleanUserId);
+    }
+
+    // Si la course est en cours (RUNNING), marquer l'activité de ce joueur en abandoned
+    if (race.status === "RUNNING") {
+      (Activities as any).update(
+        { status: "abandoned", speed: 0, powerWatts: 0, strokeRate: 0 },
+        { where: { activityId: race.id, userId: cleanUserId } }
+      ).catch((err: any) => {
+        console.error(`[RaceManager] Error marking activity abandoned for user ${cleanUserId} in race ${race.id}:`, err);
+      });
+    }
+
+    const remainingParticipants = race.participants ? race.participants.size : 0;
+    race.totalParticipants = remainingParticipants;
+
+    // Si plus aucun joueur humain présent dans le salon privé
+    if (remainingParticipants === 0) {
+      this.removePrivateRaceInternal(race, "ABANDONED");
+      socketGateway.broadcastRaceStatus(race.id, "ABANDONED", { reason: "all_players_left", roomClosed: true });
+      return { success: true, roomClosed: true, remainingParticipants: 0 };
+    }
+
+    // Si d'autres participants restent
+    socketGateway.broadcastPrivateRoomUpdate(race.id, {
+      type: "PARTICIPANT_LEFT",
+      userId: cleanUserId,
+      remainingParticipants
+    });
+
+    return { success: true, roomClosed: false, remainingParticipants };
+  }
+
   public closePrivateRace(
     identifier: string,
     hostUserId?: string,
