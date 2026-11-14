@@ -6601,7 +6601,7 @@ body.rigid-viewport {
   }
 
   .cockpit-hud .hud-card {
-    padding: 4px 6px !important;
+    padding: 3px 5px !important;
     display: flex !important;
     flex-direction: column !important;
     justify-content: center !important;
@@ -6611,32 +6611,44 @@ body.rigid-viewport {
 
   .cockpit-hud .hud-label {
     font-size: 0.62rem !important;
+    font-weight: 800 !important;
     letter-spacing: 0.8px !important;
-    margin-bottom: 2px !important;
+    margin-bottom: 1px !important;
   }
 
   .cockpit-hud .hud-value-huge,
   .cockpit-expanded .hud-value-huge {
-    font-size: clamp(1.85rem, 5.5vw, 2.7rem) !important;
-    line-height: 1.0 !important;
+    font-size: clamp(2.5rem, 8.2vw, 3.8rem) !important;
+    line-height: 0.95 !important;
+    font-weight: 900 !important;
+    letter-spacing: -1px !important;
+    text-shadow: 0 0 18px rgba(255, 0, 85, 0.75) !important;
   }
 
   .cockpit-hud .hud-value,
   .cockpit-expanded .hud-value {
-    font-size: clamp(1.55rem, 4.8vw, 2.3rem) !important;
-    line-height: 1.0 !important;
+    font-size: clamp(2.1rem, 7.2vw, 3.2rem) !important;
+    line-height: 0.95 !important;
+    font-weight: 900 !important;
+    letter-spacing: -0.5px !important;
+    text-shadow: 0 0 16px rgba(0, 240, 255, 0.6) !important;
   }
 
   .cockpit-hud .unit {
-    font-size: 0.78rem !important;
+    font-size: 0.72rem !important;
+    font-weight: 800 !important;
+    opacity: 0.9 !important;
+    letter-spacing: 0 !important;
+    vertical-align: baseline !important;
   }
 
   .cockpit-hud .hud-sub {
     margin-top: 2px !important;
-    font-size: 0.62rem !important;
+    font-size: 0.58rem !important;
     white-space: nowrap !important;
     overflow: hidden !important;
     text-overflow: ellipsis !important;
+    opacity: 0.85 !important;
   }
 
   /* Carte Cardio & Calories parfaitement visible et bien détachée */
@@ -6707,21 +6719,33 @@ body.rigid-viewport {
   }
   .cockpit-hud .hud-value,
   .cockpit-expanded .hud-value {
-    font-size: clamp(1.4rem, 4.2vh, 2.1rem) !important;
-    line-height: 1 !important;
+    font-size: clamp(1.8rem, 6.8vh, 2.7rem) !important;
+    line-height: 0.95 !important;
+    font-weight: 900 !important;
+    letter-spacing: -0.5px !important;
+    text-shadow: 0 0 16px rgba(0, 240, 255, 0.6) !important;
   }
   .cockpit-hud .hud-value-huge,
   .cockpit-expanded .hud-value-huge {
-    font-size: clamp(1.6rem, 4.8vh, 2.4rem) !important;
-    line-height: 1 !important;
+    font-size: clamp(2.1rem, 7.8vh, 3.2rem) !important;
+    line-height: 0.95 !important;
+    font-weight: 900 !important;
+    letter-spacing: -1px !important;
+    text-shadow: 0 0 18px rgba(255, 0, 85, 0.75) !important;
+  }
+  .cockpit-hud .unit {
+    font-size: 0.65rem !important;
+    font-weight: 800 !important;
+    opacity: 0.9 !important;
   }
   .cockpit-hud .hud-label {
-    font-size: 0.55rem !important;
-    margin-bottom: 1px !important;
+    font-size: 0.52rem !important;
+    margin-bottom: 0px !important;
   }
   .cockpit-hud .hud-sub {
-    font-size: 0.58rem !important;
+    font-size: 0.52rem !important;
     margin-top: 1px !important;
+    opacity: 0.8 !important;
   }
 }
 
