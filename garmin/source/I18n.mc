@@ -572,6 +572,14 @@ module I18n {
             if (_currentLang == LANG_PT) { return "Meu Perfil e ID"; }
             return "My Profile & ID";
         }
+        if (key.equals("MENU_PSEUDO")) {
+            if (_currentLang == LANG_FR) { return "Modifier pseudo"; }
+            if (_currentLang == LANG_DE) { return "Spitzname andern"; }
+            if (_currentLang == LANG_ES) { return "Cambiar apodo"; }
+            if (_currentLang == LANG_IT) { return "Modifica nickname"; }
+            if (_currentLang == LANG_PT) { return "Mudar apelido"; }
+            return "Edit Nickname";
+        }
         if (key.equals("PROFILE_SYNCED_WEB")) {
             if (_currentLang == LANG_FR) { return "Pseudo synchronise avec votre compte web"; }
             return "Nickname synced with your web account";

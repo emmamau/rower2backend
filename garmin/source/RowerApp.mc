@@ -22,12 +22,10 @@ class RowerApp extends Application.AppBase {
         // Generate or load persistent 6-char player ID
         UserManager.getUserId();
 
-        // Register FTMS (0x1826) & SmartRow Direct (0x1234) profiles;
-        // Priorité absolue : l'appairage doit être effectué avant toute tentative de détection/connexion BLE au rameur
+        // Register FTMS (0x1826) & SmartRow Direct (0x1234) profiles
+        // Dès le démarrage, la montre active le BLE et lance la recherche de son rameur
         BluetoothLowEnergy.setDelegate(_bleDelegate);
-        if (UserManager.isPaired()) {
-            _bleDelegate.registerProfiles();
-        }
+        _bleDelegate.registerProfiles();
 
         // Enable internal optical / ANT+ heart rate sensor (with BLE HR fallback)
         try {

@@ -63,6 +63,7 @@ export class SessionController {
 
       const code = String(body.code || query.code || body.pairingCode || body.ticketPin || "").trim().toUpperCase();
       const deviceId = String(body.deviceId || query.deviceId || "GARMIN_DEVICE").trim();
+      const guestPseudo = body.pseudo || body.playerName || query.pseudo || query.playerName || null;
 
       if (!code) {
         res.status(400).json({
@@ -73,7 +74,7 @@ export class SessionController {
         return;
       }
 
-      const result = await sessionService.claimSessionCode(code, deviceId);
+      const result = await sessionService.claimSessionCode(code, deviceId, guestPseudo);
 
       res.status(200).json({
         success: true,

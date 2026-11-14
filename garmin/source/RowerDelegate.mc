@@ -36,11 +36,11 @@ class RowerDelegate extends WatchUi.BehaviorDelegate {
     public function onPseudoCompleted(pseudo as String) as Void {
         UserManager.setGuestPseudo(pseudo);
         _view.showWarning("Pseudo : " + pseudo, 2);
-        _view.setAppState(RowerView.STATE_PAIRING_STATUS);
+        _view.setAppState(RowerView.STATE_MENU);
     }
 
     public function onPseudoPickerCancelled() as Void {
-        _view.setAppState(RowerView.STATE_PAIRING_STATUS);
+        _view.setAppState(RowerView.STATE_MENU);
     }
 
     public function onPickerCancelled() as Void {
@@ -76,23 +76,19 @@ class RowerDelegate extends WatchUi.BehaviorDelegate {
         } else if (state == RowerView.STATE_MENU) {
             var menuIdx = _view.getMainMenuIndex();
             if (menuIdx == 0) {
-                // 1. Entrer un code unique à 5 caractères (Universel : Appairage Compte, Salon Privé ou Cockpit)
+                // 1. Entrer un code unique à 5 caractères (Universel : Course, Salon, Solo ou Appairage)
                 _view.resetPairingDigits();
                 _view.setAppState(RowerView.STATE_PAIRING_INPUT);
             } else if (menuIdx == 1) {
-                // 2. Course Publique -> Rejoint Lobby / Attente synchrone
-                _view.setRaceMode("race");
-                _bleDelegate.joinNextRaceWaiting();
+                // 2. Gestion pseudo (modifiable pour invité, synchronisé pour compte lié)
+                if (UserManager.isGuestSession()) {
+                    _view.resetPseudoDigits();
+                    _view.setAppState(RowerView.STATE_PSEUDO_INPUT);
+                } else {
+                    _view.showWarning(I18n.getText("PROFILE_SYNCED_WEB"), 2);
+                }
             } else if (menuIdx == 2) {
-                // 3. Ramer en Solo -> Cockpit Garmin immediat
-                _view.setRaceMode("solo");
-                _bleDelegate.startSoloSession();
-            } else if (menuIdx == 3) {
-                // 4. Mon Profil & Identifiant (statut, edition pseudo invite, reinitialisation)
-                _view.resetPairingStatusMenu();
-                _view.setAppState(RowerView.STATE_PAIRING_STATUS);
-            } else if (menuIdx == 4) {
-                // 5. Historique local (G9)
+                // 3. Historique local (G9)
                 _view.setAppState(RowerView.STATE_HISTORY);
             }
             return true;

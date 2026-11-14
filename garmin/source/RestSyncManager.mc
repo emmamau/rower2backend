@@ -325,7 +325,9 @@ class RestSyncManager {
         var endpoint = getBaseUrl() + "/api/session/claim";
         var payload = {
             "code" => code,
-            "deviceId" => UserManager.getDeviceId()
+            "deviceId" => UserManager.getDeviceId(),
+            "pseudo" => UserManager.getDisplayPseudo(),
+            "playerName" => UserManager.getDisplayPseudo()
         };
         var options = {
             :method => Communications.HTTP_REQUEST_METHOD_POST,
@@ -357,15 +359,23 @@ class RestSyncManager {
                     UserManager.setGuestPaired(false);
                 }
                 if (d.hasKey("playerName") && d.get("playerName") != null) {
-                    UserManager.setGuestPseudo(d.get("playerName").toString());
+                    var pName = d.get("playerName").toString();
+                    if (pName.length() > 0 && pName.find("Rameur_") != 0) {
+                        UserManager.setGuestPseudo(pName);
+                    }
                 }
                 if (d.hasKey("userId") && d.get("userId") != null) {
                     UserManager.setPairedUserId(d.get("userId").toString());
                 }
                 (_delegate as BleDelegate).onPinJoinSuccess(d);
             } else {
-                // En cas d'échec sur /api/session/claim, tenter le fallback claimGuestTicket pour compatibilité
-                claimGuestTicket(UserManager.getDeviceId());
+                // Notifier l'échec de validation du code PIN
+                if (responseCode == 404 || responseCode == 400 || responseCode == 401) {
+                    (_delegate as BleDelegate).onPinJoinFailed(responseCode, data);
+                } else {
+                    // En cas d'échec sur /api/session/claim (ex: timeout ou réseau), tenter le fallback claimGuestTicket pour compatibilité
+                    claimGuestTicket(UserManager.getDeviceId());
+                }
             }
         }
     }

@@ -1973,6 +1973,10 @@ input[type="number"]:focus { border-color: var(--neon-cyan); box-shadow: 0 0 10p
 
 @media (max-width: 640px) {
   .modal-overlay { align-items: flex-end; padding: 0; }
+  .modal-overlay:has(.modal-account) {
+    align-items: flex-start;
+    padding: max(0.75rem, var(--safe-top)) 0.5rem calc(0.75rem + var(--safe-bottom));
+  }
   .modal-card,
   .modal-large {
     inline-size: 100%;
@@ -1982,6 +1986,12 @@ input[type="number"]:focus { border-color: var(--neon-cyan); box-shadow: 0 0 10p
     border-inline: none;
     border-bottom: none;
     padding: 1.15rem max(1rem, var(--safe-right)) calc(1.25rem + var(--safe-bottom)) max(1rem, var(--safe-left));
+  }
+  .modal-card.modal-account {
+    border-radius: 16px;
+    border: 2px solid var(--neon-cyan);
+    margin-top: 0.5rem;
+    max-block-size: calc(92dvh - var(--safe-top));
   }
 }
 
@@ -2021,6 +2031,52 @@ input[type="number"]:focus { border-color: var(--neon-cyan); box-shadow: 0 0 10p
   background: rgba(148, 163, 184, 0.15);
   color: #94a3b8;
   border: 1px solid #475569;
+}
+
+.modal-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.btn-header-logout {
+  background: rgba(255, 0, 85, 0.15);
+  border: 1px solid rgba(255, 0, 85, 0.45);
+  color: #ff3366;
+  border-radius: 8px;
+  padding: 0.4rem 0.75rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.btn-header-logout:hover {
+  background: rgba(255, 0, 85, 0.3);
+  border-color: #ff0055;
+  color: #ffffff;
+  box-shadow: 0 0 10px rgba(255, 0, 85, 0.4);
+}
+
+.btn-profile-quick-logout {
+  margin-left: auto;
+  background: rgba(255, 0, 85, 0.15);
+  border: 1px solid rgba(255, 0, 85, 0.45);
+  color: #ff3366;
+  border-radius: 8px;
+  padding: 0.4rem 0.75rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.btn-profile-quick-logout:hover {
+  background: rgba(255, 0, 85, 0.3);
+  border-color: #ff0055;
+  color: #ffffff;
 }
 
 .modal-account {
@@ -3116,6 +3172,38 @@ input[type="number"]:focus { border-color: var(--neon-cyan); box-shadow: 0 0 10p
   .hero-left-cluster {
     inline-size: 100%;
     gap: 0.65rem;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+  }
+  /* En vue smartphone : ne pas afficher à droite d'accueil en dessous du logo les liens "mode régate" et "mode cockpit" */
+  .home-nav-modes .btn-nav-regatta,
+  .home-nav-modes .btn-nav-cockpit {
+    display: none !important;
+  }
+  .home-nav-modes {
+    display: none !important;
+  }
+  /* Affichage du login et de la liste déroulante de la langue sous le logo */
+  .smartphone-header-user-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    inline-size: 100%;
+    margin-top: 0.2rem;
+  }
+  .smartphone-auth-box {
+    flex: 1 1 auto;
+    min-inline-size: 0;
+  }
+  .smartphone-lang-dropdown {
+    flex-shrink: 0;
+    margin-left: 0;
+  }
+  .desktop-only-auth,
+  .desktop-only-lang {
+    display: none !important;
   }
   .hero-schedule-cluster {
     inline-size: 100%;
@@ -4945,6 +5033,15 @@ body.rigid-viewport {
   padding: 0.25rem 0.35rem;
   border-radius: 10px;
   border: 1px solid rgba(0, 240, 255, 0.25);
+}
+
+/* Smartphone Header Bar (Login + Langue repositionnés) */
+.smartphone-header-user-bar {
+  display: none;
+}
+
+.smartphone-auth-btn {
+  max-width: 100%;
 }
 
 .btn-nav-mode {

@@ -150,7 +150,8 @@ export class SessionService {
    */
   public async claimSessionCode(
     code: string,
-    deviceId: string
+    deviceId: string,
+    customGuestPseudo?: string | null
   ): Promise<{
     success: boolean;
     deviceToken?: string;
@@ -184,7 +185,10 @@ export class SessionService {
         if (!race) {
           throw new Error("Salon introuvable ou expiré.");
         }
-        const guestName = ticket?.guestName || `Rameur_${cleanCode.slice(0, 3)}`;
+        let guestName = ticket?.guestName || `Rameur_${cleanCode.slice(0, 3)}`;
+        if (customGuestPseudo && String(customGuestPseudo).trim().length > 0 && String(customGuestPseudo).trim() !== "Rameur_42") {
+          guestName = String(customGuestPseudo).trim();
+        }
         const userId = ticket?.userId || `guest_${cleanCode.toLowerCase()}`;
         const lane = ticket?.lane || 1;
 
@@ -227,6 +231,10 @@ export class SessionService {
     let targetUserId = context.userId;
     let mode: "room" | "cockpit" | "paired" = "paired";
     let deviceToken = "";
+    let finalPlayerName = playerName;
+    if (!context.userId && customGuestPseudo && String(customGuestPseudo).trim().length > 0 && String(customGuestPseudo).trim() !== "Rameur_42") {
+      finalPlayerName = String(customGuestPseudo).trim();
+    }
 
     // Cas 1 : Compte Authentifié (userId présent)
     if (context.userId) {
@@ -255,8 +263,8 @@ export class SessionService {
       targetUserId = `guest_${cleanCode.toLowerCase()}`;
       mode = "room";
       const paired = await pairingService.pairGuestDirect(targetUserId, cleanDeviceId, {
-        guestName: playerName,
-        userName: playerName,
+        guestName: finalPlayerName,
+        userName: finalPlayerName,
         roomId: roomId || undefined,
         code: cleanCode,
         lane,
@@ -267,7 +275,7 @@ export class SessionService {
       if (roomId) {
         const race = raceManager.getRaceById(roomId);
         if (race) {
-          raceManager.joinPrivateRace(race.id, targetUserId, playerName, undefined, {
+          raceManager.joinPrivateRace(race.id, targetUserId, finalPlayerName, undefined, {
             isDeviceAuthenticated: true,
             viaPin: true,
             ready: false,
@@ -283,8 +291,8 @@ export class SessionService {
       targetUserId = `guest_${cleanCode.toLowerCase()}`;
       mode = "cockpit";
       const paired = await pairingService.pairGuestDirect(targetUserId, cleanDeviceId, {
-        guestName: playerName,
-        userName: playerName,
+        guestName: finalPlayerName,
+        userName: finalPlayerName,
         code: cleanCode,
         lane: 1,
         socketId: socketId || undefined,

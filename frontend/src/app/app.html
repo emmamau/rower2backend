@@ -193,7 +193,7 @@
         <nav class="home-nav-modes" role="navigation" aria-label="Modes du site">
           <button
             type="button"
-            class="btn-nav-mode"
+            class="btn-nav-mode btn-nav-home-only"
             [class.active]="isViewActive('home')"
             (click)="setSiteView('home')"
             [title]="i18n.t('NAV_HOME')">
@@ -202,7 +202,7 @@
           </button>
           <button
             type="button"
-            class="btn-nav-mode"
+            class="btn-nav-mode btn-nav-regatta"
             [class.active]="isViewActive('regatta')"
             (click)="setSiteView('regatta')"
             [title]="i18n.t('MODE_REGATTA')">
@@ -211,7 +211,7 @@
           </button>
           <button
             type="button"
-            class="btn-nav-mode"
+            class="btn-nav-mode btn-nav-cockpit"
             [class.active]="isViewActive('cockpit')"
             (click)="setSiteView('cockpit')"
             [title]="i18n.t('MODE_COCKPIT')">
@@ -219,6 +219,53 @@
             <span class="mode-txt">{{ i18n.t('MODE_COCKPIT') }}</span>
           </button>
         </nav>
+
+        <!-- Groupe Smartphone : Login utilisateur + Choix de la langue repositionnés sous le logo -->
+        <div class="smartphone-header-user-bar">
+          <div class="smartphone-auth-box">
+            @if (isIdentified) {
+              <button
+                type="button"
+                class="btn-line1-auth smartphone-auth-btn"
+                (click)="openAccountModal(isSubscriber || isUserAdmin ? 'profile' : 'login')"
+                title="Gérer mon compte et abonnement">
+                <span class="user-avatar-tag">{{ currentUser.name.slice(0, 2).toUpperCase() }}</span>
+                <span class="user-league-badge-tag" [title]="currentUserLeague.name">{{ currentUserLeague.badge }}</span>
+                <span class="user-name-tag">{{ currentUser.name }}</span>
+                @if (isUserAdmin) {
+                  <span class="role-tag is-admin">👑 Admin</span>
+                } @else if (isSubscriber) {
+                  <span class="role-tag is-sub">⭐ Abonné</span>
+                }
+              </button>
+            } @else {
+              <button
+                type="button"
+                class="btn-line1-auth guest-mode smartphone-auth-btn"
+                (click)="openAccountModal('login')"
+                title="Connexion / S'inscrire">
+                <span class="user-avatar-tag">👤</span>
+                <span class="user-name-tag">Connexion</span>
+              </button>
+            }
+          </div>
+
+          <div class="lang-dropdown-wrapper smartphone-lang-dropdown">
+            <label for="smart-lang-select" class="lang-icon" title="Changer de langue">🌐</label>
+            <select
+              id="smart-lang-select"
+              class="lang-select-input"
+              [value]="i18n.getCurrentLang()"
+              (change)="onLanguageSelectChange($event)"
+              title="Langue / Language">
+              @for (item of i18n.languages; track item.code) {
+                <option [value]="item.code">
+                  {{ item.flag }} {{ item.label }} ({{ item.code.toUpperCase() }})
+                </option>
+              }
+            </select>
+          </div>
+        </div>
 
         <!-- Groupe Prochaine Course (Bloc Timer) avec Plein Écran et Appairage Garmin intégrés -->
         <div class="hero-schedule-cluster">
@@ -286,8 +333,8 @@
           </div>
 
 
-          <!-- Bouton Compte / Connexion sur la Ligne 1 du Header -->
-          <div class="header-line1-auth-box">
+          <!-- Bouton Compte / Connexion sur la Ligne 1 du Header (Desktop / Tablette) -->
+          <div class="header-line1-auth-box desktop-only-auth">
             @if (isIdentified) {
               <button
                 type="button"
@@ -317,8 +364,8 @@
         </div>
       </div>
 
-      <!-- Liste déroulante des langues discrète -->
-      <div class="lang-dropdown-wrapper">
+      <!-- Liste déroulante des langues discrète (Desktop / Tablette) -->
+      <div class="lang-dropdown-wrapper desktop-only-lang">
         <label for="header-lang-select" class="lang-icon" title="Changer de langue">🌐</label>
         <select
           id="header-lang-select"
@@ -461,7 +508,18 @@
               <span class="badge-role-tag is-guest">Invité Gratuit</span>
             }
           </div>
-          <button type="button" class="btn-close" (click)="closeAccountModal(); isLoginModalOpen = false" [attr.aria-label]="i18n.t('BTN_CLOSE')">✕</button>
+          <div class="modal-header-actions">
+            @if (isIdentified) {
+              <button
+                type="button"
+                class="btn-header-logout"
+                (click)="promptLogout()"
+                title="Se déconnecter de ce compte">
+                🚪 Déconnexion
+              </button>
+            }
+            <button type="button" class="btn-close" (click)="closeAccountModal(); isLoginModalOpen = false" [attr.aria-label]="i18n.t('BTN_CLOSE')">✕</button>
+          </div>
         </div>
 
         <!-- Account Modal Tabs -->
@@ -656,6 +714,13 @@
                     }
                   </div>
                 </div>
+                <button
+                  type="button"
+                  class="btn-profile-quick-logout"
+                  (click)="promptLogout()"
+                  title="Se déconnecter">
+                  🚪 Déconnexion
+                </button>
               </div>
 
               <div class="profile-fields-grid">

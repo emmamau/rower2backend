@@ -110,8 +110,8 @@ class RowerView extends WatchUi.View {
         _pairingPicker = new UnifiedCodePickerView(5, "ENTRER UN CODE", method(:onPairingCodeCompleted));
         _roomPinPicker = new UnifiedCodePickerView(5, "ENTRER UN CODE", method(:onRoomPinCompleted));
         _pseudoPicker = new UnifiedCodePickerView(6, "MON PSEUDO", method(:onPseudoCompleted));
-        // Lancement direct sur le menu ou scanner BLE
-        _currentState = STATE_MENU;
+        // Lancement direct sur l'écran de détection/connexion du rameur (G1)
+        _currentState = STATE_SCANNING;
     }
 
     public function setPairingCompletedCallback(cb as Method?) as Void {
@@ -307,14 +307,14 @@ class RowerView extends WatchUi.View {
         _countdown5sValue = val;
     }
 
-    // Menu navigation helpers
+    // Menu navigation helpers (3 options allégées)
     public function nextMainMenu() as Void {
-        _mainMenuIndex = (_mainMenuIndex + 1) % 6;
+        _mainMenuIndex = (_mainMenuIndex + 1) % 3;
         WatchUi.requestUpdate();
     }
 
     public function prevMainMenu() as Void {
-        _mainMenuIndex = (_mainMenuIndex + 5) % 6;
+        _mainMenuIndex = (_mainMenuIndex + 2) % 3;
         WatchUi.requestUpdate();
     }
 
@@ -508,11 +508,16 @@ class RowerView extends WatchUi.View {
         if (_currentState == STATE_SCANNING) {
             drawG1ConnectionScreen(dc, w, h);
         } else if (_currentState == STATE_MENU) {
+            var pseudoLabel = "";
+            if (UserManager.isGuestSession()) {
+                pseudoLabel = I18n.getText("MENU_PSEUDO") + " (" + UserManager.getDisplayPseudo() + ")";
+            } else {
+                pseudoLabel = UserManager.getDisplayPseudo() + " (Compte)";
+            }
+
             var menuItems = [
                 I18n.getText("MENU_ENTER_CODE"),
-                I18n.getText("MENU_PUBLIC"),
-                I18n.getText("MENU_SOLO"),
-                I18n.getText("MENU_PROFILE"),
+                pseudoLabel,
                 I18n.getText("MENU_HISTORY")
             ] as Array<String>;
             var menuSub = getBleProtocolTag();
