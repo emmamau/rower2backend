@@ -60,6 +60,8 @@ export interface RaceState {
   hasBots?: boolean;
   isBotDuel?: boolean;
   isDuel1v1?: boolean;
+  isSolo?: boolean;
+  gameMode?: "solo" | "bot_duel" | "duel_1v1" | "multi";
   adminAsSpectator?: boolean;
   hostParticipates?: boolean;
   originalHostUserId?: string;
@@ -97,16 +99,19 @@ export function getWaitingStatusMessage(race: RaceState, now: Date = new Date())
     if (anyNotReady) {
       return "Adversaire en cours de connexion au rameur...";
     }
-    return "Adversaire connecté - Préparez-vous";
+    return "Adversaire connecté - Préparez-vous (départ dans 15s)";
+  }
+  if (race.isSolo) {
+    return "Ligne 1 attribuée - Donnez un coup de rame pour démarrer";
   }
   if (race.isBotDuel) {
     const anyNotReady = race.participants
       ? Array.from(race.participants.values()).some((p) => p.ready === false)
       : false;
     if (anyNotReady) {
-      return "Ligne 1 attribuée - Donnez un coup de rame pour réveiller le rameur";
+      return "Ligne 1 attribuée - Donnez un coup de rame pour démarrer";
     }
-    return "En attente du départ contre le bot...";
+    return "Donnez un coup de rame pour déclencher le départ contre le bot";
   }
   if (race.startMode === "scheduled" && race.scheduledStartTime) {
     const msUntilStart = race.scheduledStartTime.getTime() - now.getTime();
@@ -1054,6 +1059,8 @@ export class RaceManager {
     botMaxPace?: number;
     isBotDuel?: boolean;
     isDuel1v1?: boolean;
+    isSolo?: boolean;
+    gameMode?: "solo" | "bot_duel" | "duel_1v1" | "multi";
     adminAsSpectator?: boolean;
     hostParticipates?: boolean;
     requiredLeague?: string;
@@ -1065,28 +1072,44 @@ export class RaceManager {
     const raceId = `PRIV_${code.replace(/-/g, "")}`;
     const now = new Date();
 
-    const rawMode = String((options as any).mode || (options as any).type || "").trim().toLowerCase();
-    const isBotDuel = Boolean(
+    const rawMode = String((options as any).mode || (options as any).type || options.gameMode || "").trim().toLowerCase();
+    const isSolo = Boolean(
+      options.isSolo ||
+      rawMode === "solo"
+    );
+    const isBotDuel = !isSolo && Boolean(
       options.isBotDuel ||
       rawMode === "bot_duel" ||
       rawMode === "duel_bot" ||
       rawMode === "1v1_bot"
     );
-    const isDuel1v1 = Boolean(options.isDuel1v1);
+    const isDuel1v1 = !isSolo && !isBotDuel && Boolean(options.isDuel1v1 || rawMode === "duel_1v1" || rawMode === "duel");
+    const gameMode: "solo" | "bot_duel" | "duel_1v1" | "multi" = isSolo
+      ? "solo"
+      : isBotDuel
+      ? "bot_duel"
+      : isDuel1v1
+      ? "duel_1v1"
+      : "multi";
 
-    let cleanTitle = String(options.title || (isBotDuel ? "Duel 1v1 contre un Bot" : "Régate Privée"))
+    let cleanTitle = String(
+      options.title ||
+      (isSolo ? "Entraînement Solo" : isBotDuel ? "Duel 1v1 contre un Bot" : isDuel1v1 ? "Duel 1v1 Joueur" : "Régate Privée")
+    )
       .replace(/[\u0000-\u001F\u007F]/g, "")
       .trim()
-      .slice(0, 64) || (isBotDuel ? "Duel 1v1 contre un Bot" : "Régate Privée");
+      .slice(0, 64) || (isSolo ? "Entraînement Solo" : isBotDuel ? "Duel 1v1 contre un Bot" : "Régate Privée");
 
     const rawDist = Number(options.targetDistance);
-    const maxDistLimit = isBotDuel ? 10000 : 100000;
+    const maxDistLimit = isSolo || isBotDuel ? 10000 : 100000;
     const targetDistance = Number.isFinite(rawDist)
       ? Math.min(maxDistLimit, Math.max(100, Math.round(rawDist)))
-      : (isBotDuel ? 2000 : 2000);
+      : (isSolo || isBotDuel ? 2000 : 2000);
 
     const rawMax = Number(options.maxParticipants);
-    const maxParticipants = isBotDuel
+    const maxParticipants = isSolo
+      ? 1
+      : isBotDuel || isDuel1v1
       ? 2
       : (Number.isFinite(rawMax) ? Math.min(30, Math.max(2, Math.round(rawMax))) : 8);
 
@@ -1124,18 +1147,18 @@ export class RaceManager {
       : undefined;
 
     const isEmma = isEmmaAdminUser(hostUserId, hostUserName);
-    const adminAsSpectator = isBotDuel
+    const adminAsSpectator = isSolo || isBotDuel
       ? false
       : Boolean(options.adminAsSpectator !== undefined ? options.adminAsSpectator : isEmma);
 
-    const requireApproval = (isBotDuel || isDuel1v1 || adminAsSpectator)
+    const requireApproval = (isSolo || isBotDuel || isDuel1v1 || adminAsSpectator)
       ? false
       : (options.requireApproval !== undefined ? Boolean(options.requireApproval) : true);
     const participants = new Map<string, PrivateParticipantInfo>();
     const pendingParticipants = new Map<string, PrivateParticipantInfo>();
     const rejectedParticipants = new Set<string>();
 
-    const hostParticipates = isBotDuel
+    const hostParticipates = isSolo || isBotDuel
       ? true
       : Boolean(options.hostParticipates !== undefined ? options.hostParticipates : !adminAsSpectator);
     if (!adminAsSpectator && hostParticipates && hostUserId && hostUserId !== "anonymous") {
@@ -1147,26 +1170,33 @@ export class RaceManager {
       });
     }
 
-    let botCount = isBotDuel ? 1 : Math.min(10, Math.max(0, Number(options.botCount) || 0));
+    let botCount = isSolo ? 0 : isBotDuel ? 1 : Math.min(10, Math.max(0, Number(options.botCount) || 0));
     let botMaxPace = Math.min(300, Math.max(60, Number(options.botMaxPace) || 120));
     let botCustomName = options.botCustomName;
 
     if (isBotDuel) {
-      // Niveau aléatoire du bot (allure entre 105s et 150s / 500m)
-      const randomPace = Math.floor(Math.random() * (150 - 105 + 1)) + 105;
-      botMaxPace = randomPace;
-      let levelLabel = "Intermédiaire";
-      if (randomPace <= 114) {
-        levelLabel = "Élite";
-      } else if (randomPace <= 124) {
-        levelLabel = "Avancé";
-      } else if (randomPace <= 138) {
-        levelLabel = "Intermédiaire";
-      } else {
-        levelLabel = "Débutant";
+      // Allure du bot : si explicitement fournie par l'utilisateur (botMaxPace valide), on la conserve, sinon aléatoire
+      if (!options.botMaxPace || Number(options.botMaxPace) <= 0) {
+        const randomPace = Math.floor(Math.random() * (150 - 105 + 1)) + 105;
+        botMaxPace = randomPace;
       }
-      botCustomName = `Bot ${levelLabel}`;
-      cleanTitle = `Duel 1v1 - Bot ${levelLabel} (${targetDistance}m)`;
+      let levelLabel = "Intermédiaire";
+      if (botMaxPace <= 100) {
+        levelLabel = "Champion";
+      } else if (botMaxPace <= 110) {
+        levelLabel = "Élite";
+      } else if (botMaxPace <= 115) {
+        levelLabel = "Avancé";
+      } else if (botMaxPace <= 130) {
+        levelLabel = "Régulier";
+      } else {
+        levelLabel = "Loisir";
+      }
+      botCustomName = options.botCustomName || `Bot ${levelLabel}`;
+      cleanTitle = `Duel 1v1 - ${botCustomName} (${targetDistance}m)`;
+    } else if (isSolo) {
+      botCount = 0;
+      cleanTitle = `Solo - Entraînement (${targetDistance}m)`;
     }
 
     const privateRace: RaceState = {
@@ -1192,6 +1222,8 @@ export class RaceManager {
       hasBots: botCount > 0,
       isBotDuel,
       isDuel1v1,
+      isSolo,
+      gameMode,
       adminAsSpectator,
       hostParticipates,
       requiredLeague: options.requiredLeague,
@@ -1574,21 +1606,9 @@ export class RaceManager {
 
     const allParticipantsReady = Array.from(race.participants.values()).every((p) => p.ready !== false);
 
-    // 4. Logiques de départ avec décompte impératif de 15 secondes
-    // Duel 1v1 Joueur vs Joueur : déclenchement automatique du décompte de 15 s dès que les 2 joueurs sont READY
+    // 4. Logiques de départ
+    // Duel 1v1 Joueur vs Joueur : déclenchement automatique du décompte de 15 s dès que les 2 joueurs sont READY sur leur ligne
     if (isDuel1v1 && race.participants.size === 2 && allParticipantsReady && race.status === "LOBBY") {
-      const startNow = new Date();
-      race.status = "COUNTDOWN";
-      race.autoStart = true;
-      race.lobbyEndsAt = new Date(startNow.getTime() + 15 * 1000);
-      socketGateway.broadcastRaceStatus(race.id, "COUNTDOWN", {
-        lobbyEndsAt: race.lobbyEndsAt,
-        countdownSeconds: 15
-      });
-    }
-
-    // Duel 1v1 Bot : dès que le joueur humain est READY, décompte 15 s immédiat, départ simultané humain + bot à T=0
-    if (race.isBotDuel && allParticipantsReady && (race.status === "LOBBY" || (race.status === "COUNTDOWN" && options?.viaPin))) {
       const startNow = new Date();
       race.status = "COUNTDOWN";
       race.autoStart = true;
@@ -1599,6 +1619,8 @@ export class RaceManager {
         countdownSeconds: 15
       });
     }
+
+    // Remarque : Pour Solo et BotDuel, le départ n'est PAS un timer auto de 15s : c'est le joueur qui déclenche le départ au 1er coup de rame !
 
     return {
       race,
@@ -1748,21 +1770,8 @@ export class RaceManager {
     const now = new Date();
 
     if (race.status === "LOBBY" && ready) {
-      // Mode 1 : Duel contre un Bot -> dès que le joueur humain passe à READY, le compte à rebours de 15 s se lance automatiquement
-      if (race.isBotDuel && allReady) {
-        race.status = "COUNTDOWN";
-        race.autoStart = true;
-        race.lobbyEndsAt = new Date(now.getTime() + 15 * 1000);
-        countdownTriggered = true;
-        socketGateway.broadcastRaceStatus(race.id, "COUNTDOWN", {
-          lobbyEndsAt: race.lobbyEndsAt,
-          secondsUntilStart: 15,
-          countdownSeconds: 15,
-          reason: "ble_ready"
-        });
-      }
-      // Mode 2 : Duel 1v1 Joueur vs Joueur -> dès que les DEUX joueurs humains sont à l'état READY, le compte à rebours de 15 s se lance
-      else if (race.isDuel1v1 && race.participants.size === 2 && allReady) {
+      // Mode 1 : Duel 1v1 Joueur vs Joueur -> dès que les DEUX joueurs humains sont à l'état READY, décompte 15s automatique
+      if (race.isDuel1v1 && race.participants.size === 2 && allReady) {
         race.status = "COUNTDOWN";
         race.autoStart = true;
         race.lobbyEndsAt = new Date(now.getTime() + 15 * 1000);
@@ -1774,7 +1783,7 @@ export class RaceManager {
           reason: "both_players_ble_ready"
         });
       }
-      // Mode 3 : Salon Privé programmé -> si l'heure programmée (-15s) est déjà atteinte et que tous les compétiteurs passent à READY
+      // Mode 2 : Salon Privé programmé -> si l'heure programmée (-15s) est déjà atteinte et que tous les compétiteurs passent à READY
       else if (race.startMode === "scheduled" && race.scheduledStartTime && allReady) {
         const msUntilScheduled = race.scheduledStartTime.getTime() - now.getTime();
         if (msUntilScheduled <= 15000) {

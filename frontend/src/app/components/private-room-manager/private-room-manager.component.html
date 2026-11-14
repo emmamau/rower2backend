@@ -14,7 +14,7 @@
           </span>
           <span class="priv-status-chip priv-status-chip-sm" [class.in-progress]="activeRoom.status === 'in_progress'">
             @if (activeRoom.waitingForHost) {
-              ⏳ {{ isBotDuelRoom ? 'Saisir PIN montre' : 'En attente' }}
+              ⏳ {{ (isSoloRoom || isBotDuelRoom) ? '1er coup de rame' : 'En attente' }}
             } @else {
               ⏱️ {{ activeRoom.formattedCountdown }}
             }
@@ -54,7 +54,7 @@
           </span>
           <span class="priv-status-chip" [class.in-progress]="activeRoom.status === 'in_progress'">
             @if (activeRoom.waitingForHost) {
-              ⏳ {{ isBotDuelRoom ? 'Saisissez le PIN sur votre montre (départ auto 15s)' : i18n.t('STATUS_WAITING_HOST') }}
+              ⏳ {{ (isSoloRoom || isBotDuelRoom) ? 'Donnez votre 1er coup de rame pour démarrer' : isDuel1v1Room ? 'En attente des 2 joueurs (départ auto 15s)' : i18n.t('STATUS_WAITING_HOST') }}
             } @else {
               ⏱️ {{ activeRoom.formattedCountdown }}
             }
@@ -331,36 +331,98 @@
         aria-labelledby="priv-tab-create"
         class="priv-panel">
         <form class="priv-form" (ngSubmit)="onCreateRoomSubmit()" novalidate>
-          <div class="priv-field">
-            <label for="priv-room-title" class="priv-label">
-              {{ i18n.t('FIELD_ROOM_TITLE') }}
-            </label>
-            <span id="priv-room-title-hint" class="priv-hint">
-              {{ i18n.t('FIELD_ROOM_TITLE_HINT') }}
-            </span>
-            <input
-              id="priv-room-title"
-              name="roomTitle"
-              type="text"
-              maxlength="60"
-              class="priv-input"
-              [(ngModel)]="roomTitle"
-              (blur)="validateCreateTitle()"
-              (input)="createTitleError = ''"
-              [attr.aria-invalid]="createTitleError ? 'true' : null"
-              [attr.aria-describedby]="createTitleError ? 'priv-room-title-hint priv-room-title-err' : 'priv-room-title-hint'"
-              required />
-            @if (createTitleError) {
-              <p id="priv-room-title-err" class="priv-error-msg" role="alert">
-                {{ createTitleError }}
+
+          <!-- 1. SÉLECTION DIRECTE DES 4 MODES DE JEU -->
+          <div class="priv-mode-selection-grid" role="radiogroup" aria-label="Choisir le format de course">
+            <!-- CARTE 1 : ENTRAÎNEMENT SOLO -->
+            <div
+              class="priv-mode-card"
+              [class.is-selected]="selectedGameMode === 'solo'"
+              (click)="selectGameMode('solo')">
+              <div class="priv-mode-header">
+                <span class="priv-mode-icon">🚣</span>
+                <span class="priv-mode-badge priv-badge-free">Gratuit • Sans compte</span>
+              </div>
+              <h3 class="priv-mode-title">Entraînement Solo</h3>
+              <p class="priv-mode-desc">
+                Ramez seul avec votre montre. <strong>Génération immédiate du code PIN • Départ au 1er coup de rame.</strong>
               </p>
-            }
+            </div>
+
+            <!-- CARTE 2 : DUEL CONTRE UN BOT -->
+            <div
+              class="priv-mode-card"
+              [class.is-selected]="selectedGameMode === 'bot_duel'"
+              (click)="selectGameMode('bot_duel')">
+              <div class="priv-mode-header">
+                <span class="priv-mode-icon">🤖</span>
+                <span class="priv-mode-badge priv-badge-free">Gratuit • Sans compte</span>
+              </div>
+              <h3 class="priv-mode-title">Duel contre un Bot</h3>
+              <p class="priv-mode-desc">
+                Défiez un adversaire virtuel au niveau choisi. <strong>Génération immédiate du PIN • Départ au 1er coup.</strong>
+              </p>
+            </div>
+
+            <!-- CARTE 3 : DUEL 1V1 (JOUEUR CONTRE JOUEUR) -->
+            <div
+              class="priv-mode-card"
+              [class.is-selected]="selectedGameMode === 'duel_1v1'"
+              (click)="selectGameMode('duel_1v1')">
+              <div class="priv-mode-header">
+                <span class="priv-mode-icon">⚔️</span>
+                <span class="priv-mode-badge priv-badge-account">Compte Gratuit Requis</span>
+              </div>
+              <h3 class="priv-mode-title">Duel 1 vs 1 (Ami)</h3>
+              <p class="priv-mode-desc">
+                Face à face avec un autre rameur. <strong>Départ automatique 15s dès que vous êtes prêts.</strong>
+              </p>
+            </div>
+
+            <!-- CARTE 4 : COURSE MULTI-JOUEURS -->
+            <div
+              class="priv-mode-card"
+              [class.is-selected]="selectedGameMode === 'multi'"
+              [class.is-locked]="!isUserAdmin && !isSubscriber"
+              (click)="selectGameMode('multi')">
+              <div class="priv-mode-header">
+                <span class="priv-mode-icon">👥</span>
+                <span class="priv-mode-badge priv-badge-sub">Club & Élite Pro</span>
+              </div>
+              <h3 class="priv-mode-title">Course Multi-joueurs</h3>
+              <p class="priv-mode-desc">
+                Régate en peloton. <strong>Organisateur abonné • Invités 100% libres sans compte via code PIN.</strong>
+              </p>
+            </div>
           </div>
 
-          <div class="priv-grid-2">
+          <!-- 2. PARAMÈTRES ÉPURÉS ET ADAPTÉS AU MODE -->
+          <div class="priv-section-card">
+            <div class="priv-field">
+              <label for="priv-room-title" class="priv-label">
+                Titre du salon
+              </label>
+              <input
+                id="priv-room-title"
+                name="roomTitle"
+                type="text"
+                maxlength="60"
+                class="priv-input"
+                [(ngModel)]="roomTitle"
+                (blur)="validateCreateTitle()"
+                (input)="createTitleError = ''"
+                required />
+              @if (createTitleError) {
+                <p id="priv-room-title-err" class="priv-error-msg" role="alert">
+                  {{ createTitleError }}
+                </p>
+              }
+            </div>
+
+            <!-- Distance de course -->
             <div class="priv-field">
               <label for="priv-room-dist" class="priv-label">
-                {{ i18n.t('FIELD_ROOM_DIST') }}
+                Distance cible
               </label>
               <div class="priv-preset-row" role="group" aria-label="Distances rapides">
                 @for (preset of distancePresets; track preset) {
@@ -381,136 +443,120 @@
                 max="100000"
                 step="100"
                 inputmode="numeric"
-                class="priv-input"
+                class="priv-input priv-input-sm"
                 [(ngModel)]="targetDistance" />
             </div>
 
-            <div class="priv-field">
-              <label for="priv-max-players" class="priv-label">
-                {{ i18n.t('FIELD_MAX_PLAYERS') }}
-              </label>
-              <input
-                id="priv-max-players"
-                name="maxParticipants"
-                type="number"
-                min="2"
-                max="30"
-                step="1"
-                inputmode="numeric"
-                class="priv-input"
-                [(ngModel)]="maxParticipants" />
-            </div>
-          </div>
-
-          <!-- Choix des 2 modes de départ pour l'organisateur -->
-          <fieldset class="priv-fieldset">
-            <legend class="priv-legend">Mode de départ de la course</legend>
-            <label class="priv-radio-card" [class.selected]="startMode === 'manual'">
-              <input
-                type="radio"
-                name="startMode"
-                value="manual"
-                [(ngModel)]="startMode" />
-              <div>
-                <strong>🚀 Top départ manuel</strong>
-                <p class="priv-radio-desc">L'organisateur donne le départ quand tous les participants sont prêts et acceptés.</p>
+            <!-- CONFIGURATION SPÉCIFIQUE : DUEL CONTRE UN BOT (CHOIX DU NIVEAU) -->
+            @if (selectedGameMode === 'bot_duel') {
+              <div class="priv-field">
+                <label class="priv-label">⚡ Allure & Niveau du Bot</label>
+                <div class="priv-preset-row">
+                  @for (lvl of botPacePresets; track lvl.pace) {
+                    <button
+                      type="button"
+                      class="priv-preset-chip"
+                      [class.active]="botMaxPace === lvl.pace"
+                      (click)="botMaxPace = lvl.pace">
+                      <strong>{{ lvl.label }}</strong> ({{ lvl.time }})
+                    </button>
+                  }
+                </div>
               </div>
-            </label>
-            <label class="priv-radio-card" [class.selected]="startMode === 'scheduled'">
-              <input
-                type="radio"
-                name="startMode"
-                value="scheduled"
-                [(ngModel)]="startMode" />
-              <div>
-                <strong>⏰ Départ programmé automatique</strong>
-                <p class="priv-radio-desc">L'heure de départ est fixée à l'avance et le départ est automatique s'il y a des participants.</p>
+            }
+
+            <!-- CONFIGURATION SPÉCIFIQUE : MULTI-JOUEURS -->
+            @if (selectedGameMode === 'multi') {
+              <div class="priv-field">
+                <label for="priv-max-players" class="priv-label">
+                  Nombre maximum de participants
+                </label>
+                <input
+                  id="priv-max-players"
+                  name="maxParticipants"
+                  type="number"
+                  min="2"
+                  max="30"
+                  step="1"
+                  class="priv-input priv-input-sm"
+                  [(ngModel)]="maxParticipants" />
               </div>
-            </label>
-          </fieldset>
 
-          @if (startMode === 'scheduled') {
-            <div class="priv-field">
-              <label for="priv-scheduled-dt" class="priv-label">
-                Date et heure du départ programmé
-              </label>
-              <input
-                id="priv-scheduled-dt"
-                name="scheduledDateTime"
-                type="datetime-local"
-                class="priv-input"
-                [(ngModel)]="scheduledDateTime" />
-            </div>
-          }
+              <fieldset class="priv-fieldset">
+                <legend class="priv-legend">Mode de départ de la course</legend>
+                <label class="priv-radio-card" [class.selected]="startMode === 'manual'">
+                  <input
+                    type="radio"
+                    name="startMode"
+                    value="manual"
+                    [(ngModel)]="startMode" />
+                  <div>
+                    <strong>🚀 Top départ de l'organisateur</strong>
+                    <p class="priv-radio-desc">Décompte de 15 secondes pour tous les rameurs dès que vous donnez le signal.</p>
+                  </div>
+                </label>
+                <label class="priv-radio-card" [class.selected]="startMode === 'scheduled'">
+                  <input
+                    type="radio"
+                    name="startMode"
+                    value="scheduled"
+                    [(ngModel)]="startMode" />
+                  <div>
+                    <strong>⏰ Départ programmé à heure précise</strong>
+                    <p class="priv-radio-desc">Départ automatique à la date et heure choisie (avec décompte final de 15s).</p>
+                  </div>
+                </label>
+              </fieldset>
 
-          <!-- Configuration des bots d'entraînement virtuels par l'organisateur -->
-          <div class="priv-grid-2">
-            <div class="priv-field">
-              <label for="priv-bot-count" class="priv-label">
-                🤖 Bots virtuels (organisateur)
-              </label>
-              <select
-                id="priv-bot-count"
-                name="botCount"
-                class="priv-input"
-                [(ngModel)]="botCount">
-                <option [ngValue]="0">Aucun bot (humains uniquement)</option>
-                <option [ngValue]="1">1 bot d'entraînement</option>
-                <option [ngValue]="2">2 bots d'entraînement</option>
-                <option [ngValue]="3">3 bots d'entraînement</option>
-                <option [ngValue]="4">4 bots d'entraînement</option>
-                <option [ngValue]="5">5 bots d'entraînement (Max)</option>
-              </select>
-            </div>
-
-            <div class="priv-field" *ngIf="botCount > 0">
-              <label for="priv-bot-pace" class="priv-label">
-                ⚡ Niveau des bots (Allure max / 500m)
-              </label>
-              <select
-                id="priv-bot-pace"
-                name="botMaxPace"
-                class="priv-input"
-                [(ngModel)]="botMaxPace">
-                <option [ngValue]="105">1:45 / 500m (Niveau Élite)</option>
-                <option [ngValue]="115">1:55 / 500m (Niveau Avancé)</option>
-                <option [ngValue]="120">2:00 / 500m (Niveau Régulier - Défaut)</option>
-                <option [ngValue]="135">2:15 / 500m (Niveau Endurance)</option>
-                <option [ngValue]="150">2:30 / 500m (Niveau Loisir)</option>
-              </select>
-            </div>
-          </div>
-
-          <!-- Organizer Approval Checkbox (default: true) -->
-          <div class="priv-field">
-            <label class="priv-checkbox-label">
-              <input
-                type="checkbox"
-                name="requireApproval"
-                [(ngModel)]="requireApproval" />
-              <span>🛡️ Validation manuelle par l'organisateur requise (défaut)</span>
-            </label>
-            <span class="priv-hint">
-              Recommandé : les participants attendent votre validation avant d'entrer sur la ligne de départ. Décochez pour accepter automatiquement tout le monde.
-            </span>
+              @if (startMode === 'scheduled') {
+                <div class="priv-field">
+                  <label for="priv-scheduled-dt" class="priv-label">
+                    Date et heure du départ
+                  </label>
+                  <input
+                    id="priv-scheduled-dt"
+                    name="scheduledDateTime"
+                    type="datetime-local"
+                    class="priv-input"
+                    [(ngModel)]="scheduledDateTime" />
+                </div>
+              }
+            }
           </div>
 
           @if (createGeneralError) {
             <p class="priv-error-msg" role="alert">⚠️ {{ createGeneralError }}</p>
           }
 
-          @if (!isUserAdmin && !isSubscriber) {
-            <div class="priv-sub-alert-box">
-              <div class="priv-sub-alert-title">⭐ Réservé aux abonnés</div>
+          @if (selectedGameMode === 'duel_1v1' && !isRegisteredUser && !isUserAdmin) {
+            <div class="priv-sub-alert-box priv-alert-account">
+              <div class="priv-sub-alert-title">👤 Compte gratuit requis pour le 1 vs 1</div>
               <p class="priv-sub-alert-desc">
-                La création de salons de course privés est réservée aux abonnés. Connectez-vous avec vos identifiants ou inscrivez-vous pour débloquer la création de vos salons personnalisés.
+                Pour défier un adversaire en face à face et enregistrer votre résultat, vous devez être connecté avec un compte (gratuit).
               </p>
               <div class="priv-sub-alert-actions">
                 <button type="button" class="priv-btn priv-btn-cyan" (click)="requestAccountModal.emit('login')">
                   Se connecter
                 </button>
                 <button type="button" class="priv-btn priv-btn-outline" (click)="requestAccountModal.emit('register')">
-                  Créer un compte abonné
+                  Créer un compte gratuit
+                </button>
+              </div>
+            </div>
+          }
+
+          @if (selectedGameMode === 'multi' && !isUserAdmin && !isSubscriber) {
+            <div class="priv-sub-alert-box">
+              <div class="priv-sub-alert-title">⭐ Création réservée aux abonnés Club & Élite Pro</div>
+              <p class="priv-sub-alert-desc">
+                Seul l'organisateur créant le salon a besoin d'un abonnement. <strong>Vos invités pourront rejoindre la course gratuitement sans créer de compte</strong> en tapant simplement votre code PIN sur leur montre Garmin !
+              </p>
+              <div class="priv-sub-alert-actions">
+                <button type="button" class="priv-btn priv-btn-cyan" (click)="requestAccountModal.emit('login')">
+                  Se connecter
+                </button>
+                <button type="button" class="priv-btn priv-btn-outline" (click)="requestAccountModal.emit('register')">
+                  Découvrir les offres
                 </button>
               </div>
             </div>
@@ -520,8 +566,8 @@
             <button
               type="submit"
               class="priv-btn priv-btn-launch priv-btn-wide"
-              [disabled]="isCreating || (!isUserAdmin && !isSubscriber)">
-              {{ isCreating ? i18n.t('CREATING_ROOM') : i18n.t('BTN_CREATE_PRIVATE') }}
+              [disabled]="isCreating || (selectedGameMode === 'duel_1v1' && !isRegisteredUser && !isUserAdmin) || (selectedGameMode === 'multi' && !isUserAdmin && !isSubscriber)">
+              {{ isCreating ? i18n.t('CREATING_ROOM') : (selectedGameMode === 'solo' || selectedGameMode === 'bot_duel' ? 'Obtenir mon code PIN montre' : 'Lancer le salon privé') }}
             </button>
           </div>
         </form>

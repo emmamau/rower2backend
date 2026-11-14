@@ -966,6 +966,13 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
             }
 
             var isRowing = (_model.strokeRate > 0 || _model.instantPower > 0);
+
+            // Règle 1 : En salon Solo ou Duel Bot, le premier coup de rame déclenche immédiatement le départ
+            if ((_isBotDuel || (_activityId != null && _activityId.find("solo") != null)) && isRowing && _activityStatus.equals("waiting")) {
+                handleRaceStartTrigger(view, true);
+                return;
+            }
+
             if (!_isBleRowerReady && isRowing && _activityId.length() > 0) {
                 _isBleRowerReady = true;
                 _syncManager.notifyRoomReady(_activityId, true, _userId);

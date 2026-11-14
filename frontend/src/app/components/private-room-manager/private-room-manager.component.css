@@ -1138,5 +1138,115 @@
   opacity: 0.92;
 }
 
+/* 4 GAME MODES GRID SELECTION */
+.priv-mode-selection-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1.1rem;
+}
+
+.priv-mode-card {
+  display: flex;
+  flex-direction: column;
+  padding: 0.85rem;
+  background: rgba(15, 23, 42, 0.75);
+  border: 1.5px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+  user-select: none;
+}
+
+.priv-mode-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(0, 240, 255, 0.5);
+  box-shadow: 0 4px 14px rgba(0, 240, 255, 0.15);
+}
+
+.priv-mode-card.is-selected {
+  border-color: #00f0ff;
+  background: rgba(0, 240, 255, 0.08);
+  box-shadow: 0 0 16px rgba(0, 240, 255, 0.3);
+}
+
+.priv-mode-card.is-locked {
+  opacity: 0.75;
+  border-style: dashed;
+}
+
+.priv-mode-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.4rem;
+}
+
+.priv-mode-icon {
+  font-size: 1.4rem;
+}
+
+.priv-mode-badge {
+  font-size: 0.65rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  padding: 0.15rem 0.45rem;
+  border-radius: 9999px;
+  letter-spacing: 0.04em;
+}
+
+.priv-badge-free {
+  background: rgba(57, 255, 20, 0.2);
+  color: #39ff14;
+  border: 1px solid rgba(57, 255, 20, 0.4);
+}
+
+.priv-badge-account {
+  background: rgba(0, 240, 255, 0.2);
+  color: #00f0ff;
+  border: 1px solid rgba(0, 240, 255, 0.4);
+}
+
+.priv-alert-account {
+  border-color: rgba(0, 240, 255, 0.5) !important;
+}
+
+.priv-badge-sub {
+  background: rgba(255, 0, 85, 0.2);
+  color: #ff0055;
+  border: 1px solid rgba(255, 0, 85, 0.4);
+}
+
+.priv-mode-title {
+  margin: 0 0 0.3rem 0;
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #ffffff;
+}
+
+.priv-mode-desc {
+  margin: 0;
+  font-size: 0.74rem;
+  color: #94a3b8;
+  line-height: 1.35;
+}
+
+.priv-mode-desc strong {
+  color: #e2e8f0;
+}
+
+.priv-section-card {
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 0.85rem;
+  margin-bottom: 1rem;
+}
+
+.priv-input-sm {
+  max-width: 200px;
+}
+
+
 
 

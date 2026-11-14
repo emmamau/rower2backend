@@ -325,6 +325,8 @@ export class GarminController {
         connectionState: "CONNECTED",
         isBotDuel: Boolean(race.isBotDuel),
         isDuel1v1: Boolean(race.isDuel1v1),
+        isSolo: Boolean(race.isSolo),
+        gameMode: race.gameMode || (race.isSolo ? "solo" : race.isBotDuel ? "bot_duel" : race.isDuel1v1 ? "duel_1v1" : "multi"),
         startMode: race.startMode || "manual",
         status: race.status,
         waitingStatusMessage
@@ -350,6 +352,8 @@ export class GarminController {
         ready: false,
         isBotDuel: Boolean(race.isBotDuel),
         isDuel1v1: Boolean(race.isDuel1v1),
+        isSolo: Boolean(race.isSolo),
+        gameMode: race.gameMode || (race.isSolo ? "solo" : race.isBotDuel ? "bot_duel" : race.isDuel1v1 ? "duel_1v1" : "multi"),
         hasBots: Boolean(race.hasBots || race.isBotDuel),
         waitingStatusMessage,
         message: welcomeMessage

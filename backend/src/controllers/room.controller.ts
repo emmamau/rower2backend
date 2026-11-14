@@ -125,7 +125,7 @@ export class RoomController {
         (userName && race.hostUserName && String(userName).trim().toLowerCase() === race.hostUserName.toLowerCase())
       );
 
-      if (!alreadyApproved && !isHost && !race.isBotDuel && !race.isDuel1v1 && race.participants && race.participants.size >= organizerCapacity) {
+      if (!alreadyApproved && !isHost && !race.isSolo && !race.isBotDuel && !race.isDuel1v1 && race.participants && race.participants.size >= organizerCapacity) {
         res.status(409).json({
           success: false,
           error: "Capacité maximale atteinte pour ce salon",
@@ -134,7 +134,7 @@ export class RoomController {
         return;
       }
 
-      if (race.status === "RUNNING" && !alreadyApproved && !isHost && !race.isBotDuel && !race.isDuel1v1) {
+      if (race.status === "RUNNING" && !alreadyApproved && !isHost && !race.isSolo && !race.isBotDuel && !race.isDuel1v1) {
         res.status(410).json({
           success: false,
           error: "Cette course a déjà été lancée.",
@@ -251,6 +251,8 @@ export class RoomController {
         connectionState: joinResult.connectionState || (joinResult.ready === false ? "CONNECTED" : "READY"),
         isBotDuel: Boolean(race.isBotDuel),
         isDuel1v1: Boolean(race.isDuel1v1),
+        isSolo: Boolean(race.isSolo),
+        gameMode: race.gameMode || (race.isSolo ? "solo" : race.isBotDuel ? "bot_duel" : race.isDuel1v1 ? "duel_1v1" : "multi"),
         startMode: race.startMode || "manual",
         status: race.status,
         secondsRemaining,
@@ -274,6 +276,8 @@ export class RoomController {
         connectionState: joinResult.connectionState || (joinResult.ready === false ? "CONNECTED" : "READY"),
         isBotDuel: Boolean(race.isBotDuel),
         isDuel1v1: Boolean(race.isDuel1v1),
+        isSolo: Boolean(race.isSolo),
+        gameMode: race.gameMode || (race.isSolo ? "solo" : race.isBotDuel ? "bot_duel" : race.isDuel1v1 ? "duel_1v1" : "multi"),
         hasBots: Boolean(race.hasBots || race.isBotDuel),
         totalParticipants,
         secondsRemaining,

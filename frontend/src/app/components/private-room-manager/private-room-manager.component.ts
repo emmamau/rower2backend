@@ -62,6 +62,18 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
   activeTab: PrivateModalTab = 'create';
   isBannerCollapsed = false;
 
+  // Selected Game Mode for Creation: 'solo' | 'bot_duel' | 'duel_1v1' | 'multi'
+  selectedGameMode: 'solo' | 'bot_duel' | 'duel_1v1' | 'multi' = 'solo';
+
+  // Bot difficulty pace preset:
+  readonly botPacePresets = [
+    { label: 'Loisir', pace: 150, time: '2:30/500m' },
+    { label: 'Régulier', pace: 120, time: '2:00/500m' },
+    { label: 'Avancé', pace: 110, time: '1:50/500m' },
+    { label: 'Expert', pace: 100, time: '1:40/500m' },
+    { label: 'Champion', pace: 90, time: '1:30/500m' }
+  ];
+
   // Create form fields
   roomTitle = '';
   targetDistance = 2000;
@@ -315,6 +327,39 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
     return Boolean(this.activeRoom?.race?.isBotDuel || (this.activeRoom as any)?.isBotDuel);
   }
 
+  get isSoloRoom(): boolean {
+    return Boolean(this.activeRoom?.race?.isSolo || (this.activeRoom as any)?.isSolo);
+  }
+
+  get isDuel1v1Room(): boolean {
+    return Boolean(this.activeRoom?.race?.isDuel1v1 || (this.activeRoom as any)?.isDuel1v1);
+  }
+
+  selectGameMode(mode: 'solo' | 'bot_duel' | 'duel_1v1' | 'multi'): void {
+    this.selectedGameMode = mode;
+    if (mode === 'solo') {
+      this.roomTitle = `Entraînement Solo (${this.activeUserName || 'Moi'})`;
+      this.maxParticipants = 1;
+      this.botCount = 0;
+      this.startMode = 'manual';
+    } else if (mode === 'bot_duel') {
+      this.roomTitle = `Duel 1v1 contre un Bot`;
+      this.maxParticipants = 2;
+      this.botCount = 1;
+      this.startMode = 'manual';
+    } else if (mode === 'duel_1v1') {
+      this.roomTitle = `Duel 1v1 contre un Ami`;
+      this.maxParticipants = 2;
+      this.botCount = 0;
+      this.startMode = 'manual';
+    } else {
+      this.roomTitle = this.defaultRoomTitle();
+      this.maxParticipants = 8;
+      this.botCount = 0;
+    }
+    this.cdr.markForCheck();
+  }
+
   toggleBannerCollapse(event?: Event): void {
     if (event) {
       event.stopPropagation();
@@ -495,8 +540,14 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
   onCreateRoomSubmit(): void {
     if (this.isCreating) return;
 
-    if (!this.isUserAdmin && !this.isSubscriber) {
-      this.createGeneralError = "La création de salon privé est réservée aux abonnés. Connectez-vous avec votre compte abonné ou inscrivez-vous.";
+    if (this.selectedGameMode === 'duel_1v1' && !this.isRegisteredUser && !this.isUserAdmin) {
+      this.createGeneralError = "Pour défier un autre joueur en 1 vs 1, un compte utilisateur (gratuit) est requis. Connectez-vous ou inscrivez-vous en quelques secondes.";
+      this.cdr.markForCheck();
+      return;
+    }
+
+    if (this.selectedGameMode === 'multi' && !this.isUserAdmin && !this.isSubscriber) {
+      this.createGeneralError = "La création de salon multi-joueurs est réservée aux abonnés Club et Élite Pro. Connectez-vous avec votre compte ou découvrez nos offres.";
       this.cdr.markForCheck();
       return;
     }
@@ -507,7 +558,15 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
     this.isCreating = true;
 
     const clampedDist = Math.min(100000, Math.max(100, Math.round(Number(this.targetDistance) || 2000)));
-    const clampedMax = Math.min(30, Math.max(2, Math.round(Number(this.maxParticipants) || 8)));
+    const clampedMax = this.selectedGameMode === 'solo'
+      ? 1
+      : this.selectedGameMode === 'bot_duel' || this.selectedGameMode === 'duel_1v1'
+      ? 2
+      : Math.min(30, Math.max(2, Math.round(Number(this.maxParticipants) || 8)));
+
+    const isSolo = this.selectedGameMode === 'solo';
+    const isBotDuel = this.selectedGameMode === 'bot_duel';
+    const isDuel1v1 = this.selectedGameMode === 'duel_1v1';
 
     this.rowerService
       .createPrivateRace({
@@ -516,11 +575,16 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
         maxParticipants: clampedMax,
         hostUserId: this.activeUserId || 'anonymous',
         hostUserName: this.activeUserName || undefined,
-        startMode: this.startMode,
-        scheduledStartTime: this.startMode === 'scheduled' && this.scheduledDateTime ? this.scheduledDateTime : undefined,
-        botCount: Number(this.botCount) || 0,
-        botMaxPace: Number(this.botMaxPace) || 120,
-        requireApproval: this.requireApproval
+        startMode: this.selectedGameMode === 'multi' ? this.startMode : 'manual',
+        scheduledStartTime: this.selectedGameMode === 'multi' && this.startMode === 'scheduled' && this.scheduledDateTime ? this.scheduledDateTime : undefined,
+        botCount: isBotDuel ? 1 : (this.selectedGameMode === 'multi' ? Number(this.botCount) || 0 : 0),
+        botMaxPace: isBotDuel ? Number(this.botMaxPace) || 120 : (Number(this.botMaxPace) || 120),
+        requireApproval: this.selectedGameMode === 'multi' ? this.requireApproval : false,
+        isBotDuel,
+        isDuel1v1,
+        isSolo,
+        gameMode: this.selectedGameMode,
+        mode: this.selectedGameMode
       })
       .subscribe({
         next: (created) => {

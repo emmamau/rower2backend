@@ -274,7 +274,29 @@ export class TelemetryController {
 
       const matchedRace = raceManager.getRaceById(raceId) || raceManager.getCurrentPublicRace();
       const targetDist = matchedRace?.targetDistance || Number(body.targetDistance) || 2000;
-      // Procédure de départ arrêté : alerte sonore/vibratoire et distance à 0 m en cas de faux départ pendant les 15 s
+
+      // Gestion spécifique du déclenchement du départ au premier coup de rame (Solo et Duel contre un Bot)
+      if (
+        matchedRace &&
+        matchedRace.type === "PRIVATE_INVITE" &&
+        (matchedRace.isSolo || matchedRace.isBotDuel) &&
+        (matchedRace.status === "LOBBY" || matchedRace.status === "COUNTDOWN")
+      ) {
+        if (actualDistance > 0 || actualPower > 0 || actualSpm > 0) {
+          // Premier coup de rame détecté : lancement immédiat de la course
+          const startNow = new Date();
+          matchedRace.status = "RUNNING";
+          matchedRace.startedAt = startNow;
+          matchedRace.autoStart = true;
+          try {
+            await Races.update({ status: "in_progress", startTime: startNow }, { where: { id: matchedRace.id } });
+            await Activities.update({ status: "in_progress" }, { where: { activityId: matchedRace.id, status: "waiting" } });
+          } catch {}
+          socketGateway.broadcastRaceStatus(matchedRace.id, "RUNNING", { startedAt: startNow });
+        }
+      }
+
+      // Procédure de départ arrêté : alerte sonore/vibratoire et distance à 0 m en cas de faux départ pendant les 15 s (Courses publiques, 1v1 Joueur et Multi)
       let falseStartDetected = false;
       if (matchedRace && (matchedRace.status === "COUNTDOWN" || matchedRace.status === "LOBBY")) {
         if (actualDistance > 0 || actualPower > 0 || actualSpm > 0) {
@@ -540,26 +562,49 @@ export class TelemetryController {
         botMaxPace,
         isBotDuel: reqIsBotDuel,
         mode,
-        isDuel1v1,
+        isDuel1v1: reqIsDuel1v1,
         adminAsSpectator,
         requiresSubscription,
         requiredLeague
       } = req.body || {};
 
-      const rawMode = String(mode || req.body?.type || "").trim().toLowerCase();
-      const isBotDuel = Boolean(
+      const rawMode = String(mode || req.body?.type || req.body?.gameMode || "").trim().toLowerCase();
+      const isSolo = Boolean(
+        req.body?.isSolo ||
+        rawMode === "solo"
+      );
+      const isBotDuel = !isSolo && Boolean(
         reqIsBotDuel ||
         rawMode === "bot_duel" ||
         rawMode === "duel_bot" ||
         rawMode === "1v1_bot"
       );
+      const isDuel1v1 = !isSolo && !isBotDuel && Boolean(reqIsDuel1v1 || req.body?.isDuel1v1 || rawMode === "duel_1v1" || rawMode === "duel");
 
-      if (!isBotDuel) {
+      // RÈGLES D'ACCÈS CONSOLIDÉES :
+      // 1. Solo et Duel Bot : 100% gratuits et SANS COMPTE (anonymes acceptés, pas besoin d'être connecté).
+      // 2. Duel 1v1 contre un autre joueur : COMPTE GRATUIT OBLIGATOIRE (l'utilisateur doit être inscrit/connecté).
+      // 3. Multi-joueurs (>2 joueurs) : RÉSERVÉ AUX ABONNÉS CLUB ET ÉLITE PRO (ou admin Emma).
+      if (isDuel1v1) {
+        const cleanHost = String(hostUserId || "").trim();
+        const isAnon = !cleanHost || cleanHost === "anonymous" || cleanHost.startsWith("guest_") || cleanHost.startsWith("usr_");
+        const registeredUser = isAnon ? null : await userStore.findUser(cleanHost);
+        const isEmma = isEmmaAdminUser(hostUserId, hostUserName);
+        if (!isEmma && (!registeredUser || isAnon)) {
+          res.status(401).json({
+            success: false,
+            error: "La création d'un duel 1 vs 1 contre un joueur nécessite d'être connecté à un compte (gratuit). Veuillez vous connecter ou créer un compte.",
+            code: "ACCOUNT_REQUIRED"
+          });
+          return;
+        }
+      } else if (!isSolo && !isBotDuel) {
+        // Multi-joueurs
         const authCheck = await isUserSubscriberOrAdmin(hostUserId, hostUserName);
         if (!authCheck.authorized) {
           res.status(403).json({
             success: false,
-            error: authCheck.reason || "La création de salon privé est réservée aux abonnés.",
+            error: authCheck.reason || "La création d'un salon multi-joueurs est réservée aux abonnés Club et Élite Pro.",
             code: "SUBSCRIBER_REQUIRED"
           });
           return;
@@ -570,30 +615,34 @@ export class TelemetryController {
       const user = await userStore.findUser(hostUserId);
       const isEmma = isEmmaAdminUser(hostUserId, hostUserName);
       const isUserAdmin = Boolean(isEmma || user?.isAdmin);
-      const allowAdminSpectator = isBotDuel
+      const allowAdminSpectator = (isSolo || isBotDuel)
         ? false
         : (isUserAdmin ? (adminAsSpectator !== undefined ? Boolean(adminAsSpectator) : true) : false);
 
-      let maxAllowed = isBotDuel ? 2 : 30;
-      let distAllowed = isBotDuel ? 10000 : 100000;
-      let botsAllowed = isBotDuel ? 1 : 5;
+      let maxAllowed = isSolo ? 1 : (isBotDuel || isDuel1v1) ? 2 : 30;
+      let distAllowed = (isSolo || isBotDuel || isDuel1v1) ? 2000 : 100000;
+      let botsAllowed = isSolo ? 0 : isBotDuel ? 1 : 5;
 
-      if (!isBotDuel && user && !isEmma && !user.isAdmin && user.subscriptionTier) {
+      if (!isSolo && !isBotDuel && user && !isEmma && !user.isAdmin && user.subscriptionTier) {
         const tierId: string = user.subscriptionTier;
         const limits = SUBSCRIPTION_TIERS[tierId] || SUBSCRIPTION_TIERS.intermediate;
         maxAllowed = limits.maxParticipants;
         distAllowed = limits.maxDistance;
         botsAllowed = limits.maxBots;
+      } else if ((isSolo || isBotDuel || isDuel1v1) && user && !isEmma && !user.isAdmin && user.subscriptionTier) {
+        const tierId: string = user.subscriptionTier;
+        const limits = SUBSCRIPTION_TIERS[tierId] || SUBSCRIPTION_TIERS.intermediate;
+        distAllowed = limits.maxDistance;
       }
 
       const rawDist = Number(targetDistance) || 2000;
       const finalDist = Math.min(distAllowed, Math.max(100, rawDist));
 
-      const rawMax = isBotDuel ? 2 : (Number(maxParticipants) || maxAllowed);
-      const finalMax = isBotDuel ? 2 : Math.min(maxAllowed, Math.max(2, rawMax));
+      const rawMax = isSolo ? 1 : (isBotDuel || isDuel1v1) ? 2 : (Number(maxParticipants) || maxAllowed);
+      const finalMax = isSolo ? 1 : (isBotDuel || isDuel1v1) ? 2 : Math.min(maxAllowed, Math.max(2, rawMax));
 
-      const rawBots = isBotDuel ? 1 : (Number(botCount) || 0);
-      const finalBots = isBotDuel ? 1 : Math.min(botsAllowed, Math.max(0, rawBots));
+      const rawBots = isSolo ? 0 : isBotDuel ? 1 : (Number(botCount) || 0);
+      const finalBots = isSolo ? 0 : isBotDuel ? 1 : Math.min(botsAllowed, Math.max(0, rawBots));
       const finalBotPace = Math.min(300, Math.max(60, Number(botMaxPace) || 120));
 
       const hostParticipates = Boolean(req.body?.hostParticipates !== undefined ? req.body?.hostParticipates : !allowAdminSpectator);
@@ -612,6 +661,8 @@ export class TelemetryController {
         botMaxPace: finalBotPace,
         isBotDuel,
         isDuel1v1: Boolean(isDuel1v1),
+        isSolo: Boolean(isSolo),
+        gameMode: isSolo ? "solo" : isBotDuel ? "bot_duel" : isDuel1v1 ? "duel_1v1" : "multi",
         adminAsSpectator: allowAdminSpectator,
         hostParticipates,
         requiresSubscription: Boolean(requiresSubscription),

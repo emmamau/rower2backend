@@ -79,6 +79,8 @@ export interface NextRaceInfo {
     hasBots?: boolean;
     isBotDuel?: boolean;
     isDuel1v1?: boolean;
+    isSolo?: boolean;
+    gameMode?: 'solo' | 'bot_duel' | 'duel_1v1' | 'multi';
     waitingStatusMessage?: string;
     internalStatus?: string;
     status: string;
@@ -117,6 +119,9 @@ export interface CreatePrivateRaceRequest {
   botCount?: number;
   botMaxPace?: number;
   isBotDuel?: boolean;
+  isDuel1v1?: boolean;
+  isSolo?: boolean;
+  gameMode?: string;
   mode?: string;
 }
 
