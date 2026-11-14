@@ -398,33 +398,14 @@
           </div>
         }
 
-        <!-- Bouton Config Course ou Admin Course placé immédiatement à droite du user connecté -->
+        <!-- Bouton Admin Course réservé EXCLUSIVEMENT à l'administrateur pour les courses publiques -->
         <button
+          *ngIf="isUserAdmin"
           type="button"
-          class="btn-hud btn-config-unified"
-          [class.is-admin]="isUserAdmin"
-          [class.is-sub]="isSubscriber"
-          [class.is-guest]="!isSubscriber && !isUserAdmin"
+          class="btn-hud btn-config-unified is-admin"
           (click)="openUnifiedConfigModal()"
-          [title]="isUserAdmin ? '⚙️ Administration globale et configuration de course' : (isSubscriber ? '⚙️ Configuration de votre course et de votre salon privé' : '⚙️ Paramètres et informations de course')">
-          @if (isUserAdmin) {
-            ⚙️ Admin Courses
-          } @else if (isSubscriber) {
-            ⚙️ Config Course
-          } @else {
-            ⚙️ Config Course
-          }
-        </button>
-
-        <!-- Bouton Duel 1v1 Bot (Proposé uniquement si le joueur est appareillé) -->
-        <button
-          *ngIf="isPaired || isWatchConfirmed"
-          type="button"
-          class="btn-hud btn-bot-duel"
-          (click)="openBotDuelModal()"
-          title="Nouveau mode : affrontez un bot de niveau aléatoire sur la distance de votre choix jusqu'à 10 000m">
-          <span class="btn-icon">🤖</span>
-          Duel 1v1 Bot
+          title="⚙️ Administration globale et configuration des courses publiques">
+          ⚙️ Admin Courses
         </button>
 
         <!-- Boutons Salons Privés -->
@@ -797,7 +778,7 @@
               <button type="button" class="btn-primary" (click)="closeAccountModal(); openPrivateModal('create')">
                 🛶 Créer un salon privé
               </button>
-              <button type="button" class="btn-danger-outline" (click)="logoutUser()">
+              <button type="button" class="btn-danger-outline" (click)="promptLogout()">
                 Déconnexion
               </button>
               <button type="button" class="btn-secondary" (click)="closeAccountModal()">
@@ -1974,56 +1955,6 @@
         }
       </section>
 
-      <!-- 2.2 TUNNEL D'ACTION EN 3 CARTES DIRECTES -->
-      <section class="home-action-tunnel" *ngIf="!isMobileFullscreenOnly" aria-label="Tunnel d'action rapide">
-        <div class="action-tunnel-grid">
-          <!-- Carte 1 : Course Rapide / Salon Public -->
-          <div class="action-tunnel-card card-public-race" (click)="setSiteView('regatta')" role="button" tabindex="0">
-            <div class="atc-header">
-              <span class="atc-icon">🏁</span>
-              <span class="atc-badge">Départ Automatique</span>
-            </div>
-            <h3 class="atc-title">Course Rapide / Salon Public</h3>
-            <p class="atc-desc">
-              Rejoignez le lobby de la prochaine rotation publique ({{ nextRaceInfo?.race?.targetDistance || 2000 }}m) et affrontez les rameurs connectés en direct.
-            </p>
-            <div class="atc-footer">
-              <span class="atc-cta">Rejoindre le plan d'eau &rarr;</span>
-            </div>
-          </div>
-
-          <!-- Carte 2 : Rejoindre un Salon Privé -->
-          <div class="action-tunnel-card card-private-room" (click)="openPrivateModal('join')" role="button" tabindex="0">
-            <div class="atc-header">
-              <span class="atc-icon">🎟️</span>
-              <span class="atc-badge">Code 5 caractères</span>
-            </div>
-            <h3 class="atc-title">Rejoindre un Salon Privé</h3>
-            <p class="atc-desc">
-              Saisissez un code de salon ou obtenez votre code d'embarquement invité à 5 caractères pour rejoindre directement votre ligne d'eau.
-            </p>
-            <div class="atc-footer">
-              <span class="atc-cta">Entrer un code / Ticket invité &rarr;</span>
-            </div>
-          </div>
-
-          <!-- Carte 3 : Cockpit / Entraînement Libre -->
-          <div class="action-tunnel-card card-free-cockpit" (click)="setSiteView('cockpit')" role="button" tabindex="0">
-            <div class="atc-header">
-              <span class="atc-icon">📱</span>
-              <span class="atc-badge">Télémétrie Solo</span>
-            </div>
-            <h3 class="atc-title">Cockpit / Entraînement Libre</h3>
-            <p class="atc-desc">
-              Accès direct aux jauges de télémétrie solo en temps réel : Puissance (Watts), Allure (/500m), Cadence (SPM), Distance et Cardio.
-            </p>
-            <div class="atc-footer">
-              <span class="atc-cta">Ouvrir le Cockpit &rarr;</span>
-            </div>
-          </div>
-        </div>
-      </section>
-
       <!-- BANNIÈRE RAPIDE COURSE EN COURS DEPUIS L'ACCUEIL -->
       <div class="home-active-race-callout" *ngIf="isRaceActive">
         <div class="callout-left">
@@ -3078,6 +3009,40 @@
             }
             <button type="button" class="btn-secondary" (click)="closeWatchGuidanceModal()">
               Fermer
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- MODALE DE CONFIRMATION DE DÉCONNEXION & GESTION APPAIRAGE -->
+      <div class="modal-overlay modal-logout-overlay" *ngIf="isLogoutConfirmModalOpen" (click)="cancelLogout()">
+        <div class="modal-content modal-logout-content" (click)="$event.stopPropagation()">
+          <div class="modal-header-row">
+            <h3 class="modal-title">Déconnexion de votre compte</h3>
+            <button type="button" class="modal-close-icon" (click)="cancelLogout()" title="Annuler">&times;</button>
+          </div>
+          <div class="modal-logout-body">
+            <p class="logout-intro">
+              Votre montre Garmin est actuellement appairée à cette session. Que souhaitez-vous faire de votre appairage en vous déconnectant ?
+            </p>
+            <div class="logout-choice-card" (click)="confirmLogout(false)">
+              <div class="choice-icon">🔌</div>
+              <div class="choice-texts">
+                <strong>Désactiver l'appairage sur ce navigateur</strong>
+                <span>Votre montre reste associée à votre compte sur nos serveurs. Dès votre prochaine reconnexion, elle sera automatiquement réactivée.</span>
+              </div>
+            </div>
+            <div class="logout-choice-card is-keep" (click)="confirmLogout(true)">
+              <div class="choice-icon">⌚</div>
+              <div class="choice-texts">
+                <strong>Conserver l'appairage actif (Mode Invité Anonyme)</strong>
+                <span>Vous resterez actif sur l'eau avec votre montre connectée, mais en tant que rameur invité sans compte identifié.</span>
+              </div>
+            </div>
+          </div>
+          <div class="modal-logout-actions">
+            <button type="button" class="btn-secondary" (click)="cancelLogout()">
+              Annuler
             </button>
           </div>
         </div>

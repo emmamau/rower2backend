@@ -956,7 +956,10 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
 
         // Countdown & synchronous 5s start management
         if (state == RowerView.STATE_LOBBY || state == RowerView.STATE_WAITING_START || state == RowerView.STATE_COUNTDOWN_5S) {
-            if (!_isWaitingForReadyOrHost) {
+            var isPriv = isInPrivateRace();
+            if (!_isWaitingForReadyOrHost && !isPriv) {
+                view.decrementCountdown();
+            } else if (isPriv && view.getCountdown() > 0 && view.getCountdown() <= 15) {
                 view.decrementCountdown();
             }
             var cd = view.getCountdown();
@@ -968,7 +971,7 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
             var isRowing = (_model.strokeRate > 0 || _model.instantPower > 0);
 
             // Règle 1 : En salon Solo ou Duel Bot, le premier coup de rame déclenche immédiatement le départ
-            if ((_isBotDuel || (_activityId != null && _activityId.find("solo") != null)) && isRowing && _activityStatus.equals("waiting")) {
+            if ((_isBotDuel || view.getPrivateGameMode().equals("solo") || view.getPrivateGameMode().equals("bot_duel") || (_activityId != null && _activityId.find("solo") != null)) && isRowing && _activityStatus.equals("waiting")) {
                 handleRaceStartTrigger(view, true);
                 return;
             }
@@ -1379,8 +1382,29 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
 
     public function onLobbyDataReceived(data as Dictionary?) as Void {
         if (data != null && _view != null) {
-            var countdown = (_view as RowerView).getCountdown();
+            var view = _view as RowerView;
+            var countdown = view.getCountdown();
             var hasExplicitCountdown = false;
+            var isPriv = isInPrivateRace();
+
+            // Détection du mode de jeu
+            var gameMode = "";
+            if (data.hasKey("gameMode") && data.get("gameMode") != null) {
+                gameMode = data.get("gameMode").toString();
+            } else if (data.hasKey("isSolo") && data.get("isSolo") == true) {
+                gameMode = "solo";
+            } else if (data.hasKey("isBotDuel") && data.get("isBotDuel") == true) {
+                gameMode = "bot_duel";
+            } else if (data.hasKey("isDuel1v1") && data.get("isDuel1v1") == true) {
+                gameMode = "duel_1v1";
+            } else if (isPriv) {
+                gameMode = "multi";
+            }
+
+            if (isPriv && gameMode.length() > 0) {
+                view.setPrivateSalonMode(true, gameMode);
+            }
+
             if (data.hasKey("secondsRemaining") && data.get("secondsRemaining") != null) {
                 countdown = data.get("secondsRemaining") as Number;
                 hasExplicitCountdown = true;
@@ -1388,10 +1412,29 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
                 countdown = data.get("countdownSeconds") as Number;
                 hasExplicitCountdown = true;
             } else if (countdown <= 0 && !_isWaitingForReadyOrHost) {
-                countdown = _isBotDuel ? 15 : 600;
+                countdown = isPriv ? 0 : 600;
             }
-            var players = (data.hasKey("totalParticipants") && data.get("totalParticipants") != null)
-                ? (data.get("totalParticipants") as Number) : (_isBotDuel ? 2 : 1);
+
+            // Calcul du nombre de rameurs exact
+            var players = 1;
+            if (gameMode.equals("solo")) {
+                players = 1;
+            } else if (gameMode.equals("bot_duel") || _isBotDuel) {
+                players = 2;
+            } else if (data.hasKey("totalParticipants") && data.get("totalParticipants") != null) {
+                players = data.get("totalParticipants") as Number;
+            } else {
+                players = 1;
+            }
+
+            // En salon privé sans décompte actif de 15s (notamment Solo et BotDuel, ou 1v1 en attente),
+            // on force countdown = 0 pour ne jamais afficher de faux compte à rebours public
+            if (isPriv && (!hasExplicitCountdown || countdown > 15)) {
+                if (gameMode.equals("solo") || gameMode.equals("bot_duel") || gameMode.equals("duel_1v1")) {
+                    countdown = 0;
+                }
+            }
+
             var targetDist = _targetDistance;
             var isRunning = false;
             var isWaitingLobby = false;
@@ -1413,7 +1456,7 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
                 if (st.equals("in_progress") || st.equals("RUNNING")) {
                     isRunning = true;
                     isWaitingLobby = false;
-                } else if (st.equals("waiting") && (!hasExplicitCountdown || countdown <= 0) && isInPrivateRace()) {
+                } else if (st.equals("waiting") && (!hasExplicitCountdown || countdown <= 0) && isPriv) {
                     isWaitingLobby = true;
                 }
             }
@@ -1427,7 +1470,7 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
                     _activityId = rDict.get("id").toString();
                 }
                 if (rDict.hasKey("hasBots") && rDict.get("hasBots") instanceof Boolean) {
-                    (_view as RowerView).setBotsEnabled(rDict.get("hasBots") as Boolean);
+                    view.setBotsEnabled(rDict.get("hasBots") as Boolean);
                 }
                 if (rDict.hasKey("status") && rDict.get("status") != null) {
                     var rSt = rDict.get("status").toString();
@@ -1443,19 +1486,18 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
             }
 
             if (data.hasKey("remainingSeconds") && data.get("remainingSeconds") != null) {
-                (_view as RowerView).setGameRemainingSeconds(data.get("remainingSeconds") as Number);
+                view.setGameRemainingSeconds(data.get("remainingSeconds") as Number);
             }
             if (data.hasKey("waitingStatusMessage") && data.get("waitingStatusMessage") != null) {
-                (_view as RowerView).setWaitingStatusMessage(data.get("waitingStatusMessage").toString());
+                view.setWaitingStatusMessage(data.get("waitingStatusMessage").toString());
             }
 
             _isWaitingForReadyOrHost = (isWaitingLobby && !isRunning);
             _targetDistance = targetDist;
-            (_view as RowerView).setLobbyInfo(countdown, players, targetDist);
+            view.setLobbyInfo(countdown, players, targetDist);
 
-            var view = _view as RowerView;
             var curState = view.getAppState();
-            if ((isRunning || (!_isWaitingForReadyOrHost && countdown <= 0)) && (curState == RowerView.STATE_LOBBY || curState == RowerView.STATE_WAITING_START || curState == RowerView.STATE_PENDING_APPROVAL)) {
+            if ((isRunning || (!_isWaitingForReadyOrHost && countdown <= 0 && !isPriv)) && (curState == RowerView.STATE_LOBBY || curState == RowerView.STATE_WAITING_START || curState == RowerView.STATE_PENDING_APPROVAL)) {
                 var isRowing = (_model.strokeRate > 0 || _model.instantPower > 0);
                 handleRaceStartTrigger(view, isRowing);
             }
@@ -1884,8 +1926,25 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
         }
         _isWaitingForReadyOrHost = isLobbyWait;
 
-        var totalPlayers = _isBotDuel ? 2 : 1;
-        if (data.hasKey("totalParticipants") && data.get("totalParticipants") != null) {
+        var gameMode = "";
+        if (data.hasKey("gameMode") && data.get("gameMode") != null) {
+            gameMode = data.get("gameMode").toString();
+        } else if (data.hasKey("isSolo") && data.get("isSolo") == true) {
+            gameMode = "solo";
+        } else if (_isBotDuel) {
+            gameMode = "bot_duel";
+        } else if (data.hasKey("isDuel1v1") && data.get("isDuel1v1") == true) {
+            gameMode = "duel_1v1";
+        } else {
+            gameMode = "multi";
+        }
+
+        var totalPlayers = 1;
+        if (gameMode.equals("solo")) {
+            totalPlayers = 1;
+        } else if (gameMode.equals("bot_duel") || _isBotDuel) {
+            totalPlayers = 2;
+        } else if (data.hasKey("totalParticipants") && data.get("totalParticipants") != null) {
             totalPlayers = data.get("totalParticipants") as Number;
         }
 
@@ -1917,6 +1976,7 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
 
         if (_view != null) {
             var view = _view as RowerView;
+            view.setPrivateSalonMode(true, gameMode);
             view.setAssignedLane(assignedLane);
             view.setBotsEnabled(hasBots);
             view.setLobbyInfo(countdown, totalPlayers, _targetDistance);

@@ -45,6 +45,8 @@ export interface RegisterUserDto {
   email: string;
   password: string;
   watchUserId?: string;
+  guestPairingToken?: string;
+  guestToken?: string;
 }
 
 export interface LoginDto {

@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { Op } from "sequelize";
 import db from "../models";
-import raceManager, { RaceManager, RaceState } from "../services/race-manager.service";
+import raceManager, { RaceManager, RaceState, getWaitingStatusMessage } from "../services/race-manager.service";
 import socketGateway, { LiveRacerMetric } from "../websocket/socket.gateway";
 import { TelemetryValidator } from "../services/telemetry-validator.service";
 import { isEmmaAdminUser } from "../services/auth.service";
@@ -132,6 +132,9 @@ async function buildPrivateRacePayload(race: RaceState) {
     hasBots: Boolean(race.hasBots),
     isBotDuel: Boolean(race.isBotDuel),
     isDuel1v1: Boolean(race.isDuel1v1),
+    isSolo: Boolean(race.isSolo),
+    gameMode: race.gameMode || (race.isSolo ? "solo" : race.isBotDuel ? "bot_duel" : race.isDuel1v1 ? "duel_1v1" : "multi"),
+    waitingStatusMessage: getWaitingStatusMessage(race, new Date(nowMs)),
     originalHostUserId: race.originalHostUserId,
     status: apiStatus,
     internalStatus: race.status,
@@ -151,6 +154,9 @@ async function buildPrivateRacePayload(race: RaceState) {
     botLane: race.isBotDuel ? 2 : undefined,
     isBotDuel: Boolean(race.isBotDuel),
     isDuel1v1: Boolean(race.isDuel1v1),
+    isSolo: Boolean(race.isSolo),
+    gameMode: race.gameMode || (race.isSolo ? "solo" : race.isBotDuel ? "bot_duel" : race.isDuel1v1 ? "duel_1v1" : "multi"),
+    waitingStatusMessage: getWaitingStatusMessage(race, new Date(nowMs)),
     inviteUrl: race.code ? `/r/${race.code}` : undefined,
     secondsRemaining,
     countdownSeconds: secondsRemaining,

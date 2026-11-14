@@ -99,6 +99,8 @@ class RowerView extends WatchUi.View {
     private var _userLastRank as Number = 0;
     private var _userBestRank as Number = 0;
     private var _waitingStatusMessage as String = "";
+    private var _isPrivateSalon as Boolean = false;
+    private var _privateGameMode as String = "";
 
     public function initialize(model as RowerDataModel) {
         View.initialize();
@@ -477,6 +479,20 @@ class RowerView extends WatchUi.View {
     public function setBotsEnabled(enabled as Boolean) as Void {
         _hasBotsEnabled = enabled;
         WatchUi.requestUpdate();
+    }
+
+    public function setPrivateSalonMode(isPrivate as Boolean, mode as String) as Void {
+        _isPrivateSalon = isPrivate;
+        _privateGameMode = mode;
+        WatchUi.requestUpdate();
+    }
+
+    public function isPrivateSalon() as Boolean {
+        return _isPrivateSalon;
+    }
+
+    public function getPrivateGameMode() as String {
+        return _privateGameMode;
     }
 
     // =========================================================================
@@ -1141,20 +1157,62 @@ class RowerView extends WatchUi.View {
         dc.setColor(COL_GRID, Graphics.COLOR_TRANSPARENT);
         dc.drawLine((w * 16) / 100, (h * 17) / 100, w - ((w * 16) / 100), (h * 17) / 100);
 
-        // 2. Hero Countdown Timer Band (18..42% h)
+        // 2. Hero Countdown / Start Instruction Band (18..42% h)
         var heroTop = (h * 18) / 100;
         var heroH = (h * 24) / 100;
-        var timeStr = _model.formatTime(_nextRaceCountdown);
         var heroMaxW = getSafeWidthAtY(w, h, heroTop, heroTop + heroH) - 16;
-        var heroFont = fitFontToBox(
-            dc,
-            timeStr,
-            [Graphics.FONT_NUMBER_MEDIUM, Graphics.FONT_NUMBER_MILD, Graphics.FONT_LARGE, Graphics.FONT_MEDIUM] as Array<Graphics.FontDefinition>,
-            heroMaxW,
-            heroH
-        );
-        dc.setColor((_nextRaceCountdown <= 15) ? COL_WARN : COL_PRIMARY, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, heroTop + (heroH / 2), heroFont, timeStr, Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+
+        // Lorsque le joueur est dans un salon privé, ne pas afficher le compte à rebours de course publique
+        // mais afficher l'instruction de départ correspondante au mode de jeu (sauf si un compte à rebours de 15s est actif)
+        if (_isPrivateSalon && (_nextRaceCountdown <= 0 || _nextRaceCountdown > 15)) {
+            var instructionTitle = "PRET AU DEPART";
+            var instructionSub = "Donnez 1er coup de rame";
+            var titleCol = COL_GOOD;
+
+            if (_privateGameMode.equals("solo")) {
+                instructionTitle = "ENTRAINEMENT SOLO";
+                instructionSub = "1er coup de rame = GO";
+                titleCol = COL_CYAN;
+            } else if (_privateGameMode.equals("bot_duel")) {
+                instructionTitle = "DUEL CONTRE BOT";
+                instructionSub = "1er coup de rame = GO";
+                titleCol = COL_ACCENT;
+            } else if (_privateGameMode.equals("duel_1v1")) {
+                if (_connectedPlayers < 2) {
+                    instructionTitle = "DUEL 1 VS 1";
+                    instructionSub = "En attente adversaire";
+                    titleCol = COL_WARN;
+                } else {
+                    instructionTitle = "ADVERSAIRE PRET";
+                    instructionSub = "Depart dans un instant";
+                    titleCol = COL_GOOD;
+                }
+            } else if (_privateGameMode.equals("multi")) {
+                instructionTitle = "SALON MULTI-JOUEURS";
+                instructionSub = "En attente organisateur";
+                titleCol = COL_WARN;
+            }
+
+            var fTitle = fitFontToBox(dc, instructionTitle, [Graphics.FONT_MEDIUM, Graphics.FONT_SMALL, Graphics.FONT_TINY] as Array<Graphics.FontDefinition>, heroMaxW, (heroH * 50) / 100);
+            var fSub = fitFontToBox(dc, instructionSub, [Graphics.FONT_SMALL, Graphics.FONT_TINY, Graphics.FONT_XTINY] as Array<Graphics.FontDefinition>, heroMaxW, (heroH * 40) / 100);
+
+            dc.setColor(titleCol, Graphics.COLOR_TRANSPARENT);
+            dc.drawText(cx, heroTop + (heroH * 25) / 100, fTitle, truncateToWidth(dc, instructionTitle, fTitle, heroMaxW), Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+
+            dc.setColor(COL_PRIMARY, Graphics.COLOR_TRANSPARENT);
+            dc.drawText(cx, heroTop + (heroH * 75) / 100, fSub, truncateToWidth(dc, instructionSub, fSub, heroMaxW), Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+        } else {
+            var timeStr = _model.formatTime(_nextRaceCountdown);
+            var heroFont = fitFontToBox(
+                dc,
+                timeStr,
+                [Graphics.FONT_NUMBER_MEDIUM, Graphics.FONT_NUMBER_MILD, Graphics.FONT_LARGE, Graphics.FONT_MEDIUM] as Array<Graphics.FontDefinition>,
+                heroMaxW,
+                heroH
+            );
+            dc.setColor((_nextRaceCountdown <= 15) ? COL_WARN : COL_PRIMARY, Graphics.COLOR_TRANSPARENT);
+            dc.drawText(cx, heroTop + (heroH / 2), heroFont, timeStr, Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+        }
 
         // 3. Garmin 2x2 Lobby & Career Stats Grid (43..81% h)
         var gTop = (h * 43) / 100;
@@ -1163,6 +1221,17 @@ class RowerView extends WatchUi.View {
         dc.drawLine((w * 10) / 100, gTop, w - ((w * 10) / 100), gTop);
 
         var racersStr = _hasBotsEnabled ? ("" + _connectedPlayers + "+B") : ("" + _connectedPlayers);
+        if (_isPrivateSalon) {
+            if (_privateGameMode.equals("solo")) {
+                racersStr = "1 (Solo)";
+            } else if (_privateGameMode.equals("bot_duel")) {
+                racersStr = "2 (Bot)";
+            } else if (_privateGameMode.equals("duel_1v1")) {
+                racersStr = "" + _connectedPlayers + "/2";
+            } else {
+                racersStr = "" + _connectedPlayers;
+            }
+        }
         var targetStr = "" + _targetDistance;
         var rankPtsStr = (_userPoints > 0)
             ? ("#" + _userGeneralRank + " / " + _userPoints + "p")

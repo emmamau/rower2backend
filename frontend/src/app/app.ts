@@ -91,6 +91,7 @@ export class AppComponent implements OnInit, OnDestroy {
 
   // UI Modals
   isLoginModalOpen = false;
+  isLogoutConfirmModalOpen = false;
 
   // Identification directe & Nouveau protocole d'appairage Garmin sécurisé (Code Web -> Montre)
   isWatchConfirmed = false;
@@ -1135,6 +1136,10 @@ export class AppComponent implements OnInit, OnDestroy {
     this.accountAuthError = '';
     this.accountAuthSuccess = '';
 
+    const existingGuestToken = (this.isPaired || this.isWatchConfirmed || this.deviceToken)
+      ? (this.deviceToken || (typeof localStorage !== 'undefined' ? localStorage.getItem('rower_device_token') || '' : ''))
+      : undefined;
+
     this.rowerService.registerUser({
       nom: this.regNom.trim(),
       prenom: this.regPrenom.trim(),
@@ -1145,6 +1150,8 @@ export class AppComponent implements OnInit, OnDestroy {
       email: this.regEmail.trim(),
       password: this.regPassword.trim(),
       watchUserId: this.regWatchUserId.trim() || undefined,
+      guestPairingToken: existingGuestToken || undefined,
+      guestToken: existingGuestToken || undefined,
     }).subscribe({
       next: (res) => {
         this.isAccountSubmitting = false;
@@ -1161,6 +1168,21 @@ export class AppComponent implements OnInit, OnDestroy {
             localStorage.setItem('rower_is_subscriber', 'true');
             localStorage.setItem('rower_is_admin', String(Boolean(res.user.isAdmin)));
           } catch {}
+
+          if (res.user.isGarminPaired || existingGuestToken) {
+            this.isPaired = true;
+            this.isWatchConfirmed = true;
+            if (existingGuestToken && !this.deviceToken) {
+              this.deviceToken = existingGuestToken;
+            }
+            try {
+              localStorage.setItem('rower_is_paired', 'true');
+              localStorage.setItem('rower_watch_confirmed', 'true');
+              if (this.deviceToken) {
+                localStorage.setItem('rower_device_token', this.deviceToken);
+              }
+            } catch {}
+          }
 
           this.accountAuthSuccess = 'Compte créé avec succès ! Votre statut abonné est actif. Vous pouvez dès maintenant créer des salons privés.';
           this.loadUserProfile();
@@ -1234,34 +1256,59 @@ export class AppComponent implements OnInit, OnDestroy {
     });
   }
 
-  logoutUser(): void {
+  promptLogout(): void {
+    if (this.isPaired || this.isWatchConfirmed || this.deviceToken) {
+      this.isLogoutConfirmModalOpen = true;
+      this.cdr.markForCheck();
+    } else {
+      this.logoutUser(false);
+    }
+  }
+
+  cancelLogout(): void {
+    this.isLogoutConfirmModalOpen = false;
+    this.cdr.markForCheck();
+  }
+
+  confirmLogout(keepPairing: boolean): void {
+    this.isLogoutConfirmModalOpen = false;
+    this.logoutUser(keepPairing);
+  }
+
+  logoutUser(keepPairing: boolean = false): void {
     try {
       localStorage.removeItem('rower_user_id');
       localStorage.removeItem('rower_user_login');
       localStorage.removeItem('rower_is_subscriber');
       localStorage.removeItem('rower_is_admin');
-      // Nettoyage local uniquement sur le terminal sans révoquer l'appairage sur le serveur
-      localStorage.removeItem('rower_is_paired');
-      localStorage.removeItem('rower_watch_confirmed');
-      localStorage.removeItem('rower_device_token');
+      if (!keepPairing) {
+        localStorage.removeItem('rower_is_paired');
+        localStorage.removeItem('rower_watch_confirmed');
+        localStorage.removeItem('rower_device_token');
+      }
     } catch {}
 
-    // Déconnexion locale : réinitialisation de l'affichage local uniquement.
-    // L'appairage en base reste pérenne et lié au compte de l'utilisateur.
-    this.isPaired = false;
-    this.isWatchConfirmed = false;
-    this.deviceToken = '';
-    this.pairingCode = '';
-    this.pairingSuccessMessage = '';
-    this.pairingErrorMessage = '';
-    if (this.pairingTimerSub) {
-      this.pairingTimerSub.unsubscribe();
-      this.pairingTimerSub = undefined;
+    if (!keepPairing) {
+      this.isPaired = false;
+      this.isWatchConfirmed = false;
+      this.deviceToken = '';
+      this.pairingCode = '';
+      this.pairingSuccessMessage = '';
+      this.pairingErrorMessage = '';
+      if (this.pairingTimerSub) {
+        this.pairingTimerSub.unsubscribe();
+        this.pairingTimerSub = undefined;
+      }
+      if (this.pairingStatusPollSub) {
+        this.pairingStatusPollSub.unsubscribe();
+        this.pairingStatusPollSub = undefined;
+      }
+    } else {
+      // Conserver l'appairage montre pour un mode invité anonyme
+      this.isPaired = true;
+      this.isWatchConfirmed = true;
     }
-    if (this.pairingStatusPollSub) {
-      this.pairingStatusPollSub.unsubscribe();
-      this.pairingStatusPollSub = undefined;
-    }
+
     this.myAssignedLane = 1;
     this.myActivity = null;
     this.selectedSpectatorUserId = '';
@@ -1283,7 +1330,9 @@ export class AppComponent implements OnInit, OnDestroy {
     };
     this.userLoginInput = this.currentUser.name;
     this.accountModalTab = 'login';
-    this.accountAuthSuccess = 'Vous avez été déconnecté.';
+    this.accountAuthSuccess = keepPairing
+      ? 'Déconnecté du compte. Montre conservée active en mode invité.'
+      : 'Vous avez été déconnecté.';
     this.cdr.markForCheck();
   }
 
