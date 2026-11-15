@@ -466,6 +466,14 @@ module I18n {
         if (key.equals("GRID_DIST")) {
             return "DIST. m";
         }
+        if (key.equals("GRID_RANK")) {
+            if (_currentLang == LANG_FR) { return "RANG"; }
+            if (_currentLang == LANG_DE) { return "RANG"; }
+            if (_currentLang == LANG_ES) { return "POS."; }
+            if (_currentLang == LANG_IT) { return "POS."; }
+            if (_currentLang == LANG_PT) { return "POS."; }
+            return "RANK";
+        }
         if (key.equals("GRID_GAP")) {
             if (_currentLang == LANG_FR) { return "ECART m"; }
             if (_currentLang == LANG_DE) { return "ABST. m"; }

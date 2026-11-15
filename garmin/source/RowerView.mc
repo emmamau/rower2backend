@@ -230,6 +230,28 @@ class RowerView extends WatchUi.View {
         return _currentRank;
     }
 
+    public function getPage1BottomRightLabel() as String {
+        if (_raceMode.equals("solo")) {
+            return I18n.getText("GRID_REM");
+        }
+        return I18n.getText("GRID_RANK");
+    }
+
+    public function getPage1BottomRightValue() as String {
+        if (_raceMode.equals("solo")) {
+            var rem = _targetDistance - _netDistance;
+            if (rem < 0) { rem = 0; }
+            return rem.format("%d");
+        }
+        if (_currentRank > 0) {
+            if (_totalRacers > 1) {
+                return _currentRank.format("%d") + "/" + _totalRacers.format("%d");
+            }
+            return _currentRank.format("%d");
+        }
+        return "--";
+    }
+
     public function setLobbyInfo(countdown as Number, players as Number, targetDist as Number) as Void {
         _nextRaceCountdown = countdown;
         _connectedPlayers = players;
@@ -1377,35 +1399,30 @@ class RowerView extends WatchUi.View {
 
         // 3. Central 2x2 Garmin Data Grid (18..82% h)
         if (_racePage == 0) {
-            // PAGE 1: Primary Race Grid [PACE | POWER] / [DISTANCE | GAP or REMAINING]
+            // PAGE 1: Primary Race Grid [PACE | POWER] / [DISTANCE | RANK or REMAINING]
             var dispPace = (_model.instantPace > 0) ? _model.instantPace : _model.avgPace;
             var paceStr = _model.formatPace(dispPace);
             var dispPower = (_model.instantPower > 0) ? _model.instantPower : ((!_model.isHalted && _model.avgPower > 0) ? _model.avgPower : 0);
             var powerStr = dispPower.format("%d");
             var distStr = _netDistance.format("%d");
 
-            var brLabel = I18n.getText("GRID_GAP");
-            var brVal = "--";
+            var brLabel = getPage1BottomRightLabel();
+            var brVal = getPage1BottomRightValue();
             var brValCol = COL_PRIMARY;
 
-            if (_raceMode.equals("solo")) {
-                brLabel = I18n.getText("GRID_REM");
-                var rem = _targetDistance - _netDistance;
-                if (rem < 0) { rem = 0; }
-                brVal = rem.format("%d");
-            } else if (_currentRank <= 1 && !_isLateJoiner) {
-                brVal = I18n.getText("HUD_LEADER");
-                brValCol = COL_GOOD;
-            } else {
-                brVal = "-" + _distToLeader.format("%d");
-                brValCol = COL_WARN;
+            if (!_raceMode.equals("solo") && _currentRank > 0) {
+                if (_currentRank == 1) {
+                    brValCol = COL_GOOD;
+                } else if (_currentRank <= 3) {
+                    brValCol = COL_ACCENT;
+                }
             }
 
             drawGarminGrid2x2(
                 dc, divTopY, divBotY,
                 [I18n.getText("GRID_PACE"), I18n.getText("GRID_POWER"), I18n.getText("GRID_DIST"), brLabel] as Array<String>,
                 [paceStr, powerStr, distStr, brVal] as Array<String>,
-                [COL_ACCENT, COL_GOOD, COL_CYAN, COL_WARN] as Array<Number>,
+                [COL_ACCENT, COL_GOOD, COL_CYAN, COL_ACCENT] as Array<Number>,
                 [COL_PRIMARY, COL_PRIMARY, COL_PRIMARY, brValCol] as Array<Number>
             );
         } else {

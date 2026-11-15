@@ -699,6 +699,45 @@ function testStrokeDuringRaceWaitingWakesBleWithoutStartingRace(logger as Logger
     return true;
 }
 
+//! Regression test: Page 1 bottom right cell displays player rank/total in race mode and remaining distance in solo mode
+(:test)
+function testPage1BottomRightDisplaysRankInRaceMode(logger as Logger) as Boolean {
+    var model = new RowerDataModel();
+    var view = new RowerView(model);
+
+    // Default race mode
+    view.setRaceMode("race");
+    Test.assertEqual(I18n.getText("GRID_RANK"), view.getPage1BottomRightLabel());
+
+    // Initial rank with default 1 racer
+    Test.assertEqual("1", view.getPage1BottomRightValue());
+
+    // Rank 0 (unranked)
+    view.setLiveRank(0, 0, 0, 0, 0);
+    Test.assertEqual("--", view.getPage1BottomRightValue());
+
+    // Set rank 1 of 4 racers
+    view.setLiveRank(1, 4, 0, 0, 15);
+    Test.assertEqual("1/4", view.getPage1BottomRightValue());
+
+    // Set rank 2 of 4 racers
+    view.setLiveRank(2, 4, 15, 15, 30);
+    Test.assertEqual("2/4", view.getPage1BottomRightValue());
+
+    // Single racer
+    view.setLiveRank(1, 1, 0, 0, 0);
+    Test.assertEqual("1", view.getPage1BottomRightValue());
+
+    // Switch to solo mode
+    view.setRaceMode("solo");
+    Test.assertEqual(I18n.getText("GRID_REM"), view.getPage1BottomRightLabel());
+    view.setLobbyInfo(0, 1, 2000);
+    view.updateRowerData(model, 350, 17.5f);
+    Test.assertEqual("1650", view.getPage1BottomRightValue());
+
+    return true;
+}
+
 
 
 
