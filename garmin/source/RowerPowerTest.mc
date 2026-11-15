@@ -676,6 +676,29 @@ function testPostRacePauseDoesNotStartRace(logger as Logger) as Boolean {
     return true;
 }
 
+//! Regression test: Stroke during race waiting mode must wake BLE, not start the race
+(:test)
+function testStrokeDuringRaceWaitingWakesBleWithoutStartingRace(logger as Logger) as Boolean {
+    var model = new RowerDataModel();
+    var view = new RowerView(model);
+    var del = new BleDelegate(model);
+    del.setView(view);
+
+    del.joinNextRaceWaiting();
+    Test.assertEqual(RowerView.STATE_WAITING_START, view.getAppState());
+
+    // Row stroke while waiting
+    model.strokeRate = 24.0f;
+    model.instantPower = 180;
+    del.onOneSecondTick();
+
+    // Must remain in STATE_WAITING_START
+    Test.assertEqual(RowerView.STATE_WAITING_START, view.getAppState());
+    Test.assertEqual(false, del.isSessionActive());
+
+    return true;
+}
+
 
 
 

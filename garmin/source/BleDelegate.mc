@@ -988,9 +988,12 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
             var isRowing = (_model.strokeRate > 0 || _model.instantPower > 0);
 
             // Règle 1 : En salon Solo (ou Duel Bot hors décompte), le premier coup de rame déclenche immédiatement le départ
-            if ((view.getPrivateGameMode().equals("solo") || (_isBotDuel && _isWaitingForReadyOrHost) || (_activityId != null && _activityId.find("solo") != null)) && isRowing && _activityStatus.equals("waiting")) {
-                handleRaceStartTrigger(view, false);
-                return;
+            // STRICTEMENT réservé au mode solo ou bot duel (JAMAIS en course multijoueur en ligne)
+            if (_raceMode.equals("solo") || view.getPrivateGameMode().equals("solo") || (_isBotDuel && _isWaitingForReadyOrHost)) {
+                if (isRowing && _activityStatus.equals("waiting")) {
+                    handleRaceStartTrigger(view, false);
+                    return;
+                }
             }
 
             if (!_isBleRowerReady && isRowing && _activityId.length() > 0) {
@@ -1729,6 +1732,7 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
         } else if (_view != null) {
             (_view as RowerView).setFinishResults(1, [] as Array<Dictionary>);
         }
+        _activityId = "";
     }
 
     public function discardSession() as Void {
@@ -1752,6 +1756,7 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
                 _model.deviceName, true
             );
         }
+        _activityId = "";
 
         if (_view != null) {
             (_view as RowerView).setFinishResultsEx(99, [] as Array<Dictionary>, true);
