@@ -162,11 +162,24 @@ class RowerView extends WatchUi.View {
 
     public function setAppState(state as Number) as Void {
         _currentState = state;
-        if (state == STATE_PAUSED) {
+        if (state == STATE_MENU) {
+            resetLobbyState();
+        } else if (state == STATE_PAUSED) {
             _pauseMenuIndex = 0;
         } else if (state == STATE_LATE_CHOICE || state == STATE_BOTS_PROMPT) {
             _choiceMenuIndex = 0;
         }
+        WatchUi.requestUpdate();
+    }
+
+    public function resetLobbyState() as Void {
+        _nextRaceCountdown = 600;
+        _isPrivateSalon = false;
+        _privateGameMode = "";
+        _connectedPlayers = 1;
+        _assignedLane = 1;
+        _hasBotsEnabled = false;
+        _falseStartLocked = false;
         WatchUi.requestUpdate();
     }
 

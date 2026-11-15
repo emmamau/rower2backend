@@ -590,6 +590,24 @@ function testDynamicMainMenuItems(logger as Logger) as Boolean {
     return true;
 }
 
+//! Regression test: Resetting lobby state restores countdown and cleans up private flags
+(:test)
+function testLobbyResetRestoresDefaultCountdown(logger as Logger) as Boolean {
+    var model = new RowerDataModel();
+    var view = new RowerView(model);
+
+    // Simulate expired countdown
+    view.setLobbyInfo(0, 1, 2000);
+    Test.assertEqual(0, view.getCountdown());
+
+    // Reset lobby
+    view.resetLobbyState();
+    Test.assertEqual(600, view.getCountdown());
+    Test.assertEqual(false, view.isPrivateSalon());
+
+    return true;
+}
+
 
 
 
