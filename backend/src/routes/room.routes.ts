@@ -5,6 +5,9 @@ import TelemetryController from "../controllers/telemetry.controller";
 export default (app: Application): void => {
   const router = Router();
 
+  // GET /api/rooms/limits (Quotas de salons restants & vérification montre)
+  router.get("/limits", TelemetryController.getPrivateRoomLimits);
+
   // POST /api/rooms (Create private salon alias)
   router.post("/", TelemetryController.createPrivateRace);
 

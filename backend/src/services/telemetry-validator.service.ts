@@ -23,6 +23,32 @@ export interface ValidationResult {
 
 export class TelemetryValidator {
   /**
+   * Formule officielle Concept2 :
+   * P (Watts) = 2.80 * v^3  <=>  v (m/s) = (P / 2.80)^(1/3)
+   * Allure (/500m en s) = 500 / v = 500 * (2.80 / P)^(1/3)
+   */
+  public static computeConcept2Speed(powerWatts: number, splitSec: number = 0): number {
+    if (powerWatts > 0) {
+      const clampedW = Math.min(1200, Math.max(0, powerWatts));
+      return Math.min(8.33, Math.cbrt(clampedW / 2.80));
+    }
+    if (splitSec >= 60 && splitSec <= 360) {
+      return 500 / splitSec;
+    }
+    return 0;
+  }
+
+  public static computeConcept2Split(powerWatts: number, fallbackSplitSec: number = 0): number {
+    if (powerWatts > 0) {
+      const c2Speed = this.computeConcept2Speed(powerWatts);
+      if (c2Speed > 0) {
+        return Math.max(60, Math.min(360, Math.round(500 / c2Speed)));
+      }
+    }
+    return fallbackSplitSec > 0 ? Math.max(60, Math.min(360, Math.round(fallbackSplitSec))) : 0;
+  }
+
+  /**
    * Biomechanical sanity checks:
    * - Power: 0 to 1200 Watts (human mechanical burst limit on indoor ergometer)
    * - Stroke Rate: 10 to 60 SPM
@@ -46,14 +72,12 @@ export class TelemetryValidator {
       const splitRatio = clampedSplit / 500;
       rawOrDerivedPower = Math.round(2.80 / (splitRatio * splitRatio * splitRatio));
     }
-    const clampedPower = Math.min(1200, Math.max(0, rawOrDerivedPower));
+    const clampedPower = Math.min(1200, Math.max(0, Math.round(rawOrDerivedPower)));
 
-    // Cross-derive splitSec from powerWatts if splitSec is 0 but powerWatts > 0
-    if (clampedSplit <= 0 && clampedPower > 0) {
-      const c2Speed = Math.cbrt(clampedPower / 2.80);
-      if (c2Speed > 0) {
-        clampedSplit = Math.max(60, Math.min(360, Math.round(500 / c2Speed)));
-      }
+    // Normalize splitSec strictly from powerWatts using the official Concept2 formula
+    // whenever powerWatts > 0, ensuring speed/pace/power coherence across all rower models
+    if (clampedPower > 0) {
+      clampedSplit = this.computeConcept2Split(clampedPower, clampedSplit);
     }
 
     // Realistic cadence estimation if power is generated but SPM omitted

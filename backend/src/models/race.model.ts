@@ -12,6 +12,7 @@ export interface RaceSessionAttributes {
   totalParticipants: number;
   winnerUserId?: string;
   winnerTimeSeconds?: number;
+  hostUserId?: string;      // ID du créateur pour les salons privés
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -66,11 +67,15 @@ export default (sequelize: Sequelize, _DataTypesInstance: typeof DataTypes): Rac
         type: DataTypes.INTEGER,
         allowNull: true,
       },
+      hostUserId: {
+        type: DataTypes.STRING(64),
+        allowNull: true,
+      },
     },
     {
       tableName: "rower_race_sessions",
       timestamps: true,
-      indexes: [{ fields: ["startTime"] }, { fields: ["status"] }],
+      indexes: [{ fields: ["startTime"] }, { fields: ["status"] }, { fields: ["hostUserId"] }],
     }
   );
 

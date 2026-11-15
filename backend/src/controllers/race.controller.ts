@@ -466,6 +466,7 @@ export const getRaceLeaderboard = async (req: Request, res: Response): Promise<v
       targetDistance = (race.get("targetDistance") as number) || 2000;
       raceInfo = {
         id: race.get("id"),
+        title: race.get("title"),
         targetDistance,
         status: race.get("status"),
         startTime: race.get("startTime"),

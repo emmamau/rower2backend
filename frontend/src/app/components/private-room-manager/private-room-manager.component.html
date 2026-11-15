@@ -12,8 +12,10 @@
           <span class="priv-collapsed-pin" (click)="copyText(activeRoomPin)" title="Toucher pour copier le PIN">
             ⌚ PIN : <strong>{{ activeRoomPin || '----' }}</strong>
           </span>
-          <span class="priv-status-chip priv-status-chip-sm" [class.in-progress]="activeRoom.status === 'in_progress'">
-            @if (activeRoom.waitingForHost) {
+          <span class="priv-status-chip priv-status-chip-sm" [class.in-progress]="activeRoom.status === 'in_progress'" [class.is-completed]="isRoomCompleted">
+            @if (isRoomCompleted) {
+              🏁 {{ i18n.t('RACE_FINISHED_ROOM_CLOSED') || 'Course terminée' }}
+            } @else if (activeRoom.waitingForHost) {
               ⏳ {{ (isSoloRoom || isBotDuelRoom) ? '1er coup de rame' : 'En attente' }}
             } @else {
               ⏱️ {{ activeRoom.formattedCountdown }}
@@ -22,14 +24,31 @@
         </div>
 
         <div class="priv-collapsed-right">
-          <button
-            type="button"
-            class="priv-btn-mini priv-btn-mini-cyan"
-            (click)="openModalRequest.emit('share')"
-            aria-label="Gérer le salon privé"
-            title="Gérer le salon privé">
-            ⚙️
-          </button>
+          @if (isRoomCompleted) {
+            <button
+              type="button"
+              class="priv-btn-mini priv-btn-mini-gold"
+              (click)="viewRankingRequest.emit(activeRoom.race.id)"
+              title="Voir le classement officiel">
+              🏆
+            </button>
+            <button
+              type="button"
+              class="priv-btn-mini priv-btn-mini-danger"
+              (click)="leaveToPublicRace()"
+              title="Quitter le salon">
+              🚪
+            </button>
+          } @else {
+            <button
+              type="button"
+              class="priv-btn-mini priv-btn-mini-cyan"
+              (click)="openModalRequest.emit('share')"
+              aria-label="Gérer le salon privé"
+              title="Gérer le salon privé">
+              ⚙️
+            </button>
+          }
           <button
             type="button"
             class="priv-btn-collapse-toggle is-expand"
@@ -52,8 +71,10 @@
           <span class="priv-meta-chip">
             👥 {{ activeRacersCount }} / {{ activeRoom.race.maxParticipants || 8 }}
           </span>
-          <span class="priv-status-chip" [class.in-progress]="activeRoom.status === 'in_progress'">
-            @if (activeRoom.waitingForHost) {
+          <span class="priv-status-chip" [class.in-progress]="activeRoom.status === 'in_progress'" [class.is-completed]="isRoomCompleted">
+            @if (isRoomCompleted) {
+              🏁 {{ i18n.t('RACE_FINISHED_ROOM_CLOSED') || 'Course terminée (Salon fermé)' }}
+            } @else if (activeRoom.waitingForHost) {
               ⏳ {{ (isSoloRoom || isBotDuelRoom) ? 'Donnez votre 1er coup de rame pour démarrer' : isDuel1v1Room ? 'En attente des 2 joueurs (départ auto 15s)' : i18n.t('STATUS_WAITING_HOST') }}
             } @else {
               ⏱️ {{ activeRoom.formattedCountdown }}
@@ -62,18 +83,33 @@
         </div>
 
         <div class="priv-banner-nav">
-          <button
-            type="button"
-            class="priv-btn priv-btn-cyan"
-            (click)="openModalRequest.emit('share')">
-            {{ i18n.t('BTN_MANAGE_CODES') }}
-          </button>
-          <button
-            type="button"
-            class="priv-btn priv-btn-ghost"
-            (click)="leaveToPublicRace()">
-            {{ i18n.t('BTN_BACK_PUBLIC') }}
-          </button>
+          @if (isRoomCompleted) {
+            <button
+              type="button"
+              class="priv-btn priv-btn-gold"
+              (click)="viewRankingRequest.emit(activeRoom.race.id)">
+              {{ i18n.t('BTN_VIEW_RANKING') || '🏆 Voir le classement' }}
+            </button>
+            <button
+              type="button"
+              class="priv-btn priv-btn-cyan"
+              (click)="leaveToPublicRace()">
+              {{ i18n.t('BTN_LEAVE_ROOM_TO_PUBLIC') || '🚪 Quitter le salon' }}
+            </button>
+          } @else {
+            <button
+              type="button"
+              class="priv-btn priv-btn-cyan"
+              (click)="openModalRequest.emit('share')">
+              {{ i18n.t('BTN_MANAGE_CODES') }}
+            </button>
+            <button
+              type="button"
+              class="priv-btn priv-btn-ghost"
+              (click)="leaveToPublicRace()">
+              {{ i18n.t('BTN_BACK_PUBLIC') }}
+            </button>
+          }
           <button
             type="button"
             class="priv-btn-collapse-toggle"
@@ -86,8 +122,30 @@
         </div>
       </div>
 
-      <!-- Quick Share & Garmin Watch PIN Strip -->
-      <div class="priv-banner-codes">
+      @if (isRoomCompleted) {
+        <div class="priv-banner-completed-box">
+          <div class="priv-completed-text-cluster">
+            <strong class="priv-completed-title">🏁 Cette course privée est terminée. Le salon est désormais définitivement fermé.</strong>
+            <span class="priv-completed-sub">Le classement officiel est conservé et consultable. Vous pouvez quitter le salon pour revenir sur la page des courses publiques.</span>
+          </div>
+          <div class="priv-completed-btn-row">
+            <button
+              type="button"
+              class="priv-btn priv-btn-gold"
+              (click)="viewRankingRequest.emit(activeRoom.race.id)">
+              {{ i18n.t('BTN_VIEW_RANKING') || '🏆 Voir le classement officiel' }}
+            </button>
+            <button
+              type="button"
+              class="priv-btn priv-btn-cyan"
+              (click)="leaveToPublicRace()">
+              {{ i18n.t('BTN_LEAVE_ROOM_TO_PUBLIC') || '🚪 Quitter le salon (Courses publiques)' }}
+            </button>
+          </div>
+        </div>
+      } @else {
+        <!-- Quick Share & Garmin Watch PIN Strip -->
+        <div class="priv-banner-codes">
         <div class="priv-code-box pin-highlight">
           <span class="priv-code-label">⌚ PIN Garmin :</span>
           <strong class="priv-pin-inline">{{ activeRoomPin || '----' }}</strong>
@@ -192,6 +250,7 @@
             </div>
           }
         </div>
+      }
       }
 
       @if (actionError) {
@@ -493,6 +552,40 @@
             }
           </div>
 
+          <!-- AVERTISSEMENT APPAIRAGE MONTRE GARMIN REQUIS -->
+          @if (!isWatchConnected && !isUserAdmin && !quotaInfo?.isWatchConnected) {
+            <div class="priv-sub-alert-box priv-alert-warning">
+              <div class="priv-sub-alert-title">⌚ Montre Garmin requise pour créer un salon</div>
+              <p class="priv-sub-alert-desc">
+                Vous devez connecter et appairer votre montre Garmin avant de pouvoir ouvrir un salon de course. Le bouton de création reste grisé jusqu'à l'appairage.
+              </p>
+            </div>
+          }
+
+          <!-- INDICATEURS DES QUOTAS DE SALONS (SIMULTANÉS ET HEBDOMADAIRES) -->
+          @if (quotaInfo && !isUserAdmin) {
+            <div class="priv-quota-summary-card">
+              <div class="priv-quota-pill" [class.is-exhausted]="quotaInfo.concurrent.remaining <= 0">
+                <span class="quota-icon">🔄</span>
+                <div class="quota-text">
+                  <strong class="quota-label">Salons ouverts à la fois :</strong>
+                  <span class="quota-val">
+                    {{ quotaInfo.concurrent.remaining }} restant{{ quotaInfo.concurrent.remaining > 1 ? 's' : '' }} ({{ quotaInfo.concurrent.current }} / {{ quotaInfo.concurrent.max }} max)
+                  </span>
+                </div>
+              </div>
+              <div class="priv-quota-pill" [class.is-exhausted]="quotaInfo.weekly.remaining <= 0">
+                <span class="quota-icon">📅</span>
+                <div class="quota-text">
+                  <strong class="quota-label">Salons cette semaine :</strong>
+                  <span class="quota-val">
+                    {{ quotaInfo.weekly.remaining }} restant{{ quotaInfo.weekly.remaining > 1 ? 's' : '' }} ({{ quotaInfo.weekly.current }} / {{ quotaInfo.weekly.max }} max)
+                  </span>
+                </div>
+              </div>
+            </div>
+          }
+
           @if (createGeneralError) {
             <p class="priv-error-msg" role="alert">⚠️ {{ createGeneralError }}</p>
           }
@@ -535,9 +628,13 @@
             <button
               type="submit"
               class="priv-btn priv-btn-launch priv-btn-wide"
-              [disabled]="isCreating || (selectedGameMode === 'duel_1v1' && !isRegisteredUser && !isUserAdmin) || (selectedGameMode === 'multi' && !isUserAdmin && !isSubscriber)">
+              [title]="createDisabledReason"
+              [disabled]="isCreating || !canCreateRoom || (selectedGameMode === 'duel_1v1' && !isRegisteredUser && !isUserAdmin) || (selectedGameMode === 'multi' && !isUserAdmin && !isSubscriber)">
               {{ isCreating ? i18n.t('CREATING_ROOM') : (selectedGameMode === 'solo' || selectedGameMode === 'bot_duel' ? 'Obtenir mon code PIN montre' : 'Lancer le salon privé') }}
             </button>
+            @if (createDisabledReason && !isCreating) {
+              <p class="priv-hint-disabled">{{ createDisabledReason }}</p>
+            }
           </div>
         </form>
       </div>

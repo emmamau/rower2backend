@@ -1959,10 +1959,9 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
                     if (_targetDistance > 0 && nd > _targetDistance) {
                         nd = _targetDistance;
                     }
-                    var diff = nd - _model.totalDistance;
-                    if (diff < 0) { diff = -diff; }
-                    // Keep watch distance strictly aligned with authoritative server distance
-                    if (_model.totalDistance == 0 || diff >= 1 || _model.totalDistance >= _targetDistance) {
+                    // Align forward with authoritative server Concept2 distance;
+                    // never roll back in-flight meters accumulated during HTTP round-trip latency
+                    if (nd > _model.totalDistance) {
                         _model.alignDistance(nd);
                         _lastSentDistance = nd;
                         var pct = (_targetDistance > 0) ? (nd.toFloat() / _targetDistance.toFloat()) : 0.0f;

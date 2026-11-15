@@ -3236,6 +3236,50 @@ input[type="number"]:focus { border-color: var(--neon-cyan); box-shadow: 0 0 10p
   .garmin-pairing-section {
     display: none !important;
   }
+  /* Optimisation de la bannière d'accueil et du statut de liaison montre sur smartphone */
+  .welcome-banner-card {
+    padding: 0.75rem 0.9rem;
+    gap: 0.65rem;
+  }
+  .welcome-banner-card .welcome-left {
+    gap: 0.65rem;
+  }
+  .welcome-banner-card .welcome-title {
+    font-size: 0.95rem;
+    line-height: 1.3;
+  }
+  .welcome-banner-card .welcome-sub {
+    font-size: 0.74rem;
+  }
+  .welcome-banner-card .welcome-right {
+    width: 100%;
+    display: flex;
+    justify-content: stretch;
+  }
+  .welcome-banner-card .hardware-status-pill {
+    width: 100%;
+    justify-content: center;
+    padding: 0.48rem 0.85rem;
+    font-size: 0.82rem;
+    min-height: 40px;
+  }
+  /* Bloc timer - pillule d'affichage code PIN et aide tactile sur smartphone */
+  .timer-pairing-bar {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+  }
+  .timer-pairing-code-pill {
+    width: 100%;
+    justify-content: center;
+    padding: 0.35rem 0.75rem;
+    font-size: 0.82rem;
+    min-height: 38px;
+    cursor: pointer;
+  }
+  .timer-pairing-code-pill .pair-code-num {
+    font-size: 1.15rem;
+  }
   .smartphone-table-links {
     display: flex;
     flex-direction: column;
@@ -4432,6 +4476,63 @@ input[type="number"]:focus { border-color: var(--neon-cyan); box-shadow: 0 0 10p
   font-size: 0.92rem;
   font-weight: 800;
   color: #00f0ff;
+}
+
+.profile-garmin-action-row {
+  margin-top: 0.75rem;
+}
+
+.btn-pair-profile {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: linear-gradient(135deg, #00f0ff, #0077ff);
+  color: #060913;
+  font-weight: 800;
+  font-size: 0.88rem;
+  padding: 0.6rem 1.1rem;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 0 14px rgba(0, 240, 255, 0.35);
+  transition: all 0.2s ease;
+}
+
+.btn-pair-profile:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 0 18px rgba(0, 240, 255, 0.6);
+}
+
+.pairing-recovered-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.5);
+  border-radius: 8px;
+  padding: 0.65rem 0.85rem;
+  margin: 0.5rem 0 0.85rem;
+}
+
+.pairing-recovered-notice .notice-icon {
+  font-size: 1.3rem;
+  line-height: 1;
+}
+
+.pairing-recovered-notice .notice-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.pairing-recovered-notice strong {
+  color: #6ee7b7;
+  font-size: 0.86rem;
+}
+
+.pairing-recovered-notice span {
+  color: #e2e8f0;
+  font-size: 0.78rem;
 }
 .profile-code-display {
   margin-top: 0.65rem;
@@ -6202,6 +6303,22 @@ body.rigid-viewport {
   box-shadow: 0 0 12px rgba(57, 255, 20, 0.25);
 }
 
+.hardware-status-pill.is-unlinked {
+  background: rgba(245, 158, 11, 0.12);
+  border: 1.5px solid rgba(245, 158, 11, 0.6);
+  color: #fef3c7;
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.2);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.hardware-status-pill.is-unlinked:hover {
+  background: rgba(245, 158, 11, 0.22);
+  border-color: #f59e0b;
+  box-shadow: 0 0 14px rgba(245, 158, 11, 0.4);
+  transform: translateY(-1px);
+}
+
 .hw-status-dot.dot-green {
   width: 10px;
   height: 10px;
@@ -6209,6 +6326,21 @@ body.rigid-viewport {
   background: #39ff14;
   box-shadow: 0 0 8px #39ff14;
   display: inline-block;
+}
+
+.hw-status-dot.dot-amber {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #f59e0b;
+  box-shadow: 0 0 8px #f59e0b;
+  display: inline-block;
+  animation: amberPulse 2s infinite ease-in-out;
+}
+
+@keyframes amberPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.65; transform: scale(0.9); }
 }
 
 .btn-welcome-link-watch {
@@ -6395,6 +6527,52 @@ body.rigid-viewport {
   justify-content: flex-end;
   gap: 0.65rem;
   flex-wrap: wrap;
+}
+
+@media (max-width: 640px) {
+  .modal-watch-guidance {
+    width: 95vw;
+    max-height: 88vh;
+    overflow-y: auto;
+    padding: 0.9rem 0.85rem;
+  }
+  .guidance-steps-grid {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+    margin: 0.5rem 0 0.85rem;
+  }
+  .guidance-step-card {
+    flex-direction: row;
+    text-align: left;
+    padding: 0.55rem 0.75rem;
+    gap: 0.75rem;
+    align-items: center;
+  }
+  .guidance-step-badge {
+    flex: 0 0 auto;
+    font-size: 0.68rem;
+  }
+  .guidance-step-illus {
+    font-size: 1.5rem;
+    margin: 0;
+    flex: 0 0 auto;
+  }
+  .guidance-step-text {
+    font-size: 0.8rem;
+    line-height: 1.25;
+  }
+  .guidance-active-code-box {
+    padding: 0.65rem 0.85rem;
+    margin-bottom: 0.75rem;
+  }
+  .guidance-code-digits {
+    font-size: 1.85rem;
+    letter-spacing: 4px;
+  }
+  .guidance-modal-actions button {
+    width: 100%;
+    justify-content: center;
+  }
 }
 
 /* ==========================================================================
@@ -6822,6 +7000,97 @@ body.rigid-viewport {
   display: flex;
   justify-content: flex-end;
   margin-top: 1rem;
+}
+
+/* -------------------------------------------------------------
+   STYLES FIN DE COURSE SALON PRIVÉ & ACTIONS RETOUR PUBLIC
+   ------------------------------------------------------------- */
+.timer-digits.race-finished-badge {
+  color: #ffd700;
+  font-weight: 800;
+  font-size: 0.95rem;
+  letter-spacing: 0.5px;
+}
+
+.btn-leave-room-header {
+  background: linear-gradient(135deg, #00f0ff, #0099ff);
+  color: #060913;
+  font-weight: 800;
+  font-size: 0.75rem;
+  padding: 0.3rem 0.65rem;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  white-space: nowrap;
+}
+
+.btn-leave-room-header:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(0, 240, 255, 0.4);
+}
+
+.btn-view-ranking-header {
+  background: linear-gradient(135deg, #ffd700, #ffb300);
+  color: #0b0f19;
+  font-weight: 800;
+  font-size: 0.75rem;
+  padding: 0.3rem 0.65rem;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  white-space: nowrap;
+}
+
+.btn-view-ranking-header:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(255, 215, 0, 0.4);
+}
+
+.modal-footer-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+  margin-top: 1.2rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.btn-modal-leave-room {
+  background: linear-gradient(135deg, #00f0ff, #0077ff);
+  color: #060913;
+  font-weight: 800;
+  font-size: 0.88rem;
+  padding: 0.6rem 1.2rem;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(0, 240, 255, 0.3);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.btn-modal-leave-room:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(0, 240, 255, 0.5);
+}
+
+.btn-modal-close-secondary {
+  background: rgba(255, 255, 255, 0.1);
+  color: #e2e8f0;
+  font-weight: 600;
+  font-size: 0.88rem;
+  padding: 0.6rem 1.1rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.btn-modal-close-secondary:hover {
+  background: rgba(255, 255, 255, 0.2);
 }
 
 

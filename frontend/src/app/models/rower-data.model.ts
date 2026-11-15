@@ -149,6 +149,24 @@ export interface LeaderboardResponse {
   leaderboard: RowerData[];
 }
 
+export interface RoomCreationQuotaInfo {
+  success: boolean;
+  isWatchConnected: boolean;
+  isUserAdmin: boolean;
+  tier: string;
+  tierName?: string;
+  concurrent: {
+    current: number;
+    max: number;
+    remaining: number;
+  };
+  weekly: {
+    current: number;
+    max: number;
+    remaining: number;
+  };
+}
+
 export interface PastRaceResult {
   race: {
     id: string;

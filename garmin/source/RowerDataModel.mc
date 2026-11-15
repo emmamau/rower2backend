@@ -230,10 +230,23 @@ class RowerDataModel {
 
     //! Force align distance with server authoritative or realistic distance
     public function alignDistance(dist as Number) as Void {
-        _baselineRawDistance = _lastRawDistance;
-        _distanceOffset = dist;
+        if (dist <= 0) {
+            _baselineRawDistance = _lastRawDistance;
+            _distanceOffset = 0;
+            totalDistance = 0;
+            _accumulatedDistanceMetersFloat = 0.0f;
+            return;
+        }
+        // Never roll back distance due to HTTP round-trip latency
+        if (dist <= totalDistance && totalDistance > 0) {
+            return;
+        }
+        var curRelD = (_hasHardwareDistance && _lastRawDistance >= _baselineRawDistance) ? (_lastRawDistance - _baselineRawDistance) : 0;
+        _distanceOffset = dist - curRelD;
         totalDistance = dist;
-        _accumulatedDistanceMetersFloat = dist.toFloat();
+        if (dist.toFloat() > _accumulatedDistanceMetersFloat) {
+            _accumulatedDistanceMetersFloat = dist.toFloat();
+        }
     }
 
     //! Called by BleDelegate when BLE connection is established
@@ -322,22 +335,25 @@ class RowerDataModel {
             return;
         }
 
-        // Dead-reckoning fallback when rower omits hardware distance or during transient BLE drop
-        var isPacketDrop = (_secondsSinceLastPacket >= 2);
-        if (!_hasHardwareDistance || totalDistance == 0 || isPacketDrop) {
-            var deltaM = 0.0f;
-            if (speedCmS > 0) {
-                deltaM = speedCmS.toFloat() / 100.0f;
-            } else if (instantPace >= 60 && instantPace < 600) {
-                deltaM = 500.0f / instantPace.toFloat();
+        // Official Concept2 kinematic distance integration across all rower models:
+        // Speed v_C2 (m/s) = (Watts / 2.80)^(1/3) = 500 / instantPace
+        var c2Speed = 0.0f;
+        if (instantPower > 0) {
+            c2Speed = Math.pow(instantPower.toFloat() / 2.80f, 1.0f / 3.0f).toFloat();
+        } else if (instantPace >= 60 && instantPace < 600) {
+            c2Speed = 500.0f / instantPace.toFloat();
+        }
+        if (c2Speed > 8.33f) {
+            c2Speed = 8.33f;
+        }
+        if (c2Speed > 0.0f) {
+            _accumulatedDistanceMetersFloat += c2Speed;
+            var c2Dist = (_accumulatedDistanceMetersFloat + 0.5f).toNumber();
+            if (c2Dist > totalDistance) {
+                totalDistance = c2Dist;
             }
-            if (deltaM > 10.0f) {
-                deltaM = 10.0f;
-            }
-            if (deltaM > 0.0f) {
-                _accumulatedDistanceMetersFloat += deltaM;
-                totalDistance = _accumulatedDistanceMetersFloat.toNumber();
-            }
+            var curRelD = (_hasHardwareDistance && _lastRawDistance >= _baselineRawDistance) ? (_lastRawDistance - _baselineRawDistance) : 0;
+            _distanceOffset = totalDistance - curRelD;
         }
 
         _secondsSinceLastStrokeOrDist += 1;
@@ -509,18 +525,16 @@ class RowerDataModel {
         if (_hasHardwareDistance && rawDistance > 0) {
             if (!_isDecimeterDistance) {
                 var detectDecimeter = false;
+                var dRawDist = (rawDistance > _lastRawDistance && _lastRawDistance > 0) ? (rawDistance - _lastRawDistance) : 0;
+                var dRawStrokes = (rawStrokes > _lastRawStrokes && _lastRawStrokes > 0) ? (rawStrokes - _lastRawStrokes) : 0;
                 if (isMerachRower()) {
-                    if (rawStrokes > 0) {
-                        if ((rawDistance.toFloat() / rawStrokes.toFloat()) >= 20.0f) {
-                            detectDecimeter = true;
-                        }
-                    } else if (rawDistance > 50) {
+                    if (dRawStrokes > 0 && (dRawDist.toFloat() / dRawStrokes.toFloat()) >= 20.0f) {
+                        detectDecimeter = true;
+                    } else if (_lastRawDistance == 0 && rawStrokes > 0 && (rawDistance.toFloat() / rawStrokes.toFloat()) >= 20.0f) {
                         detectDecimeter = true;
                     }
-                } else if (rawStrokes > 0) {
-                    if ((rawDistance.toFloat() / rawStrokes.toFloat()) >= 30.0f) {
-                        detectDecimeter = true;
-                    }
+                } else if (dRawStrokes > 0 && (dRawDist.toFloat() / dRawStrokes.toFloat()) >= 35.0f) {
+                    detectDecimeter = true;
                 }
 
                 if (detectDecimeter) {
@@ -656,18 +670,25 @@ class RowerDataModel {
             var curRelS = (rawStrokes >= _baselineRawStrokes) ? (rawStrokes - _baselineRawStrokes) : 0;
             if (_hasHardwareDistance) {
                 var candDist = _distanceOffset + curRelD;
-                // Protection against aberrant distance jumps (> 15m in a single update/stroke or unaligned baseline)
-                if (candDist > totalDistance + 15) {
-                    // Hardware baseline jumped or counter was unaligned: heal baseline to current valid distance
+                // Protection against aberrant hardware counter jumps (> 50m)
+                if (candDist > totalDistance + 50) {
                     _distanceOffset = totalDistance;
                     _baselineRawDistance = rawDistance;
                     candDist = totalDistance;
-                } else if (candDist < totalDistance && (totalDistance - candDist) < 10) {
+                } else if (candDist < totalDistance) {
                     candDist = totalDistance;
                 }
-                totalDistance = candDist;
-                _accumulatedDistanceMetersFloat = totalDistance.toFloat();
-            } else if (strokeCount != (_strokesOffset + curRelS)) {
+                // Keep Concept2 integrated distance authoritative; only advance if within Concept2 physical bounds
+                var c2IntDist = (_accumulatedDistanceMetersFloat + 0.5f).toNumber();
+                if (c2IntDist > 0) {
+                    totalDistance = c2IntDist;
+                } else {
+                    totalDistance = candDist;
+                    if (totalDistance.toFloat() > _accumulatedDistanceMetersFloat) {
+                        _accumulatedDistanceMetersFloat = totalDistance.toFloat();
+                    }
+                }
+            } else if (strokeCount != (_strokesOffset + curRelS) && _accumulatedDistanceMetersFloat <= 0.0f) {
                 var dS = (_strokesOffset + curRelS) - strokeCount;
                 if (dS > 0) {
                     var effP = (packetPace > 0) ? packetPace : instantPace;
@@ -724,19 +745,13 @@ class RowerDataModel {
             instantPace = 0;
             speedCmS = 0;
         } else {
-            // Cross-derive Power <-> Pace for rowers omitting Watts or sending Bit 5 with 0 Watts
+            // Standardize Power <-> Pace across all rower models using the official Concept2 formula:
+            // P = 2.80 * v^3  <=>  Pace (/500m) = 500 * (2.80 / P)^(1/3)
             if (instantPower <= 0 && instantPace > 0 && instantPace < 600) {
                 var splitRatio = instantPace.toFloat() / 500.0f;
                 var denom = splitRatio * splitRatio * splitRatio;
                 if (denom > 0.0f) {
                     instantPower = ((2.80f / denom) + 0.5f).toNumber();
-                }
-            } else if (instantPace <= 0 && instantPower > 0) {
-                var cubeRoot = Math.pow(2.80f / instantPower.toFloat(), 1.0f / 3.0f).toFloat();
-                var derivedPace = ((500.0f * cubeRoot) + 0.5f).toNumber();
-                if (derivedPace > 0 && derivedPace < 600) {
-                    instantPace = derivedPace;
-                    speedCmS = (50000 / instantPace).toNumber();
                 }
             } else if (instantPower <= 0 && instantPace <= 0 && strokeRate > 8.0f) {
                 var estPace = (185.0f - (2.5f * strokeRate)).toNumber();
@@ -748,6 +763,15 @@ class RowerDataModel {
                 var dn2 = sr2 * sr2 * sr2;
                 if (dn2 > 0.0f) {
                     instantPower = ((2.80f / dn2) + 0.5f).toNumber();
+                }
+            }
+
+            if (instantPower > 0) {
+                var cubeRoot = Math.pow(2.80f / instantPower.toFloat(), 1.0f / 3.0f).toFloat();
+                var derivedPace = ((500.0f * cubeRoot) + 0.5f).toNumber();
+                if (derivedPace >= 60 && derivedPace < 600) {
+                    instantPace = derivedPace;
+                    speedCmS = (50000 / instantPace).toNumber();
                 }
             }
 
@@ -923,15 +947,22 @@ class RowerDataModel {
                 }
                 var curRelD = (rawDistance >= _baselineRawDistance) ? (rawDistance - _baselineRawDistance) : 0;
                 var candDist = _distanceOffset + curRelD;
-                if (candDist > totalDistance + 15) {
+                if (candDist > totalDistance + 50) {
                     _distanceOffset = totalDistance;
                     _baselineRawDistance = rawDistance;
                     candDist = totalDistance;
-                } else if (candDist < totalDistance && (totalDistance - candDist) < 10) {
+                } else if (candDist < totalDistance) {
                     candDist = totalDistance;
                 }
-                totalDistance = candDist;
-                _accumulatedDistanceMetersFloat = totalDistance.toFloat();
+                var c2IntDist = (_accumulatedDistanceMetersFloat + 0.5f).toNumber();
+                if (c2IntDist > 0) {
+                    totalDistance = c2IntDist;
+                } else {
+                    totalDistance = candDist;
+                    if (totalDistance.toFloat() > _accumulatedDistanceMetersFloat) {
+                        _accumulatedDistanceMetersFloat = totalDistance.toFloat();
+                    }
+                }
                 _hasHardwareDistance = true;
                 if (rawDistance > _lastRawDistance) {
                     onActiveRowingDetected();
@@ -1001,14 +1032,12 @@ class RowerDataModel {
                 if (workoutStarted) {
                     recordSmartRowPowerSample(instantPower);
                 }
-                // Derive pace if e-frame hasn't arrived yet
-                if (instantPace <= 0 && instantPower > 15) {
-                    var cr = Math.pow(2.80f / instantPower.toFloat(), 1.0f / 3.0f).toFloat();
-                    var dp = ((500.0f * cr) + 0.5f).toNumber();
-                    if (dp > 0 && dp < 600) {
-                        instantPace = dp;
-                        speedCmS = (50000 / instantPace).toNumber();
-                    }
+                // Normalize pace strictly from power using the official Concept2 formula
+                var cr = Math.pow(2.80f / instantPower.toFloat(), 1.0f / 3.0f).toFloat();
+                var dp = ((500.0f * cr) + 0.5f).toNumber();
+                if (dp >= 60 && dp < 600) {
+                    instantPace = dp;
+                    speedCmS = (50000 / instantPace).toNumber();
                 }
             } else if (_hasNativeSmartRowWatts) {
                 instantPower = 0;

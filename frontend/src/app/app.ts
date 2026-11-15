@@ -96,6 +96,7 @@ export class AppComponent implements OnInit, OnDestroy {
   // Identification directe & Nouveau protocole d'appairage Garmin sécurisé (Code Web -> Montre)
   isWatchConfirmed = false;
   isPaired = false;
+  watchPairingRecovered = false;
   isWatchGuidanceModalOpen = false;
   deviceToken = '';
   pairingCode = '';
@@ -244,6 +245,7 @@ export class AppComponent implements OnInit, OnDestroy {
   private pollingSub?: Subscription;
   // Private Salons state
   activePrivateRoom: PrivateRacePayload | null = null;
+  isPrivateRoomCompleted = false;
   isPrivateModalOpen = false;
   privateModalTab: PrivateModalTab = 'create';
   privateUrlError = '';
@@ -670,13 +672,18 @@ export class AppComponent implements OnInit, OnDestroy {
               const partInfo = roomParts.find((p: any) => p.userId === r.userId);
               const isRowerAwake = (r.lastPower || 0) > 0 || (r.lastStrokeRate || 0) > 0 || (r.netDistance || 0) > 0;
               const readyVal = partInfo && partInfo.ready !== undefined ? partInfo.ready : (isRowerAwake || Boolean(r.userId?.startsWith('bot_')));
+              const wattsVal = r.lastPower || r.avgPower || 0;
+              const rawSplit = r.lastPace || r.avgPace || 0;
+              const c2Split = wattsVal > 0
+                ? Math.max(60, Math.min(360, Math.round(500 / Math.cbrt(wattsVal / 2.80))))
+                : (rawSplit > 0 ? rawSplit : 120);
               return {
                 lane: assignedLane,
                 userId: r.userId,
                 name: r.userName || r.userId,
                 dist: r.netDistance || 0,
-                split: r.lastPace || r.avgPace || 120,
-                watts: r.lastPower || r.avgPower || 0,
+                split: c2Split,
+                watts: wattsVal,
                 spm: r.lastStrokeRate || r.avgStrokeRate || 0,
                 heartRate: r.lastHeartRate,
                 status: r.status || 'in_progress',
@@ -1111,6 +1118,18 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   openAccountModal(tab: 'login' | 'register' | 'profile' | 'forgot' = 'login'): void {
+    if (!this.isPaired && typeof localStorage !== 'undefined') {
+      const storedToken = localStorage.getItem('rower_device_token');
+      const storedPaired = localStorage.getItem('rower_is_paired') === 'true';
+      if (storedToken || storedPaired) {
+        this.isPaired = true;
+        this.isWatchConfirmed = true;
+        if (storedToken && !this.deviceToken) {
+          this.deviceToken = storedToken;
+        }
+        this.watchPairingRecovered = true;
+      }
+    }
     if (tab === 'login' && (this.isSubscriber || this.isUserAdmin)) {
       this.accountModalTab = 'profile';
     } else {
@@ -1231,9 +1250,13 @@ export class AppComponent implements OnInit, OnDestroy {
     this.accountAuthError = '';
     this.accountAuthSuccess = '';
 
-    const existingGuestToken = (this.isPaired || this.isWatchConfirmed || this.deviceToken)
-      ? (this.deviceToken || (typeof localStorage !== 'undefined' ? localStorage.getItem('rower_device_token') || '' : ''))
-      : undefined;
+    const storedToken = typeof localStorage !== 'undefined' ? localStorage.getItem('rower_device_token') || '' : '';
+    const storedPaired = typeof localStorage !== 'undefined' ? localStorage.getItem('rower_is_paired') === 'true' : false;
+    const existingGuestToken = (this.isPaired || this.isWatchConfirmed || this.deviceToken || storedPaired)
+      ? (this.deviceToken || storedToken || undefined)
+      : (storedToken || undefined);
+
+    const hadPriorPairing = Boolean(this.isPaired || this.isWatchConfirmed || this.deviceToken || storedToken || storedPaired);
 
     this.rowerService.registerUser({
       nom: this.regNom.trim(),
@@ -1266,9 +1289,10 @@ export class AppComponent implements OnInit, OnDestroy {
             localStorage.setItem('rower_is_admin', String(Boolean(res.user.isAdmin)));
           } catch {}
 
-          if (res.user.isGarminPaired || existingGuestToken) {
+          if (res.user.isGarminPaired || existingGuestToken || hadPriorPairing) {
             this.isPaired = true;
             this.isWatchConfirmed = true;
+            this.watchPairingRecovered = true;
             if (existingGuestToken && !this.deviceToken) {
               this.deviceToken = existingGuestToken;
             }
@@ -1279,9 +1303,15 @@ export class AppComponent implements OnInit, OnDestroy {
                 localStorage.setItem('rower_device_token', this.deviceToken);
               }
             } catch {}
+          } else {
+            this.watchPairingRecovered = false;
           }
 
-          this.accountAuthSuccess = 'Compte créé avec succès ! Votre statut abonné est actif. Vous pouvez dès maintenant créer des salons privés.';
+          if (this.watchPairingRecovered) {
+            this.accountAuthSuccess = 'Compte créé avec succès ! Votre statut abonné est actif et votre liaison montre Garmin effectuée sur la page d\'accueil a été récupérée avec succès.';
+          } else {
+            this.accountAuthSuccess = 'Compte créé avec succès ! Votre statut abonné est actif. Vous pouvez dès maintenant créer des salons privés ou associer votre montre Garmin.';
+          }
           this.loadUserProfile();
           this.loadGeneralLeaderboard();
           setTimeout(() => {
@@ -1678,6 +1708,23 @@ export class AppComponent implements OnInit, OnDestroy {
   closeWatchGuidanceModal(): void {
     this.isWatchGuidanceModalOpen = false;
     this.cdr.markForCheck();
+  }
+
+  scrollToGarminPairing(): void {
+    if (typeof document !== 'undefined') {
+      const el = document.getElementById('garmin-pairing-section') || document.querySelector('.garmin-pairing-section');
+      // Vérifier si l'élément existe ET est visible (non masqué en display:none sur smartphone)
+      if (el && el.offsetParent !== null && typeof window !== 'undefined' && window.getComputedStyle(el).display !== 'none') {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return;
+      }
+    }
+    // Sur smartphone où la section desktop est masquée, ouvrir directement la modale de guidage et générer le code PIN
+    this.openWatchGuidanceAndPair();
+  }
+
+  startPairingFromProfile(): void {
+    this.openWatchGuidanceAndPair();
   }
 
   // --------------------------------------------------------------------------
@@ -2943,6 +2990,15 @@ export class AppComponent implements OnInit, OnDestroy {
 
   private pollActiveRaceSource(): Observable<NextRaceInfo | null> {
     if (this.activePrivateRoom) {
+      if (
+        this.isPrivateRoomCompleted ||
+        this.activePrivateRoom.status === 'COMPLETED' ||
+        this.activePrivateRoom.status === 'finished' ||
+        this.activePrivateRoom.race?.status === 'COMPLETED' ||
+        this.activePrivateRoom.race?.status === 'finished'
+      ) {
+        return of(null);
+      }
       const identifier = this.activePrivateRoom.code || this.activePrivateRoom.race.id;
       return this.rowerService.getPrivateRace(identifier).pipe(
         catchError((err) => {
@@ -2966,9 +3022,11 @@ export class AppComponent implements OnInit, OnDestroy {
         const targetDist = this.activeTargetDistance || 2000;
         this.liveMetricsList = update.leaderboard.map((m) => {
           const existing = this.liveMetricsList.find(x => x.userId === m.userId);
+          const existingRacer = this.racers.find(x => x.userId === m.userId && x.activityId === update.raceId);
           const rawDist = Math.round(m.dist || 0);
-          let safeDist = (existing && (existing.dist || 0) > 0 && rawDist > 0)
-            ? Math.max(Math.round(existing.dist || 0), rawDist)
+          const prevDist = Math.max(Math.round(existing?.dist || 0), Math.round(existingRacer?.netDistance || 0));
+          let safeDist = (prevDist > 0 && rawDist > 0)
+            ? Math.max(prevDist, rawDist)
             : rawDist;
           if (targetDist > 0 && (safeDist >= targetDist || m.status === 'finished')) {
             safeDist = targetDist;
@@ -2976,8 +3034,12 @@ export class AppComponent implements OnInit, OnDestroy {
           const safeStatus = (targetDist > 0 && safeDist >= targetDist && m.status !== 'abandoned')
             ? 'finished'
             : m.status;
+          const wattsVal = Math.round(m.watts || 0);
+          const c2Split = wattsVal > 0
+            ? Math.max(60, Math.min(360, Math.round(500 / Math.cbrt(wattsVal / 2.80))))
+            : (m.split || 120);
 
-          let updated = { ...m, dist: safeDist, status: safeStatus };
+          let updated = { ...m, dist: safeDist, watts: wattsVal, split: c2Split, status: safeStatus };
           if (m.userId === this.activeUserId && this.myAssignedLane) {
             updated.lane = this.myAssignedLane;
           }
@@ -3192,15 +3254,34 @@ export class AppComponent implements OnInit, OnDestroy {
             this.activePrivateRoom &&
             (update.raceId === this.activePrivateRoom.race?.id || update.raceId === this.activePrivateRoom.code)
           );
-          if (isPrivateTarget) {
-            if (update.details?.ranking && update.details.ranking.length > 0 && update.raceId) {
-              this.openRaceLeaderboard(update.raceId);
+          if (isPrivateTarget && this.activePrivateRoom) {
+            if (update.status === 'COMPLETED') {
+              this.isPrivateRoomCompleted = true;
+              if (this.activePrivateRoom.race) {
+                this.activePrivateRoom.race.status = 'COMPLETED';
+              }
+              this.activePrivateRoom.status = 'COMPLETED';
+              this.countdownSeconds = 0;
+              this.is3sCountdown = false;
+              this.isPreStartCountdown = false;
+              this.formattedGameRemaining = '';
+              if (this.nextRaceInfo) {
+                this.nextRaceInfo.status = 'completed';
+                if (this.nextRaceInfo.race) {
+                  this.nextRaceInfo.race.status = 'COMPLETED';
+                }
+              }
+              const targetRaceId = update.raceId || this.activePrivateRoom.race.id;
+              this.openRaceLeaderboard(targetRaceId);
               this.isPostRaceRankingActive = true;
-            } else if (update.details?.reason) {
-              this.triggerFinishToast(`Course privée terminée (${update.details.reason === 'all_players_left' ? 'salon fermé' : 'terminée'})`);
-            }
-            if (update.details?.roomClosed) {
-              this.exitPrivateRoomToPublic(true);
+              this.triggerFinishToast(`🏁 Course terminée ! Salon fermé.`);
+            } else if (update.status === 'ABANDONED') {
+              if (update.details?.reason) {
+                this.triggerFinishToast(`Course privée terminée (${update.details.reason === 'all_players_left' ? 'salon fermé' : 'terminée'})`);
+              }
+              if (update.details?.roomClosed || update.status === 'ABANDONED') {
+                this.exitPrivateRoomToPublic(true);
+              }
             }
           }
         }
@@ -3334,6 +3415,16 @@ export class AppComponent implements OnInit, OnDestroy {
       this.countdownTickerSub.unsubscribe();
     }
     this.countdownTickerSub = interval(1000).subscribe(() => {
+      if (
+        this.isPrivateRoomCompleted ||
+        this.activePrivateRoom?.status === 'COMPLETED' ||
+        this.activePrivateRoom?.race?.status === 'COMPLETED'
+      ) {
+        this.countdownSeconds = 0;
+        this.is3sCountdown = false;
+        this.isPreStartCountdown = false;
+        return;
+      }
       const isRunning = this.nextRaceInfo?.status === 'in_progress' ||
                         this.nextRaceInfo?.race?.status === 'RUNNING' ||
                         this.nextRaceInfo?.race?.status === 'in_progress';
@@ -3579,6 +3670,16 @@ export class AppComponent implements OnInit, OnDestroy {
     this.cdr.markForCheck();
   }
 
+  leaveCompletedPrivateRoom(): void {
+    if (this.isRaceLeaderboardModalOpen) {
+      this.closeRaceLeaderboardModal();
+    }
+    this.isPrivateRoomCompleted = false;
+    this.exitPrivateRoomToPublic(true);
+    this.initGameLoop();
+    this.cdr.markForCheck();
+  }
+
   private exitPrivateRoomToPublic(resetUrl: boolean, notFoundMessage?: string): void {
     if (this.activePrivateRoom) {
       const roomIdent = this.activePrivateRoom.race?.id || this.activePrivateRoom.code;
@@ -3590,6 +3691,7 @@ export class AppComponent implements OnInit, OnDestroy {
       }
     }
     this.activePrivateRoom = null;
+    this.isPrivateRoomCompleted = false;
     if (resetUrl && typeof window !== 'undefined') {
       if (window.location.pathname !== '/' || window.location.search) {
         window.history.replaceState({}, '', '/');

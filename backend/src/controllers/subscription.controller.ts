@@ -13,6 +13,8 @@ export interface SubscriptionTierConfig {
   maxParticipants: number;
   maxDistance: number;
   maxBots: number;
+  maxConcurrentRooms: number;
+  maxWeeklyRooms: number;
   historyDays: number | null; // null = unlimited
   customPrefixAllowed: boolean;
   features: string[];
@@ -28,12 +30,15 @@ export const SUBSCRIPTION_TIERS: Record<string, SubscriptionTierConfig> = {
     maxParticipants: 2,
     maxDistance: 2000,
     maxBots: 1,
+    maxConcurrentRooms: 1,
+    maxWeeklyRooms: 5,
     historyDays: 10,
     customPrefixAllowed: false,
     features: [
+      "1 salon ouvert à la fois (5 salons max / semaine)",
       "1 joueur invité en salon privé (2 coureurs max)",
       "Courses jusqu'à 2 000 m (2 km)",
-      "1 bot d'entraînement",
+      "1 bot d'entraînement virtuel",
       "Historique des courses sur 10 jours",
       "Classement public et cockpit direct",
     ],
@@ -47,9 +52,12 @@ export const SUBSCRIPTION_TIERS: Record<string, SubscriptionTierConfig> = {
     maxParticipants: 5,
     maxDistance: 5000,
     maxBots: 3,
+    maxConcurrentRooms: 3,
+    maxWeeklyRooms: 10,
     historyDays: null,
     customPrefixAllowed: true,
     features: [
+      "Jusqu'à 3 salons ouverts à la fois (10 salons max / semaine)",
       "Jusqu'à 5 joueurs dans vos salons privés",
       "Courses jusqu'à 5 000 m (5 km)",
       "Jusqu'à 3 bots avec allure configurable",
@@ -67,9 +75,12 @@ export const SUBSCRIPTION_TIERS: Record<string, SubscriptionTierConfig> = {
     maxParticipants: 10,
     maxDistance: 10000,
     maxBots: 5,
+    maxConcurrentRooms: 5,
+    maxWeeklyRooms: 15,
     historyDays: null,
     customPrefixAllowed: true,
     features: [
+      "Jusqu'à 5 salons ouverts à la fois (15 salons max / semaine)",
       "Jusqu'à 10 joueurs dans vos salons privés",
       "Courses longue distance jusqu'à 10 000 m (10 km)",
       "Jusqu'à 5 bots avec allure de course max",

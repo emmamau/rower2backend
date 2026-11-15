@@ -7,6 +7,7 @@ import { calculateRacePoints, getLeagueByPoints } from "../utils/league.util";
 import socketGateway from "../websocket/socket.gateway";
 import pairingService from "../services/pairing.service";
 import userStore from "../services/user-store.service";
+import { TelemetryValidator } from "../services/telemetry-validator.service";
 
 const Activities = db.activities;
 const Races = db.races;
@@ -127,29 +128,35 @@ export const syncActivity = async (req: Request, res: Response): Promise<void> =
       const currentDistNum = Number(currentDistance);
       const initialDist = (activity.get("initialDistance") as number) || 0;
       const targetDist = (activity.get("targetDistance") as number) || targetDistance;
-      const rawNetDist = Math.max(0, Math.round(currentDistNum - initialDist));
-      const netDist = targetDist > 0 ? Math.min(targetDist, rawNetDist) : rawNetDist;
-      const progress = Math.min(100, Number(((netDist / targetDist) * 100).toFixed(1)));
-
-      const prevTime = (activity.get("elapsedTime") as number) || 1;
-      const newTime = Number(elapsedTime) || prevTime;
+      const prevTime = (activity.get("elapsedTime") as number) || 0;
+      const newTime = Number(elapsedTime) || (prevTime + 1);
+      const deltaSec = Math.max(0, Math.min(10, newTime - prevTime));
 
       const numPower = Number(lastPower);
       const numPace = Number(lastPace);
       const derivedPower = (numPower <= 0 && numPace >= 60 && numPace < 360)
         ? Math.round(2.80 / Math.pow(numPace / 500, 3))
-        : numPower;
+        : Math.min(1200, Math.max(0, Math.round(numPower)));
+      const normalizedPace = TelemetryValidator.computeConcept2Split(derivedPower, numPace);
+      const c2Speed = TelemetryValidator.computeConcept2Speed(derivedPower, normalizedPace);
+
+      const rawNetDist = Math.max(0, Math.round(currentDistNum - initialDist));
+      const prevNetDist = Number(activity.get("netDistance") || 0);
+      const c2NetDist = (c2Speed > 0 && deltaSec > 0) ? Math.round(prevNetDist + c2Speed * deltaSec) : rawNetDist;
+      const effectiveRawDist = Math.max(prevNetDist, c2NetDist);
+      const netDist = targetDist > 0 ? Math.min(targetDist, effectiveRawDist) : effectiveRawDist;
+      const progress = Math.min(100, Number(((netDist / targetDist) * 100).toFixed(1)));
 
       const prevAvgPower = (activity.get("avgPower") as number) || derivedPower;
       const computedAvgPower = derivedPower > 0 ? Math.round((prevAvgPower + derivedPower) / 2) : prevAvgPower;
 
-      const prevAvgPace = (activity.get("avgPace") as number) || numPace;
-      const computedAvgPace = numPace > 0 ? Math.round((prevAvgPace + numPace) / 2) : prevAvgPace;
+      const prevAvgPace = (activity.get("avgPace") as number) || normalizedPace;
+      const computedAvgPace = normalizedPace > 0 ? Math.round((prevAvgPace + normalizedPace) / 2) : prevAvgPace;
 
       const prevAvgSpm = (activity.get("avgStrokeRate") as number) || lastStrokeRate;
       const computedAvgSpm = Number(((prevAvgSpm + Number(lastStrokeRate)) / 2).toFixed(1));
 
-      const speedKmh = newTime > 0 ? Number(((netDist / newTime) * 3.6).toFixed(1)) : 0;
+      const speedKmh = normalizedPace > 0 ? Number(((500 / normalizedPace) * 3.6).toFixed(1)) : (newTime > 0 ? Number(((netDist / newTime) * 3.6).toFixed(1)) : 0);
       const isFinished = netDist >= targetDist || status === "finished";
       const prevLastPower = (activity.get("lastPower") as number) || 0;
       const effectiveLastPower = derivedPower > 0 ? derivedPower : (isFinished ? prevLastPower : 0);
@@ -163,14 +170,14 @@ export const syncActivity = async (req: Request, res: Response): Promise<void> =
       }
 
       await activity.update({
-        currentDistance: currentDistNum,
+        currentDistance: Math.max(currentDistNum, netDist),
         netDistance: netDist,
         progressPercent: progress,
         status: finalStatus,
         lastStrokeRate: Number(lastStrokeRate),
         lastStrokeCount: Number(lastStrokeCount),
         lastPower: effectiveLastPower,
-        lastPace: numPace,
+        lastPace: normalizedPace,
         lastHeartRate: Number(lastHeartRate),
         lastResistance: Number(lastResistance),
         avgPower: computedAvgPower,

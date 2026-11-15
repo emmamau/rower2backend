@@ -14,6 +14,9 @@ export default (app: Application): void => {
   // POST /api/v1/races/private (Meet-style private race generator)
   router.post("/races/private", TelemetryController.createPrivateRace);
 
+  // GET /api/v1/races/private/limits (Quotas de salons restants & vérification montre)
+  router.get("/races/private/limits", TelemetryController.getPrivateRoomLimits);
+
   // GET /api/v1/races/private (List private salons for host or known codes)
   router.get("/races/private", TelemetryController.listPrivateRaces);
 

@@ -1107,8 +1107,8 @@ test('Unified Onboarding Specification: Home Banner, 3 Action Cards, 3-Step Moda
   assert.match(appHtml, /Cockpit \/ Entraînement Libre/);
   assert.match(appHtml, /class="modal-content modal-watch-guidance"/);
   assert.match(appHtml, /Ouvrez l'application RowerRace sur votre montre Garmin\./);
-  assert.match(appHtml, /Sélectionnez 'Appairer la montre'\./);
-  assert.match(appHtml, /Saisissez le code affiché à l'écran\./);
+  assert.match(appHtml, /« Entrer un code »|Appairer la montre/);
+  assert.match(appHtml, /code PIN/i);
 
   // Section 3: UnifiedCodePickerView (5 or 6 chars) & Guest 5-char Boarding Ticket
   assert.match(rowerViewMc, /new UnifiedCodePickerView\(6,\s*"APPAIRAGE"/);
@@ -1140,6 +1140,52 @@ test('Unified Onboarding Specification: Home Banner, 3 Action Cards, 3-Step Moda
   const watchGuidanceModalOccurrences = (appHtml.match(/isWatchGuidanceModalOpen/g) || []).length;
   assert.equal(watchGuidanceModalOccurrences, 1, 'app.html must contain exactly one Watch Guidance modal');
 });
+
+test('Garmin pairing UX harmonization: single desktop invitation, PIN code guidance, dynamic profile pairing button & prior session recovery', () => {
+  const appHtml = fs.readFileSync(path.resolve(__dirname, '../src/app/app.html'), 'utf8');
+  const appCss = fs.readFileSync(path.resolve(__dirname, '../src/app/app.css'), 'utf8');
+  const appTs = fs.readFileSync(path.resolve(__dirname, '../src/app/app.ts'), 'utf8');
+
+  // 1. Single invitation on desktop: welcome banner uses status pill is-unlinked (no duplicate btn-welcome-link-watch in welcome banner)
+  assert.match(appHtml, /class="hardware-status-pill is-unlinked"[\s\S]*?\(click\)="scrollToGarminPairing\(\)"[\s\S]*?Montre non liée/);
+  assert.ok(!appHtml.includes('<button\n                  type="button"\n                  class="btn-welcome-link-watch"'), 'Banner must not render duplicate watch link button');
+  assert.match(appHtml, /<section id="garmin-pairing-section" class="garmin-pairing-section"/);
+
+  // 2. Updated informative texts with PIN code entry
+  assert.match(appHtml, /Générez un code PIN temporaire ci-dessous et saisissez-le sur votre montre Garmin/);
+  assert.match(appHtml, /sélectionnez <strong>« Entrer un code »<\/strong> \(ou « Entrer un code PIN »\) et saisissez votre code PIN/);
+  assert.match(appHtml, /VOTRE CODE PIN D'APPAIRAGE/);
+  assert.match(appHtml, /Sur votre montre, sélectionnez <strong>« Entrer un code »<\/strong> \(ou « Entrer un code PIN »\)\./);
+  assert.match(appHtml, /Saisissez le <strong>code PIN d'appairage<\/strong> affiché à l'écran\./);
+
+  // 3. Profile view: old static text replaced with dynamic button when !isPaired
+  assert.ok(!appHtml.includes("L'appairage s'effectue désormais directement depuis le bloc Timer avant le départ de la course"), 'Old passive timer pairing message must be removed');
+  assert.match(appHtml, /Aucune montre n'a été liée depuis la page d'accueil\. Vous pouvez lancer la procédure d'appairage par code PIN/);
+  assert.match(appHtml, /class="btn-cyan btn-pair-profile"[\s\S]*?\(click\)="startPairingFromProfile\(\)"[\s\S]*?Lier ma montre Garmin \(Code PIN\)/);
+
+  // 4. Recovery of prior pairing in profile and registration flow
+  assert.match(appHtml, /class="pairing-recovered-notice" \*ngIf="watchPairingRecovered"/);
+  assert.match(appHtml, /Liaison Garmin récupérée préalablement/);
+  assert.match(appTs, /watchPairingRecovered\s*=\s*(false|true)/);
+  assert.match(appTs, /scrollToGarminPairing\(\)/);
+  assert.match(appTs, /startPairingFromProfile\(\)/);
+  assert.match(appTs, /hadPriorPairing/);
+  assert.match(appTs, /votre liaison montre Garmin effectuée sur la page d.*accueil a été récupérée avec succès/);
+
+  // 5. CSS styling for unlinked status and pairing recovery
+  assert.match(appCss, /\.hardware-status-pill\.is-unlinked/);
+  assert.match(appCss, /\.hw-status-dot\.dot-amber/);
+  assert.match(appCss, /\.btn-pair-profile/);
+  assert.match(appCss, /\.pairing-recovered-notice/);
+
+  // 6. Smartphone view coherence: timer block PIN pill, cockpit PIN action & responsive mobile rules
+  assert.match(appHtml, /class="timer-pairing-code-pill"[\s\S]*?\(click\)="openWatchGuidanceAndPair\(\)"[\s\S]*?PIN Garmin :/);
+  assert.match(appHtml, /class="btn-cockpit-pair-action"[\s\S]*?Lier ma montre Garmin \(Code PIN\)/);
+  assert.match(appTs, /scrollToGarminPairing\(\)[\s\S]*?offsetParent[\s\S]*?openWatchGuidanceAndPair\(\)/);
+  assert.match(appCss, /@media\s*\(max-width:\s*768px\)[\s\S]*?\.welcome-banner-card \.hardware-status-pill\s*\{[\s\S]*?width:\s*100%/);
+  assert.match(appCss, /@media\s*\(max-width:\s*640px\)[\s\S]*?\.modal-watch-guidance/);
+});
+
 
 
 

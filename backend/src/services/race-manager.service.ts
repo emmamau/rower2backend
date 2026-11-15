@@ -21,6 +21,9 @@ export interface PrivateParticipantInfo {
   socketId?: string;
   deviceToken?: string;
   deviceId?: string;
+  exactDistance?: number;
+  lastTelemetryAtMs?: number;
+  lastElapsedSec?: number;
 }
 
 export interface GuestBoardingTicket {
@@ -1082,7 +1085,7 @@ export class RaceManager {
    * Idempotent: calling it twice for the same race has no further effect.
    */
   public async finishRace(raceId: string, timeoutTriggered: boolean, reason?: string): Promise<RaceRankingEntry[]> {
-    const managed = this.getRaceById(raceId);
+    const managed = this.getRaceById(raceId) || this.findPrivateRace(raceId);
     if (managed && (managed.status === "COMPLETED" || managed.status === "ABANDONED")) {
       return [];
     }
@@ -1119,13 +1122,17 @@ export class RaceManager {
 
     if (managed) {
       managed.finalRanking = ranking;
+      if (managed.type === "PRIVATE_INVITE") {
+        this.removePrivateRaceInternal(managed, "COMPLETED");
+      }
     }
 
     socketGateway.broadcastRaceStatus(raceId, "COMPLETED", {
       reason: reason || (timeoutTriggered ? "timeout" : "completed"),
       pauseSeconds: managed?.pauseEndsAt ? 120 : 0,
       pauseEndsAt: managed?.pauseEndsAt,
-      ranking
+      ranking,
+      roomClosed: managed?.type === "PRIVATE_INVITE" ? true : undefined
     });
 
     if (isPublic) {
@@ -1335,6 +1342,23 @@ export class RaceManager {
     this.privateRacesById.set(raceId, privateRace);
     this.pinToRaceMap.set(pin.toUpperCase(), { raceId, lane: 1 });
 
+    // Persistance dans la base SQL pour comptabilisation exacte des quotas hebdomadaires
+    const maxDurationMinutes = options.maxDurationMinutes || this.adminPrivateRaceConfig?.maxDurationMinutes || 55;
+    Races.create({
+      id: raceId,
+      title: cleanTitle,
+      targetDistance,
+      startTime: scheduledDate || now,
+      intervalMinutes: 0,
+      maxDurationMinutes,
+      status: "waiting",
+      totalParticipants: participants.size,
+      hasBots: botCount > 0,
+      hostUserId: options.hostUserId || undefined,
+    }).catch((err: any) => {
+      // Ignorer silencieusement si la DB n'est pas encore connectée ou en mode mémoire fallback
+    });
+
     if (botCount > 0) {
       this.ensureSalonBots(raceId, botCount, botMaxPace, targetDistance, botCustomName).catch(() => {});
     }
@@ -1496,6 +1520,75 @@ export class RaceManager {
       const tb = b.createdAt ? b.createdAt.getTime() : 0;
       return tb - ta;
     });
+  }
+
+  /**
+   * Compte le nombre de salons privés actifs (en attente ou en cours) ouverts par un hôte
+   */
+  public getActiveRoomsCount(hostUserId: string): number {
+    const cleanHost = hostUserId ? hostUserId.trim() : "";
+    if (!cleanHost || cleanHost === "anonymous") return 0;
+    let count = 0;
+    for (const race of this.privateRacesById.values()) {
+      if (race.status === "COMPLETED" || race.status === "ABANDONED") continue;
+      const isHost = race.hostUserId === cleanHost || race.originalHostUserId === cleanHost;
+      if (isHost && (race.status === "LOBBY" || race.status === "COUNTDOWN" || race.status === "RUNNING")) {
+        count++;
+      }
+    }
+    return count;
+  }
+
+  /**
+   * Calcule le début de la semaine calendaire en cours (Lundi 00:00:00.000 UTC)
+   */
+  public static getStartOfWeek(date: Date = new Date()): Date {
+    const d = new Date(date);
+    const day = d.getUTCDay(); // 0 = Sunday, 1 = Monday, ...
+    const diff = d.getUTCDate() - day + (day === 0 ? -6 : 1); // Ajuster pour le lundi
+    const monday = new Date(d.setUTCDate(diff));
+    monday.setUTCHours(0, 0, 0, 0);
+    return monday;
+  }
+
+  /**
+   * Compte le nombre de salons créés par l'utilisateur depuis le début de la semaine
+   */
+  public async getWeeklyRoomsCount(hostUserId: string): Promise<number> {
+    const cleanHost = hostUserId ? hostUserId.trim() : "";
+    if (!cleanHost || cleanHost === "anonymous") return 0;
+
+    const startOfWeek = RaceManager.getStartOfWeek();
+
+    // 1. Dénombrement dans la mémoire vive
+    const memoryCountIds = new Set<string>();
+    for (const race of this.privateRacesById.values()) {
+      const isHost = race.hostUserId === cleanHost || race.originalHostUserId === cleanHost;
+      if (isHost && race.createdAt && race.createdAt >= startOfWeek) {
+        memoryCountIds.add(race.id);
+      }
+    }
+
+    // 2. Dénombrement dans la persistance DB si disponible
+    try {
+      const dbRaces = await Races.findAll({
+        where: {
+          hostUserId: cleanHost,
+          createdAt: {
+            [Op.gte]: startOfWeek,
+          },
+        },
+        attributes: ["id"],
+      });
+      for (const r of dbRaces) {
+        const idVal = (r as any).id || (r as any).get?.("id");
+        if (idVal) memoryCountIds.add(String(idVal));
+      }
+    } catch {
+      // Si la DB n'est pas accessible, la mémoire vive fait foi
+    }
+
+    return memoryCountIds.size;
   }
 
   public joinPrivateRace(
@@ -2143,6 +2236,10 @@ export class RaceManager {
       return { error: "Seul le créateur du salon peut contrôler le départ.", statusCode: 403 };
     }
 
+    if (race.status === "COMPLETED" || race.status === "ABANDONED") {
+      return { error: "Ce salon est définitivement fermé et ne peut plus être réutilisé.", statusCode: 410 };
+    }
+
     if (options.targetDistance !== undefined) {
       const dist = Number(options.targetDistance);
       if (Number.isFinite(dist) && dist >= 100 && dist <= 100000) {
@@ -2157,9 +2254,18 @@ export class RaceManager {
       race.startedAt = undefined;
       race.endedAt = undefined;
       race.lobbyEndsAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+      if (race.participants) {
+        for (const p of race.participants.values()) {
+          p.exactDistance = 0;
+          p.lastTelemetryAtMs = 0;
+          p.lastElapsedSec = 0;
+        }
+      }
       userStore.updateActivitiesWhere(race.id, undefined, {
         status: "waiting",
         netDistance: 0,
+        exactDistance: 0,
+        lastTelemetryAtMs: 0,
         currentDistance: 0,
         progressPercent: 0,
         elapsedTime: 0,

@@ -17,7 +17,7 @@ import { Subscription, interval } from 'rxjs';
 import { RowerService } from '../../services/rower.service';
 import { I18nService } from '../../services/i18n.service';
 import { SocketService } from '../../services/socket.service';
-import { PrivateRacePayload, SavedPrivateSalon } from '../../models/rower-data.model';
+import { PrivateRacePayload, SavedPrivateSalon, RoomCreationQuotaInfo } from '../../models/rower-data.model';
 import {
   parseRoomInviteInput,
   buildShareableRoomUrl,
@@ -46,6 +46,9 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
   @Input() isUserAdmin = false;
   @Input() isSubscriber = false;
   @Input() isRegisteredUser = false;
+  @Input() isWatchConnected = false;
+  @Input() deviceToken = '';
+  @Input() userSubscriptionTier = 'free';
   @Input() activeRacersCount = 0;
   @Input() externalError = '';
   @Input() siteView: 'home' | 'regatta' | 'cockpit' = 'home';
@@ -58,6 +61,7 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
   @Output() botsToggled = new EventEmitter<boolean>();
   @Output() requestAccountModal = new EventEmitter<'login' | 'register'>();
   @Output() bannerCollapsedChange = new EventEmitter<boolean>();
+  @Output() viewRankingRequest = new EventEmitter<string>();
 
   activeTab: PrivateModalTab = 'create';
   isBannerCollapsed = false;
@@ -109,6 +113,10 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
   actionError = '';
   isActionBusy = false;
   canNativeShare = false;
+
+  // Quotas & Montre connectée
+  quotaInfo: RoomCreationQuotaInfo | null = null;
+  isLoadingQuotas = false;
 
   // Saved / My Rooms list
   savedSalons: SavedPrivateSalon[] = [];
@@ -185,6 +193,7 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
         if (!this.roomTitle.trim()) {
           this.roomTitle = this.defaultRoomTitle();
         }
+        this.refreshRoomLimits();
         this.refreshMyRooms();
         this.refreshActiveRoom();
         this.startModalPolling();
@@ -312,6 +321,16 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
       );
       btn?.focus();
     }
+  }
+
+  get isRoomCompleted(): boolean {
+    return Boolean(
+      this.activeRoom &&
+      (this.activeRoom.status === 'COMPLETED' ||
+       this.activeRoom.status === 'finished' ||
+       this.activeRoom.race?.status === 'COMPLETED' ||
+       this.activeRoom.race?.status === 'finished')
+    );
   }
 
   get canManageActiveRoom(): boolean {
@@ -537,8 +556,59 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
     return true;
   }
 
+  refreshRoomLimits(): void {
+    this.isLoadingQuotas = true;
+    this.rowerService.getRoomCreationLimits(this.activeUserId, this.deviceToken).subscribe({
+      next: (res) => {
+        this.isLoadingQuotas = false;
+        if (res && res.success) {
+          this.quotaInfo = res;
+        }
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.isLoadingQuotas = false;
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  get canCreateRoom(): boolean {
+    if (this.isUserAdmin) return true;
+    const hasWatch = this.isWatchConnected || (this.quotaInfo ? this.quotaInfo.isWatchConnected : false);
+    if (!hasWatch) return false;
+    if (this.quotaInfo) {
+      if (this.quotaInfo.concurrent && this.quotaInfo.concurrent.remaining <= 0) return false;
+      if (this.quotaInfo.weekly && this.quotaInfo.weekly.remaining <= 0) return false;
+    }
+    return true;
+  }
+
+  get createDisabledReason(): string {
+    if (this.isUserAdmin) return '';
+    const hasWatch = this.isWatchConnected || (this.quotaInfo ? this.quotaInfo.isWatchConnected : false);
+    if (!hasWatch) {
+      return "Appairage requis : connectez votre montre Garmin pour créer un salon.";
+    }
+    if (this.quotaInfo) {
+      if (this.quotaInfo.concurrent && this.quotaInfo.concurrent.remaining <= 0) {
+        return `Plafond atteint : vous avez déjà ${this.quotaInfo.concurrent.max} salon(s) ouvert(s) à la fois. Fermez un salon avant d'en créer un nouveau.`;
+      }
+      if (this.quotaInfo.weekly && this.quotaInfo.weekly.remaining <= 0) {
+        return `Plafond hebdomadaire atteint (${this.quotaInfo.weekly.max} salons par semaine).`;
+      }
+    }
+    return '';
+  }
+
   onCreateRoomSubmit(): void {
     if (this.isCreating) return;
+
+    if (!this.canCreateRoom && !this.isUserAdmin) {
+      this.createGeneralError = this.createDisabledReason || "Impossible de créer le salon : conditions requises non remplies.";
+      this.cdr.markForCheck();
+      return;
+    }
 
     if (this.selectedGameMode === 'duel_1v1' && !this.isRegisteredUser && !this.isUserAdmin) {
       this.createGeneralError = "Pour défier un autre joueur en 1 vs 1, un compte utilisateur (gratuit) est requis. Connectez-vous ou inscrivez-vous en quelques secondes.";
@@ -594,11 +664,13 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
           this.roomSelected.emit({ payload: created, pushUrl: true });
           this.activeTab = 'share';
           this.showFeedback(this.i18n.t('PRIVATE_ROOM_BADGE') + ' : ' + (created.code || ''));
+          this.refreshRoomLimits();
           this.cdr.markForCheck();
         },
         error: (err) => {
           this.isCreating = false;
           this.createGeneralError = err?.error?.error || err?.error?.message || 'Erreur lors de la création du salon.';
+          this.refreshRoomLimits();
           this.cdr.markForCheck();
         }
       });

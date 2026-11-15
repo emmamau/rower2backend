@@ -630,6 +630,9 @@ export class I18nService {
       'BTN_MANAGE_CODES': '🔑 Codes & Lien',
       'BTN_CLOSE_ROOM': '🗑️ Fermer & révoquer le salon',
       'BTN_BACK_PUBLIC': '🌐 Course Publique',
+      'BTN_LEAVE_ROOM_TO_PUBLIC': '🚪 Quitter le salon',
+      'RACE_FINISHED_ROOM_CLOSED': 'Course terminée — Salon fermé',
+      'BTN_VIEW_RANKING': '🏆 Voir le classement',
       'STATUS_WAITING_HOST': 'ATTENTE HÔTE',
       'JOIN_FIELD_LABEL': 'Code salon, PIN montre (4 chiffres) ou URL d\'invitation',
       'JOIN_FIELD_HINT': 'Saisissez un code (ex: krm-wzx-qpl), un PIN 4 chiffres (ex: 4829) ou collez le lien reçu.',
@@ -687,6 +690,9 @@ export class I18nService {
       'BTN_MANAGE_CODES': '🔑 Codes & Link',
       'BTN_CLOSE_ROOM': '🗑️ Close & Revoke Room',
       'BTN_BACK_PUBLIC': '🌐 Public Race',
+      'BTN_LEAVE_ROOM_TO_PUBLIC': '🚪 Leave Room',
+      'RACE_FINISHED_ROOM_CLOSED': 'Race Finished — Room Closed',
+      'BTN_VIEW_RANKING': '🏆 View Ranking',
       'STATUS_WAITING_HOST': 'WAITING FOR HOST',
       'JOIN_FIELD_LABEL': 'Room code, 4-digit Watch PIN, or invite URL',
       'JOIN_FIELD_HINT': 'Enter a code (e.g. krm-wzx-qpl), a 4-digit PIN (e.g. 4829), or paste the shared URL.',
@@ -714,6 +720,9 @@ export class I18nService {
       'BTN_COPY_INVITE': '✉️ Einladung kopieren',
       'BTN_START_10S': '🚀 Starten (10s)',
       'BTN_BACK_PUBLIC': '🌐 Öffentliches Rennen',
+      'BTN_LEAVE_ROOM_TO_PUBLIC': '🚪 Raum verlassen',
+      'RACE_FINISHED_ROOM_CLOSED': 'Rennen beendet — Raum geschlossen',
+      'BTN_VIEW_RANKING': '🏆 Rangliste ansehen',
       'STATUS_WAITING_HOST': 'WARTET AUF HOST'
     },
     es: {
@@ -729,6 +738,9 @@ export class I18nService {
       'BTN_COPY_INVITE': '✉️ Copiar invitación',
       'BTN_START_10S': '🚀 Iniciar salida (10s)',
       'BTN_BACK_PUBLIC': '🌐 Carrera Pública',
+      'BTN_LEAVE_ROOM_TO_PUBLIC': '🚪 Salir de la sala',
+      'RACE_FINISHED_ROOM_CLOSED': 'Carrera finalizada — Sala cerrada',
+      'BTN_VIEW_RANKING': '🏆 Ver clasificación',
       'STATUS_WAITING_HOST': 'ESPERANDO ANFITRIÓN'
     },
     it: {
@@ -744,6 +756,9 @@ export class I18nService {
       'BTN_COPY_INVITE': '✉️ Copia invito',
       'BTN_START_10S': '🚀 Avvia partenza (10s)',
       'BTN_BACK_PUBLIC': '🌐 Gara Pubblica',
+      'BTN_LEAVE_ROOM_TO_PUBLIC': '🚪 Esci dalla stanza',
+      'RACE_FINISHED_ROOM_CLOSED': 'Gara terminata — Stanza chiusa',
+      'BTN_VIEW_RANKING': '🏆 Vedi classifica',
       'STATUS_WAITING_HOST': 'ATTESA HOST'
     },
     pt: {
@@ -759,6 +774,9 @@ export class I18nService {
       'BTN_COPY_INVITE': '✉️ Copiar convite',
       'BTN_START_10S': '🚀 Iniciar largada (10s)',
       'BTN_BACK_PUBLIC': '🌐 Corrida Pública',
+      'BTN_LEAVE_ROOM_TO_PUBLIC': '🚪 Sair da sala',
+      'RACE_FINISHED_ROOM_CLOSED': 'Corrida concluída — Sala fechada',
+      'BTN_VIEW_RANKING': '🏆 Ver classificação',
       'STATUS_WAITING_HOST': 'AGUARDANDO ANFITRIÃO'
     }
   };

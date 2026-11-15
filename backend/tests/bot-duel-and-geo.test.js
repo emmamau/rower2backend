@@ -36,13 +36,14 @@ test('1v1 Bot Duel mode for unauthenticated guest, distance up to 10000m, exclus
   const { baseUrl, close } = await createTestServer();
   try {
     // 1. Unauthenticated guest user creates 1v1 Bot Duel
+    const guestId = `guest_bot_challenger_${Date.now()}`;
     const resCreate = await fetch(`${baseUrl}/api/v1/races/private`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         isBotDuel: true,
         targetDistance: 5000,
-        hostUserId: 'guest_bot_challenger_99',
+        hostUserId: guestId,
         hostUserName: 'GuestChallenger'
       })
     });
@@ -62,7 +63,7 @@ test('1v1 Bot Duel mode for unauthenticated guest, distance up to 10000m, exclus
       body: JSON.stringify({
         isBotDuel: true,
         targetDistance: 25000, // beyond 10 000m
-        hostUserId: 'guest_bot_challenger_99',
+        hostUserId: `guest_bot_clamp_${Date.now()}`,
         hostUserName: 'GuestChallenger'
       })
     });

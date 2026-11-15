@@ -9,7 +9,8 @@ import {
   LeaderboardResponse,
   PastRaceResult,
   CreatePrivateRaceRequest,
-  PrivateRacePayload
+  PrivateRacePayload,
+  RoomCreationQuotaInfo
 } from '../models/rower-data.model';
 import {
   UserProfileResponse,
@@ -76,6 +77,17 @@ export class RowerService {
   }
 
   // Salons Privés : Création, consultation, codes PIN / Web et contrôle hôte
+  getRoomCreationLimits(hostUserId?: string, deviceToken?: string): Observable<RoomCreationQuotaInfo> {
+    let params = new HttpParams();
+    if (hostUserId && hostUserId.trim()) {
+      params = params.set('hostUserId', hostUserId.trim());
+    }
+    if (deviceToken && deviceToken.trim()) {
+      params = params.set('deviceToken', deviceToken.trim());
+    }
+    return this.http.get<RoomCreationQuotaInfo>(`${this.apiUrl}/api/v1/races/private/limits`, { params });
+  }
+
   createPrivateRace(payload: CreatePrivateRaceRequest): Observable<PrivateRacePayload> {
     return this.http.post<PrivateRacePayload>(`${this.apiUrl}/api/v1/races/private`, payload);
   }
