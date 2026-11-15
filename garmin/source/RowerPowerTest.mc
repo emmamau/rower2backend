@@ -608,6 +608,74 @@ function testLobbyResetRestoresDefaultCountdown(logger as Logger) as Boolean {
     return true;
 }
 
+//! Regression test: Zero countdown with waiting backend status MUST NOT trigger race start
+(:test)
+function testPublicRaceWaitingWithZeroCountdownDoesNotStart(logger as Logger) as Boolean {
+    var model = new RowerDataModel();
+    var view = new RowerView(model);
+    var del = new BleDelegate(model);
+    del.setView(view);
+
+    // User joins next race -> state should be STATE_WAITING_START
+    del.joinNextRaceWaiting();
+    Test.assertEqual(RowerView.STATE_WAITING_START, view.getAppState());
+
+    // Backend payload returns status "waiting" with secondsRemaining 0
+    del.onLobbyDataReceived({
+        "status" => "waiting",
+        "secondsRemaining" => 0,
+        "totalParticipants" => 1,
+        "targetDistance" => 2000,
+        "race" => {
+            "id" => "PUB_RACE_1",
+            "internalStatus" => "LOBBY",
+            "status" => "waiting",
+            "targetDistance" => 2000
+        }
+    });
+
+    // Watch MUST remain in STATE_WAITING_START
+    Test.assertEqual(RowerView.STATE_WAITING_START, view.getAppState());
+
+    // Simulate BLE packet arriving from rower with strokes while waiting
+    model.strokeRate = 28.0f;
+    model.instantPower = 200;
+    del.onOneSecondTick();
+
+    // Must STILL be in STATE_WAITING_START, NOT in STATE_RACING
+    Test.assertEqual(RowerView.STATE_WAITING_START, view.getAppState());
+
+    return true;
+}
+
+//! Regression test: Post-race pause payload MUST NOT start the race
+(:test)
+function testPostRacePauseDoesNotStartRace(logger as Logger) as Boolean {
+    var model = new RowerDataModel();
+    var view = new RowerView(model);
+    var del = new BleDelegate(model);
+    del.setView(view);
+
+    del.joinNextRaceWaiting();
+    del.onLobbyDataReceived({
+        "status" => "post_race_pause",
+        "isPostRacePause" => true,
+        "secondsRemaining" => 90,
+        "pauseRemainingSeconds" => 90,
+        "race" => {
+            "id" => "PUB_PREV_RACE",
+            "internalStatus" => "COMPLETED",
+            "status" => "post_race_pause"
+        }
+    });
+
+    Test.assertEqual(RowerView.STATE_WAITING_START, view.getAppState());
+    del.onOneSecondTick();
+    Test.assertEqual(RowerView.STATE_WAITING_START, view.getAppState());
+
+    return true;
+}
+
 
 
 

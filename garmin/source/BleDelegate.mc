@@ -1020,8 +1020,6 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
                     } else {
                         handleRaceStartTrigger(view, isRowing);
                     }
-                } else if ((state == RowerView.STATE_WAITING_START || state == RowerView.STATE_LOBBY) && cd <= 0) {
-                    handleRaceStartTrigger(view, isRowing);
                 }
             }
         }
@@ -1244,8 +1242,8 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
         var view = _view as RowerView;
         var state = view.getAppState();
 
-        // 1. If race is already running or countdown reached 0 (and not waiting in LOBBY for READY/Host), transition immediately to racing
-        if ((_activityStatus.equals("in_progress") || (!_isWaitingForReadyOrHost && view.getCountdown() <= 0)) &&
+        // 1. If race is already running (e.g. late join or already started), update state
+        if (_activityStatus.equals("in_progress") &&
             (state == RowerView.STATE_WAITING_START || state == RowerView.STATE_COUNTDOWN_5S || state == RowerView.STATE_LOBBY)) {
             var isRowing = (_model.strokeRate > 0 || _model.instantPower > 0);
             handleRaceStartTrigger(view, isRowing);
@@ -1478,8 +1476,10 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
                 if (st.equals("in_progress") || st.equals("RUNNING")) {
                     isRunning = true;
                     isWaitingLobby = false;
-                } else if (st.equals("waiting") && (!hasExplicitCountdown || countdown <= 0) && isPriv) {
-                    isWaitingLobby = true;
+                } else if (st.equals("waiting") || st.equals("post_race_pause")) {
+                    if (!hasExplicitCountdown || countdown <= 0 || isPriv) {
+                        isWaitingLobby = true;
+                    }
                 }
             }
 
@@ -1494,11 +1494,23 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
                 if (rDict.hasKey("hasBots") && rDict.get("hasBots") instanceof Boolean) {
                     view.setBotsEnabled(rDict.get("hasBots") as Boolean);
                 }
+                if (rDict.hasKey("internalStatus") && rDict.get("internalStatus") != null) {
+                    var rIntSt = rDict.get("internalStatus").toString();
+                    if (rIntSt.equals("LOBBY") || rIntSt.equals("COMPLETED")) {
+                        isWaitingLobby = true;
+                    } else if (rIntSt.equals("COUNTDOWN")) {
+                        isWaitingLobby = false;
+                    }
+                }
                 if (rDict.hasKey("status") && rDict.get("status") != null) {
                     var rSt = rDict.get("status").toString();
                     if (rSt.equals("in_progress") || rSt.equals("RUNNING")) {
                         isRunning = true;
                         isWaitingLobby = false;
+                    } else if (rSt.equals("waiting") || rSt.equals("post_race_pause")) {
+                        if (!hasExplicitCountdown || countdown <= 0 || isPriv) {
+                            isWaitingLobby = true;
+                        }
                     }
                 }
             }
@@ -1519,7 +1531,7 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
             view.setLobbyInfo(countdown, players, targetDist);
 
             var curState = view.getAppState();
-            if ((isRunning || (!_isWaitingForReadyOrHost && countdown <= 0 && !isPriv)) &&
+            if (isRunning &&
                 (curState == RowerView.STATE_LOBBY || curState == RowerView.STATE_WAITING_START || curState == RowerView.STATE_COUNTDOWN_5S || curState == RowerView.STATE_PENDING_APPROVAL)) {
                 var isRowing = (_model.strokeRate > 0 || _model.instantPower > 0);
                 handleRaceStartTrigger(view, isRowing);
@@ -1534,11 +1546,12 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
         _userId = UserManager.getUserId();
         _raceMode = "race";
         _activityStatus = "waiting";
-        _isWaitingForReadyOrHost = false;
+        _isWaitingForReadyOrHost = true;
         _activityId = "";
         _isBotDuel = false;
         if (_view != null) {
             var view = _view as RowerView;
+            view.resetLobbyState();
             view.setPrivateSalonMode(false, "");
             view.setIsLateJoiner(false);
             view.setAppState(RowerView.STATE_WAITING_START);
