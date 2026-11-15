@@ -389,7 +389,7 @@ export class RowerService {
     return this.http.get<{ success: boolean; account: any }>(`${this.apiUrl}/api/user/account/${encodeURIComponent(identifier)}`);
   }
 
-  // Abonnements Lemon Squeezy (3 offres)
+  // Abonnements (3 offres)
   getSubscriptionTiers(): Observable<{ success: boolean; tiers: any[] }> {
     return this.http.get<{ success: boolean; tiers: any[] }>(`${this.apiUrl}/api/v1/subscriptions/tiers`);
   }

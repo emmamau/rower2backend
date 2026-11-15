@@ -1186,6 +1186,42 @@ test('Garmin pairing UX harmonization: single desktop invitation, PIN code guida
   assert.match(appCss, /@media\s*\(max-width:\s*640px\)[\s\S]*?\.modal-watch-guidance/);
 });
 
+test('Quick Navigation in Regatta and Cockpit views: Accueil button placed to the left of Cockpit and Regate buttons', () => {
+  const appHtml = fs.readFileSync(path.join(__dirname, '../src/app/app.html'), 'utf8');
+
+  // 1. In regatta-quick-nav-bar, Accueil (btn-quick-home) is placed before Cockpit (btn-quick-cockpit)
+  const regattaNavBarMatch = appHtml.match(/<aside class="regatta-quick-nav-bar"[\s\S]*?<\/aside>/);
+  assert.ok(regattaNavBarMatch, 'regatta-quick-nav-bar must exist in app.html');
+  const regattaBar = regattaNavBarMatch[0];
+  const homeInRegattaIdx = regattaBar.indexOf('btn-quick-home');
+  const cockpitInRegattaIdx = regattaBar.indexOf('btn-quick-cockpit');
+  assert.ok(homeInRegattaIdx !== -1, 'btn-quick-home must be in regatta-quick-nav-bar');
+  assert.ok(cockpitInRegattaIdx !== -1, 'btn-quick-cockpit must be in regatta-quick-nav-bar');
+  assert.ok(homeInRegattaIdx < cockpitInRegattaIdx, 'Accueil button must be placed to the left (before) of Cockpit button in regatta mode');
+
+  // 2. In cockpit-quick-nav, Accueil (btn-quick-home) is placed before Regatta (btn-quick-regatta)
+  const cockpitNavBarMatch = appHtml.match(/<div class="cockpit-quick-nav"[\s\S]*?<\/div>/);
+  assert.ok(cockpitNavBarMatch, 'cockpit-quick-nav must exist in app.html');
+  const cockpitBar = cockpitNavBarMatch[0];
+  const homeInCockpitIdx = cockpitBar.indexOf('btn-quick-home');
+  const regattaInCockpitIdx = cockpitBar.indexOf('btn-quick-regatta');
+  assert.ok(homeInCockpitIdx !== -1, 'btn-quick-home must be in cockpit-quick-nav');
+  assert.ok(regattaInCockpitIdx !== -1, 'btn-quick-regatta must be in cockpit-quick-nav');
+  assert.ok(homeInCockpitIdx < regattaInCockpitIdx, 'Accueil button must be placed to the left (before) of Regate button in cockpit mode');
+});
+
+test('Web interface: zero references to Lemon Squeezy in templates, styles, and frontend source code', () => {
+  const appHtml = fs.readFileSync(path.join(__dirname, '../src/app/app.html'), 'utf8');
+  const appCss = fs.readFileSync(path.join(__dirname, '../src/app/app.css'), 'utf8');
+  const appTs = fs.readFileSync(path.join(__dirname, '../src/app/app.ts'), 'utf8');
+  const rowerServiceTs = fs.readFileSync(path.join(__dirname, '../src/app/services/rower.service.ts'), 'utf8');
+
+  assert.doesNotMatch(appHtml, /lemon\s*squeezy/i, 'app.html must not contain any reference to Lemon Squeezy');
+  assert.doesNotMatch(appCss, /lemon\s*squeezy/i, 'app.css must not contain any reference to Lemon Squeezy');
+  assert.doesNotMatch(appTs, /lemon\s*squeezy/i, 'app.ts must not contain any reference to Lemon Squeezy');
+  assert.doesNotMatch(rowerServiceTs, /lemon\s*squeezy/i, 'rower.service.ts must not contain any reference to Lemon Squeezy');
+});
+
 
 
 

@@ -127,7 +127,7 @@ export class AppComponent implements OnInit, OnDestroy {
   isLoadingRaceLeaderboard = false;
   raceLeaderboardError = '';
 
-  // Offres d'abonnement & Lemon Squeezy
+  // Offres d'abonnement
   isSubscriptionModalOpen = false;
   subscriptionTiers: any[] = [];
   subscriptionStatus: any = null;
@@ -2604,7 +2604,7 @@ export class AppComponent implements OnInit, OnDestroy {
       },
       error: (err) => {
         this.subscriptionLoading = false;
-        this.subscriptionError = err.error?.message || "Erreur lors de l'accès au paiement Lemon Squeezy.";
+        this.subscriptionError = err.error?.message || "Erreur lors de l'accès au paiement sécurisé.";
         this.cdr.markForCheck();
       }
     });

@@ -2654,7 +2654,7 @@ input[type="number"]:focus { border-color: var(--neon-cyan); box-shadow: 0 0 10p
 }
 
 /* ==========================================================================
-   MODALE DES ABONNEMENTS (LEMON SQUEEZY)
+   MODALE DES ABONNEMENTS
    ========================================================================== */
 .modal-pricing {
   max-width: 880px;

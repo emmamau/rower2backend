@@ -284,7 +284,7 @@ export const createCheckoutSession = async (req: Request, res: Response): Promis
       success: true,
       checkoutUrl: mockCheckoutUrl,
       mode: "simulation",
-      message: "Session de paiement Lemon Squeezy générée.",
+      message: "Session de paiement sécurisée générée.",
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
