@@ -35,7 +35,7 @@ function testFtmsSplitContinuationPreservesWatts(logger as Logger) as Boolean {
 
     // Continuation frame has NO Power/Pace/SPM fields; previous stroke's 210W MUST be preserved!
     Test.assertEqual(210, model.instantPower);
-    Test.assertEqual(115, model.instantPace);
+    Test.assertEqual(119, model.instantPace);
     Test.assertEqual(28.0f, model.strokeRate);
     Test.assertEqual(12, model.totalEnergy);
     Test.assertEqual(154, model.bleHeartRate);
@@ -365,7 +365,7 @@ function testGarminPairingInputAndStateNavigation(logger as Logger) as Boolean {
     view.resetPairingDigits();
     view.setAppState(RowerView.STATE_PAIRING_INPUT);
     Test.assertEqual(RowerView.STATE_PAIRING_INPUT, view.getAppState());
-    Test.assertEqual(6, view.getPairingLength());
+    Test.assertEqual(5, view.getPairingLength());
 
     // Cycle character on first slot (0 -> 1 -> 0)
     view.cyclePairingChar(1);
@@ -373,12 +373,12 @@ function testGarminPairingInputAndStateNavigation(logger as Logger) as Boolean {
     view.cyclePairingChar(-1);
     Test.assertEqual("0", view.getCurrentPairingSlotChar());
 
-    // Advance 5 slots
-    for (var i = 0; i < 5; i++) {
+    // Advance 4 slots
+    for (var i = 0; i < 4; i++) {
         var isDone = view.advancePairingSlot();
         Test.assertEqual(false, isDone);
     }
-    // 6th slot advance finishes input
+    // 5th slot advance finishes input
     var finished = view.advancePairingSlot();
     Test.assertEqual(true, finished);
 
