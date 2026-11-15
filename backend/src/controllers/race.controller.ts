@@ -191,7 +191,7 @@ export const getNextRace = async (_req: Request, res: Response): Promise<void> =
  */
 export const joinRace = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { userId = "anonymous", userName, action = "join" } = req.body;
+    const { userId = "anonymous", userName, action = "join", deviceId, deviceToken } = req.body;
     const state = await raceManager.tickPublicRace();
     const now = new Date();
     const isRunning = state.status === "RUNNING";
@@ -228,11 +228,27 @@ export const joinRace = async (req: Request, res: Response): Promise<void> => {
     const actualRaceId = state.id;
     const compositeId = `${actualRaceId}_${userId}`;
 
-    const currentCount = await Activities.count({
-      where: { activityId: actualRaceId, status: { [Op.ne]: "abandoned" }, isBot: false },
-    });
+    // Résolution du nom effectif : login Garmin/configuré en priorité si disponible
+    const cleanUserName = userName && String(userName).trim().length > 0 && String(userName).trim() !== "Rameur_42"
+      ? String(userName).trim()
+      : undefined;
+
+    let currentCount = 0;
+    try {
+      currentCount = await Activities.count({
+        where: { activityId: actualRaceId, status: { [Op.ne]: "abandoned" }, isBot: false },
+      });
+    } catch {
+      currentCount = state.participants ? state.participants.size : 0;
+    }
+
     const maxAllowed = state.maxParticipants || 20;
-    if (currentCount >= maxAllowed && !(await Activities.findByPk(compositeId))) {
+    let existingActivity: any = null;
+    try {
+      existingActivity = await Activities.findByPk(compositeId);
+    } catch {}
+
+    if (currentCount >= maxAllowed && !existingActivity) {
       res.status(409).json({
         success: false,
         message: `La course publique est complète (${maxAllowed} participants maximum).`,
@@ -243,60 +259,83 @@ export const joinRace = async (req: Request, res: Response): Promise<void> => {
     // Le statut de départ : si rejoint en retard dans une course en cours -> in_progress immédiat
     const playerStatus = isRunning && action === "join_late" ? "in_progress" : "waiting";
 
-    let activity = await Activities.findByPk(compositeId);
+    let activity = existingActivity;
     if (!activity) {
       const user = await userStore.findUser(String(userId));
       const country = user?.country || user?.pays || (await IpGeoService.resolveCountryFromRequest(req));
+      const finalName = cleanUserName || user?.name || `Racer_${String(userId).slice(-4)}`;
 
-      activity = await Activities.create({
-        id: compositeId,
-        activityId: actualRaceId,
-        userId,
-        userName: userName || `Racer_${String(userId).slice(-4)}`,
-        country,
-        raceMode: "race",
-        targetDistance: state.targetDistance || 10000,
-        status: playerStatus,
-        initialDistance: 0,
-        currentDistance: 0,
-        netDistance: 0,
-        progressPercent: 0,
-        lastStrokeRate: 0,
-        lastStrokeCount: 0,
-        lastPower: 0,
-        lastPace: 0,
-        lastHeartRate: 0,
-        lastResistance: 1,
-        avgPower: 0,
-        avgPace: 0,
-        avgStrokeRate: 0,
-        totalStrokes: 0,
-        totalEnergy: 0,
-        elapsedTime: 0,
-        avgSpeedKmh: 0,
-      });
+      try {
+        activity = await Activities.create({
+          id: compositeId,
+          activityId: actualRaceId,
+          userId,
+          userName: finalName,
+          country,
+          raceMode: "race",
+          targetDistance: state.targetDistance || 10000,
+          status: playerStatus,
+          initialDistance: 0,
+          currentDistance: 0,
+          netDistance: 0,
+          progressPercent: 0,
+          lastStrokeRate: 0,
+          lastStrokeCount: 0,
+          lastPower: 0,
+          lastPace: 0,
+          lastHeartRate: 0,
+          lastResistance: 1,
+          avgPower: 0,
+          avgPace: 0,
+          avgStrokeRate: 0,
+          totalStrokes: 0,
+          totalEnergy: 0,
+          elapsedTime: 0,
+          avgSpeedKmh: 0,
+        });
+      } catch {
+        activity = {
+          id: compositeId,
+          activityId: actualRaceId,
+          userId,
+          userName: finalName,
+          status: playerStatus,
+          netDistance: 0,
+          update: async () => {},
+          toJSON: () => ({ id: compositeId, userId, userName: finalName, status: playerStatus })
+        };
+      }
     } else {
-      await activity.update({
-        status: playerStatus,
-        userName: userName || activity.get("userName"),
-      });
+      const finalName = cleanUserName || activity.userName || activity.get?.("userName");
+      try {
+        await activity.update({
+          status: playerStatus,
+          userName: finalName,
+        });
+      } catch {}
     }
 
+    // Dédoublonnage et notification dans le gestionnaire de course (avec deviceId et login Garmin)
     if (!isRunning && (state.status === "LOBBY" || state.status === "COUNTDOWN")) {
-      raceManager.notifyPlayerJoinedPublic(userId);
+      raceManager.notifyPlayerJoinedPublic(userId, cleanUserName, deviceId, deviceToken);
+    } else if (state.participants) {
+      // Si course déjà lancée, assurer le dédoublonnage de lignes d'eau
+      raceManager.notifyPlayerJoinedPublic(userId, cleanUserName, deviceId, deviceToken);
     }
 
-    // Inscrire/actualiser l'utilisateur sans données personnelles
-    const user = await Users.findByPk(userId);
-    if (!user) {
-      await Users.create({
-        id: userId,
-        name: userName || `Racer_${String(userId).slice(-4)}`,
-        totalRaces: 0,
-        totalWins: 0,
-        podiums: 0,
-      });
-    }
+    // Inscrire/actualiser l'utilisateur sans données personnelles (tolérant au mode offline DB)
+    try {
+      const user = await Users.findByPk(userId);
+      if (!user) {
+        await Users.create({
+          id: userId,
+          name: cleanUserName || `Racer_${String(userId).slice(-4)}`,
+          totalRaces: 0,
+          totalWins: 0,
+          podiums: 0,
+        });
+      }
+    } catch {}
 
     const payload = await buildPublicRacePayload();
     res.status(200).json({

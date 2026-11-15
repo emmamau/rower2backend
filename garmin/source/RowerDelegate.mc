@@ -82,7 +82,7 @@ class RowerDelegate extends WatchUi.BehaviorDelegate {
                     _view.setRaceMode("race");
                     _bleDelegate.joinNextRaceWaiting();
                 } else if (menuIdx == 1) {
-                    // 2. Rejoindre un salon (code unique à 5 caractères)
+                    // 2. Entrer un code pin (code unique à 5 caractères)
                     _view.resetPairingDigits();
                     _view.setAppState(RowerView.STATE_PAIRING_INPUT);
                 } else if (menuIdx == 2) {
@@ -313,11 +313,14 @@ class RowerDelegate extends WatchUi.BehaviorDelegate {
         } else if (state == RowerView.STATE_PIN_INPUT) {
             return _roomPinPickerDelegate.onBack();
         } else if (state == RowerView.STATE_LATE_CHOICE || state == RowerView.STATE_LOBBY ||
-                   state == RowerView.STATE_WAITING_START || state == RowerView.STATE_HISTORY ||
-                   state == RowerView.STATE_FINISHED || state == RowerView.STATE_PENDING_APPROVAL) {
+                   state == RowerView.STATE_WAITING_START || state == RowerView.STATE_PENDING_APPROVAL) {
+            _bleDelegate.leaveCurrentRaceOrSalon();
+            return true;
+        } else if (state == RowerView.STATE_HISTORY || state == RowerView.STATE_FINISHED) {
             _view.setAppState(RowerView.STATE_MENU);
             return true;
         } else if (state == RowerView.STATE_COUNTDOWN_5S) {
+            _bleDelegate.leaveCurrentRaceOrSalon();
             return true;
         } else if (state == RowerView.STATE_RACING || state == RowerView.STATE_LATE_JOIN) {
             _bleDelegate.pauseSession();

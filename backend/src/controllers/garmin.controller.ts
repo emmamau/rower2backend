@@ -355,6 +355,7 @@ export class GarminController {
         isSolo: Boolean(race.isSolo),
         gameMode: race.gameMode || (race.isSolo ? "solo" : race.isBotDuel ? "bot_duel" : race.isDuel1v1 ? "duel_1v1" : "multi"),
         hasBots: Boolean(race.hasBots || race.isBotDuel),
+        totalParticipants: race.totalParticipants || (race.participants ? race.participants.size : 1),
         waitingStatusMessage,
         message: welcomeMessage
       });

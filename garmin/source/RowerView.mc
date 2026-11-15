@@ -309,7 +309,7 @@ class RowerView extends WatchUi.View {
 
     public function getMainMenuItemCount() as Number {
         if (UserManager.isPaired()) {
-            return 4; // 0: Course Publique, 1: Rejoindre un salon, 2: Pseudo/Compte, 3: Historique
+            return 4; // 0: Course Publique, 1: Entrer un code pin, 2: Pseudo/Compte, 3: Historique
         }
         return 3; // 0: Entrer un code, 1: Pseudo, 2: Historique
     }
@@ -1211,7 +1211,7 @@ class RowerView extends WatchUi.View {
                     titleCol = COL_GOOD;
                 }
             } else if (_privateGameMode.equals("multi")) {
-                instructionTitle = "SALON MULTI-JOUEURS";
+                instructionTitle = "SALON";
                 instructionSub = "En attente organisateur";
                 titleCol = COL_WARN;
             }

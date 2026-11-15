@@ -330,8 +330,10 @@ export class TelemetryController {
             joinedAt: new Date(),
             country
           });
+          const incomingDevId = String(body.deviceId || "").trim() || undefined;
+          const incomingDevToken = rawToken || undefined;
           if (matchedRace.type === "PUBLIC_HOURLY" && (matchedRace.status === "LOBBY" || matchedRace.status === "COUNTDOWN")) {
-            raceManager.notifyPlayerJoinedPublic(userId);
+            raceManager.notifyPlayerJoinedPublic(userId, resolvedUserName || body.userName, incomingDevId, incomingDevToken);
           }
         } else if (actualPower > 0 || actualSpm > 0) {
           const existingP = matchedRace.participants.get(userId);

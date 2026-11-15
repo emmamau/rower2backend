@@ -2080,6 +2080,47 @@ export class AppComponent implements OnInit, OnDestroy {
     this.cdr.markForCheck();
   }
 
+  onKayakClaimed(userId: string): void {
+    if (!userId) return;
+    this.activeUserId = userId;
+    this.userIdInput = userId;
+    this.selectedSpectatorUserId = '';
+    this.selectedCockpitPlayerId = userId;
+    try {
+      localStorage.setItem('rower_user_id', userId);
+    } catch {}
+
+    const racer = (this.liveMetricsList.find(r => r.userId === userId) || this.racers.find(r => r.userId === userId)) as any;
+    if (racer) {
+      this.myAssignedLane = racer.lane || null;
+      const racerName = racer.name || racer.userName;
+      if (racerName) {
+        this.currentUser.name = racerName;
+        this.userLoginInput = racerName;
+        try {
+          localStorage.setItem('rower_user_login', racerName);
+        } catch {}
+      }
+      this.myActivity = {
+        id: racer.id || `${this.nextRaceInfo?.race?.id || 'race'}_${userId}`,
+        activityId: this.nextRaceInfo?.race?.id || '',
+        userId: userId,
+        userName: racerName || userId,
+        netDistance: racer.dist ?? racer.netDistance ?? 0,
+        currentDistance: racer.dist ?? racer.currentDistance ?? 0,
+        lastPower: racer.watts ?? racer.lastPower ?? 0,
+        lastStrokeRate: racer.spm ?? racer.lastStrokeRate ?? 0,
+        lastPace: racer.split ?? racer.lastPace ?? 0,
+        avgPower: racer.watts ?? racer.avgPower ?? 0,
+        avgPace: racer.split ?? racer.avgPace ?? 0,
+        avgStrokeRate: racer.spm ?? racer.avgStrokeRate ?? 0,
+        status: racer.status || 'in_progress',
+        elapsedTime: 0
+      } as any;
+    }
+    this.cdr.markForCheck();
+  }
+
   onSelectCockpitPlayer(userId: string): void {
     this.onSpectatorSelect(userId);
   }

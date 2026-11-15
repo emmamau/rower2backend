@@ -1687,7 +1687,8 @@
             [targetDistance]="nextRaceInfo?.race?.targetDistance || 2000"
             [activeUserId]="activeUserId"
             [focusedUserId]="selectedSpectatorUserId"
-            (racerSelected)="onSpectatorSelect($event)">
+            (racerSelected)="onSpectatorSelect($event)"
+            (kayakClaimed)="onKayakClaimed($event)">
           </app-regatta-canvas>
         </div>
       </section>
@@ -2317,7 +2318,9 @@
             <app-regatta-canvas
               [racers]="liveMetricsList"
               [targetDistance]="nextRaceInfo?.race?.targetDistance || 2000"
-              [activeUserId]="activeUserId">
+              [activeUserId]="activeUserId"
+              (racerSelected)="onSpectatorSelect($event)"
+              (kayakClaimed)="onKayakClaimed($event)">
             </app-regatta-canvas>
           </div>
 

@@ -131,12 +131,12 @@ module I18n {
             return "Public Race";
         }
         if (key.equals("MENU_PRIVATE")) {
-            if (_currentLang == LANG_FR) { return "Rejoindre un salon"; }
-            if (_currentLang == LANG_DE) { return "Raum beitreten"; }
-            if (_currentLang == LANG_ES) { return "Unirse a una sala"; }
-            if (_currentLang == LANG_IT) { return "Entra in una stanza"; }
-            if (_currentLang == LANG_PT) { return "Entrar numa sala"; }
-            return "Join a Room";
+            if (_currentLang == LANG_FR) { return "Entrer un code pin"; }
+            if (_currentLang == LANG_DE) { return "PIN-Code eingeben"; }
+            if (_currentLang == LANG_ES) { return "Introducir codigo PIN"; }
+            if (_currentLang == LANG_IT) { return "Inserisci codice PIN"; }
+            if (_currentLang == LANG_PT) { return "Introduzir codigo PIN"; }
+            return "Enter a PIN code";
         }
         if (key.equals("MENU_SOLO")) {
             if (_currentLang == LANG_FR) { return "Ramer en Solo"; }
@@ -256,12 +256,12 @@ module I18n {
 
         // --- G3: PIN INPUT ---
         if (key.equals("PIN_TITLE")) {
-            if (_currentLang == LANG_FR) { return "REJOINDRE UN SALON"; }
-            if (_currentLang == LANG_DE) { return "RAUM BEITRETEN"; }
-            if (_currentLang == LANG_ES) { return "UNIRSE A UNA SALA"; }
-            if (_currentLang == LANG_IT) { return "ENTRA IN UNA STANZA"; }
-            if (_currentLang == LANG_PT) { return "ENTRAR NUMA SALA"; }
-            return "JOIN A ROOM";
+            if (_currentLang == LANG_FR) { return "ENTRER UN CODE PIN"; }
+            if (_currentLang == LANG_DE) { return "PIN-CODE EINGEBEN"; }
+            if (_currentLang == LANG_ES) { return "INTRODUCIR CODIGO PIN"; }
+            if (_currentLang == LANG_IT) { return "INSERISCI CODICE PIN"; }
+            if (_currentLang == LANG_PT) { return "INTRODUZIR CODIGO PIN"; }
+            return "ENTER PIN CODE";
         }
         if (key.equals("PIN_SUB")) {
             if (_currentLang == LANG_FR) { return "Code PIN alphanumerique (5 car.)"; }

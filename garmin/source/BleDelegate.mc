@@ -949,7 +949,7 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
                         _pendingStrokeSync = false;
                         _lastFallbackSendSec = _tickCounter;
                         _syncManager.syncActivity(
-                            _activityId, _userId, _userId, _raceMode,
+                            _activityId, _userId, UserManager.getDisplayPseudo(), _raceMode,
                             _activityStatus, _targetDistance, _model,
                             _model.deviceName, false
                         );
@@ -1323,7 +1323,7 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
 
                 if (shouldSend) {
                     _syncManager.syncActivity(
-                        _activityId, _userId, _userId, _raceMode,
+                        _activityId, _userId, UserManager.getDisplayPseudo(), _raceMode,
                         _activityStatus, _targetDistance, _model,
                         _model.deviceName, false
                     );
@@ -1384,7 +1384,8 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
     // =========================================================================
 
     public function isInPrivateRace() as Boolean {
-        return (_activityId != null && _activityId.find("PRIV_") != null);
+        var viewIsPriv = (_view != null && (_view as RowerView).isPrivateSalon());
+        return viewIsPriv || (_activityId != null && (_activityId.find("PRIV_") != null || _activityId.find("solo") != null));
     }
 
     public function getActivityId() as String {
@@ -1438,6 +1439,13 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
                 players = 2;
             } else if (data.hasKey("totalParticipants") && data.get("totalParticipants") != null) {
                 players = data.get("totalParticipants") as Number;
+            } else if (data.hasKey("race") && data.get("race") instanceof Dictionary) {
+                var rDictP = data.get("race") as Dictionary;
+                if (rDictP.hasKey("totalParticipants") && rDictP.get("totalParticipants") != null) {
+                    players = rDictP.get("totalParticipants") as Number;
+                } else {
+                    players = 1;
+                }
             } else {
                 players = 1;
             }
@@ -1523,11 +1531,16 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
         _raceMode = "race";
         _activityStatus = "waiting";
         _isWaitingForReadyOrHost = false;
+        _activityId = "";
+        _isBotDuel = false;
         if (_view != null) {
-            (_view as RowerView).setIsLateJoiner(false);
-            (_view as RowerView).setAppState(RowerView.STATE_WAITING_START);
+            var view = _view as RowerView;
+            view.setPrivateSalonMode(false, "");
+            view.setIsLateJoiner(false);
+            view.setAppState(RowerView.STATE_WAITING_START);
         }
-        _syncManager.joinRace(_userId, _userId, "join");
+        var displayPseudo = UserManager.getDisplayPseudo();
+        _syncManager.joinRace(_userId, displayPseudo, "join");
         _syncManager.fetchUserProfile(_userId);
     }
 
@@ -1565,7 +1578,8 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
         if (_view != null) {
             (_view as RowerView).setIsLateJoiner(true);
         }
-        _syncManager.joinRace(_userId, _userId, "join_late");
+        var displayPseudo = UserManager.getDisplayPseudo();
+        _syncManager.joinRace(_userId, displayPseudo, "join_late");
         launchSessionNow();
     }
 
@@ -1576,7 +1590,8 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
             (_view as RowerView).setIsLateJoiner(false);
             (_view as RowerView).setAppState(RowerView.STATE_WAITING_START);
         }
-        _syncManager.joinRace(_userId, _userId, "wait_next");
+        var displayPseudo = UserManager.getDisplayPseudo();
+        _syncManager.joinRace(_userId, displayPseudo, "wait_next");
     }
 
     public function startSoloSession() as Void {
@@ -1675,7 +1690,7 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
 
         if (_raceMode.equals("race") && _activityId.length() > 0) {
             _syncManager.syncActivity(
-                _activityId, _userId, _userId, _raceMode,
+                _activityId, _userId, UserManager.getDisplayPseudo(), _raceMode,
                 _activityStatus, _targetDistance, _model,
                 _model.deviceName, true
             );
@@ -1700,7 +1715,7 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
 
         if (_raceMode.equals("race") && _activityId.length() > 0) {
             _syncManager.syncActivity(
-                _activityId, _userId, _userId, _raceMode,
+                _activityId, _userId, UserManager.getDisplayPseudo(), _raceMode,
                 _activityStatus, _targetDistance, _model,
                 _model.deviceName, true
             );
@@ -1708,6 +1723,47 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
 
         if (_view != null) {
             (_view as RowerView).setFinishResultsEx(99, [] as Array<Dictionary>, true);
+        }
+    }
+
+    public function leaveCurrentRaceOrSalon() as Void {
+        if (_session != null) {
+            try {
+                if ((_session as ActivityRecording.Session).isRecording()) {
+                    (_session as ActivityRecording.Session).stop();
+                }
+                (_session as ActivityRecording.Session).discard();
+            } catch (e) {
+            }
+            _session = null;
+        }
+        _model.resetMetrics();
+        _activityStatus = "abandoned";
+
+        var isPriv = isInPrivateRace();
+        var actId = _activityId;
+
+        if (isPriv && actId.length() > 0) {
+            _syncManager.leaveRoom(actId, _userId);
+        } else if (_raceMode.equals("race") && actId.length() > 0) {
+            _syncManager.syncActivity(
+                actId, _userId, UserManager.getDisplayPseudo(), _raceMode,
+                "abandoned", _targetDistance, _model,
+                _model.deviceName, true
+            );
+        }
+
+        _activityId = "";
+        _isWaitingForReadyOrHost = false;
+        _isBotDuel = false;
+        _raceMode = "race";
+
+        if (_view != null) {
+            var view = _view as RowerView;
+            view.setPrivateSalonMode(false, "");
+            view.setAssignedLane(1);
+            view.setBotsEnabled(false);
+            view.setAppState(RowerView.STATE_MENU);
         }
     }
 

@@ -163,6 +163,15 @@ export class SessionService {
     guestPairingToken?: string;
     message: string;
     race?: any;
+    id?: string;
+    raceId?: string;
+    targetDistance?: number;
+    totalParticipants?: number;
+    isSolo?: boolean;
+    isBotDuel?: boolean;
+    isDuel1v1?: boolean;
+    gameMode?: string;
+    waitingStatusMessage?: string;
   }> {
     const cleanCode = String(code || "").trim().toUpperCase();
     const cleanDeviceId = String(deviceId || "GARMIN_DEVICE").trim();
@@ -209,6 +218,7 @@ export class SessionService {
           bypassApproval: true,
         });
 
+        const totalParticipants = race.totalParticipants || (race.participants ? race.participants.size : 1);
         return {
           success: true,
           deviceToken: paired.deviceToken,
@@ -217,6 +227,15 @@ export class SessionService {
           lane,
           userId,
           roomId: race.id,
+          id: race.id,
+          raceId: race.id,
+          targetDistance: race.targetDistance,
+          totalParticipants,
+          isSolo: Boolean(race.isSolo),
+          isBotDuel: Boolean(race.isBotDuel),
+          isDuel1v1: Boolean(race.isDuel1v1),
+          gameMode: race.gameMode || (race.isSolo ? "solo" : race.isBotDuel ? "bot_duel" : race.isDuel1v1 ? "duel_1v1" : "multi"),
+          waitingStatusMessage: `Ligne ${lane} attribuée - Donnez un coup de rame pour réveiller le rameur`,
           message: `Bienvenue ${guestName} ! Ligne ${lane} attribuée`,
           race,
         };
@@ -342,6 +361,15 @@ export class SessionService {
     // Retrait du code actif pour garantir l'atomicité
     this.codes.delete(cleanCode);
 
+    let attachedRace: any = null;
+    let roomTotalParticipants: number | undefined = undefined;
+    if (roomId) {
+      attachedRace = raceManager.getRaceById(roomId);
+      if (attachedRace) {
+        roomTotalParticipants = attachedRace.totalParticipants || (attachedRace.participants ? attachedRace.participants.size : 1);
+      }
+    }
+
     return {
       success: true,
       deviceToken,
@@ -350,8 +378,18 @@ export class SessionService {
       lane,
       userId: targetUserId,
       roomId,
+      id: roomId || undefined,
+      raceId: roomId || undefined,
+      targetDistance: attachedRace?.targetDistance,
+      totalParticipants: roomTotalParticipants,
+      isSolo: Boolean(attachedRace?.isSolo),
+      isBotDuel: Boolean(attachedRace?.isBotDuel),
+      isDuel1v1: Boolean(attachedRace?.isDuel1v1),
+      gameMode: attachedRace?.gameMode || (attachedRace?.isSolo ? "solo" : attachedRace?.isBotDuel ? "bot_duel" : attachedRace?.isDuel1v1 ? "duel_1v1" : (mode === "room" ? "multi" : undefined)),
+      waitingStatusMessage: `Ligne ${lane} attribuée - Donnez un coup de rame pour réveiller le rameur`,
       guestPairingToken: context.guestPairingToken,
       message: `Bienvenue ${playerName} ! Mode ${mode} activé (Ligne ${lane})`,
+      race: attachedRace || undefined,
     };
   }
 

@@ -59,8 +59,13 @@ class RestSyncManager {
         var payload = {
             "userId" => userId,
             "userName" => userName,
+            "deviceId" => UserManager.getDeviceId(),
             "action" => (action != null) ? action : "join"
         };
+        var devToken = UserManager.getDeviceToken();
+        if (devToken != null && (devToken as String).length() > 0) {
+            payload.put("deviceToken", devToken);
+        }
         var options = {
             :method => Communications.HTTP_REQUEST_METHOD_POST,
             :headers => {
@@ -267,6 +272,7 @@ class RestSyncManager {
         if (devToken != null && (devToken as String).length() > 0) {
             payload.put("deviceToken", devToken);
         }
+        payload.put("deviceId", UserManager.getDeviceId());
 
         if (deviceName != null) {
             payload.put("deviceName", deviceName);
@@ -552,5 +558,46 @@ class RestSyncManager {
         if (_delegate != null) {
             (_delegate as BleDelegate).onApprovalStatusResponse(responseCode, data);
         }
+    }
+
+    // Leave / abandon private room (POST /api/rooms/leave)
+    function leaveRoom(roomId as String, userId as String) as Void {
+        if (roomId == null || roomId.length() == 0) {
+            return;
+        }
+        var endpoint = getBaseUrl() + "/api/rooms/leave";
+        var devToken = UserManager.getDeviceToken();
+        var payload = {
+            "roomId" => roomId,
+            "code" => roomId,
+            "userId" => userId
+        };
+        if (devToken != null && (devToken as String).length() > 0) {
+            payload.put("deviceToken", devToken);
+        }
+
+        var headers = {
+            "Content-Type" => Communications.REQUEST_CONTENT_TYPE_JSON
+        };
+        if (devToken != null && (devToken as String).length() > 0) {
+            headers.put("Authorization", "Bearer " + (devToken as String));
+        }
+
+        var options = {
+            :method => Communications.HTTP_REQUEST_METHOD_POST,
+            :headers => headers,
+            :responseType => Communications.HTTP_RESPONSE_CONTENT_TYPE_JSON
+        };
+
+        Communications.makeWebRequest(
+            endpoint,
+            payload,
+            options,
+            method(:onLeaveRoomResponse)
+        );
+    }
+
+    function onLeaveRoomResponse(responseCode as Number, data as Dictionary or String or Null) as Void {
+        // Silently handled or logged
     }
 }

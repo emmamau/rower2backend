@@ -20,6 +20,7 @@ export interface PrivateParticipantInfo {
   connectionState?: "CONNECTED" | "READY";
   socketId?: string;
   deviceToken?: string;
+  deviceId?: string;
 }
 
 export interface GuestBoardingTicket {
@@ -878,16 +879,45 @@ export class RaceManager {
     return this.currentPublicRace;
   }
 
-  public notifyPlayerJoinedPublic(userId: string): void {
+  public notifyPlayerJoinedPublic(userId: string, userName?: string, deviceId?: string, deviceToken?: string): void {
     if (!this.currentPublicRace || !userId) return;
     if (this.currentPublicRace.status === "LOBBY" || this.currentPublicRace.status === "COUNTDOWN") {
       if (!this.currentPublicRace.participants) {
         this.currentPublicRace.participants = new Map();
       }
+
+      // DÉDOUBLONNAGE STRICT : Éviter qu'un joueur ou une même montre n'occupe 2 lignes d'eau
+      const cleanDeviceId = deviceId ? String(deviceId).trim() : undefined;
+      const cleanDeviceToken = deviceToken ? String(deviceToken).trim() : undefined;
+      const cleanName = userName && userName.trim().length > 0 && userName.trim() !== "Rameur_42"
+        ? userName.trim()
+        : `Racer_${userId.slice(-4)}`;
+
+      // Recherche d'un éventuel doublon antérieur pour cette même montre physique ou ce même utilisateur
+      for (const [existingId, p] of this.currentPublicRace.participants.entries()) {
+        if (existingId !== userId) {
+          const matchDevice = Boolean(cleanDeviceId && p.deviceId && p.deviceId === cleanDeviceId);
+          const matchToken = Boolean(cleanDeviceToken && p.deviceToken && p.deviceToken === cleanDeviceToken);
+          // Si même montre physique ou même token de session/device
+          if (matchDevice || matchToken) {
+            console.log(`[RaceManager] Détection tentative multiple pour montre ${cleanDeviceId}. Remplacement de ${existingId} par ${userId}`);
+            this.currentPublicRace.participants.delete(existingId);
+            // Libération asynchrone de l'ancienne activité en DB
+            Activities.update(
+              { status: "abandoned" },
+              { where: { activityId: this.currentPublicRace.id, userId: existingId } }
+            ).catch(() => {});
+          }
+        }
+      }
+
+      const existingPart = this.currentPublicRace.participants.get(userId);
       this.currentPublicRace.participants.set(userId, {
         userId,
-        userName: `Racer_${userId.slice(-4)}`,
-        joinedAt: new Date()
+        userName: cleanName || existingPart?.userName || `Racer_${userId.slice(-4)}`,
+        joinedAt: existingPart?.joinedAt || new Date(),
+        deviceId: cleanDeviceId || existingPart?.deviceId,
+        deviceToken: cleanDeviceToken || existingPart?.deviceToken
       });
 
       const maxParticipants = this.currentPublicRace.maxParticipants || this.adminPublicRaceConfig.maxParticipants || 20;
@@ -2179,15 +2209,13 @@ export class RaceManager {
       race.pendingParticipants.delete(cleanUserId);
     }
 
-    // Si la course est en cours (RUNNING), marquer l'activité de ce joueur en abandoned
-    if (race.status === "RUNNING") {
-      (Activities as any).update(
-        { status: "abandoned", speed: 0, powerWatts: 0, strokeRate: 0 },
-        { where: { activityId: race.id, userId: cleanUserId } }
-      ).catch((err: any) => {
-        console.error(`[RaceManager] Error marking activity abandoned for user ${cleanUserId} in race ${race.id}:`, err);
-      });
-    }
+    // Marquer l'activité de ce joueur en abandoned (qu'elle soit RUNNING ou en attente LOBBY)
+    (Activities as any).update(
+      { status: "abandoned", speed: 0, powerWatts: 0, strokeRate: 0 },
+      { where: { activityId: race.id, userId: cleanUserId } }
+    ).catch((err: any) => {
+      console.error(`[RaceManager] Error marking activity abandoned for user ${cleanUserId} in race ${race.id}:`, err);
+    });
 
     const remainingParticipants = race.participants ? race.participants.size : 0;
     race.totalParticipants = remainingParticipants;

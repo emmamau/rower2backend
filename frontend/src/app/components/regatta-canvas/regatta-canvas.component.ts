@@ -34,7 +34,36 @@ interface BoatRenderState {
   imports: [CommonModule],
   template: `
     <div #wrapperEl class="canvas-wrapper">
-      <canvas #raceCanvas></canvas>
+      <canvas #raceCanvas (click)="onCanvasClick($event)"></canvas>
+
+      <!-- Panneau contextuel de sélection de kayak -->
+      <div
+        class="kayak-claim-popup"
+        *ngIf="selectedKayakForClaim"
+        [style.left.px]="claimPopupPos.x"
+        [style.top.px]="claimPopupPos.y">
+        <div class="popup-title">🛶 Couloir L{{ selectedKayakForClaim.lane }} : {{ selectedKayakForClaim.name }}</div>
+        <div class="popup-actions">
+          <button
+            type="button"
+            class="btn-claim-me"
+            (click)="claimSelectedKayak(selectedKayakForClaim.userId)">
+            ★ C'est mon kayak
+          </button>
+          <button
+            type="button"
+            class="btn-spectate"
+            (click)="selectRacerToFollow(selectedKayakForClaim.userId); selectedKayakForClaim = null;">
+            👁 Suivre
+          </button>
+          <button
+            type="button"
+            class="btn-close-popup"
+            (click)="selectedKayakForClaim = null">
+            ✕
+          </button>
+        </div>
+      </div>
 
       <!-- Mini-leaderboard rétractable avec classements et écarts temps réel -->
       <div
@@ -248,6 +277,57 @@ interface BoatRenderState {
       color: #4ade80;
       font-weight: 700;
     }
+    .kayak-claim-popup {
+      position: absolute;
+      z-index: 60;
+      background: rgba(6, 15, 33, 0.96);
+      border: 1px solid #00f0ff;
+      border-radius: 8px;
+      padding: 8px 12px;
+      box-shadow: 0 4px 20px rgba(0, 240, 255, 0.4);
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-size: 11px;
+      backdrop-filter: blur(8px);
+    }
+    .popup-title {
+      font-weight: 700;
+      color: #e2e8f0;
+      white-space: nowrap;
+    }
+    .popup-actions {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+    .btn-claim-me {
+      background: #00f0ff;
+      color: #060d1d;
+      border: none;
+      border-radius: 4px;
+      padding: 4px 8px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+    .btn-claim-me:hover {
+      background: #ffe600;
+    }
+    .btn-spectate {
+      background: rgba(255, 255, 255, 0.15);
+      color: #ffffff;
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      border-radius: 4px;
+      padding: 4px 8px;
+      cursor: pointer;
+    }
+    .btn-close-popup {
+      background: transparent;
+      border: none;
+      color: #94a3b8;
+      cursor: pointer;
+      padding: 2px 4px;
+    }
   `]
 })
 export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChanges {
@@ -259,6 +339,10 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
   @Input() activeUserId = '';
   @Input() focusedUserId = '';
   @Output() racerSelected = new EventEmitter<string>();
+  @Output() kayakClaimed = new EventEmitter<string>();
+
+  public selectedKayakForClaim: BoatRenderState | null = null;
+  public claimPopupPos = { x: 50, y: 50 };
 
   protected Math = Math;
   public isLeaderboardCollapsed = true;
@@ -497,6 +581,61 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
 
   public selectRacerToFollow(userId: string): void {
     this.racerSelected.emit(userId);
+  }
+
+  public claimSelectedKayak(userId: string): void {
+    this.kayakClaimed.emit(userId);
+    this.selectedKayakForClaim = null;
+  }
+
+  public onCanvasClick(event: MouseEvent): void {
+    const canvas = this.canvasRef?.nativeElement;
+    const wrapper = this.wrapperRef?.nativeElement;
+    if (!canvas || !wrapper || this.boatsMap.size === 0) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const clickX = event.clientX - rect.left;
+    const clickY = event.clientY - rect.top;
+
+    const isCompact = this.cssWidth < 520;
+    const marginX = isCompact ? 32 : 64;
+    const rightPad = isCompact ? 24 : 40;
+    const trackW = Math.max(120, this.cssWidth - marginX - rightPad);
+    const boatCount = Math.max(1, this.boatsMap.size);
+
+    const isSmallLandscape = (typeof window !== 'undefined' && window.innerHeight <= 500) || this.cssHeight <= 320;
+    const topOffset = isSmallLandscape ? 16 : (isCompact ? 22 : 36);
+    const bottomPad = isSmallLandscape ? 8 : (isCompact ? 12 : 20);
+    const availableLaneH = Math.max(20, this.cssHeight - topOffset - bottomPad);
+    const maxLaneH = isSmallLandscape ? 38 : 46;
+    const laneH = Math.max(isSmallLandscape ? 6 : 12, Math.min(maxLaneH, availableLaneH / boatCount));
+
+    let laneIdx = 0;
+    let foundBoat: BoatRenderState | null = null;
+
+    for (const boat of this.boatsMap.values()) {
+      const y = topOffset + (laneIdx + 0.5) * laneH;
+      const progress = Math.min(1.0, Math.max(0, boat.currentDisplayDist / (this.targetDistance || 2000)));
+      const rawX = marginX + trackW * progress;
+      const x = rawX - this.cameraX;
+
+      // Détection de proximité sur le couloir ou le kayak (+/- 25px en X, +/- laneH/2 en Y)
+      if (Math.abs(clickY - y) <= laneH * 0.75 && Math.abs(clickX - x) <= 60) {
+        foundBoat = boat;
+        break;
+      }
+      laneIdx++;
+    }
+
+    if (foundBoat) {
+      this.selectedKayakForClaim = foundBoat;
+      this.claimPopupPos = {
+        x: Math.max(10, Math.min(this.cssWidth - 220, clickX - 80)),
+        y: Math.max(10, Math.min(this.cssHeight - 80, clickY - 45))
+      };
+    } else {
+      this.selectedKayakForClaim = null;
+    }
   }
 
   private onResize = () => {

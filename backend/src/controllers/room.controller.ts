@@ -468,11 +468,15 @@ export class RoomController {
         ? timing.secondsUntilStart
         : 0;
 
+      const totalParticipants = race.totalParticipants || (race.participants ? race.participants.size : 1);
+
       res.status(200).json({
         success: true,
         raceId: race.id,
+        id: race.id,
         userId: participant?.userId || resolvedUserId,
         lane: participant?.lane || 1,
+        totalParticipants,
         ready: Boolean(ready),
         connectionState: ready ? "READY" : "CONNECTED",
         allReady,
