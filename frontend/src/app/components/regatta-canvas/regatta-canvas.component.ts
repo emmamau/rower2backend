@@ -24,6 +24,7 @@ interface BoatRenderState {
   spm: number;
   lastPacketTime: number;
   color: string;
+  status?: string;
   ready?: boolean;
   connectionState?: 'CONNECTED' | 'READY';
 }
@@ -680,31 +681,44 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
 
     this.racers.forEach((r, idx) => {
       activeIds.add(r.userId);
+      const clampedDist = this.targetDistance > 0
+        ? Math.min(this.targetDistance, Math.round(r.dist || 0))
+        : Math.round(r.dist || 0);
+      const isFinished = r.status === 'finished' || (this.targetDistance > 0 && clampedDist >= this.targetDistance);
+      const effectiveDist = isFinished && this.targetDistance > 0 ? this.targetDistance : clampedDist;
+
       let boat = this.boatsMap.get(r.userId);
       if (!boat) {
         boat = {
           userId: r.userId,
           name: r.name,
           lane: r.lane || idx + 1,
-          currentDisplayDist: r.dist || 0,
-          targetPacketDist: r.dist || 0,
+          currentDisplayDist: effectiveDist,
+          targetPacketDist: effectiveDist,
           splitSec: r.split || 120,
           watts: r.watts || 0,
           spm: r.spm || 0,
           lastPacketTime: now,
           color: this.boatColors[idx % this.boatColors.length],
+          status: isFinished ? 'finished' : r.status,
           ready: r.ready !== undefined ? r.ready : (r.connectionState !== 'CONNECTED'),
           connectionState: r.connectionState || (r.ready === false ? 'CONNECTED' : 'READY')
         };
         this.boatsMap.set(r.userId, boat);
       } else {
         boat.name = r.name;
+        boat.status = isFinished ? 'finished' : r.status;
         // Protection anti-recul : la distance cible ne régresse jamais, sauf réinitialisation de course (r.dist === 0)
-        if ((r.dist || 0) === 0 && boat.targetPacketDist > 50) {
+        if ((r.dist || 0) === 0 && boat.targetPacketDist > 50 && !isFinished) {
           boat.targetPacketDist = 0;
           boat.currentDisplayDist = 0;
+        } else if (isFinished && this.targetDistance > 0) {
+          boat.targetPacketDist = this.targetDistance;
+          boat.currentDisplayDist = this.targetDistance;
         } else {
-          boat.targetPacketDist = Math.max(boat.targetPacketDist, r.dist || 0);
+          boat.targetPacketDist = this.targetDistance > 0
+            ? Math.min(this.targetDistance, Math.max(boat.targetPacketDist, effectiveDist))
+            : Math.max(boat.targetPacketDist, effectiveDist);
         }
         boat.splitSec = r.split > 0 ? r.split : boat.splitSec;
         boat.watts = r.watts;
@@ -724,7 +738,12 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
   }
 
   private updateLeaderboard(): void {
-    this.sortedLeaderboard = [...this.racers].sort((a, b) => (b.dist || 0) - (a.dist || 0));
+    this.sortedLeaderboard = [...this.racers].sort((a, b) => {
+      const isFinA = a.status === 'finished' || (this.targetDistance > 0 && (a.dist || 0) >= this.targetDistance) ? 1 : 0;
+      const isFinB = b.status === 'finished' || (this.targetDistance > 0 && (b.dist || 0) >= this.targetDistance) ? 1 : 0;
+      if (isFinA !== isFinB) return isFinB - isFinA;
+      return (b.dist || 0) - (a.dist || 0);
+    });
   }
 
   private startRenderLoop = () => {
@@ -740,21 +759,29 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
     this.animFrameId = requestAnimationFrame(render);
   };
 
-  private updateBoatsPhysics(deltaT: number): void {
+  private updateBoatsPhysics(_deltaT: number): void {
     this.boatsMap.forEach((boat) => {
-      const vInst = boat.splitSec > 0 && boat.spm > 0 ? 500 / boat.splitSec : 0;
-      const predictedDist = Math.max(boat.targetPacketDist, boat.targetPacketDist + vInst * deltaT);
-      boat.targetPacketDist = predictedDist;
+      if (boat.status === 'finished' || (this.targetDistance > 0 && boat.targetPacketDist >= this.targetDistance)) {
+        if (this.targetDistance > 0) {
+          boat.targetPacketDist = this.targetDistance;
+          boat.currentDisplayDist = this.targetDistance;
+        }
+        return;
+      }
 
       const prevDisplay = boat.currentDisplayDist;
       const diff = boat.targetPacketDist - boat.currentDisplayDist;
       if (diff > 0) {
-        boat.currentDisplayDist += diff * 0.12;
+        if (diff < 0.8) {
+          boat.currentDisplayDist = boat.targetPacketDist;
+        } else {
+          boat.currentDisplayDist = Math.min(boat.targetPacketDist, boat.currentDisplayDist + Math.max(0.15, diff * 0.30));
+        }
       }
       // Règle d'or : le kayak ne recule jamais sur l'eau (monotonie absolue)
       boat.currentDisplayDist = Math.max(prevDisplay, boat.currentDisplayDist);
 
-      if (boat.currentDisplayDist > this.targetDistance) {
+      if (this.targetDistance > 0 && boat.currentDisplayDist > this.targetDistance) {
         boat.currentDisplayDist = this.targetDistance;
       }
     });
@@ -1031,8 +1058,8 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
         ctx.closePath();
         ctx.fill();
 
-        // Bannière avec pseudo en surbrillance
-        const bannerLabel = `${isUser ? '★ VOUS' : '👁 SUIVI'} : ${shortName} · ${Math.round(boat.currentDisplayDist)}m`;
+        // Bannière avec pseudo en surbrillance (affiche la distance officielle exacte targetPacketDist)
+        const bannerLabel = `${isUser ? '★ VOUS' : '👁 SUIVI'} : ${shortName} · ${Math.round(boat.targetPacketDist)}m`;
         ctx.font = isCompact ? 'bold 10px sans-serif' : 'bold 11px sans-serif';
         const btw = ctx.measureText(bannerLabel).width;
         const bx = Math.max(6, Math.min(w - btw - 14, x - btw / 2));
@@ -1048,8 +1075,8 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
         ctx.fillStyle = isUser ? '#00f0ff' : '#ffe600';
         ctx.fillText(bannerLabel, bx, by);
       } else {
-        // Label standard
-        const text = `${shortName} · ${Math.round(boat.currentDisplayDist)}m`;
+        // Label standard (affiche la distance officielle exacte targetPacketDist)
+        const text = `${shortName} · ${Math.round(boat.targetPacketDist)}m`;
         ctx.font = isCompact ? 'bold 10px sans-serif' : 'bold 11px sans-serif';
         ctx.fillStyle = '#ffffff';
         const tw = ctx.measureText(text).width;

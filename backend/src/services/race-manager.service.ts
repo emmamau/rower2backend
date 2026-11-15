@@ -374,13 +374,31 @@ export class RaceManager {
   }
 
   private async loadRaceActivities(raceId: string): Promise<any[]> {
+    const mergedMap = new Map<string, any>();
+    const memRows = userStore.findActivitiesByRaceId(raceId);
+    for (const m of memRows) {
+      const uid = String(typeof m.get === "function" ? m.get("userId") : m.userId);
+      if (uid) mergedMap.set(uid, m);
+    }
     try {
       const rows = (await Activities.findAll({ where: { activityId: raceId } })) as any[];
-      if (rows && rows.length > 0) return rows;
+      if (rows && rows.length > 0) {
+        for (const r of rows) {
+          const uid = String(typeof r.get === "function" ? r.get("userId") : r.userId);
+          if (uid) {
+            const mem = mergedMap.get(uid);
+            const rDist = Number((typeof r.get === "function" ? r.get("netDistance") : r.netDistance) || 0);
+            const memDist = mem ? Number((typeof mem.get === "function" ? mem.get("netDistance") : mem.netDistance) || 0) : 0;
+            if (!mem || rDist >= memDist) {
+              mergedMap.set(uid, r);
+            }
+          }
+        }
+      }
     } catch {
       // Tolérance DB hors ligne
     }
-    return userStore.findActivitiesByRaceId(raceId);
+    return Array.from(mergedMap.values());
   }
 
   /**
@@ -399,8 +417,9 @@ export class RaceManager {
       const status = bot.get("status");
       if (status !== "in_progress" && status !== "waiting") continue;
 
+      const isSalonBot = race.type === "PRIVATE_INVITE" || String(bot.get("userId") || "").startsWith("bot_salon_");
       const createdMs = bot.get("createdAt") ? new Date(bot.get("createdAt")).getTime() : startMs;
-      const botStartMs = (createdMs <= startMs + 1000) ? startMs : createdMs;
+      const botStartMs = (isSalonBot || createdMs <= startMs + 1000) ? startMs : createdMs;
       const elapsedSec = Math.max(0, (now.getTime() - botStartMs) / 1000);
       const pace = (bot.get("avgPace") as number) || (bot.get("lastPace") as number) || 120;
       const speedMs = 500 / Math.max(60, pace);
@@ -683,13 +702,16 @@ export class RaceManager {
 
       // Course planifiée : déclenchement automatique du compte à rebours 15s avant l'heure prévue
       // Verrouillé par le statut BLE "READY" de tous les compétiteurs connectés (Section 4.2 & 7.3)
-      if (race.status === "LOBBY" && race.startMode === "scheduled" && race.scheduledStartTime) {
+      if ((race.status === "LOBBY" || race.status === "COUNTDOWN") && race.startMode === "scheduled" && race.scheduledStartTime) {
         const msUntilStart = race.scheduledStartTime.getTime() - now.getTime();
+        const hasConnectedParticipants = Boolean(race.participants && race.participants.size > 0);
         const allParticipantsReady =
-          !race.participants ||
-          race.participants.size === 0 ||
-          Array.from(race.participants.values()).every((p) => p.ready !== false);
-        if (msUntilStart <= 15000 && msUntilStart > 0 && allParticipantsReady) {
+          hasConnectedParticipants &&
+          Array.from(race.participants!.values()).every((p) => p.ready !== false);
+        if (race.status === "COUNTDOWN" && !allParticipantsReady) {
+          race.status = "LOBBY";
+          race.autoStart = false;
+        } else if (race.status === "LOBBY" && msUntilStart <= 15000 && msUntilStart > 0 && allParticipantsReady) {
           race.status = "COUNTDOWN";
           race.autoStart = true;
           race.lobbyEndsAt = race.scheduledStartTime;
@@ -702,23 +724,26 @@ export class RaceManager {
 
       if ((race.status === "COUNTDOWN" || (race.status === "LOBBY" && race.autoStart)) && now >= race.lobbyEndsAt) {
         // En mode programmé, départ automatique uniquement s'il y a des participants connectés ET tous à l'état READY
-        if (race.status === "LOBBY" && race.autoStart) {
+        if ((race.status === "LOBBY" && race.autoStart) || race.startMode === "scheduled") {
           const rows = await this.loadRaceActivities(race.id);
           const hasParticipants =
             (race.participants && race.participants.size > 0) ||
             rows.some((r: any) => !r.get("isBot") && ["waiting", "in_progress"].includes(r.get("status")));
           const allParticipantsReady =
-            !race.participants ||
-            race.participants.size === 0 ||
-            Array.from(race.participants.values()).every((p) => p.ready !== false);
+            Boolean(race.participants && race.participants.size > 0) &&
+            Array.from(race.participants!.values()).every((p) => p.ready !== false);
           if (!hasParticipants || !allParticipantsReady) {
             // Pas encore de participant ou au moins un rameur en veille (CONNECTED), on laisse le lobby ouvert
+            if (race.startMode === "scheduled") {
+              race.status = "LOBBY";
+            }
             continue;
           }
         }
 
         race.status = "RUNNING";
         race.startedAt = now;
+        userStore.updateActivitiesWhere(race.id, "waiting", { status: "in_progress", updatedAt: now });
         try {
           await Races.update({ status: "in_progress", startTime: now }, { where: { id: race.id } });
           await Activities.update(
@@ -752,7 +777,11 @@ export class RaceManager {
             if (!row.get("isBot") && (row.get("status") === "in_progress" || row.get("status") === "paused")) {
               const updatedAt = row.get("updatedAt");
               if (updatedAt) {
-                const ageMs = now.getTime() - new Date(updatedAt).getTime();
+                const baselineMs = Math.max(
+                  new Date(updatedAt).getTime(),
+                  race.startedAt ? race.startedAt.getTime() : 0
+                );
+                const ageMs = now.getTime() - baselineMs;
                 if (ageMs > 25000) {
                   console.log(`[RaceManager] Rupture de flux détectée pour ${row.get("userId")} (${Math.round(ageMs / 1000)}s). Marquage Abandon (DNF).`);
                   await row.update({ status: "abandoned", speed: 0, powerWatts: 0, strokeRate: 0 } as any);
@@ -768,9 +797,16 @@ export class RaceManager {
             socketGateway.broadcastLeaderboard(race.id, RaceManager.toLiveMetrics(live, race));
 
             const nonAbandoned = live.filter((act: any) => act.get("status") !== "abandoned");
-            const allFinished = nonAbandoned.length > 0 && nonAbandoned.every(
-              (act: any) => act.get("status") === "finished" || ((act.get("netDistance") as number) || 0) >= race.targetDistance
-            );
+            const nonAbandonedHumans = nonAbandoned.filter((act: any) => !act.get("isBot"));
+            const allFinished =
+              nonAbandoned.length > 0 &&
+              (nonAbandoned.every(
+                (act: any) => act.get("status") === "finished" || ((act.get("netDistance") as number) || 0) >= race.targetDistance
+              ) ||
+                (nonAbandonedHumans.length > 0 &&
+                  nonAbandonedHumans.every(
+                    (act: any) => act.get("status") === "finished" || ((act.get("netDistance") as number) || 0) >= race.targetDistance
+                  )));
             if (allFinished) {
               await this.finishPrivateRace(race, "completed");
               continue;
@@ -796,16 +832,22 @@ export class RaceManager {
     race.status = "COMPLETED";
     race.endedAt = new Date();
     let ranking: RaceRankingEntry[] = [];
+    userStore.updateActivitiesWhere(race.id, ["in_progress", "waiting", "paused"], { status: "out_of_time" });
     try {
       await Activities.update(
         { status: "out_of_time" },
         { where: { activityId: race.id, status: { [Op.in]: ["in_progress", "waiting", "paused"] } } }
       );
+    } catch { /* ignore when DB offline */ }
+    try {
       ranking = await this.finalizeRanking(race.id);
-      await Races.update({ status: "finished" }, { where: { id: race.id } });
     } catch (err) {
       console.error(`[RaceManager] Unable to finalise private race ${race.id}:`, err);
     }
+    try {
+      await Races.update({ status: "finished" }, { where: { id: race.id } });
+    } catch { /* ignore when DB offline */ }
+    race.finalRanking = ranking;
     this.removePrivateRaceInternal(race, "COMPLETED");
     socketGateway.broadcastRaceStatus(race.id, "COMPLETED", { reason, ranking, roomClosed: true });
   }
@@ -995,36 +1037,40 @@ export class RaceManager {
       // Distribution réaliste pondérée : 60% entre 140s et 165s, 30% entre 125s et 140s, 10% entre 110s et 125s
       const botPace = generateRealisticBotPace();
       const { power, spm, speedMs } = calculateBotPhysics(botPace);
+      const botDefaults = {
+        id: compositeId,
+        activityId: raceId,
+        userId: botId,
+        userName: name,
+        isBot: true,
+        raceMode: "race",
+        targetDistance,
+        status: "waiting",
+        initialDistance: 0,
+        currentDistance: 0,
+        netDistance: 0,
+        progressPercent: 0,
+        lastStrokeRate: spm,
+        lastStrokeCount: 0,
+        lastHeartRate: 155,
+        lastResistance: 4,
+        totalStrokes: 0,
+        totalEnergy: 0,
+        lastPower: power,
+        lastPace: botPace,
+        avgPower: power,
+        avgPace: botPace,
+        avgStrokeRate: spm,
+        elapsedTime: 0,
+        avgSpeedKmh: Number((speedMs * 3.6).toFixed(1)),
+      };
+      if (!userStore.findActivityById(compositeId)) {
+        userStore.recordActivity(botDefaults);
+      }
       try {
         await Activities.findOrCreate({
           where: { id: compositeId },
-          defaults: {
-            id: compositeId,
-            activityId: raceId,
-            userId: botId,
-            userName: name,
-            isBot: true,
-            raceMode: "race",
-            targetDistance,
-            status: "waiting",
-            initialDistance: 0,
-            currentDistance: 0,
-            netDistance: 0,
-            progressPercent: 0,
-            lastStrokeRate: spm,
-            lastStrokeCount: 0,
-            lastHeartRate: 155,
-            lastResistance: 4,
-            totalStrokes: 0,
-            totalEnergy: 0,
-            lastPower: power,
-            lastPace: botPace,
-            avgPower: power,
-            avgPace: botPace,
-            avgStrokeRate: spm,
-            elapsedTime: 0,
-            avgSpeedKmh: Number((speedMs * 3.6).toFixed(1)),
-          }
+          defaults: botDefaults as any
         });
       } catch {}
     }
@@ -1050,6 +1096,7 @@ export class RaceManager {
     }
 
     let ranking: RaceRankingEntry[] = [];
+    userStore.updateActivitiesWhere(raceId, ["in_progress", "waiting", "paused"], { status: "out_of_time" });
     try {
       await Activities.update(
         { status: "out_of_time" },
@@ -1060,11 +1107,15 @@ export class RaceManager {
           }
         }
       );
+    } catch { /* ignore when DB offline */ }
+    try {
       ranking = await this.finalizeRanking(raceId);
-      await Races.update({ status: "finished" }, { where: { id: raceId } });
     } catch (err) {
       console.error(`[RaceManager] Unable to finalise race ${raceId}:`, err);
     }
+    try {
+      await Races.update({ status: "finished" }, { where: { id: raceId } });
+    } catch { /* ignore when DB offline */ }
 
     if (managed) {
       managed.finalRanking = ranking;
@@ -1299,36 +1350,40 @@ export class RaceManager {
       const name = customName || names[i % names.length];
       const botPace = botMaxPace && botMaxPace > 0 && botCount === 1 ? Math.max(110, Math.min(165, botMaxPace)) : generateRealisticBotPace();
       const { power, spm, speedMs } = calculateBotPhysics(botPace);
+      const botDefaults = {
+        id: compositeId,
+        activityId: raceId,
+        userId: botId,
+        userName: name,
+        isBot: true,
+        raceMode: "race",
+        targetDistance,
+        status: "waiting",
+        initialDistance: 0,
+        currentDistance: 0,
+        netDistance: 0,
+        progressPercent: 0,
+        lastStrokeRate: spm,
+        lastStrokeCount: 0,
+        lastHeartRate: 155,
+        lastResistance: 4,
+        totalStrokes: 0,
+        totalEnergy: 0,
+        lastPower: power,
+        lastPace: botPace,
+        avgPower: power,
+        avgPace: botPace,
+        avgStrokeRate: spm,
+        elapsedTime: 0,
+        avgSpeedKmh: Number((speedMs * 3.6).toFixed(1)),
+      };
+      if (!userStore.findActivityById(compositeId)) {
+        userStore.recordActivity(botDefaults);
+      }
       try {
         await Activities.findOrCreate({
           where: { id: compositeId },
-          defaults: {
-            id: compositeId,
-            activityId: raceId,
-            userId: botId,
-            userName: name,
-            isBot: true,
-            raceMode: "race",
-            targetDistance,
-            status: "waiting",
-            initialDistance: 0,
-            currentDistance: 0,
-            netDistance: 0,
-            progressPercent: 0,
-            lastStrokeRate: spm,
-            lastStrokeCount: 0,
-            lastHeartRate: 155,
-            lastResistance: 4,
-            totalStrokes: 0,
-            totalEnergy: 0,
-            lastPower: power,
-            lastPace: botPace,
-            avgPower: power,
-            avgPace: botPace,
-            avgStrokeRate: spm,
-            elapsedTime: 0,
-            avgSpeedKmh: Number((speedMs * 3.6).toFixed(1)),
-          }
+          defaults: botDefaults as any
         });
       } catch {}
     }
@@ -1662,9 +1717,17 @@ export class RaceManager {
         secondsUntilStart: 15,
         countdownSeconds: 15
       });
+    } else if (race.isBotDuel && (options?.viaPin || options?.isDeviceAuthenticated) && race.status === "LOBBY") {
+      const startNow = new Date();
+      race.status = "COUNTDOWN";
+      race.autoStart = true;
+      race.lobbyEndsAt = new Date(startNow.getTime() + 15 * 1000);
+      socketGateway.broadcastRaceStatus(race.id, "COUNTDOWN", {
+        lobbyEndsAt: race.lobbyEndsAt,
+        secondsUntilStart: 15,
+        countdownSeconds: 15
+      });
     }
-
-    // Remarque : Pour Solo et BotDuel, le départ n'est PAS un timer auto de 15s : c'est le joueur qui déclenche le départ au 1er coup de rame !
 
     return {
       race,
@@ -2094,6 +2157,14 @@ export class RaceManager {
       race.startedAt = undefined;
       race.endedAt = undefined;
       race.lobbyEndsAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+      userStore.updateActivitiesWhere(race.id, undefined, {
+        status: "waiting",
+        netDistance: 0,
+        currentDistance: 0,
+        progressPercent: 0,
+        elapsedTime: 0,
+        updatedAt: now
+      });
       socketGateway.broadcastRaceStatus(race.id, "LOBBY", { reset: true });
       return { race };
     }
@@ -2119,6 +2190,7 @@ export class RaceManager {
       race.startedAt = now;
       race.endedAt = undefined;
       race.lobbyEndsAt = now;
+      userStore.updateActivitiesWhere(race.id, "waiting", { status: "in_progress", updatedAt: now });
       socketGateway.broadcastRaceStatus(race.id, "RUNNING", { startedAt: now });
     } else {
       race.status = "COUNTDOWN";

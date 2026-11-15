@@ -387,22 +387,15 @@ export class AppComponent implements OnInit, OnDestroy {
     const storedDeviceToken = typeof localStorage !== 'undefined' ? localStorage.getItem('rower_device_token') : null;
     const storedIsPaired = typeof localStorage !== 'undefined' ? localStorage.getItem('rower_is_paired') === 'true' : false;
 
-    // Liaison stricte au compte actif : le statut appairé est rattaché à la session du compte connecté
-    if (!storedLogin) {
+    // Conservation de l'appairage montre qu'un compte soit connecté ou en session invité
+    if (storedIsPaired && storedDeviceToken) {
+      this.isPaired = true;
+      this.isWatchConfirmed = true;
+      this.deviceToken = storedDeviceToken;
+    } else {
       this.isPaired = false;
       this.isWatchConfirmed = false;
       this.deviceToken = '';
-      try {
-        localStorage.removeItem('rower_is_paired');
-        localStorage.removeItem('rower_watch_confirmed');
-        localStorage.removeItem('rower_device_token');
-      } catch {}
-    } else {
-      this.isPaired = storedIsPaired && !!storedDeviceToken;
-      this.isWatchConfirmed = this.isPaired;
-      if (storedDeviceToken) {
-        this.deviceToken = storedDeviceToken;
-      }
     }
 
     if (typeof localStorage !== 'undefined') {
@@ -628,17 +621,53 @@ export class AppComponent implements OnInit, OnDestroy {
           this.rowerService.getRaceLeaderboard(raceData.race.id).pipe(
             catchError(() => of({ activityId: raceData.race.id, totalParticipants: 0, leaderboard: [] }))
           ).subscribe((lb) => {
-            this.racers = lb.leaderboard;
+            const targetDist = raceData.race?.targetDistance || this.activeTargetDistance || 2000;
+            const isRaceWaitingOrCountdown = raceData.status === 'waiting' || raceData.status === 'countdown';
+
+            // Protection monotone : empêcher un poll HTTP en retard d'écraser une distance plus récente reçue via WebSocket
+            this.racers = (lb.leaderboard || []).map((r) => {
+              const existingMetric = this.liveMetricsList.find(m => m.userId === r.userId);
+              const existingRacer = this.racers.find(x => x.userId === r.userId && x.activityId === r.activityId);
+              const rawPollDist = Math.round(r.netDistance || 0);
+              const prevKnownDist = Math.round(Math.max(
+                existingMetric?.dist || 0,
+                existingRacer?.netDistance || 0,
+                r.userId === this.activeUserId && this.myActivity?.activityId === r.activityId ? (this.myActivity?.netDistance || 0) : 0
+              ));
+
+              let unifiedDist = isRaceWaitingOrCountdown && rawPollDist === 0
+                ? 0
+                : Math.max(rawPollDist, prevKnownDist);
+              if (targetDist > 0 && (unifiedDist >= targetDist || r.status === 'finished')) {
+                unifiedDist = targetDist;
+              }
+              const unifiedStatus = (targetDist > 0 && unifiedDist >= targetDist && r.status !== 'abandoned')
+                ? 'finished'
+                : r.status;
+
+              return {
+                ...r,
+                netDistance: unifiedDist,
+                currentDistance: unifiedDist,
+                status: unifiedStatus
+              };
+            });
+
             this.activeRacersCount = Math.max(raceData.totalParticipants || 0, this.racers.filter(r => r.status !== 'abandoned').length);
 
             // Calcul du classement et des écarts de distance en direct
-            const activeList = this.racers.filter(r => r.status !== 'abandoned');
+            const activeList = this.racers.filter(r => r.status !== 'abandoned').sort((a, b) => {
+              const isFinA = a.status === 'finished' ? 1 : 0;
+              const isFinB = b.status === 'finished' ? 1 : 0;
+              if (isFinA !== isFinB) return isFinB - isFinA;
+              return (b.netDistance || 0) - (a.netDistance || 0);
+            });
             this.totalActiveRacers = activeList.length;
-            const roomParts = this.activePrivateRoom?.race?.participants || [];
+            const roomParts = this.activePrivateRoom?.race?.participants || (raceData.race as any)?.participants || [];
             this.liveMetricsList = activeList.map((r, idx) => {
               const isMe = r.userId === this.activeUserId;
               const assignedLane = isMe && this.myAssignedLane ? this.myAssignedLane : ((r as any).lane || idx + 1);
-              const partInfo = roomParts.find(p => p.userId === r.userId);
+              const partInfo = roomParts.find((p: any) => p.userId === r.userId);
               const isRowerAwake = (r.lastPower || 0) > 0 || (r.lastStrokeRate || 0) > 0 || (r.netDistance || 0) > 0;
               const readyVal = partInfo && partInfo.ready !== undefined ? partInfo.ready : (isRowerAwake || Boolean(r.userId?.startsWith('bot_')));
               return {
@@ -655,15 +684,19 @@ export class AppComponent implements OnInit, OnDestroy {
                 connectionState: readyVal ? 'READY' : 'CONNECTED'
               };
             });
+
+            // Liaison automatique du kayak si le joueur est connecté à un compte ou a une montre appairée
+            this.autoResolveMyPublicKayak();
+
             const myIdx = activeList.findIndex(r => r.userId === this.activeUserId);
 
             if (myIdx >= 0) {
               this.myRank = myIdx + 1;
               const myDist = activeList[myIdx].netDistance || 0;
               const leaderDist = activeList[0]?.netDistance || 0;
-              this.distToLeader = Math.max(0, leaderDist - myDist);
-              this.distToPrev = myIdx > 0 ? Math.max(0, (activeList[myIdx - 1]?.netDistance || 0) - myDist) : 0;
-              this.distToNext = myIdx < activeList.length - 1 ? Math.max(0, myDist - (activeList[myIdx + 1]?.netDistance || 0)) : 0;
+              this.distToLeader = Math.max(0, Math.round(leaderDist - myDist));
+              this.distToPrev = myIdx > 0 ? Math.max(0, Math.round((activeList[myIdx - 1]?.netDistance || 0) - myDist)) : 0;
+              this.distToNext = myIdx < activeList.length - 1 ? Math.max(0, Math.round(myDist - (activeList[myIdx + 1]?.netDistance || 0))) : 0;
             } else {
               this.myRank = null;
               this.distToLeader = 0;
@@ -675,13 +708,22 @@ export class AppComponent implements OnInit, OnDestroy {
             // 1. Chercher d'abord dans le leaderboard de la course
             const foundInRace = this.racers.find(r => r.userId === this.activeUserId);
             if (foundInRace) {
+              const isDifferentRace = Boolean(
+                this.myActivity?.activityId &&
+                foundInRace.activityId &&
+                this.myActivity.activityId !== foundInRace.activityId
+              );
+              const isPreStartReset = Boolean(
+                (foundInRace.status === 'waiting' || raceData.status === 'waiting' || raceData.status === 'countdown') &&
+                (foundInRace.netDistance || 0) === 0
+              );
               // Mettre à jour en douceur sans écraser par des valeurs régressives
-              if (!this.myActivity) {
+              if (!this.myActivity || isDifferentRace || isPreStartReset) {
                 this.myActivity = { ...foundInRace };
               } else {
-                if (foundInRace.netDistance !== undefined && foundInRace.netDistance >= (this.myActivity.netDistance || 0)) {
-                  this.myActivity.netDistance = foundInRace.netDistance;
-                }
+                const alignedDist = Math.max(this.myActivity.netDistance || 0, foundInRace.netDistance || 0);
+                this.myActivity.netDistance = targetDist > 0 ? Math.min(targetDist, alignedDist) : alignedDist;
+                this.myActivity.currentDistance = this.myActivity.netDistance;
                 if ((foundInRace.lastPower || 0) > 0) this.myActivity.lastPower = foundInRace.lastPower;
                 if ((foundInRace.lastStrokeRate || 0) > 0) this.myActivity.lastStrokeRate = foundInRace.lastStrokeRate;
                 if ((foundInRace.lastPace || 0) > 0) this.myActivity.lastPace = foundInRace.lastPace;
@@ -689,7 +731,7 @@ export class AppComponent implements OnInit, OnDestroy {
                 if (foundInRace.lastHeartRate) this.myActivity.lastHeartRate = foundInRace.lastHeartRate;
               }
               this.cdr.markForCheck();
-            } else if (!this.myActivity) {
+            } else if (!this.myActivity && !this.activePrivateRoom) {
               // 2. Si AUCUNE donnée en mémoire, interroger son activité récente une seule fois
               this.rowerService.getUserLatestActivity(this.activeUserId).pipe(
                 catchError(() => of(null))
@@ -739,8 +781,41 @@ export class AppComponent implements OnInit, OnDestroy {
           } catch {}
         }
 
+        this.autoResolveMyPublicKayak();
         this.cdr.markForCheck();
       }
+
+      // Vérifier également le statut d'appairage Garmin par userId ou deviceToken
+      this.rowerService.getGarminPairingStatus({
+        userId: this.currentUser?.login || this.activeUserId,
+        deviceToken: this.deviceToken || undefined
+      }).pipe(
+        catchError(() => of(null))
+      ).subscribe((status) => {
+        if (status && status.paired) {
+          this.isPaired = true;
+          this.isWatchConfirmed = true;
+          if (status.deviceToken) {
+            this.deviceToken = status.deviceToken;
+          }
+          if (status.userId && (!this.isRegisteredUser || status.userId === this.currentUser?.login)) {
+            this.activeUserId = status.userId;
+            this.currentUser.id = status.userId;
+          }
+          try {
+            localStorage.setItem('rower_is_paired', 'true');
+            localStorage.setItem('rower_watch_confirmed', 'true');
+            if (this.deviceToken) {
+              localStorage.setItem('rower_device_token', this.deviceToken);
+            }
+            if (this.activeUserId) {
+              localStorage.setItem('rower_user_id', this.activeUserId);
+            }
+          } catch {}
+          this.autoResolveMyPublicKayak();
+          this.cdr.markForCheck();
+        }
+      });
     });
   }
 
@@ -1064,9 +1139,16 @@ export class AppComponent implements OnInit, OnDestroy {
     this.accountAuthError = '';
     this.accountAuthSuccess = '';
 
+    const existingGuestToken = (this.isPaired || this.isWatchConfirmed || this.deviceToken)
+      ? (this.deviceToken || (typeof localStorage !== 'undefined' ? localStorage.getItem('rower_device_token') || '' : ''))
+      : undefined;
+
     this.rowerService.loginUser({
       login: this.loginAccountInput.trim(),
       password: this.passwordAccountInput.trim(),
+      deviceToken: existingGuestToken || undefined,
+      guestPairingToken: existingGuestToken || undefined,
+      guestUserId: this.activeUserId || undefined,
     }).subscribe({
       next: (res) => {
         this.isAccountSubmitting = false;
@@ -1163,8 +1245,10 @@ export class AppComponent implements OnInit, OnDestroy {
       email: this.regEmail.trim(),
       password: this.regPassword.trim(),
       watchUserId: this.regWatchUserId.trim() || undefined,
+      deviceToken: existingGuestToken || undefined,
       guestPairingToken: existingGuestToken || undefined,
       guestToken: existingGuestToken || undefined,
+      guestUserId: this.activeUserId || undefined,
     }).subscribe({
       next: (res) => {
         this.isAccountSubmitting = false;
@@ -2043,7 +2127,151 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   get humanRacers(): RowerData[] {
-    return this.racers.filter(r => !r.userId.startsWith('bot_'));
+    return this.racers.filter(r => !r.userId?.startsWith('bot_') && !(r as any).isBot);
+  }
+
+  /**
+   * Indique si le joueur sur la plateforme web doit pouvoir sélectionner manuellement son kayak
+   * dans une liste déroulante : vrai UNIQUEMENT s'il n'est PAS connecté à un compte ET n'a PAS de montre appairée.
+   */
+  get canManualSelectPublicKayak(): boolean {
+    const isConnectedToAccount = this.isRegisteredUser || this.isSubscriber || this.isUserAdmin;
+    const hasPairedWatch = this.isPaired || this.isWatchConfirmed;
+    return !isConnectedToAccount && !hasPairedWatch && !this.activePrivateRoom;
+  }
+
+  get claimedRacerUserId(): string {
+    const match = this.selectablePublicKayaks.find(k => k.userId === this.activeUserId);
+    return match ? match.userId : '';
+  }
+
+  set claimedRacerUserId(val: string) {
+    if (val) {
+      this.onKayakClaimed(val);
+    }
+  }
+
+  /**
+   * Liste des kayaks humains connectés à la course publique (combinant liveMetricsList, racers et participants du lobby)
+   */
+  get selectablePublicKayaks(): { userId: string; name: string; userName: string; lane: number; dist: number; netDistance: number; lastPower: number }[] {
+    const map = new Map<string, { userId: string; name: string; userName: string; lane: number; dist: number; netDistance: number; lastPower: number }>();
+
+    const lobbyParticipants: any[] = ((this.nextRaceInfo?.race as any)?.participants || (this.nextRaceInfo as any)?.participants || []);
+    lobbyParticipants.forEach((p: any, idx: number) => {
+      const uid = String(p?.userId || '').trim();
+      if (!uid || uid === 'anonymous' || uid.toLowerCase().startsWith('bot_') || p?.isBot) return;
+      const displayName = p.userName || p.name || uid;
+      const distVal = Math.round(Number(p.netDistance || p.dist || 0));
+      const powerVal = Math.round(Number(p.lastPower || p.watts || 0));
+      map.set(uid, {
+        userId: uid,
+        name: displayName,
+        userName: displayName,
+        lane: Number(p.lane) || (idx + 1),
+        dist: distVal,
+        netDistance: distVal,
+        lastPower: powerVal,
+      });
+    });
+
+    (this.racers || []).forEach((r: any, idx: number) => {
+      const uid = String(r?.userId || '').trim();
+      if (!uid || uid === 'anonymous' || uid.toLowerCase().startsWith('bot_') || r?.isBot || r?.status === 'abandoned') return;
+      const existing = map.get(uid);
+      const displayName = r.userName || r.name || existing?.name || uid;
+      const distVal = Math.round(Number(r.netDistance ?? r.dist ?? existing?.dist ?? 0));
+      const powerVal = Math.round(Number(r.lastPower ?? r.watts ?? existing?.lastPower ?? 0));
+      map.set(uid, {
+        userId: uid,
+        name: displayName,
+        userName: displayName,
+        lane: Number(r.lane) || existing?.lane || (idx + 1),
+        dist: distVal,
+        netDistance: distVal,
+        lastPower: powerVal,
+      });
+    });
+
+    (this.liveMetricsList || []).forEach((m: any, idx: number) => {
+      const uid = String(m?.userId || '').trim();
+      if (!uid || uid === 'anonymous' || uid.toLowerCase().startsWith('bot_') || m?.isBot || m?.status === 'abandoned') return;
+      const existing = map.get(uid);
+      const displayName = m.name || m.userName || existing?.name || uid;
+      const distVal = Math.round(Number(m.dist ?? m.netDistance ?? existing?.dist ?? 0));
+      const powerVal = Math.round(Number(m.watts ?? m.lastPower ?? existing?.lastPower ?? 0));
+      map.set(uid, {
+        userId: uid,
+        name: displayName,
+        userName: displayName,
+        lane: Number(m.lane) || existing?.lane || (idx + 1),
+        dist: distVal,
+        netDistance: distVal,
+        lastPower: powerVal,
+      });
+    });
+
+    return Array.from(map.values());
+  }
+
+  onSelectPublicKayak(userId: string): void {
+    if (!userId) return;
+    this.onKayakClaimed(userId);
+  }
+
+  /**
+   * Fait automatiquement le lien entre la montre appairée, le compte utilisateur et le kayak
+   * présent dans la course publique lorsque le joueur est connecté à un compte ou a une montre appairée.
+   */
+  private autoResolveMyPublicKayak(): void {
+    const isConnectedToAccount = this.isRegisteredUser || this.isSubscriber || this.isUserAdmin;
+    const hasPairedWatch = this.isPaired || this.isWatchConfirmed;
+    const isSoloOrBotRoom = Boolean(
+      this.activePrivateRoom &&
+      ((this.activePrivateRoom as any).isSolo || (this.activePrivateRoom as any).isBotDuel || (this.activePrivateRoom.race as any)?.isSolo || this.activePrivateRoom.race?.isBotDuel)
+    );
+    if (!isConnectedToAccount && !hasPairedWatch && !isSoloOrBotRoom) return;
+
+    const candidateIds = new Set<string>();
+    const pushCandidate = (val?: string) => {
+      const clean = String(val || '').trim();
+      if (clean && clean !== 'anonymous' && !clean.startsWith('Racer_')) {
+        candidateIds.add(clean.toLowerCase());
+      }
+    };
+
+    pushCandidate(this.activeUserId);
+    pushCandidate(this.currentUser?.id);
+    pushCandidate(this.currentUser?.login);
+    pushCandidate(this.currentUser?.watchUserId);
+    pushCandidate(this.currentUser?.name);
+
+    const kayaks = this.selectablePublicKayaks;
+    let matched = candidateIds.size > 0
+      ? kayaks.find(
+          (k) =>
+            candidateIds.has(k.userId.toLowerCase()) ||
+            (k.name && candidateIds.has(k.name.toLowerCase()))
+        )
+      : undefined;
+
+    if (!matched && isSoloOrBotRoom && kayaks.length === 1) {
+      matched = kayaks[0];
+    }
+
+    if (matched) {
+      if (this.activeUserId !== matched.userId) {
+        this.activeUserId = matched.userId;
+        this.userIdInput = matched.userId;
+        try {
+          localStorage.setItem('rower_user_id', matched.userId);
+        } catch {}
+      }
+      if (matched.lane && matched.lane > 0) {
+        this.myAssignedLane = matched.lane;
+      }
+      this.selectedCockpitPlayerId = matched.userId;
+    }
   }
 
   get topThreeLiveRacers(): { rank: number; name: string; dist: number }[] {
@@ -2494,9 +2722,10 @@ export class AppComponent implements OnInit, OnDestroy {
     this.pairingSuccessMessage = '✓ Montre Garmin connectée avec succès !';
     this.pairingErrorMessage = '';
 
-    if (userId && (!this.activeUserId || this.activeUserId.startsWith('guest_'))) {
+    if (userId) {
       this.activeUserId = userId;
       this.currentUser.id = userId;
+      this.claimedRacerUserId = userId;
     }
 
     try {
@@ -2505,9 +2734,11 @@ export class AppComponent implements OnInit, OnDestroy {
       localStorage.setItem('rower_device_token', deviceToken);
       if (userId) {
         localStorage.setItem('rower_user_id', userId);
+        localStorage.setItem('rower_claimed_kayak_id', userId);
       }
     } catch {}
 
+    this.autoResolveMyPublicKayak();
     this.loadUserProfile();
     this.cdr.markForCheck();
   }
@@ -2732,21 +2963,29 @@ export class AppComponent implements OnInit, OnDestroy {
     }
     this.socketSub = this.socketService.onLeaderboardUpdate().subscribe((update) => {
       if (this.nextRaceInfo && update.raceId === this.nextRaceInfo.race.id) {
+        const targetDist = this.activeTargetDistance || 2000;
         this.liveMetricsList = update.leaderboard.map((m) => {
           const existing = this.liveMetricsList.find(x => x.userId === m.userId);
-          const safeDist = (existing && (existing.dist || 0) > 0 && (m.dist || 0) > 0)
-            ? Math.max(existing.dist || 0, m.dist || 0)
-            : (m.dist || 0);
+          const rawDist = Math.round(m.dist || 0);
+          let safeDist = (existing && (existing.dist || 0) > 0 && rawDist > 0)
+            ? Math.max(Math.round(existing.dist || 0), rawDist)
+            : rawDist;
+          if (targetDist > 0 && (safeDist >= targetDist || m.status === 'finished')) {
+            safeDist = targetDist;
+          }
+          const safeStatus = (targetDist > 0 && safeDist >= targetDist && m.status !== 'abandoned')
+            ? 'finished'
+            : m.status;
 
-          let updated = { ...m, dist: safeDist };
+          let updated = { ...m, dist: safeDist, status: safeStatus };
           if (m.userId === this.activeUserId && this.myAssignedLane) {
             updated.lane = this.myAssignedLane;
           }
           return updated;
         });
 
-        // 1. Sync racers array for spectators and reactive gauges
-        update.leaderboard.forEach((m) => {
+        // 1. Sync racers array for spectators and reactive gauges using the unified liveMetricsList
+        this.liveMetricsList.forEach((m) => {
           let r = this.racers.find(x => x.userId === m.userId);
           if (!r) {
             r = {
@@ -2771,6 +3010,7 @@ export class AppComponent implements OnInit, OnDestroy {
             this.racers.push(r!);
           } else {
             r.netDistance = m.dist;
+            r.currentDistance = m.dist;
             r.lastPower = m.watts;
             r.lastStrokeRate = m.spm;
             r.lastPace = m.split;
@@ -2789,11 +3029,17 @@ export class AppComponent implements OnInit, OnDestroy {
           }
         });
 
-        // 2. Synchronize active player's activity & HUD gauges continuously
+        // 2. Synchronize active player's activity & HUD gauges continuously from unified liveMetricsList
+        this.autoResolveMyPublicKayak();
         const activeName = this.currentUser?.name || '';
-        const myMetric = update.leaderboard.find(m => m.userId === this.activeUserId || (activeName && m.name === activeName));
+        const myMetric = this.liveMetricsList.find(m => m.userId === this.activeUserId || (activeName && m.name === activeName));
         if (myMetric) {
-          if (!this.myActivity) {
+          const isDifferentRace = Boolean(
+            this.myActivity?.activityId &&
+            update.raceId &&
+            this.myActivity.activityId !== update.raceId
+          );
+          if (!this.myActivity || isDifferentRace) {
             this.myActivity = {
               id: `${update.raceId}_${myMetric.userId}`,
               activityId: update.raceId,
@@ -2814,11 +3060,9 @@ export class AppComponent implements OnInit, OnDestroy {
               lastHeartRate: myMetric.heartRate
             } as any;
           } else {
-            // Lissage et protection anti-scintillement
-            if (myMetric.dist !== undefined && myMetric.dist >= (this.myActivity.netDistance || 0)) {
-              this.myActivity.netDistance = myMetric.dist;
-              this.myActivity.currentDistance = myMetric.dist;
-            }
+            // Alignement strict avec liveMetricsList
+            this.myActivity.netDistance = myMetric.dist;
+            this.myActivity.currentDistance = myMetric.dist;
             if (myMetric.watts > 0 || (this.myActivity.lastPower || 0) === 0) {
               this.myActivity.lastPower = myMetric.watts;
             }
@@ -2853,8 +3097,8 @@ export class AppComponent implements OnInit, OnDestroy {
           }
         }
 
-        // 3. Update ranking & gaps in real-time
-        const activeSorted = [...update.leaderboard].filter(r => r.status !== 'abandoned').sort((a, b) => {
+        // 3. Update ranking & gaps in real-time using unified liveMetricsList
+        const activeSorted = [...this.liveMetricsList].filter(r => r.status !== 'abandoned').sort((a, b) => {
           const isFinA = a.status === 'finished' ? 1 : 0;
           const isFinB = b.status === 'finished' ? 1 : 0;
           if (isFinA !== isFinB) return isFinB - isFinA;
@@ -2872,8 +3116,7 @@ export class AppComponent implements OnInit, OnDestroy {
         }
 
         // 4. Notification Éphémère de Franchissement de Ligne (2 secondes strictes)
-        const targetDist = this.activeTargetDistance || 2000;
-        for (const racer of update.leaderboard) {
+        for (const racer of this.liveMetricsList) {
           const isFin = racer.status === 'finished' || (racer.dist >= targetDist && targetDist > 0);
           if (isFin && !this.finishedRacerIds.has(racer.userId)) {
             this.finishedRacerIds.add(racer.userId);
@@ -3291,6 +3534,11 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   private activatePrivateRoom(room: PrivateRacePayload, pushHistory: boolean): void {
+    const prevRoomId = this.activePrivateRoom?.race?.id;
+    if (!prevRoomId || prevRoomId !== room.race?.id) {
+      this.myActivity = null;
+      this.finishedRacerIds.clear();
+    }
     this.activePrivateRoom = room;
     this.nextRaceInfo = room;
     if ((room as any).lane) {

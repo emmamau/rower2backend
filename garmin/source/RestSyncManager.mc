@@ -6,6 +6,15 @@ import Toybox.System;
 class RestSyncManager {
 
     private var _isSending as Boolean = false;
+    private var _hasPendingSync as Boolean = false;
+    private var _pendingActivityId as String = "";
+    private var _pendingUserId as String = "";
+    private var _pendingUserName as String = "";
+    private var _pendingRaceMode as String = "";
+    private var _pendingStatus as String = "";
+    private var _pendingTargetDist as Number = 0;
+    private var _pendingModel as RowerDataModel?;
+    private var _pendingDeviceName as String?;
     private var _lastSyncTime as Number = 0;
     private var _delegate as BleDelegate?;
 
@@ -229,11 +238,20 @@ class RestSyncManager {
     function syncActivity(activityId as String, userId as String, userName as String, raceMode as String,
                           status as String, targetDistance as Number, model as RowerDataModel,
                           deviceName as String?, isFinal as Boolean) as Void {
-        var now = System.getTimer() / 1000;
-        // Throttle live transmission to >= 1s, never drop final completion/abandon packet
-        if (!isFinal && (_isSending || (now - _lastSyncTime < 1))) {
+        // Never drop final completion/abandon packet; if busy sending a live packet, queue the latest state
+        if (!isFinal && _isSending) {
+            _hasPendingSync = true;
+            _pendingActivityId = activityId;
+            _pendingUserId = userId;
+            _pendingUserName = userName;
+            _pendingRaceMode = raceMode;
+            _pendingStatus = status;
+            _pendingTargetDist = targetDistance;
+            _pendingModel = model;
+            _pendingDeviceName = deviceName;
             return;
         }
+        _hasPendingSync = false;
 
         var endpoint = getBaseUrl() + "/boost";
 
@@ -312,6 +330,14 @@ class RestSyncManager {
         } else if (responseCode != 200 && responseCode != 201) {
             System.println("Sync HTTP non-200: " + responseCode);
         }
+        if (_hasPendingSync && _pendingModel != null && _pendingStatus.equals("in_progress")) {
+            _hasPendingSync = false;
+            syncActivity(
+                _pendingActivityId, _pendingUserId, _pendingUserName, _pendingRaceMode,
+                _pendingStatus, _pendingTargetDist, _pendingModel as RowerDataModel,
+                _pendingDeviceName, false
+            );
+        }
     }
 
     function onFinalSyncResponse(responseCode as Number, data as Dictionary or String or Null) as Void {
@@ -327,7 +353,10 @@ class RestSyncManager {
     }
 
     // Code Unique Universel à 5 Caractères (POST /api/session/claim)
+    private var _lastClaimedCode as String = "";
+
     function claimSessionCode(code as String) as Void {
+        _lastClaimedCode = code;
         var endpoint = getBaseUrl() + "/api/session/claim";
         var payload = {
             "code" => code,
@@ -378,9 +407,11 @@ class RestSyncManager {
                 // Notifier l'échec de validation du code PIN
                 if (responseCode == 404 || responseCode == 400 || responseCode == 401) {
                     (_delegate as BleDelegate).onPinJoinFailed(responseCode, data);
-                } else {
+                } else if (_lastClaimedCode.length() > 0) {
                     // En cas d'échec sur /api/session/claim (ex: timeout ou réseau), tenter le fallback claimGuestTicket pour compatibilité
-                    claimGuestTicket(UserManager.getDeviceId());
+                    claimGuestTicket(_lastClaimedCode);
+                } else {
+                    (_delegate as BleDelegate).onPinJoinFailed(responseCode, data);
                 }
             }
         }

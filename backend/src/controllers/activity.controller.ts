@@ -5,6 +5,8 @@ import { getOrCreateCurrentRace } from "./race.controller";
 import raceManager, { RaceManager } from "../services/race-manager.service";
 import { calculateRacePoints, getLeagueByPoints } from "../utils/league.util";
 import socketGateway from "../websocket/socket.gateway";
+import pairingService from "../services/pairing.service";
+import userStore from "../services/user-store.service";
 
 const Activities = db.activities;
 const Races = db.races;
@@ -19,8 +21,10 @@ export const syncActivity = async (req: Request, res: Response): Promise<void> =
   try {
     const {
       activityId,
-      userId = "anonymous",
-      userName,
+      userId: rawUserId = "anonymous",
+      userName: rawUserName,
+      deviceId,
+      deviceToken: bodyDeviceToken,
       raceMode = "race",
       targetDistance = 10000,
       status = "in_progress",
@@ -33,7 +37,21 @@ export const syncActivity = async (req: Request, res: Response): Promise<void> =
       lastResistance = 1,
       totalEnergy = 0,
       elapsedTime = 0,
-    } = req.body;
+    } = req.body || {};
+
+    const authHeader = String(req.headers.authorization || "");
+    const bearerToken = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
+    const headerToken = req.headers["x-device-token"] ? String(req.headers["x-device-token"]).trim() : "";
+    const rawToken = bodyDeviceToken ? String(bodyDeviceToken).trim() : (bearerToken || headerToken);
+
+    const identity = await pairingService.resolvePairedIdentity({
+      userId: rawUserId,
+      userName: rawUserName,
+      deviceToken: rawToken,
+      deviceId,
+    });
+    const userId = identity.userId;
+    const userName = identity.userName;
 
     const actualActivityId = activityId || (await getOrCreateCurrentRace()).id;
     const compositeId = `${actualActivityId}_${userId}`;
@@ -108,8 +126,9 @@ export const syncActivity = async (req: Request, res: Response): Promise<void> =
       // Mise à jour de la ligne existante
       const currentDistNum = Number(currentDistance);
       const initialDist = (activity.get("initialDistance") as number) || 0;
-      const netDist = Math.max(0, currentDistNum - initialDist);
       const targetDist = (activity.get("targetDistance") as number) || targetDistance;
+      const rawNetDist = Math.max(0, Math.round(currentDistNum - initialDist));
+      const netDist = targetDist > 0 ? Math.min(targetDist, rawNetDist) : rawNetDist;
       const progress = Math.min(100, Number(((netDist / targetDist) * 100).toFixed(1)));
 
       const prevTime = (activity.get("elapsedTime") as number) || 1;
@@ -287,10 +306,23 @@ export const getLatestUserActivity = async (req: Request, res: Response): Promis
     if (userId) whereClause.userId = String(userId);
     if (activityId) whereClause.activityId = String(activityId);
 
-    const activity = await Activities.findOne({
-      where: whereClause,
-      order: [["updatedAt", "DESC"]],
-    });
+    let activity: any = null;
+    try {
+      activity = await Activities.findOne({
+        where: whereClause,
+        order: [["updatedAt", "DESC"]],
+      });
+    } catch {}
+
+    if (!activity && userId) {
+      const memList = userStore.findActivitiesForUser(String(userId));
+      const filtered = activityId
+        ? memList.filter((a) => String(a.activityId) === String(activityId))
+        : memList;
+      if (filtered.length > 0) {
+        activity = filtered[filtered.length - 1];
+      }
+    }
 
     if (!activity) {
       res.status(404).json({ message: "Aucune activité trouvée." });
@@ -312,13 +344,65 @@ export const getRaceLeaderboard = async (req: Request, res: Response): Promise<v
     const { activityId } = req.params;
     const targetRaceId = activityId || (await getOrCreateCurrentRace()).id;
 
-    const rows = await Activities.findAll({ where: { activityId: targetRaceId } });
+    const mergedMap = new Map<string, any>();
+    for (const mem of userStore.findActivitiesByRaceId(String(targetRaceId))) {
+      const uid = String((typeof mem.get === "function" ? mem.get("userId") : mem.userId) || "");
+      if (uid) mergedMap.set(uid, mem);
+    }
+
+    try {
+      const dbRows = (await Activities.findAll({ where: { activityId: targetRaceId } })) as any[];
+      for (const r of dbRows) {
+        const uid = String((typeof r.get === "function" ? r.get("userId") : r.userId) || "");
+        if (uid) {
+          const mem = mergedMap.get(uid);
+          const rDist = Number((typeof r.get === "function" ? r.get("netDistance") : (r as any).netDistance) || 0);
+          const memDist = mem ? Number((typeof mem.get === "function" ? mem.get("netDistance") : mem.netDistance) || 0) : 0;
+          if (!mem || rDist >= memDist) {
+            mergedMap.set(uid, r);
+          }
+        }
+      }
+    } catch {}
+
+    const rows: any[] = Array.from(mergedMap.values());
+
+    const managed = raceManager.getRaceById(String(targetRaceId)) || raceManager.getCurrentPublicRace();
+    if (managed && managed.id === String(targetRaceId) && managed.participants) {
+      const existingIds = new Set(rows.map((r: any) => (typeof r.get === "function" ? r.get("userId") : r.userId)));
+      for (const p of managed.participants.values()) {
+        if (!existingIds.has(p.userId)) {
+          const fallbackObj: Record<string, any> = {
+            id: `${targetRaceId}_${p.userId}`,
+            activityId: targetRaceId,
+            userId: p.userId,
+            userName: p.userName || p.userId,
+            country: p.country,
+            lane: p.lane || 1,
+            status: managed.status === "RUNNING" ? "in_progress" : "waiting",
+            netDistance: 0,
+            currentDistance: 0,
+            progressPercent: 0,
+            lastPower: 0,
+            lastStrokeRate: 0,
+            lastPace: 0,
+            avgPower: 0,
+            avgPace: 0,
+            avgStrokeRate: 0,
+            elapsedTime: 0,
+            isBot: false,
+          };
+          fallbackObj.get = (k: string) => fallbackObj[k];
+          rows.push(fallbackObj);
+        }
+      }
+    }
+
     // Abandons en fin de tableau, finishers d'abord puis distance décroissante
-    const abandoned = rows.filter((r) => r.get("status") === "abandoned");
-    const ranked = RaceManager.sortRanking(rows.filter((r) => r.get("status") !== "abandoned"));
+    const abandoned = rows.filter((r) => (typeof r.get === "function" ? r.get("status") : r.status) === "abandoned");
+    const ranked = RaceManager.sortRanking(rows.filter((r) => (typeof r.get === "function" ? r.get("status") : r.status) !== "abandoned"));
     const list = [...ranked, ...abandoned];
 
-    const managed = raceManager.getRaceById(String(targetRaceId));
     const timing = managed ? raceManager.getRaceTiming(managed) : null;
 
     res.status(200).json({

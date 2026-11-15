@@ -178,14 +178,19 @@ export const registerUser = async (req: Request, res: Response): Promise<void> =
     });
 
     // Migration automatique de l'appairage invité vers le nouveau compte abonné
-    const tokenToMigrate = guestPairingToken || guestToken;
+    const tokenToMigrate = guestPairingToken || guestToken || req.body?.deviceToken || req.body?.guestUserId;
     let migratedPairing = false;
     if (tokenToMigrate) {
       try {
-        migratedPairing = await pairingService.transferPairingTokenToUser(String(tokenToMigrate), newUser.id);
+        migratedPairing = await pairingService.transferPairingTokenToUser(String(tokenToMigrate), newUser.login || newUser.id);
       } catch (migErr) {
         console.warn("[Register] Erreur migration appairage invité vers utilisateur:", migErr);
       }
+    }
+    if (req.body?.guestUserId && req.body?.guestUserId !== tokenToMigrate) {
+      try {
+        await pairingService.transferPairingTokenToUser(String(req.body.guestUserId), newUser.login || newUser.id);
+      } catch {}
     }
 
     // Envoi du courriel de bienvenue (préparé pour la production)
@@ -214,7 +219,7 @@ export const registerUser = async (req: Request, res: Response): Promise<void> =
  */
 export const loginUser = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { login, password, watchUserId } = req.body || {};
+    const { login, password, watchUserId, deviceToken, guestPairingToken, guestUserId } = req.body || {};
 
     const cleanLogin = String(login || "").trim();
     const cleanPassword = String(password || "").trim();
@@ -263,6 +268,16 @@ export const loginUser = async (req: Request, res: Response): Promise<void> => {
 
     if (watchUserId && !user.watchUserId) {
       user = (await userStore.updateUser(user.id, { watchUserId: String(watchUserId).trim() })) || user;
+    }
+
+    // Si une montre était déjà appairée dans le navigateur (invité / session en cours), la rattacher automatiquement au compte
+    const canonicalAccountUserId = user.login || user.id;
+    for (const candidateTokenOrId of [deviceToken, guestPairingToken, guestUserId, watchUserId]) {
+      if (candidateTokenOrId && String(candidateTokenOrId).trim() && String(candidateTokenOrId).trim() !== canonicalAccountUserId) {
+        try {
+          await pairingService.transferPairingTokenToUser(String(candidateTokenOrId).trim(), canonicalAccountUserId);
+        } catch {}
+      }
     }
 
     // Résolution du statut d'appairage Garmin associé de façon centrale au compte utilisateur

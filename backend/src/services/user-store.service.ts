@@ -66,14 +66,79 @@ export class UserStoreService {
   private inMemoryLoginRequests: Map<string, StoredLoginRequest> = new Map();
   private inMemoryActivities: any[] = [];
 
-  public recordActivity(activity: any): void {
-    const act = {
+  public recordActivity(activity: any): any {
+    const id = String(activity.id || `${activity.activityId}_${activity.userId}`);
+    const existingIdx = this.inMemoryActivities.findIndex((a) => String(a.id) === id);
+    if (existingIdx >= 0) {
+      const target = this.inMemoryActivities[existingIdx];
+      for (const [k, v] of Object.entries(activity)) {
+        if (v !== undefined && k !== "get" && k !== "update" && k !== "setDataValue") {
+          target[k] = v;
+        }
+      }
+      target.updatedAt = activity.updatedAt ? new Date(activity.updatedAt) : new Date();
+      return target;
+    }
+
+    const act: Record<string, any> = {
       ...activity,
+      id,
       createdAt: activity.createdAt ? new Date(activity.createdAt) : new Date(),
       updatedAt: activity.updatedAt ? new Date(activity.updatedAt) : new Date(),
-      get: (field: string) => (activity as any)[field],
+    };
+    act.get = (field: string) => act[field];
+    act.setDataValue = (field: string, value: any) => {
+      act[field] = value;
+    };
+    act.update = async (updates: Record<string, any>) => {
+      for (const [k, v] of Object.entries(updates)) {
+        if (v !== undefined) {
+          act[k] = v;
+        }
+      }
+      act.updatedAt = new Date();
+      return act;
     };
     this.inMemoryActivities.push(act);
+    return act;
+  }
+
+  public findActivityById(id: string): any | null {
+    if (!id) return null;
+    const clean = String(id).trim();
+    return this.inMemoryActivities.find((a) => String(a.id) === clean) || null;
+  }
+
+  public deleteActivityById(id: string): void {
+    if (!id) return;
+    const clean = String(id).trim();
+    this.inMemoryActivities = this.inMemoryActivities.filter((a) => String(a.id) !== clean);
+  }
+
+  public updateActivitiesWhere(
+    activityId: string,
+    filterStatus: string | string[] | undefined,
+    updates: Record<string, any>
+  ): void {
+    if (!activityId) return;
+    const cleanRaceId = String(activityId).trim();
+    for (const act of this.inMemoryActivities) {
+      if (String(act.activityId) === cleanRaceId) {
+        const matchesStatus =
+          !filterStatus ||
+          (Array.isArray(filterStatus)
+            ? filterStatus.includes(String(act.status))
+            : act.status === filterStatus);
+        if (matchesStatus) {
+          for (const [k, v] of Object.entries(updates)) {
+            if (v !== undefined) {
+              act[k] = v;
+            }
+          }
+          act.updatedAt = updates.updatedAt ? new Date(updates.updatedAt) : new Date();
+        }
+      }
+    }
   }
 
   public findActivitiesForUser(userId: string, additionalIds: string[] = []): any[] {

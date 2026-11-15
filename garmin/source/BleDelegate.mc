@@ -83,6 +83,7 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
     private var _targetDistance as Number = 10000;
     private var _progressPercent as Float = 0.0f;
     private var _lastSentStrokeCount as Number = 0;
+    private var _lastSentDistance as Number = 0;
     private var _pendingStrokeSync as Boolean = false;
     private var _lastFallbackSendSec as Number = 0;
     private var _tickCounter as Number = 0;
@@ -945,8 +946,9 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
             } else if (!updateProgressAndCheckFinish()) {
                 if (_activityStatus.equals("in_progress") && _raceMode.equals("race") && _activityId.length() > 0) {
                     var secSinceSend = _tickCounter - _lastFallbackSendSec;
-                    if (_pendingStrokeSync || (secSinceSend >= 2 && (_model.totalDistance > 0 || _model.instantPower > 0))) {
+                    if (_pendingStrokeSync || _model.totalDistance != _lastSentDistance || (secSinceSend >= 1 && (_model.totalDistance > 0 || _model.instantPower > 0))) {
                         _pendingStrokeSync = false;
+                        _lastSentDistance = _model.totalDistance;
                         _lastFallbackSendSec = _tickCounter;
                         _syncManager.syncActivity(
                             _activityId, _userId, UserManager.getDisplayPseudo(), _raceMode,
@@ -985,9 +987,9 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
 
             var isRowing = (_model.strokeRate > 0 || _model.instantPower > 0);
 
-            // Règle 1 : En salon Solo ou Duel Bot, le premier coup de rame déclenche immédiatement le départ
-            if ((_isBotDuel || view.getPrivateGameMode().equals("solo") || view.getPrivateGameMode().equals("bot_duel") || (_activityId != null && _activityId.find("solo") != null)) && isRowing && _activityStatus.equals("waiting")) {
-                handleRaceStartTrigger(view, true);
+            // Règle 1 : En salon Solo (ou Duel Bot hors décompte), le premier coup de rame déclenche immédiatement le départ
+            if ((view.getPrivateGameMode().equals("solo") || (_isBotDuel && _isWaitingForReadyOrHost) || (_activityId != null && _activityId.find("solo") != null)) && isRowing && _activityStatus.equals("waiting")) {
+                handleRaceStartTrigger(view, false);
                 return;
             }
 
@@ -1130,16 +1132,9 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
     }
 
     private function handleRaceStartTrigger(view as RowerView, isRowing as Boolean) as Void {
-        if (isRowing) {
-            _isFalseStartPenalized = true;
-            view.setFalseStartLocked(true);
-            view.showWarning(I18n.getText("WARN_MISSED_START"), 2);
-            vibrateContinuousAlert();
-        } else {
-            _isFalseStartPenalized = false;
-            view.setFalseStartLocked(false);
-            vibrateSingleTick(true);
-        }
+        _isFalseStartPenalized = false;
+        view.setFalseStartLocked(false);
+        vibrateSingleTick(true);
         launchRaceFromWaiting();
     }
 
@@ -1307,8 +1302,9 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
             }
 
             if (_raceMode.equals("race") && _activityId.length() > 0) {
-                if (_model.strokeCount > _lastSentStrokeCount) {
+                if (_model.strokeCount > _lastSentStrokeCount || _model.totalDistance != _lastSentDistance) {
                     _lastSentStrokeCount = _model.strokeCount;
+                    _lastSentDistance = _model.totalDistance;
                     _pendingStrokeSync = true;
                 }
                 var shouldSend = false;
@@ -1316,7 +1312,7 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
                     shouldSend = true;
                     _pendingStrokeSync = false;
                     _lastFallbackSendSec = _tickCounter;
-                } else if ((_model.instantPower > 0 || _model.totalDistance > 0) && (_tickCounter - _lastFallbackSendSec >= 2)) {
+                } else if ((_model.instantPower > 0 || _model.totalDistance > 0) && (_tickCounter - _lastFallbackSendSec >= 1)) {
                     shouldSend = true;
                     _lastFallbackSendSec = _tickCounter;
                 }
@@ -1358,6 +1354,9 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
             var minStrokes = (_targetDistance / 25);
             if (minStrokes < 3) { minStrokes = 3; }
             if (_model.elapsedTime >= minElapsed && _model.strokeCount >= minStrokes) {
+                _model.alignDistance(_targetDistance);
+                _progressPercent = 1.0f;
+                view.updateRowerData(_model, _targetDistance, 1.0f);
                 vibrateVictory();
                 saveAndExitSession();
                 return true;
@@ -1520,14 +1519,19 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
             view.setLobbyInfo(countdown, players, targetDist);
 
             var curState = view.getAppState();
-            if ((isRunning || (!_isWaitingForReadyOrHost && countdown <= 0 && !isPriv)) && (curState == RowerView.STATE_LOBBY || curState == RowerView.STATE_WAITING_START || curState == RowerView.STATE_PENDING_APPROVAL)) {
+            if ((isRunning || (!_isWaitingForReadyOrHost && countdown <= 0 && !isPriv)) &&
+                (curState == RowerView.STATE_LOBBY || curState == RowerView.STATE_WAITING_START || curState == RowerView.STATE_COUNTDOWN_5S || curState == RowerView.STATE_PENDING_APPROVAL)) {
                 var isRowing = (_model.strokeRate > 0 || _model.instantPower > 0);
                 handleRaceStartTrigger(view, isRowing);
+            } else if (!isRunning && !_isWaitingForReadyOrHost && countdown > 0 && countdown <= 5 && curState == RowerView.STATE_WAITING_START) {
+                view.set5sCountdown(countdown);
+                view.setAppState(RowerView.STATE_COUNTDOWN_5S);
             }
         }
     }
 
     public function joinNextRaceWaiting() as Void {
+        _userId = UserManager.getUserId();
         _raceMode = "race";
         _activityStatus = "waiting";
         _isWaitingForReadyOrHost = false;
@@ -1547,6 +1551,18 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
     public function onJoinRaceReceived(data as Dictionary?) as Void {
         if (data != null && _view != null) {
             var view = _view as RowerView;
+            if (data.hasKey("userId") && data.get("userId") != null) {
+                var resolvedId = data.get("userId").toString();
+                if (resolvedId.length() > 0 && !resolvedId.equals("anonymous")) {
+                    _userId = resolvedId;
+                    if (data.hasKey("isPaired") && data.get("isPaired") == true) {
+                        UserManager.setPairedUserId(resolvedId);
+                    }
+                }
+            }
+            if (data.hasKey("lane") && data.get("lane") != null) {
+                view.setAssignedLane(data.get("lane") as Number);
+            }
             if (data.hasKey("raceId") && data.get("raceId") != null) {
                 _activityId = data.get("raceId").toString();
             }
@@ -1574,6 +1590,7 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
     }
 
     public function joinRaceLate() as Void {
+        _userId = UserManager.getUserId();
         _raceMode = "race";
         if (_view != null) {
             (_view as RowerView).setIsLateJoiner(true);
@@ -1584,6 +1601,7 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
     }
 
     public function waitNextRaceSlot() as Void {
+        _userId = UserManager.getUserId();
         _raceMode = "race";
         _activityStatus = "waiting";
         if (_view != null) {
@@ -1613,6 +1631,7 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
         _activityStatus = "in_progress";
         _progressPercent = 0.0f;
         _lastSentStrokeCount = 0;
+        _lastSentDistance = 0;
         _pendingStrokeSync = false;
         _lastFallbackSendSec = _tickCounter;
 
@@ -1781,6 +1800,7 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
     }
 
     public function onPairingSuccess(data as Dictionary) as Void {
+        _userId = UserManager.getUserId();
         triggerApprovalVibe();
         // Une fois la montre appairée, activer les profils BLE et lancer la recherche du rameur
         if (!_profilesRegistered) {
@@ -1805,6 +1825,7 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
     }
 
     public function onPairingResetDone() as Void {
+        _userId = UserManager.getUserId();
         triggerApprovalVibe();
         if (_view != null) {
             (_view as RowerView).onPairingResetComplete();
@@ -1935,11 +1956,18 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
             if (data.hasKey("normDistM") && data.get("normDistM") != null) {
                 var nd = data.get("normDistM") as Number;
                 if (nd > 0) {
+                    if (_targetDistance > 0 && nd > _targetDistance) {
+                        nd = _targetDistance;
+                    }
                     var diff = nd - _model.totalDistance;
                     if (diff < 0) { diff = -diff; }
-                    // Re-align watch distance if initial packet, significant drift (> 25m), or if watch jumped prematurely to target
-                    if (_model.totalDistance == 0 || diff > 25 || _model.totalDistance >= _targetDistance) {
+                    // Keep watch distance strictly aligned with authoritative server distance
+                    if (_model.totalDistance == 0 || diff >= 1 || _model.totalDistance >= _targetDistance) {
                         _model.alignDistance(nd);
+                        _lastSentDistance = nd;
+                        var pct = (_targetDistance > 0) ? (nd.toFloat() / _targetDistance.toFloat()) : 0.0f;
+                        if (pct > 1.0f) { pct = 1.0f; }
+                        (_view as RowerView).updateRowerData(_model, nd, pct);
                     }
                 }
             }
@@ -1954,10 +1982,23 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
 
     public function onPinJoinSuccess(data as Dictionary) as Void {
         _raceMode = "race";
+        if (data.hasKey("userId") && data.get("userId") != null) {
+            var uid = data.get("userId").toString();
+            if (uid.length() > 0 && !uid.equals("anonymous")) {
+                _userId = uid;
+            }
+        }
         if (data.hasKey("id") && data.get("id") != null) {
             _activityId = data.get("id").toString();
         } else if (data.hasKey("raceId") && data.get("raceId") != null) {
             _activityId = data.get("raceId").toString();
+        } else if (data.hasKey("roomId") && data.get("roomId") != null) {
+            _activityId = data.get("roomId").toString();
+        } else if (data.hasKey("race") && data.get("race") instanceof Dictionary) {
+            var rDict = data.get("race") as Dictionary;
+            if (rDict.hasKey("id") && rDict.get("id") != null) {
+                _activityId = rDict.get("id").toString();
+            }
         }
         if (data.hasKey("targetDistance") && data.get("targetDistance") != null) {
             _targetDistance = data.get("targetDistance") as Number;

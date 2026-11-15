@@ -32,7 +32,8 @@ export class TelemetryValidator {
   public static validate(
     payload: TelemetryPayload,
     previousDistance: number = 0,
-    previousTimeSec: number = 0
+    previousTimeSec: number = 0,
+    currentTimeSec: number = 0
   ): ValidationResult {
     const { distanceM, splitSec, powerWatts, strokeRate } = payload.metrics;
 
@@ -73,11 +74,16 @@ export class TelemetryValidator {
       };
     }
 
-    if (distDelta > 25) {
+    const elapsedDelta = currentTimeSec > previousTimeSec
+      ? Math.min(60, Math.max(1, currentTimeSec - previousTimeSec))
+      : 1;
+    const maxAllowedJump = Math.max(60, elapsedDelta * 12);
+
+    if (distDelta > maxAllowedJump) {
       // Aberrant telemetric jump
       return {
         isValid: false,
-        sanitizedDistance: previousDistance + 15,
+        sanitizedDistance: previousDistance + Math.min(maxAllowedJump, Math.max(25, elapsedDelta * 8)),
         sanitizedPower: clampedPower,
         sanitizedSplit: clampedSplit,
         sanitizedSpm: clampedSpm,

@@ -184,50 +184,64 @@ export class RoomController {
 
       // 4. Enregistrement en base de données pour la ligne de départ (si compétiteur)
       if (assignedLane > 0) {
-        try {
-          if (race.isBotDuel && race.originalHostUserId && race.originalHostUserId !== String(userId)) {
+        if (race.isBotDuel && race.originalHostUserId && race.originalHostUserId !== String(userId)) {
+          userStore.deleteActivityById(`${race.id}_${race.originalHostUserId}`);
+          try {
             await Activities.destroy({
               where: { id: `${race.id}_${race.originalHostUserId}` }
             });
-          }
-          const compositeId = `${race.id}_${userId}`;
-          const playerStatus = race.status === "RUNNING" ? "in_progress" : "waiting";
+          } catch {}
+        }
+        const compositeId = `${race.id}_${userId}`;
+        const playerStatus = race.status === "RUNNING" ? "in_progress" : "waiting";
+        const actDefaults = {
+          id: compositeId,
+          activityId: race.id,
+          userId: String(userId),
+          userName: cleanName,
+          country,
+          raceMode: "race",
+          targetDistance: race.targetDistance,
+          status: playerStatus,
+          initialDistance: 0,
+          currentDistance: 0,
+          netDistance: 0,
+          progressPercent: 0,
+          lastStrokeRate: 0,
+          lastStrokeCount: 0,
+          lastPower: 0,
+          lastPace: 0,
+          lastHeartRate: 0,
+          lastResistance: 1,
+          avgPower: 0,
+          avgPace: 0,
+          avgStrokeRate: 0,
+          totalStrokes: 0,
+          totalEnergy: 0,
+          elapsedTime: 0,
+          avgSpeedKmh: 0,
+          isBot: false
+        };
+        if (!userStore.findActivityById(compositeId)) {
+          userStore.recordActivity(actDefaults);
+        }
+        try {
           const existing = await Activities.findByPk(compositeId);
           if (!existing) {
-            await Activities.create({
-              id: compositeId,
-              activityId: race.id,
-              userId: String(userId),
-              userName: cleanName,
-              country,
-              raceMode: "race",
-              targetDistance: race.targetDistance,
-              status: playerStatus,
-              initialDistance: 0,
-              currentDistance: 0,
-              netDistance: 0,
-              progressPercent: 0,
-              lastStrokeRate: 0,
-              lastStrokeCount: 0,
-              lastPower: 0,
-              lastPace: 0,
-              lastHeartRate: 0,
-              lastResistance: 1,
-              avgPower: 0,
-              avgPace: 0,
-              avgStrokeRate: 0,
-              totalStrokes: 0,
-              totalEnergy: 0,
-              elapsedTime: 0,
-              avgSpeedKmh: 0
-            });
+            await Activities.create(actDefaults as any);
           }
           const rows = await Activities.findAll({ where: { activityId: race.id } });
           if (rows.length > 0) {
             const sorted = RaceManager.sortRanking(rows as any);
             socketGateway.broadcastLeaderboard(race.id, RaceManager.toLiveMetrics(sorted, race));
           }
-        } catch {}
+        } catch {
+          const memRows = userStore.findActivitiesByRaceId(race.id);
+          if (memRows.length > 0) {
+            const sorted = RaceManager.sortRanking(memRows as any);
+            socketGateway.broadcastLeaderboard(race.id, RaceManager.toLiveMetrics(sorted, race));
+          }
+        }
       }
 
       const waitingStatusMessage = getWaitingStatusMessage(race);
@@ -337,37 +351,42 @@ export class RoomController {
       const { ticket, race } = outcome;
 
       // Créer l'entrée en attente en base de données pour réserver la ligne d'eau
+      const compositeId = `${race.id}_${ticket.userId}`;
+      const ticketActDefaults = {
+        id: compositeId,
+        activityId: race.id,
+        userId: ticket.userId,
+        userName: ticket.guestName,
+        country,
+        raceMode: "race",
+        targetDistance: race.targetDistance,
+        status: "waiting",
+        initialDistance: 0,
+        currentDistance: 0,
+        netDistance: 0,
+        progressPercent: 0,
+        lastStrokeRate: 0,
+        lastStrokeCount: 0,
+        lastPower: 0,
+        lastPace: 0,
+        lastHeartRate: 0,
+        lastResistance: 1,
+        avgPower: 0,
+        avgPace: 0,
+        avgStrokeRate: 0,
+        totalStrokes: 0,
+        totalEnergy: 0,
+        elapsedTime: 0,
+        avgSpeedKmh: 0,
+        isBot: false
+      };
+      if (!userStore.findActivityById(compositeId)) {
+        userStore.recordActivity(ticketActDefaults);
+      }
       try {
-        const compositeId = `${race.id}_${ticket.userId}`;
         const existing = await Activities.findByPk(compositeId);
         if (!existing) {
-          await Activities.create({
-            id: compositeId,
-            activityId: race.id,
-            userId: ticket.userId,
-            userName: ticket.guestName,
-            country,
-            raceMode: "race",
-            targetDistance: race.targetDistance,
-            status: "waiting",
-            initialDistance: 0,
-            currentDistance: 0,
-            netDistance: 0,
-            progressPercent: 0,
-            lastStrokeRate: 0,
-            lastStrokeCount: 0,
-            lastPower: 0,
-            lastPace: 0,
-            lastHeartRate: 0,
-            lastResistance: 1,
-            avgPower: 0,
-            avgPace: 0,
-            avgStrokeRate: 0,
-            totalStrokes: 0,
-            totalEnergy: 0,
-            elapsedTime: 0,
-            avgSpeedKmh: 0
-          });
+          await Activities.create(ticketActDefaults as any);
         }
       } catch {}
 

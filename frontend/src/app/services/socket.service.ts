@@ -92,6 +92,21 @@ export class SocketService {
       this.garminPairedSubject.next(data);
     });
 
+    this.socket.on('session_claimed', (data: any) => {
+      if (data && data.deviceToken) {
+        this.garminPairedSubject.next({
+          userId: data.userId,
+          deviceId: data.deviceId,
+          deviceToken: data.deviceToken,
+          ticketClaimed: data.mode === 'room',
+          guestName: data.playerName,
+          lane: data.lane,
+          raceId: data.roomId,
+          socketId: data.socketId
+        });
+      }
+    });
+
     this.socket.on('disconnect', () => {
       console.log('[SocketService] Disconnected from real-time server');
     });

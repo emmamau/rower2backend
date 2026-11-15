@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import pairingService from "./pairing.service";
-import raceManager from "./race-manager.service";
+import raceManager, { RaceManager, getWaitingStatusMessage } from "./race-manager.service";
+import userStore from "./user-store.service";
 import socketGateway from "../websocket/socket.gateway";
 import db from "../models";
 
@@ -165,6 +166,15 @@ export class SessionService {
     race?: any;
     id?: string;
     raceId?: string;
+    code?: string;
+    pinCode?: string;
+    botLane?: number;
+    status?: string;
+    internalStatus?: string;
+    secondsRemaining?: number;
+    countdownSeconds?: number;
+    waitingForHost?: boolean;
+    hasBots?: boolean;
     targetDistance?: number;
     totalParticipants?: number;
     isSolo?: boolean;
@@ -194,48 +204,202 @@ export class SessionService {
         if (!race) {
           throw new Error("Salon introuvable ou expiré.");
         }
-        let guestName = ticket?.guestName || `Rameur_${cleanCode.slice(0, 3)}`;
+        if (race.status === "COMPLETED" || race.status === "ABANDONED") {
+          throw new Error("Ce salon est déjà terminé.");
+        }
+
+        const existingPairing = !ticket ? await pairingService.findPairingByDeviceId(cleanDeviceId) : null;
+        let guestName =
+          ticket?.guestName ||
+          (existingPairing?.userId && !existingPairing.userId.startsWith("guest_") ? existingPairing.userId : "") ||
+          ((race.isSolo || race.isBotDuel) && race.hostUserName ? race.hostUserName : "") ||
+          `Rameur_${cleanCode.slice(0, 3)}`;
         if (customGuestPseudo && String(customGuestPseudo).trim().length > 0 && String(customGuestPseudo).trim() !== "Rameur_42") {
           guestName = String(customGuestPseudo).trim();
         }
-        const userId = ticket?.userId || `guest_${cleanCode.toLowerCase()}`;
-        const lane = ticket?.lane || 1;
 
-        const paired = await pairingService.pairGuestDirect(userId, cleanDeviceId, {
-          guestName,
-          userName: guestName,
-          roomId: race.id,
-          raceId: race.id,
-          ticketPin: cleanCode,
-          lane,
-        });
+        let userId = ticket?.userId || "";
+        if (!userId) {
+          if (existingPairing && existingPairing.userId && !existingPairing.userId.startsWith("guest_")) {
+            userId = existingPairing.userId;
+          } else if ((race.isSolo || race.isBotDuel) && race.hostUserId && race.hostUserId !== "anonymous") {
+            userId = race.hostUserId;
+          } else {
+            userId = `guest_${cleanCode.toLowerCase()}`;
+          }
+        }
 
-        raceManager.joinPrivateRace(race.id, userId, guestName, undefined, {
+        let deviceToken = "";
+        if (!ticket && existingPairing && existingPairing.userId === userId && existingPairing.deviceToken) {
+          deviceToken = existingPairing.deviceToken;
+        } else {
+          const paired = await pairingService.pairGuestDirect(userId, cleanDeviceId, {
+            guestName,
+            userName: guestName,
+            roomId: race.id,
+            raceId: race.id,
+            ticketPin: cleanCode,
+            lane: ticket?.lane || 1,
+            socketId: ticket?.socketId || undefined,
+          });
+          deviceToken = paired.deviceToken;
+        }
+
+        const joinRes = raceManager.joinPrivateRace(race.id, userId, guestName, undefined, {
           isDeviceAuthenticated: true,
           viaPin: true,
           ready: false,
-          deviceToken: paired.deviceToken,
+          socketId: ticket?.socketId || undefined,
+          deviceToken,
           bypassApproval: true,
         });
 
-        const totalParticipants = race.totalParticipants || (race.participants ? race.participants.size : 1);
+        if ("error" in joinRes) {
+          throw new Error(joinRes.error);
+        }
+
+        const lane = ticket?.lane || joinRes.lane || 1;
+        if (race.participants && race.participants.has(userId)) {
+          const p = race.participants.get(userId)!;
+          p.lane = lane;
+          p.ready = false;
+          p.connectionState = "CONNECTED";
+          p.deviceToken = deviceToken;
+          if (ticket?.socketId) p.socketId = ticket.socketId;
+          race.participants.set(userId, p);
+        }
+
+        if (ticket) {
+          ticket.claimedAt = new Date();
+          ticket.deviceId = cleanDeviceId;
+          ticket.deviceToken = deviceToken;
+        }
+
+        // Enregistrement en mémoire + base de données pour la ligne de départ
+        if (lane > 0) {
+          if (race.isBotDuel && race.originalHostUserId && race.originalHostUserId !== userId) {
+            userStore.deleteActivityById(`${race.id}_${race.originalHostUserId}`);
+            try {
+              await Activities.destroy({ where: { id: `${race.id}_${race.originalHostUserId}` } });
+            } catch {}
+          }
+          const compositeId = `${race.id}_${userId}`;
+          const playerStatus = race.status === "RUNNING" ? "in_progress" : "waiting";
+          const actDefaults = {
+            id: compositeId,
+            activityId: race.id,
+            userId,
+            userName: guestName,
+            raceMode: "race",
+            targetDistance: race.targetDistance,
+            status: playerStatus,
+            initialDistance: 0,
+            currentDistance: 0,
+            netDistance: 0,
+            progressPercent: 0,
+            lastStrokeRate: 0,
+            lastStrokeCount: 0,
+            lastPower: 0,
+            lastPace: 0,
+            lastHeartRate: 0,
+            lastResistance: 1,
+            avgPower: 0,
+            avgPace: 0,
+            avgStrokeRate: 0,
+            totalStrokes: 0,
+            totalEnergy: 0,
+            elapsedTime: 0,
+            avgSpeedKmh: 0,
+            isBot: false,
+          };
+          if (!userStore.findActivityById(compositeId)) {
+            userStore.recordActivity(actDefaults);
+          }
+          try {
+            const existing = await Activities.findByPk(compositeId);
+            if (!existing) {
+              await Activities.create(actDefaults as any);
+            }
+          } catch {}
+          try {
+            const memRows = userStore.findActivitiesByRaceId(race.id);
+            let rows: any[] = memRows;
+            try {
+              const dbRows = await Activities.findAll({ where: { activityId: race.id } });
+              if (dbRows.length > 0) rows = dbRows;
+            } catch {}
+            if (rows.length > 0) {
+              const sorted = RaceManager.sortRanking(rows as any);
+              socketGateway.broadcastLeaderboard(race.id, RaceManager.toLiveMetrics(sorted, race));
+            }
+          } catch {}
+        }
+
+        const timing = raceManager.getRaceTiming(race, new Date());
+        const waitingForHost = race.status === "LOBBY" && !race.autoStart;
+        const secondsRemaining = (!waitingForHost && (race.status === "LOBBY" || race.status === "COUNTDOWN"))
+          ? timing.secondsUntilStart
+          : 0;
+        const totalParticipants = (race.participants ? race.participants.size : 1) + (race.botCount || (race.isBotDuel ? 1 : 0));
+        const waitingStatusMessage = getWaitingStatusMessage(race) || `Ligne ${lane} attribuée - Donnez un coup de rame pour réveiller le rameur`;
+
+        try {
+          socketGateway.broadcastPrivateRoomUpdate(race.id, {
+            type: "PARTICIPANT_JOINED",
+            ticketClaimed: Boolean(ticket),
+            ticketPin: cleanCode,
+            code: race.code,
+            socketId: ticket?.socketId,
+            userId,
+            hostUserId: race.originalHostUserId || race.hostUserId,
+            userName: guestName,
+            guestName,
+            deviceToken,
+            deviceId: cleanDeviceId,
+            lane,
+            botLane: race.isBotDuel ? 2 : undefined,
+            raceId: race.id,
+            ready: false,
+            connectionState: "CONNECTED",
+            isBotDuel: Boolean(race.isBotDuel),
+            isDuel1v1: Boolean(race.isDuel1v1),
+            isSolo: Boolean(race.isSolo),
+            gameMode: race.gameMode || (race.isSolo ? "solo" : race.isBotDuel ? "bot_duel" : race.isDuel1v1 ? "duel_1v1" : "multi"),
+            startMode: race.startMode || "manual",
+            status: race.status,
+            secondsRemaining,
+            countdownSeconds: secondsRemaining,
+            lobbyEndsAt: race.lobbyEndsAt ? race.lobbyEndsAt.toISOString() : undefined,
+            waitingStatusMessage,
+          });
+        } catch {}
+
         return {
           success: true,
-          deviceToken: paired.deviceToken,
+          deviceToken,
           mode: "room",
           playerName: guestName,
           lane,
+          botLane: race.isBotDuel ? 2 : undefined,
           userId,
           roomId: race.id,
           id: race.id,
           raceId: race.id,
+          code: race.code,
+          pinCode: race.pinCode,
           targetDistance: race.targetDistance,
+          status: race.status === "RUNNING" ? "in_progress" : "waiting",
+          internalStatus: race.status,
+          secondsRemaining,
+          countdownSeconds: secondsRemaining,
+          waitingForHost,
+          hasBots: Boolean(race.hasBots || race.isBotDuel),
           totalParticipants,
           isSolo: Boolean(race.isSolo),
           isBotDuel: Boolean(race.isBotDuel),
           isDuel1v1: Boolean(race.isDuel1v1),
           gameMode: race.gameMode || (race.isSolo ? "solo" : race.isBotDuel ? "bot_duel" : race.isDuel1v1 ? "duel_1v1" : "multi"),
-          waitingStatusMessage: `Ligne ${lane} attribuée - Donnez un coup de rame pour réveiller le rameur`,
+          waitingStatusMessage,
           message: `Bienvenue ${guestName} ! Ligne ${lane} attribuée`,
           race,
         };
@@ -363,10 +527,56 @@ export class SessionService {
 
     let attachedRace: any = null;
     let roomTotalParticipants: number | undefined = undefined;
+    let secondsRemaining = 0;
+    let waitingForHost = false;
     if (roomId) {
       attachedRace = raceManager.getRaceById(roomId);
       if (attachedRace) {
-        roomTotalParticipants = attachedRace.totalParticipants || (attachedRace.participants ? attachedRace.participants.size : 1);
+        roomTotalParticipants = (attachedRace.participants ? attachedRace.participants.size : 1) + (attachedRace.botCount || (attachedRace.isBotDuel ? 1 : 0));
+        const timing = raceManager.getRaceTiming(attachedRace, new Date());
+        waitingForHost = attachedRace.status === "LOBBY" && !attachedRace.autoStart;
+        secondsRemaining = (!waitingForHost && (attachedRace.status === "LOBBY" || attachedRace.status === "COUNTDOWN"))
+          ? timing.secondsUntilStart
+          : 0;
+        if (targetUserId) {
+          const compositeId = `${attachedRace.id}_${targetUserId}`;
+          const actDefaults = {
+            id: compositeId,
+            activityId: attachedRace.id,
+            userId: targetUserId,
+            userName: finalPlayerName,
+            raceMode: "race",
+            targetDistance: attachedRace.targetDistance,
+            status: attachedRace.status === "RUNNING" ? "in_progress" : "waiting",
+            initialDistance: 0,
+            currentDistance: 0,
+            netDistance: 0,
+            progressPercent: 0,
+            lastStrokeRate: 0,
+            lastStrokeCount: 0,
+            lastPower: 0,
+            lastPace: 0,
+            lastHeartRate: 0,
+            lastResistance: 1,
+            avgPower: 0,
+            avgPace: 0,
+            avgStrokeRate: 0,
+            totalStrokes: 0,
+            totalEnergy: 0,
+            elapsedTime: 0,
+            avgSpeedKmh: 0,
+            isBot: false,
+          };
+          if (!userStore.findActivityById(compositeId)) {
+            userStore.recordActivity(actDefaults);
+          }
+          try {
+            const existing = await Activities.findByPk(compositeId);
+            if (!existing) {
+              await Activities.create(actDefaults as any);
+            }
+          } catch {}
+        }
       }
     }
 
@@ -374,13 +584,22 @@ export class SessionService {
       success: true,
       deviceToken,
       mode,
-      playerName,
+      playerName: finalPlayerName,
       lane,
+      botLane: attachedRace?.isBotDuel ? 2 : undefined,
       userId: targetUserId,
       roomId,
       id: roomId || undefined,
       raceId: roomId || undefined,
+      code: attachedRace?.code,
+      pinCode: attachedRace?.pinCode,
       targetDistance: attachedRace?.targetDistance,
+      status: attachedRace ? (attachedRace.status === "RUNNING" ? "in_progress" : "waiting") : undefined,
+      internalStatus: attachedRace?.status,
+      secondsRemaining: attachedRace ? secondsRemaining : undefined,
+      countdownSeconds: attachedRace ? secondsRemaining : undefined,
+      waitingForHost: attachedRace ? waitingForHost : undefined,
+      hasBots: attachedRace ? Boolean(attachedRace.hasBots || attachedRace.isBotDuel) : undefined,
       totalParticipants: roomTotalParticipants,
       isSolo: Boolean(attachedRace?.isSolo),
       isBotDuel: Boolean(attachedRace?.isBotDuel),
@@ -388,7 +607,7 @@ export class SessionService {
       gameMode: attachedRace?.gameMode || (attachedRace?.isSolo ? "solo" : attachedRace?.isBotDuel ? "bot_duel" : attachedRace?.isDuel1v1 ? "duel_1v1" : (mode === "room" ? "multi" : undefined)),
       waitingStatusMessage: `Ligne ${lane} attribuée - Donnez un coup de rame pour réveiller le rameur`,
       guestPairingToken: context.guestPairingToken,
-      message: `Bienvenue ${playerName} ! Mode ${mode} activé (Ligne ${lane})`,
+      message: `Bienvenue ${finalPlayerName} ! Mode ${mode} activé (Ligne ${lane})`,
       race: attachedRace || undefined,
     };
   }

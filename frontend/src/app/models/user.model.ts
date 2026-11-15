@@ -45,14 +45,19 @@ export interface RegisterUserDto {
   email: string;
   password: string;
   watchUserId?: string;
+  deviceToken?: string;
   guestPairingToken?: string;
   guestToken?: string;
+  guestUserId?: string;
 }
 
 export interface LoginDto {
   login: string;
   password: string;
   watchUserId?: string;
+  deviceToken?: string;
+  guestPairingToken?: string;
+  guestUserId?: string;
 }
 
 export interface AuthResponse {

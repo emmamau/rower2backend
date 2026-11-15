@@ -120,9 +120,29 @@
           <span class="pure-user-name">{{ currentUser.name }}</span>
           <span class="pure-user-lane-badge" *ngIf="myAssignedLane" title="Ligne d'eau assignée">Ligne {{ myAssignedLane }}</span>
         } @else {
-          <span class="pure-user-name">👤 Invité</span>
+          <span class="pure-user-name">👤 {{ isUserAssociatedWithRace ? currentUser.name : 'Invité' }}</span>
         }
       </div>
+
+      <!-- Liste déroulante d'identification du kayak si joueur non connecté à un compte et sans montre appairée -->
+      @if (canManualSelectPublicKayak && selectablePublicKayaks.length > 0) {
+        <div class="pure-kayak-select-wrapper">
+          <label for="pure-kayak-select" class="pure-kayak-label" title="Identifier votre kayak dans la course publique">🛶 Mon kayak :</label>
+          <select
+            id="pure-kayak-select"
+            class="spectator-select pure-kayak-select"
+            [ngModel]="isUserAssociatedWithRace ? activeUserId : ''"
+            (ngModelChange)="onSelectPublicKayak($event)"
+            aria-label="Sélectionner votre kayak dans la course publique">
+            <option value="">-- Choisir mon kayak --</option>
+            @for (k of selectablePublicKayaks; track k.userId) {
+              <option [value]="k.userId">
+                🛶 Ligne {{ k.lane }} · {{ k.name }} ({{ k.dist }}m)
+              </option>
+            }
+          </select>
+        </div>
+      }
 
       <!-- Sélecteur de langue épuré immédiatement à droite du User -->
       <div class="lang-dropdown-wrapper pure-lang-dropdown">
@@ -1635,8 +1655,35 @@
         </div>
       </section>
 
-      <!-- SÉLECTEUR DE VUE / SUIVI DE JOUEUR (DROPDOWN SPECTATEUR) -->
+      <!-- SÉLECTEUR D'IDENTIFICATION DU KAYAK (SI NON CONNECTÉ ET SANS MONTRE APPAIRÉE) + SUIVI CAMÉRA -->
       <div class="spectator-camera-bar">
+        @if (canManualSelectPublicKayak) {
+          <div class="spectator-label-group">
+            <span class="cam-icon">🛶</span>
+            <span class="cam-title">Sélectionner mon kayak :</span>
+          </div>
+          <div class="spectator-dropdown-wrap">
+            <select
+              class="spectator-select"
+              [ngModel]="isUserAssociatedWithRace ? activeUserId : ''"
+              (ngModelChange)="onSelectPublicKayak($event)"
+              aria-label="Sélectionner votre kayak dans la course publique">
+              <option value="">-- Identifier mon kayak dans la course --</option>
+              @for (k of selectablePublicKayaks; track k.userId) {
+                <option [value]="k.userId">
+                  🛶 Ligne {{ k.lane }} · {{ k.name }} ({{ k.dist }}m)
+                </option>
+              }
+            </select>
+          </div>
+        } @else if (!activePrivateRoom) {
+          <span class="spectator-tip">
+            🔗 Kayak lié automatiquement : <strong>{{ currentUser.name }}</strong>
+            @if (myAssignedLane) {
+              <span>(Ligne {{ myAssignedLane }})</span>
+            }
+          </span>
+        }
         <div class="spectator-label-group">
           <span class="cam-icon">🎥</span>
           <span class="cam-title">Suivi Bateau / Focus :</span>
@@ -1833,6 +1880,28 @@
 
       <!-- SÉLECTEUR DE VUE / SUIVI DE JOUEUR DANS LE COCKPIT -->
       <div class="spectator-camera-bar cockpit-spectator-bar">
+        @if (canManualSelectPublicKayak) {
+          <div class="spectator-label-group">
+            <span class="cam-icon">🛶</span>
+            <span class="cam-title">Mon kayak :</span>
+          </div>
+          <div class="spectator-dropdown-wrap">
+            <select
+              class="spectator-select"
+              aria-label="Sélectionner mon kayak"
+              [ngModel]="claimedRacerUserId || ''"
+              (ngModelChange)="onSelectPublicKayak($event)">
+              <option value="">-- Identifier mon kayak --</option>
+              <option *ngFor="let k of selectablePublicKayaks" [value]="k.userId">
+                🛶 {{ k.userName }} (L{{ k.lane }} · {{ k.netDistance }}m · {{ k.lastPower }}W)
+              </option>
+            </select>
+          </div>
+        } @else {
+          <span class="spectator-tip" style="color: #10b981; font-weight: 600;">
+            🔗 Kayak lié : {{ myActivity?.userName || currentUser.name }}
+          </span>
+        }
         <div class="spectator-label-group">
           <span class="cam-icon">📱</span>
           <span class="cam-title">Télémétrie coureur :</span>
@@ -2081,6 +2150,28 @@
                   <div class="timer-digits-glow">{{ formattedPairingCountdown }}</div>
                   <span class="timer-pulse-sub">Validation en attente...</span>
                 </div>
+              </div>
+            </div>
+          }
+
+          <!-- SÉLECTION MANUELLE DU KAYAK SI NI COMPTE NI MONTRE APPAIRÉE -->
+          @if (canManualSelectPublicKayak && selectablePublicKayaks.length > 0) {
+            <div class="spectator-camera-bar" style="margin-block-start: 12px; border-radius: 10px;">
+              <div class="spectator-label-group">
+                <span class="cam-icon">🛶</span>
+                <span class="cam-title">Sélectionner votre kayak en course publique (sans compte ni montre liée) :</span>
+              </div>
+              <div class="spectator-dropdown-wrap">
+                <select
+                  class="spectator-select"
+                  aria-label="Sélectionner mon kayak dans la course publique"
+                  [ngModel]="claimedRacerUserId || ''"
+                  (ngModelChange)="onSelectPublicKayak($event)">
+                  <option value="">-- Choisir mon kayak dans la liste --</option>
+                  <option *ngFor="let k of selectablePublicKayaks" [value]="k.userId">
+                    🛶 {{ k.userName }} (Ligne {{ k.lane }} · {{ k.netDistance }}m · {{ k.lastPower }}W)
+                  </option>
+                </select>
               </div>
             </div>
           }

@@ -7,6 +7,8 @@ import { isEmmaAdminUser } from "../services/auth.service";
 import userStore from "../services/user-store.service";
 import { IpGeoService } from "../services/ip-geo.service";
 import { generateRealisticBotPace, calculateBotPhysics, getLeagueByPoints, calculateRacePoints } from "../utils/league.util";
+import pairingService from "../services/pairing.service";
+import socketGateway from "../websocket/socket.gateway";
 
 const Activities = db.activities;
 const Races = db.races;
@@ -137,6 +139,8 @@ export async function buildPublicRacePayload(): Promise<any> {
   } catch {
     // Non-blocking fallback when DB offline
   }
+  const participantsList = state.participants ? Array.from(state.participants.values()) : [];
+  count = Math.max(count, participantsList.length);
 
   const plainRow = typeof row.toJSON === "function" ? row.toJSON() : row;
   const race = {
@@ -152,6 +156,7 @@ export async function buildPublicRacePayload(): Promise<any> {
     internalStatus: state.status,
     status: apiStatus,
     totalParticipants: count,
+    participants: participantsList,
   };
 
   return {
@@ -191,17 +196,37 @@ export const getNextRace = async (_req: Request, res: Response): Promise<void> =
  */
 export const joinRace = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { userId = "anonymous", userName, action = "join", deviceId, deviceToken } = req.body;
+    const { userId: rawUserId = "anonymous", userName: rawUserName, action = "join", deviceId: rawDeviceId, deviceToken: bodyDeviceToken } = req.body || {};
+    const authHeader = String(req.headers.authorization || "");
+    const bearerToken = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
+    const headerToken = req.headers["x-device-token"] ? String(req.headers["x-device-token"]).trim() : "";
+    const rawToken = bodyDeviceToken ? String(bodyDeviceToken).trim() : (bearerToken || headerToken);
+
     const state = await raceManager.tickPublicRace();
     const now = new Date();
     const isRunning = state.status === "RUNNING";
     const timing = raceManager.getRaceTiming(state, now);
+
+    // Résolution automatique de l'identité canonique (lien montre appairée <-> compte utilisateur)
+    const identity = await pairingService.resolvePairedIdentity({
+      userId: rawUserId,
+      userName: rawUserName,
+      deviceToken: rawToken,
+      deviceId: rawDeviceId,
+    });
+    const userId = identity.userId;
+    const cleanUserName = identity.userName;
+    const deviceId = identity.deviceId || rawDeviceId;
+    const deviceToken = identity.deviceToken || rawToken;
 
     if (state.pauseEndsAt && state.pauseEndsAt.getTime() > now.getTime()) {
       const pauseRemaining = Math.max(0, Math.ceil((state.pauseEndsAt.getTime() - now.getTime()) / 1000));
       res.status(200).json({
         success: true,
         action: "wait_next",
+        userId,
+        userName: cleanUserName,
+        isPaired: identity.isPaired,
         isPostRacePause: true,
         pauseRemainingSeconds: pauseRemaining,
         secondsRemaining: pauseRemaining,
@@ -216,6 +241,9 @@ export const joinRace = async (req: Request, res: Response): Promise<void> => {
       res.status(200).json({
         success: true,
         action: "wait_next",
+        userId,
+        userName: cleanUserName,
+        isPaired: identity.isPaired,
         currentRaceRunning: true,
         remainingSeconds: timing.remainingSeconds,
         secondsRemaining: timing.remainingSeconds + (config.raceIntervalMinutes || 15) * 60,
@@ -227,11 +255,6 @@ export const joinRace = async (req: Request, res: Response): Promise<void> => {
 
     const actualRaceId = state.id;
     const compositeId = `${actualRaceId}_${userId}`;
-
-    // Résolution du nom effectif : login Garmin/configuré en priorité si disponible
-    const cleanUserName = userName && String(userName).trim().length > 0 && String(userName).trim() !== "Rameur_42"
-      ? String(userName).trim()
-      : undefined;
 
     let currentCount = 0;
     try {
@@ -323,6 +346,19 @@ export const joinRace = async (req: Request, res: Response): Promise<void> => {
       raceManager.notifyPlayerJoinedPublic(userId, cleanUserName, deviceId, deviceToken);
     }
 
+    const assignedLane = state.participants?.get(userId)?.lane || 1;
+
+    // Diffuser immédiatement la liste des kayaks mise à jour aux clients web via WebSocket
+    try {
+      const rows = await Activities.findAll({
+        where: { activityId: actualRaceId, status: { [Op.ne]: "abandoned" } },
+      });
+      if (rows.length > 0) {
+        const sorted = RaceManager.sortRanking(rows as any);
+        socketGateway.broadcastLeaderboard(actualRaceId, RaceManager.toLiveMetrics(sorted, state));
+      }
+    } catch {}
+
     // Inscrire/actualiser l'utilisateur sans données personnelles (tolérant au mode offline DB)
     try {
       const user = await Users.findByPk(userId);
@@ -341,6 +377,11 @@ export const joinRace = async (req: Request, res: Response): Promise<void> => {
     res.status(200).json({
       success: true,
       raceId: actualRaceId,
+      userId,
+      userName: cleanUserName,
+      lane: assignedLane,
+      isPaired: identity.isPaired,
+      deviceToken: deviceToken || undefined,
       race: payload.race,
       isRaceInProgress: isRunning,
       secondsRemaining: payload.secondsRemaining,
@@ -459,6 +500,39 @@ export const getRaceLeaderboard = async (req: Request, res: Response): Promise<v
       const memActs = userStore.findActivitiesByRaceId(cleanId);
       if (memActs.length > 0) {
         activities = memActs as any;
+      }
+    }
+
+    const managedForParts = raceManager.getRaceById(cleanId) || raceManager.findPrivateRace(cleanId);
+    if (managedForParts && managedForParts.participants) {
+      const existingIds = new Set(
+        activities.map((a: any) => (typeof a.get === "function" ? a.get("userId") : a.userId))
+      );
+      for (const p of managedForParts.participants.values()) {
+        if (!existingIds.has(p.userId)) {
+          const fallbackObj: Record<string, any> = {
+            id: `${cleanId}_${p.userId}`,
+            activityId: cleanId,
+            userId: p.userId,
+            userName: p.userName || p.userId,
+            country: p.country,
+            lane: p.lane || 1,
+            status: managedForParts.status === "RUNNING" ? "in_progress" : "waiting",
+            netDistance: 0,
+            currentDistance: 0,
+            progressPercent: 0,
+            lastPower: 0,
+            lastStrokeRate: 0,
+            lastPace: 0,
+            avgPower: 0,
+            avgPace: 0,
+            avgStrokeRate: 0,
+            elapsedTime: 0,
+            isBot: false,
+          };
+          fallbackObj.get = (k: string) => fallbackObj[k];
+          activities.push(fallbackObj);
+        }
       }
     }
 

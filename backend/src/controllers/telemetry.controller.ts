@@ -193,11 +193,23 @@ export class TelemetryController {
       }
 
       // Resolve deviceToken or guestName participant mapping for Parcours 1 & Parcours 2
-      const matchedRaceForUser = raceManager.getRaceById(raceId);
+      const matchedRaceForUser = raceManager.getRaceById(raceId) || raceManager.getCurrentPublicRace();
       const authHeader = String(req.headers.authorization || "");
       const bearerToken = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
-      const rawToken = bearerToken || (body.deviceToken ? String(body.deviceToken).trim() : "");
-      if (rawToken) {
+      const headerToken = req.headers["x-device-token"] ? String(req.headers["x-device-token"]).trim() : "";
+      const rawToken = bearerToken || (body.deviceToken ? String(body.deviceToken).trim() : "") || headerToken;
+      const rawDeviceId = body.deviceId ? String(body.deviceId).trim() : "";
+
+      if (matchedRaceForUser?.type === "PUBLIC_HOURLY" || !matchedRaceForUser || matchedRaceForUser.id === raceManager.getCurrentPublicRace()?.id) {
+        const identity = await pairingService.resolvePairedIdentity({
+          userId: body.userId,
+          userName: body.userName,
+          deviceToken: rawToken,
+          deviceId: rawDeviceId,
+        });
+        userId = identity.userId;
+        resolvedUserName = identity.userName;
+      } else if (rawToken) {
         const tokenValidation = await pairingService.validateDeviceToken(rawToken);
         const paired = tokenValidation.valid ? tokenValidation.pairing : null;
         if (paired && paired.userId) {
@@ -207,8 +219,17 @@ export class TelemetryController {
             if (p?.userName && (!resolvedUserName || resolvedUserName === paired.userId)) {
               resolvedUserName = p.userName;
             }
-          } else if (userId === "anonymous" || !matchedRaceForUser?.participants?.has(userId)) {
-            userId = paired.userId;
+          } else {
+            const identity = await pairingService.resolvePairedIdentity({
+              userId: paired.userId,
+              userName: body.userName,
+              deviceToken: rawToken,
+              deviceId: rawDeviceId,
+            });
+            userId = identity.userId;
+            if (!resolvedUserName || resolvedUserName === "Rameur_42") {
+              resolvedUserName = identity.userName;
+            }
           }
         }
       }
@@ -220,6 +241,20 @@ export class TelemetryController {
               resolvedUserName = p.userName;
             }
             break;
+          }
+        }
+        if (
+          !matchedRaceForUser.participants.has(userId) &&
+          matchedRaceForUser.type === "PRIVATE_INVITE" &&
+          (matchedRaceForUser.isSolo || matchedRaceForUser.isBotDuel) &&
+          matchedRaceForUser.participants.size === 1
+        ) {
+          const soleParticipant = Array.from(matchedRaceForUser.participants.values())[0];
+          if (soleParticipant && soleParticipant.userId) {
+            userId = soleParticipant.userId;
+            if (!resolvedUserName) {
+              resolvedUserName = soleParticipant.userName || "";
+            }
           }
         }
       }
@@ -241,9 +276,13 @@ export class TelemetryController {
       } catch {
         // Tolerant to offline DB
       }
+      if (!activity) {
+        activity = userStore.findActivityById(compositeId);
+      }
 
-      const prevDistance = activity ? (activity.get("currentDistance") as number) : 0;
-      const prevTime = activity ? (activity.get("elapsedTime") as number) : 0;
+      const prevDistance = activity ? (Number(activity.get("currentDistance")) || 0) : 0;
+      const prevTime = activity ? (Number(activity.get("elapsedTime")) || 0) : 0;
+      const currentElapsed = Number(body.elapsedTime || (activity ? Number(activity.get("elapsedTime")) + 1 : 1));
 
       const validation = TelemetryValidator.validate(
         {
@@ -254,7 +293,8 @@ export class TelemetryController {
           metrics: { distanceM, splitSec, powerWatts, strokeRate, heartRate }
         },
         prevDistance,
-        prevTime
+        prevTime,
+        currentElapsed
       );
 
       let actualDistance = validation.sanitizedDistance;
@@ -265,28 +305,35 @@ export class TelemetryController {
       const watchModel = String(body.watchModel || "Garmin Connect IQ").slice(0, 64);
       const rowerModel = String(body.rowerModel || body.deviceName || "FTMS / SmartRow").slice(0, 64);
 
-      // Algorithme Concept2 officiel basé sur la puissance en Watts :
-      // Vitesse (m/s) = (Watts / 2.80)^(1/3)
-      let effectiveDistance = actualDistance;
-      const currentElapsed = Number(body.elapsedTime || (activity ? Number(activity.get("elapsedTime")) + 1 : 1));
-      const prevElapsed = activity ? Number(activity.get("elapsedTime") || 0) : 0;
-      const deltaSec = Math.max(0, Math.min(10, currentElapsed - prevElapsed));
-
-      if (actualPower > 0 && deltaSec > 0 && deltaSec <= 10) {
-        const c2Speed = Math.cbrt(actualPower / 2.80);
-        const prevNetDist = activity ? Number(activity.get("netDistance") || 0) : 0;
-        effectiveDistance = Math.round(prevNetDist + (c2Speed * deltaSec));
-      }
-
       const matchedRace = raceManager.getRaceById(raceId) || raceManager.getCurrentPublicRace();
       const targetDist = matchedRace?.targetDistance || Number(body.targetDistance) || 2000;
 
-      // Gestion spécifique du déclenchement du départ au premier coup de rame (Solo et Duel contre un Bot)
+      // Algorithme Concept2 officiel basé sur la puissance en Watts :
+      // Vitesse (m/s) = (Watts / 2.80)^(1/3)
+      // Si la montre fournit déjà la distance matérielle réelle (actualDistance > 0), on l'utilise directement
+      // pour garantir une cohérence stricte entre la montre, le cockpit, la régate et le classement instantané.
+      const prevNetDist = activity ? Number(activity.get("netDistance") || 0) : 0;
+      let effectiveDistance = Math.max(prevNetDist, Math.round(actualDistance));
+      const prevElapsed = activity ? Number(activity.get("elapsedTime") || 0) : 0;
+      const deltaSec = Math.max(0, Math.min(10, currentElapsed - prevElapsed));
+
+      if (actualDistance <= 0 && actualPower > 0 && deltaSec > 0 && deltaSec <= 10) {
+        const c2Speed = Math.cbrt(actualPower / 2.80);
+        const c2Dist = Math.round(prevNetDist + (c2Speed * deltaSec));
+        effectiveDistance = Math.max(prevNetDist, c2Dist);
+      }
+
+      if (targetDist > 0 && effectiveDistance >= targetDist) {
+        effectiveDistance = targetDist;
+        actualDistance = targetDist;
+      }
+
+      // Gestion spécifique du déclenchement du départ au premier coup de rame en mode Solo (et Duel Bot en LOBBY hors décompte)
       if (
         matchedRace &&
         matchedRace.type === "PRIVATE_INVITE" &&
-        (matchedRace.isSolo || matchedRace.isBotDuel) &&
-        (matchedRace.status === "LOBBY" || matchedRace.status === "COUNTDOWN")
+        (matchedRace.isSolo || (matchedRace.isBotDuel && matchedRace.status === "LOBBY")) &&
+        (matchedRace.status === "LOBBY" || (matchedRace.isSolo && matchedRace.status === "COUNTDOWN"))
       ) {
         if (actualDistance > 0 || actualPower > 0 || actualSpm > 0) {
           // Premier coup de rame détecté : lancement immédiat de la course
@@ -294,6 +341,7 @@ export class TelemetryController {
           matchedRace.status = "RUNNING";
           matchedRace.startedAt = startNow;
           matchedRace.autoStart = true;
+          userStore.updateActivitiesWhere(matchedRace.id, "waiting", { status: "in_progress", updatedAt: startNow });
           try {
             await Races.update({ status: "in_progress", startTime: startNow }, { where: { id: matchedRace.id } });
             await Activities.update({ status: "in_progress" }, { where: { activityId: matchedRace.id, status: "waiting" } });
@@ -302,7 +350,7 @@ export class TelemetryController {
         }
       }
 
-      // Procédure de départ arrêté : alerte sonore/vibratoire et distance à 0 m en cas de faux départ pendant les 15 s (Courses publiques, 1v1 Joueur et Multi)
+      // Procédure de départ arrêté : alerte sonore/vibratoire et distance à 0 m en cas de faux départ pendant les 15 s (Courses publiques, 1v1 Joueur, BotDuel en COUNTDOWN et Multi)
       let falseStartDetected = false;
       if (matchedRace && (matchedRace.status === "COUNTDOWN" || matchedRace.status === "LOBBY")) {
         if (actualDistance > 0 || actualPower > 0 || actualSpm > 0) {
@@ -414,14 +462,22 @@ export class TelemetryController {
           id: compositeId,
           activityId: raceId,
           userId,
-          userName: body.userName || `Racer_${userId.slice(-4)}`,
+          userName: resolvedUserName || body.userName || `Racer_${userId.slice(-4)}`,
+          country,
           targetDistance: targetDist,
+          currentDistance: actualDistance,
           netDistance: effectiveDistance,
+          progressPercent: Math.min(100, Number(((effectiveDistance / targetDist) * 100).toFixed(1))),
           elapsedTime: currentElapsed,
+          lastPower: actualPower,
+          lastPace: actualSplit,
+          lastStrokeRate: actualSpm,
+          lastHeartRate: heartRate,
           avgPower: actualPower,
           avgPace: actualSplit,
           avgStrokeRate: actualSpm,
           status: activityStatus,
+          isBot: false,
           rowerModel,
           watchModel,
         });
@@ -437,24 +493,44 @@ export class TelemetryController {
         } catch {}
       }
 
-      // Compute rank & gaps
-      let activeRacers: any[] = [];
+      // Compute rank & gaps (merge DB and in-memory store so bots and other players are always included)
+      const racersMap = new Map<string, any>();
+      for (const m of userStore.findActivitiesByRaceId(raceId)) {
+        const st = typeof m.get === "function" ? m.get("status") : m.status;
+        const uid = String((typeof m.get === "function" ? m.get("userId") : m.userId) || "");
+        if (uid && st !== "abandoned") {
+          racersMap.set(uid, m);
+        }
+      }
       try {
-        activeRacers = await Activities.findAll({
+        const dbRacers = (await Activities.findAll({
           where: { activityId: raceId, status: { [Op.ne]: "abandoned" } },
           order: [
             ["status", "ASC"], // finished first
             ["netDistance", "DESC"],
             ["elapsedTime", "ASC"]
           ]
-        });
+        })) as any[];
+        for (const r of dbRacers) {
+          const uid = String((typeof r.get === "function" ? r.get("userId") : r.userId) || "");
+          if (uid) {
+            const mem = racersMap.get(uid);
+            const rDist = Number((typeof r.get === "function" ? r.get("netDistance") : r.netDistance) || 0);
+            const memDist = mem ? Number((typeof mem.get === "function" ? mem.get("netDistance") : mem.netDistance) || 0) : 0;
+            if (!mem || rDist >= memDist) {
+              racersMap.set(uid, r);
+            }
+          }
+        }
       } catch {}
+
+      let activeRacers: any[] = RaceManager.sortRanking(Array.from(racersMap.values()));
 
       if (activeRacers.length === 0) {
         activeRacers = [{
           get: (field: string) => {
             if (field === "userId") return userId;
-            if (field === "userName") return body.userName || userId;
+            if (field === "userName") return resolvedUserName || body.userName || userId;
             if (field === "netDistance") return effectiveDistance;
             if (field === "lastPace") return actualSplit;
             if (field === "lastPower") return actualPower;
@@ -469,19 +545,19 @@ export class TelemetryController {
       const totalRacers = activeRacers.length;
       const myIdx = activeRacers.findIndex((a: any) => a.get("userId") === userId);
       const myRank = myIdx >= 0 ? myIdx + 1 : 1;
-      const leaderDist = activeRacers.length > 0 ? (activeRacers[0].get("netDistance") as number) : actualDistance;
-      const gapM = -Math.max(0, Number((leaderDist - actualDistance).toFixed(1)));
+      const leaderDist = activeRacers.length > 0 ? (activeRacers[0].get("netDistance") as number) : effectiveDistance;
+      const gapM = -Math.max(0, Number((leaderDist - effectiveDistance).toFixed(1)));
 
       let distToPrev = 0;
       let distToNext = 0;
       if (myIdx >= 0 && activeRacers.length > 0) {
         if (myIdx > 0) {
           const prevDist = (activeRacers[myIdx - 1].get("netDistance") as number) || 0;
-          distToPrev = Math.max(0, Math.round(prevDist - actualDistance));
+          distToPrev = Math.max(0, Math.round(prevDist - effectiveDistance));
         }
         if (myIdx < activeRacers.length - 1) {
           const nextDist = (activeRacers[myIdx + 1].get("netDistance") as number) || 0;
-          distToNext = Math.max(0, Math.round(actualDistance - nextDist));
+          distToNext = Math.max(0, Math.round(effectiveDistance - nextDist));
         }
       }
 
@@ -628,7 +704,7 @@ export class TelemetryController {
         : (isUserAdmin ? (adminAsSpectator !== undefined ? Boolean(adminAsSpectator) : true) : false);
 
       let maxAllowed = isSolo ? 1 : (isBotDuel || isDuel1v1) ? 2 : 30;
-      let distAllowed = (isSolo || isBotDuel || isDuel1v1) ? 2000 : 100000;
+      let distAllowed = (isSolo || isBotDuel || isDuel1v1) ? 10000 : 100000;
       let botsAllowed = isSolo ? 0 : isBotDuel ? 1 : 5;
 
       if (!isSolo && !isBotDuel && user && !isEmma && !user.isAdmin && user.subscriptionTier) {
@@ -695,36 +771,39 @@ export class TelemetryController {
       }
 
       if (!allowAdminSpectator && hostParticipates && hostUserId && hostUserId !== "anonymous") {
+        const compId = `${race.id}_${hostUserId}`;
+        const hostDefaults = {
+          id: compId,
+          activityId: race.id,
+          userId: hostUserId,
+          userName: hostUserName || hostUserId,
+          raceMode: "race",
+          targetDistance: race.targetDistance,
+          status: "waiting",
+          initialDistance: 0,
+          currentDistance: 0,
+          netDistance: 0,
+          progressPercent: 0,
+          lastStrokeRate: 0,
+          lastStrokeCount: 0,
+          lastPower: 0,
+          lastPace: 0,
+          lastHeartRate: 0,
+          lastResistance: 1,
+          avgPower: 0,
+          avgPace: 0,
+          avgStrokeRate: 0,
+          totalStrokes: 0,
+          totalEnergy: 0,
+          elapsedTime: 0,
+          avgSpeedKmh: 0,
+          isBot: false
+        };
+        userStore.recordActivity(hostDefaults);
         try {
-          const compId = `${race.id}_${hostUserId}`;
           await Activities.findOrCreate({
             where: { id: compId },
-            defaults: {
-              id: compId,
-              activityId: race.id,
-              userId: hostUserId,
-              userName: hostUserName || hostUserId,
-              raceMode: "race",
-              targetDistance: race.targetDistance,
-              status: "waiting",
-              initialDistance: 0,
-              currentDistance: 0,
-              netDistance: 0,
-              progressPercent: 0,
-              lastStrokeRate: 0,
-              lastStrokeCount: 0,
-              lastPower: 0,
-              lastPace: 0,
-              lastHeartRate: 0,
-              lastResistance: 1,
-              avgPower: 0,
-              avgPace: 0,
-              avgStrokeRate: 0,
-              totalStrokes: 0,
-              totalEnergy: 0,
-              elapsedTime: 0,
-              avgSpeedKmh: 0
-            }
+            defaults: hostDefaults as any
           });
         } catch {}
       }
@@ -809,39 +888,44 @@ export class TelemetryController {
         assignedLane = joined.lane;
 
         // Best-effort DB registration on starting line
+        const cleanUserId = String(userId).trim();
+        const compositeId = `${race.id}_${cleanUserId}`;
+        const playerStatus = race.status === "RUNNING" ? "in_progress" : "waiting";
+        const joinActDefaults = {
+          id: compositeId,
+          activityId: race.id,
+          userId: cleanUserId,
+          userName: userName || `Racer_${cleanUserId.slice(-4)}`,
+          country,
+          raceMode: "race",
+          targetDistance: race.targetDistance,
+          status: playerStatus,
+          initialDistance: 0,
+          currentDistance: 0,
+          netDistance: 0,
+          progressPercent: 0,
+          lastStrokeRate: 0,
+          lastStrokeCount: 0,
+          lastPower: 0,
+          lastPace: 0,
+          lastHeartRate: 0,
+          lastResistance: 1,
+          avgPower: 0,
+          avgPace: 0,
+          avgStrokeRate: 0,
+          totalStrokes: 0,
+          totalEnergy: 0,
+          elapsedTime: 0,
+          avgSpeedKmh: 0,
+          isBot: false
+        };
+        if (!userStore.findActivityById(compositeId)) {
+          userStore.recordActivity(joinActDefaults);
+        }
         try {
-          const cleanUserId = String(userId).trim();
-          const compositeId = `${race.id}_${cleanUserId}`;
-          const playerStatus = race.status === "RUNNING" ? "in_progress" : "waiting";
           const existing = await Activities.findByPk(compositeId);
           if (!existing) {
-            await Activities.create({
-              id: compositeId,
-              activityId: race.id,
-              userId: cleanUserId,
-              userName: userName || `Racer_${cleanUserId.slice(-4)}`,
-              country,
-              raceMode: "race",
-              targetDistance: race.targetDistance,
-              status: playerStatus,
-              initialDistance: 0,
-              currentDistance: 0,
-              netDistance: 0,
-              progressPercent: 0,
-              lastStrokeRate: 0,
-              lastStrokeCount: 0,
-              lastPower: 0,
-              lastPace: 0,
-              lastHeartRate: 0,
-              lastResistance: 1,
-              avgPower: 0,
-              avgPace: 0,
-              avgStrokeRate: 0,
-              totalStrokes: 0,
-              totalEnergy: 0,
-              elapsedTime: 0,
-              avgSpeedKmh: 0
-            });
+            await Activities.create(joinActDefaults as any);
           } else if (existing.get("status") === "abandoned") {
             await existing.update({ status: playerStatus, userName: userName || existing.get("userName") });
           }

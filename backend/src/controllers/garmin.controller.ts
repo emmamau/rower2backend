@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import pairingService from "../services/pairing.service";
 import { RaceManager, getWaitingStatusMessage } from "../services/race-manager.service";
+import userStore from "../services/user-store.service";
 import db from "../models";
 import socketGateway from "../websocket/socket.gateway";
 
@@ -265,43 +266,54 @@ export class GarminController {
       }
 
       // 3. Créer l'entrée sur la ligne de départ en base de données
+      const compositeId = `${race.id}_${userId}`;
+      const claimActDefaults = {
+        id: compositeId,
+        activityId: race.id,
+        userId,
+        userName: guestName,
+        raceMode: "race",
+        targetDistance: race.targetDistance,
+        status: "waiting",
+        initialDistance: 0,
+        currentDistance: 0,
+        netDistance: 0,
+        progressPercent: 0,
+        lastStrokeRate: 0,
+        lastStrokeCount: 0,
+        lastPower: 0,
+        lastPace: 0,
+        lastHeartRate: 0,
+        lastResistance: 1,
+        avgPower: 0,
+        avgPace: 0,
+        avgStrokeRate: 0,
+        totalStrokes: 0,
+        totalEnergy: 0,
+        elapsedTime: 0,
+        avgSpeedKmh: 0,
+        isBot: false
+      };
+      if (!userStore.findActivityById(compositeId)) {
+        userStore.recordActivity(claimActDefaults);
+      }
       try {
-        const compositeId = `${race.id}_${userId}`;
         const existing = await Activities.findByPk(compositeId);
         if (!existing) {
-          await Activities.create({
-            id: compositeId,
-            activityId: race.id,
-            userId,
-            userName: guestName,
-            raceMode: "race",
-            targetDistance: race.targetDistance,
-            status: "waiting",
-            initialDistance: 0,
-            currentDistance: 0,
-            netDistance: 0,
-            progressPercent: 0,
-            lastStrokeRate: 0,
-            lastStrokeCount: 0,
-            lastPower: 0,
-            lastPace: 0,
-            lastHeartRate: 0,
-            lastResistance: 1,
-            avgPower: 0,
-            avgPace: 0,
-            avgStrokeRate: 0,
-            totalStrokes: 0,
-            totalEnergy: 0,
-            elapsedTime: 0,
-            avgSpeedKmh: 0
-          });
+          await Activities.create(claimActDefaults as any);
         }
         const rows = await Activities.findAll({ where: { activityId: race.id } });
         if (rows.length > 0) {
           const sorted = RaceManager.sortRanking(rows as any);
           socketGateway.broadcastLeaderboard(race.id, RaceManager.toLiveMetrics(sorted, race));
         }
-      } catch {}
+      } catch {
+        const memRows = userStore.findActivitiesByRaceId(race.id);
+        if (memRows.length > 0) {
+          const sorted = RaceManager.sortRanking(memRows as any);
+          socketGateway.broadcastLeaderboard(race.id, RaceManager.toLiveMetrics(sorted, race));
+        }
+      }
 
       const waitingStatusMessage = `Ligne ${assignedLane} attribuée - Donnez un coup de rame pour réveiller le rameur`;
       const welcomeMessage = `Bienvenue ${guestName} ! Ligne ${assignedLane} attribuée`;

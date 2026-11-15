@@ -46,3 +46,28 @@ test('keeps powerWatts at 0 when rower is idle (splitSec is 0 and powerWatts is 
   assert.equal(res.sanitizedPower, 0);
 });
 
+test('does not falsely clamp legitimate multi-stroke watch distance updates within short time delta', () => {
+  const res = TelemetryValidator.validate(
+    {
+      raceId: 'RACE_TEST',
+      userId: 'u1',
+      seq: 12,
+      timestamp: Date.now(),
+      metrics: {
+        distanceM: 145,
+        splitSec: 105,
+        powerWatts: 300,
+        strokeRate: 30,
+        heartRate: 160
+      }
+    },
+    105, // +40m delta over a delayed/grouped HTTP sync
+    20,
+    21
+  );
+
+  assert.equal(res.isValid, true);
+  assert.equal(res.sanitizedDistance, 145);
+});
+
+

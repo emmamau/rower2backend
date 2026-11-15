@@ -77,6 +77,7 @@ export class SessionController {
       const result = await sessionService.claimSessionCode(code, deviceId, guestPseudo);
 
       res.status(200).json({
+        ...result,
         success: true,
         deviceToken: result.deviceToken,
         mode: result.mode,
@@ -84,6 +85,8 @@ export class SessionController {
         lane: result.lane,
         userId: result.userId,
         roomId: result.roomId,
+        id: result.id || result.roomId || undefined,
+        raceId: result.raceId || result.roomId || undefined,
         guestPairingToken: result.guestPairingToken,
         message: result.message,
       });

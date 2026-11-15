@@ -555,4 +555,105 @@ test('Scheduled private race auto-start is locked until all connected participan
   }
 });
 
+test('End-to-End Salon Race via Watch PIN (/api/session/claim): kayak advances stroke-by-stroke from start to finish line', async () => {
+  const { baseUrl, close } = await createTestServer();
+  try {
+    const raceManager = require('../dist/services/race-manager.service').default;
+
+    // 1. Create a 500m private salon (Duel 1v1 Bot or Multi)
+    const resCreate = await fetch(`${baseUrl}/api/v1/races/private`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        mode: 'bot_duel',
+        targetDistance: 500,
+        hostUserId: 'usr_salon_e2e',
+        hostUserName: 'KayakHero',
+      }),
+    });
+    assert.equal(resCreate.status, 201);
+    const created = await resCreate.json();
+    const salonId = created.race.id;
+    const pinCode = created.pinCode;
+    assert.ok(salonId.startsWith('PRIV_'));
+    assert.equal(pinCode.length, 5);
+
+    // 2. Watch joins the salon via POST /api/session/claim (Garmin menu "Entrer un code pin")
+    const resClaim = await fetch(`${baseUrl}/api/session/claim`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        code: pinCode,
+        deviceId: 'garmin_watch_salon_e2e',
+        pseudo: 'KayakHero',
+      }),
+    });
+    assert.equal(resClaim.status, 200);
+    const claimData = await resClaim.json();
+    assert.equal(claimData.success, true);
+    assert.equal(claimData.id, salonId, '/api/session/claim must return id = salonId so watch does not fall back to solo_<timestamp>');
+    assert.equal(claimData.raceId, salonId, '/api/session/claim must return raceId = salonId');
+    assert.equal(claimData.roomId, salonId);
+    assert.equal(claimData.targetDistance, 500);
+    assert.equal(claimData.lane, 1);
+
+    // 3. Countdown finishes -> race transitions to RUNNING
+    const race = raceManager.getRaceById(salonId);
+    race.lobbyEndsAt = new Date(Date.now() - 500);
+    await raceManager.tickPrivateRaces();
+    assert.equal(race.status, 'RUNNING', 'Salon must transition to RUNNING when countdown reaches 0');
+
+    // 4. Watch sends progressive strokes via POST /api/boost and kayak advances monotonically to finish (500m)
+    const strokeDistances = [120, 260, 410, 500];
+    let prevNormDist = 0;
+    for (let i = 0; i < strokeDistances.length; i++) {
+      const d = strokeDistances[i];
+      const resBoost = await fetch(`${baseUrl}/api/boost`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${claimData.deviceToken}`,
+        },
+        body: JSON.stringify({
+          raceId: claimData.id,
+          userId: claimData.userId,
+          userName: 'KayakHero',
+          deviceId: 'garmin_watch_salon_e2e',
+          seq: i + 1,
+          elapsedTime: (i + 1) * 20,
+          metrics: {
+            distanceM: d,
+            splitSec: 115,
+            powerWatts: 280,
+            strokeRate: 30,
+            heartRate: 165,
+          },
+        }),
+      });
+      assert.equal(resBoost.status, 200);
+      const boostBody = await resBoost.json();
+      assert.equal(boostBody.falseStart, false, 'Must not flag falseStart while race is RUNNING');
+      assert.ok(boostBody.normDistM >= d, `Stroke ${i + 1}: normDistM (${boostBody.normDistM}) must be >= ${d}`);
+      assert.ok(boostBody.normDistM > prevNormDist, `Stroke ${i + 1}: kayak distance must strictly advance`);
+      prevNormDist = boostBody.normDistM;
+
+      // Verify GET /api/activity/race/:id/leaderboard reflects the advancing kayak (and never resets to 0m)
+      const resLb = await fetch(`${baseUrl}/api/activity/race/${salonId}/leaderboard`);
+      assert.equal(resLb.status, 200);
+      const lbData = await resLb.json();
+      const myRow = lbData.leaderboard.find((r) => r.userId === claimData.userId);
+      assert.ok(myRow, 'Player kayak must be present in salon leaderboard');
+      assert.ok(myRow.netDistance >= d, `Leaderboard netDistance (${myRow.netDistance}) must be >= ${d}`);
+    }
+
+    // 5. Simulate bot also finishing or tick completing the race
+    race.startedAt = new Date(Date.now() - 200 * 1000);
+    await raceManager.tickPrivateRaces();
+    assert.equal(race.status, 'COMPLETED', 'Race must complete cleanly once all racers reach targetDistance');
+    assert.ok(Array.isArray(race.finalRanking) && race.finalRanking.length >= 1, 'Official finalRanking must be generated');
+  } finally {
+    await close();
+  }
+});
+
 
