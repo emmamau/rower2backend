@@ -17,6 +17,8 @@ export interface LiveRacerMetric {
   elapsedTime?: number;
   ready?: boolean;
   connectionState?: 'CONNECTED' | 'READY';
+  isBot?: boolean;
+  isPaired?: boolean;
 }
 
 export interface LeaderboardUpdatePayload {

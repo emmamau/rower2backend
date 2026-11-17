@@ -27,6 +27,8 @@ interface BoatRenderState {
   status?: string;
   ready?: boolean;
   connectionState?: 'CONNECTED' | 'READY';
+  isBot?: boolean;
+  isPaired?: boolean;
 }
 
 @Component({
@@ -48,6 +50,7 @@ interface BoatRenderState {
           <button
             type="button"
             class="btn-claim-me"
+            *ngIf="canClaimBoat(selectedKayakForClaim)"
             (click)="claimSelectedKayak(selectedKayakForClaim.userId)">
             ★ C'est mon kayak
           </button>
@@ -339,6 +342,7 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
   @Input() targetDistance = 2000;
   @Input() activeUserId = '';
   @Input() focusedUserId = '';
+  @Input() canSelectKayak = false;
   @Output() racerSelected = new EventEmitter<string>();
   @Output() kayakClaimed = new EventEmitter<string>();
 
@@ -584,7 +588,28 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
     this.racerSelected.emit(userId);
   }
 
+  public isBotBoat(boat: BoatRenderState | null | undefined): boolean {
+    if (!boat) return false;
+    return Boolean(
+      boat.isBot ||
+      String(boat.userId || '').toLowerCase().startsWith('bot_') ||
+      /\(bot\)/i.test(String(boat.name || ''))
+    );
+  }
+
+  public canClaimBoat(boat: BoatRenderState | null | undefined): boolean {
+    if (!this.canSelectKayak || !boat) return false;
+    if (this.isBotBoat(boat)) return false;
+    if (boat.isPaired || (boat as any).deviceToken) return false;
+    return true;
+  }
+
   public claimSelectedKayak(userId: string): void {
+    const boat = this.boatsMap.get(userId) || this.selectedKayakForClaim;
+    if (!this.canClaimBoat(boat)) {
+      this.selectedKayakForClaim = null;
+      return;
+    }
     this.kayakClaimed.emit(userId);
     this.selectedKayakForClaim = null;
   }
@@ -702,11 +727,15 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
           color: this.boatColors[idx % this.boatColors.length],
           status: isFinished ? 'finished' : r.status,
           ready: r.ready !== undefined ? r.ready : (r.connectionState !== 'CONNECTED'),
-          connectionState: r.connectionState || (r.ready === false ? 'CONNECTED' : 'READY')
+          connectionState: r.connectionState || (r.ready === false ? 'CONNECTED' : 'READY'),
+          isBot: Boolean(r.isBot || String(r.userId || '').toLowerCase().startsWith('bot_') || /\(bot\)/i.test(String(r.name || ''))),
+          isPaired: Boolean(r.isPaired)
         };
         this.boatsMap.set(r.userId, boat);
       } else {
         boat.name = r.name;
+        boat.isBot = Boolean(r.isBot || String(r.userId || '').toLowerCase().startsWith('bot_') || /\(bot\)/i.test(String(r.name || '')));
+        boat.isPaired = Boolean(r.isPaired);
         boat.status = isFinished ? 'finished' : r.status;
         // Protection anti-recul : la distance cible ne régresse jamais, sauf réinitialisation de course (r.dist === 0)
         if ((r.dist || 0) === 0 && boat.targetPacketDist > 50 && !isFinished) {

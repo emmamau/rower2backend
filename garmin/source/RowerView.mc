@@ -390,7 +390,7 @@ class RowerView extends WatchUi.View {
     }
 
     public function getUserLogin() as String {
-        return _userId;
+        return UserManager.getDisplayPseudo();
     }
 
     public function setAssignedLane(lane as Number) as Void {
@@ -554,9 +554,9 @@ class RowerView extends WatchUi.View {
         } else if (_currentState == STATE_MENU) {
             var pseudoLabel = "";
             if (UserManager.isGuestSession()) {
-                pseudoLabel = I18n.getText("MENU_PSEUDO") + " (" + UserManager.getDisplayPseudo() + ")";
+                pseudoLabel = "Kayak : " + UserManager.getDisplayPseudo() + " (Modif)";
             } else {
-                pseudoLabel = UserManager.getDisplayPseudo() + " (Compte)";
+                pseudoLabel = "Kayak : " + UserManager.getDisplayPseudo() + " (Web)";
             }
 
             var menuItems = [] as Array<String>;
@@ -574,9 +574,9 @@ class RowerView extends WatchUi.View {
                 _mainMenuIndex = 0;
             }
             var menuSub = getBleProtocolTag();
-            _userId = UserManager.getUserId();
+            _userId = UserManager.getDisplayPseudo();
             if (_userId.length() > 0) {
-                menuSub = menuSub + " | " + I18n.getText("PLAYER_LABEL") + " " + _userId;
+                menuSub = menuSub + " | Kayak: " + _userId;
             }
             drawGarminMenuScreen(
                 dc,
@@ -908,9 +908,11 @@ class RowerView extends WatchUi.View {
         dc.setColor(COL_MUTED, Graphics.COLOR_TRANSPARENT);
         dc.drawText((w * 16) / 100, topY, Graphics.FONT_XTINY, clockStr, Graphics.TEXT_JUSTIFY_LEFT);
 
-        var playerTag = UserManager.getDisplayPseudo();
+        var playerTag = "Kayak: " + UserManager.getDisplayPseudo();
+        var tagMaxW = (w * 48) / 100;
+        var tagFont = fitFontToBox(dc, playerTag, [Graphics.FONT_TINY, Graphics.FONT_XTINY] as Array<Graphics.FontDefinition>, tagMaxW, 16);
         dc.setColor(COL_CYAN, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, topY, Graphics.FONT_XTINY, truncateToWidth(dc, playerTag, Graphics.FONT_XTINY, (w * 44) / 100), Graphics.TEXT_JUSTIFY_CENTER);
+        dc.drawText(cx, topY, tagFont, truncateToWidth(dc, playerTag, tagFont, tagMaxW), Graphics.TEXT_JUSTIFY_CENTER);
 
         if (_model.heartRate > 0) {
             dc.setColor(COL_ALERT, Graphics.COLOR_TRANSPARENT);
@@ -1140,12 +1142,27 @@ class RowerView extends WatchUi.View {
         dc.setColor(COL_ACCENT, Graphics.COLOR_TRANSPARENT);
         dc.drawText(cx, (h * 5) / 100, Graphics.FONT_XTINY, I18n.getText("PIN_TITLE"), Graphics.TEXT_JUSTIFY_CENTER);
 
-        // Athlete Login display (12..19% h)
+        // Athlete Login display (11..18% h)
         _userId = UserManager.getDisplayPseudo();
-        var userStr = "ID Web: " + _userId;
-        var userMaxW = getSafeWidthAtY(w, h, (h * 12) / 100, (h * 12) / 100 + 16);
-        dc.setColor(COL_ACCENT, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, (h * 12) / 100, Graphics.FONT_XTINY, truncateToWidth(dc, userStr, Graphics.FONT_XTINY, userMaxW), Graphics.TEXT_JUSTIFY_CENTER);
+        var userStr = "Kayak : " + _userId;
+        var pillTop = (h * 11) / 100;
+        var pillH = (h * 8) / 100;
+        var pillW = getSafeWidthAtY(w, h, pillTop, pillTop + pillH) - 10;
+        var pillLeft = cx - (pillW / 2);
+        dc.setColor(COL_PILL_BG, COL_PILL_BG);
+        dc.fillRoundedRectangle(pillLeft, pillTop, pillW, pillH, 6);
+        dc.setColor(COL_CYAN, Graphics.COLOR_TRANSPARENT);
+        dc.drawRoundedRectangle(pillLeft, pillTop, pillW, pillH, 6);
+
+        var pFont = fitFontToBox(
+            dc,
+            userStr,
+            [Graphics.FONT_SMALL, Graphics.FONT_TINY, Graphics.FONT_XTINY] as Array<Graphics.FontDefinition>,
+            pillW - 8,
+            pillH - 2
+        );
+        dc.setColor(COL_PRIMARY, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, pillTop + (pillH / 2), pFont, truncateToWidth(dc, userStr, pFont, pillW - 8), Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
 
         dc.setColor(COL_GRID, Graphics.COLOR_TRANSPARENT);
         dc.drawLine((w * 18) / 100, (h * 20) / 100, w - ((w * 18) / 100), (h * 20) / 100);
@@ -1197,23 +1214,40 @@ class RowerView extends WatchUi.View {
     private function drawG4LobbyGrid(dc as Graphics.Dc, w as Number, h as Number) as Void {
         var cx = w / 2;
 
-        // 1. Header (5..17% h)
-        var hdrY = (h * 5) / 100;
+        // 1. Header (4..18% h)
+        var hdrY = (h * 4) / 100;
         var hdrText = (_nextRaceCountdown <= 15) ? I18n.getText("GET_READY") : I18n.getText("LOBBY_TITLE");
         var hdrCol = (_nextRaceCountdown <= 15) ? COL_WARN : COL_ACCENT;
         dc.setColor(hdrCol, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, hdrY, Graphics.FONT_XTINY, truncateToWidth(dc, hdrText, Graphics.FONT_XTINY, getSafeWidthAtY(w, h, hdrY, hdrY + 16)), Graphics.TEXT_JUSTIFY_CENTER);
+        dc.drawText(cx, hdrY, Graphics.FONT_XTINY, truncateToWidth(dc, hdrText, Graphics.FONT_XTINY, getSafeWidthAtY(w, h, hdrY, hdrY + 14)), Graphics.TEXT_JUSTIFY_CENTER);
 
         _userId = UserManager.getDisplayPseudo();
         var playerText = (_assignedLane > 0)
-            ? ("Ligne " + _assignedLane + " | " + _userId)
-            : ("ID Web: " + _userId);
-        var playerY = (h * 11) / 100;
-        dc.setColor(COL_ACCENT, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, playerY, Graphics.FONT_XTINY, truncateToWidth(dc, playerText, Graphics.FONT_XTINY, getSafeWidthAtY(w, h, playerY, playerY + 16)), Graphics.TEXT_JUSTIFY_CENTER);
+            ? ("KAYAK L." + _assignedLane + " : " + _userId)
+            : ("KAYAK : " + _userId);
+        var pillTop = (h * 9) / 100;
+        var pillH = (h * 8) / 100;
+        var pillW = getSafeWidthAtY(w, h, pillTop, pillTop + pillH) - 10;
+        var pillLeft = cx - (pillW / 2);
+        var pillCy = pillTop + (pillH / 2);
+
+        dc.setColor(COL_PILL_BG, COL_PILL_BG);
+        dc.fillRoundedRectangle(pillLeft, pillTop, pillW, pillH, 6);
+        dc.setColor((_nextRaceCountdown <= 15) ? COL_WARN : COL_CYAN, Graphics.COLOR_TRANSPARENT);
+        dc.drawRoundedRectangle(pillLeft, pillTop, pillW, pillH, 6);
+
+        var pFont = fitFontToBox(
+            dc,
+            playerText,
+            [Graphics.FONT_SMALL, Graphics.FONT_TINY, Graphics.FONT_XTINY] as Array<Graphics.FontDefinition>,
+            pillW - 8,
+            pillH - 2
+        );
+        dc.setColor(COL_PRIMARY, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, pillCy, pFont, truncateToWidth(dc, playerText, pFont, pillW - 8), Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
 
         dc.setColor(COL_GRID, Graphics.COLOR_TRANSPARENT);
-        dc.drawLine((w * 16) / 100, (h * 17) / 100, w - ((w * 16) / 100), (h * 17) / 100);
+        dc.drawLine((w * 16) / 100, (h * 18) / 100, w - ((w * 16) / 100), (h * 18) / 100);
 
         // 2. Hero Countdown / Start Instruction Band (18..42% h)
         var heroTop = (h * 18) / 100;
@@ -1475,7 +1509,10 @@ class RowerView extends WatchUi.View {
             var hrVal = (_model.heartRate > 0) ? (_model.heartRate.format("%d") + " bpm") : "-- bpm";
             footStr = spmVal + " spm  |  " + hrVal;
         } else {
-            footStr = _model.strokeCount.format("%d") + " " + I18n.getText("FOOT_STROKES") + "  |  " + _model.totalEnergy.format("%d") + " kcal";
+            var kTag = (_assignedLane > 0)
+                ? ("Kayak L." + _assignedLane + " (" + UserManager.getDisplayPseudo() + ")")
+                : ("Kayak : " + UserManager.getDisplayPseudo());
+            footStr = kTag + "  |  " + _model.strokeCount.format("%d") + " " + I18n.getText("FOOT_STROKES");
         }
         dc.setColor(COL_MUTED, Graphics.COLOR_TRANSPARENT);
         dc.drawText(cx, footTop + ((footBot - footTop) / 2), Graphics.FONT_XTINY, truncateToWidth(dc, footStr, Graphics.FONT_XTINY, footMaxW), Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
@@ -1663,7 +1700,6 @@ class RowerView extends WatchUi.View {
     private function drawPairingStatus(dc as Graphics.Dc, w as Number, h as Number) as Void {
         var cx = w / 2;
         var isGuest = UserManager.isGuestSession();
-        var profileLabel = UserManager.getActiveProfileLabel();
 
         var titleY = (h * 6) / 100;
         dc.setColor(COL_ACCENT, Graphics.COLOR_TRANSPARENT);
@@ -1673,20 +1709,28 @@ class RowerView extends WatchUi.View {
         dc.setColor(COL_GRID, Graphics.COLOR_TRANSPARENT);
         dc.drawLine((w * 16) / 100, divY, w - ((w * 16) / 100), divY);
 
-        var cardTop = (h * 19) / 100;
-        var cardH = (h * 22) / 100;
-        var cardW = (w * 82) / 100;
+        var cardTop = (h * 18) / 100;
+        var cardH = (h * 24) / 100;
+        var cardW = (w * 84) / 100;
         dc.setColor(COL_PILL_BG, COL_PILL_BG);
         dc.fillRoundedRectangle(cx - (cardW / 2), cardTop, cardW, cardH, 8);
         dc.setColor(isGuest ? COL_WARN : COL_GOOD, Graphics.COLOR_TRANSPARENT);
         dc.drawRoundedRectangle(cx - (cardW / 2), cardTop, cardW, cardH, 8);
 
+        var kayakLabel = "Kayak : " + UserManager.getDisplayPseudo();
+        var kFont = fitFontToBox(
+            dc,
+            kayakLabel,
+            [Graphics.FONT_SMALL, Graphics.FONT_TINY, Graphics.FONT_XTINY] as Array<Graphics.FontDefinition>,
+            cardW - 12,
+            (cardH * 48) / 100
+        );
         dc.setColor(COL_PRIMARY, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, cardTop + (cardH / 3), Graphics.FONT_XTINY, truncateToWidth(dc, profileLabel, Graphics.FONT_XTINY, cardW - 10), Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+        dc.drawText(cx, cardTop + ((cardH * 32) / 100), kFont, truncateToWidth(dc, kayakLabel, kFont, cardW - 12), Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
 
         var syncInfo = isGuest ? "Mode Invite (modifiable)" : I18n.getText("PROFILE_SYNCED_WEB");
-        dc.setColor(COL_ACCENT, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, cardTop + ((cardH * 72) / 100), Graphics.FONT_XTINY, truncateToWidth(dc, syncInfo, Graphics.FONT_XTINY, cardW - 10), Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+        dc.setColor(COL_CYAN, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, cardTop + ((cardH * 75) / 100), Graphics.FONT_XTINY, truncateToWidth(dc, syncInfo, Graphics.FONT_XTINY, cardW - 12), Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
 
         // Menu options :
         // 0 = Modifier pseudo (Mode Invité) ou Verrouillé (Compte Web)

@@ -139,7 +139,20 @@ export async function buildPublicRacePayload(): Promise<any> {
   } catch {
     // Non-blocking fallback when DB offline
   }
-  const participantsList = state.participants ? Array.from(state.participants.values()) : [];
+  const rawParts = state.participants ? Array.from(state.participants.values()) : [];
+  const participantsList = rawParts.map((p: any) => {
+    const isBot = Boolean(p.isBot) || String(p.userId || "").startsWith("bot_");
+    const isPaired = !isBot && Boolean(
+      p.isPaired ||
+      p.deviceToken ||
+      pairingService.isParticipantPaired({ userId: p.userId, deviceToken: p.deviceToken, deviceId: p.deviceId })
+    );
+    return {
+      ...p,
+      isBot,
+      isPaired,
+    };
+  });
   count = Math.max(count, participantsList.length);
 
   const plainRow = typeof row.toJSON === "function" ? row.toJSON() : row;
@@ -340,10 +353,10 @@ export const joinRace = async (req: Request, res: Response): Promise<void> => {
 
     // Dédoublonnage et notification dans le gestionnaire de course (avec deviceId et login Garmin)
     if (!isRunning && (state.status === "LOBBY" || state.status === "COUNTDOWN")) {
-      raceManager.notifyPlayerJoinedPublic(userId, cleanUserName, deviceId, deviceToken);
+      raceManager.notifyPlayerJoinedPublic(userId, cleanUserName, deviceId, deviceToken, identity.isPaired);
     } else if (state.participants) {
       // Si course déjà lancée, assurer le dédoublonnage de lignes d'eau
-      raceManager.notifyPlayerJoinedPublic(userId, cleanUserName, deviceId, deviceToken);
+      raceManager.notifyPlayerJoinedPublic(userId, cleanUserName, deviceId, deviceToken, identity.isPaired);
     }
 
     const assignedLane = state.participants?.get(userId)?.lane || 1;
@@ -577,6 +590,11 @@ export const getRaceLeaderboard = async (req: Request, res: Response): Promise<v
         const userId = getVal("userId") || `athlete_${idx + 1}`;
         const storedUser = !isBot ? await userStore.findUser(userId) : null;
         const userName = storedUser ? storedUser.login : (getVal("userName") || userId);
+        const isPaired = !isBot && Boolean(
+          getVal("isPaired") ||
+          pairingService.isParticipantPaired({ userId, deviceId: getVal("deviceId"), deviceToken: getVal("deviceToken") }) ||
+          Boolean(storedUser)
+        );
 
         // Allure moyenne /500m
         let rawPace = Number(getVal("avgPace")) || Number(getVal("lastPace")) || 0;
@@ -626,6 +644,7 @@ export const getRaceLeaderboard = async (req: Request, res: Response): Promise<v
           userId,
           userName,
           isBot,
+          isPaired,
           status,
           chrono,
           elapsedTime: elapsed,

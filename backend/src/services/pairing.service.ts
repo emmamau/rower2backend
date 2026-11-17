@@ -231,6 +231,52 @@ export class PairingService {
   }
 
   /**
+   * Vérifie de manière synchrone et rapide si un participant est appairé
+   * (montre liée par token/PIN, ou utilisateur enregistré/abonné ayant un compte).
+   */
+  public isParticipantPaired(params: {
+    userId?: string;
+    deviceToken?: string;
+    deviceId?: string;
+  }): boolean {
+    const rawUserId = String(params.userId || "").trim();
+    const cleanUserId = rawUserId.toLowerCase();
+    const rawToken = String(params.deviceToken || "").trim();
+    const rawDeviceId = String(params.deviceId || "").trim();
+
+    if (rawToken) {
+      const pairingId = this.tokenIndex.get(rawToken);
+      if (pairingId) {
+        const pairing = this.inMemoryPairings.get(pairingId);
+        if (pairing && pairing.status === "paired") return true;
+      }
+    }
+
+    if (rawDeviceId && rawDeviceId !== "GARMIN_DEVICE" && rawDeviceId !== "GARMIN_GUEST") {
+      for (const p of this.inMemoryPairings.values()) {
+        if (p.deviceId === rawDeviceId && p.status === "paired") return true;
+      }
+    }
+
+    if (rawUserId && rawUserId !== "anonymous" && !cleanUserId.startsWith("bot_")) {
+      for (const p of this.inMemoryPairings.values()) {
+        if (
+          p.status === "paired" &&
+          (p.userId?.toLowerCase() === cleanUserId || p.deviceId?.toLowerCase() === cleanUserId)
+        ) {
+          return true;
+        }
+      }
+      const user = userStore.findUserSync(rawUserId);
+      if (user) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  /**
    * Vérifie le statut d'appairage pour un utilisateur ou une session
    */
   public async getPairingStatus(filter: {
@@ -475,6 +521,17 @@ export class PairingService {
       } catch (err) {
         console.warn("[PairingService] DB revokePairing error:", err);
       }
+      try {
+        const pubRace = raceManager.getCurrentPublicRace();
+        if (pubRace && pubRace.participants) {
+          for (const p of pubRace.participants.values()) {
+            if ((deviceToken && p.deviceToken === deviceToken) || (rec?.userId && p.userId === rec.userId)) {
+              p.isPaired = false;
+              p.deviceToken = undefined;
+            }
+          }
+        }
+      } catch {}
       return { success: true, message: "Appairage révoqué avec succès." };
     }
 
@@ -495,6 +552,17 @@ export class PairingService {
       } catch (err) {
         console.warn("[PairingService] DB revokePairing by userId error:", err);
       }
+      try {
+        const pubRace = raceManager.getCurrentPublicRace();
+        if (pubRace && pubRace.participants) {
+          for (const p of pubRace.participants.values()) {
+            if (p.userId === cleanUserId) {
+              p.isPaired = false;
+              p.deviceToken = undefined;
+            }
+          }
+        }
+      } catch {}
       return { success: true, message: "Appairage révoqué avec succès pour l'utilisateur." };
     }
 
@@ -880,7 +948,7 @@ export class PairingService {
     return {
       userId: canonicalUserId,
       userName: canonicalUserName,
-      isPaired: Boolean(pairing || user?.watchUserId),
+      isPaired: Boolean(pairing || user?.watchUserId || user),
       deviceToken: pairing?.deviceToken || rawToken || undefined,
       deviceId: pairing?.deviceId || rawDeviceId || undefined,
       previousUserId,
@@ -942,6 +1010,7 @@ export class PairingService {
               userName: options.newUserName || oldP.userName || cleanNewId,
               deviceId: cleanDevId || oldP.deviceId,
               deviceToken: cleanToken || oldP.deviceToken,
+              isPaired: true,
             };
           }
           publicRace.participants.delete(staleId);
@@ -969,6 +1038,7 @@ export class PairingService {
       }
 
       if (migratedEntry && publicRace.participants) {
+        migratedEntry.isPaired = true;
         publicRace.participants.set(cleanNewId, migratedEntry);
       }
 

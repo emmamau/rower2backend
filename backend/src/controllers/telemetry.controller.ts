@@ -199,6 +199,7 @@ export class TelemetryController {
       const headerToken = req.headers["x-device-token"] ? String(req.headers["x-device-token"]).trim() : "";
       const rawToken = bearerToken || (body.deviceToken ? String(body.deviceToken).trim() : "") || headerToken;
       const rawDeviceId = body.deviceId ? String(body.deviceId).trim() : "";
+      let isTelemetryPaired = false;
 
       if (matchedRaceForUser?.type === "PUBLIC_HOURLY" || !matchedRaceForUser || matchedRaceForUser.id === raceManager.getCurrentPublicRace()?.id) {
         const identity = await pairingService.resolvePairedIdentity({
@@ -209,10 +210,12 @@ export class TelemetryController {
         });
         userId = identity.userId;
         resolvedUserName = identity.userName;
+        isTelemetryPaired = identity.isPaired;
       } else if (rawToken) {
         const tokenValidation = await pairingService.validateDeviceToken(rawToken);
         const paired = tokenValidation.valid ? tokenValidation.pairing : null;
         if (paired && paired.userId) {
+          isTelemetryPaired = true;
           if (matchedRaceForUser?.participants?.has(paired.userId)) {
             userId = paired.userId;
             const p = matchedRaceForUser.participants.get(paired.userId);
@@ -227,11 +230,19 @@ export class TelemetryController {
               deviceId: rawDeviceId,
             });
             userId = identity.userId;
+            isTelemetryPaired = identity.isPaired;
             if (!resolvedUserName || resolvedUserName === "Rameur_42") {
               resolvedUserName = identity.userName;
             }
           }
         }
+      }
+      if (!isTelemetryPaired) {
+        isTelemetryPaired = pairingService.isParticipantPaired({
+          userId,
+          deviceToken: rawToken,
+          deviceId: rawDeviceId,
+        });
       }
       if (matchedRaceForUser?.participants && !matchedRaceForUser.participants.has(userId)) {
         for (const p of matchedRaceForUser.participants.values()) {
@@ -457,12 +468,13 @@ export class TelemetryController {
             country,
             exactDistance,
             lastTelemetryAtMs: nowMs,
-            lastElapsedSec: nextExactElapsed
+            lastElapsedSec: nextExactElapsed,
+            isPaired: isTelemetryPaired,
           });
           const incomingDevId = String(body.deviceId || "").trim() || undefined;
           const incomingDevToken = rawToken || undefined;
           if (matchedRace.type === "PUBLIC_HOURLY" && (matchedRace.status === "LOBBY" || matchedRace.status === "COUNTDOWN")) {
-            raceManager.notifyPlayerJoinedPublic(userId, resolvedUserName || body.userName, incomingDevId, incomingDevToken);
+            raceManager.notifyPlayerJoinedPublic(userId, resolvedUserName || body.userName, incomingDevId, incomingDevToken, isTelemetryPaired);
           }
         } else {
           const existingP = matchedRace.participants.get(userId);
@@ -470,6 +482,9 @@ export class TelemetryController {
             existingP.exactDistance = exactDistance;
             existingP.lastTelemetryAtMs = nowMs;
             existingP.lastElapsedSec = nextExactElapsed;
+            if (isTelemetryPaired) {
+              existingP.isPaired = true;
+            }
             if ((actualPower > 0 || actualSpm > 0) && existingP.ready === false) {
               raceManager.setParticipantReadyStatus(matchedRace.id, userId, true);
             }
@@ -661,6 +676,7 @@ export class TelemetryController {
               if (field === "userId") return rUserId;
               if (field === "userName") return (typeof r.get === "function" ? r.get("userName") : r.userName) || body.userName || rUserId;
               if (field === "isBot") return false;
+              if (field === "isPaired") return isTelemetryPaired;
               if (field === "netDistance") return effectiveDistance;
               if (field === "lastPace") return actualSplit;
               if (field === "lastPower") return actualPower;

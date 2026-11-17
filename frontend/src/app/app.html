@@ -1803,6 +1803,7 @@
             [targetDistance]="nextRaceInfo?.race?.targetDistance || 2000"
             [activeUserId]="activeUserId"
             [focusedUserId]="selectedSpectatorUserId"
+            [canSelectKayak]="canManualSelectPublicKayak"
             (racerSelected)="onSpectatorSelect($event)"
             (kayakClaimed)="onKayakClaimed($event)">
           </app-regatta-canvas>
@@ -2479,6 +2480,7 @@
               [racers]="liveMetricsList"
               [targetDistance]="nextRaceInfo?.race?.targetDistance || 2000"
               [activeUserId]="activeUserId"
+              [canSelectKayak]="canManualSelectPublicKayak"
               (racerSelected)="onSpectatorSelect($event)"
               (kayakClaimed)="onKayakClaimed($event)">
             </app-regatta-canvas>

@@ -2086,11 +2086,11 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
         if (data.hasKey("waitingStatusMessage") && data.get("waitingStatusMessage") != null) {
             waitingMsg = data.get("waitingStatusMessage").toString();
         }
-        var welcomeToast = "Ligne " + assignedLane;
+        var welcomeToast = "Kayak Ligne " + assignedLane + " (" + UserManager.getDisplayPseudo() + ")";
         if (data.hasKey("message") && data.get("message") != null) {
             welcomeToast = data.get("message").toString();
         } else if (data.hasKey("guestName") && data.get("guestName") != null) {
-            welcomeToast = "Bienvenue " + data.get("guestName").toString() + " ! Ligne " + assignedLane + " attribuee";
+            welcomeToast = "Bienvenue " + data.get("guestName").toString() + " ! Kayak Ligne " + assignedLane;
         }
         _userId = UserManager.getUserId();
         _isBleRowerReady = (_model.instantPower > 0 || _model.strokeRate > 0.0f);
@@ -2098,7 +2098,7 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
             _syncManager.notifyRoomReady(_activityId, true, _userId);
             waitingMsg = I18n.getText("BLE_READY_WAIT_START");
         } else if (waitingMsg.length() == 0) {
-            waitingMsg = "Ligne " + assignedLane + " attribuee - " + I18n.getText("BLE_WAIT_WAKE");
+            waitingMsg = "Kayak Ligne " + assignedLane + " - " + I18n.getText("BLE_WAIT_WAKE");
         }
 
         triggerApprovalVibe();

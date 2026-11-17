@@ -24,6 +24,19 @@ export interface PrivateParticipantInfo {
   exactDistance?: number;
   lastTelemetryAtMs?: number;
   lastElapsedSec?: number;
+  isPaired?: boolean;
+}
+
+let _pairingService: any = null;
+function getPairingService(): any {
+  if (!_pairingService) {
+    try {
+      _pairingService = require("./pairing.service").default;
+    } catch {
+      _pairingService = null;
+    }
+  }
+  return _pairingService;
 }
 
 export interface GuestBoardingTicket {
@@ -347,6 +360,17 @@ export class RaceManager {
         ? "READY"
         : (participantInfo?.connectionState || (participantInfo?.ready === false ? "CONNECTED" : "READY"));
 
+      const isPaired = !isBot && Boolean(
+        getVal("isPaired") ||
+        participantInfo?.isPaired ||
+        participantInfo?.deviceToken ||
+        (getPairingService()?.isParticipantPaired?.({
+          userId,
+          deviceToken: participantInfo?.deviceToken,
+          deviceId: participantInfo?.deviceId
+        }))
+      );
+
       return {
         lane,
         userId,
@@ -360,7 +384,9 @@ export class RaceManager {
         status,
         elapsedTime,
         ready: isParticipantReady,
-        connectionState
+        connectionState,
+        isBot,
+        isPaired
       };
     });
   }
@@ -924,7 +950,7 @@ export class RaceManager {
     return this.currentPublicRace;
   }
 
-  public notifyPlayerJoinedPublic(userId: string, userName?: string, deviceId?: string, deviceToken?: string): void {
+  public notifyPlayerJoinedPublic(userId: string, userName?: string, deviceId?: string, deviceToken?: string, isPaired?: boolean): void {
     if (!this.currentPublicRace || !userId) return;
     if (this.currentPublicRace.status === "LOBBY" || this.currentPublicRace.status === "COUNTDOWN") {
       if (!this.currentPublicRace.participants) {
@@ -962,7 +988,8 @@ export class RaceManager {
         userName: cleanName || existingPart?.userName || `Racer_${userId.slice(-4)}`,
         joinedAt: existingPart?.joinedAt || new Date(),
         deviceId: cleanDeviceId || existingPart?.deviceId,
-        deviceToken: cleanDeviceToken || existingPart?.deviceToken
+        deviceToken: cleanDeviceToken || existingPart?.deviceToken,
+        isPaired: isPaired !== undefined ? isPaired : (existingPart?.isPaired ?? false)
       });
 
       const maxParticipants = this.currentPublicRace.maxParticipants || this.adminPublicRaceConfig.maxParticipants || 20;

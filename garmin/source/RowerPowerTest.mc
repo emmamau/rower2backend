@@ -738,6 +738,29 @@ function testPage1BottomRightDisplaysRankInRaceMode(logger as Logger) as Boolean
     return true;
 }
 
+//! Regression test 25: Player login and Kayak identification on Garmin watch
+(:test)
+function testKayakLoginAndIdentification(logger as Logger) as Boolean {
+    var model = new RowerDataModel();
+    var view = new RowerView(model);
+
+    // Initial state: lane is 1, login is display pseudo
+    Test.assertEqual(1, view.getAssignedLane());
+    var initialLogin = view.getUserLogin();
+    Test.assert(initialLogin.length() > 0);
+
+    // Set guest pseudo and check view reflects it
+    UserManager.setGuestPseudo("KayakMaster");
+    Test.assertEqual("KayakMaster", view.getUserLogin());
+    Test.assertEqual("KayakMaster", UserManager.getDisplayPseudo());
+
+    // Set assigned lane
+    view.setAssignedLane(3);
+    Test.assertEqual(3, view.getAssignedLane());
+
+    return true;
+}
+
 
 
 

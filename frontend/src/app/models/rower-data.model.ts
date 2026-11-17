@@ -4,6 +4,7 @@ export interface RowerData {
   userId: string;
   userName?: string;
   isBot?: boolean;
+  isPaired?: boolean;
   raceMode: 'race' | 'solo';
   targetDistance: number;
   status: 'waiting' | 'in_progress' | 'paused' | 'abandoned' | 'finished' | 'out_of_time';
@@ -41,6 +42,8 @@ export interface PrivateRoomParticipant {
   lane?: number;
   ready?: boolean;
   connectionState?: 'CONNECTED' | 'READY';
+  isBot?: boolean;
+  isPaired?: boolean;
 }
 
 export interface GuestTicketResponse {

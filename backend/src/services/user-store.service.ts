@@ -225,6 +225,25 @@ export class UserStoreService {
     this.inMemoryUsers.set("emmaracer", emma);
   }
 
+  public findUserSync(identifier: string): StoredUser | null {
+    if (!identifier) return null;
+    const clean = identifier.trim().toLowerCase();
+
+    const inMem = this.inMemoryUsers.get(clean);
+    if (inMem) return inMem;
+
+    for (const u of this.inMemoryUsers.values()) {
+      if (
+        u.id.toLowerCase() === clean ||
+        u.login.toLowerCase() === clean ||
+        (u.watchUserId && u.watchUserId.toLowerCase() === clean)
+      ) {
+        return u;
+      }
+    }
+    return null;
+  }
+
   public async findUser(identifier: string): Promise<StoredUser | null> {
     if (!identifier) return null;
     const clean = identifier.trim().toLowerCase();

@@ -688,7 +688,9 @@ export class AppComponent implements OnInit, OnDestroy {
                 heartRate: r.lastHeartRate,
                 status: r.status || 'in_progress',
                 ready: readyVal,
-                connectionState: readyVal ? 'READY' : 'CONNECTED'
+                connectionState: readyVal ? 'READY' : 'CONNECTED',
+                isBot: this.isBotRacer(r) || Boolean(partInfo?.isBot),
+                isPaired: this.isPairedRacer(r) || Boolean(partInfo?.isPaired),
               };
             });
 
@@ -2179,12 +2181,31 @@ export class AppComponent implements OnInit, OnDestroy {
 
   /**
    * Indique si le joueur sur la plateforme web doit pouvoir sélectionner manuellement son kayak
-   * dans une liste déroulante : vrai UNIQUEMENT s'il n'est PAS connecté à un compte ET n'a PAS de montre appairée.
+   * dans une liste déroulante ou sur le plan d'eau : vrai UNIQUEMENT s'il n'est PAS connecté à un compte,
+   * n'a PAS de montre appairée, et qu'il s'agit d'une course publique (la sélection manuelle est STRICTEMENT
+   * IMPOSSIBLE dans les salons privés).
    */
   get canManualSelectPublicKayak(): boolean {
     const isConnectedToAccount = this.isRegisteredUser || this.isSubscriber || this.isUserAdmin;
     const hasPairedWatch = this.isPaired || this.isWatchConfirmed;
-    return !isConnectedToAccount && !hasPairedWatch && !this.activePrivateRoom;
+    const isPrivateRace = Boolean(
+      this.activePrivateRoom ||
+      this.nextRaceInfo?.race?.type === 'PRIVATE_INVITE' ||
+      String(this.nextRaceInfo?.race?.id || '').startsWith('PRIV_')
+    );
+    return !isConnectedToAccount && !hasPairedWatch && !isPrivateRace;
+  }
+
+  public isBotRacer(r: any): boolean {
+    if (!r) return false;
+    const uid = String(r.userId || '').toLowerCase();
+    const name = String(r.name || r.userName || '');
+    return Boolean(r.isBot || uid.startsWith('bot_') || /\(bot\)/i.test(name));
+  }
+
+  public isPairedRacer(r: any): boolean {
+    if (!r) return false;
+    return Boolean(r.isPaired || r.deviceToken);
   }
 
   get claimedRacerUserId(): string {
@@ -2199,15 +2220,15 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Liste des kayaks humains connectés à la course publique (combinant liveMetricsList, racers et participants du lobby)
+   * Liste de tous les kayaks humains d'une course (pour la résolution automatique de mon kayak)
    */
-  get selectablePublicKayaks(): { userId: string; name: string; userName: string; lane: number; dist: number; netDistance: number; lastPower: number }[] {
-    const map = new Map<string, { userId: string; name: string; userName: string; lane: number; dist: number; netDistance: number; lastPower: number }>();
+  private getAllHumanRaceKayaks(): { userId: string; name: string; userName: string; lane: number; dist: number; netDistance: number; lastPower: number; isBot?: boolean; isPaired?: boolean }[] {
+    const map = new Map<string, { userId: string; name: string; userName: string; lane: number; dist: number; netDistance: number; lastPower: number; isBot?: boolean; isPaired?: boolean }>();
 
     const lobbyParticipants: any[] = ((this.nextRaceInfo?.race as any)?.participants || (this.nextRaceInfo as any)?.participants || []);
     lobbyParticipants.forEach((p: any, idx: number) => {
       const uid = String(p?.userId || '').trim();
-      if (!uid || uid === 'anonymous' || uid.toLowerCase().startsWith('bot_') || p?.isBot) return;
+      if (!uid || uid === 'anonymous' || this.isBotRacer(p)) return;
       const displayName = p.userName || p.name || uid;
       const distVal = Math.round(Number(p.netDistance || p.dist || 0));
       const powerVal = Math.round(Number(p.lastPower || p.watts || 0));
@@ -2219,12 +2240,14 @@ export class AppComponent implements OnInit, OnDestroy {
         dist: distVal,
         netDistance: distVal,
         lastPower: powerVal,
+        isBot: false,
+        isPaired: this.isPairedRacer(p),
       });
     });
 
     (this.racers || []).forEach((r: any, idx: number) => {
       const uid = String(r?.userId || '').trim();
-      if (!uid || uid === 'anonymous' || uid.toLowerCase().startsWith('bot_') || r?.isBot || r?.status === 'abandoned') return;
+      if (!uid || uid === 'anonymous' || this.isBotRacer(r) || r?.status === 'abandoned') return;
       const existing = map.get(uid);
       const displayName = r.userName || r.name || existing?.name || uid;
       const distVal = Math.round(Number(r.netDistance ?? r.dist ?? existing?.dist ?? 0));
@@ -2237,12 +2260,14 @@ export class AppComponent implements OnInit, OnDestroy {
         dist: distVal,
         netDistance: distVal,
         lastPower: powerVal,
+        isBot: false,
+        isPaired: this.isPairedRacer(r) || Boolean(existing?.isPaired),
       });
     });
 
     (this.liveMetricsList || []).forEach((m: any, idx: number) => {
       const uid = String(m?.userId || '').trim();
-      if (!uid || uid === 'anonymous' || uid.toLowerCase().startsWith('bot_') || m?.isBot || m?.status === 'abandoned') return;
+      if (!uid || uid === 'anonymous' || this.isBotRacer(m) || m?.status === 'abandoned') return;
       const existing = map.get(uid);
       const displayName = m.name || m.userName || existing?.name || uid;
       const distVal = Math.round(Number(m.dist ?? m.netDistance ?? existing?.dist ?? 0));
@@ -2255,10 +2280,22 @@ export class AppComponent implements OnInit, OnDestroy {
         dist: distVal,
         netDistance: distVal,
         lastPower: powerVal,
+        isBot: false,
+        isPaired: this.isPairedRacer(m) || Boolean(existing?.isPaired),
       });
     });
 
     return Array.from(map.values());
+  }
+
+  /**
+   * Liste des kayaks humains libres (non appairés, non bots) sélectionnables manuellement en course publique
+   */
+  get selectablePublicKayaks(): { userId: string; name: string; userName: string; lane: number; dist: number; netDistance: number; lastPower: number }[] {
+    if (!this.canManualSelectPublicKayak) {
+      return [];
+    }
+    return this.getAllHumanRaceKayaks().filter(k => !this.isPairedRacer(k));
   }
 
   onSelectPublicKayak(userId: string): void {
@@ -2293,7 +2330,7 @@ export class AppComponent implements OnInit, OnDestroy {
     pushCandidate(this.currentUser?.watchUserId);
     pushCandidate(this.currentUser?.name);
 
-    const kayaks = this.selectablePublicKayaks;
+    const kayaks = this.getAllHumanRaceKayaks();
     let matched = candidateIds.size > 0
       ? kayaks.find(
           (k) =>
@@ -2356,7 +2393,9 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   onKayakClaimed(userId: string): void {
-    if (!userId) return;
+    if (!userId || !this.canManualSelectPublicKayak) return;
+    const isEligible = this.selectablePublicKayaks.some(k => k.userId === userId);
+    if (!isEligible) return;
     this.activeUserId = userId;
     this.userIdInput = userId;
     this.selectedSpectatorUserId = '';
@@ -3039,7 +3078,15 @@ export class AppComponent implements OnInit, OnDestroy {
             ? Math.max(60, Math.min(360, Math.round(500 / Math.cbrt(wattsVal / 2.80))))
             : (m.split || 120);
 
-          let updated = { ...m, dist: safeDist, watts: wattsVal, split: c2Split, status: safeStatus };
+          let updated: LiveRacerMetric = {
+            ...m,
+            dist: safeDist,
+            watts: wattsVal,
+            split: c2Split,
+            status: safeStatus,
+            isBot: m.isBot !== undefined ? m.isBot : this.isBotRacer(m),
+            isPaired: m.isPaired !== undefined ? m.isPaired : this.isPairedRacer(m),
+          };
           if (m.userId === this.activeUserId && this.myAssignedLane) {
             updated.lane = this.myAssignedLane;
           }

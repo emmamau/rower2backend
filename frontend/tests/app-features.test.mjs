@@ -1222,6 +1222,119 @@ test('Web interface: zero references to Lemon Squeezy in templates, styles, and 
   assert.doesNotMatch(rowerServiceTs, /lemon\s*squeezy/i, 'rower.service.ts must not contain any reference to Lemon Squeezy');
 });
 
+test('Regatta mode: Only free kayaks can be claimed in public races (bots, paired racers, and private rooms strictly forbidden)', () => {
+  // Logic from AppComponent and RegattaCanvasComponent
+  function isBotRacer(r) {
+    if (!r) return false;
+    const uid = String(r.userId || '').toLowerCase();
+    const name = String(r.name || r.userName || '');
+    return Boolean(r.isBot || uid.startsWith('bot_') || /\(bot\)/i.test(name));
+  }
+
+  function isPairedRacer(r) {
+    if (!r) return false;
+    return Boolean(r.isPaired || r.deviceToken);
+  }
+
+  function checkCanManualSelectPublicKayak(state) {
+    const isConnectedToAccount = state.isRegisteredUser || state.isSubscriber || state.isUserAdmin;
+    const hasPairedWatch = state.isPaired || state.isWatchConfirmed;
+    const isPrivateRace = Boolean(
+      state.activePrivateRoom ||
+      state.nextRaceInfo?.race?.type === 'PRIVATE_INVITE' ||
+      String(state.nextRaceInfo?.race?.id || '').startsWith('PRIV_')
+    );
+    return !isConnectedToAccount && !hasPairedWatch && !isPrivateRace;
+  }
+
+  function getSelectablePublicKayaks(state, allRacers) {
+    if (!checkCanManualSelectPublicKayak(state)) {
+      return [];
+    }
+    const map = new Map();
+    allRacers.forEach((r, idx) => {
+      const uid = String(r?.userId || '').trim();
+      if (!uid || uid === 'anonymous' || isBotRacer(r) || isPairedRacer(r) || r?.status === 'abandoned') return;
+      map.set(uid, {
+        userId: uid,
+        name: r.userName || r.name || uid,
+        lane: r.lane || idx + 1,
+      });
+    });
+    return Array.from(map.values());
+  }
+
+  function canClaimBoat(canSelectKayak, boat) {
+    if (!canSelectKayak || !boat) return false;
+    if (isBotRacer(boat)) return false;
+    if (boat.isPaired || boat.deviceToken) return false;
+    return true;
+  }
+
+  const racersList = [
+    { userId: 'bot_pub_1', userName: 'Bot Turbo (Bot)', isBot: true, isPaired: false, lane: 1 },
+    { userId: 'bot_pub_2', userName: 'Bot Alpha', isBot: true, isPaired: false, lane: 2 },
+    { userId: 'racer_paired_garmin', userName: 'Champion Garmin', isBot: false, isPaired: true, lane: 3 },
+    { userId: 'racer_paired_token', userName: 'Paul Rower', isBot: false, deviceToken: 'tok_active_99', lane: 4 },
+    { userId: 'racer_free_1', userName: 'Kayak Libre 1', isBot: false, isPaired: false, lane: 5 },
+    { userId: 'racer_free_2', userName: 'Kayak Libre 2', isBot: false, isPaired: false, lane: 6 },
+  ];
+
+  // 1. In a public race with an unauthenticated, unpaired user:
+  const publicAnonymousState = {
+    isRegisteredUser: false,
+    isSubscriber: false,
+    isUserAdmin: false,
+    isPaired: false,
+    isWatchConfirmed: false,
+    activePrivateRoom: null,
+    nextRaceInfo: { race: { type: 'PUBLIC_HOURLY', id: 'PUB_20261117_0800' } },
+  };
+
+  assert.equal(checkCanManualSelectPublicKayak(publicAnonymousState), true, 'Public anonymous user can select free public kayaks');
+  const selectable = getSelectablePublicKayaks(publicAnonymousState, racersList);
+  assert.equal(selectable.length, 2, 'Only the 2 free human racers must be selectable');
+  assert.deepEqual(selectable.map(s => s.userId), ['racer_free_1', 'racer_free_2']);
+
+  // Check canvas canClaimBoat for each racer
+  assert.equal(canClaimBoat(true, racersList[0]), false, 'Cannot claim Bot Turbo (isBot: true)');
+  assert.equal(canClaimBoat(true, racersList[1]), false, 'Cannot claim Bot Alpha (bot_ userId)');
+  assert.equal(canClaimBoat(true, racersList[2]), false, 'Cannot claim paired Garmin racer');
+  assert.equal(canClaimBoat(true, racersList[3]), false, 'Cannot claim racer with deviceToken');
+  assert.equal(canClaimBoat(true, racersList[4]), true, 'Can claim free kayak 1');
+  assert.equal(canClaimBoat(true, racersList[5]), true, 'Can claim free kayak 2');
+
+  // 2. In a private room: selection MUST be strictly disabled
+  const privateRoomState = {
+    ...publicAnonymousState,
+    activePrivateRoom: { race: { id: 'PRIV_room_123', type: 'PRIVATE_INVITE' } },
+  };
+  assert.equal(checkCanManualSelectPublicKayak(privateRoomState), false, 'Manual selection disabled in private rooms');
+  assert.equal(getSelectablePublicKayaks(privateRoomState, racersList).length, 0, 'No selectable kayaks in private rooms');
+  assert.equal(canClaimBoat(false, racersList[4]), false, 'Canvas claim button disabled when canSelectKayak is false (private room)');
+
+  // 3. User with paired watch or registered account: manual selection disabled (auto-resolved)
+  const pairedUserState = {
+    ...publicAnonymousState,
+    isPaired: true,
+  };
+  assert.equal(checkCanManualSelectPublicKayak(pairedUserState), false, 'Manual selection disabled when watch is already paired');
+  assert.equal(getSelectablePublicKayaks(pairedUserState, racersList).length, 0);
+
+  // 4. Source code static checks on app.ts, app.html, and regatta-canvas.component.ts
+  const regattaCanvasTs = fs.readFileSync(path.join(__dirname, '../src/app/components/regatta-canvas/regatta-canvas.component.ts'), 'utf8');
+  assert.match(regattaCanvasTs, /@Input\(\)\s*canSelectKayak\s*=\s*false/, 'RegattaCanvasComponent must declare @Input() canSelectKayak = false');
+  assert.match(regattaCanvasTs, /canClaimBoat\(selectedKayakForClaim\)/, 'Canvas template must guard claim button with canClaimBoat()');
+  assert.match(regattaCanvasTs, /canClaimBoat\(boat\)/, 'claimSelectedKayak must verify canClaimBoat before emitting');
+
+  const appHtml = fs.readFileSync(path.join(__dirname, '../src/app/app.html'), 'utf8');
+  assert.match(appHtml, /\[canSelectKayak\]="canManualSelectPublicKayak"/, 'app.html must pass [canSelectKayak]="canManualSelectPublicKayak" to app-regatta-canvas');
+
+  const appTs = fs.readFileSync(path.join(__dirname, '../src/app/app.ts'), 'utf8');
+  assert.match(appTs, /!this\.canManualSelectPublicKayak/, 'app.ts must check canManualSelectPublicKayak in onKayakClaimed and selectablePublicKayaks');
+});
+
+
 
 
 
