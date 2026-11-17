@@ -637,7 +637,9 @@ export const getRaceLeaderboard = async (req: Request, res: Response): Promise<v
         const kayak = storedUser?.kayakCustomization || participantInfo?.kayak;
 
         // Points attribués pour la course (0 si abandon)
-        const rawPoints = getVal("points");
+        const rawPoints = getVal("pointsEarned") !== undefined && getVal("pointsEarned") !== null 
+          ? getVal("pointsEarned") 
+          : getVal("points");
         const earnedPoints = status === "abandoned"
           ? 0
           : (rawPoints !== undefined && rawPoints !== null ? Number(rawPoints) : calculateRacePoints(rank, sortedAll.length, isFinisher));

@@ -7,7 +7,8 @@ import emailService from "../services/email.service";
 import userStore from "../services/user-store.service";
 import raceManager from "../services/race-manager.service";
 import pairingService from "../services/pairing.service";
-import { getLeagueByPoints } from "../utils/league.util";
+import { getLeagueByPoints, WEEKLY_LEAGUES, LeagueTier } from "../utils/league.util";
+import { ensureCurrentWeek } from "../services/league-db.service";
 
 const Activities = db.activities;
 
@@ -33,10 +34,14 @@ function sanitizeUser(user: any): Record<string, any> {
   delete plain.passwordSalt;
   delete plain.resetPasswordToken;
   delete plain.resetPasswordExpires;
-  const leagueInfo = getLeagueByPoints(plain.points || 0);
-  plain.league = plain.league || leagueInfo.id;
+  const tier = (String(plain.currentLeague || plain.current_league || "BRONZE").toUpperCase()) as LeagueTier;
+  const leagueInfo = WEEKLY_LEAGUES[tier] || getLeagueByPoints(plain.points || 0);
+  plain.currentLeague = tier;
+  plain.league = tier.toLowerCase();
   plain.leagueName = leagueInfo.name;
   plain.leagueBadge = leagueInfo.badge;
+  plain.totalCareerPoints = plain.totalCareerPoints !== undefined ? Number(plain.totalCareerPoints) : (plain.total_career_points !== undefined ? Number(plain.total_career_points) : Number(plain.points || 0));
+  plain.isResting = plain.isResting !== undefined ? Boolean(plain.isResting) : Boolean(plain.is_resting);
   return plain;
 }
 
@@ -464,6 +469,7 @@ export const resetPassword = async (req: Request, res: Response): Promise<void> 
  */
 export const getUserAccount = async (req: Request, res: Response): Promise<void> => {
   try {
+    await ensureCurrentWeek();
     const { identifier } = req.params;
     const user = await userStore.findUser(identifier);
 
@@ -509,6 +515,7 @@ export const getUserAccount = async (req: Request, res: Response): Promise<void>
  */
 export const getUserProfile = async (req: Request, res: Response): Promise<void> => {
   try {
+    await ensureCurrentWeek();
     const { userId } = req.params;
     let user = await userStore.findUser(userId);
 

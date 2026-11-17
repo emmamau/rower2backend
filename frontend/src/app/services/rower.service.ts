@@ -19,7 +19,10 @@ import {
   LoginDto,
   AuthResponse,
   KayakCustomization,
-  UserProfile
+  UserProfile,
+  LeagueTier,
+  LeagueStandingsResponse,
+  UnseenSummaryResponse
 } from '../models/user.model';
 
 @Injectable({
@@ -439,6 +442,30 @@ export class RowerService {
       `${this.apiUrl}/api/user/kayak`,
       { userId, kayakCustomization }
     );
+  }
+
+  // Système de Ligues Hebdomadaires & Mode Repos
+  getLeagueStandings(tier: LeagueTier = 'BRONZE'): Observable<LeagueStandingsResponse> {
+    return this.http.get<LeagueStandingsResponse>(`${this.apiUrl}/api/leagues/standings`, {
+      params: { tier }
+    });
+  }
+
+  toggleRestingMode(userId: string, isResting: boolean): Observable<{ success: boolean; message: string; isResting: boolean }> {
+    return this.http.patch<{ success: boolean; message: string; isResting: boolean }>(`${this.apiUrl}/api/users/resting-mode`, {
+      userId,
+      isResting
+    });
+  }
+
+  getUnseenLeagueSummary(userId: string): Observable<UnseenSummaryResponse> {
+    return this.http.get<UnseenSummaryResponse>(`${this.apiUrl}/api/leagues/unseen-summary`, {
+      params: { userId }
+    });
+  }
+
+  markLeagueSummarySeen(historyId: number): Observable<{ success: boolean; message: string }> {
+    return this.http.patch<{ success: boolean; message: string }>(`${this.apiUrl}/api/leagues/history/${historyId}/seen`, {});
   }
 
   checkHealth(): Observable<{ status: string; database: string }> {

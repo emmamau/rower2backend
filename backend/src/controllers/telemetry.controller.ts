@@ -9,6 +9,8 @@ import userStore from "../services/user-store.service";
 import { SUBSCRIPTION_TIERS } from "./subscription.controller";
 import { IpGeoService } from "../services/ip-geo.service";
 import pairingService from "../services/pairing.service";
+import { calculateRacePointsEarned } from "../utils/league.util";
+import { ensureCurrentWeek, getTodayRewardedBotRaces } from "../services/league-db.service";
 
 const Activities = db.activities;
 const Races = db.races;
@@ -693,6 +695,48 @@ export class TelemetryController {
       );
       socketGateway.broadcastLeaderboard(raceId, liveList);
 
+      let pointsEarned: number | undefined = undefined;
+      if (isFinished && userId && userId !== "anonymous") {
+        try {
+          await ensureCurrentWeek();
+          const humanFinishers = activeRacers.filter((a: any) => {
+            const b = typeof a.get === "function" ? a.get("isBot") : a.isBot;
+            const st = typeof a.get === "function" ? a.get("status") : a.status;
+            return !b && (st === "finished" || st === "in_progress");
+          }).length || 1;
+          const hasBots = activeRacers.some((a: any) => (typeof a.get === "function" ? a.get("isBot") : a.isBot));
+          const rMode = String(body.raceMode || (hasBots ? "BOT" : (humanFinishers > 2 ? "MULTIPLAYER" : "DUEL_1V1")));
+          const todayBots = await getTodayRewardedBotRaces(userId);
+          pointsEarned = calculateRacePointsEarned({
+            raceMode: rMode,
+            playerRank: myRank,
+            totalHumanFinishers: humanFinishers,
+            isFinisher: true,
+            isDnf: false,
+            todayRewardedBotRacesCount: todayBots,
+          });
+
+          if (activity) {
+            await activity.update({
+              points: pointsEarned,
+              pointsEarned,
+              isDnf: false,
+              totalHumanFinishers: humanFinishers,
+              avgPaceMs: actualSplit * 1000,
+            } as any);
+          }
+
+          if (user) {
+            const curPts = (user.points as number) || 0;
+            const curCareer = (user.totalCareerPoints as number) || curPts;
+            await userStore.updateUser(user.id, {
+              points: curPts + pointsEarned,
+              totalCareerPoints: curCareer + pointsEarned,
+            });
+          }
+        } catch {}
+      }
+
       res.status(200).json({
         rk: myRank,
         tot: totalRacers,
@@ -708,7 +752,9 @@ export class TelemetryController {
         rowerModel,
         falseStart: falseStartDetected,
         soundAlert: falseStartDetected ? "false_start" : undefined,
-        status: (matchedRace?.status === "RUNNING" ? "RUNNING" : matchedRace?.status) || "RUNNING"
+        status: (matchedRace?.status === "RUNNING" ? "RUNNING" : matchedRace?.status) || "RUNNING",
+        pointsEarned,
+        race_points: pointsEarned,
       });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);

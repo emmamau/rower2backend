@@ -4,7 +4,7 @@
   "description": "Backend API for Garmin FTMS Rower Activity Tracking",
   "main": "dist/index.js",
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && node -e \"const fs=require('fs'); if (!fs.existsSync('dist/sql')) fs.mkdirSync('dist/sql', {recursive:true}); fs.copyFileSync('src/sql/leagues.sql', 'dist/sql/leagues.sql');\"",
     "start": "node dist/index.js",
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
     "test": "npm run build && node --test --env-file-if-exists=.env.test tests/*.test.js"

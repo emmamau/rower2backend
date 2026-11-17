@@ -7,6 +7,7 @@ import subscriptionRoutes from "./subscription.routes";
 import garminRoutes from "./garmin.routes";
 import roomRoutes from "./room.routes";
 import sessionRoutes from "./session.routes";
+import leagueRoutes from "./league.routes";
 
 export default (app: Application): void => {
   sessionRoutes(app);
@@ -17,4 +18,5 @@ export default (app: Application): void => {
   raceRoutes(app);
   userRoutes(app);
   subscriptionRoutes(app);
+  leagueRoutes(app);
 };

@@ -5,6 +5,7 @@ import db from "./models";
 import initRoutes from "./routes";
 import socketGateway from "./websocket/socket.gateway";
 import raceManager from "./services/race-manager.service";
+import { initializeLeagueSchema } from "./services/league-db.service";
 
 const app: Application = express();
 const server = http.createServer(app);
@@ -52,6 +53,8 @@ db.sequelize
   .sync({ alter: true })
   .then(async () => {
     console.log("Synced Rower Race PostgreSQL db successfully.");
+    // Initialisation du schéma de ligues paresseuses
+    await initializeLeagueSchema();
     // Démarrer la première course publique
     await raceManager.tickPublicRace();
   })

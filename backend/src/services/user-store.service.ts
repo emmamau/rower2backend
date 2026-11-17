@@ -42,6 +42,9 @@ export interface StoredUser {
   podiums: number;
   points: number;
   league?: string;
+  currentLeague?: 'BRONZE' | 'SILVER' | 'GOLD';
+  totalCareerPoints?: number;
+  isResting?: boolean;
   bestRank: number;
   lastRank: number;
   isAdmin: boolean;
@@ -392,6 +395,9 @@ export class UserStoreService {
       podiums: data.podiums || 0,
       points: data.points || 0,
       league: data.league || getLeagueByPoints(data.points || 0).id,
+      currentLeague: (data.currentLeague as any) || "BRONZE",
+      totalCareerPoints: data.totalCareerPoints !== undefined ? data.totalCareerPoints : (data.points || 0),
+      isResting: Boolean(data.isResting),
       bestRank: data.bestRank || 0,
       lastRank: data.lastRank || 0,
       isAdmin: isEmma ? true : Boolean(data.isAdmin),
@@ -423,12 +429,18 @@ export class UserStoreService {
 
     const updatedPoints = updates.points !== undefined ? updates.points : existing.points;
     const league = updates.league || (updates.points !== undefined ? getLeagueByPoints(updatedPoints).id : existing.league || getLeagueByPoints(updatedPoints).id);
+    const currentLeague = (updates.currentLeague as any) || existing.currentLeague || "BRONZE";
+    const totalCareerPoints = updates.totalCareerPoints !== undefined ? updates.totalCareerPoints : (existing.totalCareerPoints !== undefined ? existing.totalCareerPoints : updatedPoints);
+    const isResting = updates.isResting !== undefined ? Boolean(updates.isResting) : Boolean(existing.isResting);
 
     const updated: StoredUser = {
       ...existing,
       ...updates,
       points: updatedPoints,
       league,
+      currentLeague,
+      totalCareerPoints,
+      isResting,
       lastName,
       nom: lastName,
       firstName,

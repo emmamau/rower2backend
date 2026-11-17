@@ -48,6 +48,9 @@ export function sanitizeKayakCustomization(custom?: any): KayakCustomization {
   return { hullColor, bladeColor, pattern, glowColor };
 }
 
+export type LeagueTier = 'BRONZE' | 'SILVER' | 'GOLD';
+export type LeagueOutcome = 'PROMOTED' | 'RELEGATED' | 'MAINTAINED' | 'FROZEN';
+
 export interface UserProfile {
   id: string; // Identifiant ou login
   name: string; // Nom d'affichage ou login du joueur
@@ -68,8 +71,12 @@ export interface UserProfile {
   totalRaces?: number;
   totalWins?: number;
   podiums?: number;
-  points?: number;
+  points?: number; // Points carrière / historiques
+  totalCareerPoints?: number; // Points cumulés sur toute la carrière
+  weeklyPoints?: number; // Points de la semaine en cours
   league?: string;
+  currentLeague?: LeagueTier; // Ligue active ('BRONZE' | 'SILVER' | 'GOLD')
+  isResting?: boolean; // Mode vacances / repos
   leagueName?: string;
   leagueBadge?: string;
   bestRank?: number;
@@ -152,4 +159,48 @@ export interface UserProfileResponse {
 export interface GeneralLeaderboardResponse {
   success: boolean;
   players: UserProfile[];
+}
+
+export interface LeagueStandingItem {
+  user_id: string;
+  user_name: string;
+  display_name: string;
+  current_league: LeagueTier;
+  is_resting: boolean;
+  weekly_points: number;
+  weekly_races_count: number;
+  weekly_best_pace_ms: number | null;
+  total_career_points: number;
+  country: string;
+  tier_rank: number;
+  zone: 'PROMOTION' | 'RELEGATION' | 'MAINTAIN' | 'FROZEN';
+  isFrozen: boolean;
+}
+
+export interface LeagueStandingsResponse {
+  success: boolean;
+  tier: LeagueTier;
+  totalPlayers: number;
+  totalActive: number;
+  promoThreshold: number;
+  relegateThreshold: number;
+  standings: LeagueStandingItem[];
+}
+
+export interface WeeklyLeagueHistoryItem {
+  id: number;
+  user_id: string;
+  week_start_date: string;
+  previous_league: LeagueTier;
+  new_league: LeagueTier;
+  outcome: LeagueOutcome;
+  final_points: number;
+  final_rank: number | null;
+  seen_by_user: boolean;
+  created_at: string;
+}
+
+export interface UnseenSummaryResponse {
+  success: boolean;
+  summary: WeeklyLeagueHistoryItem | null;
 }

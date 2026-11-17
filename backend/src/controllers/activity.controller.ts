@@ -3,7 +3,8 @@ import { Op } from "sequelize";
 import db from "../models";
 import { getOrCreateCurrentRace } from "./race.controller";
 import raceManager, { RaceManager } from "../services/race-manager.service";
-import { calculateRacePoints, getLeagueByPoints } from "../utils/league.util";
+import { calculateRacePoints, calculateRacePointsEarned, getLeagueByPoints } from "../utils/league.util";
+import { ensureCurrentWeek, getTodayRewardedBotRaces } from "../services/league-db.service";
 import socketGateway from "../websocket/socket.gateway";
 import pairingService from "../services/pairing.service";
 import userStore from "../services/user-store.service";
@@ -192,15 +193,32 @@ export const syncActivity = async (req: Request, res: Response): Promise<void> =
 
       // Mettre à jour les stats du coureur s'il termine pour la première fois
       if (isFinished && !wasAlreadyFinished) {
+        await ensureCurrentWeek();
         let user = await Users.findByPk(userId);
         if (user) {
           await user.increment("totalRaces");
 
-          // Calcul des points collectés lors de cette course (formule officielle de ligue) :
-          // BaseFinish (10 pts) + ((N - position + 1) / N) * (FacteurCourse * N)
-          const totalParticipants = (await Activities.count({ where: { activityId: actualActivityId, status: { [Op.ne]: "abandoned" } } })) || 1;
+          const humanFinishers = (await Activities.count({
+            where: {
+              activityId: actualActivityId,
+              isBot: false,
+              status: "finished",
+            },
+          })) || 1;
+
           const assignedRank = (activity.get("finalRank") as number) || 1;
-          const ptsEarned = calculateRacePoints(assignedRank, totalParticipants, true);
+          const actRaceMode = String(activity.get("raceMode") || "MULTIPLAYER");
+          const todayBots = await getTodayRewardedBotRaces(userId);
+
+          const ptsEarned = calculateRacePointsEarned({
+            raceMode: actRaceMode,
+            playerRank: assignedRank,
+            totalHumanFinishers: humanFinishers,
+            isFinisher: true,
+            isDnf: false,
+            todayRewardedBotRacesCount: todayBots,
+          });
+
           if (assignedRank === 1) {
             await user.increment("totalWins");
             await user.increment("podiums");
@@ -208,21 +226,30 @@ export const syncActivity = async (req: Request, res: Response): Promise<void> =
             await user.increment("podiums");
           }
 
-          const existingActPoints = Number(activity.get("points") || 0);
-          if (existingActPoints === 0 && ptsEarned > 0) {
+          const existingActPoints = Number(activity.get("pointsEarned") || activity.get("points") || 0);
+          if (existingActPoints === 0 && ptsEarned >= 0) {
             const currentPts = (user.get("points") as number) || 0;
+            const currentCareerPts = (user.get("totalCareerPoints") as number) || currentPts;
             const newPts = currentPts + ptsEarned;
+            const newCareerPts = currentCareerPts + ptsEarned;
             const league = getLeagueByPoints(newPts);
             const bestR = (user.get("bestRank") as number) || 0;
             const newBestRank = (bestR === 0 || assignedRank < bestR) ? assignedRank : bestR;
 
             await user.update({
               points: newPts,
+              totalCareerPoints: newCareerPts,
               league: league.id,
               lastRank: assignedRank,
               bestRank: newBestRank,
             });
-            await activity.update({ points: ptsEarned } as any);
+            await activity.update({
+              points: ptsEarned,
+              pointsEarned: ptsEarned,
+              isDnf: false,
+              totalHumanFinishers: humanFinishers,
+              avgPaceMs: ((activity.get("avgPace") as number) || 0) * 1000,
+            } as any);
           }
         }
       }

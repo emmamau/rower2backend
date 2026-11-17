@@ -5,7 +5,8 @@ import socketGateway, { LiveRacerMetric } from "../websocket/socket.gateway";
 import config from "../config";
 import userStore from "./user-store.service";
 import { isEmmaAdminUser } from "./auth.service";
-import { calculateRacePoints, getLeagueByPoints, generateRealisticBotPace, calculateBotPhysics, isLeagueEligible } from "../utils/league.util";
+import { calculateRacePoints, calculateRacePointsEarned, getLeagueByPoints, generateRealisticBotPace, calculateBotPhysics, isLeagueEligible } from "../utils/league.util";
+import { ensureCurrentWeek, getTodayRewardedBotRaces } from "./league-db.service";
 
 const Races = db.races;
 const Activities = db.activities;
@@ -493,36 +494,65 @@ export class RaceManager {
 
   /** Writes finalRank on every non-abandoned racer, calculates points/leagues and returns the official classification. */
   private async finalizeRanking(raceId: string): Promise<RaceRankingEntry[]> {
+    await ensureCurrentWeek();
     const rows = await this.loadRaceActivities(raceId);
     const ranked = RaceManager.sortRanking(rows.filter((r: any) => r.get("status") !== "abandoned"));
     const totalParticipants = ranked.length;
+    const humanFinishers = ranked.filter((x: any) => !x.get("isBot") && x.get("status") === "finished").length;
+    const hasBots = ranked.some((x: any) => x.get("isBot"));
     const result: RaceRankingEntry[] = [];
     for (let i = 0; i < ranked.length; i++) {
       const r = ranked[i];
       const rank = i + 1;
       const isFinisher = r.get("status") === "finished";
-      const pts = calculateRacePoints(rank, totalParticipants, isFinisher);
+      const isBot = r.get("isBot") === true;
+      let pts = 0;
 
-      const alreadyAwarded = Number(r.get("points") || 0) > 0;
+      if (!isBot && r.get("userId")) {
+        const rMode = r.get("raceMode") || (hasBots ? "BOT" : (humanFinishers > 2 ? "MULTIPLAYER" : "DUEL_1V1"));
+        const todayBots = await getTodayRewardedBotRaces(r.get("userId"));
+        pts = calculateRacePointsEarned({
+          raceMode: rMode,
+          playerRank: rank,
+          totalHumanFinishers: humanFinishers,
+          isFinisher,
+          isDnf: !isFinisher,
+          todayRewardedBotRacesCount: todayBots,
+        });
+      } else {
+        pts = calculateRacePoints(rank, totalParticipants, isFinisher);
+      }
+
+      const alreadyAwarded = Number(r.get("pointsEarned") || r.get("points") || 0) > 0;
       try {
-        await r.update({ finalRank: rank, points: pts } as any);
+        await r.update({
+          finalRank: rank,
+          points: pts,
+          pointsEarned: pts,
+          isDnf: !isFinisher,
+          totalHumanFinishers: humanFinishers,
+          avgPaceMs: ((r.get("avgPace") as number) || 0) * 1000,
+        } as any);
       } catch {}
 
       // Mettre à jour les points et le statut de ligue du joueur humain si non déjà comptabilisés
       let resolvedUserName = r.get("userName") || r.get("userId");
-      if (!r.get("isBot") && r.get("userId")) {
+      if (!isBot && r.get("userId")) {
         try {
           const u = await userStore.findUser(r.get("userId"));
           if (u) {
             resolvedUserName = u.login || u.name;
             const currentPts = (u.points as number) || 0;
+            const currentCareerPts = (u.totalCareerPoints as number) || currentPts;
             const newPts = alreadyAwarded ? currentPts : (currentPts + pts);
+            const newCareerPts = alreadyAwarded ? currentCareerPts : (currentCareerPts + pts);
             const league = getLeagueByPoints(newPts);
             const totalWins = (u.totalWins || 0) + (rank === 1 && isFinisher ? 1 : 0);
             const podiums = (u.podiums || 0) + (rank <= 3 && isFinisher ? 1 : 0);
             const bestRank = !u.bestRank || rank < u.bestRank ? rank : u.bestRank;
             await userStore.updateUser(u.id, {
               points: newPts,
+              totalCareerPoints: newCareerPts,
               league: league.id,
               totalWins,
               podiums,
@@ -548,7 +578,7 @@ export class RaceManager {
     const abandoned = rows.filter((r: any) => r.get("status") === "abandoned");
     for (const ab of abandoned) {
       try {
-        await ab.update({ finalRank: 0, points: 0 } as any);
+        await ab.update({ finalRank: 0, points: 0, pointsEarned: 0, isDnf: true } as any);
       } catch {}
       result.push({
         rank: 0,

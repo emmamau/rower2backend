@@ -36,6 +36,10 @@ export interface ActivityAttributes {
   // Leaderboard / ranking
   finalRank?: number;
   finishedAt?: Date;
+  pointsEarned?: number;
+  isDnf?: boolean;
+  totalHumanFinishers?: number;
+  avgPaceMs?: number;
 
   // Equipment telemetry
   watchModel?: string;
@@ -159,6 +163,26 @@ export default (sequelize: Sequelize, _DataTypesInstance: typeof DataTypes): Act
       finishedAt: {
         type: DataTypes.DATE,
         allowNull: true,
+      },
+      pointsEarned: {
+        type: DataTypes.INTEGER,
+        field: "points_earned",
+        defaultValue: 0,
+      },
+      isDnf: {
+        type: DataTypes.BOOLEAN,
+        field: "is_dnf",
+        defaultValue: false,
+      },
+      totalHumanFinishers: {
+        type: DataTypes.INTEGER,
+        field: "total_human_finishers",
+        defaultValue: 0,
+      },
+      avgPaceMs: {
+        type: DataTypes.INTEGER,
+        field: "avg_pace_ms",
+        defaultValue: 0,
       },
       watchModel: {
         type: DataTypes.STRING(64),

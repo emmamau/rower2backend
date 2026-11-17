@@ -42,8 +42,11 @@ export interface UserAttributes {
   totalRaces?: number;      // Nombre de courses disputées
   totalWins?: number;       // Nombre de 1ères places
   podiums?: number;         // Nombre de podiums (top 3)
-  points?: number;          // Points au classement général
-  league?: string;          // Division de ligue (bronze, silver, gold, platinum, diamond)
+  points?: number;          // Points au classement général (rétro-compatibilité)
+  league?: string;          // Division de ligue historique (rétro-compatibilité)
+  currentLeague?: 'BRONZE' | 'SILVER' | 'GOLD'; // Ligue hebdomadaire active
+  totalCareerPoints?: number; // Total des points cumulés sur la carrière
+  isResting?: boolean;      // Mode repos / vacances (gel de ligue)
   bestRank?: number;        // Meilleur classement jamais obtenu (ex: 1, 2...)
   lastRank?: number;        // Classement à la précédente course
   isAdmin?: boolean;        // Rôle administrateur (EmmaRacer en dur)
@@ -194,6 +197,21 @@ export default (sequelize: Sequelize, _DataTypesInstance: typeof DataTypes): Use
       league: {
         type: DataTypes.STRING(32),
         defaultValue: "bronze",
+      },
+      currentLeague: {
+        type: DataTypes.STRING(16),
+        field: "current_league",
+        defaultValue: "BRONZE",
+      },
+      totalCareerPoints: {
+        type: DataTypes.INTEGER,
+        field: "total_career_points",
+        defaultValue: 0,
+      },
+      isResting: {
+        type: DataTypes.BOOLEAN,
+        field: "is_resting",
+        defaultValue: false,
       },
       bestRank: {
         type: DataTypes.INTEGER,

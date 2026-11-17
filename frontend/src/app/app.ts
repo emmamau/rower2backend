@@ -12,10 +12,22 @@ import {
 } from './components/private-room-manager/private-room-manager.component';
 import { RowerData, NextRaceInfo, PastRaceResult, PrivateRacePayload } from './models/rower-data.model';
 import { extractRoomFromLocation } from './utils/room-link.util';
-import { UserProfile, UserHistoryItem, KayakCustomization, KayakPattern, sanitizeKayakCustomization, hexToRgba, DEFAULT_KAYAK_CUSTOMIZATION } from './models/user.model';
+import {
+  UserProfile,
+  UserHistoryItem,
+  KayakCustomization,
+  KayakPattern,
+  sanitizeKayakCustomization,
+  hexToRgba,
+  DEFAULT_KAYAK_CUSTOMIZATION,
+  LeagueTier,
+  LeagueOutcome,
+  LeagueStandingItem,
+  WeeklyLeagueHistoryItem,
+} from './models/user.model';
 
 export { sanitizeKayakCustomization };
-import { getLeagueByPoints, LeagueInfo } from './utils/league.util';
+import { getLeagueByPoints, getLeagueByTier, LeagueInfo, WEEKLY_LEAGUES } from './utils/league.util';
 import { interval, Subscription, of, Observable } from 'rxjs';
 import { switchMap, startWith, catchError } from 'rxjs/operators';
 
@@ -128,6 +140,20 @@ export class AppComponent implements OnInit, OnDestroy {
   selectedRaceInfo: any = null;
   isLoadingRaceLeaderboard = false;
   raceLeaderboardError = '';
+
+  // Système de Ligues Hebdomadaires & Mode Repos
+  selectedLeagueTier: LeagueTier = 'BRONZE';
+  leagueStandings: LeagueStandingItem[] = [];
+  isLoadingLeagueStandings = false;
+  leaguePromoThreshold = 0;
+  leagueRelegateThreshold = 0;
+  leagueTotalActive = 0;
+  isTogglingRestingMode = false;
+  standingsActiveTab: 'leagues' | 'general' = 'leagues';
+
+  // Modale Bilan Hebdomadaire (Lundi récapitulatif)
+  unseenWeeklySummary: WeeklyLeagueHistoryItem | null = null;
+  isWeeklySummaryModalOpen = false;
 
   // Offres d'abonnement
   isSubscriptionModalOpen = false;
@@ -791,6 +817,8 @@ export class AppComponent implements OnInit, OnDestroy {
     this.syncSeoLanguage(this.i18n.getCurrentLang());
     this.loadUserProfile();
     this.loadGeneralLeaderboard();
+    this.loadLeagueStandings();
+    this.checkUnseenWeeklySummary();
     this.loadPastRaces();
     if (typeof window !== 'undefined') {
       window.addEventListener('popstate', this.popstateListener);
@@ -1197,6 +1225,127 @@ export class AppComponent implements OnInit, OnDestroy {
         }
       });
     });
+  }
+
+  loadLeagueStandings(tier: LeagueTier = this.selectedLeagueTier): void {
+    this.selectedLeagueTier = tier;
+    this.isLoadingLeagueStandings = true;
+    this.rowerService.getLeagueStandings(tier).pipe(
+      catchError(() => of({
+        success: false,
+        tier,
+        totalPlayers: 0,
+        totalActive: 0,
+        promoThreshold: 0,
+        relegateThreshold: 0,
+        standings: []
+      }))
+    ).subscribe((res) => {
+      this.isLoadingLeagueStandings = false;
+      if (res && res.standings) {
+        this.leagueStandings = res.standings;
+        this.leaguePromoThreshold = res.promoThreshold || 0;
+        this.leagueRelegateThreshold = res.relegateThreshold || 0;
+        this.leagueTotalActive = res.totalActive || 0;
+      }
+      this.cdr.markForCheck();
+    });
+  }
+
+  toggleRestingMode(): void {
+    const targetUserId = this.currentUser?.id || this.currentUser?.login || this.activeUserId;
+    if (!targetUserId) return;
+    const newRestingState = !this.currentUser?.isResting;
+    this.isTogglingRestingMode = true;
+    this.rowerService.toggleRestingMode(targetUserId, newRestingState).subscribe({
+      next: (res) => {
+        this.isTogglingRestingMode = false;
+        if (res.success) {
+          this.currentUser.isResting = res.isResting;
+          this.loadLeagueStandings(this.selectedLeagueTier);
+        }
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.isTogglingRestingMode = false;
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  checkUnseenWeeklySummary(): void {
+    const targetUserId = this.currentUser?.id || this.currentUser?.login || this.activeUserId;
+    if (!targetUserId) return;
+    this.rowerService.getUnseenLeagueSummary(targetUserId).subscribe({
+      next: (res) => {
+        if (res && res.success && res.summary) {
+          this.unseenWeeklySummary = res.summary;
+          this.isWeeklySummaryModalOpen = true;
+          this.cdr.markForCheck();
+        }
+      },
+      error: () => {}
+    });
+  }
+
+  closeWeeklySummaryModal(): void {
+    if (this.unseenWeeklySummary?.id) {
+      this.rowerService.markLeagueSummarySeen(this.unseenWeeklySummary.id).subscribe({
+        next: () => {},
+        error: () => {}
+      });
+    }
+    this.isWeeklySummaryModalOpen = false;
+    this.unseenWeeklySummary = null;
+    this.cdr.markForCheck();
+  }
+
+  formatPaceMs(paceMs: number | null): string {
+    if (!paceMs || paceMs <= 0) return '-';
+    const totalSec = Math.round(paceMs / 1000);
+    const m = Math.floor(totalSec / 60);
+    const s = totalSec % 60;
+    return `${m}:${s.toString().padStart(2, '0')}`;
+  }
+
+  getWeeklySummaryDetails(summary: WeeklyLeagueHistoryItem | null): { title: string; subtitle: string; icon: string; cls: string } {
+    if (!summary) return { title: '', subtitle: '', icon: '', cls: '' };
+    const prevInfo = getLeagueByTier(summary.previous_league);
+    const newInfo = getLeagueByTier(summary.new_league);
+
+    switch (summary.outcome) {
+      case 'PROMOTED':
+        return {
+          title: `Félicitations ! Vous montez en Ligue ${newInfo.name} !`,
+          subtitle: `Grâce à vos ${summary.final_points} points la semaine dernière, vous accédez à l'échelon supérieur.`,
+          icon: '🚀',
+          cls: 'outcome-promoted'
+        };
+      case 'RELEGATED':
+        return {
+          title: `Descente en Ligue ${newInfo.name}`,
+          subtitle: `Vous évoluerez en Ligue ${newInfo.name} cette semaine. Donnez tout sur l'eau pour remonter !`,
+          icon: '⚠️',
+          cls: 'outcome-relegated'
+        };
+      case 'FROZEN':
+        return {
+          title: `Ligue ${newInfo.name} Gelée`,
+          subtitle: summary.final_points > 0
+            ? `Vous étiez en Mode Vacances : votre ligue a été conservée sans risque de relégation.`
+            : `Aucune course enregistrée : votre statut en Ligue ${newInfo.name} reste inchangé.`,
+          icon: '🏖️',
+          cls: 'outcome-frozen'
+        };
+      case 'MAINTAINED':
+      default:
+        return {
+          title: `Maintien en Ligue ${newInfo.name}`,
+          subtitle: `Vous conservez votre place en Ligue ${newInfo.name} avec ${summary.final_points} points accumulés.`,
+          icon: '🛡️',
+          cls: 'outcome-maintained'
+        };
+    }
   }
 
   loadGeneralLeaderboard(): void {
@@ -2978,6 +3127,9 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   get currentUserLeague(): LeagueInfo {
+    if (this.currentUser?.currentLeague) {
+      return getLeagueByTier(this.currentUser.currentLeague);
+    }
     return getLeagueByPoints(this.currentUser?.points || 0);
   }
 
