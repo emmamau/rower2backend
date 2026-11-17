@@ -18,8 +18,8 @@ function isValidHexColor(color: any): boolean {
 const VALID_PATTERNS = ["solid", "racing-stripe", "dual-tone", "gradient"];
 
 const DEFAULT_KAYAK_CUSTOMIZATION: KayakCustomization = {
-  hullColor: "#00f0ff",
-  bladeColor: "#ff0055",
+  hullColor: "#00e5ff",
+  bladeColor: "#00f0ff",
   pattern: "racing-stripe",
   glowColor: "#00f0ff",
 };
@@ -943,6 +943,7 @@ export const updateKayakCustomization = async (req: Request, res: Response): Pro
     }
 
     const updated = await userStore.updateUser(cleanUserId, { kayakCustomization: cleanCustomization });
+    raceManager.updateParticipantKayak(cleanUserId, cleanCustomization);
     res.status(200).json({
       success: true,
       message: "Style du kayak mis à jour avec succès.",

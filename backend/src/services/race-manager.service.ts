@@ -199,19 +199,6 @@ export class RaceManager {
 
   private constructor() {
     this.startOrchestratorLoop();
-    this.purgeNonFinishedRaces().catch(() => {});
-  }
-
-  public async purgeNonFinishedRaces(): Promise<void> {
-    try {
-      await Races.destroy({
-        where: {
-          status: { [Op.in]: ["cancelled", "stopped", "abandoned"] }
-        }
-      });
-    } catch {
-      // Ignorer si la base de données est hors ligne
-    }
   }
 
   public static getInstance(): RaceManager {
@@ -678,9 +665,9 @@ export class RaceManager {
         } else {
           console.log(`[RaceManager] 0 human participants in Lobby at expiration. Silent reset.`);
           try {
-            await Races.destroy({ where: { id: race.id } });
+            await Races.update({ status: "cancelled" }, { where: { id: race.id } });
           } catch (err) {
-            console.error("[RaceManager] Unable to remove empty race:", err);
+            console.error("[RaceManager] Unable to cancel empty race:", err);
           }
           if (race.pinCode) {
             this.pinToRaceMap.delete(race.pinCode);
@@ -1163,11 +1150,7 @@ export class RaceManager {
       console.error(`[RaceManager] Unable to finalise race ${raceId}:`, err);
     }
     try {
-      if (reason === "organizer_stopped" || reason === "no_active_humans") {
-        await Races.destroy({ where: { id: raceId } });
-      } else {
-        await Races.update({ status: "finished" }, { where: { id: raceId } });
-      }
+      await Races.update({ status: "finished" }, { where: { id: raceId } });
     } catch { /* ignore when DB offline */ }
 
     if (managed) {
@@ -2492,6 +2475,28 @@ export class RaceManager {
     );
   }
 
+  public updateParticipantKayak(userId: string, kayak: KayakCustomization): void {
+    const cleanId = String(userId || "").trim();
+    if (!cleanId) return;
+
+    const pub = this.getCurrentPublicRace();
+    if (pub && pub.participants && pub.participants.has(cleanId)) {
+      const p = pub.participants.get(cleanId);
+      if (p) {
+        p.kayak = kayak;
+      }
+    }
+
+    for (const race of this.privateRacesById.values()) {
+      if (race?.participants?.has(cleanId)) {
+        const p = race.participants.get(cleanId);
+        if (p) {
+          p.kayak = kayak;
+        }
+      }
+    }
+  }
+
   private removePrivateRaceInternal(race: RaceState, finalStatus: "ABANDONED" | "COMPLETED" = "ABANDONED"): void {
     race.status = finalStatus;
     if (race.pinCode) {
@@ -2501,13 +2506,6 @@ export class RaceManager {
       this.privateRaces.delete(race.code);
     }
     this.privateRacesById.delete(race.id);
-    if (finalStatus === "ABANDONED") {
-      try {
-        Races.destroy({ where: { id: race.id } }).catch(() => {});
-      } catch {
-        // Non-blocking
-      }
-    }
   }
 
   private generateUniquePinCode(avoidPin?: string): string {

@@ -12,7 +12,9 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { LiveRacerMetric } from '../../services/socket.service';
-import { KayakCustomization } from '../../models/user.model';
+import { KayakCustomization, sanitizeKayakCustomization, hexToRgba } from '../../models/user.model';
+
+export { sanitizeKayakCustomization };
 
 interface BoatRenderState {
   userId: string;
@@ -941,7 +943,8 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
 
       const isUser = boat.userId === this.activeUserId;
       const isFocused = boat.userId === this.effectiveFocusedUserId;
-      const custom = boat.kayak || (isUser ? this.myKayakCustomization : undefined);
+      const rawCustom = boat.kayak || (isUser ? this.myKayakCustomization : undefined);
+      const custom = rawCustom ? sanitizeKayakCustomization(rawCustom) : undefined;
       const effectiveHullColor = custom?.hullColor || (isUser ? '#00e5ff' : boat.color);
       const effectiveBladeColor = custom?.bladeColor || (isUser ? '#00f0ff' : boat.color);
       const effectiveGlowColor = custom?.glowColor || (isUser ? '#00f0ff' : '#ffe600');
@@ -989,19 +992,20 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
       // MISE EN VALEUR JOUEUR CONNECTÉ : Sillage accentué & Traînée d'eau
       // =========================================================================
       if (isUser || isFocused) {
-        // Multiples sillages lumineux pour le joueur connecté
-        ctx.fillStyle = 'rgba(0, 240, 255, 0.40)';
+        // Multiples sillages lumineux pour le joueur connecté teintés avec effectiveGlowColor
+        ctx.fillStyle = hexToRgba(effectiveGlowColor, 0.40);
         ctx.beginPath();
         ctx.ellipse(Math.max(marginX - camOffset, x - hullRx - 6), y, isCompact ? 16 : 24, isCompact ? 4.5 : 6, 0, 0, Math.PI * 2);
         ctx.fill();
 
-        ctx.fillStyle = 'rgba(0, 240, 255, 0.20)';
+        ctx.fillStyle = hexToRgba(effectiveGlowColor, 0.20);
         ctx.beginPath();
         ctx.ellipse(Math.max(marginX - camOffset, x - hullRx - 16), y, isCompact ? 24 : 36, isCompact ? 6 : 8, 0, 0, Math.PI * 2);
         ctx.fill();
       } else {
-        // Sillage standard
-        ctx.fillStyle = 'rgba(0, 240, 255, 0.18)';
+        // Sillage standard (ou teinté si le participant a personnalisé son kayak)
+        const wakeColor = custom ? hexToRgba(effectiveGlowColor, 0.25) : 'rgba(0, 240, 255, 0.18)';
+        ctx.fillStyle = wakeColor;
         ctx.beginPath();
         ctx.ellipse(Math.max(marginX - camOffset, x - hullRx + 2), y, isCompact ? 9 : 13, 3.5, 0, 0, Math.PI * 2);
         ctx.fill();

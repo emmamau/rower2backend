@@ -12,7 +12,9 @@ import {
 } from './components/private-room-manager/private-room-manager.component';
 import { RowerData, NextRaceInfo, PastRaceResult, PrivateRacePayload } from './models/rower-data.model';
 import { extractRoomFromLocation } from './utils/room-link.util';
-import { UserProfile, UserHistoryItem, KayakCustomization, KayakPattern } from './models/user.model';
+import { UserProfile, UserHistoryItem, KayakCustomization, KayakPattern, sanitizeKayakCustomization, hexToRgba, DEFAULT_KAYAK_CUSTOMIZATION } from './models/user.model';
+
+export { sanitizeKayakCustomization };
 import { getLeagueByPoints, LeagueInfo } from './utils/league.util';
 import { interval, Subscription, of, Observable } from 'rxjs';
 import { switchMap, startWith, catchError } from 'rxjs/operators';
@@ -200,13 +202,28 @@ export class AppComponent implements OnInit, OnDestroy {
     { id: 'gradient', label: 'Dégradé', icon: '🌈', desc: 'Fusion fluide de teintes sportives' }
   ];
 
+  committedKayakCustomization: KayakCustomization = {
+    ...DEFAULT_KAYAK_CUSTOMIZATION
+  };
+
   get currentKayakCustomization(): KayakCustomization {
+    return this.committedKayakCustomization;
+  }
+
+  get previewKayakCustomization(): KayakCustomization {
     return {
       hullColor: this.customKayakHullColor,
       bladeColor: this.customKayakBladeColor,
       pattern: this.customKayakPattern,
       glowColor: this.customKayakGlowColor
     };
+  }
+
+  restorePreviewFromCommitted(): void {
+    this.customKayakHullColor = this.committedKayakCustomization.hullColor;
+    this.customKayakBladeColor = this.committedKayakCustomization.bladeColor;
+    this.customKayakPattern = this.committedKayakCustomization.pattern;
+    this.customKayakGlowColor = this.committedKayakCustomization.glowColor;
   }
 
   getPatternLabel(pattern: KayakPattern): string {
@@ -219,7 +236,7 @@ export class AppComponent implements OnInit, OnDestroy {
     try {
       const raw = localStorage.getItem('rower_kayak_customization');
       if (raw) {
-        return JSON.parse(raw);
+        return sanitizeKayakCustomization(JSON.parse(raw));
       }
     } catch {}
     return null;
@@ -227,12 +244,8 @@ export class AppComponent implements OnInit, OnDestroy {
 
   syncKayakCustomizationFromUser(user?: UserProfile): void {
     const custom = user?.kayakCustomization || this.getLocalKayakCustomization();
-    if (custom) {
-      this.customKayakHullColor = custom.hullColor || '#00e5ff';
-      this.customKayakBladeColor = custom.bladeColor || '#00f0ff';
-      this.customKayakPattern = custom.pattern || 'racing-stripe';
-      this.customKayakGlowColor = custom.glowColor || '#00f0ff';
-    }
+    this.committedKayakCustomization = sanitizeKayakCustomization(custom);
+    this.restorePreviewFromCommitted();
   }
 
   openKayakCustomizer(): void {
@@ -245,13 +258,14 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   saveKayakCustomization(): void {
-    const customization = this.currentKayakCustomization;
+    const customization = sanitizeKayakCustomization(this.previewKayakCustomization);
     try {
       localStorage.setItem('rower_kayak_customization', JSON.stringify(customization));
     } catch {}
 
     const targetUserId = this.currentUser?.login || this.currentUser?.id || this.activeUserId;
     if (!targetUserId || !this.isRegisteredUser) {
+      this.committedKayakCustomization = customization;
       this.isPostRegisterOnboarding = false;
       this.accountAuthSuccess = 'Style de kayak sauvegardé en local !';
       this.accountModalTab = 'profile';
@@ -266,9 +280,9 @@ export class AppComponent implements OnInit, OnDestroy {
     this.rowerService.updateKayakCustomization(targetUserId, customization).subscribe({
       next: (res) => {
         this.isSavingKayak = false;
+        this.committedKayakCustomization = customization;
         if (res.success && res.user) {
-          this.currentUser = { ...this.currentUser, ...res.user };
-          this.syncKayakCustomizationFromUser(res.user);
+          this.currentUser = { ...this.currentUser, ...res.user, kayakCustomization: customization };
           this.accountAuthSuccess = 'Votre kayak personnalisé a été enregistré avec succès !';
         } else {
           this.accountAuthSuccess = 'Style de kayak sauvegardé !';
@@ -286,6 +300,7 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   skipKayakCustomization(): void {
+    this.restorePreviewFromCommitted();
     this.isPostRegisterOnboarding = false;
     this.accountModalTab = 'profile';
     this.cdr.markForCheck();
@@ -347,14 +362,15 @@ export class AppComponent implements OnInit, OnDestroy {
     const hullRx = Math.min(width * 0.26, 85);
     const hullRy = 14;
 
-    // Wake / Sillage behind boat
+    // Wake / Sillage behind boat tinted with glowColor
     const sternX = centerX - hullRx;
-    ctx.fillStyle = 'rgba(0, 229, 255, 0.15)';
+    const previewGlow = this.customKayakGlowColor || '#00f0ff';
+    ctx.fillStyle = hexToRgba(previewGlow, 0.15);
     ctx.beginPath();
     ctx.ellipse(sternX - 16, centerY, 32, 9, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    ctx.fillStyle = 'rgba(0, 229, 255, 0.28)';
+    ctx.fillStyle = hexToRgba(previewGlow, 0.28);
     ctx.beginPath();
     ctx.ellipse(sternX - 6, centerY, 18, 6, 0, 0, Math.PI * 2);
     ctx.fill();
@@ -992,11 +1008,16 @@ export class AppComponent implements OnInit, OnDestroy {
                 ? 'finished'
                 : r.status;
 
+              const isMe = r.userId === this.activeUserId;
+              const rawKayak = r.kayak || existingMetric?.kayak || (isMe ? this.committedKayakCustomization : undefined);
+              const kayak = rawKayak ? sanitizeKayakCustomization(rawKayak) : undefined;
+
               return {
                 ...r,
                 netDistance: unifiedDist,
                 currentDistance: unifiedDist,
-                status: unifiedStatus
+                status: unifiedStatus,
+                kayak,
               };
             });
 
@@ -1022,6 +1043,9 @@ export class AppComponent implements OnInit, OnDestroy {
               const c2Split = wattsVal > 0
                 ? Math.max(60, Math.min(360, Math.round(500 / Math.cbrt(wattsVal / 2.80))))
                 : (rawSplit > 0 ? rawSplit : 120);
+              const existingMetric = this.liveMetricsList.find(m => m.userId === r.userId);
+              const rawKayak = r.kayak || existingMetric?.kayak || partInfo?.kayak || (isMe ? this.committedKayakCustomization : undefined);
+              const kayak = rawKayak ? sanitizeKayakCustomization(rawKayak) : undefined;
               return {
                 lane: assignedLane,
                 userId: r.userId,
@@ -1036,6 +1060,7 @@ export class AppComponent implements OnInit, OnDestroy {
                 connectionState: readyVal ? 'READY' : 'CONNECTED',
                 isBot: this.isBotRacer(r) || Boolean(partInfo?.isBot),
                 isPaired: this.isPairedRacer(r) || Boolean(partInfo?.isPaired),
+                kayak,
               };
             });
 
@@ -1381,7 +1406,7 @@ export class AppComponent implements OnInit, OnDestroy {
     this.rowerService.getRaceHistory().pipe(
       catchError(() => of([]))
     ).subscribe((history) => {
-      this.raceHistory = (history || []).filter((item: any) => item?.race?.status === 'finished');
+      this.raceHistory = history;
       this.cdr.markForCheck();
     });
   }
@@ -1420,39 +1445,11 @@ export class AppComponent implements OnInit, OnDestroy {
     this.cdr.markForCheck();
   }
 
-  formatPace(pace?: number | string | null): string {
-    if (!pace) return '--:--';
-    if (typeof pace === 'string') {
-      const trimmed = pace.trim();
-      if (!trimmed || trimmed === '--' || trimmed === '--:--' || trimmed.includes('NaN')) return '--:--';
-      if (trimmed.includes("'")) {
-        const parts = trimmed.replace('"', '').split("'");
-        const m = parseInt(parts[0], 10);
-        const s = parseInt(parts[1], 10);
-        if (!isNaN(m) && !isNaN(s)) {
-          return `${m}:${s < 10 ? '0' : ''}${s}`;
-        }
-      }
-      if (trimmed.includes(':')) {
-        const parts = trimmed.split(':');
-        const m = parseInt(parts[0], 10);
-        const s = parseInt(parts[1], 10);
-        if (!isNaN(m) && !isNaN(s)) {
-          return `${m}:${s < 10 ? '0' : ''}${s}`;
-        }
-      }
-      const num = Number(trimmed);
-      if (isNaN(num) || num <= 0) return '--:--';
-      pace = num;
-    }
-    if (typeof pace === 'number') {
-      if (isNaN(pace) || pace <= 0) return '--:--';
-      const totalSec = Math.round(pace);
-      const mins = Math.floor(totalSec / 60);
-      const secs = totalSec % 60;
-      return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
-    }
-    return '--:--';
+  formatPace(seconds?: number): string {
+    if (!seconds || seconds <= 0) return '--:--';
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
   }
 
   formatTime(seconds?: number): string {
@@ -1521,6 +1518,9 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   closeAccountModal(): void {
+    if (this.accountModalTab === 'kayak-customizer') {
+      this.restorePreviewFromCommitted();
+    }
     this.isAccountModalOpen = false;
     this.isPostRegisterOnboarding = false;
     this.accountAuthError = '';

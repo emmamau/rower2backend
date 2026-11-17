@@ -7,6 +7,47 @@ export interface KayakCustomization {
   glowColor: string;
 }
 
+export const DEFAULT_KAYAK_CUSTOMIZATION: KayakCustomization = {
+  hullColor: '#00e5ff',
+  bladeColor: '#00f0ff',
+  pattern: 'racing-stripe',
+  glowColor: '#00f0ff',
+};
+
+export function normalizeHexColor(color: any, fallback: string): string {
+  if (typeof color !== 'string') return fallback;
+  const trimmed = color.trim();
+  const match3 = /^#([0-9A-Fa-f]{3})$/.exec(trimmed);
+  if (match3) {
+    const [r, g, b] = match3[1].split('');
+    return `#${r}${r}${g}${g}${b}${b}`.toLowerCase();
+  }
+  if (/^#([0-9A-Fa-f]{6})$/.test(trimmed)) {
+    return trimmed.toLowerCase();
+  }
+  return fallback;
+}
+
+export function hexToRgba(hex: string, alpha: number): string {
+  const normalized = normalizeHexColor(hex, '#00f0ff').replace('#', '');
+  const r = parseInt(normalized.substring(0, 2), 16);
+  const g = parseInt(normalized.substring(2, 4), 16);
+  const b = parseInt(normalized.substring(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+export function sanitizeKayakCustomization(custom?: any): KayakCustomization {
+  const hullColor = normalizeHexColor(custom?.hullColor, '#00e5ff');
+  const bladeColor = normalizeHexColor(custom?.bladeColor, '#00f0ff');
+  const glowColor = normalizeHexColor(custom?.glowColor, '#00f0ff');
+  const validPatterns = ['solid', 'racing-stripe', 'dual-tone', 'gradient'];
+  const pattern: KayakPattern = (custom?.pattern && validPatterns.includes(custom.pattern))
+    ? custom.pattern
+    : 'racing-stripe';
+
+  return { hullColor, bladeColor, pattern, glowColor };
+}
+
 export interface UserProfile {
   id: string; // Identifiant ou login
   name: string; // Nom d'affichage ou login du joueur

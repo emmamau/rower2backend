@@ -53,6 +53,94 @@ describe("Kayak Customization API & Telemetry", () => {
     assert.strictEqual(data.user.kayakCustomization?.hullColor, "#ff0055");
   });
 
+  it("should assign default kayak customization matching Spec 3.1 when not provided", async () => {
+    const defaultPayload = {
+      nom: "DefaultKayak",
+      prenom: "Pilot",
+      anneeNaissance: 1995,
+      sexe: "M",
+      pays: "France",
+      login: "kayak_def_" + Date.now().toString().slice(-6),
+      email: `def_${Date.now()}@test.com`,
+      password: "password123",
+    };
+
+    const res = await fetch(`${baseUrl}/api/user/register`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(defaultPayload),
+    });
+    const data = await res.json();
+    assert.strictEqual(res.status, 201);
+    assert.strictEqual(data.success, true);
+    assert.ok(data.user);
+    assert.deepStrictEqual(data.user.kayakCustomization, {
+      hullColor: "#00e5ff",
+      bladeColor: "#00f0ff",
+      pattern: "racing-stripe",
+      glowColor: "#00f0ff",
+    });
+  });
+
+  it("should update active participant kayak in RaceManager and return in leaderboard", async () => {
+    const { RaceManager } = require("../dist/services/race-manager.service");
+    const raceManager = RaceManager.getInstance();
+
+    const login = "active_pilot_" + Date.now().toString().slice(-6);
+    await fetch(`${baseUrl}/api/user/register`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        nom: "Active",
+        prenom: "Pilot",
+        anneeNaissance: 1991,
+        sexe: "M",
+        pays: "France",
+        login,
+        email: `${login}@test.com`,
+        password: "password123",
+      }),
+    });
+
+    const privateRace = raceManager.createPrivateRace({
+      title: "Test Room",
+      targetDistance: 2000,
+      hostUserId: login,
+      hostUserName: "Active Pilot",
+    });
+    assert.ok(privateRace);
+    assert.ok(privateRace.id);
+
+    const newKayak = {
+      hullColor: "#ff0055",
+      bladeColor: "#ffe600",
+      pattern: "gradient",
+      glowColor: "#ff0055",
+    };
+
+    const updateRes = await fetch(`${baseUrl}/api/user/kayak`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        userId: login,
+        kayakCustomization: newKayak,
+      }),
+    });
+    assert.strictEqual(updateRes.status, 200);
+
+    const participant = privateRace.participants.get(login);
+    assert.ok(participant);
+    assert.deepStrictEqual(participant.kayak, newKayak);
+
+    const lbRes = await fetch(`${baseUrl}/api/races/${privateRace.id}/leaderboard`);
+    assert.strictEqual(lbRes.status, 200);
+    const lbData = await lbRes.json();
+    assert.ok(lbData.leaderboard);
+    const racerEntry = lbData.leaderboard.find((e) => e.userId === login);
+    assert.ok(racerEntry);
+    assert.deepStrictEqual(racerEntry.kayak, newKayak);
+  });
+
   it("should update kayak customization via PUT /api/user/kayak", async () => {
     const login = "kayak_update_" + Date.now().toString().slice(-6);
     await fetch(`${baseUrl}/api/user/register`, {

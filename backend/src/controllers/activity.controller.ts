@@ -408,7 +408,24 @@ export const getRaceLeaderboard = async (req: Request, res: Response): Promise<v
     // Abandons en fin de tableau, finishers d'abord puis distance décroissante
     const abandoned = rows.filter((r) => (typeof r.get === "function" ? r.get("status") : r.status) === "abandoned");
     const ranked = RaceManager.sortRanking(rows.filter((r) => (typeof r.get === "function" ? r.get("status") : r.status) !== "abandoned"));
-    const list = [...ranked, ...abandoned];
+    const rawList = [...ranked, ...abandoned];
+
+    const list = await Promise.all(
+      rawList.map(async (act: any) => {
+        const getVal = (field: string) => (typeof act.get === "function" ? act.get(field) : act[field]);
+        const uid = String(getVal("userId") || "");
+        const isBot = Boolean(getVal("isBot"));
+        const participantInfo = managed?.participants?.get(uid);
+        const userObj = !isBot && uid ? (userStore.findUserSync(uid) || (await userStore.findUser(uid))) : null;
+        const kayak = userObj?.kayakCustomization || participantInfo?.kayak;
+
+        const base = typeof act.toJSON === "function" ? act.toJSON() : (typeof act.get === "function" ? act.get({ plain: true }) : { ...act });
+        return {
+          ...base,
+          kayak,
+        };
+      })
+    );
 
     const timing = managed ? raceManager.getRaceTiming(managed) : null;
 

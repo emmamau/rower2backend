@@ -633,6 +633,9 @@ export const getRaceLeaderboard = async (req: Request, res: Response): Promise<v
           league = getLeagueByPoints(pts);
         }
 
+        const participantInfo = managedForParts?.participants?.get(userId);
+        const kayak = storedUser?.kayakCustomization || participantInfo?.kayak;
+
         // Points attribués pour la course (0 si abandon)
         const rawPoints = getVal("points");
         const earnedPoints = status === "abandoned"
@@ -654,6 +657,7 @@ export const getRaceLeaderboard = async (req: Request, res: Response): Promise<v
           gap,
           points: earnedPoints,
           league,
+          kayak,
         };
       })
     );

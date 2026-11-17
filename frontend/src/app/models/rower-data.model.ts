@@ -1,3 +1,5 @@
+import { KayakCustomization } from './user.model';
+
 export interface RowerData {
   id: string;
   activityId: string;
@@ -33,6 +35,7 @@ export interface RowerData {
   country?: string;
   finishedAt?: string;
   updatedAt?: string;
+  kayak?: KayakCustomization;
 }
 
 export interface PrivateRoomParticipant {
@@ -44,6 +47,7 @@ export interface PrivateRoomParticipant {
   connectionState?: 'CONNECTED' | 'READY';
   isBot?: boolean;
   isPaired?: boolean;
+  kayak?: KayakCustomization;
 }
 
 export interface GuestTicketResponse {
