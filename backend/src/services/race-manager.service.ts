@@ -1640,7 +1640,9 @@ export class RaceManager {
       timezone: targetTz,
       botCount,
       botMaxPace,
-      botStartMode: isBotDuel && options.botStartMode === "first_stroke" ? "first_stroke" : "countdown",
+      botStartMode: (isBotDuel || isSolo) && options.botStartMode === "first_stroke"
+        ? "first_stroke"
+        : (isSolo && options.botStartMode === undefined ? "first_stroke" : (options.botStartMode || "countdown")),
       autoStart,
       hasBots: botCount > 0,
       isBotDuel,
@@ -2635,8 +2637,8 @@ export class RaceManager {
     const rawSec = options.countdownSeconds !== undefined ? Number(options.countdownSeconds) : 15;
     const countdownSec = Number.isFinite(rawSec) ? Math.min(3600, Math.max(0, Math.round(rawSec))) : 15;
 
-    // Duel contre un bot : départ « Au premier coup de rame » (aucun décompte, la course attend le joueur)
-    if (race.isBotDuel && options.botStartMode === "first_stroke") {
+    // Duel contre un bot ou Solo : départ « Au premier coup de rame » (aucun décompte, la course attend le joueur)
+    if ((race.isBotDuel || race.isSolo) && options.botStartMode === "first_stroke") {
       race.botStartMode = "first_stroke";
       race.status = "LOBBY";
       race.autoStart = false;
@@ -2646,7 +2648,7 @@ export class RaceManager {
       socketGateway.broadcastRaceStatus(race.id, "LOBBY", { botStartMode: "first_stroke" });
       return { race };
     }
-    if (race.isBotDuel && options.botStartMode === "countdown") {
+    if ((race.isBotDuel || race.isSolo) && options.botStartMode === "countdown") {
       race.botStartMode = "countdown";
     }
 

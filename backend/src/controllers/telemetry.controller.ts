@@ -1051,7 +1051,9 @@ export class TelemetryController {
         requireApproval: (isBotDuel || isDuel1v1 || allowAdminSpectator) ? false : (requireApproval !== undefined ? Boolean(requireApproval) : true),
         botCount: finalBots,
         botMaxPace: finalBotPace,
-        botStartMode: req.body?.botStartMode === "first_stroke" ? "first_stroke" : "countdown",
+        botStartMode: req.body?.botStartMode === "first_stroke"
+          ? "first_stroke"
+          : (isSolo && !req.body?.botStartMode ? "first_stroke" : (req.body?.botStartMode === "countdown" ? "countdown" : (isBotDuel ? "countdown" : "first_stroke"))),
         isBotDuel,
         isDuel1v1: Boolean(isDuel1v1),
         isSolo: Boolean(isSolo),

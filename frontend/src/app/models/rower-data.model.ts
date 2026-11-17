@@ -133,6 +133,7 @@ export interface CreatePrivateRaceRequest {
   timezone?: string;
   botCount?: number;
   botMaxPace?: number;
+  botStartMode?: 'first_stroke' | 'countdown';
   isBotDuel?: boolean;
   isDuel1v1?: boolean;
   isSolo?: boolean;

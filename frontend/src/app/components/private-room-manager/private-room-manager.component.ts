@@ -69,6 +69,9 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
   // Selected Game Mode for Creation: 'solo' | 'bot_duel' | 'duel_1v1' | 'multi'
   selectedGameMode: 'solo' | 'bot_duel' | 'duel_1v1' | 'multi' = 'solo';
 
+  // Mode de départ spécifique au mode Solo ('first_stroke' par défaut ou 'countdown')
+  soloStartMode: 'first_stroke' | 'countdown' = 'first_stroke';
+
   // Bot difficulty pace presets (plage autorisée : 1:45 -> 2:45 aux 500m)
   readonly BOT_PACE_MIN = 105;
   readonly BOT_PACE_MAX = 165;
@@ -857,6 +860,7 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
           ? Math.min(this.BOT_PACE_MAX, Math.max(this.BOT_PACE_MIN, Math.round(Number(this.botMaxPace) || 145)))
           : (Number(this.botMaxPace) || 120),
         requireApproval: this.selectedGameMode === 'multi' ? this.requireApproval : false,
+        botStartMode: isBotDuel ? 'first_stroke' : (isSolo ? this.soloStartMode : undefined),
         isBotDuel,
         isDuel1v1,
         isSolo,
@@ -1096,8 +1100,12 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
       });
   }
 
-  get isBotFirstStrokeMode(): boolean {
+  get isFirstStrokeMode(): boolean {
     return (this.activeRoom?.race?.botStartMode || (this.activeRoom as any)?.botStartMode) === 'first_stroke';
+  }
+
+  get isBotFirstStrokeMode(): boolean {
+    return this.isFirstStrokeMode;
   }
 
   triggerStartOnFirstStroke(): void {
