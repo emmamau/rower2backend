@@ -28,8 +28,8 @@ import {
 
 export { sanitizeKayakCustomization };
 import { getLeagueByPoints, getLeagueByTier, LeagueInfo, WEEKLY_LEAGUES } from './utils/league.util';
-import { interval, Subscription, of, Observable } from 'rxjs';
-import { switchMap, startWith, catchError } from 'rxjs/operators';
+import { interval, Subscription, of, Observable, Subject, forkJoin } from 'rxjs';
+import { switchMap, startWith, catchError, debounceTime, filter } from 'rxjs/operators';
 import { AdminDashboardComponent } from './components/admin-dashboard/admin-dashboard.component';
 
 @Component({
@@ -846,6 +846,7 @@ export class AppComponent implements OnInit, OnDestroy {
     this.loadLeagueStandings();
     this.checkUnseenWeeklySummary();
     this.loadPastRaces();
+    this.initHomeAutoRefresh();
     if (typeof window !== 'undefined') {
       window.addEventListener('popstate', this.popstateListener);
       window.addEventListener('resize', this.resizeListener);
@@ -901,6 +902,7 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.destroyHomeAutoRefresh();
     this.stopKayakPreviewAnimation();
     if (this.pollingSub) {
       this.pollingSub.unsubscribe();
@@ -1091,7 +1093,10 @@ export class AppComponent implements OnInit, OnDestroy {
             const roomParts = this.activePrivateRoom?.race?.participants || (raceData.race as any)?.participants || [];
             this.liveMetricsList = activeList.map((r, idx) => {
               const isMe = r.userId === this.activeUserId;
-              const assignedLane = isMe && this.myAssignedLane ? this.myAssignedLane : ((r as any).lane || idx + 1);
+              const assignedLane = Number((r as any).lane) || (isMe && this.myAssignedLane ? this.myAssignedLane : (idx + 1));
+              if (isMe && (r as any).lane) {
+                this.myAssignedLane = Number((r as any).lane);
+              }
               const partInfo = roomParts.find((p: any) => p.userId === r.userId);
               const isRowerAwake = (r.lastPower || 0) > 0 || (r.lastStrokeRate || 0) > 0 || (r.netDistance || 0) > 0;
               const readyVal = partInfo && partInfo.ready !== undefined ? partInfo.ready : (isRowerAwake || Boolean(r.userId?.startsWith('bot_')));
@@ -1602,10 +1607,86 @@ export class AppComponent implements OnInit, OnDestroy {
     });
   }
 
+  // ===== Rafraîchissement automatique des boxes de l'accueil (Classement saison + Historique) =====
+  private readonly HOME_POLL_MS = 60_000;
+  private readonly HOME_REFRESH_STATUSES = new Set([
+    'COMPLETED', 'FINISHED', 'POST_RACE_PAUSE', 'STOPPED', 'CANCELLED', 'ABANDONED'
+  ]);
+  private homeRefresh$ = new Subject<void>();
+  private homeRefreshSub?: Subscription;
+  private homePollSub?: Subscription;
+  private homeSocketSub?: Subscription;
+  lastHomeRefreshAt: Date | null = null;
+
+  private homeVisibilityListener = (): void => {
+    if (typeof document !== 'undefined' && !document.hidden) {
+      this.homeRefresh$.next();
+    }
+  };
+
+  private initHomeAutoRefresh(): void {
+    this.homeRefreshSub?.unsubscribe();
+    this.homePollSub?.unsubscribe();
+    this.homeSocketSub?.unsubscribe();
+
+    // Anti-rebond + annulation des requêtes en cours ; uniquement sur l'accueil et onglet visible
+    this.homeRefreshSub = this.homeRefresh$.pipe(
+      debounceTime(2000),
+      filter(() => this.siteView === 'home' && !(typeof document !== 'undefined' && document.hidden)),
+      switchMap(() => forkJoin({
+        lb: this.rowerService.getGeneralLeaderboard({
+          country: this.leaderboardCountryFilter,
+          gender: this.leaderboardGenderFilter,
+          ageCategory: this.leaderboardAgeCategoryFilter
+        }).pipe(catchError(() => of(null))),
+        hist: this.rowerService.getRaceHistory().pipe(catchError(() => of(null)))
+      }))
+    ).subscribe(({ lb, hist }) => {
+      if ((lb as any)?.players) {
+        this.generalLeaderboard = (lb as any).players;
+      }
+      if (hist) {
+        this.applyPastRaces(hist as any[]);
+      }
+      this.lastHomeRefreshAt = new Date();
+      this.cdr.markForCheck();
+    });
+
+    // Filet de sécurité périodique
+    this.homePollSub = interval(this.HOME_POLL_MS).subscribe(() => this.homeRefresh$.next());
+
+    // Fin de course (événement global, indépendant de la course suivie)
+    this.homeSocketSub = this.socketService.onRaceStatusChange().subscribe((update) => {
+      if (update && this.HOME_REFRESH_STATUSES.has(String(update.status || '').toUpperCase())) {
+        this.homeRefresh$.next();
+      }
+    });
+
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', this.homeVisibilityListener);
+    }
+  }
+
+  private destroyHomeAutoRefresh(): void {
+    this.homeRefreshSub?.unsubscribe();
+    this.homePollSub?.unsubscribe();
+    this.homeSocketSub?.unsubscribe();
+    this.homeRefreshSub = this.homePollSub = this.homeSocketSub = undefined;
+    if (typeof document !== 'undefined') {
+      document.removeEventListener('visibilitychange', this.homeVisibilityListener);
+    }
+  }
+
   loadPastRaces(): void {
     this.rowerService.getRaceHistory().pipe(
       catchError(() => of([]))
     ).subscribe((history) => {
+      this.applyPastRaces(history as any[]);
+    });
+  }
+
+  private applyPastRaces(history: any[]): void {
+    {
       const excludedStatuses = new Set([
         'STOPPED', 'CANCELLED', 'ABORTED', 'ABANDONED',
         'stopped', 'cancelled', 'aborted', 'abandoned'
@@ -1621,7 +1702,7 @@ export class AppComponent implements OnInit, OnDestroy {
         return maxDist > 0;
       });
       this.cdr.markForCheck();
-    });
+    }
   }
 
   saveRaceConfig(): void {
@@ -2326,6 +2407,9 @@ export class AppComponent implements OnInit, OnDestroy {
 
   setSiteView(view: 'home' | 'regatta' | 'cockpit'): void {
     this.siteView = view;
+    if (view === 'home') {
+      this.homeRefresh$.next();
+    }
     if (view === 'regatta') {
       this.userOverrodeViewMode = true;
       this.activeViewMode = 'canvas';
@@ -3833,8 +3917,12 @@ export class AppComponent implements OnInit, OnDestroy {
             isBot: m.isBot !== undefined ? m.isBot : this.isBotRacer(m),
             isPaired: m.isPaired !== undefined ? m.isPaired : this.isPairedRacer(m),
           };
-          if (m.userId === this.activeUserId && this.myAssignedLane) {
-            updated.lane = this.myAssignedLane;
+          if (m.userId === this.activeUserId) {
+            if (m.lane && m.lane > 0) {
+              this.myAssignedLane = m.lane;
+            } else if (this.myAssignedLane) {
+              updated.lane = this.myAssignedLane;
+            }
           }
           return updated;
         });

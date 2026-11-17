@@ -2770,6 +2770,7 @@
               <h3 class="panel-title">{{ i18n.t('MODAL_STANDINGS_TITLE') }}</h3>
             </div>
             <span class="panel-badge">{{ generalLeaderboard.length }} Rameurs</span>
+            <span class="panel-updated" *ngIf="lastHomeRefreshAt">Mis à jour {{ lastHomeRefreshAt | date:'HH:mm:ss' }}</span>
           </div>
           <p class="panel-subdesc">{{ i18n.t('MODAL_STANDINGS_DESC') }}</p>
 
@@ -2873,6 +2874,7 @@
               <h3 class="panel-title">{{ i18n.t('MODAL_HISTORY_TITLE') }}</h3>
             </div>
             <span class="panel-badge">{{ raceHistory.length }} Régates</span>
+            <span class="panel-updated" *ngIf="lastHomeRefreshAt">Mis à jour {{ lastHomeRefreshAt | date:'HH:mm:ss' }}</span>
           </div>
           <p class="panel-subdesc">{{ i18n.t('MODAL_HISTORY_DESC') }}</p>
 

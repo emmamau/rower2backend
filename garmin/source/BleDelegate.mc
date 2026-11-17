@@ -1794,6 +1794,24 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
         }
     }
 
+    //! Relance la connexion BLE depuis le menu pause (reset complet + rescan)
+    public function reconnectBle() as Void {
+        if (!UserManager.isPaired()) {
+            return;
+        }
+        stopScan();
+        _srPacketQueue = [] as Array<ByteArray>;
+        _srHandshakeState = 0;
+        _srChallengeRequested = false;
+        _srRxBuffer = "";
+        _srV3LockTicks = 0;
+        _noCharTicks = 0;
+        startScan();
+        if (_view != null) {
+            (_view as RowerView).showWarning(I18n.getText("BLE_RECONNECTING"), 2);
+        }
+    }
+
     public function resumeSession() as Void {
         if (_session != null && !(_session as ActivityRecording.Session).isRecording()) {
             (_session as ActivityRecording.Session).start();

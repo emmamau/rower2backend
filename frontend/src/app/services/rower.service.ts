@@ -153,7 +153,7 @@ export class RowerService {
 
   startOrResetPrivateRace(
     identifier: string,
-    options: { hostUserId: string; countdownSeconds?: number; reset?: boolean; targetDistance?: number }
+    options: { hostUserId: string; countdownSeconds?: number; reset?: boolean; targetDistance?: number; botStartMode?: 'countdown' | 'first_stroke' }
   ): Observable<PrivateRacePayload> {
     return this.http.post<PrivateRacePayload>(
       `${this.apiUrl}/api/v1/races/private/${encodeURIComponent(identifier.trim())}/start`,

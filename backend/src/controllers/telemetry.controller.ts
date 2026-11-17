@@ -157,6 +157,7 @@ async function buildPrivateRacePayload(race: RaceState) {
     timezone: race.timezone || "Europe/Paris",
     botCount: race.botCount || 0,
     botMaxPace: race.botMaxPace || 120,
+    botStartMode: race.botStartMode || "countdown",
     autoStart: Boolean(race.autoStart),
     hasBots: Boolean(race.hasBots),
     isBotDuel: Boolean(race.isBotDuel),
@@ -524,6 +525,15 @@ export class TelemetryController {
         }
         const isNewParticipant = !matchedRace.participants.has(userId);
         if (isNewParticipant) {
+          const usedLanes = new Set<number>();
+          for (const p of matchedRace.participants.values()) {
+            if (p.lane) usedLanes.add(p.lane);
+          }
+          let assignedLane = 1;
+          while (usedLanes.has(assignedLane)) {
+            assignedLane++;
+          }
+
           matchedRace.participants.set(userId, {
             userId,
             userName: effectiveUserName,
@@ -533,6 +543,7 @@ export class TelemetryController {
             lastTelemetryAtMs: nowMs,
             lastElapsedSec: nextExactElapsed,
             isPaired: isTelemetryPaired,
+            lane: assignedLane
           });
           const incomingDevId = String(body.deviceId || "").trim() || undefined;
           const incomingDevToken = rawToken || undefined;
@@ -1023,7 +1034,7 @@ export class TelemetryController {
 
       const rawBots = isSolo ? 0 : isBotDuel ? 1 : (Number(botCount) || 0);
       const finalBots = isSolo ? 0 : isBotDuel ? 1 : Math.min(botsAllowed, Math.max(0, rawBots));
-      const finalBotPace = Math.min(300, Math.max(60, Number(botMaxPace) || 120));
+      const finalBotPace = isBotDuel ? Math.min(165, Math.max(105, Math.round(Number(botMaxPace) || 145))) : Math.min(300, Math.max(60, Number(botMaxPace) || 120));
 
       const hostParticipates = Boolean(req.body?.hostParticipates !== undefined ? req.body?.hostParticipates : !allowAdminSpectator);
 
@@ -1040,6 +1051,7 @@ export class TelemetryController {
         requireApproval: (isBotDuel || isDuel1v1 || allowAdminSpectator) ? false : (requireApproval !== undefined ? Boolean(requireApproval) : true),
         botCount: finalBots,
         botMaxPace: finalBotPace,
+        botStartMode: req.body?.botStartMode === "first_stroke" ? "first_stroke" : "countdown",
         isBotDuel,
         isDuel1v1: Boolean(isDuel1v1),
         isSolo: Boolean(isSolo),
@@ -1348,6 +1360,7 @@ export class TelemetryController {
         isAdmin,
         countdownSeconds: countdownSeconds !== undefined ? Number(countdownSeconds) : 15,
         reset: Boolean(reset),
+        botStartMode: req.body?.botStartMode === "first_stroke" ? "first_stroke" : req.body?.botStartMode === "countdown" ? "countdown" : undefined,
         targetDistance: targetDistance !== undefined ? Number(targetDistance) : undefined
       });
 

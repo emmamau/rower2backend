@@ -84,6 +84,7 @@ export interface NextRaceInfo {
     timezone?: string;
     botCount?: number;
     botMaxPace?: number;
+    botStartMode?: 'countdown' | 'first_stroke';
     autoStart?: boolean;
     hasBots?: boolean;
     isBotDuel?: boolean;

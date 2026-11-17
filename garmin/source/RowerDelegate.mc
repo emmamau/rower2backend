@@ -168,8 +168,10 @@ class RowerDelegate extends WatchUi.BehaviorDelegate {
             if (pIdx == 0) {
                 _bleDelegate.resumeSession();
             } else if (pIdx == 1) {
-                _bleDelegate.saveAndExitSession();
+                _bleDelegate.reconnectBle();
             } else if (pIdx == 2) {
+                _bleDelegate.saveAndExitSession();
+            } else if (pIdx == 3) {
                 _bleDelegate.discardSession();
             }
             return true;

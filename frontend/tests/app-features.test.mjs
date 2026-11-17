@@ -1341,3 +1341,17 @@ test('Regatta mode: Only free kayaks can be claimed in public races (bots, paire
 
 
 
+
+test('Home page boxes (Classement saison + Historique) auto-refresh: socket event, 60s poll, visibility guard, cleanup', () => {
+  const ts = fs.readFileSync(path.join(__dirname, '../src/app/app.ts'), 'utf8');
+  const html = fs.readFileSync(path.join(__dirname, '../src/app/app.html'), 'utf8');
+  assert.ok(ts.includes('initHomeAutoRefresh()'), 'auto-refresh is initialised');
+  assert.match(ts, /HOME_POLL_MS = 60_000/, 'safety poll every 60s');
+  assert.match(ts, /debounceTime\(2000\)/, 'refresh is debounced');
+  assert.match(ts, /switchMap\(\(\) => forkJoin/, 'requests are cancelable and joined');
+  assert.match(ts, /this\.siteView === 'home' && !\(typeof document/, 'only refreshes on home with visible tab');
+  assert.match(ts, /HOME_REFRESH_STATUSES\.has\(/, 'reacts to race end socket events');
+  assert.match(ts, /ngOnDestroy\(\): void \{\s*this\.destroyHomeAutoRefresh\(\);/, 'cleaned up on destroy');
+  assert.match(ts, /removeEventListener\('visibilitychange'/, 'visibility listener removed');
+  assert.equal((html.match(/panel-updated/g) || []).length, 2, 'both boxes show last update time');
+});

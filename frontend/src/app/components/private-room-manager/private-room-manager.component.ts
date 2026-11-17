@@ -69,14 +69,55 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
   // Selected Game Mode for Creation: 'solo' | 'bot_duel' | 'duel_1v1' | 'multi'
   selectedGameMode: 'solo' | 'bot_duel' | 'duel_1v1' | 'multi' = 'solo';
 
-  // Bot difficulty pace preset:
+  // Bot difficulty pace presets (plage autorisée : 1:45 -> 2:45 aux 500m)
+  readonly BOT_PACE_MIN = 105;
+  readonly BOT_PACE_MAX = 165;
   readonly botPacePresets = [
-    { label: 'Loisir', pace: 150, time: '2:30/500m' },
-    { label: 'Régulier', pace: 120, time: '2:00/500m' },
-    { label: 'Avancé', pace: 110, time: '1:50/500m' },
-    { label: 'Expert', pace: 100, time: '1:40/500m' },
-    { label: 'Champion', pace: 90, time: '1:30/500m' }
+    { label: 'Loisir', pace: 165, time: '2:45/500m' },
+    { label: 'Régulier', pace: 145, time: '2:25/500m' },
+    { label: 'Intermédiaire', pace: 130, time: '2:10/500m' },
+    { label: 'Avancé', pace: 115, time: '1:55/500m' },
+    { label: 'Expert', pace: 105, time: '1:45/500m' }
   ];
+  isCustomBotPace = false;
+  customBotPaceText = '2:00';
+  botPaceError = '';
+
+  formatPace(seconds: number): string {
+    const s = Math.round(seconds);
+    return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+  }
+
+  /** Convertit "m:ss" (ou secondes) en secondes ; null si invalide. */
+  parsePace(text: string): number | null {
+    const m = /^\s*(\d{1,2}):([0-5]\d)\s*$/.exec(text || '');
+    if (m) return Number(m[1]) * 60 + Number(m[2]);
+    const n = Number(String(text || '').trim());
+    return Number.isFinite(n) && n > 0 && /^\d+$/.test(String(text).trim()) ? n : null;
+  }
+
+  selectBotPreset(pace: number): void {
+    this.isCustomBotPace = false;
+    this.botPaceError = '';
+    this.botMaxPace = pace;
+  }
+
+  selectCustomBotPace(): void {
+    this.isCustomBotPace = true;
+    this.customBotPaceText = this.formatPace(this.botMaxPace);
+    this.onCustomBotPaceChange(this.customBotPaceText);
+  }
+
+  onCustomBotPaceChange(text: string): void {
+    this.customBotPaceText = text;
+    const p = this.parsePace(text);
+    if (p === null || p < this.BOT_PACE_MIN || p > this.BOT_PACE_MAX) {
+      this.botPaceError = `Allure entre ${this.formatPace(this.BOT_PACE_MIN)} et ${this.formatPace(this.BOT_PACE_MAX)} /500m (format m:ss).`;
+    } else {
+      this.botPaceError = '';
+      this.botMaxPace = p;
+    }
+  }
 
   // Create form fields
   roomTitle = '';
@@ -102,7 +143,7 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
     { id: 'Pacific/Auckland', label: 'Auckland, Wellington (NZDT / UTC+13)' }
   ];
   botCount = 0;
-  botMaxPace = 120; // 2:00 / 500m
+  botMaxPace = 145; // 2:25 / 500m
   countdownMinutes = 5;
   requireApproval = true;
   readonly distancePresets = [500, 1000, 2000, 5000, 10000];
@@ -780,6 +821,11 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
 
     if (!this.validateCreateTitle()) return;
 
+    if (this.selectedGameMode === 'bot_duel' && this.isCustomBotPace && this.botPaceError) {
+      this.createGeneralError = this.botPaceError;
+      this.cdr.markForCheck();
+      return;
+    }
     this.createGeneralError = '';
     this.isCreating = true;
 
@@ -807,7 +853,9 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
           : undefined,
         timezone: this.selectedGameMode === 'multi' && this.startMode === 'scheduled' ? this.selectedTimezone : undefined,
         botCount: isBotDuel ? 1 : (this.selectedGameMode === 'multi' ? Number(this.botCount) || 0 : 0),
-        botMaxPace: isBotDuel ? Number(this.botMaxPace) || 120 : (Number(this.botMaxPace) || 120),
+        botMaxPace: isBotDuel
+          ? Math.min(this.BOT_PACE_MAX, Math.max(this.BOT_PACE_MIN, Math.round(Number(this.botMaxPace) || 145)))
+          : (Number(this.botMaxPace) || 120),
         requireApproval: this.selectedGameMode === 'multi' ? this.requireApproval : false,
         isBotDuel,
         isDuel1v1,
@@ -1043,6 +1091,36 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
         error: (err) => {
           this.isActionBusy = false;
           this.actionError = err?.error?.error || 'Impossible de rejoindre un couloir.';
+          this.cdr.markForCheck();
+        }
+      });
+  }
+
+  get isBotFirstStrokeMode(): boolean {
+    return (this.activeRoom?.race?.botStartMode || (this.activeRoom as any)?.botStartMode) === 'first_stroke';
+  }
+
+  triggerStartOnFirstStroke(): void {
+    if (!this.activeRoom || this.isActionBusy) return;
+    const identifier = this.activeRoomCode || this.activeRoom.race.id;
+    this.isActionBusy = true;
+    this.actionError = '';
+    this.rowerService
+      .startOrResetPrivateRace(identifier, {
+        hostUserId: this.activeUserId,
+        botStartMode: 'first_stroke',
+        reset: false
+      })
+      .subscribe({
+        next: (updated) => {
+          this.isActionBusy = false;
+          this.roomUpdated.emit(updated);
+          this.showFeedback('✓ Départ au premier coup de rame activé');
+          this.cdr.markForCheck();
+        },
+        error: (err) => {
+          this.isActionBusy = false;
+          this.actionError = err?.error?.error || 'Action refusée.';
           this.cdr.markForCheck();
         }
       });

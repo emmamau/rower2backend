@@ -692,10 +692,15 @@ export const getRaceLeaderboard = async (req: Request, res: Response): Promise<v
           earnedPoints = 0;
         }
 
+        const assignedLane = Number((typeof act.get === "function" ? act.get("lane") : act.lane)) ||
+          participantInfo?.lane ||
+          (idx + 1);
+
         return {
           position: rank,
           userId,
           userName,
+          lane: assignedLane,
           isBot,
           isPaired,
           status,

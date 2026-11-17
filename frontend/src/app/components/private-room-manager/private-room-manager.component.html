@@ -187,7 +187,17 @@
         <!-- Quick Action Controls (Host Start / Bots / Reset + BLE READY status) -->
       <div class="priv-banner-actions">
         @if (isBotDuelRoom) {
-          <span class="priv-meta-chip">🚣 Ligne 1 (Vous) vs 🤖 Ligne 2 (Bot) — Départ auto 15s après validation PIN</span>
+          <span class="priv-meta-chip">🚣 Ligne 1 (Vous) vs 🤖 Ligne 2 (Bot) — {{ isBotFirstStrokeMode ? 'Départ au premier coup de rame' : 'Départ auto 15s après validation PIN' }}</span>
+          @if (canManageActiveRoom && !isBotFirstStrokeMode && (activeRoom.status === 'countdown' || activeRoom.status === 'waiting')) {
+            <button
+              type="button"
+              class="priv-btn priv-btn-launch"
+              [disabled]="isActionBusy"
+              title="La course démarre quand vous commencez à ramer"
+              (click)="triggerStartOnFirstStroke()">
+              🚣 Au premier coup de rame
+            </button>
+          }
         }
 
         @if (canManageActiveRoom) {
@@ -525,18 +535,41 @@
             <!-- CONFIGURATION SPÉCIFIQUE : DUEL CONTRE UN BOT (CHOIX DU NIVEAU) -->
             @if (selectedGameMode === 'bot_duel') {
               <div class="priv-field">
-                <label class="priv-label">⚡ Allure & Niveau du Bot</label>
+                <label class="priv-label">⚡ Allure &amp; Niveau du Bot (de 2:45 à 1:45 /500m)</label>
                 <div class="priv-preset-row">
                   @for (lvl of botPacePresets; track lvl.pace) {
                     <button
                       type="button"
                       class="priv-preset-chip"
-                      [class.active]="botMaxPace === lvl.pace"
-                      (click)="botMaxPace = lvl.pace">
+                      [class.active]="!isCustomBotPace && botMaxPace === lvl.pace"
+                      (click)="selectBotPreset(lvl.pace)">
                       <strong>{{ lvl.label }}</strong> ({{ lvl.time }})
                     </button>
                   }
+                  <button
+                    type="button"
+                    class="priv-preset-chip"
+                    [class.active]="isCustomBotPace"
+                    (click)="selectCustomBotPace()">
+                    <strong>✏️ Personnalisée</strong>
+                  </button>
                 </div>
+                @if (isCustomBotPace) {
+                  <input
+                    type="text"
+                    name="customBotPace"
+                    class="priv-input"
+                    inputmode="numeric"
+                    placeholder="m:ss (ex. 2:05)"
+                    maxlength="5"
+                    [ngModel]="customBotPaceText"
+                    (ngModelChange)="onCustomBotPaceChange($event)" />
+                  @if (botPaceError) {
+                    <div class="priv-error">{{ botPaceError }}</div>
+                  } @else {
+                    <div class="priv-hint">Allure du bot : {{ formatPace(botMaxPace) }}/500m</div>
+                  }
+                }
               </div>
             }
 
@@ -888,6 +921,17 @@
                   (click)="triggerStart(3)">
                   {{ i18n.t('BTN_START_3S') }}
                 </button>
+                @if (isBotDuelRoom) {
+                  <button
+                    type="button"
+                    class="priv-btn priv-btn-launch"
+                    [class.is-selected]="isBotFirstStrokeMode"
+                    [disabled]="isActionBusy"
+                    title="La course démarre quand vous commencez à ramer"
+                    (click)="triggerStartOnFirstStroke()">
+                    🚣 Au premier coup de rame{{ isBotFirstStrokeMode ? ' ✓' : '' }}
+                  </button>
+                }
               } @else {
                 <button
                   type="button"

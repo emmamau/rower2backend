@@ -8342,3 +8342,11 @@ body.rigid-viewport {
 
 
 
+
+.panel-updated {
+  font-size: 0.7rem;
+  opacity: 0.6;
+  margin-left: 0.5rem;
+  white-space: nowrap;
+}
+

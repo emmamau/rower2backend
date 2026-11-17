@@ -369,12 +369,12 @@ class RowerView extends WatchUi.View {
     }
 
     public function nextPauseMenu() as Void {
-        _pauseMenuIndex = (_pauseMenuIndex + 1) % 3;
+        _pauseMenuIndex = (_pauseMenuIndex + 1) % 4;
         WatchUi.requestUpdate();
     }
 
     public function prevPauseMenu() as Void {
-        _pauseMenuIndex = (_pauseMenuIndex + 2) % 3;
+        _pauseMenuIndex = (_pauseMenuIndex + 3) % 4;
         WatchUi.requestUpdate();
     }
 
@@ -623,6 +623,7 @@ class RowerView extends WatchUi.View {
         } else if (_currentState == STATE_PAUSED) {
             var pauseItems = [
                 I18n.getText("MENU_RESUME"),
+                I18n.getText("MENU_RECONNECT_BLE"),
                 I18n.getText("MENU_SAVE_EXIT"),
                 I18n.getText("MENU_ABANDON")
             ] as Array<String>;
@@ -1509,12 +1510,14 @@ class RowerView extends WatchUi.View {
             }
 
             var avgPaceVal = _model.formatPace(_model.getEffectiveAvgPace(_model.elapsedTime));
-            var avgPowVal = _model.avgPower.format("%d");
+            var remDist = _targetDistance - _netDistance;
+            if (remDist < 0) { remDist = 0; }
+            var remVal = remDist.format("%d");
 
             drawGarminGrid2x2(
                 dc, divTopY, divBotY,
-                [tlLbl, trLbl, I18n.getText("GRID_AVG_PACE"), I18n.getText("GRID_AVG_POWER")] as Array<String>,
-                [tlVal, trVal, avgPaceVal, avgPowVal] as Array<String>,
+                [tlLbl, trLbl, I18n.getText("GRID_AVG_PACE"), I18n.getText("GRID_REM")] as Array<String>,
+                [tlVal, trVal, avgPaceVal, remVal] as Array<String>,
                 [COL_WARN, COL_GOOD, COL_ACCENT, COL_CYAN] as Array<Number>,
                 [COL_PRIMARY, COL_PRIMARY, COL_PRIMARY, COL_PRIMARY] as Array<Number>
             );

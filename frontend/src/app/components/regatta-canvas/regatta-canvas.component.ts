@@ -20,6 +20,9 @@ interface BoatRenderState {
   userId: string;
   name: string;
   lane: number;
+  assignedLane: number;
+  dynamicLaneIndex: number;
+  currentLaneIndex: number;
   currentDisplayDist: number;
   targetPacketDist: number;
   splitSec: number;
@@ -42,6 +45,16 @@ interface BoatRenderState {
   template: `
     <div #wrapperEl class="canvas-wrapper">
       <canvas #raceCanvas (click)="onCanvasClick($event)"></canvas>
+
+      <!-- Bouton de bascule Mode Dynamique / Mode Fixe des lignes d'eau -->
+      <button
+        type="button"
+        class="lane-mode-toggle"
+        (click)="toggleLaneMode()"
+        [title]="dynamicLaneMode ? 'Mode dynamique actif : les kayaks changent de ligne selon le classement (seuil 10m). Cliquer pour passer en mode fixe.' : 'Mode fixe actif : les couloirs assignés restent fixes. Cliquer pour passer en mode dynamique.'">
+        <span class="mode-icon">{{ dynamicLaneMode ? '⚡' : '⚓' }}</span>
+        <span class="mode-label">{{ dynamicLaneMode ? 'Lignes dynamiques' : 'Lignes fixes' }}</span>
+      </button>
 
       <!-- Panneau contextuel de sélection de kayak -->
       <div
@@ -140,6 +153,43 @@ interface BoatRenderState {
       box-shadow: 0 0 24px rgba(0, 240, 255, 0.25), inset 0 0 20px rgba(0, 0, 0, 0.85);
       border: 1px solid rgba(0, 240, 255, 0.35);
       background: radial-gradient(ellipse at 50% 20%, #0d1e3d 0%, #060d1d 75%, #03070f 100%);
+    }
+    .lane-mode-toggle {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      z-index: 15;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 20px;
+      border: 1px solid rgba(0, 240, 255, 0.4);
+      background: rgba(6, 15, 33, 0.85);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      color: #00f0ff;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.4px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+    }
+    .lane-mode-toggle:hover {
+      background: rgba(0, 240, 255, 0.2);
+      border-color: #00f0ff;
+      box-shadow: 0 0 12px rgba(0, 240, 255, 0.45);
+      transform: translateY(-1px);
+    }
+    .lane-mode-toggle .mode-icon {
+      font-size: 0.82rem;
+    }
+    @media (max-width: 520px) {
+      .lane-mode-toggle {
+        padding: 3px 8px;
+        font-size: 0.65rem;
+      }
     }
     canvas {
       display: block;
@@ -354,6 +404,27 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
 
   public selectedKayakForClaim: BoatRenderState | null = null;
   public claimPopupPos = { x: 50, y: 50 };
+
+  /** Mode d'attribution des lignes d'eau : true = dynamique par classement (seuil 10m), false = fixe par ligne assignée */
+  dynamicLaneMode: boolean = true;
+
+  constructor() {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const saved = localStorage.getItem('regatta_lane_mode');
+      if (saved === 'fixed') {
+        this.dynamicLaneMode = false;
+      } else if (saved === 'dynamic') {
+        this.dynamicLaneMode = true;
+      }
+    }
+  }
+
+  toggleLaneMode(): void {
+    this.dynamicLaneMode = !this.dynamicLaneMode;
+    if (typeof window !== 'undefined' && window.localStorage) {
+      localStorage.setItem('regatta_lane_mode', this.dynamicLaneMode ? 'dynamic' : 'fixed');
+    }
+  }
 
   protected Math = Math;
   public isLeaderboardCollapsed = true;
@@ -696,7 +767,8 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
     let foundBoat: BoatRenderState | null = null;
 
     for (const boat of this.boatsMap.values()) {
-      const y = topOffset + (laneIdx + 0.5) * laneH;
+      const currentIdx = boat.currentLaneIndex !== undefined ? boat.currentLaneIndex : laneIdx;
+      const y = topOffset + (currentIdx + 0.5) * laneH;
       const progress = Math.min(1.0, Math.max(0, boat.currentDisplayDist / (this.targetDistance || 2000)));
       const rawX = marginX + trackW * progress;
       const x = rawX - this.cameraX;
@@ -772,11 +844,17 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
       const racerKayak = (r.userId === this.activeUserId && this.myKayakCustomization)
         ? this.myKayakCustomization
         : r.kayak;
+      const assignedLane = Number(r.lane) || (idx + 1);
+      const initialLaneIdx = Math.max(0, assignedLane - 1);
+
       if (!boat) {
         boat = {
           userId: r.userId,
           name: r.name,
-          lane: r.lane || idx + 1,
+          lane: assignedLane,
+          assignedLane: assignedLane,
+          dynamicLaneIndex: initialLaneIdx,
+          currentLaneIndex: initialLaneIdx,
           currentDisplayDist: effectiveDist,
           targetPacketDist: effectiveDist,
           splitSec: r.split || 120,
@@ -796,6 +874,10 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
         const isGarminTech = (n: string) => n.startsWith('Garmin_') || n.startsWith('fenix') || n.startsWith('forerunner');
         if (r.name && (!boat.name || !isGarminTech(r.name) || isGarminTech(boat.name))) {
           boat.name = r.name;
+        }
+        if (r.lane && Number(r.lane) > 0) {
+          boat.lane = Number(r.lane);
+          boat.assignedLane = Number(r.lane);
         }
         boat.isBot = Boolean(r.isBot || String(r.userId || '').toLowerCase().startsWith('bot_') || /\(bot\)/i.test(String(r.name || '')));
         boat.isPaired = Boolean(r.isPaired);
@@ -852,8 +934,87 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
     this.animFrameId = requestAnimationFrame(render);
   };
 
-  private updateBoatsPhysics(_deltaT: number): void {
+  private updateDynamicLanes(): void {
+    if (this.boatsMap.size <= 1) return;
+
+    const boatsList = Array.from(this.boatsMap.values());
+    const laneIndexSet = new Set(boatsList.map((b) => b.dynamicLaneIndex));
+
+    // Si les indices dynamiques ne sont pas encore tous uniques
+    if (laneIndexSet.size !== boatsList.length) {
+      boatsList.sort((a, b) => {
+        const isFinA = a.status === 'finished' ? 1 : 0;
+        const isFinB = b.status === 'finished' ? 1 : 0;
+        if (isFinA !== isFinB) return isFinB - isFinA;
+        if (Math.abs(b.currentDisplayDist - a.currentDisplayDist) > 0.1) {
+          return b.currentDisplayDist - a.currentDisplayDist;
+        }
+        return (a.assignedLane || 1) - (b.assignedLane || 1);
+      });
+      boatsList.forEach((b, i) => {
+        b.dynamicLaneIndex = i;
+        if (b.currentLaneIndex === undefined) {
+          b.currentLaneIndex = i;
+        }
+      });
+      return;
+    }
+
+    // Classer par couloir actuel (0 = L1 en tête, 1 = L2, etc.)
+    boatsList.sort((a, b) => a.dynamicLaneIndex - b.dynamicLaneIndex);
+
+    // Seuil de dépassement net (environ 10m / une longueur de coup de rame)
+    const OVERTAKE_THRESHOLD_M = 10;
+
+    for (let i = boatsList.length - 2; i >= 0; i--) {
+      const topBoat = boatsList[i];
+      const botBoat = boatsList[i + 1];
+
+      const topFinished = topBoat.status === 'finished';
+      const botFinished = botBoat.status === 'finished';
+
+      let shouldSwap = false;
+      if (botFinished && !topFinished) {
+        shouldSwap = true;
+      } else if (!topFinished || !botFinished) {
+        if (botBoat.currentDisplayDist >= topBoat.currentDisplayDist + OVERTAKE_THRESHOLD_M) {
+          shouldSwap = true;
+        }
+      }
+
+      if (shouldSwap) {
+        const tempLane = topBoat.dynamicLaneIndex;
+        topBoat.dynamicLaneIndex = botBoat.dynamicLaneIndex;
+        botBoat.dynamicLaneIndex = tempLane;
+
+        boatsList[i] = botBoat;
+        boatsList[i + 1] = topBoat;
+      }
+    }
+  }
+
+  private updateBoatsPhysics(deltaT: number): void {
+    if (this.dynamicLaneMode) {
+      this.updateDynamicLanes();
+    }
+
     this.boatsMap.forEach((boat) => {
+      const targetLaneIdx = this.dynamicLaneMode
+        ? (boat.dynamicLaneIndex !== undefined ? boat.dynamicLaneIndex : Math.max(0, (boat.assignedLane || boat.lane || 1) - 1))
+        : Math.max(0, (boat.assignedLane || boat.lane || 1) - 1);
+
+      if (boat.currentLaneIndex === undefined) {
+        boat.currentLaneIndex = targetLaneIdx;
+      } else {
+        const diffY = targetLaneIdx - boat.currentLaneIndex;
+        if (Math.abs(diffY) < 0.005) {
+          boat.currentLaneIndex = targetLaneIdx;
+        } else {
+          // Glisse verticale fluide : lerp avec amortissement
+          boat.currentLaneIndex += diffY * Math.min(1.0, deltaT * 3.5);
+        }
+      }
+
       if (boat.status === 'finished' || (this.targetDistance > 0 && boat.targetPacketDist >= this.targetDistance)) {
         if (this.targetDistance > 0) {
           boat.targetPacketDist = this.targetDistance;
@@ -978,13 +1139,31 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
       return;
     }
 
-    // 3. Dessin des kayaks avec mise en valeur avancée
+    // 3. Couloirs fixes du plan d'eau (Lignes fixes L1, L2, etc.)
+    for (let l = 0; l < boatCount; l++) {
+      const laneY = topOffset + (l + 0.5) * laneH;
+      const laneLabel = isCompact ? `L${l + 1}` : `Ligne ${l + 1}`;
+      ctx.font = isCompact ? 'bold 9.5px monospace' : 'bold 11px monospace';
+      ctx.fillStyle = 'rgba(0, 240, 255, 0.60)';
+      ctx.fillText(laneLabel, 14, laneY + 4);
+
+      // Séparateur de couloir
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(marginX, topOffset + (l + 1) * laneH);
+      ctx.lineTo(finishX + camOffset, topOffset + (l + 1) * laneH);
+      ctx.stroke();
+    }
+
+    // 4. Dessin des kayaks avec positionnement et glisse verticale fluide
     let laneIdx = 0;
     const hullRx = isCompact ? 14 : 18;
     const hullRy = isCompact ? 4.5 : 5;
 
     this.boatsMap.forEach((boat) => {
-      const y = topOffset + (laneIdx + 0.5) * laneH;
+      const currentIdx = boat.currentLaneIndex !== undefined ? boat.currentLaneIndex : laneIdx;
+      const y = topOffset + (currentIdx + 0.5) * laneH;
       const progress = Math.min(1.0, Math.max(0, boat.currentDisplayDist / (this.targetDistance || 2000)));
       const rawX = marginX + trackW * progress;
       const x = rawX - camOffset;
@@ -998,26 +1177,12 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
       const effectiveGlowColor = custom?.glowColor || (isUser ? '#00f0ff' : '#ffe600');
       const effectivePattern = custom?.pattern || (isUser ? 'racing-stripe' : 'solid');
 
-      // Numéro de ligne d'eau + Voyant BLE (Orange = CONNECTED / En attente du rameur, Vert = READY / Rameur prêt)
-      const laneNum = boat.lane || (laneIdx + 1);
+      // Voyant BLE (Orange = CONNECTED / En attente du rameur, Vert = READY / Rameur prêt)
       const isBoatReady = boat.ready !== false && boat.connectionState !== 'CONNECTED';
       ctx.fillStyle = isBoatReady ? '#22c55e' : '#f97316';
       ctx.beginPath();
       ctx.arc(7, y, isCompact ? 3 : 3.8, 0, Math.PI * 2);
       ctx.fill();
-
-      ctx.font = isCompact ? 'bold 9.5px monospace' : 'bold 11px monospace';
-      ctx.fillStyle = isUser ? '#00f0ff' : (isFocused ? '#ffe600' : 'rgba(0, 240, 255, 0.85)');
-      const laneLabel = isCompact ? `L${laneNum}` : `Ligne ${laneNum}`;
-      ctx.fillText(laneLabel, 14, y + 4);
-
-      // Séparateur de ligne
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(marginX, topOffset + (laneIdx + 1) * laneH);
-      ctx.lineTo(finishX + camOffset, topOffset + (laneIdx + 1) * laneH);
-      ctx.stroke();
 
       const isMoving = (boat.spm > 0 || (boat.splitSec > 0 && boat.currentDisplayDist > 0)) &&
         boat.currentDisplayDist < (this.targetDistance || 2000);

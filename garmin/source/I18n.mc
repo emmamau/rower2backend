@@ -654,6 +654,22 @@ module I18n {
             if (_currentLang == LANG_PT) { return "Continuar"; }
             return "Resume";
         }
+        if (key.equals("MENU_RECONNECT_BLE")) {
+            if (_currentLang == LANG_FR) { return "Relancer Bluetooth"; }
+            if (_currentLang == LANG_DE) { return "Bluetooth neu starten"; }
+            if (_currentLang == LANG_ES) { return "Reiniciar Bluetooth"; }
+            if (_currentLang == LANG_IT) { return "Riavvia Bluetooth"; }
+            if (_currentLang == LANG_PT) { return "Reiniciar Bluetooth"; }
+            return "Reconnect Bluetooth";
+        }
+        if (key.equals("BLE_RECONNECTING")) {
+            if (_currentLang == LANG_FR) { return "Reconnexion..."; }
+            if (_currentLang == LANG_DE) { return "Verbinde neu..."; }
+            if (_currentLang == LANG_ES) { return "Reconectando..."; }
+            if (_currentLang == LANG_IT) { return "Riconnessione..."; }
+            if (_currentLang == LANG_PT) { return "Reconectando..."; }
+            return "Reconnecting...";
+        }
         if (key.equals("MENU_SAVE_EXIT")) {
             if (_currentLang == LANG_FR) { return "Sauver & Quitter"; }
             if (_currentLang == LANG_DE) { return "Speichern & Ende"; }

@@ -12,6 +12,10 @@ const Races = db.races;
 const Activities = db.activities;
 const Users = db.users;
 
+/** Plage d'allure autorisée pour un bot de duel : 1:45 (105 s) à 2:45 (165 s) aux 500 m */
+export const BOT_PACE_MIN = 105;
+export const BOT_PACE_MAX = 165;
+
 export interface PrivateParticipantInfo {
   userId: string;
   userName: string;
@@ -78,6 +82,8 @@ export interface RaceState {
   timezone?: string;
   botCount?: number;
   botMaxPace?: number;
+  /** Mode de départ d'un duel contre un bot : décompte automatique ou attente du premier coup de rame */
+  botStartMode?: "countdown" | "first_stroke";
   autoStart?: boolean;
   hasBots?: boolean;
   isBotDuel?: boolean;
@@ -522,7 +528,7 @@ export class RaceManager {
       let lane = preassignedLanes.get(userId) || 0;
       if (!lane) {
         if (race?.isBotDuel) {
-          lane = isBot ? 2 : 1;
+          lane = isBot ? 2 : allocNextLane();
           usedLanes.add(lane);
         } else if (race) {
           lane = allocNextLane();
@@ -532,6 +538,9 @@ export class RaceManager {
       }
 
       const participantInfo = race?.participants?.get(userId);
+      if (participantInfo && (!participantInfo.lane || participantInfo.lane <= 0)) {
+        participantInfo.lane = lane;
+      }
       const userObj = !isBot ? (userStore.findUserSync(userId) || (userStore as any).getUserByIdSync?.(userId)) : null;
 
       // Résolution unifiée et déterministe des pseudos (Fin de l'alternance compte / montre) :
@@ -1469,6 +1478,7 @@ export class RaceManager {
     requireApproval?: boolean;
     botCount?: number;
     botMaxPace?: number;
+    botStartMode?: "countdown" | "first_stroke";
     isBotDuel?: boolean;
     isDuel1v1?: boolean;
     isSolo?: boolean;
@@ -1588,19 +1598,17 @@ export class RaceManager {
     let botCustomName = options.botCustomName;
 
     if (isBotDuel) {
-      // Allure du bot : si explicitement fournie par l'utilisateur (botMaxPace valide), on la conserve, sinon aléatoire
+      // Allure du bot : plage autorisée 1:45 (105 s) -> 2:45 (165 s) par 500m ; aléatoire si non fournie
       if (!options.botMaxPace || Number(options.botMaxPace) <= 0) {
-        const randomPace = Math.floor(Math.random() * (150 - 105 + 1)) + 105;
-        botMaxPace = randomPace;
+        botMaxPace = Math.floor(Math.random() * (BOT_PACE_MAX - BOT_PACE_MIN + 1)) + BOT_PACE_MIN;
       }
+      botMaxPace = Math.min(BOT_PACE_MAX, Math.max(BOT_PACE_MIN, Math.round(botMaxPace)));
       let levelLabel = "Intermédiaire";
-      if (botMaxPace <= 100) {
-        levelLabel = "Champion";
-      } else if (botMaxPace <= 110) {
-        levelLabel = "Élite";
-      } else if (botMaxPace <= 115) {
+      if (botMaxPace <= 115) {
+        levelLabel = "Expert";
+      } else if (botMaxPace <= 135) {
         levelLabel = "Avancé";
-      } else if (botMaxPace <= 130) {
+      } else if (botMaxPace <= 150) {
         levelLabel = "Régulier";
       } else {
         levelLabel = "Loisir";
@@ -1632,6 +1640,7 @@ export class RaceManager {
       timezone: targetTz,
       botCount,
       botMaxPace,
+      botStartMode: isBotDuel && options.botStartMode === "first_stroke" ? "first_stroke" : "countdown",
       autoStart,
       hasBots: botCount > 0,
       isBotDuel,
@@ -1680,12 +1689,37 @@ export class RaceManager {
 
   private async ensureSalonBots(raceId: string, botCount: number, botMaxPace: number, targetDistance: number, customName?: string): Promise<void> {
     const names = ["Bot Challenger", "Bot Pacer", "Bot Tempo", "Bot Shadow", "Bot Swift", "Bot Titan", "Bot Veloce"];
+    const race = this.getRaceById(raceId) || this.findPrivateRace(raceId);
+    if (race && !race.participants) {
+      race.participants = new Map();
+    }
+
     for (let i = 0; i < botCount; i++) {
       const botId = `bot_salon_${i + 1}`;
       const compositeId = `${raceId}_${botId}`;
       const name = customName || names[i % names.length];
-      const botPace = botMaxPace && botMaxPace > 0 && botCount === 1 ? Math.max(110, Math.min(165, botMaxPace)) : generateRealisticBotPace();
+      const botPace = botMaxPace && botMaxPace > 0 && botCount === 1 ? Math.max(BOT_PACE_MIN, Math.min(BOT_PACE_MAX, botMaxPace)) : generateRealisticBotPace();
       const { power, spm, speedMs } = calculateBotPhysics(botPace);
+
+      if (race && race.participants && !race.participants.has(botId)) {
+        let botLane = i + 2;
+        const usedLanes = new Set<number>();
+        for (const p of race.participants.values()) {
+          if (p.lane) usedLanes.add(p.lane);
+        }
+        while (usedLanes.has(botLane)) {
+          botLane++;
+        }
+        race.participants.set(botId, {
+          userId: botId,
+          userName: name,
+          joinedAt: new Date(),
+          lane: botLane,
+          ready: true,
+          connectionState: "READY"
+        });
+      }
+
       const botDefaults = {
         id: compositeId,
         activityId: raceId,
@@ -1730,8 +1764,18 @@ export class RaceManager {
     const cleanPin = String(pin).trim().toUpperCase();
     const matched = this.pinToRaceMap.get(cleanPin);
     if (!matched) return null;
-    const race = this.getRaceById(matched.raceId) || undefined;
-    return { ...matched, race };
+    const race = this.getRaceById(matched.raceId) || this.findPrivateRace(matched.raceId) || undefined;
+    let assignedLane = matched.lane || 1;
+    if (race && race.participants) {
+      const usedLanes = new Set<number>();
+      for (const p of race.participants.values()) {
+        if (p.lane) usedLanes.add(p.lane);
+      }
+      while (usedLanes.has(assignedLane)) {
+        assignedLane++;
+      }
+    }
+    return { ...matched, lane: assignedLane, race };
   }
 
   public getCurrentPublicRace(): RaceState | null {
@@ -2122,7 +2166,7 @@ export class RaceManager {
         secondsUntilStart: 15,
         countdownSeconds: 15
       });
-    } else if (race.isBotDuel && (options?.viaPin || options?.isDeviceAuthenticated) && race.status === "LOBBY") {
+    } else if (race.isBotDuel && race.botStartMode !== "first_stroke" && (options?.viaPin || options?.isDeviceAuthenticated) && race.status === "LOBBY") {
       const startNow = new Date();
       race.status = "COUNTDOWN";
       race.autoStart = true;
@@ -2537,6 +2581,7 @@ export class RaceManager {
       countdownSeconds?: number;
       reset?: boolean;
       targetDistance?: number;
+      botStartMode?: "countdown" | "first_stroke";
     }
   ): { race: RaceState } | { error: string; statusCode: number } {
     const race = this.findPrivateRace(identifier);
@@ -2589,6 +2634,21 @@ export class RaceManager {
 
     const rawSec = options.countdownSeconds !== undefined ? Number(options.countdownSeconds) : 15;
     const countdownSec = Number.isFinite(rawSec) ? Math.min(3600, Math.max(0, Math.round(rawSec))) : 15;
+
+    // Duel contre un bot : départ « Au premier coup de rame » (aucun décompte, la course attend le joueur)
+    if (race.isBotDuel && options.botStartMode === "first_stroke") {
+      race.botStartMode = "first_stroke";
+      race.status = "LOBBY";
+      race.autoStart = false;
+      race.startedAt = undefined;
+      race.endedAt = undefined;
+      race.lobbyEndsAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+      socketGateway.broadcastRaceStatus(race.id, "LOBBY", { botStartMode: "first_stroke" });
+      return { race };
+    }
+    if (race.isBotDuel && options.botStartMode === "countdown") {
+      race.botStartMode = "countdown";
+    }
 
     // Si départ immédiat (0s) et des compétiteurs sont encore non prêts, inviter à un décompte court plutôt que bloquer
     if (countdownSec <= 0 && race.participants && race.participants.size > 0) {
