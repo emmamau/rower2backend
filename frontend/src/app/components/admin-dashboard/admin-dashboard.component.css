@@ -532,3 +532,37 @@
   gap: 12px;
   margin-top: 24px;
 }
+
+/* -------------------------------------------------------------------------- */
+/* SÉLECTEURS DE RÔLE ET D'OFFRE DANS LE TABLEAU                              */
+/* -------------------------------------------------------------------------- */
+.select-role {
+  padding: 4px 8px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  border-radius: 6px;
+  cursor: pointer;
+  background: rgba(15, 23, 42, 0.85);
+  color: #38bdf8;
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  transition: all 0.2s;
+}
+
+.select-role.is-admin-role {
+  background: rgba(168, 85, 247, 0.25);
+  color: #e9d5ff;
+  border-color: rgba(168, 85, 247, 0.6);
+  box-shadow: 0 0 10px rgba(168, 85, 247, 0.3);
+}
+
+.select-plan {
+  padding: 4px 8px;
+  font-size: 0.8rem;
+  border-radius: 6px;
+  cursor: pointer;
+  background: rgba(15, 23, 42, 0.85);
+  color: #38bdf8;
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  max-width: 190px;
+}
+

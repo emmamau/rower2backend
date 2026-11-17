@@ -213,25 +213,26 @@
               <td>{{ u.email || '—' }}</td>
               <td>
                 <select
-                  class="select-filter"
-                  style="padding: 4px 8px; font-size: 0.8rem;"
+                  class="select-filter select-role"
+                  [class.is-admin-role]="u.role === 'ADMIN'"
                   [ngModel]="u.role"
-                  (ngModelChange)="changeUserRole(u, $event)"
+                  (ngModelChange)="openRoleModal(u, $event)"
+                  title="Changer le rôle de l'utilisateur"
                 >
-                  <option value="USER">USER</option>
-                  <option value="ADMIN">ADMIN</option>
+                  <option value="USER">👤 USER</option>
+                  <option value="ADMIN">👑 ADMIN</option>
                 </select>
               </td>
               <td>
                 <select
-                  class="select-filter"
-                  style="padding: 4px 8px; font-size: 0.8rem;"
+                  class="select-filter select-plan"
                   [ngModel]="u.subscriptionTier || 'free'"
                   (ngModelChange)="changeUserPlan(u, $event)"
+                  title="Modifier l'offre d'abonnement"
                 >
-                  <option value="free">Gratuit</option>
-                  <option value="intermediate">Club</option>
-                  <option value="premium">Élite Pro</option>
+                  <option *ngFor="let opt of availablePlanOptions" [value]="opt.code">
+                    {{ opt.label }}
+                  </option>
                 </select>
               </td>
               <td>
@@ -392,6 +393,38 @@
           (click)="confirmRevokeToggle()"
         >
           Confirmer
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modale Confirmation Changement de Rôle -->
+  <div class="modal-overlay" *ngIf="isRoleModalOpen">
+    <div class="modal-dialog">
+      <h3 class="modal-title">
+        {{ pendingNewRole === 'ADMIN' ? '👑 Promouvoir Administrateur' : '👤 Rétrograder Utilisateur Standard' }}
+      </h3>
+      <p>
+        Êtes-vous certain de vouloir modifier le rôle de
+        <strong>{{ userToEditRole?.login || userToEditRole?.name }}</strong> vers le rôle
+        <strong [style.color]="pendingNewRole === 'ADMIN' ? '#c084fc' : '#38bdf8'">
+          {{ pendingNewRole }}
+        </strong> ?
+      </p>
+      <p *ngIf="pendingNewRole === 'ADMIN'" style="color: #c084fc; font-size: 0.85rem;">
+        🛡️ Cet utilisateur bénéficiera des pleins pouvoirs d'administration sur la plateforme (courses publiques, utilisateurs et offres).
+      </p>
+      <p *ngIf="pendingNewRole === 'USER'" style="color: #facc15; font-size: 0.85rem;">
+        ℹ️ Cet utilisateur ne pourra plus accéder aux fonctionnalités d'administration.
+      </p>
+      <div class="modal-actions">
+        <button class="btn-close" (click)="closeRoleModal()">Annuler</button>
+        <button
+          class="btn-submit"
+          [style.background]="pendingNewRole === 'ADMIN' ? 'linear-gradient(135deg, #9333ea 0%, #7e22ce 100%)' : 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)'"
+          (click)="confirmRoleChange()"
+        >
+          Confirmer le changement de rôle
         </button>
       </div>
     </div>

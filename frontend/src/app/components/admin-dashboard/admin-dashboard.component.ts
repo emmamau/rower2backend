@@ -56,6 +56,11 @@ export class AdminDashboardComponent implements OnInit {
   newPasswordInput = '';
   isPasswordModalOpen = false;
 
+  // Modale Rôle Utilisateur
+  userToEditRole: AdminUserItem | null = null;
+  pendingNewRole: 'ADMIN' | 'USER' = 'USER';
+  isRoleModalOpen = false;
+
   // Onglet 3 : Offres & Quotas
   plansList: SubscriptionPlanItem[] = [];
   isLoadingPlans = false;
@@ -84,6 +89,7 @@ export class AdminDashboardComponent implements OnInit {
 
   ngOnInit(): void {
     this.loadPublicSettings();
+    this.loadPlans();
   }
 
   setTab(tab: 'public' | 'users' | 'plans'): void {
@@ -92,7 +98,10 @@ export class AdminDashboardComponent implements OnInit {
     if (tab === 'public') {
       this.loadPublicSettings();
     } else if (tab === 'users') {
-      this.loadUsers();
+      if (this.plansList.length === 0) {
+        this.loadPlans();
+      }
+      this.loadUsers(1);
     } else if (tab === 'plans') {
       this.loadPlans();
     }
@@ -262,30 +271,50 @@ export class AdminDashboardComponent implements OnInit {
     });
   }
 
-  changeUserRole(user: AdminUserItem, newRole: 'ADMIN' | 'USER'): void {
+  openRoleModal(user: AdminUserItem, newRole: 'ADMIN' | 'USER'): void {
     if (user.role === newRole) return;
-    this.adminService.updateUserRole(user.id, newRole).subscribe({
+    this.userToEditRole = user;
+    this.pendingNewRole = newRole;
+    this.isRoleModalOpen = true;
+  }
+
+  closeRoleModal(): void {
+    this.isRoleModalOpen = false;
+    this.userToEditRole = null;
+  }
+
+  confirmRoleChange(): void {
+    if (!this.userToEditRole) return;
+    const user = this.userToEditRole;
+    const targetRole = this.pendingNewRole;
+
+    this.adminService.updateUserRole(user.id, targetRole).subscribe({
       next: (res) => {
         if (res.success) {
-          user.role = newRole;
+          user.role = targetRole;
           this.feedbackMessage = res.message;
+          this.syncOwnProfileIfAffected(user.id, { role: targetRole });
         }
+        this.closeRoleModal();
         this.cdr.markForCheck();
       },
       error: (err) => {
         this.errorMessage = err.error?.message || 'Erreur mise à jour rôle.';
+        this.closeRoleModal();
         this.cdr.markForCheck();
       }
     });
   }
 
   changeUserPlan(user: AdminUserItem, newPlan: string): void {
-    if (user.subscriptionTier === newPlan) return;
-    this.adminService.updateUserPlan(user.id, newPlan).subscribe({
+    const cleanPlan = (newPlan || 'free').trim().toLowerCase();
+    if (user.subscriptionTier?.toLowerCase() === cleanPlan) return;
+    this.adminService.updateUserPlan(user.id, cleanPlan).subscribe({
       next: (res) => {
         if (res.success) {
-          user.subscriptionTier = newPlan;
+          user.subscriptionTier = cleanPlan;
           this.feedbackMessage = res.message;
+          this.syncOwnProfileIfAffected(user.id, { plan: cleanPlan });
         }
         this.cdr.markForCheck();
       },
@@ -294,6 +323,58 @@ export class AdminDashboardComponent implements OnInit {
         this.cdr.markForCheck();
       }
     });
+  }
+
+  private syncOwnProfileIfAffected(affectedUserId: string, updates: { role?: string; plan?: string }): void {
+    if (typeof localStorage === 'undefined') return;
+    const myId = localStorage.getItem('rower_user_id') || '';
+    const myLogin = localStorage.getItem('rower_user_login') || '';
+    const isMe = affectedUserId === myId || affectedUserId === myLogin;
+    if (isMe) {
+      if (updates.role) {
+        localStorage.setItem('rower_user_role', updates.role);
+        localStorage.setItem('rower_is_admin', String(updates.role === 'ADMIN'));
+      }
+      if (updates.plan) {
+        localStorage.setItem('rower_is_subscriber', String(updates.plan.toLowerCase() !== 'free'));
+      }
+    }
+  }
+
+  get availablePlanOptions(): { code: string; label: string }[] {
+    const list: { code: string; label: string }[] = [];
+    const seen = new Set<string>();
+
+    // 1. Offres définies en base (plansList)
+    for (const p of this.plansList) {
+      if (p.code) {
+        const lower = p.code.toLowerCase();
+        if (!seen.has(lower)) {
+          seen.add(lower);
+          list.push({
+            code: lower,
+            label: `${p.name} (${p.code})`
+          });
+        }
+      }
+    }
+
+    // 2. Offres standards en fallback si non chargées ou complémentaires
+    const defaults = [
+      { code: 'free', label: 'Offre Gratuite (FREE)' },
+      { code: 'standard', label: 'Offre Standard (STANDARD)' },
+      { code: 'intermediate', label: 'Offre Club (INTERMEDIATE)' },
+      { code: 'premium', label: 'Offre Élite Pro (PREMIUM)' }
+    ];
+
+    for (const d of defaults) {
+      if (!seen.has(d.code)) {
+        seen.add(d.code);
+        list.push(d);
+      }
+    }
+
+    return list;
   }
 
   // ---------------------------------------------------------------------------

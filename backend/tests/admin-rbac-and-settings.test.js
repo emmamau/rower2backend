@@ -345,3 +345,115 @@ test("6. Subscription Plans CRUD & Quota Invalidation", async () => {
     await ctx.close();
   }
 });
+
+test("7. User Role and Subscription Plan Modification by Admin", async () => {
+  const ctx = await createTestServer();
+  try {
+    const adminToken = JwtService.sign({
+      userId: "usr_admin_rowerrace",
+      login: "Admin_RowerRace",
+      role: "ADMIN",
+    });
+
+    const timestamp = Date.now();
+    const testRacer = await userStore.createUser({
+      id: `racer_role_${timestamp}`,
+      name: "Racer Role Test",
+      login: `racer_role_${timestamp}`,
+      email: `racer_role_${timestamp}@test.com`,
+      role: "USER",
+      isAdmin: false,
+      subscriptionTier: "free",
+      isSubscriber: false,
+    });
+
+    // 7.1 Modification du rôle : USER -> ADMIN
+    const rolePromoteRes = await fetch(`${ctx.baseUrl}/api/admin/users/${testRacer.id}/role`, {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${adminToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ role: "ADMIN" }),
+    });
+    assert.equal(rolePromoteRes.status, 200);
+    const promoteData = await rolePromoteRes.json();
+    assert.equal(promoteData.success, true);
+    assert.equal(promoteData.user.role, "ADMIN");
+
+    // Vérifier que le store a bien persisté le nouveau rôle
+    const storedAfterPromote = await userStore.findUser(testRacer.id);
+    assert.ok(storedAfterPromote);
+    assert.equal(storedAfterPromote.role, "ADMIN");
+    assert.equal(storedAfterPromote.isAdmin, true);
+
+    // 7.2 L'utilisateur promu peut maintenant générer un token ADMIN et appeler /api/admin/users
+    const promotedToken = JwtService.sign({
+      userId: testRacer.id,
+      login: testRacer.login,
+      role: "ADMIN",
+    });
+    const adminAccessRes = await fetch(`${ctx.baseUrl}/api/admin/users`, {
+      headers: { Authorization: `Bearer ${promotedToken}` },
+    });
+    assert.equal(adminAccessRes.status, 200);
+
+    // 7.3 Modification de l'offre d'abonnement : free -> premium
+    const planRes = await fetch(`${ctx.baseUrl}/api/admin/users/${testRacer.id}/plan`, {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${adminToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ subscriptionTier: "premium" }),
+    });
+    assert.equal(planRes.status, 200);
+    const planData = await planRes.json();
+    assert.equal(planData.success, true);
+    assert.equal(planData.user.subscriptionTier, "premium");
+
+    const storedAfterPlan = await userStore.findUser(testRacer.id);
+    assert.ok(storedAfterPlan);
+    assert.equal(storedAfterPlan.subscriptionTier, "premium");
+    assert.equal(storedAfterPlan.isSubscriber, true);
+
+    // 7.4 Rétrogradation : ADMIN -> USER
+    const roleDemoteRes = await fetch(`${ctx.baseUrl}/api/admin/users/${testRacer.id}/role`, {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${adminToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ role: "USER" }),
+    });
+    assert.equal(roleDemoteRes.status, 200);
+    const demoteData = await roleDemoteRes.json();
+    assert.equal(demoteData.user.role, "USER");
+
+    // Démotion de l'autre admin éventuel (EmmaRacer) pour qu'il ne reste plus qu'un seul admin actif
+    const emmaUser = await userStore.findUser("EmmaRacer");
+    if (emmaUser) {
+      await fetch(`${ctx.baseUrl}/api/admin/users/${emmaUser.id}/role`, {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${adminToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ role: "USER" }),
+      });
+    }
+
+    // 7.5 Protection : tentative de retirer le rôle au dernier admin restant -> 400
+    const demoteLastAdminRes = await fetch(`${ctx.baseUrl}/api/admin/users/usr_admin_rowerrace/role`, {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${adminToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ role: "USER" }),
+    });
+    assert.equal(demoteLastAdminRes.status, 400, "Le dernier administrateur actif ne peut pas être rétrogradé en USER");
+  } finally {
+    await ctx.close();
+  }
+});

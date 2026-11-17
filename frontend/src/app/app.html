@@ -3788,8 +3788,10 @@
       }
 
       <!-- MODALE BACK-OFFICE ADMINISTRATION PLATEFORME -->
-      <app-admin-dashboard
-        *ngIf="isAdminDashboardOpen"
-        (close)="closeAdminDashboard()">
-      </app-admin-dashboard>
+      @defer (when isAdminDashboardOpen) {
+        <app-admin-dashboard
+          *ngIf="isAdminDashboardOpen"
+          (close)="closeAdminDashboard()">
+        </app-admin-dashboard>
+      }
 </div>

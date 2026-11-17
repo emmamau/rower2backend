@@ -366,9 +366,15 @@ export class AdminController {
       }
 
       const targetId = String(id).trim();
-      let user = await Users.findByPk(targetId);
+      let user: any = null;
+      try {
+        user = await Users.findByPk(targetId);
+        if (!user) {
+          user = await Users.findOne({ where: { login: targetId } });
+        }
+      } catch {}
       if (!user) {
-        user = await Users.findOne({ where: { login: targetId } });
+        user = await userStore.findUser(targetId);
       }
 
       if (!user) {
@@ -376,16 +382,32 @@ export class AdminController {
         return;
       }
 
+      const targetUserId = String(user.id || (typeof user.get === "function" ? user.get("id") : targetId));
+
       // Si on retire le rôle ADMIN, s'assurer qu'il reste au moins un autre administrateur actif
       if (cleanRole === "USER") {
-        const activeAdminsCount = await Users.count({
-          where: {
-            role: "ADMIN",
-            isRevoked: false,
-            id: { [Op.ne]: String(user.get("id")) } as any,
-          } as any,
-        });
-        if (Number(activeAdminsCount) < 1) {
+        let activeAdminsCount = 0;
+        try {
+          const dbCount = await Users.count({
+            where: {
+              role: "ADMIN",
+              isRevoked: false,
+              id: { [Op.ne]: targetUserId } as any,
+            } as any,
+          });
+          activeAdminsCount = Number(dbCount);
+        } catch {
+          const allUsers = await userStore.getAllUsers();
+          const otherAdmins = allUsers.filter(
+            (u) =>
+              (u.id !== targetUserId && u.login !== targetUserId) &&
+              (u.role === "ADMIN" || u.isAdmin) &&
+              !Boolean(u.isRevoked || (u as any).is_revoked)
+          );
+          activeAdminsCount = otherAdmins.length;
+        }
+
+        if (activeAdminsCount < 1) {
           res.status(400).json({
             success: false,
             message: "Impossible de retirer le rôle ADMIN au dernier administrateur actif de la plateforme.",
@@ -394,15 +416,24 @@ export class AdminController {
         }
       }
 
-      await user.update({
+      try {
+        if (typeof user.update === "function") {
+          await user.update({
+            role: cleanRole,
+            isAdmin: cleanRole === "ADMIN",
+          });
+        }
+      } catch {}
+      await userStore.updateUser(targetUserId, {
         role: cleanRole,
         isAdmin: cleanRole === "ADMIN",
       });
 
+      const displayLogin = typeof user.get === "function" ? (user.get("login") || user.get("id")) : (user.login || user.id);
       res.status(200).json({
         success: true,
-        message: `Rôle mis à jour (${cleanRole}) pour ${user.get("login") || user.get("id")}.`,
-        user: sanitizeAdminUser(user),
+        message: `Rôle mis à jour (${cleanRole}) pour ${displayLogin}.`,
+        user: sanitizeAdminUser({ ...user, role: cleanRole, isAdmin: cleanRole === "ADMIN" }),
       });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
@@ -422,9 +453,15 @@ export class AdminController {
       }
 
       const targetId = String(id).trim();
-      let user = await Users.findByPk(targetId);
+      let user: any = null;
+      try {
+        user = await Users.findByPk(targetId);
+        if (!user) {
+          user = await Users.findOne({ where: { login: targetId } });
+        }
+      } catch {}
       if (!user) {
-        user = await Users.findOne({ where: { login: targetId } });
+        user = await userStore.findUser(targetId);
       }
 
       if (!user) {
@@ -432,17 +469,29 @@ export class AdminController {
         return;
       }
 
+      const targetUserId = String(user.id || (typeof user.get === "function" ? user.get("id") : targetId));
       const isSub = cleanTier !== "free";
-      await user.update({
+
+      try {
+        if (typeof user.update === "function") {
+          await user.update({
+            subscriptionTier: cleanTier as any,
+            isSubscriber: isSub,
+            subscriptionStatus: isSub ? "active" : "none",
+          });
+        }
+      } catch {}
+      await userStore.updateUser(targetUserId, {
         subscriptionTier: cleanTier as any,
         isSubscriber: isSub,
         subscriptionStatus: isSub ? "active" : "none",
       });
 
+      const displayLogin = typeof user.get === "function" ? (user.get("login") || user.get("id")) : (user.login || user.id);
       res.status(200).json({
         success: true,
-        message: `Offre d'abonnement modifiée vers '${cleanTier}' pour ${user.get("login") || user.get("id")}.`,
-        user: sanitizeAdminUser(user),
+        message: `Offre d'abonnement modifiée vers '${cleanTier}' pour ${displayLogin}.`,
+        user: sanitizeAdminUser({ ...user, subscriptionTier: cleanTier, isSubscriber: isSub }),
       });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
