@@ -84,6 +84,23 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
   maxParticipants = 8;
   startMode: 'manual' | 'scheduled' = 'manual';
   scheduledDateTime = '';
+  selectedTimezone: string = typeof Intl !== 'undefined' ? (Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Paris') : 'Europe/Paris';
+
+  readonly supportedTimezones = [
+    { id: 'Europe/Paris', label: 'Paris, Bruxelles, Madrid (CET / UTC+1)' },
+    { id: 'Europe/London', label: 'Londres, Dublin, Lisbonne (GMT / UTC+0)' },
+    { id: 'UTC', label: 'Temps Universel Coordonné (UTC)' },
+    { id: 'America/New_York', label: 'New York, Montréal, Toronto (EST / UTC-5)' },
+    { id: 'America/Chicago', label: 'Chicago, Mexico (CST / UTC-6)' },
+    { id: 'America/Denver', label: 'Denver, Edmonton (MST / UTC-7)' },
+    { id: 'America/Los_Angeles', label: 'Los Angeles, Vancouver (PST / UTC-8)' },
+    { id: 'America/Sao_Paulo', label: 'São Paulo, Buenos Aires (BRT / UTC-3)' },
+    { id: 'Asia/Dubai', label: 'Dubaï, Abu Dhabi (GST / UTC+4)' },
+    { id: 'Asia/Singapore', label: 'Singapour, Pékin, Hong Kong (SGT / UTC+8)' },
+    { id: 'Asia/Tokyo', label: 'Tokyo, Séoul (JST / UTC+9)' },
+    { id: 'Australia/Sydney', label: 'Sydney, Melbourne (AEDT / UTC+11)' },
+    { id: 'Pacific/Auckland', label: 'Auckland, Wellington (NZDT / UTC+13)' }
+  ];
   botCount = 0;
   botMaxPace = 120; // 2:00 / 500m
   countdownMinutes = 5;
@@ -527,8 +544,86 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
     return buildShareableRoomUrl(origin, code);
   }
 
+  formatScheduledDateTimeForUtc(naiveDateTime: string, timeZone: string): string {
+    if (!naiveDateTime) return '';
+    try {
+      const match = naiveDateTime.match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/);
+      if (!match) return new Date(naiveDateTime).toISOString();
+      const [_, yStr, mStr, dStr, hStr, minStr] = match;
+      const year = parseInt(yStr, 10);
+      const month = parseInt(mStr, 10);
+      const day = parseInt(dStr, 10);
+      const hour = parseInt(hStr, 10);
+      const minute = parseInt(minStr, 10);
+
+      const utcRef = new Date(Date.UTC(year, month - 1, day, hour, minute, 0));
+      const dtf = new Intl.DateTimeFormat('en-US', {
+        timeZone: timeZone || 'Europe/Paris',
+        hour12: false,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      });
+      const parts = dtf.formatToParts(utcRef);
+      const getVal = (type: string) => parseInt(parts.find((p) => p.type === type)?.value || '0', 10);
+      const tzYear = getVal('year');
+      const tzMonth = getVal('month');
+      const tzDay = getVal('day');
+      let tzHour = getVal('hour');
+      if (tzHour === 24) tzHour = 0;
+      const tzMin = getVal('minute');
+      const tzSec = getVal('second');
+
+      const tzTimeAsUtc = Date.UTC(tzYear, tzMonth - 1, tzDay, tzHour, tzMin, tzSec);
+      const offsetMs = tzTimeAsUtc - utcRef.getTime();
+      return new Date(utcRef.getTime() - offsetMs).toISOString();
+    } catch {
+      return new Date(naiveDateTime).toISOString();
+    }
+  }
+
+  get scheduledUtcPreview(): string {
+    if (!this.scheduledDateTime) return '';
+    try {
+      const iso = this.formatScheduledDateTimeForUtc(this.scheduledDateTime, this.selectedTimezone);
+      const d = new Date(iso);
+      if (!Number.isFinite(d.getTime())) return '';
+      return d.toISOString().replace('.000Z', ' UTC').replace('T', ' ');
+    } catch {
+      return '';
+    }
+  }
+
   get fullInviteMessage(): string {
     if (!this.activeRoom) return '';
+    let scheduledInfo: string | undefined;
+    const raceStartMode = this.activeRoom.race?.startMode || this.activeRoom.startMode;
+    const raceStartTime = this.activeRoom.race?.scheduledStartTime || this.activeRoom.scheduledStartTime;
+    if (raceStartMode === 'scheduled' && raceStartTime) {
+      try {
+        const d = new Date(raceStartTime);
+        const tz = this.activeRoom.race?.timezone || this.activeRoom.timezone || 'Europe/Paris';
+        const dtf = new Intl.DateTimeFormat('fr-FR', {
+          weekday: 'short',
+          day: 'numeric',
+          month: 'short',
+          hour: '2-digit',
+          minute: '2-digit',
+          timeZone: tz
+        });
+        const dtfUtc = new Intl.DateTimeFormat('fr-FR', {
+          hour: '2-digit',
+          minute: '2-digit',
+          timeZone: 'UTC'
+        });
+        scheduledInfo = `${dtf.format(d)} (${tz}) / ${dtfUtc.format(d)} UTC`;
+      } catch {
+        scheduledInfo = raceStartTime;
+      }
+    }
     return buildRoomInviteMessage({
       headerLabel: this.i18n.t('INVITE_MSG_HEADER'),
       title: this.activeRoom.race.title,
@@ -538,7 +633,8 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
       codeLabel: this.i18n.t('SHARE_SECTION_CODE'),
       code: this.activeRoomCode,
       pinLabel: this.i18n.t('SHARE_SECTION_PIN'),
-      pinCode: this.activeRoomPin
+      pinCode: this.activeRoomPin,
+      scheduledInfo
     });
   }
 
@@ -652,7 +748,10 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
         hostUserId: this.activeUserId || 'anonymous',
         hostUserName: this.activeUserName || undefined,
         startMode: this.selectedGameMode === 'multi' ? this.startMode : 'manual',
-        scheduledStartTime: this.selectedGameMode === 'multi' && this.startMode === 'scheduled' && this.scheduledDateTime ? this.scheduledDateTime : undefined,
+        scheduledStartTime: this.selectedGameMode === 'multi' && this.startMode === 'scheduled' && this.scheduledDateTime
+          ? this.formatScheduledDateTimeForUtc(this.scheduledDateTime, this.selectedTimezone)
+          : undefined,
+        timezone: this.selectedGameMode === 'multi' && this.startMode === 'scheduled' ? this.selectedTimezone : undefined,
         botCount: isBotDuel ? 1 : (this.selectedGameMode === 'multi' ? Number(this.botCount) || 0 : 0),
         botMaxPace: isBotDuel ? Number(this.botMaxPace) || 120 : (Number(this.botMaxPace) || 120),
         requireApproval: this.selectedGameMode === 'multi' ? this.requireApproval : false,
@@ -946,17 +1045,6 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
           this.cdr.markForCheck();
         }
       });
-  }
-
-  onToggleBots(): void {
-    if (!this.activeRoom) return;
-    if (this.activeRoom.race.isBotDuel && !this.isRegisteredUser) {
-      this.actionError = "En mode duel 1v1 contre un bot, seul un utilisateur inscrit avec un compte peut ajouter ou retirer un bot.";
-      this.cdr.markForCheck();
-      return;
-    }
-    const nextState = !this.activeRoom.race.hasBots;
-    this.botsToggled.emit(nextState);
   }
 
   regeneratePin(): void {

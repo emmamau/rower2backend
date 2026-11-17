@@ -344,6 +344,12 @@ export class GarminController {
         waitingStatusMessage
       });
 
+      const timing = raceManager.getRaceTiming(race, new Date());
+      const waitingForHost = race.status === "LOBBY" && !race.autoStart;
+      const secondsRemaining = (!waitingForHost && (race.status === "LOBBY" || race.status === "COUNTDOWN"))
+        ? timing.secondsUntilStart
+        : 0;
+
       res.status(200).json({
         success: true,
         deviceToken: paired.deviceToken,
@@ -368,6 +374,12 @@ export class GarminController {
         gameMode: race.gameMode || (race.isSolo ? "solo" : race.isBotDuel ? "bot_duel" : race.isDuel1v1 ? "duel_1v1" : "multi"),
         hasBots: Boolean(race.hasBots || race.isBotDuel),
         totalParticipants: race.totalParticipants || (race.participants ? race.participants.size : 1),
+        startMode: race.startMode || "manual",
+        scheduledStartTime: race.scheduledStartTime ? race.scheduledStartTime.toISOString() : undefined,
+        scheduledStartTimeEpoch: race.scheduledStartTime ? Math.floor(race.scheduledStartTime.getTime() / 1000) : undefined,
+        timezone: race.timezone || "Europe/Paris",
+        secondsRemaining,
+        countdownSeconds: secondsRemaining,
         waitingStatusMessage,
         message: welcomeMessage
       });

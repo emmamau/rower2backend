@@ -276,6 +276,9 @@ export class RoomController {
         isSolo: Boolean(race.isSolo),
         gameMode: race.gameMode || (race.isSolo ? "solo" : race.isBotDuel ? "bot_duel" : race.isDuel1v1 ? "duel_1v1" : "multi"),
         startMode: race.startMode || "manual",
+        scheduledStartTime: race.scheduledStartTime ? race.scheduledStartTime.toISOString() : undefined,
+        scheduledStartTimeEpoch: race.scheduledStartTime ? Math.floor(race.scheduledStartTime.getTime() / 1000) : undefined,
+        timezone: race.timezone || "Europe/Paris",
         status: race.status,
         secondsRemaining,
         countdownSeconds: secondsRemaining,
@@ -307,6 +310,8 @@ export class RoomController {
         lobbyEndsAt: race.lobbyEndsAt ? race.lobbyEndsAt.toISOString() : undefined,
         startMode: race.startMode || "manual",
         scheduledStartTime: race.scheduledStartTime ? race.scheduledStartTime.toISOString() : undefined,
+        scheduledStartTimeEpoch: race.scheduledStartTime ? Math.floor(race.scheduledStartTime.getTime() / 1000) : undefined,
+        timezone: race.timezone || "Europe/Paris",
         waitingStatusMessage,
         title: race.title,
         message: assignedLane > 0
@@ -514,10 +519,22 @@ export class RoomController {
         secondsRemaining,
         countdownSeconds: secondsRemaining,
         lobbyEndsAt: race.lobbyEndsAt ? race.lobbyEndsAt.toISOString() : undefined,
+        startMode: race.startMode || "manual",
+        scheduledStartTime: race.scheduledStartTime ? race.scheduledStartTime.toISOString() : undefined,
+        scheduledStartTimeEpoch: race.scheduledStartTime ? Math.floor(race.scheduledStartTime.getTime() / 1000) : undefined,
+        timezone: race.timezone || "Europe/Paris",
         waitingStatusMessage: ready
-          ? (race.status === "COUNTDOWN" ? waitingStatusMessage : "Rameur prêt - En attente du départ")
+          ? (race.status === "COUNTDOWN"
+              ? waitingStatusMessage
+              : (race.startMode === "scheduled" && race.scheduledStartTime
+                  ? `Rameur prêt - ${waitingStatusMessage}`
+                  : "Rameur prêt - En attente du départ"))
           : waitingStatusMessage,
-        message: ready ? "Rameur prêt - En attente du départ" : waitingStatusMessage
+        message: ready
+          ? (race.startMode === "scheduled" && race.scheduledStartTime
+              ? `Rameur prêt - ${waitingStatusMessage}`
+              : "Rameur prêt - En attente du départ")
+          : waitingStatusMessage
       });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);

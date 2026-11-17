@@ -217,14 +217,6 @@
                 {{ i18n.t('BTN_RESET_ROOM') }}
               </button>
             }
-
-            <button
-              type="button"
-              class="priv-btn priv-btn-outline"
-              [disabled]="isActionBusy"
-              (click)="onToggleBots()">
-              {{ activeRoom.race.hasBots ? i18n.t('BTN_TOGGLE_BOTS_OFF') : i18n.t('BTN_TOGGLE_BOTS_ON') }}
-            </button>
           } @else if (activeRoom.status === 'in_progress' || activeRoom.status === 'finished') {
             <button
               type="button"
@@ -548,6 +540,25 @@
                     class="priv-input"
                     [(ngModel)]="scheduledDateTime" />
                 </div>
+                <div class="priv-field">
+                  <label for="priv-scheduled-tz" class="priv-label">
+                    🌍 Fuseau horaire de référence
+                  </label>
+                  <select
+                    id="priv-scheduled-tz"
+                    name="selectedTimezone"
+                    class="priv-select"
+                    [(ngModel)]="selectedTimezone">
+                    @for (tz of supportedTimezones; track tz.id) {
+                      <option [value]="tz.id">{{ tz.label }}</option>
+                    }
+                  </select>
+                </div>
+                @if (scheduledUtcPreview) {
+                  <div class="priv-tz-preview-chip">
+                    🌐 Heure universelle : <strong>{{ scheduledUtcPreview }}</strong>
+                  </div>
+                }
               }
             }
           </div>
@@ -852,23 +863,6 @@
                   [disabled]="isActionBusy"
                   (click)="triggerResetRoom()">
                   {{ i18n.t('BTN_RESET_ROOM') }}
-                </button>
-              }
-
-              @if (activeRoom.race.isBotDuel && !isRegisteredUser) {
-                <div class="priv-bot-duel-restriction-box" role="status">
-                  <span class="priv-hint-text">🤖 Duel 1v1 Bot : seuls les utilisateurs inscrits avec un compte peuvent ajouter ou retirer un bot.</span>
-                  <button type="button" class="priv-btn priv-btn-cyan priv-btn-sm" (click)="requestAccountModal.emit('login')">
-                    Se connecter avec un compte
-                  </button>
-                </div>
-              } @else {
-                <button
-                  type="button"
-                  class="priv-btn priv-btn-outline"
-                  [disabled]="isActionBusy"
-                  (click)="onToggleBots()">
-                  {{ activeRoom.race.hasBots ? i18n.t('BTN_TOGGLE_BOTS_OFF') : i18n.t('BTN_TOGGLE_BOTS_ON') }}
                 </button>
               }
 

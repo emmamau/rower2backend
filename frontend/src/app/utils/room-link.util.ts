@@ -164,12 +164,16 @@ export function buildRoomInviteMessage(options: {
   code: string;
   pinLabel: string;
   pinCode?: string;
+  scheduledInfo?: string;
 }): string {
   const lines = [
-    `🚣 ${options.headerLabel} « ${options.title} » (${options.targetDistance}m)`,
-    `🔗 ${options.urlLabel}: ${options.shareUrl}`,
-    `🔑 ${options.codeLabel}: ${options.code}`
+    `🚣 ${options.headerLabel} « ${options.title} » (${options.targetDistance}m)`
   ];
+  if (options.scheduledInfo) {
+    lines.push(`📅 Départ : ${options.scheduledInfo}`);
+  }
+  lines.push(`🔗 ${options.urlLabel}: ${options.shareUrl}`);
+  lines.push(`🔑 ${options.codeLabel}: ${options.code}`);
   if (options.pinCode) {
     lines.push(`⌚ ${options.pinLabel}: ${options.pinCode}`);
   }

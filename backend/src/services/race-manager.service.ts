@@ -75,6 +75,7 @@ export interface RaceState {
   hostUserName?: string;
   startMode?: "manual" | "scheduled";
   scheduledStartTime?: Date;
+  timezone?: string;
   botCount?: number;
   botMaxPace?: number;
   autoStart?: boolean;
@@ -96,6 +97,77 @@ export interface RaceState {
   participants?: Map<string, PrivateParticipantInfo>;
   pendingParticipants?: Map<string, PrivateParticipantInfo>;
   rejectedParticipants?: Set<string>;
+}
+
+export function formatTimezoneAbbr(date: Date, timeZone: string): string {
+  try {
+    const dtf = new Intl.DateTimeFormat("fr-FR", { timeZone, timeZoneName: "short" });
+    const part = dtf.formatToParts(date).find((p) => p.type === "timeZoneName")?.value;
+    if (part) return ` ${part}`;
+    return timeZone === "UTC" ? " UTC" : "";
+  } catch {
+    return timeZone === "UTC" ? " UTC" : "";
+  }
+}
+
+export function parseDateTimeInTimezone(dateInput: Date | string, timeZone: string = "Europe/Paris"): Date {
+  if (dateInput instanceof Date) {
+    return Number.isFinite(dateInput.getTime()) ? dateInput : new Date();
+  }
+  if (!dateInput || typeof dateInput !== "string") {
+    return new Date();
+  }
+  const clean = dateInput.trim();
+  // If it already contains timezone offset (+HH:MM, -HH:MM or Z)
+  if (/([+-]\d{2}:?\d{2}|Z)$/i.test(clean)) {
+    const d = new Date(clean);
+    if (Number.isFinite(d.getTime())) return d;
+  }
+
+  // Naive datetime format: YYYY-MM-DDTHH:mm or YYYY-MM-DD HH:mm
+  const match = clean.match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2}))?/);
+  if (!match) {
+    const d = new Date(clean);
+    return Number.isFinite(d.getTime()) ? d : new Date();
+  }
+
+  const [_, yStr, mStr, dStr, hStr, minStr, sStr] = match;
+  const year = parseInt(yStr, 10);
+  const month = parseInt(mStr, 10);
+  const day = parseInt(dStr, 10);
+  const hour = parseInt(hStr, 10);
+  const minute = parseInt(minStr, 10);
+  const second = sStr ? parseInt(sStr, 10) : 0;
+
+  try {
+    const utcRef = new Date(Date.UTC(year, month - 1, day, hour, minute, second));
+    const dtf = new Intl.DateTimeFormat("en-US", {
+      timeZone: timeZone || "Europe/Paris",
+      hour12: false,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit"
+    });
+    const parts = dtf.formatToParts(utcRef);
+    const getVal = (type: string) => parseInt(parts.find((p) => p.type === type)?.value || "0", 10);
+    const tzYear = getVal("year");
+    const tzMonth = getVal("month");
+    const tzDay = getVal("day");
+    let tzHour = getVal("hour");
+    if (tzHour === 24) tzHour = 0;
+    const tzMin = getVal("minute");
+    const tzSec = getVal("second");
+
+    const tzTimeAsUtc = Date.UTC(tzYear, tzMonth - 1, tzDay, tzHour, tzMin, tzSec);
+    const offsetMs = tzTimeAsUtc - utcRef.getTime();
+
+    return new Date(utcRef.getTime() - offsetMs);
+  } catch {
+    return new Date(clean);
+  }
 }
 
 export function getWaitingStatusMessage(race: RaceState, now: Date = new Date()): string {
@@ -136,15 +208,48 @@ export function getWaitingStatusMessage(race: RaceState, now: Date = new Date())
   }
   if (race.startMode === "scheduled" && race.scheduledStartTime) {
     const msUntilStart = race.scheduledStartTime.getTime() - now.getTime();
-    const minUntilStart = Math.max(0, Math.ceil(msUntilStart / 60000));
-    const pad = (n: number) => n.toString().padStart(2, "0");
-    const d = new Date(race.scheduledStartTime);
-    const hh = pad(d.getHours());
-    const mm = pad(d.getMinutes());
-    if (minUntilStart > 0) {
-      return `Départ prévu dans ${minUntilStart} min / à ${hh}:${mm}`;
+    const targetTz = race.timezone || "Europe/Paris";
+
+    const timeFmt = new Intl.DateTimeFormat("fr-FR", {
+      timeZone: targetTz,
+      hour: "2-digit",
+      minute: "2-digit"
+    });
+    const dateFmt = new Intl.DateTimeFormat("fr-FR", {
+      timeZone: targetTz,
+      weekday: "short",
+      day: "numeric",
+      month: "short"
+    });
+
+    const timeStr = timeFmt.format(race.scheduledStartTime);
+    const todayStr = dateFmt.format(now);
+    const raceDateStr = dateFmt.format(race.scheduledStartTime);
+    const isSameDay = todayStr === raceDateStr;
+    const tzLabel = formatTimezoneAbbr(race.scheduledStartTime, targetTz);
+
+    if (msUntilStart <= 0) {
+      return `Départ imminent (prévu à ${timeStr}${tzLabel})`;
+    }
+
+    if (isSameDay) {
+      const minUntilStart = Math.max(1, Math.ceil(msUntilStart / 60000));
+      if (minUntilStart < 60) {
+        return `Départ prévu à ${timeStr}${tzLabel} (dans ${minUntilStart} min)`;
+      }
+      const hours = Math.floor(msUntilStart / 3600000);
+      const remMin = Math.ceil((msUntilStart % 3600000) / 60000);
+      return `Départ prévu à ${timeStr}${tzLabel} (dans ${hours}h${remMin > 0 ? " " + remMin + "m" : ""})`;
     } else {
-      return `Départ prévu à ${hh}:${mm}`;
+      const days = Math.floor(msUntilStart / 86400000);
+      const hours = Math.floor((msUntilStart % 86400000) / 3600000);
+      const remMin = Math.ceil((msUntilStart % 3600000) / 60000);
+      const durationStr = days > 0
+        ? `${days}j ${hours}h`
+        : hours > 0
+        ? `${hours}h${remMin > 0 ? " " + remMin + "m" : ""}`
+        : `${remMin} min`;
+      return `Départ prévu ${raceDateStr} à ${timeStr}${tzLabel} (dans ${durationStr})`;
     }
   }
   return "En attente du signal de départ de l'organisateur...";
@@ -1359,6 +1464,7 @@ export class RaceManager {
     hostUserName?: string;
     startMode?: "manual" | "scheduled";
     scheduledStartTime?: Date | string;
+    timezone?: string;
     countdownMinutes?: number;
     requireApproval?: boolean;
     botCount?: number;
@@ -1424,8 +1530,9 @@ export class RaceManager {
     let autoStart = false;
     let lobbyEndsAt: Date;
 
+    const targetTz = options.timezone || "Europe/Paris";
     if (startMode === "scheduled" && options.scheduledStartTime) {
-      scheduledDate = new Date(options.scheduledStartTime);
+      scheduledDate = parseDateTimeInTimezone(options.scheduledStartTime, targetTz);
       if (Number.isFinite(scheduledDate.getTime()) && scheduledDate.getTime() > now.getTime()) {
         lobbyEndsAt = scheduledDate;
         autoStart = true;
@@ -1522,6 +1629,7 @@ export class RaceManager {
       hostUserName,
       startMode,
       scheduledStartTime: scheduledDate,
+      timezone: targetTz,
       botCount,
       botMaxPace,
       autoStart,

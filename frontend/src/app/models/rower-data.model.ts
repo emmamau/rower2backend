@@ -80,6 +80,8 @@ export interface NextRaceInfo {
     hostUserName?: string;
     startMode?: 'manual' | 'scheduled';
     scheduledStartTime?: string;
+    scheduledStartTimeEpoch?: number;
+    timezone?: string;
     botCount?: number;
     botMaxPace?: number;
     autoStart?: boolean;
@@ -111,6 +113,10 @@ export interface NextRaceInfo {
   requireApproval?: boolean;
   pendingParticipants?: PrivateRoomParticipant[];
   status: string;
+  startMode?: 'manual' | 'scheduled';
+  scheduledStartTime?: string;
+  scheduledStartTimeEpoch?: number;
+  timezone?: string;
 }
 
 export interface CreatePrivateRaceRequest {
@@ -123,6 +129,7 @@ export interface CreatePrivateRaceRequest {
   requireApproval?: boolean;
   startMode?: 'manual' | 'scheduled';
   scheduledStartTime?: string;
+  timezone?: string;
   botCount?: number;
   botMaxPace?: number;
   isBotDuel?: boolean;

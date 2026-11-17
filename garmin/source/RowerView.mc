@@ -101,6 +101,7 @@ class RowerView extends WatchUi.View {
     private var _waitingStatusMessage as String = "";
     private var _isPrivateSalon as Boolean = false;
     private var _privateGameMode as String = "";
+    private var _startMode as String = "manual";
 
     public function initialize(model as RowerDataModel) {
         View.initialize();
@@ -176,6 +177,7 @@ class RowerView extends WatchUi.View {
         _nextRaceCountdown = 600;
         _isPrivateSalon = false;
         _privateGameMode = "";
+        _startMode = "manual";
         _connectedPlayers = 1;
         _assignedLane = 1;
         _hasBotsEnabled = false;
@@ -529,6 +531,15 @@ class RowerView extends WatchUi.View {
         _isPrivateSalon = isPrivate;
         _privateGameMode = mode;
         WatchUi.requestUpdate();
+    }
+
+    public function setStartMode(sm as String) as Void {
+        _startMode = sm;
+        WatchUi.requestUpdate();
+    }
+
+    public function getStartMode() as String {
+        return _startMode;
     }
 
     public function isPrivateSalon() as Boolean {
@@ -1280,9 +1291,22 @@ class RowerView extends WatchUi.View {
                     titleCol = COL_GOOD;
                 }
             } else if (_privateGameMode.equals("multi")) {
-                instructionTitle = "SALON";
-                instructionSub = "En attente organisateur";
-                titleCol = COL_WARN;
+                if (_startMode.equals("scheduled") && _nextRaceCountdown > 0) {
+                    instructionTitle = "DEPART PROGRAMME";
+                    titleCol = COL_CYAN;
+                    if (_nextRaceCountdown <= 3600) {
+                        var min = Math.ceil(_nextRaceCountdown / 60.0).toNumber();
+                        instructionSub = "Dans " + min + " min (auto)";
+                    } else {
+                        var hrs = (_nextRaceCountdown / 3600).toNumber();
+                        var remM = ((_nextRaceCountdown % 3600) / 60).toNumber();
+                        instructionSub = "Dans " + hrs + "h" + (remM > 0 ? (" " + remM + "m") : "");
+                    }
+                } else {
+                    instructionTitle = "SALON";
+                    instructionSub = "En attente organisateur";
+                    titleCol = COL_WARN;
+                }
             }
 
             var fTitle = fitFontToBox(dc, instructionTitle, [Graphics.FONT_MEDIUM, Graphics.FONT_SMALL, Graphics.FONT_TINY] as Array<Graphics.FontDefinition>, heroMaxW, (heroH * 50) / 100);

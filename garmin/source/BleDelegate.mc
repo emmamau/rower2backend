@@ -1417,8 +1417,19 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
                 gameMode = "multi";
             }
 
+            var startMode = "manual";
+            if (data.hasKey("startMode") && data.get("startMode") != null) {
+                startMode = data.get("startMode").toString();
+            } else if (data.hasKey("race") && data.get("race") instanceof Dictionary) {
+                var rDictSm = data.get("race") as Dictionary;
+                if (rDictSm.hasKey("startMode") && rDictSm.get("startMode") != null) {
+                    startMode = rDictSm.get("startMode").toString();
+                }
+            }
+
             if (isPriv && gameMode.length() > 0) {
                 view.setPrivateSalonMode(true, gameMode);
+                view.setStartMode(startMode);
             }
 
             if (data.hasKey("secondsRemaining") && data.get("secondsRemaining") != null) {
@@ -2103,9 +2114,15 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
 
         triggerApprovalVibe();
 
+        var startMode = "manual";
+        if (data.hasKey("startMode") && data.get("startMode") != null) {
+            startMode = data.get("startMode").toString();
+        }
+
         if (_view != null) {
             var view = _view as RowerView;
             view.setPrivateSalonMode(true, gameMode);
+            view.setStartMode(startMode);
             view.setAssignedLane(assignedLane);
             view.setBotsEnabled(hasBots);
             view.setLobbyInfo(countdown, totalPlayers, _targetDistance);

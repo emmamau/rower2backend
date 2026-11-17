@@ -4358,6 +4358,33 @@ export class AppComponent implements OnInit, OnDestroy {
     if (this.isPreStartCountdown || this.is3sCountdown || status === 'countdown') {
       return `Départ dans ${this.formattedPreRaceCountdown}`;
     }
+    const isScheduled = race?.startMode === 'scheduled' || (this.activePrivateRoom as any)?.startMode === 'scheduled';
+    if (isScheduled) {
+      const scheduledTime = race?.scheduledStartTime || (this.activePrivateRoom as any)?.scheduledStartTime;
+      if (scheduledTime) {
+        const d = new Date(scheduledTime);
+        const ms = d.getTime() - Date.now();
+        const min = Math.max(0, Math.ceil(ms / 60000));
+        const localTimeStr = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const isSameDay = new Date().toDateString() === d.toDateString();
+        const localDateStr = d.toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' });
+        if (ms <= 0) {
+          return `Départ imminent (prévu à ${localTimeStr})`;
+        }
+        if (isSameDay) {
+          if (min < 60) {
+            return `Départ prévu à ${localTimeStr} (dans ${min} min)`;
+          }
+          const hours = Math.floor(min / 60);
+          const remMin = min % 60;
+          return `Départ prévu à ${localTimeStr} (dans ${hours}h${remMin > 0 ? ' ' + remMin + 'm' : ''})`;
+        } else {
+          const days = Math.floor(min / 1440);
+          const hours = Math.floor((min % 1440) / 60);
+          return `Départ prévu ${localDateStr} à ${localTimeStr} (dans ${days > 0 ? days + 'j ' : ''}${hours}h)`;
+        }
+      }
+    }
     const serverMsg = (this.activePrivateRoom as any)?.waitingStatusMessage || race?.waitingStatusMessage;
     if (serverMsg) {
       return serverMsg;
@@ -4384,24 +4411,6 @@ export class AppComponent implements OnInit, OnDestroy {
     }
     if (anyNotReady) {
       return "En attente de connexion au rameur...";
-    }
-    const isScheduled = race?.startMode === 'scheduled' || (this.activePrivateRoom as any)?.startMode === 'scheduled';
-    if (isScheduled) {
-      const scheduledTime = race?.scheduledStartTime || (this.activePrivateRoom as any)?.scheduledStartTime;
-      if (scheduledTime) {
-        const d = new Date(scheduledTime);
-        const ms = d.getTime() - Date.now();
-        const min = Math.max(0, Math.ceil(ms / 60000));
-        const pad = (n: number) => n.toString().padStart(2, '0');
-        const hh = pad(d.getHours());
-        const mm = pad(d.getMinutes());
-        if (min > 0) {
-          return `Départ prévu dans ${min} min / à ${hh}:${mm}`;
-        } else {
-          return `Départ prévu à ${hh}:${mm}`;
-        }
-      }
-      return 'Départ programmé...';
     }
     return "En attente du signal de départ de l'organisateur...";
   }
