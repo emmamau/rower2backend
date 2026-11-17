@@ -4881,7 +4881,23 @@ body.rigid-viewport {
     padding: 0.15rem 0.5rem !important;
     min-height: 28px !important;
   }
+  .regatta-quick-nav-bar {
+    order: 1 !important;
+    display: inline-flex !important;
+    margin: 2px 0 !important;
+    gap: 4px !important;
+  }
+  .regatta-quick-nav-bar .btn-cockpit-quick {
+    padding: 2px 6px !important;
+    font-size: 0.70rem !important;
+    min-height: 20px !important;
+  }
+  .regatta-canvas-section {
+    order: 2 !important;
+    flex: 1 1 0 !important;
+  }
   .regatta-unified-hud {
+    order: 3 !important;
     margin-block: 0.15rem;
   }
   .regatta-hud-grid {
@@ -4908,11 +4924,29 @@ body.rigid-viewport {
   }
 }
 
+/* Smartphone Viewport: Boutons au-dessus du plan d'eau, données en dessous */
+@media (max-width: 768px) {
+  .regatta-quick-nav-bar {
+    order: 1 !important;
+  }
+  .regatta-canvas-section {
+    order: 2 !important;
+  }
+  .regatta-unified-hud {
+    order: 3 !important;
+  }
+}
+
 /* Smartphone Portrait: Stretch 2D Regatta canvas to fill available viewport height when salon banner is collapsed */
 @media (orientation: portrait) and (max-width: 768px) {
   .game-container.rigid-viewport,
   .game-container.mobile-fullscreen-view {
     padding: 0.25rem !important;
+  }
+  .regatta-quick-nav-bar {
+    order: 1 !important;
+    display: inline-flex !important;
+    margin-bottom: 0.25rem !important;
   }
   .game-container.rigid-viewport .regatta-canvas-section,
   .game-container.mobile-fullscreen-view .regatta-canvas-section {
@@ -4920,7 +4954,11 @@ body.rigid-viewport {
     flex: 1 1 0 !important;
     min-height: 220px !important;
   }
+  .regatta-canvas-section {
+    order: 2 !important;
+  }
   .regatta-unified-hud {
+    order: 3 !important;
     flex: 0 0 auto !important;
     margin-block: 0.2rem !important;
   }
@@ -4938,6 +4976,19 @@ body.rigid-viewport {
   .regatta-user-summary,
   .regatta-fairness-banner {
     display: none !important;
+  }
+}
+
+/* Smartphone Viewport: Boutons au-dessus du plan d'eau, données en dessous */
+@media (max-width: 768px) {
+  .regatta-quick-nav-bar {
+    order: 1 !important;
+  }
+  .regatta-canvas-section {
+    order: 2 !important;
+  }
+  .regatta-unified-hud {
+    order: 3 !important;
   }
 }
 
@@ -5681,8 +5732,35 @@ body.rigid-viewport {
     height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 22px) !important;
   }
 
-  /* Compacter la barre de données/télémétrie en bandeau ultra-fin (inline HUD horizontal) */
+  /* Boutons Accueil et Cockpit placés au-dessus des lignes d'eau */
+  .regatta-quick-nav-bar {
+    order: 1 !important;
+    display: inline-flex !important;
+    margin: 1px 0 !important;
+    gap: 4px !important;
+  }
+  .regatta-quick-nav-bar .btn-cockpit-quick {
+    padding: 1px 6px !important;
+    font-size: 0.70rem !important;
+    min-height: 20px !important;
+  }
+
+  /* Plan d'eau 2D étiré sans défilement avec flex: 1 (au centre) */
+  .regatta-canvas-section {
+    order: 2 !important;
+    flex: 1 1 0 !important;
+    min-height: 0 !important;
+    height: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+  }
+
+  /* Compacter la barre de données/télémétrie en bandeau ultra-fin (en dessous des lignes d'eau) */
   .regatta-unified-hud {
+    order: 3 !important;
     flex: 0 0 auto !important;
     margin: 1px 0 !important;
     padding: 1px 2px !important;
@@ -5740,18 +5818,6 @@ body.rigid-viewport {
   .btn-floating-fullscreen,
   .finish-celebration-banner {
     display: none !important;
-  }
-
-  /* Plan d'eau 2D étiré sans défilement avec flex: 1 */
-  .regatta-canvas-section {
-    flex: 1 1 0 !important;
-    min-height: 0 !important;
-    height: 100% !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    display: flex !important;
-    flex-direction: column !important;
-    overflow: hidden !important;
   }
   .canvas-display-card {
     flex: 1 1 0 !important;
