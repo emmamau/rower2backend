@@ -314,6 +314,8 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
     this.actionError = '';
     if (tab === 'join') {
       this.refreshMyRooms();
+    } else if (tab === 'create') {
+      this.refreshRoomLimits();
     }
     this.cdr.markForCheck();
   }
@@ -675,14 +677,68 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
     return Boolean(this.isUserAdmin || this.isSubscriber || isPaidTier);
   }
 
+  get userOfferName(): string {
+    if (this.isUserAdmin) return 'Administrateur';
+    if (this.quotaInfo?.tierName) return this.quotaInfo.tierName;
+    const tier = String(this.userSubscriptionTier || '').toLowerCase().trim();
+    if (tier === 'pro' || tier === 'elite_pro' || tier === 'premium') return 'Offre Élite Pro';
+    if (tier === 'club' || tier === 'standard' || tier === 'intermediate' || this.isSubscriber) return 'Offre Club';
+    return 'Offre Gratuite';
+  }
+
+  get concurrentRoomsAvailable(): string | number {
+    if (this.isUserAdmin) return 'Illimités';
+    if (this.quotaInfo?.concurrent) return this.quotaInfo.concurrent.remaining;
+    const tier = String(this.userSubscriptionTier || '').toLowerCase().trim();
+    if (tier === 'pro' || tier === 'elite_pro' || tier === 'premium') return 5;
+    if (tier === 'club' || tier === 'standard' || tier === 'intermediate' || this.isSubscriber) return 3;
+    return 1;
+  }
+
+  get concurrentRoomsMax(): string | number {
+    if (this.isUserAdmin) return 'Illimités';
+    if (this.quotaInfo?.concurrent) return this.quotaInfo.concurrent.max;
+    const tier = String(this.userSubscriptionTier || '').toLowerCase().trim();
+    if (tier === 'pro' || tier === 'elite_pro' || tier === 'premium') return 5;
+    if (tier === 'club' || tier === 'standard' || tier === 'intermediate' || this.isSubscriber) return 3;
+    return 1;
+  }
+
+  get weeklyRoomsAvailable(): string | number {
+    if (this.isUserAdmin) return 'Illimités';
+    if (this.quotaInfo?.weekly) return this.quotaInfo.weekly.remaining;
+    const tier = String(this.userSubscriptionTier || '').toLowerCase().trim();
+    if (tier === 'pro' || tier === 'elite_pro' || tier === 'premium') return 15;
+    if (tier === 'club' || tier === 'standard' || tier === 'intermediate' || this.isSubscriber) return 10;
+    return 5;
+  }
+
+  get weeklyRoomsMax(): string | number {
+    if (this.isUserAdmin) return 'Illimités';
+    if (this.quotaInfo?.weekly) return this.quotaInfo.weekly.max;
+    const tier = String(this.userSubscriptionTier || '').toLowerCase().trim();
+    if (tier === 'pro' || tier === 'elite_pro' || tier === 'premium') return 15;
+    if (tier === 'club' || tier === 'standard' || tier === 'intermediate' || this.isSubscriber) return 10;
+    return 5;
+  }
+
+  get isConcurrentQuotaReached(): boolean {
+    if (this.isUserAdmin) return false;
+    if (this.quotaInfo?.concurrent) return this.quotaInfo.concurrent.remaining <= 0;
+    return false;
+  }
+
+  get isWeeklyQuotaReached(): boolean {
+    if (this.isUserAdmin) return false;
+    if (this.quotaInfo?.weekly) return this.quotaInfo.weekly.remaining <= 0;
+    return false;
+  }
+
   get canCreateRoom(): boolean {
     if (this.isUserAdmin) return true;
     const hasWatch = this.isWatchConnected || (this.quotaInfo ? this.quotaInfo.isWatchConnected : false);
     if (!hasWatch) return false;
-    if (this.quotaInfo) {
-      if (this.quotaInfo.concurrent && this.quotaInfo.concurrent.remaining <= 0) return false;
-      if (this.quotaInfo.weekly && this.quotaInfo.weekly.remaining <= 0) return false;
-    }
+    if (this.isConcurrentQuotaReached || this.isWeeklyQuotaReached) return false;
     return true;
   }
 
@@ -692,13 +748,11 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
     if (!hasWatch) {
       return "Appairage requis : connectez votre montre Garmin pour créer un salon.";
     }
-    if (this.quotaInfo) {
-      if (this.quotaInfo.concurrent && this.quotaInfo.concurrent.remaining <= 0) {
-        return `Plafond atteint : vous avez déjà ${this.quotaInfo.concurrent.max} salon(s) ouvert(s) à la fois. Fermez un salon avant d'en créer un nouveau.`;
-      }
-      if (this.quotaInfo.weekly && this.quotaInfo.weekly.remaining <= 0) {
-        return `Plafond hebdomadaire atteint (${this.quotaInfo.weekly.max} salons par semaine).`;
-      }
+    if (this.isConcurrentQuotaReached) {
+      return `Plafond atteint : vous avez déjà ${this.concurrentRoomsMax} salon(s) ouvert(s) à la fois. Fermez un salon existant avant d'en créer un nouveau.`;
+    }
+    if (this.isWeeklyQuotaReached) {
+      return `Quota hebdomadaire atteint (${this.weeklyRoomsMax} salons max cette semaine selon votre ${this.userOfferName}).`;
     }
     return '';
   }

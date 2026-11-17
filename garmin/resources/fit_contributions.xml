@@ -1,5 +1,6 @@
 <resources xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://developer.garmin.com/downloads/connect-iq/resources.xsd">
     <fitContributions>
+        <!-- Session Summary Fields (IDs 0-7) -->
         <fitField id="0"
                   displayInChart="false"
                   sortOrder="0"
@@ -56,5 +57,79 @@
                   displayInActivitySummary="true"
                   dataLabel="@Strings.FitMaxCadenceLabel"
                   unitLabel="@Strings.FitMaxCadenceUnits" />
+
+        <!-- Continuous Record Charts (IDs 8-15) -->
+        <fitField id="8"
+                  displayInChart="true"
+                  chartTitle="@Strings.FitRecPowerLabel"
+                  fillColor="#FF6B00"
+                  sortOrder="8"
+                  precision="0"
+                  displayInActivitySummary="false"
+                  dataLabel="@Strings.FitRecPowerLabel"
+                  unitLabel="@Strings.FitRecPowerUnits" />
+        <fitField id="9"
+                  displayInChart="true"
+                  chartTitle="@Strings.FitRecCadenceLabel"
+                  fillColor="#00D26A"
+                  sortOrder="9"
+                  precision="0"
+                  displayInActivitySummary="false"
+                  dataLabel="@Strings.FitRecCadenceLabel"
+                  unitLabel="@Strings.FitRecCadenceUnits" />
+        <fitField id="10"
+                  displayInChart="true"
+                  chartTitle="@Strings.FitRecPaceLabel"
+                  fillColor="#00A8FF"
+                  sortOrder="10"
+                  precision="0"
+                  displayInActivitySummary="false"
+                  dataLabel="@Strings.FitRecPaceLabel"
+                  unitLabel="@Strings.FitRecPaceUnits" />
+        <fitField id="11"
+                  displayInChart="true"
+                  chartTitle="@Strings.FitRecDistLabel"
+                  fillColor="#9D00FF"
+                  sortOrder="11"
+                  precision="0"
+                  displayInActivitySummary="false"
+                  dataLabel="@Strings.FitRecDistLabel"
+                  unitLabel="@Strings.FitRecDistUnits" />
+        <fitField id="12"
+                  displayInChart="true"
+                  chartTitle="@Strings.FitRecStrokesLabel"
+                  fillColor="#FFD000"
+                  sortOrder="12"
+                  precision="0"
+                  displayInActivitySummary="false"
+                  dataLabel="@Strings.FitRecStrokesLabel"
+                  unitLabel="@Strings.FitRecStrokesUnits" />
+        <fitField id="13"
+                  displayInChart="true"
+                  chartTitle="@Strings.FitRecForceLabel"
+                  fillColor="#FF0055"
+                  sortOrder="13"
+                  precision="0"
+                  displayInActivitySummary="false"
+                  dataLabel="@Strings.FitRecForceLabel"
+                  unitLabel="@Strings.FitRecForceUnits" />
+        <fitField id="14"
+                  displayInChart="true"
+                  chartTitle="@Strings.FitRecWorkLabel"
+                  fillColor="#00E5FF"
+                  sortOrder="14"
+                  precision="1"
+                  displayInActivitySummary="false"
+                  dataLabel="@Strings.FitRecWorkLabel"
+                  unitLabel="@Strings.FitRecWorkUnits" />
+        <fitField id="15"
+                  displayInChart="true"
+                  chartTitle="@Strings.FitRecHandleLabel"
+                  fillColor="#A0A0A0"
+                  sortOrder="15"
+                  precision="0"
+                  displayInActivitySummary="false"
+                  dataLabel="@Strings.FitRecHandleLabel"
+                  unitLabel="@Strings.FitRecHandleUnits" />
     </fitContributions>
 </resources>

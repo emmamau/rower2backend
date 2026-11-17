@@ -97,6 +97,9 @@ export class AppComponent implements OnInit, OnDestroy {
   finisherCount = 0;
   activeFinishToast: string | null = null;
   private finishToastTimer: any = null;
+  showFinishCelebration = false;
+  private finishCelebrationTimer: any = null;
+  hasCelebratedFinish = false;
   isPostRaceRankingActive = false;
 
   // Race Config
@@ -2278,6 +2281,26 @@ export class AppComponent implements OnInit, OnDestroy {
     this.cdr.markForCheck();
   }
 
+  triggerFinishCelebration(raceId?: string): void {
+    if (this.hasCelebratedFinish) return;
+    this.hasCelebratedFinish = true;
+    this.showFinishCelebration = true;
+    if (this.finishCelebrationTimer) {
+      clearTimeout(this.finishCelebrationTimer);
+    }
+    this.cdr.markForCheck();
+
+    this.finishCelebrationTimer = setTimeout(() => {
+      this.showFinishCelebration = false;
+      this.finishCelebrationTimer = null;
+      if (raceId) {
+        this.openRaceLeaderboard(raceId);
+        this.isPostRaceRankingActive = true;
+      }
+      this.cdr.markForCheck();
+    }, 2000);
+  }
+
   setSiteView(view: 'home' | 'regatta' | 'cockpit'): void {
     this.siteView = view;
     if (view === 'regatta') {
@@ -3265,6 +3288,11 @@ export class AppComponent implements OnInit, OnDestroy {
   closeRaceLeaderboardModal(): void {
     this.isRaceLeaderboardModalOpen = false;
     this.isPostRaceRankingActive = false;
+    this.showFinishCelebration = false;
+    if (this.finishCelebrationTimer) {
+      clearTimeout(this.finishCelebrationTimer);
+      this.finishCelebrationTimer = null;
+    }
     this.selectedRaceLeaderboard = [];
     this.selectedRaceInfo = null;
     this.cdr.markForCheck();
@@ -3933,14 +3961,25 @@ export class AppComponent implements OnInit, OnDestroy {
             const formattedChrono = this.formatTime(Math.max(0, elapsed));
             const toastMsg = `${medal} : ${racer.name} - ${formattedChrono} - Ligne d'arrivée franchie !`;
             this.triggerFinishToast(toastMsg);
+
+            // Célébration visuelle feux d'artifice + BRAVO spécifique pour le joueur connecté au franchissement de la ligne
+            const isMe = racer.userId === this.activeUserId || (activeName && racer.name === activeName);
+            if (isMe && !this.hasCelebratedFinish) {
+              const targetRaceId = this.activePrivateRoom?.race?.id || this.nextRaceInfo?.race?.id;
+              this.triggerFinishCelebration(targetRaceId);
+            }
           }
         }
 
         // 5. Affichage du Classement Général en Fin de Course publique
         const isPublicRace = !this.activePrivateRoom;
         if (isPublicRace && this.isFinished && !this.isPostRaceRankingActive && this.nextRaceInfo?.race?.id) {
-          this.openRaceLeaderboard(this.nextRaceInfo.race.id);
-          this.isPostRaceRankingActive = true;
+          if (!this.hasCelebratedFinish) {
+            this.triggerFinishCelebration(this.nextRaceInfo.race.id);
+          } else if (!this.showFinishCelebration) {
+            this.openRaceLeaderboard(this.nextRaceInfo.race.id);
+            this.isPostRaceRankingActive = true;
+          }
         }
 
         this.cdr.markForCheck();
@@ -3994,6 +4033,12 @@ export class AppComponent implements OnInit, OnDestroy {
         this.isPreStartCountdown = false;
         this.finishedRacerIds.clear();
         this.finisherCount = 0;
+        this.hasCelebratedFinish = false;
+        this.showFinishCelebration = false;
+        if (this.finishCelebrationTimer) {
+          clearTimeout(this.finishCelebrationTimer);
+          this.finishCelebrationTimer = null;
+        }
         if (this.isPostRaceRankingActive || this.isRaceLeaderboardModalOpen) {
           this.closeRaceLeaderboardModal();
           this.isPostRaceRankingActive = false;
@@ -4022,8 +4067,10 @@ export class AppComponent implements OnInit, OnDestroy {
           }
         }
         if (!this.activePrivateRoom && this.nextRaceInfo?.race?.id) {
-          this.openRaceLeaderboard(this.nextRaceInfo.race.id);
-          this.isPostRaceRankingActive = true;
+          if (!this.showFinishCelebration) {
+            this.openRaceLeaderboard(this.nextRaceInfo.race.id);
+            this.isPostRaceRankingActive = true;
+          }
         }
         this.syncCountdownUI();
       } else if (update.status === 'COMPLETED' || update.status === 'STOPPED' || update.status === 'CANCELLED' || update.status === 'ABANDONED') {
@@ -4039,8 +4086,12 @@ export class AppComponent implements OnInit, OnDestroy {
             this.isPreStartCountdown = false;
             this.formattedGameRemaining = '';
             const targetRaceId = update.raceId || this.activePrivateRoom.race.id;
-            this.openRaceLeaderboard(targetRaceId);
-            this.isPostRaceRankingActive = true;
+            if (!this.hasCelebratedFinish && this.isFinished) {
+              this.triggerFinishCelebration(targetRaceId);
+            } else if (!this.showFinishCelebration) {
+              this.openRaceLeaderboard(targetRaceId);
+              this.isPostRaceRankingActive = true;
+            }
             this.triggerFinishToast(`🏁 Course terminée ! Salon fermé.`);
           } else if (update.status === 'STOPPED' || update.status === 'CANCELLED' || update.status === 'ABANDONED') {
             const reasonMsg = update.details?.reason === 'organizer_stopped'
@@ -4420,6 +4471,12 @@ export class AppComponent implements OnInit, OnDestroy {
     if (!prevRoomId || prevRoomId !== room.race?.id) {
       this.myActivity = null;
       this.finishedRacerIds.clear();
+      this.hasCelebratedFinish = false;
+      this.showFinishCelebration = false;
+      if (this.finishCelebrationTimer) {
+        clearTimeout(this.finishCelebrationTimer);
+        this.finishCelebrationTimer = null;
+      }
     }
     this.activePrivateRoom = room;
     this.nextRaceInfo = room;

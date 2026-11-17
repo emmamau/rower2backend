@@ -1009,6 +1009,11 @@
     flex: 1 1 100%;
     min-height: 44px;
   }
+
+  .priv-quota-pill {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
 }
 
 .priv-sub-alert-box {
@@ -1331,13 +1336,72 @@
 
 .priv-quota-summary-card {
   display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+  padding: 0.85rem 1rem;
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.9), rgba(30, 41, 59, 0.8));
+  border: 1px solid rgba(0, 240, 255, 0.28);
+  border-radius: 12px;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.priv-quota-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding-bottom: 0.6rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.priv-quota-tier-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.85rem;
+}
+
+.tier-badge-icon {
+  font-size: 1.15rem;
+}
+
+.tier-badge-label {
+  color: #94a3b8;
+  font-weight: 500;
+}
+
+.tier-badge-name {
+  color: #f1f5f9;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+
+.priv-quota-status-tag {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.2rem 0.65rem;
+  border-radius: 999px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.priv-quota-status-tag.is-ok {
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  color: #34d399;
+}
+
+.priv-quota-status-tag.is-limit {
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  color: #f87171;
+}
+
+.priv-quota-pills-row {
+  display: flex;
   flex-wrap: wrap;
   gap: 0.75rem;
-  margin-bottom: 1rem;
-  padding: 0.75rem;
-  background: rgba(15, 23, 42, 0.75);
-  border: 1px solid rgba(0, 240, 255, 0.2);
-  border-radius: 10px;
 }
 
 .priv-quota-pill {
@@ -1345,41 +1409,67 @@
   min-width: 220px;
   display: flex;
   align-items: center;
-  gap: 0.6rem;
-  padding: 0.5rem 0.75rem;
-  background: rgba(30, 41, 59, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 8px;
+  gap: 0.75rem;
+  padding: 0.65rem 0.85rem;
+  background: rgba(15, 23, 42, 0.75);
+  border: 1px solid rgba(0, 240, 255, 0.18);
+  border-radius: 10px;
+  transition: all 0.2s ease;
 }
 
 .priv-quota-pill.is-exhausted {
-  border-color: rgba(239, 68, 68, 0.5);
-  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.6);
+  background: rgba(239, 68, 68, 0.12);
 }
 
 .quota-icon {
-  font-size: 1.25rem;
+  font-size: 1.35rem;
+  flex-shrink: 0;
 }
 
 .quota-text {
   display: flex;
   flex-direction: column;
-  font-size: 0.78rem;
-  line-height: 1.3;
+  gap: 0.2rem;
+  font-size: 0.8rem;
+  line-height: 1.35;
 }
 
 .quota-label {
   color: #94a3b8;
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .quota-val {
-  color: #00f0ff;
+  color: #38bdf8;
+  font-size: 0.92rem;
   font-weight: 700;
 }
 
-.priv-quota-pill.is-exhausted .quota-val {
+.quota-val strong {
+  font-size: 1.05rem;
+  color: #00f0ff;
+}
+
+.priv-quota-pill.is-exhausted .quota-val,
+.priv-quota-pill.is-exhausted .quota-val strong {
   color: #ef4444;
+}
+
+.quota-sub {
+  color: #94a3b8;
+  font-size: 0.78rem;
+  font-weight: normal;
+}
+
+.priv-quota-warning-strip {
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  color: #fbbf24;
+  font-size: 0.78rem;
+  line-height: 1.4;
 }
 
 .priv-hint-disabled {

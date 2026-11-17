@@ -194,7 +194,7 @@ C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerPowerTest_mc_7_78
     %tmp.132 = getm $.Toybox.Test;
     symbol [ assertEqual %tmp.133 38 9 20 ];
     %tmp.133 = getv function %tmp.132 :assertEqual;
-    %tmp.134 = 115;
+    %tmp.134 = 119;
     %tmp.135 = lgetv %model.1;
     symbol [ model %tmp.135 38 26 31 ];
     symbol [ instantPace %tmp.136 38 32 43 ];
@@ -2127,7 +2127,7 @@ C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerPowerTest_mc_359_
     %tmp.30 = getm $.Toybox.Test;
     symbol [ assertEqual %tmp.31 368 9 20 ];
     %tmp.31 = getv function %tmp.30 :assertEqual;
-    %tmp.32 = 6;
+    %tmp.32 = 5;
     %tmp.33 = lgetv %view.2;
     symbol [ view %tmp.33 368 24 28 ];
     symbol [ getPairingLength %tmp.34 368 29 45 ];
@@ -2184,7 +2184,7 @@ C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerPowerTest_mc_377_
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerPowerTest_mc_377_4_380_4_for_test:
     %tmp.55 = lgetv %i.3;
     symbol [ i %tmp.55 377 20 21 ];
-    %tmp.56 = 5;
+    %tmp.56 = 4;
     %tmp.57 = lt %tmp.55 %tmp.56;
     bf %tmp.57 @C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerPowerTest_mc_377_4_380_4_for_end;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerPowerTest_mc_377_4_380_4_for_begin:
@@ -3275,6 +3275,1038 @@ C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerPowerTest_mc_508_
     %tmp.136 = true;
     ret %tmp.136;
 C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerPowerTest_mc_508_83_552_0_stop:
+}
+//! Regression test 19: Dynamic main menu items and navigation based on pairing state
+[ @file = "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc"; @line = 556; test = true; @symbol_functiondef = [testDynamicMainMenuItems,556,9,33]; @symbol_param<0> = [logger,556,34,40]; @symbol_param<0>_type<0> = [Logger,556,44,50]; @symbol_return<0> = [Boolean,556,55,62]; ]
+function testDynamicMainMenuItems(logger as Logger) as Boolean {
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerPowerTest_mc_556_63_591_0_start:
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 557 4 ]
+    [ "C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerPowerTest_mc_556_63_591_0_start" "C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerPowerTest_mc_556_63_591_0_stop" ]
+    %model.1 = local;
+    symbol [ model %model.1 557 8 13 ];
+    symbol [ RowerDataModel %tmp.4 557 20 34 ];
+    %tmp.4 = getv ? :RowerDataModel;
+    %tmp.1 = newc %tmp.4 ();
+    lputv %model.1 %tmp.1;
+    symbol [ model %model.1 557 8 13 ];
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 558 4 ]
+    [ "C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerPowerTest_mc_556_63_591_0_start" "C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerPowerTest_mc_556_63_591_0_stop" ]
+    %view.2 = local;
+    symbol [ view %view.2 558 8 12 ];
+    symbol [ RowerView %tmp.8 558 19 28 ];
+    %tmp.8 = getv ? :RowerView;
+    %tmp.9 = lgetv %model.1;
+    symbol [ model %tmp.9 558 29 34 ];
+    %tmp.5 = newc %tmp.8 (%tmp.9);
+    lputv %view.2 %tmp.5;
+    symbol [ view %view.2 558 8 12 ];
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 561 4 ]
+    symbol [ UserManager %tmp.11 561 4 15 ];
+    %tmp.11 = getv ? :UserManager;
+    symbol [ clearPairing %tmp.12 561 16 28 ];
+    %tmp.12 = getv function %tmp.11 :clearPairing;
+    invoke %tmp.11 %tmp.12();
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 562 4 ]
+    symbol [ Test %tmp.13 562 4 8 ];
+    %tmp.13 = getm $.Toybox.Test;
+    symbol [ assertEqual %tmp.14 562 9 20 ];
+    %tmp.14 = getv function %tmp.13 :assertEqual;
+    %tmp.15 = false;
+    symbol [ UserManager %tmp.17 562 28 39 ];
+    %tmp.17 = getv ? :UserManager;
+    symbol [ isPaired %tmp.18 562 40 48 ];
+    %tmp.18 = getv function %tmp.17 :isPaired;
+    %tmp.19 = invoke %tmp.17 %tmp.18();
+    invoke %tmp.13 %tmp.14(%tmp.15, %tmp.19);
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 563 4 ]
+    symbol [ Test %tmp.20 563 4 8 ];
+    %tmp.20 = getm $.Toybox.Test;
+    symbol [ assertEqual %tmp.21 563 9 20 ];
+    %tmp.21 = getv function %tmp.20 :assertEqual;
+    %tmp.22 = 3;
+    %tmp.23 = lgetv %view.2;
+    symbol [ view %tmp.23 563 24 28 ];
+    symbol [ getMainMenuItemCount %tmp.24 563 29 49 ];
+    %tmp.24 = getv function %tmp.23 :getMainMenuItemCount;
+    %tmp.25 = invoke %tmp.23 %tmp.24();
+    invoke %tmp.20 %tmp.21(%tmp.22, %tmp.25);
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 566 4 ]
+    %tmp.26 = lgetv %view.2;
+    symbol [ view %tmp.26 566 4 8 ];
+    symbol [ nextMainMenu %tmp.27 566 9 21 ];
+    %tmp.27 = getv function %tmp.26 :nextMainMenu;
+    invoke %tmp.26 %tmp.27();
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 567 4 ]
+    symbol [ Test %tmp.28 567 4 8 ];
+    %tmp.28 = getm $.Toybox.Test;
+    symbol [ assertEqual %tmp.29 567 9 20 ];
+    %tmp.29 = getv function %tmp.28 :assertEqual;
+    %tmp.30 = 1;
+    %tmp.31 = lgetv %view.2;
+    symbol [ view %tmp.31 567 24 28 ];
+    symbol [ getMainMenuIndex %tmp.32 567 29 45 ];
+    %tmp.32 = getv function %tmp.31 :getMainMenuIndex;
+    %tmp.33 = invoke %tmp.31 %tmp.32();
+    invoke %tmp.28 %tmp.29(%tmp.30, %tmp.33);
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 568 4 ]
+    %tmp.34 = lgetv %view.2;
+    symbol [ view %tmp.34 568 4 8 ];
+    symbol [ nextMainMenu %tmp.35 568 9 21 ];
+    %tmp.35 = getv function %tmp.34 :nextMainMenu;
+    invoke %tmp.34 %tmp.35();
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 569 4 ]
+    symbol [ Test %tmp.36 569 4 8 ];
+    %tmp.36 = getm $.Toybox.Test;
+    symbol [ assertEqual %tmp.37 569 9 20 ];
+    %tmp.37 = getv function %tmp.36 :assertEqual;
+    %tmp.38 = 2;
+    %tmp.39 = lgetv %view.2;
+    symbol [ view %tmp.39 569 24 28 ];
+    symbol [ getMainMenuIndex %tmp.40 569 29 45 ];
+    %tmp.40 = getv function %tmp.39 :getMainMenuIndex;
+    %tmp.41 = invoke %tmp.39 %tmp.40();
+    invoke %tmp.36 %tmp.37(%tmp.38, %tmp.41);
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 570 4 ]
+    %tmp.42 = lgetv %view.2;
+    symbol [ view %tmp.42 570 4 8 ];
+    symbol [ nextMainMenu %tmp.43 570 9 21 ];
+    %tmp.43 = getv function %tmp.42 :nextMainMenu;
+    invoke %tmp.42 %tmp.43();
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 571 4 ]
+    symbol [ Test %tmp.44 571 4 8 ];
+    %tmp.44 = getm $.Toybox.Test;
+    symbol [ assertEqual %tmp.45 571 9 20 ];
+    %tmp.45 = getv function %tmp.44 :assertEqual;
+    %tmp.46 = 0;
+    %tmp.47 = lgetv %view.2;
+    symbol [ view %tmp.47 571 24 28 ];
+    symbol [ getMainMenuIndex %tmp.48 571 29 45 ];
+    %tmp.48 = getv function %tmp.47 :getMainMenuIndex;
+    %tmp.49 = invoke %tmp.47 %tmp.48();
+    invoke %tmp.44 %tmp.45(%tmp.46, %tmp.49);
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 572 4 ]
+    %tmp.50 = lgetv %view.2;
+    symbol [ view %tmp.50 572 4 8 ];
+    symbol [ prevMainMenu %tmp.51 572 9 21 ];
+    %tmp.51 = getv function %tmp.50 :prevMainMenu;
+    invoke %tmp.50 %tmp.51();
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 573 4 ]
+    symbol [ Test %tmp.52 573 4 8 ];
+    %tmp.52 = getm $.Toybox.Test;
+    symbol [ assertEqual %tmp.53 573 9 20 ];
+    %tmp.53 = getv function %tmp.52 :assertEqual;
+    %tmp.54 = 2;
+    %tmp.55 = lgetv %view.2;
+    symbol [ view %tmp.55 573 24 28 ];
+    symbol [ getMainMenuIndex %tmp.56 573 29 45 ];
+    %tmp.56 = getv function %tmp.55 :getMainMenuIndex;
+    %tmp.57 = invoke %tmp.55 %tmp.56();
+    invoke %tmp.52 %tmp.53(%tmp.54, %tmp.57);
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 576 4 ]
+    symbol [ UserManager %tmp.59 576 4 15 ];
+    %tmp.59 = getv ? :UserManager;
+    symbol [ setDeviceToken %tmp.60 576 16 30 ];
+    %tmp.60 = getv function %tmp.59 :setDeviceToken;
+    %tmp.61 = "test-paired-device-token";
+    invoke %tmp.59 %tmp.60(%tmp.61);
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 577 4 ]
+    symbol [ Test %tmp.62 577 4 8 ];
+    %tmp.62 = getm $.Toybox.Test;
+    symbol [ assertEqual %tmp.63 577 9 20 ];
+    %tmp.63 = getv function %tmp.62 :assertEqual;
+    %tmp.64 = true;
+    symbol [ UserManager %tmp.66 577 27 38 ];
+    %tmp.66 = getv ? :UserManager;
+    symbol [ isPaired %tmp.67 577 39 47 ];
+    %tmp.67 = getv function %tmp.66 :isPaired;
+    %tmp.68 = invoke %tmp.66 %tmp.67();
+    invoke %tmp.62 %tmp.63(%tmp.64, %tmp.68);
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 578 4 ]
+    symbol [ Test %tmp.69 578 4 8 ];
+    %tmp.69 = getm $.Toybox.Test;
+    symbol [ assertEqual %tmp.70 578 9 20 ];
+    %tmp.70 = getv function %tmp.69 :assertEqual;
+    %tmp.71 = 4;
+    %tmp.72 = lgetv %view.2;
+    symbol [ view %tmp.72 578 24 28 ];
+    symbol [ getMainMenuItemCount %tmp.73 578 29 49 ];
+    %tmp.73 = getv function %tmp.72 :getMainMenuItemCount;
+    %tmp.74 = invoke %tmp.72 %tmp.73();
+    invoke %tmp.69 %tmp.70(%tmp.71, %tmp.74);
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 581 4 ]
+    %tmp.75 = lgetv %view.2;
+    symbol [ view %tmp.75 581 4 8 ];
+    symbol [ nextMainMenu %tmp.76 581 9 21 ];
+    %tmp.76 = getv function %tmp.75 :nextMainMenu;
+    invoke %tmp.75 %tmp.76();
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 582 4 ]
+    symbol [ Test %tmp.77 582 4 8 ];
+    %tmp.77 = getm $.Toybox.Test;
+    symbol [ assertEqual %tmp.78 582 9 20 ];
+    %tmp.78 = getv function %tmp.77 :assertEqual;
+    %tmp.79 = 3;
+    %tmp.80 = lgetv %view.2;
+    symbol [ view %tmp.80 582 24 28 ];
+    symbol [ getMainMenuIndex %tmp.81 582 29 45 ];
+    %tmp.81 = getv function %tmp.80 :getMainMenuIndex;
+    %tmp.82 = invoke %tmp.80 %tmp.81();
+    invoke %tmp.77 %tmp.78(%tmp.79, %tmp.82);
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 583 4 ]
+    %tmp.83 = lgetv %view.2;
+    symbol [ view %tmp.83 583 4 8 ];
+    symbol [ nextMainMenu %tmp.84 583 9 21 ];
+    %tmp.84 = getv function %tmp.83 :nextMainMenu;
+    invoke %tmp.83 %tmp.84();
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 584 4 ]
+    symbol [ Test %tmp.85 584 4 8 ];
+    %tmp.85 = getm $.Toybox.Test;
+    symbol [ assertEqual %tmp.86 584 9 20 ];
+    %tmp.86 = getv function %tmp.85 :assertEqual;
+    %tmp.87 = 0;
+    %tmp.88 = lgetv %view.2;
+    symbol [ view %tmp.88 584 24 28 ];
+    symbol [ getMainMenuIndex %tmp.89 584 29 45 ];
+    %tmp.89 = getv function %tmp.88 :getMainMenuIndex;
+    %tmp.90 = invoke %tmp.88 %tmp.89();
+    invoke %tmp.85 %tmp.86(%tmp.87, %tmp.90);
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 585 4 ]
+    %tmp.91 = lgetv %view.2;
+    symbol [ view %tmp.91 585 4 8 ];
+    symbol [ prevMainMenu %tmp.92 585 9 21 ];
+    %tmp.92 = getv function %tmp.91 :prevMainMenu;
+    invoke %tmp.91 %tmp.92();
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 586 4 ]
+    symbol [ Test %tmp.93 586 4 8 ];
+    %tmp.93 = getm $.Toybox.Test;
+    symbol [ assertEqual %tmp.94 586 9 20 ];
+    %tmp.94 = getv function %tmp.93 :assertEqual;
+    %tmp.95 = 3;
+    %tmp.96 = lgetv %view.2;
+    symbol [ view %tmp.96 586 24 28 ];
+    symbol [ getMainMenuIndex %tmp.97 586 29 45 ];
+    %tmp.97 = getv function %tmp.96 :getMainMenuIndex;
+    %tmp.98 = invoke %tmp.96 %tmp.97();
+    invoke %tmp.93 %tmp.94(%tmp.95, %tmp.98);
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 589 4 ]
+    symbol [ UserManager %tmp.100 589 4 15 ];
+    %tmp.100 = getv ? :UserManager;
+    symbol [ clearPairing %tmp.101 589 16 28 ];
+    %tmp.101 = getv function %tmp.100 :clearPairing;
+    invoke %tmp.100 %tmp.101();
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 590 4 ]
+    %tmp.102 = true;
+    ret %tmp.102;
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerPowerTest_mc_556_63_591_0_stop:
+}
+//! Regression test: Resetting lobby state restores countdown and cleans up private flags
+[ @file = "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc"; @line = 595; test = true; @symbol_functiondef = [testLobbyResetRestoresDefaultCountdown,595,9,47]; @symbol_param<0> = [logger,595,48,54]; @symbol_param<0>_type<0> = [Logger,595,58,64]; @symbol_return<0> = [Boolean,595,69,76]; ]
+function testLobbyResetRestoresDefaultCountdown(logger as Logger) as Boolean {
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerPowerTest_mc_595_77_609_0_start:
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 596 4 ]
+    [ "C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerPowerTest_mc_595_77_609_0_start" "C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerPowerTest_mc_595_77_609_0_stop" ]
+    %model.1 = local;
+    symbol [ model %model.1 596 8 13 ];
+    symbol [ RowerDataModel %tmp.4 596 20 34 ];
+    %tmp.4 = getv ? :RowerDataModel;
+    %tmp.1 = newc %tmp.4 ();
+    lputv %model.1 %tmp.1;
+    symbol [ model %model.1 596 8 13 ];
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 597 4 ]
+    [ "C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerPowerTest_mc_595_77_609_0_start" "C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerPowerTest_mc_595_77_609_0_stop" ]
+    %view.2 = local;
+    symbol [ view %view.2 597 8 12 ];
+    symbol [ RowerView %tmp.8 597 19 28 ];
+    %tmp.8 = getv ? :RowerView;
+    %tmp.9 = lgetv %model.1;
+    symbol [ model %tmp.9 597 29 34 ];
+    %tmp.5 = newc %tmp.8 (%tmp.9);
+    lputv %view.2 %tmp.5;
+    symbol [ view %view.2 597 8 12 ];
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 600 4 ]
+    %tmp.10 = lgetv %view.2;
+    symbol [ view %tmp.10 600 4 8 ];
+    symbol [ setLobbyInfo %tmp.11 600 9 21 ];
+    %tmp.11 = getv function %tmp.10 :setLobbyInfo;
+    %tmp.12 = 0;
+    %tmp.13 = 1;
+    %tmp.14 = 2000;
+    invoke %tmp.10 %tmp.11(%tmp.12, %tmp.13, %tmp.14);
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 601 4 ]
+    symbol [ Test %tmp.15 601 4 8 ];
+    %tmp.15 = getm $.Toybox.Test;
+    symbol [ assertEqual %tmp.16 601 9 20 ];
+    %tmp.16 = getv function %tmp.15 :assertEqual;
+    %tmp.17 = 0;
+    %tmp.18 = lgetv %view.2;
+    symbol [ view %tmp.18 601 24 28 ];
+    symbol [ getCountdown %tmp.19 601 29 41 ];
+    %tmp.19 = getv function %tmp.18 :getCountdown;
+    %tmp.20 = invoke %tmp.18 %tmp.19();
+    invoke %tmp.15 %tmp.16(%tmp.17, %tmp.20);
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 604 4 ]
+    %tmp.21 = lgetv %view.2;
+    symbol [ view %tmp.21 604 4 8 ];
+    symbol [ resetLobbyState %tmp.22 604 9 24 ];
+    %tmp.22 = getv function %tmp.21 :resetLobbyState;
+    invoke %tmp.21 %tmp.22();
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 605 4 ]
+    symbol [ Test %tmp.23 605 4 8 ];
+    %tmp.23 = getm $.Toybox.Test;
+    symbol [ assertEqual %tmp.24 605 9 20 ];
+    %tmp.24 = getv function %tmp.23 :assertEqual;
+    %tmp.25 = 600;
+    %tmp.26 = lgetv %view.2;
+    symbol [ view %tmp.26 605 26 30 ];
+    symbol [ getCountdown %tmp.27 605 31 43 ];
+    %tmp.27 = getv function %tmp.26 :getCountdown;
+    %tmp.28 = invoke %tmp.26 %tmp.27();
+    invoke %tmp.23 %tmp.24(%tmp.25, %tmp.28);
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 606 4 ]
+    symbol [ Test %tmp.29 606 4 8 ];
+    %tmp.29 = getm $.Toybox.Test;
+    symbol [ assertEqual %tmp.30 606 9 20 ];
+    %tmp.30 = getv function %tmp.29 :assertEqual;
+    %tmp.31 = false;
+    %tmp.32 = lgetv %view.2;
+    symbol [ view %tmp.32 606 28 32 ];
+    symbol [ isPrivateSalon %tmp.33 606 33 47 ];
+    %tmp.33 = getv function %tmp.32 :isPrivateSalon;
+    %tmp.34 = invoke %tmp.32 %tmp.33();
+    invoke %tmp.29 %tmp.30(%tmp.31, %tmp.34);
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 608 4 ]
+    %tmp.35 = true;
+    ret %tmp.35;
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerPowerTest_mc_595_77_609_0_stop:
+}
+//! Regression test: Zero countdown with waiting backend status MUST NOT trigger race start
+[ @file = "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc"; @line = 613; test = true; @symbol_functiondef = [testPublicRaceWaitingWithZeroCountdownDoesNotStart,613,9,59]; @symbol_param<0> = [logger,613,60,66]; @symbol_param<0>_type<0> = [Logger,613,70,76]; @symbol_return<0> = [Boolean,613,81,88]; ]
+function testPublicRaceWaitingWithZeroCountdownDoesNotStart(logger as Logger) as Boolean {
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerPowerTest_mc_613_89_649_0_start:
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 614 4 ]
+    [ "C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerPowerTest_mc_613_89_649_0_start" "C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerPowerTest_mc_613_89_649_0_stop" ]
+    %model.1 = local;
+    symbol [ model %model.1 614 8 13 ];
+    symbol [ RowerDataModel %tmp.4 614 20 34 ];
+    %tmp.4 = getv ? :RowerDataModel;
+    %tmp.1 = newc %tmp.4 ();
+    lputv %model.1 %tmp.1;
+    symbol [ model %model.1 614 8 13 ];
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 615 4 ]
+    [ "C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerPowerTest_mc_613_89_649_0_start" "C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerPowerTest_mc_613_89_649_0_stop" ]
+    %view.2 = local;
+    symbol [ view %view.2 615 8 12 ];
+    symbol [ RowerView %tmp.8 615 19 28 ];
+    %tmp.8 = getv ? :RowerView;
+    %tmp.9 = lgetv %model.1;
+    symbol [ model %tmp.9 615 29 34 ];
+    %tmp.5 = newc %tmp.8 (%tmp.9);
+    lputv %view.2 %tmp.5;
+    symbol [ view %view.2 615 8 12 ];
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 616 4 ]
+    [ "C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerPowerTest_mc_613_89_649_0_start" "C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerPowerTest_mc_613_89_649_0_stop" ]
+    %del.3 = local;
+    symbol [ del %del.3 616 8 11 ];
+    symbol [ BleDelegate %tmp.13 616 18 29 ];
+    %tmp.13 = getv ? :BleDelegate;
+    %tmp.14 = lgetv %model.1;
+    symbol [ model %tmp.14 616 30 35 ];
+    %tmp.10 = newc %tmp.13 (%tmp.14);
+    lputv %del.3 %tmp.10;
+    symbol [ del %del.3 616 8 11 ];
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 617 4 ]
+    %tmp.15 = lgetv %del.3;
+    symbol [ del %tmp.15 617 4 7 ];
+    symbol [ setView %tmp.16 617 8 15 ];
+    %tmp.16 = getv function %tmp.15 :setView;
+    %tmp.17 = lgetv %view.2;
+    symbol [ view %tmp.17 617 16 20 ];
+    invoke %tmp.15 %tmp.16(%tmp.17);
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 620 4 ]
+    %tmp.18 = lgetv %del.3;
+    symbol [ del %tmp.18 620 4 7 ];
+    symbol [ joinNextRaceWaiting %tmp.19 620 8 27 ];
+    %tmp.19 = getv function %tmp.18 :joinNextRaceWaiting;
+    invoke %tmp.18 %tmp.19();
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 621 4 ]
+    symbol [ Test %tmp.20 621 4 8 ];
+    %tmp.20 = getm $.Toybox.Test;
+    symbol [ assertEqual %tmp.21 621 9 20 ];
+    %tmp.21 = getv function %tmp.20 :assertEqual;
+    symbol [ RowerView %tmp.23 621 21 30 ];
+    %tmp.23 = getv ? :RowerView;
+    symbol [ STATE_WAITING_START %tmp.24 621 31 50 ];
+    %tmp.24 = getv %tmp.23 :STATE_WAITING_START;
+    %tmp.25 = lgetv %view.2;
+    symbol [ view %tmp.25 621 52 56 ];
+    symbol [ getAppState %tmp.26 621 57 68 ];
+    %tmp.26 = getv function %tmp.25 :getAppState;
+    %tmp.27 = invoke %tmp.25 %tmp.26();
+    invoke %tmp.20 %tmp.21(%tmp.24, %tmp.27);
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 624 4 ]
+    %tmp.28 = lgetv %del.3;
+    symbol [ del %tmp.28 624 4 7 ];
+    symbol [ onLobbyDataReceived %tmp.29 624 8 27 ];
+    %tmp.29 = getv function %tmp.28 :onLobbyDataReceived;
+    %tmp.30 = newd 5;
+    %tmp.31 = "status";
+    %tmp.32 = "waiting";
+    %tmp.33 = dup %tmp.30;
+    %tmp.34 = aputv %tmp.33 %tmp.31 %tmp.32;
+    %tmp.35 = "secondsRemaining";
+    %tmp.36 = 0;
+    %tmp.37 = dup %tmp.34;
+    %tmp.38 = aputv %tmp.37 %tmp.35 %tmp.36;
+    %tmp.39 = "totalParticipants";
+    %tmp.40 = 1;
+    %tmp.41 = dup %tmp.38;
+    %tmp.42 = aputv %tmp.41 %tmp.39 %tmp.40;
+    %tmp.43 = "targetDistance";
+    %tmp.44 = 2000;
+    %tmp.45 = dup %tmp.42;
+    %tmp.46 = aputv %tmp.45 %tmp.43 %tmp.44;
+    %tmp.47 = "race";
+    %tmp.48 = newd 4;
+    %tmp.49 = "id";
+    %tmp.50 = "PUB_RACE_1";
+    %tmp.51 = dup %tmp.48;
+    %tmp.52 = aputv %tmp.51 %tmp.49 %tmp.50;
+    %tmp.53 = "internalStatus";
+    %tmp.54 = "LOBBY";
+    %tmp.55 = dup %tmp.52;
+    %tmp.56 = aputv %tmp.55 %tmp.53 %tmp.54;
+    %tmp.57 = "status";
+    %tmp.58 = "waiting";
+    %tmp.59 = dup %tmp.56;
+    %tmp.60 = aputv %tmp.59 %tmp.57 %tmp.58;
+    %tmp.61 = "targetDistance";
+    %tmp.62 = 2000;
+    %tmp.63 = dup %tmp.60;
+    %tmp.64 = aputv %tmp.63 %tmp.61 %tmp.62;
+    %tmp.65 = dup %tmp.46;
+    %tmp.66 = aputv %tmp.65 %tmp.47 %tmp.64;
+    invoke %tmp.28 %tmp.29(%tmp.66);
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 638 4 ]
+    symbol [ Test %tmp.67 638 4 8 ];
+    %tmp.67 = getm $.Toybox.Test;
+    symbol [ assertEqual %tmp.68 638 9 20 ];
+    %tmp.68 = getv function %tmp.67 :assertEqual;
+    symbol [ RowerView %tmp.70 638 21 30 ];
+    %tmp.70 = getv ? :RowerView;
+    symbol [ STATE_WAITING_START %tmp.71 638 31 50 ];
+    %tmp.71 = getv %tmp.70 :STATE_WAITING_START;
+    %tmp.72 = lgetv %view.2;
+    symbol [ view %tmp.72 638 52 56 ];
+    symbol [ getAppState %tmp.73 638 57 68 ];
+    %tmp.73 = getv function %tmp.72 :getAppState;
+    %tmp.74 = invoke %tmp.72 %tmp.73();
+    invoke %tmp.67 %tmp.68(%tmp.71, %tmp.74);
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 641 4 ]
+    %tmp.75 = lgetv %model.1;
+    symbol [ model %tmp.75 641 4 9 ];
+    %tmp.76 = 28.0f;
+    symbol [ strokeRate ? 641 10 20 ];
+    putv %tmp.75 :strokeRate %tmp.76;
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 642 4 ]
+    %tmp.77 = lgetv %model.1;
+    symbol [ model %tmp.77 642 4 9 ];
+    %tmp.78 = 200;
+    symbol [ instantPower ? 642 10 22 ];
+    putv %tmp.77 :instantPower %tmp.78;
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 643 4 ]
+    %tmp.79 = lgetv %del.3;
+    symbol [ del %tmp.79 643 4 7 ];
+    symbol [ onOneSecondTick %tmp.80 643 8 23 ];
+    %tmp.80 = getv function %tmp.79 :onOneSecondTick;
+    invoke %tmp.79 %tmp.80();
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 646 4 ]
+    symbol [ Test %tmp.81 646 4 8 ];
+    %tmp.81 = getm $.Toybox.Test;
+    symbol [ assertEqual %tmp.82 646 9 20 ];
+    %tmp.82 = getv function %tmp.81 :assertEqual;
+    symbol [ RowerView %tmp.84 646 21 30 ];
+    %tmp.84 = getv ? :RowerView;
+    symbol [ STATE_WAITING_START %tmp.85 646 31 50 ];
+    %tmp.85 = getv %tmp.84 :STATE_WAITING_START;
+    %tmp.86 = lgetv %view.2;
+    symbol [ view %tmp.86 646 52 56 ];
+    symbol [ getAppState %tmp.87 646 57 68 ];
+    %tmp.87 = getv function %tmp.86 :getAppState;
+    %tmp.88 = invoke %tmp.86 %tmp.87();
+    invoke %tmp.81 %tmp.82(%tmp.85, %tmp.88);
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 648 4 ]
+    %tmp.89 = true;
+    ret %tmp.89;
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerPowerTest_mc_613_89_649_0_stop:
+}
+//! Regression test: Post-race pause payload MUST NOT start the race
+[ @file = "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc"; @line = 653; test = true; @symbol_functiondef = [testPostRacePauseDoesNotStartRace,653,9,42]; @symbol_param<0> = [logger,653,43,49]; @symbol_param<0>_type<0> = [Logger,653,53,59]; @symbol_return<0> = [Boolean,653,64,71]; ]
+function testPostRacePauseDoesNotStartRace(logger as Logger) as Boolean {
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerPowerTest_mc_653_72_677_0_start:
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 654 4 ]
+    [ "C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerPowerTest_mc_653_72_677_0_start" "C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerPowerTest_mc_653_72_677_0_stop" ]
+    %model.1 = local;
+    symbol [ model %model.1 654 8 13 ];
+    symbol [ RowerDataModel %tmp.4 654 20 34 ];
+    %tmp.4 = getv ? :RowerDataModel;
+    %tmp.1 = newc %tmp.4 ();
+    lputv %model.1 %tmp.1;
+    symbol [ model %model.1 654 8 13 ];
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 655 4 ]
+    [ "C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerPowerTest_mc_653_72_677_0_start" "C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerPowerTest_mc_653_72_677_0_stop" ]
+    %view.2 = local;
+    symbol [ view %view.2 655 8 12 ];
+    symbol [ RowerView %tmp.8 655 19 28 ];
+    %tmp.8 = getv ? :RowerView;
+    %tmp.9 = lgetv %model.1;
+    symbol [ model %tmp.9 655 29 34 ];
+    %tmp.5 = newc %tmp.8 (%tmp.9);
+    lputv %view.2 %tmp.5;
+    symbol [ view %view.2 655 8 12 ];
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 656 4 ]
+    [ "C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerPowerTest_mc_653_72_677_0_start" "C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerPowerTest_mc_653_72_677_0_stop" ]
+    %del.3 = local;
+    symbol [ del %del.3 656 8 11 ];
+    symbol [ BleDelegate %tmp.13 656 18 29 ];
+    %tmp.13 = getv ? :BleDelegate;
+    %tmp.14 = lgetv %model.1;
+    symbol [ model %tmp.14 656 30 35 ];
+    %tmp.10 = newc %tmp.13 (%tmp.14);
+    lputv %del.3 %tmp.10;
+    symbol [ del %del.3 656 8 11 ];
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 657 4 ]
+    %tmp.15 = lgetv %del.3;
+    symbol [ del %tmp.15 657 4 7 ];
+    symbol [ setView %tmp.16 657 8 15 ];
+    %tmp.16 = getv function %tmp.15 :setView;
+    %tmp.17 = lgetv %view.2;
+    symbol [ view %tmp.17 657 16 20 ];
+    invoke %tmp.15 %tmp.16(%tmp.17);
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 659 4 ]
+    %tmp.18 = lgetv %del.3;
+    symbol [ del %tmp.18 659 4 7 ];
+    symbol [ joinNextRaceWaiting %tmp.19 659 8 27 ];
+    %tmp.19 = getv function %tmp.18 :joinNextRaceWaiting;
+    invoke %tmp.18 %tmp.19();
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 660 4 ]
+    %tmp.20 = lgetv %del.3;
+    symbol [ del %tmp.20 660 4 7 ];
+    symbol [ onLobbyDataReceived %tmp.21 660 8 27 ];
+    %tmp.21 = getv function %tmp.20 :onLobbyDataReceived;
+    %tmp.22 = newd 5;
+    %tmp.23 = "status";
+    %tmp.24 = "post_race_pause";
+    %tmp.25 = dup %tmp.22;
+    %tmp.26 = aputv %tmp.25 %tmp.23 %tmp.24;
+    %tmp.27 = "isPostRacePause";
+    %tmp.28 = true;
+    %tmp.29 = dup %tmp.26;
+    %tmp.30 = aputv %tmp.29 %tmp.27 %tmp.28;
+    %tmp.31 = "secondsRemaining";
+    %tmp.32 = 90;
+    %tmp.33 = dup %tmp.30;
+    %tmp.34 = aputv %tmp.33 %tmp.31 %tmp.32;
+    %tmp.35 = "pauseRemainingSeconds";
+    %tmp.36 = 90;
+    %tmp.37 = dup %tmp.34;
+    %tmp.38 = aputv %tmp.37 %tmp.35 %tmp.36;
+    %tmp.39 = "race";
+    %tmp.40 = newd 3;
+    %tmp.41 = "id";
+    %tmp.42 = "PUB_PREV_RACE";
+    %tmp.43 = dup %tmp.40;
+    %tmp.44 = aputv %tmp.43 %tmp.41 %tmp.42;
+    %tmp.45 = "internalStatus";
+    %tmp.46 = "COMPLETED";
+    %tmp.47 = dup %tmp.44;
+    %tmp.48 = aputv %tmp.47 %tmp.45 %tmp.46;
+    %tmp.49 = "status";
+    %tmp.50 = "post_race_pause";
+    %tmp.51 = dup %tmp.48;
+    %tmp.52 = aputv %tmp.51 %tmp.49 %tmp.50;
+    %tmp.53 = dup %tmp.38;
+    %tmp.54 = aputv %tmp.53 %tmp.39 %tmp.52;
+    invoke %tmp.20 %tmp.21(%tmp.54);
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 672 4 ]
+    symbol [ Test %tmp.55 672 4 8 ];
+    %tmp.55 = getm $.Toybox.Test;
+    symbol [ assertEqual %tmp.56 672 9 20 ];
+    %tmp.56 = getv function %tmp.55 :assertEqual;
+    symbol [ RowerView %tmp.58 672 21 30 ];
+    %tmp.58 = getv ? :RowerView;
+    symbol [ STATE_WAITING_START %tmp.59 672 31 50 ];
+    %tmp.59 = getv %tmp.58 :STATE_WAITING_START;
+    %tmp.60 = lgetv %view.2;
+    symbol [ view %tmp.60 672 52 56 ];
+    symbol [ getAppState %tmp.61 672 57 68 ];
+    %tmp.61 = getv function %tmp.60 :getAppState;
+    %tmp.62 = invoke %tmp.60 %tmp.61();
+    invoke %tmp.55 %tmp.56(%tmp.59, %tmp.62);
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 673 4 ]
+    %tmp.63 = lgetv %del.3;
+    symbol [ del %tmp.63 673 4 7 ];
+    symbol [ onOneSecondTick %tmp.64 673 8 23 ];
+    %tmp.64 = getv function %tmp.63 :onOneSecondTick;
+    invoke %tmp.63 %tmp.64();
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 674 4 ]
+    symbol [ Test %tmp.65 674 4 8 ];
+    %tmp.65 = getm $.Toybox.Test;
+    symbol [ assertEqual %tmp.66 674 9 20 ];
+    %tmp.66 = getv function %tmp.65 :assertEqual;
+    symbol [ RowerView %tmp.68 674 21 30 ];
+    %tmp.68 = getv ? :RowerView;
+    symbol [ STATE_WAITING_START %tmp.69 674 31 50 ];
+    %tmp.69 = getv %tmp.68 :STATE_WAITING_START;
+    %tmp.70 = lgetv %view.2;
+    symbol [ view %tmp.70 674 52 56 ];
+    symbol [ getAppState %tmp.71 674 57 68 ];
+    %tmp.71 = getv function %tmp.70 :getAppState;
+    %tmp.72 = invoke %tmp.70 %tmp.71();
+    invoke %tmp.65 %tmp.66(%tmp.69, %tmp.72);
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 676 4 ]
+    %tmp.73 = true;
+    ret %tmp.73;
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerPowerTest_mc_653_72_677_0_stop:
+}
+//! Regression test: Stroke during race waiting mode must wake BLE, not start the race
+[ @file = "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc"; @line = 681; test = true; @symbol_functiondef = [testStrokeDuringRaceWaitingWakesBleWithoutStartingRace,681,9,63]; @symbol_param<0> = [logger,681,64,70]; @symbol_param<0>_type<0> = [Logger,681,74,80]; @symbol_return<0> = [Boolean,681,85,92]; ]
+function testStrokeDuringRaceWaitingWakesBleWithoutStartingRace(logger as Logger) as Boolean {
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerPowerTest_mc_681_93_700_0_start:
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 682 4 ]
+    [ "C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerPowerTest_mc_681_93_700_0_start" "C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerPowerTest_mc_681_93_700_0_stop" ]
+    %model.1 = local;
+    symbol [ model %model.1 682 8 13 ];
+    symbol [ RowerDataModel %tmp.4 682 20 34 ];
+    %tmp.4 = getv ? :RowerDataModel;
+    %tmp.1 = newc %tmp.4 ();
+    lputv %model.1 %tmp.1;
+    symbol [ model %model.1 682 8 13 ];
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 683 4 ]
+    [ "C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerPowerTest_mc_681_93_700_0_start" "C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerPowerTest_mc_681_93_700_0_stop" ]
+    %view.2 = local;
+    symbol [ view %view.2 683 8 12 ];
+    symbol [ RowerView %tmp.8 683 19 28 ];
+    %tmp.8 = getv ? :RowerView;
+    %tmp.9 = lgetv %model.1;
+    symbol [ model %tmp.9 683 29 34 ];
+    %tmp.5 = newc %tmp.8 (%tmp.9);
+    lputv %view.2 %tmp.5;
+    symbol [ view %view.2 683 8 12 ];
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 684 4 ]
+    [ "C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerPowerTest_mc_681_93_700_0_start" "C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerPowerTest_mc_681_93_700_0_stop" ]
+    %del.3 = local;
+    symbol [ del %del.3 684 8 11 ];
+    symbol [ BleDelegate %tmp.13 684 18 29 ];
+    %tmp.13 = getv ? :BleDelegate;
+    %tmp.14 = lgetv %model.1;
+    symbol [ model %tmp.14 684 30 35 ];
+    %tmp.10 = newc %tmp.13 (%tmp.14);
+    lputv %del.3 %tmp.10;
+    symbol [ del %del.3 684 8 11 ];
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 685 4 ]
+    %tmp.15 = lgetv %del.3;
+    symbol [ del %tmp.15 685 4 7 ];
+    symbol [ setView %tmp.16 685 8 15 ];
+    %tmp.16 = getv function %tmp.15 :setView;
+    %tmp.17 = lgetv %view.2;
+    symbol [ view %tmp.17 685 16 20 ];
+    invoke %tmp.15 %tmp.16(%tmp.17);
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 687 4 ]
+    %tmp.18 = lgetv %del.3;
+    symbol [ del %tmp.18 687 4 7 ];
+    symbol [ joinNextRaceWaiting %tmp.19 687 8 27 ];
+    %tmp.19 = getv function %tmp.18 :joinNextRaceWaiting;
+    invoke %tmp.18 %tmp.19();
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 688 4 ]
+    symbol [ Test %tmp.20 688 4 8 ];
+    %tmp.20 = getm $.Toybox.Test;
+    symbol [ assertEqual %tmp.21 688 9 20 ];
+    %tmp.21 = getv function %tmp.20 :assertEqual;
+    symbol [ RowerView %tmp.23 688 21 30 ];
+    %tmp.23 = getv ? :RowerView;
+    symbol [ STATE_WAITING_START %tmp.24 688 31 50 ];
+    %tmp.24 = getv %tmp.23 :STATE_WAITING_START;
+    %tmp.25 = lgetv %view.2;
+    symbol [ view %tmp.25 688 52 56 ];
+    symbol [ getAppState %tmp.26 688 57 68 ];
+    %tmp.26 = getv function %tmp.25 :getAppState;
+    %tmp.27 = invoke %tmp.25 %tmp.26();
+    invoke %tmp.20 %tmp.21(%tmp.24, %tmp.27);
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 691 4 ]
+    %tmp.28 = lgetv %model.1;
+    symbol [ model %tmp.28 691 4 9 ];
+    %tmp.29 = 24.0f;
+    symbol [ strokeRate ? 691 10 20 ];
+    putv %tmp.28 :strokeRate %tmp.29;
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 692 4 ]
+    %tmp.30 = lgetv %model.1;
+    symbol [ model %tmp.30 692 4 9 ];
+    %tmp.31 = 180;
+    symbol [ instantPower ? 692 10 22 ];
+    putv %tmp.30 :instantPower %tmp.31;
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 693 4 ]
+    %tmp.32 = lgetv %del.3;
+    symbol [ del %tmp.32 693 4 7 ];
+    symbol [ onOneSecondTick %tmp.33 693 8 23 ];
+    %tmp.33 = getv function %tmp.32 :onOneSecondTick;
+    invoke %tmp.32 %tmp.33();
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 696 4 ]
+    symbol [ Test %tmp.34 696 4 8 ];
+    %tmp.34 = getm $.Toybox.Test;
+    symbol [ assertEqual %tmp.35 696 9 20 ];
+    %tmp.35 = getv function %tmp.34 :assertEqual;
+    symbol [ RowerView %tmp.37 696 21 30 ];
+    %tmp.37 = getv ? :RowerView;
+    symbol [ STATE_WAITING_START %tmp.38 696 31 50 ];
+    %tmp.38 = getv %tmp.37 :STATE_WAITING_START;
+    %tmp.39 = lgetv %view.2;
+    symbol [ view %tmp.39 696 52 56 ];
+    symbol [ getAppState %tmp.40 696 57 68 ];
+    %tmp.40 = getv function %tmp.39 :getAppState;
+    %tmp.41 = invoke %tmp.39 %tmp.40();
+    invoke %tmp.34 %tmp.35(%tmp.38, %tmp.41);
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 697 4 ]
+    symbol [ Test %tmp.42 697 4 8 ];
+    %tmp.42 = getm $.Toybox.Test;
+    symbol [ assertEqual %tmp.43 697 9 20 ];
+    %tmp.43 = getv function %tmp.42 :assertEqual;
+    %tmp.44 = false;
+    %tmp.45 = lgetv %del.3;
+    symbol [ del %tmp.45 697 28 31 ];
+    symbol [ isSessionActive %tmp.46 697 32 47 ];
+    %tmp.46 = getv function %tmp.45 :isSessionActive;
+    %tmp.47 = invoke %tmp.45 %tmp.46();
+    invoke %tmp.42 %tmp.43(%tmp.44, %tmp.47);
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 699 4 ]
+    %tmp.48 = true;
+    ret %tmp.48;
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerPowerTest_mc_681_93_700_0_stop:
+}
+//! Regression test: Page 1 bottom right cell displays player rank/total in race mode and remaining distance in solo mode
+[ @file = "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc"; @line = 704; test = true; @symbol_functiondef = [testPage1BottomRightDisplaysRankInRaceMode,704,9,51]; @symbol_param<0> = [logger,704,52,58]; @symbol_param<0>_type<0> = [Logger,704,62,68]; @symbol_return<0> = [Boolean,704,73,80]; ]
+function testPage1BottomRightDisplaysRankInRaceMode(logger as Logger) as Boolean {
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerPowerTest_mc_704_81_739_0_start:
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 705 4 ]
+    [ "C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerPowerTest_mc_704_81_739_0_start" "C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerPowerTest_mc_704_81_739_0_stop" ]
+    %model.1 = local;
+    symbol [ model %model.1 705 8 13 ];
+    symbol [ RowerDataModel %tmp.4 705 20 34 ];
+    %tmp.4 = getv ? :RowerDataModel;
+    %tmp.1 = newc %tmp.4 ();
+    lputv %model.1 %tmp.1;
+    symbol [ model %model.1 705 8 13 ];
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 706 4 ]
+    [ "C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerPowerTest_mc_704_81_739_0_start" "C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerPowerTest_mc_704_81_739_0_stop" ]
+    %view.2 = local;
+    symbol [ view %view.2 706 8 12 ];
+    symbol [ RowerView %tmp.8 706 19 28 ];
+    %tmp.8 = getv ? :RowerView;
+    %tmp.9 = lgetv %model.1;
+    symbol [ model %tmp.9 706 29 34 ];
+    %tmp.5 = newc %tmp.8 (%tmp.9);
+    lputv %view.2 %tmp.5;
+    symbol [ view %view.2 706 8 12 ];
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 709 4 ]
+    %tmp.10 = lgetv %view.2;
+    symbol [ view %tmp.10 709 4 8 ];
+    symbol [ setRaceMode %tmp.11 709 9 20 ];
+    %tmp.11 = getv function %tmp.10 :setRaceMode;
+    %tmp.12 = "race";
+    invoke %tmp.10 %tmp.11(%tmp.12);
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 710 4 ]
+    symbol [ Test %tmp.13 710 4 8 ];
+    %tmp.13 = getm $.Toybox.Test;
+    symbol [ assertEqual %tmp.14 710 9 20 ];
+    %tmp.14 = getv function %tmp.13 :assertEqual;
+    symbol [ I18n %tmp.16 710 21 25 ];
+    %tmp.16 = getv ? :I18n;
+    symbol [ getText %tmp.17 710 26 33 ];
+    %tmp.17 = getv function %tmp.16 :getText;
+    %tmp.18 = "GRID_RANK";
+    %tmp.19 = invoke %tmp.16 %tmp.17(%tmp.18);
+    %tmp.20 = lgetv %view.2;
+    symbol [ view %tmp.20 710 48 52 ];
+    symbol [ getPage1BottomRightLabel %tmp.21 710 53 77 ];
+    %tmp.21 = getv function %tmp.20 :getPage1BottomRightLabel;
+    %tmp.22 = invoke %tmp.20 %tmp.21();
+    invoke %tmp.13 %tmp.14(%tmp.19, %tmp.22);
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 713 4 ]
+    symbol [ Test %tmp.23 713 4 8 ];
+    %tmp.23 = getm $.Toybox.Test;
+    symbol [ assertEqual %tmp.24 713 9 20 ];
+    %tmp.24 = getv function %tmp.23 :assertEqual;
+    %tmp.25 = "1";
+    %tmp.26 = lgetv %view.2;
+    symbol [ view %tmp.26 713 26 30 ];
+    symbol [ getPage1BottomRightValue %tmp.27 713 31 55 ];
+    %tmp.27 = getv function %tmp.26 :getPage1BottomRightValue;
+    %tmp.28 = invoke %tmp.26 %tmp.27();
+    invoke %tmp.23 %tmp.24(%tmp.25, %tmp.28);
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 716 4 ]
+    %tmp.29 = lgetv %view.2;
+    symbol [ view %tmp.29 716 4 8 ];
+    symbol [ setLiveRank %tmp.30 716 9 20 ];
+    %tmp.30 = getv function %tmp.29 :setLiveRank;
+    %tmp.31 = 0;
+    %tmp.32 = 0;
+    %tmp.33 = 0;
+    %tmp.34 = 0;
+    %tmp.35 = 0;
+    invoke %tmp.29 %tmp.30(%tmp.31, %tmp.32, %tmp.33, %tmp.34, %tmp.35);
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 717 4 ]
+    symbol [ Test %tmp.36 717 4 8 ];
+    %tmp.36 = getm $.Toybox.Test;
+    symbol [ assertEqual %tmp.37 717 9 20 ];
+    %tmp.37 = getv function %tmp.36 :assertEqual;
+    %tmp.38 = "--";
+    %tmp.39 = lgetv %view.2;
+    symbol [ view %tmp.39 717 27 31 ];
+    symbol [ getPage1BottomRightValue %tmp.40 717 32 56 ];
+    %tmp.40 = getv function %tmp.39 :getPage1BottomRightValue;
+    %tmp.41 = invoke %tmp.39 %tmp.40();
+    invoke %tmp.36 %tmp.37(%tmp.38, %tmp.41);
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 720 4 ]
+    %tmp.42 = lgetv %view.2;
+    symbol [ view %tmp.42 720 4 8 ];
+    symbol [ setLiveRank %tmp.43 720 9 20 ];
+    %tmp.43 = getv function %tmp.42 :setLiveRank;
+    %tmp.44 = 1;
+    %tmp.45 = 4;
+    %tmp.46 = 0;
+    %tmp.47 = 0;
+    %tmp.48 = 15;
+    invoke %tmp.42 %tmp.43(%tmp.44, %tmp.45, %tmp.46, %tmp.47, %tmp.48);
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 721 4 ]
+    symbol [ Test %tmp.49 721 4 8 ];
+    %tmp.49 = getm $.Toybox.Test;
+    symbol [ assertEqual %tmp.50 721 9 20 ];
+    %tmp.50 = getv function %tmp.49 :assertEqual;
+    %tmp.51 = "1/4";
+    %tmp.52 = lgetv %view.2;
+    symbol [ view %tmp.52 721 28 32 ];
+    symbol [ getPage1BottomRightValue %tmp.53 721 33 57 ];
+    %tmp.53 = getv function %tmp.52 :getPage1BottomRightValue;
+    %tmp.54 = invoke %tmp.52 %tmp.53();
+    invoke %tmp.49 %tmp.50(%tmp.51, %tmp.54);
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 724 4 ]
+    %tmp.55 = lgetv %view.2;
+    symbol [ view %tmp.55 724 4 8 ];
+    symbol [ setLiveRank %tmp.56 724 9 20 ];
+    %tmp.56 = getv function %tmp.55 :setLiveRank;
+    %tmp.57 = 2;
+    %tmp.58 = 4;
+    %tmp.59 = 15;
+    %tmp.60 = 15;
+    %tmp.61 = 30;
+    invoke %tmp.55 %tmp.56(%tmp.57, %tmp.58, %tmp.59, %tmp.60, %tmp.61);
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 725 4 ]
+    symbol [ Test %tmp.62 725 4 8 ];
+    %tmp.62 = getm $.Toybox.Test;
+    symbol [ assertEqual %tmp.63 725 9 20 ];
+    %tmp.63 = getv function %tmp.62 :assertEqual;
+    %tmp.64 = "2/4";
+    %tmp.65 = lgetv %view.2;
+    symbol [ view %tmp.65 725 28 32 ];
+    symbol [ getPage1BottomRightValue %tmp.66 725 33 57 ];
+    %tmp.66 = getv function %tmp.65 :getPage1BottomRightValue;
+    %tmp.67 = invoke %tmp.65 %tmp.66();
+    invoke %tmp.62 %tmp.63(%tmp.64, %tmp.67);
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 728 4 ]
+    %tmp.68 = lgetv %view.2;
+    symbol [ view %tmp.68 728 4 8 ];
+    symbol [ setLiveRank %tmp.69 728 9 20 ];
+    %tmp.69 = getv function %tmp.68 :setLiveRank;
+    %tmp.70 = 1;
+    %tmp.71 = 1;
+    %tmp.72 = 0;
+    %tmp.73 = 0;
+    %tmp.74 = 0;
+    invoke %tmp.68 %tmp.69(%tmp.70, %tmp.71, %tmp.72, %tmp.73, %tmp.74);
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 729 4 ]
+    symbol [ Test %tmp.75 729 4 8 ];
+    %tmp.75 = getm $.Toybox.Test;
+    symbol [ assertEqual %tmp.76 729 9 20 ];
+    %tmp.76 = getv function %tmp.75 :assertEqual;
+    %tmp.77 = "1";
+    %tmp.78 = lgetv %view.2;
+    symbol [ view %tmp.78 729 26 30 ];
+    symbol [ getPage1BottomRightValue %tmp.79 729 31 55 ];
+    %tmp.79 = getv function %tmp.78 :getPage1BottomRightValue;
+    %tmp.80 = invoke %tmp.78 %tmp.79();
+    invoke %tmp.75 %tmp.76(%tmp.77, %tmp.80);
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 732 4 ]
+    %tmp.81 = lgetv %view.2;
+    symbol [ view %tmp.81 732 4 8 ];
+    symbol [ setRaceMode %tmp.82 732 9 20 ];
+    %tmp.82 = getv function %tmp.81 :setRaceMode;
+    %tmp.83 = "solo";
+    invoke %tmp.81 %tmp.82(%tmp.83);
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 733 4 ]
+    symbol [ Test %tmp.84 733 4 8 ];
+    %tmp.84 = getm $.Toybox.Test;
+    symbol [ assertEqual %tmp.85 733 9 20 ];
+    %tmp.85 = getv function %tmp.84 :assertEqual;
+    symbol [ I18n %tmp.87 733 21 25 ];
+    %tmp.87 = getv ? :I18n;
+    symbol [ getText %tmp.88 733 26 33 ];
+    %tmp.88 = getv function %tmp.87 :getText;
+    %tmp.89 = "GRID_REM";
+    %tmp.90 = invoke %tmp.87 %tmp.88(%tmp.89);
+    %tmp.91 = lgetv %view.2;
+    symbol [ view %tmp.91 733 47 51 ];
+    symbol [ getPage1BottomRightLabel %tmp.92 733 52 76 ];
+    %tmp.92 = getv function %tmp.91 :getPage1BottomRightLabel;
+    %tmp.93 = invoke %tmp.91 %tmp.92();
+    invoke %tmp.84 %tmp.85(%tmp.90, %tmp.93);
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 734 4 ]
+    %tmp.94 = lgetv %view.2;
+    symbol [ view %tmp.94 734 4 8 ];
+    symbol [ setLobbyInfo %tmp.95 734 9 21 ];
+    %tmp.95 = getv function %tmp.94 :setLobbyInfo;
+    %tmp.96 = 0;
+    %tmp.97 = 1;
+    %tmp.98 = 2000;
+    invoke %tmp.94 %tmp.95(%tmp.96, %tmp.97, %tmp.98);
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 735 4 ]
+    %tmp.99 = lgetv %view.2;
+    symbol [ view %tmp.99 735 4 8 ];
+    symbol [ updateRowerData %tmp.100 735 9 24 ];
+    %tmp.100 = getv function %tmp.99 :updateRowerData;
+    %tmp.101 = lgetv %model.1;
+    symbol [ model %tmp.101 735 25 30 ];
+    %tmp.102 = 350;
+    %tmp.103 = 17.5f;
+    invoke %tmp.99 %tmp.100(%tmp.101, %tmp.102, %tmp.103);
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 736 4 ]
+    symbol [ Test %tmp.104 736 4 8 ];
+    %tmp.104 = getm $.Toybox.Test;
+    symbol [ assertEqual %tmp.105 736 9 20 ];
+    %tmp.105 = getv function %tmp.104 :assertEqual;
+    %tmp.106 = "1650";
+    %tmp.107 = lgetv %view.2;
+    symbol [ view %tmp.107 736 29 33 ];
+    symbol [ getPage1BottomRightValue %tmp.108 736 34 58 ];
+    %tmp.108 = getv function %tmp.107 :getPage1BottomRightValue;
+    %tmp.109 = invoke %tmp.107 %tmp.108();
+    invoke %tmp.104 %tmp.105(%tmp.106, %tmp.109);
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 738 4 ]
+    %tmp.110 = true;
+    ret %tmp.110;
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerPowerTest_mc_704_81_739_0_stop:
+}
+//! Regression test 25: Player login and Kayak identification on Garmin watch
+[ @file = "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc"; @line = 743; test = true; @symbol_functiondef = [testKayakLoginAndIdentification,743,9,40]; @symbol_param<0> = [logger,743,41,47]; @symbol_param<0>_type<0> = [Logger,743,51,57]; @symbol_return<0> = [Boolean,743,62,69]; ]
+function testKayakLoginAndIdentification(logger as Logger) as Boolean {
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerPowerTest_mc_743_70_762_0_start:
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 744 4 ]
+    [ "C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerPowerTest_mc_743_70_762_0_start" "C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerPowerTest_mc_743_70_762_0_stop" ]
+    %model.1 = local;
+    symbol [ model %model.1 744 8 13 ];
+    symbol [ RowerDataModel %tmp.4 744 20 34 ];
+    %tmp.4 = getv ? :RowerDataModel;
+    %tmp.1 = newc %tmp.4 ();
+    lputv %model.1 %tmp.1;
+    symbol [ model %model.1 744 8 13 ];
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 745 4 ]
+    [ "C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerPowerTest_mc_743_70_762_0_start" "C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerPowerTest_mc_743_70_762_0_stop" ]
+    %view.2 = local;
+    symbol [ view %view.2 745 8 12 ];
+    symbol [ RowerView %tmp.8 745 19 28 ];
+    %tmp.8 = getv ? :RowerView;
+    %tmp.9 = lgetv %model.1;
+    symbol [ model %tmp.9 745 29 34 ];
+    %tmp.5 = newc %tmp.8 (%tmp.9);
+    lputv %view.2 %tmp.5;
+    symbol [ view %view.2 745 8 12 ];
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 748 4 ]
+    symbol [ Test %tmp.10 748 4 8 ];
+    %tmp.10 = getm $.Toybox.Test;
+    symbol [ assertEqual %tmp.11 748 9 20 ];
+    %tmp.11 = getv function %tmp.10 :assertEqual;
+    %tmp.12 = 1;
+    %tmp.13 = lgetv %view.2;
+    symbol [ view %tmp.13 748 24 28 ];
+    symbol [ getAssignedLane %tmp.14 748 29 44 ];
+    %tmp.14 = getv function %tmp.13 :getAssignedLane;
+    %tmp.15 = invoke %tmp.13 %tmp.14();
+    invoke %tmp.10 %tmp.11(%tmp.12, %tmp.15);
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 749 4 ]
+    [ "C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerPowerTest_mc_743_70_762_0_start" "C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerPowerTest_mc_743_70_762_0_stop" ]
+    %initialLogin.3 = local;
+    symbol [ initialLogin %initialLogin.3 749 8 20 ];
+    %tmp.16 = lgetv %view.2;
+    symbol [ view %tmp.16 749 23 27 ];
+    symbol [ getUserLogin %tmp.17 749 28 40 ];
+    %tmp.17 = getv function %tmp.16 :getUserLogin;
+    %tmp.18 = invoke %tmp.16 %tmp.17();
+    lputv %initialLogin.3 %tmp.18;
+    symbol [ initialLogin %initialLogin.3 749 8 20 ];
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 750 4 ]
+    symbol [ Test %tmp.19 750 4 8 ];
+    %tmp.19 = getm $.Toybox.Test;
+    symbol [ assert %tmp.20 750 9 15 ];
+    %tmp.20 = getv function %tmp.19 :assert;
+    %tmp.21 = lgetv %initialLogin.3;
+    symbol [ initialLogin %tmp.21 750 16 28 ];
+    symbol [ length %tmp.22 750 29 35 ];
+    %tmp.22 = getv function %tmp.21 :length;
+    %tmp.23 = invoke %tmp.21 %tmp.22();
+    %tmp.24 = 0;
+    %tmp.25 = gt %tmp.23 %tmp.24;
+    invoke %tmp.19 %tmp.20(%tmp.25);
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 753 4 ]
+    symbol [ UserManager %tmp.27 753 4 15 ];
+    %tmp.27 = getv ? :UserManager;
+    symbol [ setGuestPseudo %tmp.28 753 16 30 ];
+    %tmp.28 = getv function %tmp.27 :setGuestPseudo;
+    %tmp.29 = "KayakMaster";
+    invoke %tmp.27 %tmp.28(%tmp.29);
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 754 4 ]
+    symbol [ Test %tmp.30 754 4 8 ];
+    %tmp.30 = getm $.Toybox.Test;
+    symbol [ assertEqual %tmp.31 754 9 20 ];
+    %tmp.31 = getv function %tmp.30 :assertEqual;
+    %tmp.32 = "KayakMaster";
+    %tmp.33 = lgetv %view.2;
+    symbol [ view %tmp.33 754 36 40 ];
+    symbol [ getUserLogin %tmp.34 754 41 53 ];
+    %tmp.34 = getv function %tmp.33 :getUserLogin;
+    %tmp.35 = invoke %tmp.33 %tmp.34();
+    invoke %tmp.30 %tmp.31(%tmp.32, %tmp.35);
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 755 4 ]
+    symbol [ Test %tmp.36 755 4 8 ];
+    %tmp.36 = getm $.Toybox.Test;
+    symbol [ assertEqual %tmp.37 755 9 20 ];
+    %tmp.37 = getv function %tmp.36 :assertEqual;
+    %tmp.38 = "KayakMaster";
+    symbol [ UserManager %tmp.40 755 36 47 ];
+    %tmp.40 = getv ? :UserManager;
+    symbol [ getDisplayPseudo %tmp.41 755 48 64 ];
+    %tmp.41 = getv function %tmp.40 :getDisplayPseudo;
+    %tmp.42 = invoke %tmp.40 %tmp.41();
+    invoke %tmp.36 %tmp.37(%tmp.38, %tmp.42);
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 758 4 ]
+    %tmp.43 = lgetv %view.2;
+    symbol [ view %tmp.43 758 4 8 ];
+    symbol [ setAssignedLane %tmp.44 758 9 24 ];
+    %tmp.44 = getv function %tmp.43 :setAssignedLane;
+    %tmp.45 = 3;
+    invoke %tmp.43 %tmp.44(%tmp.45);
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 759 4 ]
+    symbol [ Test %tmp.46 759 4 8 ];
+    %tmp.46 = getm $.Toybox.Test;
+    symbol [ assertEqual %tmp.47 759 9 20 ];
+    %tmp.47 = getv function %tmp.46 :assertEqual;
+    %tmp.48 = 3;
+    %tmp.49 = lgetv %view.2;
+    symbol [ view %tmp.49 759 24 28 ];
+    symbol [ getAssignedLane %tmp.50 759 29 44 ];
+    %tmp.50 = getv function %tmp.49 :getAssignedLane;
+    %tmp.51 = invoke %tmp.49 %tmp.50();
+    invoke %tmp.46 %tmp.47(%tmp.48, %tmp.51);
+[ "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc" 761 4 ]
+    %tmp.52 = true;
+    ret %tmp.52;
+C__Users_Emma_repos_connectiq_rower2backend_garmin_source_RowerPowerTest_mc_743_70_762_0_stop:
 }
 [ @file = "C:\Users\Emma\repos\connectiq\rower2backend\garmin\source\RowerPowerTest.mc"; @line = 1; ]
 <init> {

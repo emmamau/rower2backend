@@ -1162,8 +1162,8 @@ export class TelemetryController {
         success: true,
         isWatchConnected: hasPairedWatch || isUserAdmin,
         isUserAdmin,
-        tier: tierId,
-        tierName: tierConfig.name,
+        tier: isUserAdmin ? "admin" : tierId,
+        tierName: isUserAdmin ? "Administrateur" : tierConfig.name,
         concurrent: {
           current: activeCount,
           max: maxConcurrent,

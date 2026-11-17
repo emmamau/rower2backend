@@ -686,7 +686,7 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
     const boatCount = Math.max(1, this.boatsMap.size);
 
     const isSmallLandscape = (typeof window !== 'undefined' && window.innerHeight <= 500) || this.cssHeight <= 320;
-    const topOffset = isSmallLandscape ? 16 : (isCompact ? 22 : 36);
+    const topOffset = isSmallLandscape ? 24 : (isCompact ? 38 : 46);
     const bottomPad = isSmallLandscape ? 8 : (isCompact ? 12 : 20);
     const availableLaneH = Math.max(20, this.cssHeight - topOffset - bottomPad);
     const maxLaneH = isSmallLandscape ? 38 : 46;
@@ -898,7 +898,7 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
     const boatCount = Math.max(1, this.boatsMap.size);
 
     const isSmallLandscape = (typeof window !== 'undefined' && window.innerHeight <= 500) || h <= 320;
-    const topOffset = isSmallLandscape ? 16 : (isCompact ? 22 : 36);
+    const topOffset = isSmallLandscape ? 24 : (isCompact ? 38 : 46);
     const bottomPad = isSmallLandscape ? 8 : (isCompact ? 12 : 20);
     const availableLaneH = Math.max(20, h - topOffset - bottomPad);
     const maxLaneH = isSmallLandscape ? 38 : 46;
@@ -1189,7 +1189,8 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
       if (isUser || isFocused) {
         // Flèche animée qui flotte au-dessus du bateau
         const arrowBounce = Math.sin(nowSec * 5.5) * 3;
-        const arrowY = y - 18 + arrowBounce;
+        const rawArrowY = y - 18 + arrowBounce;
+        const arrowY = Math.max(22, rawArrowY);
         ctx.fillStyle = isUser ? '#00f0ff' : '#ffe600';
         ctx.beginPath();
         ctx.moveTo(x, arrowY + 4);
@@ -1203,7 +1204,8 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
         ctx.font = isCompact ? 'bold 10px sans-serif' : 'bold 11px sans-serif';
         const btw = ctx.measureText(bannerLabel).width;
         const bx = Math.max(6, Math.min(w - btw - 14, x - btw / 2));
-        const by = arrowY - 14;
+        // Sécurité anti-débordement bord supérieur du canevas pour la première ligne d'eau
+        const by = Math.max(14, arrowY - 14);
 
         // Fond bannière
         ctx.fillStyle = 'rgba(6, 15, 33, 0.88)';
@@ -1221,7 +1223,9 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
         ctx.fillStyle = '#ffffff';
         const tw = ctx.measureText(text).width;
         const lx = Math.max(6, Math.min(w - tw - 6, x - tw / 2));
-        ctx.fillText(text, lx, y - 9);
+        // Sécurité anti-débordement bord supérieur du canevas pour la première ligne d'eau
+        const ly = Math.max(12, y - 9);
+        ctx.fillText(text, lx, ly);
       }
 
       // =========================================================================
@@ -1252,10 +1256,19 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
         const badgeW = badgeTextWidth + padX * 2;
         const badgeH = Math.min(18, Math.max(14, laneH * 0.68));
 
-        // Positionné directement devant la proue du bateau dans sa ligne d'eau
-        const desiredBadgeX = x + hullRx + (isCompact ? 8 : 12);
-        // Sécurité anti-débordement bord droit du canvas
-        const badgeX = Math.min(desiredBadgeX, Math.max(x + hullRx + 4, w - badgeW - 6));
+        // Positionnement : à l'avant du kayak par défaut, à l'arrière si débordement bord droit
+        const gap = isCompact ? 8 : 12;
+        const frontBadgeX = x + hullRx + gap;
+        let badgeX = frontBadgeX;
+
+        // Si l'info placée à l'avant dépasse le cadre du canevas quand le joueur s'approche de l'arrivée,
+        // placer alors l'info à l'arrière du kayak
+        if (frontBadgeX + badgeW > w - 6) {
+          badgeX = x - hullRx - gap - badgeW;
+          if (badgeX < 4) {
+            badgeX = 4;
+          }
+        }
         const badgeY = y - badgeH / 2;
 
         // Tracé du badge pilule

@@ -352,6 +352,61 @@
         class="priv-panel">
         <form class="priv-form" (ngSubmit)="onCreateRoomSubmit()" novalidate>
 
+          <!-- EN-TÊTE QUOTAS : NOMBRE DE SALONS POUVANT ENCORE ÊTRE CRÉÉS SELON L'OFFRE -->
+          <div class="priv-quota-summary-card" role="region" aria-label="Quotas de création de salons selon votre offre">
+            <div class="priv-quota-header-row">
+              <div class="priv-quota-tier-badge">
+                <span class="tier-badge-icon">{{ isUserAdmin ? '👑' : (isSubscriber ? '⭐' : '🛶') }}</span>
+                <span class="tier-badge-label">Votre offre :</span>
+                <strong class="tier-badge-name">{{ userOfferName }}</strong>
+              </div>
+              <span class="priv-quota-status-tag" [class.is-ok]="!isConcurrentQuotaReached && !isWeeklyQuotaReached" [class.is-limit]="isConcurrentQuotaReached || isWeeklyQuotaReached">
+                {{ isUserAdmin ? 'Accès Illimité' : (isConcurrentQuotaReached || isWeeklyQuotaReached ? 'Quota atteint' : 'Création disponible') }}
+              </span>
+            </div>
+
+            <div class="priv-quota-pills-row">
+              <!-- Quota 1 : Salons en parallèle disponibles -->
+              <div class="priv-quota-pill" [class.is-exhausted]="isConcurrentQuotaReached">
+                <span class="quota-icon">🔄</span>
+                <div class="quota-text">
+                  <span class="quota-label">Salons en parallèle disponibles :</span>
+                  <span class="quota-val">
+                    <strong>{{ concurrentRoomsAvailable }}</strong>
+                    @if (!isUserAdmin) {
+                      <span class="quota-sub"> restant{{ concurrentRoomsAvailable !== 1 ? 's' : '' }} (sur {{ concurrentRoomsMax }} max autorisés)</span>
+                    }
+                  </span>
+                </div>
+              </div>
+
+              <!-- Quota 2 : Salons dans la semaine pouvant encore être ouverts -->
+              <div class="priv-quota-pill" [class.is-exhausted]="isWeeklyQuotaReached">
+                <span class="quota-icon">📅</span>
+                <div class="quota-text">
+                  <span class="quota-label">Salons dans la semaine pouvant encore être ouverts :</span>
+                  <span class="quota-val">
+                    <strong>{{ weeklyRoomsAvailable }}</strong>
+                    @if (!isUserAdmin) {
+                      <span class="quota-sub"> restant{{ weeklyRoomsAvailable !== 1 ? 's' : '' }} (sur {{ weeklyRoomsMax }} max autorisés)</span>
+                    }
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Message d'alerte en cas de quota atteint -->
+            @if (!isUserAdmin && (isConcurrentQuotaReached || isWeeklyQuotaReached)) {
+              <div class="priv-quota-warning-strip">
+                @if (isConcurrentQuotaReached) {
+                  <span>⚠️ Limite atteinte : vous avez déjà {{ concurrentRoomsMax }} salon(s) ouvert(s) à la fois. Fermez un salon existant avant d'en ouvrir un nouveau.</span>
+                } @else if (isWeeklyQuotaReached) {
+                  <span>⚠️ Quota hebdomadaire atteint ({{ weeklyRoomsMax }} salons max cette semaine selon votre {{ userOfferName }}). Réinitialisation chaque lundi.</span>
+                }
+              </div>
+            }
+          </div>
+
           <!-- 1. SÉLECTION DIRECTE DES 4 MODES DE JEU -->
           <div class="priv-mode-selection-grid" role="radiogroup" aria-label="Choisir le format de course">
             <!-- CARTE 1 : ENTRAÎNEMENT SOLO -->
@@ -573,29 +628,6 @@
             </div>
           }
 
-          <!-- INDICATEURS DES QUOTAS DE SALONS (SIMULTANÉS ET HEBDOMADAIRES) -->
-          @if (quotaInfo && !isUserAdmin) {
-            <div class="priv-quota-summary-card">
-              <div class="priv-quota-pill" [class.is-exhausted]="quotaInfo.concurrent.remaining <= 0">
-                <span class="quota-icon">🔄</span>
-                <div class="quota-text">
-                  <strong class="quota-label">Salons ouverts à la fois :</strong>
-                  <span class="quota-val">
-                    {{ quotaInfo.concurrent.remaining }} restant{{ quotaInfo.concurrent.remaining > 1 ? 's' : '' }} ({{ quotaInfo.concurrent.current }} / {{ quotaInfo.concurrent.max }} max)
-                  </span>
-                </div>
-              </div>
-              <div class="priv-quota-pill" [class.is-exhausted]="quotaInfo.weekly.remaining <= 0">
-                <span class="quota-icon">📅</span>
-                <div class="quota-text">
-                  <strong class="quota-label">Salons cette semaine :</strong>
-                  <span class="quota-val">
-                    {{ quotaInfo.weekly.remaining }} restant{{ quotaInfo.weekly.remaining > 1 ? 's' : '' }} ({{ quotaInfo.weekly.current }} / {{ quotaInfo.weekly.max }} max)
-                  </span>
-                </div>
-              </div>
-            </div>
-          }
 
           @if (createGeneralError) {
             <p class="priv-error-msg" role="alert">⚠️ {{ createGeneralError }}</p>

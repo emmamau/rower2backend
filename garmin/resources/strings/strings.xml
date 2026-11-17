@@ -6,7 +6,7 @@
     <string id="StatusScanning">BLE: Scanning...</string>
     <string id="StatusConnected">BLE: Connected</string>
 
-    <!-- FIT Contributions -->
+    <!-- FIT Contributions (Session Summary) -->
     <string id="FitRaceRankLabel">Race Rank</string>
     <string id="FitRaceRankUnits">pos</string>
     <string id="FitRacePointsLabel">League Points</string>
@@ -14,7 +14,7 @@
     <string id="FitOfficialDistLabel">Race Distance</string>
     <string id="FitOfficialDistUnits">m</string>
     <string id="FitAvgPaceLabel">Avg Split 500m</string>
-    <string id="FitAvgPaceUnits">mm:ss/500m</string>
+    <string id="FitAvgPaceUnits"></string>
     <string id="FitAvgPowerLabel">Avg Power</string>
     <string id="FitAvgPowerUnits">W</string>
     <string id="FitMaxPowerLabel">Max Power</string>
@@ -23,4 +23,22 @@
     <string id="FitAvgCadenceUnits">spm</string>
     <string id="FitMaxCadenceLabel">Max Cadence</string>
     <string id="FitMaxCadenceUnits">spm</string>
+
+    <!-- FIT Contributions (Record Charts - IDs 8-15) -->
+    <string id="FitRecPowerLabel">Power</string>
+    <string id="FitRecPowerUnits">W</string>
+    <string id="FitRecCadenceLabel">Cadence</string>
+    <string id="FitRecCadenceUnits">spm</string>
+    <string id="FitRecPaceLabel">Split 500m</string>
+    <string id="FitRecPaceUnits">s</string>
+    <string id="FitRecDistLabel">Distance</string>
+    <string id="FitRecDistUnits">m</string>
+    <string id="FitRecStrokesLabel">Strokes</string>
+    <string id="FitRecStrokesUnits">str</string>
+    <string id="FitRecForceLabel">Peak Force</string>
+    <string id="FitRecForceUnits">N</string>
+    <string id="FitRecWorkLabel">Stroke Work</string>
+    <string id="FitRecWorkUnits">J</string>
+    <string id="FitRecHandleLabel">Drive Length</string>
+    <string id="FitRecHandleUnits">cm</string>
 </resources>

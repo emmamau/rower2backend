@@ -3301,17 +3301,28 @@ input[type="number"]:focus { border-color: var(--neon-cyan); box-shadow: 0 0 10p
     inline-size: 100%;
     justify-content: space-between;
   }
-  .user-nav-cluster .player-card {
+  .user-nav-cluster .player-card,
+  .user-nav-cluster .guest-hero-pill {
     inline-size: 100%;
   }
   .user-nav-cluster .btn-config-unified {
     flex: 1 1 100%;
     text-align: center;
   }
+  .user-nav-cluster .btn-admin-backoffice,
   .user-nav-cluster .btn-private,
+  .user-nav-cluster .btn-stats,
   .user-nav-cluster .btn-pricing {
     flex: 1 1 calc(50% - 0.4rem);
+    min-width: 0;
+    box-sizing: border-box;
     text-align: center;
+    justify-content: center;
+    padding: 0.45rem 0.5rem;
+    font-size: 0.74rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .user-nav-cluster .btn-stop-race {
     inline-size: 100%;
@@ -3338,6 +3349,13 @@ input[type="number"]:focus { border-color: var(--neon-cyan); box-shadow: 0 0 10p
 }
 
 @media (max-width: 480px) {
+  .user-nav-cluster .btn-admin-backoffice,
+  .user-nav-cluster .btn-private,
+  .user-nav-cluster .btn-stats,
+  .user-nav-cluster .btn-pricing {
+    font-size: 0.70rem;
+    padding: 0.4rem 0.35rem;
+  }
   .hero-schedule-cluster .hero-fullscreen {
     padding-inline: 0.55rem;
     font-size: 0.74rem;
@@ -5058,6 +5076,204 @@ body.rigid-viewport {
 @keyframes bounceFinish {
   from { transform: translateY(0); }
   to { transform: translateY(-3px); }
+}
+
+/* ==========================================================================
+   CÉLÉBRATION FRANCHISSEMENT DE LIGNE : FEUX D'ARTIFICE ET "BRAVO !" (2 SECONDES)
+   ========================================================================== */
+.finish-celebration-fullscreen-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 110000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at center, rgba(8, 16, 36, 0.88) 0%, rgba(3, 7, 18, 0.96) 100%);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  pointer-events: auto;
+  overflow: hidden;
+  animation: celebrationOverlayFade 2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes celebrationOverlayFade {
+  0% { opacity: 0; transform: scale(0.96); }
+  10% { opacity: 1; transform: scale(1); }
+  85% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1.04); }
+}
+
+.celebration-center-content {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 1.5rem 2rem;
+  pointer-events: none;
+}
+
+.celebration-trophy-icon {
+  font-size: clamp(2.8rem, 6vw, 4.5rem);
+  line-height: 1;
+  margin-bottom: 0.5rem;
+  filter: drop-shadow(0 0 24px rgba(255, 230, 0, 0.85));
+  animation: celebrationTrophyPop 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) both;
+}
+
+@keyframes celebrationTrophyPop {
+  0% { transform: scale(0) rotate(-20deg); opacity: 0; }
+  60% { transform: scale(1.25) rotate(8deg); opacity: 1; }
+  100% { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+
+.celebration-bravo-title {
+  margin: 0;
+  font-family: var(--font-race), var(--font-main), sans-serif;
+  font-size: clamp(3.2rem, 10vw, 7.5rem);
+  font-weight: 900;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  background: linear-gradient(135deg, #ffffff 0%, #ffe600 35%, #00f0ff 75%, #ff0055 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 0 35px rgba(255, 230, 0, 0.85)) drop-shadow(0 0 60px rgba(0, 240, 255, 0.75));
+  animation: celebrationBravoPulse 1.2s ease-in-out infinite alternate;
+}
+
+@keyframes celebrationBravoPulse {
+  0% { transform: scale(0.97); filter: drop-shadow(0 0 30px rgba(255, 230, 0, 0.75)) drop-shadow(0 0 50px rgba(0, 240, 255, 0.65)); }
+  100% { transform: scale(1.05); filter: drop-shadow(0 0 45px rgba(255, 230, 0, 0.95)) drop-shadow(0 0 80px rgba(0, 240, 255, 0.9)); }
+}
+
+.celebration-bravo-subtitle {
+  margin-top: 0.65rem;
+  font-family: var(--font-race), monospace;
+  font-size: clamp(0.95rem, 2.4vw, 1.45rem);
+  font-weight: 700;
+  letter-spacing: 2px;
+  color: #a5f3fc;
+  text-transform: uppercase;
+  text-shadow: 0 0 16px rgba(0, 240, 255, 0.8);
+  animation: celebrationSubFade 0.6s ease-out 0.2s both;
+}
+
+@keyframes celebrationSubFade {
+  0% { opacity: 0; transform: translateY(12px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+/* Back-drop d'animation des feux d'artifice */
+.fireworks-canvas-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.firework-burst {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  animation: fireworkSpark 1.6s ease-out infinite;
+}
+
+.firework-burst.burst-1 {
+  top: 25%;
+  left: 20%;
+  --spark-c1: #ffe600;
+  --spark-c2: #ff0055;
+  --spark-c3: #00f0ff;
+  animation-delay: 0.1s;
+}
+
+.firework-burst.burst-2 {
+  top: 22%;
+  right: 22%;
+  --spark-c1: #00f0ff;
+  --spark-c2: #38bdf8;
+  --spark-c3: #ffffff;
+  animation-delay: 0.35s;
+}
+
+.firework-burst.burst-3 {
+  top: 48%;
+  left: 14%;
+  --spark-c1: #ff007f;
+  --spark-c2: #ffe600;
+  --spark-c3: #a855f7;
+  animation-delay: 0.25s;
+}
+
+.firework-burst.burst-4 {
+  top: 50%;
+  right: 15%;
+  --spark-c1: #00f0ff;
+  --spark-c2: #10b981;
+  --spark-c3: #ffe600;
+  animation-delay: 0.5s;
+}
+
+.firework-burst.burst-5 {
+  top: 72%;
+  left: 28%;
+  --spark-c1: #fbbf24;
+  --spark-c2: #f43f5e;
+  --spark-c3: #00f0ff;
+  animation-delay: 0.4s;
+}
+
+.firework-burst.burst-6 {
+  top: 70%;
+  right: 26%;
+  --spark-c1: #38bdf8;
+  --spark-c2: #c084fc;
+  --spark-c3: #ffe600;
+  animation-delay: 0.6s;
+}
+
+@keyframes fireworkSpark {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+    box-shadow:
+      0 0 0 0 var(--spark-c1, #ffe600),
+      0 0 0 0 var(--spark-c2, #ff0055),
+      0 0 0 0 var(--spark-c3, #00f0ff);
+  }
+  40% {
+    opacity: 0.95;
+    box-shadow:
+      0 -45px 12px 2px var(--spark-c1, #ffe600),
+      38px -30px 10px 2px var(--spark-c2, #ff0055),
+      48px 10px 12px 2px var(--spark-c3, #00f0ff),
+      25px 42px 10px 2px var(--spark-c1, #ffe600),
+      -25px 42px 12px 2px var(--spark-c2, #ff0055),
+      -48px 10px 10px 2px var(--spark-c3, #00f0ff),
+      -38px -30px 12px 2px var(--spark-c1, #ffe600),
+      0 55px 14px 2px var(--spark-c2, #ff0055),
+      -55px -15px 12px 2px var(--spark-c3, #00f0ff),
+      55px -15px 12px 2px var(--spark-c1, #ffe600);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.6);
+    box-shadow:
+      0 -85px 18px 4px var(--spark-c1, #ffe600),
+      70px -55px 16px 4px var(--spark-c2, #ff0055),
+      90px 20px 18px 4px var(--spark-c3, #00f0ff),
+      50px 75px 16px 4px var(--spark-c1, #ffe600),
+      -50px 75px 18px 4px var(--spark-c2, #ff0055),
+      -90px 20px 16px 4px var(--spark-c3, #00f0ff),
+      -70px -55px 18px 4px var(--spark-c1, #ffe600),
+      0 100px 20px 4px var(--spark-c2, #ff0055),
+      -100px -30px 18px 4px var(--spark-c3, #00f0ff),
+      100px -30px 18px 4px var(--spark-c1, #ffe600);
+  }
 }
 
 .cockpit-player-select-card {

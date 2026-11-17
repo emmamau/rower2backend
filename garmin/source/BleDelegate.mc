@@ -103,6 +103,16 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
     private var _fitFieldAvgCadence as FitContributor.Field?;
     private var _fitFieldMaxCadence as FitContributor.Field?;
 
+    // FitContributor developer record fields (continuous charts)
+    private var _fitFieldRecPower as FitContributor.Field?;
+    private var _fitFieldRecCadence as FitContributor.Field?;
+    private var _fitFieldRecPace as FitContributor.Field?;
+    private var _fitFieldRecDistance as FitContributor.Field?;
+    private var _fitFieldRecStrokes as FitContributor.Field?;
+    private var _fitFieldRecForce as FitContributor.Field?;
+    private var _fitFieldRecWork as FitContributor.Field?;
+    private var _fitFieldRecHandleLength as FitContributor.Field?;
+
     public function initialize(model as RowerDataModel) {
         BleDelegate.initialize();
         _model = model;
@@ -924,6 +934,11 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
 
         // Update race progress if dead-reckoning advanced distance
         if (state == RowerView.STATE_RACING || state == RowerView.STATE_LATE_JOIN) {
+            // Write 1Hz continuous telemetry to .FIT activity file
+            if (_activityStatus.equals("in_progress") && _session != null && (_session as ActivityRecording.Session).isRecording()) {
+                populateFitRecordFields();
+            }
+
             if (_isFalseStartPenalized) {
                 var isRowerStopped = (_model.strokeRate == 0 && _model.instantPower == 0);
                 if (isRowerStopped) {
@@ -1145,6 +1160,7 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
         }
         var sess = _session as ActivityRecording.Session;
         try {
+            // Session Summary Fields (IDs 0-7)
             _fitFieldRaceRank = sess.createField("race_rank", 0, FitContributor.DATA_TYPE_UINT16, {
                 :mesgType => FitContributor.MESG_TYPE_SESSION,
                 :units => "pos"
@@ -1160,7 +1176,7 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
             _fitFieldAvgPace = sess.createField("avg_split_500m", 3, FitContributor.DATA_TYPE_STRING, {
                 :mesgType => FitContributor.MESG_TYPE_SESSION,
                 :count => 16,
-                :units => "mm:ss/500m"
+                :units => ""
             });
             _fitFieldAvgPower = sess.createField("avg_power", 4, FitContributor.DATA_TYPE_UINT16, {
                 :mesgType => FitContributor.MESG_TYPE_SESSION,
@@ -1178,8 +1194,82 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
                 :mesgType => FitContributor.MESG_TYPE_SESSION,
                 :units => "spm"
             });
+
+            // Continuous Record Charts (IDs 8-15)
+            _fitFieldRecPower = sess.createField("power", 8, FitContributor.DATA_TYPE_UINT16, {
+                :mesgType => FitContributor.MESG_TYPE_RECORD,
+                :units => "W"
+            });
+            _fitFieldRecCadence = sess.createField("stroke_rate", 9, FitContributor.DATA_TYPE_UINT8, {
+                :mesgType => FitContributor.MESG_TYPE_RECORD,
+                :units => "spm"
+            });
+            _fitFieldRecPace = sess.createField("instant_pace", 10, FitContributor.DATA_TYPE_UINT16, {
+                :mesgType => FitContributor.MESG_TYPE_RECORD,
+                :units => "s"
+            });
+            _fitFieldRecDistance = sess.createField("distance", 11, FitContributor.DATA_TYPE_UINT32, {
+                :mesgType => FitContributor.MESG_TYPE_RECORD,
+                :units => "m"
+            });
+            _fitFieldRecStrokes = sess.createField("stroke_count", 12, FitContributor.DATA_TYPE_UINT16, {
+                :mesgType => FitContributor.MESG_TYPE_RECORD,
+                :units => "str"
+            });
+            _fitFieldRecForce = sess.createField("stroke_force", 13, FitContributor.DATA_TYPE_UINT16, {
+                :mesgType => FitContributor.MESG_TYPE_RECORD,
+                :units => "N"
+            });
+            _fitFieldRecWork = sess.createField("stroke_work", 14, FitContributor.DATA_TYPE_FLOAT, {
+                :mesgType => FitContributor.MESG_TYPE_RECORD,
+                :units => "J"
+            });
+            _fitFieldRecHandleLength = sess.createField("handle_length", 15, FitContributor.DATA_TYPE_UINT16, {
+                :mesgType => FitContributor.MESG_TYPE_RECORD,
+                :units => "cm"
+            });
         } catch (ex) {
             System.println("FitContributor createField error: " + ex.getErrorMessage());
+        }
+    }
+
+    private function populateFitRecordFields() as Void {
+        if (_session == null) {
+            return;
+        }
+        try {
+            if (_fitFieldRecPower != null) {
+                (_fitFieldRecPower as FitContributor.Field).setData(_model.instantPower);
+            }
+            if (_fitFieldRecCadence != null) {
+                (_fitFieldRecCadence as FitContributor.Field).setData(_model.strokeRate.toNumber());
+            }
+            if (_fitFieldRecPace != null) {
+                var p = _model.instantPace;
+                if (p > 0 && p < 1800) {
+                    (_fitFieldRecPace as FitContributor.Field).setData(p);
+                } else {
+                    (_fitFieldRecPace as FitContributor.Field).setData(0);
+                }
+            }
+            if (_fitFieldRecDistance != null) {
+                var dist = (_targetDistance > 0 && _model.totalDistance >= _targetDistance) ? _targetDistance : _model.totalDistance;
+                (_fitFieldRecDistance as FitContributor.Field).setData(dist);
+            }
+            if (_fitFieldRecStrokes != null) {
+                (_fitFieldRecStrokes as FitContributor.Field).setData(_model.strokeCount);
+            }
+            if (_fitFieldRecForce != null) {
+                (_fitFieldRecForce as FitContributor.Field).setData(_model.force);
+            }
+            if (_fitFieldRecWork != null) {
+                (_fitFieldRecWork as FitContributor.Field).setData(_model.work);
+            }
+            if (_fitFieldRecHandleLength != null) {
+                (_fitFieldRecHandleLength as FitContributor.Field).setData(_model.handleLengthCm);
+            }
+        } catch (ex) {
+            System.println("FitContributor record setData error: " + ex.getErrorMessage());
         }
     }
 
@@ -1200,11 +1290,11 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
             }
             if (_fitFieldAvgPace != null) {
                 var avgPaceSec = _model.getEffectiveAvgPace(_model.elapsedTime);
-                var formattedPace = "--:--/500m";
+                var formattedPace = "--:--";
                 if (avgPaceSec > 0 && avgPaceSec < 3600) {
                     var m = avgPaceSec / 60;
                     var s = avgPaceSec % 60;
-                    formattedPace = m.format("%d") + ":" + s.format("%02d") + "/500m";
+                    formattedPace = m.format("%d") + ":" + s.format("%02d");
                 }
                 (_fitFieldAvgPace as FitContributor.Field).setData(formattedPace);
             }

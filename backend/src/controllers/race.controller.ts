@@ -700,6 +700,8 @@ export const getRaceLeaderboard = async (req: Request, res: Response): Promise<v
           isPaired,
           status,
           chrono,
+          formattedDuration: chrono,
+          duration: chrono,
           elapsedTime: Number.isFinite(elapsed) ? elapsed : 0,
           avgPace: formattedPace,
           avgPaceSec: rawPace,
