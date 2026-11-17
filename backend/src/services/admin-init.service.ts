@@ -43,6 +43,15 @@ export class AdminInitService {
             IF NOT EXISTS (SELECT FROM information_schema.columns WHERE table_name = 'rower_race_users' AND column_name = 'subscription_tier') THEN
               ALTER TABLE rower_race_users ADD COLUMN subscription_tier VARCHAR(32) DEFAULT 'free';
             END IF;
+            IF NOT EXISTS (SELECT FROM information_schema.columns WHERE table_name = 'rower_race_users' AND column_name = 'is_subscriber') THEN
+              ALTER TABLE rower_race_users ADD COLUMN is_subscriber BOOLEAN DEFAULT FALSE;
+            END IF;
+            IF NOT EXISTS (SELECT FROM information_schema.columns WHERE table_name = 'rower_race_users' AND column_name = 'is_admin') THEN
+              ALTER TABLE rower_race_users ADD COLUMN is_admin BOOLEAN DEFAULT FALSE;
+            END IF;
+            IF NOT EXISTS (SELECT FROM information_schema.columns WHERE table_name = 'rower_race_users' AND column_name = 'subscription_status') THEN
+              ALTER TABLE rower_race_users ADD COLUMN subscription_status VARCHAR(32) DEFAULT 'none';
+            END IF;
           END IF;
 
           -- Colonnes sur users (si présente)

@@ -383,6 +383,8 @@ export class AdminController {
       }
 
       const targetUserId = String(user.id || (typeof user.get === "function" ? user.get("id") : targetId));
+      const userLogin = String(user.login || (typeof user.get === "function" ? user.get("login") : targetId));
+      const isAdminFlag = cleanRole === "ADMIN";
 
       // Si on retire le rôle ADMIN, s'assurer qu'il reste au moins un autre administrateur actif
       if (cleanRole === "USER") {
@@ -420,20 +422,40 @@ export class AdminController {
         if (typeof user.update === "function") {
           await user.update({
             role: cleanRole,
-            isAdmin: cleanRole === "ADMIN",
+            isAdmin: isAdminFlag,
           });
         }
       } catch {}
+
+      // Double-sauvegarde SQL directe pour garantir l'écriture en base
+      try {
+        await db.sequelize.query(
+          `UPDATE rower_race_users 
+           SET role = :role, 
+               is_admin = :isAdmin 
+           WHERE id = :id OR login = :id`,
+          {
+            replacements: { role: cleanRole, isAdmin: isAdminFlag, id: targetUserId }
+          }
+        );
+      } catch {}
+
       await userStore.updateUser(targetUserId, {
         role: cleanRole,
-        isAdmin: cleanRole === "ADMIN",
+        isAdmin: isAdminFlag,
       });
+      if (userLogin && userLogin !== targetUserId) {
+        await userStore.updateUser(userLogin, {
+          role: cleanRole,
+          isAdmin: isAdminFlag,
+        });
+      }
 
       const displayLogin = typeof user.get === "function" ? (user.get("login") || user.get("id")) : (user.login || user.id);
       res.status(200).json({
         success: true,
         message: `Rôle mis à jour (${cleanRole}) pour ${displayLogin}.`,
-        user: sanitizeAdminUser({ ...user, role: cleanRole, isAdmin: cleanRole === "ADMIN" }),
+        user: sanitizeAdminUser({ ...user, role: cleanRole, isAdmin: isAdminFlag }),
       });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
@@ -470,28 +492,52 @@ export class AdminController {
       }
 
       const targetUserId = String(user.id || (typeof user.get === "function" ? user.get("id") : targetId));
+      const userLogin = String(user.login || (typeof user.get === "function" ? user.get("login") : targetId));
       const isSub = cleanTier !== "free";
+      const status = isSub ? "active" : "none";
 
       try {
         if (typeof user.update === "function") {
           await user.update({
             subscriptionTier: cleanTier as any,
             isSubscriber: isSub,
-            subscriptionStatus: isSub ? "active" : "none",
+            subscriptionStatus: status,
           });
         }
       } catch {}
+
+      // Double-sauvegarde SQL directe pour garantir l'écriture en base
+      try {
+        await db.sequelize.query(
+          `UPDATE rower_race_users 
+           SET subscription_tier = :tier, 
+               is_subscriber = :isSub, 
+               subscription_status = :status 
+           WHERE id = :id OR login = :id`,
+          {
+            replacements: { tier: cleanTier, isSub, status, id: targetUserId }
+          }
+        );
+      } catch {}
+
       await userStore.updateUser(targetUserId, {
         subscriptionTier: cleanTier as any,
         isSubscriber: isSub,
-        subscriptionStatus: isSub ? "active" : "none",
+        subscriptionStatus: status,
       });
+      if (userLogin && userLogin !== targetUserId) {
+        await userStore.updateUser(userLogin, {
+          subscriptionTier: cleanTier as any,
+          isSubscriber: isSub,
+          subscriptionStatus: status,
+        });
+      }
 
       const displayLogin = typeof user.get === "function" ? (user.get("login") || user.get("id")) : (user.login || user.id);
       res.status(200).json({
         success: true,
         message: `Offre d'abonnement modifiée vers '${cleanTier}' pour ${displayLogin}.`,
-        user: sanitizeAdminUser({ ...user, subscriptionTier: cleanTier, isSubscriber: isSub }),
+        user: sanitizeAdminUser({ ...user, subscriptionTier: cleanTier, isSubscriber: isSub, subscriptionStatus: status }),
       });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);

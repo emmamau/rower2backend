@@ -433,13 +433,20 @@ export const getRaceHistory = async (_req: Request, res: Response): Promise<void
     const finishedRaces = await Races.findAll({
       where: {
         status: { [Op.in]: ["finished", "cancelled"] },
+        status: { [Op.in]: ["finished", "completed", "COMPLETED", "FINISHED"] },
       },
       order: [["startTime", "DESC"]],
       limit: 15,
+      limit: 25,
     });
 
     const result = [];
     for (const r of finishedRaces) {
+      const raceStatus = String(r.get("status") || "").toLowerCase();
+      if (["cancelled", "stopped", "aborted", "abandoned"].includes(raceStatus)) {
+        continue;
+      }
+
       const top3Activities = await Activities.findAll({
         where: {
           activityId: String(r.get("id")),
@@ -453,16 +460,33 @@ export const getRaceHistory = async (_req: Request, res: Response): Promise<void
         attributes: ["userId", "userName", "netDistance", "elapsedTime", "avgSpeedKmh", "status", "finalRank"],
       });
 
+      // Exclure les courses non menées à terme ou sans aucun participant
+      if (!top3Activities || top3Activities.length === 0) {
+        continue;
+      }
+      const hasAnyDistance = top3Activities.some((act: any) => {
+        const d = Number(act.get("netDistance")) || 0;
+        return d > 0;
+      });
+      if (!hasAnyDistance) {
+        continue;
+      }
+
       result.push({
         race: r,
         podium: top3Activities,
       });
+
+      if (result.length >= 15) {
+        break;
+      }
     }
 
     res.status(200).json(result);
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
-    res.status(500).json({ message: "Erreur historique courses: " + message });
+    console.error("[getRaceHistory] Error querying DB, returning empty list:", message);
+    res.status(200).json([]);
   }
 };
 
@@ -613,30 +637,48 @@ export const getRaceLeaderboard = async (req: Request, res: Response): Promise<v
 
         // Allure moyenne /500m
         let rawPace = Number(getVal("avgPace")) || Number(getVal("lastPace")) || 0;
+        // Allure moyenne /500m sécurisée
+        let rawPace = Number(getVal("avgPaceSec") ?? getVal("avgPace") ?? getVal("lastPace") ?? 0);
+        if (!Number.isFinite(rawPace) || rawPace < 0 || rawPace > 3600) {
+          rawPace = 0;
+        }
         if (!rawPace && dist > 0 && elapsed > 0) {
           rawPace = Math.round((elapsed / dist) * 500);
+        }
+        if (!Number.isFinite(rawPace) || rawPace < 0 || rawPace > 3600) {
+          rawPace = 0;
         }
         const paceM = Math.floor(rawPace / 60);
         const paceS = Math.floor(rawPace % 60);
         const formattedPace = rawPace > 0 ? `${paceM}'${paceS.toString().padStart(2, "0")}"` : "--";
+        const formattedPace = rawPace > 0 ? `${paceM}'${paceS.toString().padStart(2, "0")}"` : "--:--";
 
         // Chrono mm:ss
         const mins = Math.floor(elapsed / 60);
         const secs = Math.floor(elapsed % 60);
+        // Chrono mm:ss sécurisé
+        const mins = Number.isFinite(elapsed) && elapsed >= 0 ? Math.floor(elapsed / 60) : 0;
+        const secs = Number.isFinite(elapsed) && elapsed >= 0 ? Math.floor(elapsed % 60) : 0;
         const chrono = `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
 
         // Calcul de l'écart (gap)
         let gap = "-";
+        let gap = "--";
         if (status === "abandoned") {
           gap = "Abandon";
+        } else if (status === "out_of_time" || status === "dnf") {
+          gap = "DNF";
         } else if (idx === 0) {
           gap = isFinisher ? "Vainqueur" : (sortedActive.length > 0 ? "Leader" : "Non classé");
         } else if (isFinisher && leaderTime !== null) {
           const deltaSec = Math.max(0, elapsed - leaderTime);
+        } else if (isFinisher && Number.isFinite(leaderTime) && leaderTime !== null) {
+          const deltaSec = Math.max(0, elapsed - Number(leaderTime));
           const m = Math.floor(deltaSec / 60);
           const s = Math.floor(deltaSec % 60);
           gap = `+${m > 0 ? `${m}m ` : ""}${s.toString().padStart(2, "0")}s`;
         } else if (leaderDist > dist) {
+        } else if (Number.isFinite(leaderDist) && leaderDist > dist) {
           const deltaM = Math.round(leaderDist - dist);
           gap = `-${deltaM}m`;
         }
@@ -652,12 +694,17 @@ export const getRaceLeaderboard = async (req: Request, res: Response): Promise<v
         const kayak = storedUser?.kayakCustomization || participantInfo?.kayak;
 
         // Points attribués pour la course (0 si abandon)
+        // Points attribués pour la course (0 si abandon ou DNF)
         const rawPoints = getVal("pointsEarned") !== undefined && getVal("pointsEarned") !== null 
           ? getVal("pointsEarned") 
           : getVal("points");
         const earnedPoints = status === "abandoned"
+        let earnedPoints = (status === "abandoned" || status === "out_of_time" || status === "dnf")
           ? 0
           : (rawPoints !== undefined && rawPoints !== null ? Number(rawPoints) : calculateRacePoints(rank, sortedAll.length, isFinisher));
+        if (!Number.isFinite(earnedPoints) || earnedPoints < 0) {
+          earnedPoints = 0;
+        }
 
         return {
           position: rank,
@@ -668,9 +715,11 @@ export const getRaceLeaderboard = async (req: Request, res: Response): Promise<v
           status,
           chrono,
           elapsedTime: elapsed,
+          elapsedTime: Number.isFinite(elapsed) ? elapsed : 0,
           avgPace: formattedPace,
           avgPaceSec: rawPace,
           netDistance: dist,
+          netDistance: Number.isFinite(dist) ? dist : 0,
           gap,
           points: earnedPoints,
           league,

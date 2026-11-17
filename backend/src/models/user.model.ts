@@ -130,14 +130,17 @@ export default (sequelize: Sequelize, _DataTypesInstance: typeof DataTypes): Use
       },
       isSubscriber: {
         type: DataTypes.BOOLEAN,
+        field: "is_subscriber",
         defaultValue: false,
       },
       subscriptionTier: {
         type: DataTypes.STRING(32),
+        field: "subscription_tier",
         defaultValue: "free",
       },
       subscriptionStatus: {
         type: DataTypes.STRING(32),
+        field: "subscription_status",
         defaultValue: "none",
       },
       lemonCustomerId: {
@@ -225,6 +228,7 @@ export default (sequelize: Sequelize, _DataTypesInstance: typeof DataTypes): Use
       },
       isAdmin: {
         type: DataTypes.BOOLEAN,
+        field: "is_admin",
         defaultValue: false,
       },
       role: {

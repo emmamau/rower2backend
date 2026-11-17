@@ -196,8 +196,8 @@
               <button
                 type="button"
                 class="priv-btn priv-btn-launch"
-                [disabled]="isActionBusy || !areAllParticipantsReady"
-                [title]="areAllParticipantsReady ? 'Lancer la course' : 'Tous les participants doivent avoir leur rameur prêt (voyant vert)'"
+                [disabled]="isActionBusy"
+                title="Lancer le compte à rebours de 10s"
                 (click)="triggerStart(10)">
                 {{ i18n.t('BTN_START_10S') }}
               </button>
@@ -832,8 +832,8 @@
                 <button
                   type="button"
                   class="priv-btn priv-btn-launch"
-                  [disabled]="isActionBusy || !areAllParticipantsReady"
-                  [title]="!areAllParticipantsReady ? 'En attente de la connexion BLE du rameur de tous les joueurs' : ''"
+                  [disabled]="isActionBusy"
+                  title="Lancer le compte à rebours de 10s"
                   (click)="triggerStart(10)">
                   {{ i18n.t('BTN_START_10S') }}
                 </button>

@@ -458,6 +458,36 @@ export class TelemetryController {
       const user = await userStore.findUser(String(userId));
       const country = user?.country || user?.pays || (await IpGeoService.resolveCountryFromRequest(req));
 
+      // Résolution unifiée et déterministe des pseudos :
+      // Priorité 1 : Le username / login enregistré sur le compte utilisateur (si authentifié)
+      // Priorité 2 : Le pseudo invité choisi lors de l'entrée dans le salon (si non authentifié)
+      // Fallback ultime : L'identifiant technique de la montre uniquement si aucun compte/pseudo n'est associé
+      let effectiveUserName = "";
+      if (user && (user.login || user.name)) {
+        effectiveUserName = user.login || user.name;
+      }
+      if (!effectiveUserName && matchedRace?.participants?.get(userId)?.userName) {
+        const existName = String(matchedRace.participants.get(userId)!.userName).trim();
+        if (!existName.startsWith("Garmin_") && !existName.startsWith("fenix") && !existName.startsWith("forerunner")) {
+          effectiveUserName = existName;
+        }
+      }
+      if (!effectiveUserName && resolvedUserName) {
+        const resName = String(resolvedUserName).trim();
+        if (!resName.startsWith("Garmin_") && !resName.startsWith("fenix") && !resName.startsWith("forerunner")) {
+          effectiveUserName = resName;
+        }
+      }
+      if (!effectiveUserName && body.userName) {
+        const bName = String(body.userName).trim();
+        if (!bName.startsWith("Garmin_") && !bName.startsWith("fenix") && !bName.startsWith("forerunner")) {
+          effectiveUserName = bName;
+        }
+      }
+      if (!effectiveUserName) {
+        effectiveUserName = resolvedUserName || body.userName || `Racer_${userId.slice(-4)}`;
+      }
+
       if (matchedRace && userId !== "anonymous") {
         if (!matchedRace.participants) {
           matchedRace.participants = new Map();
@@ -466,7 +496,7 @@ export class TelemetryController {
         if (isNewParticipant) {
           matchedRace.participants.set(userId, {
             userId,
-            userName: resolvedUserName || body.userName || `Racer_${userId.slice(-4)}`,
+            userName: effectiveUserName,
             joinedAt: new Date(),
             country,
             exactDistance,
@@ -477,11 +507,15 @@ export class TelemetryController {
           const incomingDevId = String(body.deviceId || "").trim() || undefined;
           const incomingDevToken = rawToken || undefined;
           if (matchedRace.type === "PUBLIC_HOURLY" && (matchedRace.status === "LOBBY" || matchedRace.status === "COUNTDOWN")) {
-            raceManager.notifyPlayerJoinedPublic(userId, resolvedUserName || body.userName, incomingDevId, incomingDevToken, isTelemetryPaired);
+            raceManager.notifyPlayerJoinedPublic(userId, effectiveUserName, incomingDevId, incomingDevToken, isTelemetryPaired);
           }
         } else {
           const existingP = matchedRace.participants.get(userId);
           if (existingP) {
+            // Ne jamais écraser un vrai pseudo par un identifiant Garmin technique
+            if ((!existingP.userName || existingP.userName.startsWith("Garmin_")) && effectiveUserName) {
+              existingP.userName = effectiveUserName;
+            }
             existingP.exactDistance = exactDistance;
             existingP.lastTelemetryAtMs = nowMs;
             existingP.lastElapsedSec = nextExactElapsed;
@@ -501,7 +535,7 @@ export class TelemetryController {
             id: compositeId,
             activityId: raceId,
             userId,
-            userName: resolvedUserName || body.userName || `Racer_${userId.slice(-4)}`,
+            userName: effectiveUserName,
             country,
             raceMode: "race",
             targetDistance: targetDist,
@@ -529,6 +563,9 @@ export class TelemetryController {
         } catch {}
       } else {
         try {
+          if ((!activity.get("userName") || String(activity.get("userName")).startsWith("Garmin_")) && effectiveUserName && !effectiveUserName.startsWith("Garmin_")) {
+            await activity.update({ userName: effectiveUserName } as any);
+          }
           if (!activity.get("country") && country) {
             await activity.update({ country } as any);
           }
@@ -566,7 +603,7 @@ export class TelemetryController {
           id: compositeId,
           activityId: raceId,
           userId,
-          userName: resolvedUserName || body.userName || `Racer_${userId.slice(-4)}`,
+          userName: effectiveUserName,
           country,
           targetDistance: targetDist,
           currentDistance: actualDistance,

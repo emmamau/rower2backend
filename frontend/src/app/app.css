@@ -3169,6 +3169,9 @@ input[type="number"]:focus { border-color: var(--neon-cyan); box-shadow: 0 0 10p
 }
 
 @media (max-width: 768px) {
+  .lobby-regatta-preview-section {
+    display: none !important;
+  }
   .header-hero-row {
     flex-direction: column;
     align-items: flex-start;
@@ -6291,6 +6294,23 @@ body.rigid-viewport {
   margin: 0.75rem 0 0.65rem;
 }
 
+.home-admin-console-section {
+  width: 100%;
+  margin: 1rem 0;
+  animation: fadeInAdmin 0.3s ease-out;
+}
+
+@keyframes fadeInAdmin {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .welcome-banner-card {
   display: flex;
   align-items: center;
@@ -6657,6 +6677,7 @@ body.rigid-viewport {
 .game-container.mobile-fullscreen-view app-private-room-manager,
 .game-container.mobile-fullscreen-view .priv-active-banner,
 .game-container.mobile-fullscreen-view .home-welcome-banner,
+.game-container.mobile-fullscreen-view .home-admin-console-section,
 .game-container.mobile-fullscreen-view .home-action-tunnel {
   display: none !important;
 }

@@ -264,22 +264,7 @@ export class UserStoreService {
     if (!identifier) return null;
     const clean = identifier.trim().toLowerCase();
 
-    // 1. Consultation en mémoire d'abord (ultra-rapide)
-    const inMem = this.inMemoryUsers.get(clean);
-    if (inMem) return inMem;
-
-    // 2. Recherche par id, login ou watchUserId dans le store mémoire
-    for (const u of this.inMemoryUsers.values()) {
-      if (
-        u.id.toLowerCase() === clean ||
-        u.login.toLowerCase() === clean ||
-        (u.watchUserId && u.watchUserId.toLowerCase() === clean)
-      ) {
-        return u;
-      }
-    }
-
-    // 3. Consultation base de données Sequelize si disponible
+    // 1. Consultation base de données Sequelize si disponible (reflète immédiatement les modifications faites par l'admin)
     try {
       const dbUser = await Users.findOne({
         where: {
@@ -299,18 +284,26 @@ export class UserStoreService {
       // Tolérance hors-ligne
     }
 
+    // 2. Consultation en mémoire si non trouvé en base ou DB hors-ligne
+    const inMem = this.inMemoryUsers.get(clean);
+    if (inMem) return inMem;
+
+    for (const u of this.inMemoryUsers.values()) {
+      if (
+        u.id.toLowerCase() === clean ||
+        u.login.toLowerCase() === clean ||
+        (u.watchUserId && u.watchUserId.toLowerCase() === clean)
+      ) {
+        return u;
+      }
+    }
+
     return null;
   }
 
   public async findUserByEmail(email: string): Promise<StoredUser | null> {
     if (!email) return null;
     const clean = email.trim().toLowerCase();
-
-    for (const u of this.inMemoryUsers.values()) {
-      if (u.email && u.email.toLowerCase() === clean) {
-        return u;
-      }
-    }
 
     try {
       const dbUser = await Users.findOne({
@@ -323,6 +316,12 @@ export class UserStoreService {
       }
     } catch {
       // Tolérance hors-ligne
+    }
+
+    for (const u of this.inMemoryUsers.values()) {
+      if (u.email && u.email.toLowerCase() === clean) {
+        return u;
+      }
     }
 
     return null;
@@ -694,9 +693,10 @@ export class UserStoreService {
       });
   }
 
-  private cacheUser(user: StoredUser): void {
+  public cacheUser(user: StoredUser): void {
     if (user.id) this.inMemoryUsers.set(user.id.toLowerCase(), user);
     if (user.login) this.inMemoryUsers.set(user.login.toLowerCase(), user);
+    if (user.email) this.inMemoryUsers.set(user.email.toLowerCase(), user);
   }
 }
 

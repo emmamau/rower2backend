@@ -12,6 +12,7 @@ const AdminInitService = require("../dist/services/admin-init.service").default;
 const JwtService = require("../dist/services/jwt.service").default;
 const raceManager = require("../dist/services/race-manager.service").default;
 const userStore = require("../dist/services/user-store.service").default;
+const { hashPassword } = require("../dist/services/auth.service");
 
 test.after(async () => {
   if (db?.sequelize?.close) {
@@ -453,6 +454,112 @@ test("7. User Role and Subscription Plan Modification by Admin", async () => {
       body: JSON.stringify({ role: "USER" }),
     });
     assert.equal(demoteLastAdminRes.status, 400, "Le dernier administrateur actif ne peut pas être rétrogradé en USER");
+  } finally {
+    await ctx.close();
+  }
+});
+
+test("8. User Reconnection & Profile Reflection after Admin Updates Role and Plan", async () => {
+  const ctx = await createTestServer();
+  try {
+    const adminToken = JwtService.sign({
+      userId: "usr_admin_rowerrace",
+      login: "Admin_RowerRace",
+      role: "ADMIN",
+    });
+
+    const timestamp = Date.now();
+    const userPassword = "UserPass2026!";
+    const { hash, salt } = hashPassword(userPassword);
+
+    const testUser = await userStore.createUser({
+      id: `racer_reconnect_${timestamp}`,
+      login: `racer_reconnect_${timestamp}`,
+      name: "Racer Reconnect",
+      email: `racer_reconnect_${timestamp}@test.com`,
+      passwordHash: hash,
+      passwordSalt: salt,
+      role: "USER",
+      isAdmin: false,
+      subscriptionTier: "free",
+      isSubscriber: false,
+    });
+
+    // 8.1 Vérification de l'état initial lors d'une première connexion
+    const initialLoginRes = await fetch(`${ctx.baseUrl}/api/user/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        login: testUser.login,
+        password: userPassword,
+      }),
+    });
+    assert.equal(initialLoginRes.status, 200);
+    const initialLoginData = await initialLoginRes.json();
+    assert.equal(initialLoginData.role, "USER");
+    assert.equal(initialLoginData.subscriptionTier, "free");
+    assert.equal(initialLoginData.isSubscriber, false);
+    assert.equal(initialLoginData.isAdmin, false);
+
+    // 8.2 L'administrateur met à jour l'offre en "premium" et le rôle en "ADMIN"
+    const planUpdateRes = await fetch(`${ctx.baseUrl}/api/admin/users/${testUser.id}/plan`, {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${adminToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ subscriptionTier: "premium" }),
+    });
+    assert.equal(planUpdateRes.status, 200);
+
+    const roleUpdateRes = await fetch(`${ctx.baseUrl}/api/admin/users/${testUser.id}/role`, {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${adminToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ role: "ADMIN" }),
+    });
+    assert.equal(roleUpdateRes.status, 200);
+
+    // 8.3 Reconnexion de l'utilisateur : vérification immédiate des nouvelles valeurs
+    const reloginRes = await fetch(`${ctx.baseUrl}/api/user/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        login: testUser.login,
+        password: userPassword,
+      }),
+    });
+    assert.equal(reloginRes.status, 200);
+    const reloginData = await reloginRes.json();
+    assert.equal(reloginData.role, "ADMIN");
+    assert.equal(reloginData.isAdmin, true);
+    assert.equal(reloginData.subscriptionTier, "premium");
+    assert.equal(reloginData.isSubscriber, true);
+    assert.equal(reloginData.user.role, "ADMIN");
+    assert.equal(reloginData.user.subscriptionTier, "premium");
+    assert.equal(reloginData.user.isSubscriber, true);
+
+    // 8.4 Vérification via l'endpoint de profil /api/user/profile/:userId
+    const profileRes = await fetch(`${ctx.baseUrl}/api/user/profile/${testUser.id}`);
+    assert.equal(profileRes.status, 200);
+    const profileData = await profileRes.json();
+    assert.equal(profileData.user.role, "ADMIN");
+    assert.equal(profileData.user.isAdmin, true);
+    assert.equal(profileData.user.subscriptionTier, "premium");
+    assert.equal(profileData.user.isSubscriber, true);
+
+    // 8.5 Vérification via /api/auth/me avec le nouveau jeton
+    const meRes = await fetch(`${ctx.baseUrl}/api/auth/me`, {
+      headers: { Authorization: `Bearer ${reloginData.token}` },
+    });
+    assert.equal(meRes.status, 200);
+    const meData = await meRes.json();
+    assert.equal(meData.role, "ADMIN");
+    assert.equal(meData.isAdmin, true);
+    assert.equal(meData.subscriptionTier, "premium");
+    assert.equal(meData.isSubscriber, true);
   } finally {
     await ctx.close();
   }

@@ -777,6 +777,7 @@ export class AppComponent implements OnInit, OnDestroy {
     const storedIsSub = typeof localStorage !== 'undefined' ? localStorage.getItem('rower_is_subscriber') === 'true' : false;
     const storedIsAdmin = typeof localStorage !== 'undefined' ? localStorage.getItem('rower_is_admin') === 'true' : false;
     const storedRole = typeof localStorage !== 'undefined' ? localStorage.getItem('rower_user_role') : null;
+    const storedTier = typeof localStorage !== 'undefined' ? localStorage.getItem('rower_subscription_tier') : null;
     const storedDeviceToken = typeof localStorage !== 'undefined' ? localStorage.getItem('rower_device_token') : null;
     const storedIsPaired = typeof localStorage !== 'undefined' ? localStorage.getItem('rower_is_paired') === 'true' : false;
 
@@ -814,9 +815,11 @@ export class AppComponent implements OnInit, OnDestroy {
     this.currentUser.id = this.activeUserId;
     const isEmma = storedLogin?.toLowerCase() === 'emmaracer' || this.activeUserId?.toLowerCase() === 'emmaracer';
     const isAdminUser = isEmma || storedIsAdmin || storedRole === 'ADMIN';
+    const resolvedTier = storedTier || (isAdminUser ? 'premium' : (storedIsSub ? 'standard' : 'free'));
     this.currentUser.isAdmin = isAdminUser;
     this.currentUser.role = storedRole || (isAdminUser ? 'ADMIN' : 'USER');
-    this.currentUser.isSubscriber = isEmma || storedIsSub || isAdminUser;
+    this.currentUser.subscriptionTier = resolvedTier;
+    this.currentUser.isSubscriber = isEmma || storedIsSub || isAdminUser || (resolvedTier !== 'free');
   }
 
   ngOnInit(): void {
@@ -826,6 +829,11 @@ export class AppComponent implements OnInit, OnDestroy {
       } else {
         try { window.history.replaceState({}, '', '/'); } catch {}
       }
+    }
+    if (typeof window !== 'undefined' && (window.location.pathname === '/login' || window.location.pathname.startsWith('/login/'))) {
+      this.setSiteView('home');
+      this.userExplicitlyNavigatedHome = true;
+      this.openAccountModal('login');
     }
     this.syncKayakCustomizationFromUser();
     this.activeViewMode = this.detectTerminalViewMode();
@@ -1183,7 +1191,28 @@ export class AppComponent implements OnInit, OnDestroy {
       catchError(() => of(null))
     ).subscribe((res) => {
       if (res && res.user) {
-        this.currentUser = { ...res.user, name: res.user.login || res.user.name };
+        const isAdminUser = Boolean(res.user.isAdmin || res.user.role === 'ADMIN' || res.user.is_admin);
+        const resolvedRole = res.user.role || (isAdminUser ? 'ADMIN' : 'USER');
+        const resolvedTier = String(res.user.subscriptionTier || res.user.subscription_tier || (isAdminUser ? 'premium' : 'free')).toLowerCase();
+        const isSub = Boolean(res.user.isSubscriber || res.user.is_subscriber || isAdminUser || (resolvedTier !== 'free'));
+
+        this.currentUser = {
+          ...this.currentUser,
+          ...res.user,
+          name: res.user.login || res.user.name,
+          isAdmin: isAdminUser,
+          role: resolvedRole,
+          subscriptionTier: resolvedTier,
+          isSubscriber: isSub,
+        };
+
+        try {
+          localStorage.setItem('rower_is_subscriber', String(isSub));
+          localStorage.setItem('rower_is_admin', String(isAdminUser));
+          localStorage.setItem('rower_user_role', resolvedRole);
+          localStorage.setItem('rower_subscription_tier', resolvedTier);
+        } catch {}
+
         this.userHistory = res.history || [];
         this.generalUserRank = res.generalRank || 1;
         this.generalTotalPlayers = res.totalPlayers || 1;
@@ -1573,7 +1602,20 @@ export class AppComponent implements OnInit, OnDestroy {
     this.rowerService.getRaceHistory().pipe(
       catchError(() => of([]))
     ).subscribe((history) => {
-      this.raceHistory = history;
+      const excludedStatuses = new Set([
+        'STOPPED', 'CANCELLED', 'ABORTED', 'ABANDONED',
+        'stopped', 'cancelled', 'aborted', 'abandoned'
+      ]);
+      this.raceHistory = (history || []).filter((item: any) => {
+        if (!item) return false;
+        const st = String(item.status || item.race?.status || '').trim();
+        if (excludedStatuses.has(st)) return false;
+        // Exclure toute course sans podium ou sans distance parcourue
+        const podium = item.podium || item.finalRanking;
+        if (!Array.isArray(podium) || podium.length === 0) return false;
+        const maxDist = podium.reduce((acc: number, cur: any) => Math.max(acc, Number(cur.distance || cur.netDistance || 0)), 0);
+        return maxDist > 0;
+      });
       this.cdr.markForCheck();
     });
   }
@@ -1612,18 +1654,52 @@ export class AppComponent implements OnInit, OnDestroy {
     this.cdr.markForCheck();
   }
 
-  formatPace(seconds?: number): string {
-    if (!seconds || seconds <= 0) return '--:--';
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
+  formatPace(val?: any): string {
+    if (val === null || val === undefined || val === '') return '--:--';
+    if (typeof val === 'string') {
+      const trimmed = val.trim();
+      if (!trimmed || trimmed === '--:--' || trimmed === '-' || trimmed === 'NaN:NaN' || trimmed === 'NaN') return '--:--';
+      if (trimmed.includes(':') || trimmed.includes("'")) return trimmed;
+      val = Number(trimmed);
+    }
+    const sec = Number(val);
+    if (!Number.isFinite(sec) || sec <= 0) return '--:--';
+    const mins = Math.floor(sec / 60);
+    const secs = Math.floor(sec % 60);
     return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
   }
 
-  formatTime(seconds?: number): string {
-    if (!seconds || seconds <= 0) return '00:00';
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
+  formatTime(val?: any): string {
+    if (val === null || val === undefined || val === '') return '00:00';
+    if (typeof val === 'string') {
+      const trimmed = val.trim();
+      if (!trimmed || trimmed === 'NaN' || trimmed === '--') return '00:00';
+      if (trimmed.includes(':')) return trimmed;
+      val = Number(trimmed);
+    }
+    const sec = Number(val);
+    if (!Number.isFinite(sec) || sec <= 0) return '00:00';
+    const mins = Math.floor(sec / 60);
+    const secs = Math.floor(sec % 60);
     return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+  }
+
+  formatDist(val?: any): string {
+    const n = Number(val);
+    if (!Number.isFinite(n) || n < 0) return '0 m';
+    return `${Math.round(n)} m`;
+  }
+
+  formatSpeed(val?: any): string {
+    const n = Number(val);
+    if (!Number.isFinite(n) || n < 0) return '0.0 km/h';
+    return `${n.toFixed(1)} km/h`;
+  }
+
+  formatPoints(val?: any): string {
+    const n = Number(val);
+    if (!Number.isFinite(n) || n <= 0) return '—';
+    return `+${Math.round(n)} pts`;
   }
 
   get isUserAdmin(): boolean {
@@ -1640,7 +1716,11 @@ export class AppComponent implements OnInit, OnDestroy {
     return Boolean(
       this.isUserAdmin ||
       this.currentUser.isSubscriber ||
-      (typeof localStorage !== 'undefined' && localStorage.getItem('rower_is_subscriber') === 'true')
+      (this.currentUser.subscriptionTier && this.currentUser.subscriptionTier !== 'free') ||
+      (typeof localStorage !== 'undefined' && (
+        localStorage.getItem('rower_is_subscriber') === 'true' ||
+        (localStorage.getItem('rower_subscription_tier') && localStorage.getItem('rower_subscription_tier') !== 'free')
+      ))
     );
   }
 
@@ -1656,7 +1736,7 @@ export class AppComponent implements OnInit, OnDestroy {
 
   get currentSubscriberTier(): string {
     if (this.isUserAdmin) return 'admin';
-    return this.currentUser?.subscriptionTier || (this.isSubscriber ? 'club' : 'free');
+    return this.currentUser?.subscriptionTier || (typeof localStorage !== 'undefined' ? localStorage.getItem('rower_subscription_tier') || '' : '') || (this.isSubscriber ? 'standard' : 'free');
   }
 
   openAccountModal(tab: 'login' | 'register' | 'profile' | 'forgot' | 'kayak-customizer' = 'login'): void {
@@ -1724,19 +1804,30 @@ export class AppComponent implements OnInit, OnDestroy {
           const userLogin = res.user.login || res.user.id;
           const isAdminUser = Boolean(res.isAdmin || res.role === 'ADMIN' || res.user.isAdmin || res.user.role === 'ADMIN');
           const resolvedRole = res.role || res.user.role || (isAdminUser ? 'ADMIN' : 'USER');
+          const resolvedTier = String(res.subscriptionTier || res.user.subscriptionTier || (isAdminUser ? 'premium' : 'free')).toLowerCase();
+          const isSub = Boolean(res.isSubscriber || res.user.isSubscriber || isAdminUser || (resolvedTier !== 'free'));
+
           this.activeUserId = userLogin;
           this.userIdInput = res.user.watchUserId || userLogin;
           // Règle stricte d'identité joueur : utilisateur connecté => login/username exclusif
-          this.currentUser = { ...res.user, name: userLogin, isAdmin: isAdminUser, role: resolvedRole };
+          this.currentUser = {
+            ...res.user,
+            name: userLogin,
+            isAdmin: isAdminUser,
+            role: resolvedRole,
+            subscriptionTier: resolvedTier,
+            isSubscriber: isSub,
+          };
           this.userLoginInput = userLogin;
           this.syncKayakCustomizationFromUser(res.user);
 
           try {
             localStorage.setItem('rower_user_id', userLogin);
             localStorage.setItem('rower_user_login', userLogin);
-            localStorage.setItem('rower_is_subscriber', String(Boolean(res.isSubscriber || isAdminUser)));
+            localStorage.setItem('rower_is_subscriber', String(isSub));
             localStorage.setItem('rower_is_admin', String(isAdminUser));
             localStorage.setItem('rower_user_role', resolvedRole);
+            localStorage.setItem('rower_subscription_tier', resolvedTier);
             if (res.token) {
               localStorage.setItem('rower_auth_token', res.token);
             }
@@ -1760,13 +1851,18 @@ export class AppComponent implements OnInit, OnDestroy {
             } catch {}
           }
 
-          this.accountAuthSuccess = 'Connexion réussie ! Vous avez accès aux salons privés.';
+          this.accountAuthSuccess = 'Connexion réussie !';
           this.loadUserProfile();
           this.loadGeneralLeaderboard();
           setTimeout(() => {
-            this.accountModalTab = 'profile';
+            this.closeAccountModal();
+            this.setSiteView('home');
+            this.userExplicitlyNavigatedHome = true;
+            if (typeof window !== 'undefined' && (window.location.pathname === '/login' || window.location.pathname.startsWith('/login/'))) {
+              try { window.history.replaceState({}, '', '/'); } catch {}
+            }
             this.cdr.markForCheck();
-          }, 800);
+          }, 500);
         } else {
           this.accountAuthError = res.message || 'Identifiants invalides.';
         }
@@ -2273,6 +2369,14 @@ export class AppComponent implements OnInit, OnDestroy {
       try { window.history.pushState({}, '', '/admin'); } catch {}
     }
     this.cdr.markForCheck();
+    setTimeout(() => {
+      if (typeof document !== 'undefined') {
+        const adminSection = document.querySelector('.home-admin-console-section');
+        if (adminSection) {
+          adminSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }
+    }, 50);
   }
 
   closeAdminDashboard(): void {
@@ -3590,6 +3694,10 @@ export class AppComponent implements OnInit, OnDestroy {
   onPrivateRoomUpdated(updated: PrivateRacePayload): void {
     this.activePrivateRoom = updated;
     this.nextRaceInfo = updated;
+    if (updated?.secondsRemaining && updated.secondsRemaining > 0) {
+      this.countdownSeconds = updated.secondsRemaining;
+      this.syncCountdownUI();
+    }
     this.updateDocumentTitle();
     this.initGameLoop();
     this.cdr.markForCheck();
@@ -3650,7 +3758,9 @@ export class AppComponent implements OnInit, OnDestroy {
           const existing = this.liveMetricsList.find(x => x.userId === m.userId);
           const existingRacer = this.racers.find(x => x.userId === m.userId && x.activityId === update.raceId);
           const rawDist = Math.round(m.dist || 0);
-          const prevDist = Math.max(Math.round(existing?.dist || 0), Math.round(existingRacer?.netDistance || 0));
+          const prevDist = (existing && existing.dist)
+            ? Math.max(Math.round(existing.dist), Math.round(existingRacer?.netDistance || 0))
+            : Math.round(existingRacer?.netDistance || 0);
           let safeDist = (prevDist > 0 && rawDist > 0)
             ? Math.max(prevDist, rawDist)
             : rawDist;
@@ -3845,91 +3955,112 @@ export class AppComponent implements OnInit, OnDestroy {
         this.isPublicRaceSuspended = true;
         this.triggerFinishToast("⚠️ Les courses publiques sont temporairement suspendues.");
         this.cdr.markForCheck();
-      } else if (update.status === 'PUBLIC_RACES_RESUMED') {
+        return;
+      }
+      if (update.status === 'PUBLIC_RACES_RESUMED') {
         this.isPublicRaceSuspended = false;
         this.triggerFinishToast("✓ Les courses publiques ont repris !");
         this.loadNextRaceInfo();
         this.cdr.markForCheck();
-      } else if (this.nextRaceInfo && (update.raceId === this.nextRaceInfo.race?.id || !update.raceId)) {
-        if (update.status === 'COUNTDOWN') {
-          const sec = update.details?.countdownSeconds ?? update.details?.secondsUntilStart ?? 15;
-          this.countdownSeconds = sec;
+        return;
+      }
+
+      const isPrivateTarget = Boolean(
+        this.activePrivateRoom &&
+        (update.raceId === this.activePrivateRoom.race?.id || update.raceId === this.activePrivateRoom.code)
+      );
+      const isPublicTarget = Boolean(
+        !update.raceId || (this.nextRaceInfo && update.raceId === this.nextRaceInfo.race?.id)
+      );
+
+      if (!isPrivateTarget && !isPublicTarget) {
+        return;
+      }
+
+      if (update.status === 'COUNTDOWN') {
+        const sec = update.details?.countdownSeconds ?? update.details?.secondsUntilStart ?? 10;
+        this.countdownSeconds = sec;
+        if (isPrivateTarget && this.activePrivateRoom?.race) {
+          this.activePrivateRoom.race.status = 'COUNTDOWN';
+          this.activePrivateRoom.status = 'COUNTDOWN';
+        }
+        if (isPublicTarget && this.nextRaceInfo?.race) {
+          this.nextRaceInfo.race.status = 'COUNTDOWN';
+        }
+        this.syncCountdownUI();
+      } else if (update.status === 'RUNNING') {
+        this.countdownSeconds = 0;
+        this.is3sCountdown = false;
+        this.isPreStartCountdown = false;
+        this.finishedRacerIds.clear();
+        this.finisherCount = 0;
+        if (this.isPostRaceRankingActive || this.isRaceLeaderboardModalOpen) {
+          this.closeRaceLeaderboardModal();
+          this.isPostRaceRankingActive = false;
+        }
+        if (isPrivateTarget && this.activePrivateRoom?.race) {
+          this.activePrivateRoom.race.status = 'RUNNING';
+          this.activePrivateRoom.status = 'RUNNING';
+          this.setSiteView('regatta');
+        }
+        if (isPublicTarget && this.nextRaceInfo) {
+          this.nextRaceInfo.status = 'in_progress';
           if (this.nextRaceInfo.race) {
-            this.nextRaceInfo.race.status = 'COUNTDOWN';
+            this.nextRaceInfo.race.status = 'RUNNING';
           }
-          this.syncCountdownUI();
-        } else if (update.status === 'RUNNING') {
-          this.countdownSeconds = 0;
-          this.is3sCountdown = false;
-          this.isPreStartCountdown = false;
-          this.finishedRacerIds.clear();
-          this.finisherCount = 0;
-          if (this.isPostRaceRankingActive || this.isRaceLeaderboardModalOpen) {
-            this.closeRaceLeaderboardModal();
-            this.isPostRaceRankingActive = false;
+        }
+        if (this.siteView === 'regatta' || this.siteView === 'cockpit') {
+          this.startImmersionAutoFade();
+        }
+      } else if (update.status === 'POST_RACE_PAUSE') {
+        const sec = update.details?.pauseSeconds ?? 120;
+        this.countdownSeconds = sec;
+        if (this.nextRaceInfo) {
+          this.nextRaceInfo.status = 'post_race_pause';
+          if (this.nextRaceInfo.race) {
+            this.nextRaceInfo.race.status = 'post_race_pause';
           }
-          if (this.nextRaceInfo) {
-            this.nextRaceInfo.status = 'in_progress';
-            if (this.nextRaceInfo.race) {
-              this.nextRaceInfo.race.status = 'RUNNING';
+        }
+        if (!this.activePrivateRoom && this.nextRaceInfo?.race?.id) {
+          this.openRaceLeaderboard(this.nextRaceInfo.race.id);
+          this.isPostRaceRankingActive = true;
+        }
+        this.syncCountdownUI();
+      } else if (update.status === 'COMPLETED' || update.status === 'STOPPED' || update.status === 'CANCELLED' || update.status === 'ABANDONED') {
+        if (isPrivateTarget && this.activePrivateRoom) {
+          if (update.status === 'COMPLETED') {
+            this.isPrivateRoomCompleted = true;
+            if (this.activePrivateRoom.race) {
+              this.activePrivateRoom.race.status = 'COMPLETED';
             }
-          }
-          if (this.siteView === 'regatta' || this.siteView === 'cockpit') {
-            this.startImmersionAutoFade();
-          }
-        } else if (update.status === 'POST_RACE_PAUSE') {
-          const sec = update.details?.pauseSeconds ?? 120;
-          this.countdownSeconds = sec;
-          if (this.nextRaceInfo) {
-            this.nextRaceInfo.status = 'post_race_pause';
-            if (this.nextRaceInfo.race) {
-              this.nextRaceInfo.race.status = 'post_race_pause';
-            }
-          }
-          // Maintenir l'affichage du classement tout au long de la période de pause d'après-course (les 2 minutes)
-          if (!this.activePrivateRoom && this.nextRaceInfo?.race?.id) {
-            this.openRaceLeaderboard(this.nextRaceInfo.race.id);
+            this.activePrivateRoom.status = 'COMPLETED';
+            this.countdownSeconds = 0;
+            this.is3sCountdown = false;
+            this.isPreStartCountdown = false;
+            this.formattedGameRemaining = '';
+            const targetRaceId = update.raceId || this.activePrivateRoom.race.id;
+            this.openRaceLeaderboard(targetRaceId);
             this.isPostRaceRankingActive = true;
+            this.triggerFinishToast(`🏁 Course terminée ! Salon fermé.`);
+          } else if (update.status === 'STOPPED' || update.status === 'CANCELLED' || update.status === 'ABANDONED') {
+            const reasonMsg = update.details?.reason === 'organizer_stopped'
+              ? "Course arrêtée par l'organisateur"
+              : update.details?.reason === 'all_players_left'
+              ? 'Tous les participants ont quitté le salon'
+              : 'Course annulée';
+            this.triggerFinishToast(`⚠️ Salon fermé : ${reasonMsg}`);
+            this.exitPrivateRoomToPublic(true);
           }
-          this.syncCountdownUI();
-        } else if (update.status === 'COMPLETED' || update.status === 'ABANDONED') {
-          const isPrivateTarget = Boolean(
-            this.activePrivateRoom &&
-            (update.raceId === this.activePrivateRoom.race?.id || update.raceId === this.activePrivateRoom.code)
-          );
-          if (isPrivateTarget && this.activePrivateRoom) {
-            if (update.status === 'COMPLETED') {
-              this.isPrivateRoomCompleted = true;
-              if (this.activePrivateRoom.race) {
-                this.activePrivateRoom.race.status = 'COMPLETED';
-              }
-              this.activePrivateRoom.status = 'COMPLETED';
-              this.countdownSeconds = 0;
-              this.is3sCountdown = false;
-              this.isPreStartCountdown = false;
-              this.formattedGameRemaining = '';
-              if (this.nextRaceInfo) {
-                this.nextRaceInfo.status = 'completed';
-                if (this.nextRaceInfo.race) {
-                  this.nextRaceInfo.race.status = 'COMPLETED';
-                }
-              }
-              const targetRaceId = update.raceId || this.activePrivateRoom.race.id;
-              this.openRaceLeaderboard(targetRaceId);
-              this.isPostRaceRankingActive = true;
-              this.triggerFinishToast(`🏁 Course terminée ! Salon fermé.`);
-            } else if (update.status === 'ABANDONED') {
-              if (update.details?.reason) {
-                this.triggerFinishToast(`Course privée terminée (${update.details.reason === 'all_players_left' ? 'salon fermé' : 'terminée'})`);
-              }
-              if (update.details?.roomClosed || update.status === 'ABANDONED') {
-                this.exitPrivateRoomToPublic(true);
-              }
+        } else if (isPublicTarget && update.status === 'COMPLETED') {
+          if (this.nextRaceInfo) {
+            this.nextRaceInfo.status = 'completed';
+            if (this.nextRaceInfo.race) {
+              this.nextRaceInfo.race.status = 'COMPLETED';
             }
           }
         }
-        this.cdr.markForCheck();
       }
+      this.cdr.markForCheck();
     });
 
     if (this.privateUpdateSub) {
@@ -4045,8 +4176,6 @@ export class AppComponent implements OnInit, OnDestroy {
             }
             this.isPrivateModalOpen = false;
             this.setSiteView('regatta');
-          } else if (this.siteView === 'home') {
-            this.setSiteView(this.activePrivateRoom ? 'regatta' : 'cockpit');
           }
         }
       }

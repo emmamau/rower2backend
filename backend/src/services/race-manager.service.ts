@@ -15,6 +15,7 @@ const Users = db.users;
 export interface PrivateParticipantInfo {
   userId: string;
   userName: string;
+  guestName?: string;
   joinedAt: Date;
   country?: string;
   lane?: number;
@@ -60,7 +61,7 @@ export interface RaceState {
   code?: string;
   title: string;
   type: "PUBLIC_HOURLY" | "PRIVATE_INVITE";
-  status: "LOBBY" | "COUNTDOWN" | "RUNNING" | "COMPLETED" | "ABANDONED";
+  status: "LOBBY" | "COUNTDOWN" | "RUNNING" | "COMPLETED" | "ABANDONED" | "STOPPED" | "CANCELLED";
   targetDistance: number;
   maxParticipants: number;
   maxDurationMinutes: number;
@@ -412,15 +413,6 @@ export class RaceManager {
       const getVal = (f: string) => (typeof r.get === "function" ? r.get(f) : r[f]);
       const userId = getVal("userId");
       const isBot = Boolean(getVal("isBot")) || String(userId || "").startsWith("bot_");
-      const name = getVal("userName") || userId;
-      const dist = (getVal("netDistance") as number) || 0;
-      const split = (getVal("lastPace") as number) || (getVal("avgPace") as number) || 120;
-      const watts = (getVal("lastPower") as number) || (getVal("avgPower") as number) || 0;
-      const spm = (getVal("lastStrokeRate") as number) || (getVal("avgStrokeRate") as number) || 0;
-      const heartRate = (getVal("lastHeartRate") as number) || undefined;
-      const country = getVal("country") || undefined;
-      const status = getVal("status") || "in_progress";
-      const elapsedTime = (getVal("elapsedTime") as number) || 0;
 
       let lane = preassignedLanes.get(userId) || 0;
       if (!lane) {
@@ -435,6 +427,48 @@ export class RaceManager {
       }
 
       const participantInfo = race?.participants?.get(userId);
+      const userObj = !isBot ? (userStore.findUserSync(userId) || (userStore as any).getUserByIdSync?.(userId)) : null;
+
+      // Résolution unifiée et déterministe des pseudos (Fin de l'alternance compte / montre) :
+      // Priorité 1 : Le username / login enregistré sur le compte utilisateur (si authentifié)
+      // Priorité 2 : Le pseudo invité choisi lors de l'entrée dans le salon (participantInfo?.guestName ou participantInfo?.userName)
+      // Fallback ultime : L'identifiant technique de la montre uniquement si aucun nom/compte n'est associé
+      let name = "";
+      if (userObj && (userObj.login || userObj.name)) {
+        name = userObj.login || userObj.name;
+      } else if (participantInfo && (participantInfo.guestName || participantInfo.userName)) {
+        const pCandidate = String(participantInfo.guestName || participantInfo.userName).trim();
+        if (!pCandidate.startsWith("Garmin_") && !pCandidate.startsWith("fenix") && !pCandidate.startsWith("forerunner")) {
+          name = pCandidate;
+        }
+      }
+
+      if (!name) {
+        const actName = String(getVal("userName") || "").trim();
+        if (actName && !actName.startsWith("Garmin_") && !actName.startsWith("fenix") && !actName.startsWith("forerunner")) {
+          name = actName;
+        } else {
+          name = actName || userId || "Rameur";
+        }
+      }
+
+      // Figer le pseudo validé dans les métadonnées du participant pour toute la durée de la course
+      if (participantInfo && (!participantInfo.userName || participantInfo.userName.startsWith("Garmin_"))) {
+        participantInfo.userName = name;
+      }
+
+      const dist = Number.isFinite(Number(getVal("netDistance"))) ? Math.max(0, Number(getVal("netDistance"))) : 0;
+      const rawSplit = Number(getVal("lastPace")) || Number(getVal("avgPace")) || 120;
+      const split = Number.isFinite(rawSplit) && rawSplit > 0 ? rawSplit : 120;
+      const rawWatts = Number(getVal("lastPower")) || Number(getVal("avgPower")) || 0;
+      const watts = Number.isFinite(rawWatts) && rawWatts >= 0 ? rawWatts : 0;
+      const rawSpm = Number(getVal("lastStrokeRate")) || Number(getVal("avgStrokeRate")) || 0;
+      const spm = Number.isFinite(rawSpm) && rawSpm >= 0 ? rawSpm : 0;
+      const heartRate = (getVal("lastHeartRate") as number) || undefined;
+      const country = getVal("country") || undefined;
+      const status = getVal("status") || "in_progress";
+      const elapsedTime = Number.isFinite(Number(getVal("elapsedTime"))) ? Math.max(0, Number(getVal("elapsedTime"))) : 0;
+
       const isParticipantReady = isBot
         ? true
         : (participantInfo?.ready !== undefined ? participantInfo.ready : (watts > 0 || spm > 0 || dist > 0 || true));
@@ -453,7 +487,6 @@ export class RaceManager {
         }))
       );
 
-      const userObj = userStore.findUserSync(userId) || (userStore as any).getUserByIdSync?.(userId);
       const kayak = participantInfo?.kayak || userObj?.kayakCustomization;
 
       return {
@@ -904,6 +937,12 @@ export class RaceManager {
 
         race.status = "RUNNING";
         race.startedAt = now;
+        if (race.participants) {
+          for (const p of race.participants.values()) {
+            p.ready = true;
+            p.connectionState = "READY";
+          }
+        }
         userStore.updateActivitiesWhere(race.id, "waiting", { status: "in_progress", updatedAt: now });
         try {
           await Races.update({ status: "in_progress", startTime: now }, { where: { id: race.id } });
@@ -989,8 +1028,10 @@ export class RaceManager {
   }
 
   private async finishPrivateRace(race: RaceState, reason: string): Promise<void> {
-    if (race.status === "COMPLETED") return;
-    race.status = "COMPLETED";
+    if (race.status === "COMPLETED" || race.status === "STOPPED" || race.status === "CANCELLED") return;
+    const isStopped = reason === "organizer_stopped" || reason === "stopped";
+    const isCancelled = reason === "cancelled" || reason === "aborted";
+    race.status = isStopped ? "STOPPED" : (isCancelled ? "CANCELLED" : "COMPLETED");
     race.endedAt = new Date();
     let ranking: RaceRankingEntry[] = [];
     userStore.updateActivitiesWhere(race.id, ["in_progress", "waiting", "paused"], { status: "out_of_time" });
@@ -1006,11 +1047,12 @@ export class RaceManager {
       console.error(`[RaceManager] Unable to finalise private race ${race.id}:`, err);
     }
     try {
-      await Races.update({ status: "finished" }, { where: { id: race.id } });
+      const dbStatus = isStopped ? "stopped" : (isCancelled ? "cancelled" : "finished");
+      await Races.update({ status: dbStatus }, { where: { id: race.id } });
     } catch { /* ignore when DB offline */ }
     race.finalRanking = ranking;
-    this.removePrivateRaceInternal(race, "COMPLETED");
-    socketGateway.broadcastRaceStatus(race.id, "COMPLETED", { reason, ranking, roomClosed: true });
+    this.removePrivateRaceInternal(race, race.status);
+    socketGateway.broadcastRaceStatus(race.id, race.status, { reason, ranking, roomClosed: true });
   }
 
   /**
@@ -1245,14 +1287,16 @@ export class RaceManager {
    */
   public async finishRace(raceId: string, timeoutTriggered: boolean, reason?: string): Promise<RaceRankingEntry[]> {
     const managed = this.getRaceById(raceId) || this.findPrivateRace(raceId);
-    if (managed && (managed.status === "COMPLETED" || managed.status === "ABANDONED")) {
+    if (managed && (managed.status === "COMPLETED" || managed.status === "STOPPED" || managed.status === "CANCELLED" || managed.status === "ABANDONED")) {
       return [];
     }
     const isPublic = Boolean(this.currentPublicRace && this.currentPublicRace.id === raceId);
+    const isStopped = reason === "organizer_stopped" || reason === "stopped";
+    const isCancelled = reason === "cancelled" || reason === "aborted";
     if (managed) {
-      managed.status = "COMPLETED";
+      managed.status = isStopped ? "STOPPED" : (isCancelled ? "CANCELLED" : "COMPLETED");
       managed.endedAt = new Date();
-      if (isPublic && reason !== "no_active_humans") {
+      if (isPublic && reason !== "no_active_humans" && !isStopped && !isCancelled) {
         managed.pauseEndsAt = new Date(Date.now() + 120 * 1000); // 2 minutes post-race restitution pause
       }
     }
@@ -1276,17 +1320,18 @@ export class RaceManager {
       console.error(`[RaceManager] Unable to finalise race ${raceId}:`, err);
     }
     try {
-      await Races.update({ status: "finished" }, { where: { id: raceId } });
+      const dbStatus = isStopped ? "stopped" : (isCancelled ? "cancelled" : "finished");
+      await Races.update({ status: dbStatus }, { where: { id: raceId } });
     } catch { /* ignore when DB offline */ }
 
     if (managed) {
       managed.finalRanking = ranking;
       if (managed.type === "PRIVATE_INVITE") {
-        this.removePrivateRaceInternal(managed, "COMPLETED");
+        this.removePrivateRaceInternal(managed, managed.status);
       }
     }
 
-    socketGateway.broadcastRaceStatus(raceId, "COMPLETED", {
+    socketGateway.broadcastRaceStatus(raceId, managed?.status || "COMPLETED", {
       reason: reason || (timeoutTriggered ? "timeout" : "completed"),
       pauseSeconds: managed?.pauseEndsAt ? 120 : 0,
       pauseEndsAt: managed?.pauseEndsAt,
@@ -2434,20 +2479,19 @@ export class RaceManager {
       return { race };
     }
 
-    // Verrouillage du départ par le statut "READY" (Section 4.2) :
-    // Si au moins un compétiteur connecté est en état CONNECTED (ready === false), empêcher le lancement
-    if (race.participants && race.participants.size > 0) {
+    const rawSec = options.countdownSeconds !== undefined ? Number(options.countdownSeconds) : 15;
+    const countdownSec = Number.isFinite(rawSec) ? Math.min(3600, Math.max(0, Math.round(rawSec))) : 15;
+
+    // Si départ immédiat (0s) et des compétiteurs sont encore non prêts, inviter à un décompte court plutôt que bloquer
+    if (countdownSec <= 0 && race.participants && race.participants.size > 0) {
       const anyNotReady = Array.from(race.participants.values()).some((p) => p.ready === false);
       if (anyNotReady) {
         return {
-          error: "Tous les compétiteurs connectés doivent avoir leur rameur prêt (READY) avant de lancer le départ.",
+          error: "Tous les compétiteurs connectés doivent avoir leur rameur prêt (READY) pour un départ immédiat sans décompte. Utilisez le départ dans 10s ou 3s.",
           statusCode: 409
         };
       }
     }
-
-    const rawSec = options.countdownSeconds !== undefined ? Number(options.countdownSeconds) : 15;
-    const countdownSec = Number.isFinite(rawSec) ? Math.min(3600, Math.max(0, Math.round(rawSec))) : 15;
 
     if (countdownSec <= 0) {
       race.status = "RUNNING";
@@ -2596,9 +2640,26 @@ export class RaceManager {
     if (isAdmin) return true;
     if (!race.hostUserId || race.hostUserId === "anonymous") return true;
     const clean = hostUserId ? hostUserId.trim() : "";
-    return Boolean(
-      clean && (clean === race.hostUserId || (race.originalHostUserId && clean === race.originalHostUserId))
-    );
+    if (!clean) return false;
+    if (clean === race.hostUserId || (race.originalHostUserId && clean === race.originalHostUserId)) {
+      return true;
+    }
+    const cleanLower = clean.toLowerCase();
+    if (race.hostUserId.toLowerCase() === cleanLower || (race.originalHostUserId && race.originalHostUserId.toLowerCase() === cleanLower)) {
+      return true;
+    }
+    if (race.hostUserName && race.hostUserName.toLowerCase() === cleanLower) {
+      return true;
+    }
+    const user = userStore.findUserSync(clean);
+    if (user && (user.id === race.hostUserId || user.login?.toLowerCase() === race.hostUserId.toLowerCase())) {
+      return true;
+    }
+    const hostUser = userStore.findUserSync(race.hostUserId);
+    if (hostUser && (hostUser.login?.toLowerCase() === cleanLower || hostUser.name?.toLowerCase() === cleanLower)) {
+      return true;
+    }
+    return false;
   }
 
   public updateParticipantKayak(userId: string, kayak: KayakCustomization): void {
@@ -2623,7 +2684,7 @@ export class RaceManager {
     }
   }
 
-  private removePrivateRaceInternal(race: RaceState, finalStatus: "ABANDONED" | "COMPLETED" = "ABANDONED"): void {
+  private removePrivateRaceInternal(race: RaceState, finalStatus: RaceState["status"] = "ABANDONED"): void {
     race.status = finalStatus;
     if (race.pinCode) {
       this.pinToRaceMap.delete(race.pinCode);

@@ -502,17 +502,7 @@
           </div>
         }
 
-        <!-- Bouton Admin Course réservé EXCLUSIVEMENT à l'administrateur pour les courses publiques -->
-        <button
-          *ngIf="isUserAdmin"
-          type="button"
-          class="btn-hud btn-config-unified is-admin"
-          (click)="openUnifiedConfigModal()"
-          title="⚙️ Administration globale et configuration des courses publiques">
-          ⚙️ Admin Courses
-        </button>
-
-        <!-- Bouton Administration Plateforme (Back-Office Complet) -->
+        <!-- Bouton Administration Plateforme (Back-Office Complet & Configuration des courses publiques) -->
         <button
           *ngIf="isUserAdmin"
           type="button"
@@ -1414,17 +1404,16 @@
                       {{ entry.formattedDuration || '--' }}
                     </td>
                     <td class="col-pace font-mono">
-                      {{ formatPace(entry.avgPace) }}
+                      {{ formatPace(entry.avgPaceSec || entry.avgPace) }}
                     </td>
                     <td class="col-gap font-mono">
                       {{ entry.gap || '--' }}
                     </td>
                     <td class="col-dist font-mono">
-                      {{ entry.netDistance }} m
+                      {{ formatDist(entry.netDistance || entry.distance) }}
                     </td>
                     <td class="col-points">
-                      <span class="points-pill" *ngIf="entry.points">+{{ entry.points }} pts</span>
-                      <span *ngIf="!entry.points">—</span>
+                      {{ formatPoints(entry.points) }}
                     </td>
                     <td class="col-status">
                       <span class="status-chip" [class.status-finished]="entry.status === 'finished'" [class.status-abandoned]="entry.status === 'abandoned'">
@@ -2044,7 +2033,7 @@
             </div>
             <div class="finish-stat-box">
               <span class="f-lbl">DISTANCE</span>
-              <span class="f-val">{{ myActivity?.netDistance || activeTargetDistance }} m</span>
+              <span class="f-val">{{ formatDist(myActivity?.netDistance || activeTargetDistance) }}</span>
             </div>
             <div class="finish-stat-box">
               <span class="f-lbl">ALLURE MOYENNE</span>
@@ -2099,12 +2088,9 @@
                           </div>
                         </td>
                         <td class="col-time font-mono">{{ entry.formattedDuration || '--' }}</td>
-                        <td class="col-pace font-mono">{{ formatPace(entry.avgPace) }}</td>
+                        <td class="col-pace font-mono">{{ formatPace(entry.avgPaceSec || entry.avgPace) }}</td>
                         <td class="col-gap font-mono">{{ entry.gap || '--' }}</td>
-                        <td class="col-points">
-                          <span class="points-pill" *ngIf="entry.points">+{{ entry.points }} pts</span>
-                          <span *ngIf="!entry.points">—</span>
-                        </td>
+                        <td class="col-points">{{ formatPoints(entry.points) }}</td>
                       </tr>
                     }
                   } @else {
@@ -2376,7 +2362,7 @@
             </div>
             <div class="finish-stat-box">
               <span class="f-lbl">DISTANCE</span>
-              <span class="f-val">{{ (focusedTelemetry || myActivity)?.netDistance || activeTargetDistance }} m</span>
+              <span class="f-val">{{ formatDist((focusedTelemetry || myActivity)?.netDistance || activeTargetDistance) }}</span>
             </div>
             <div class="finish-stat-box">
               <span class="f-lbl">ALLURE MOYENNE</span>
@@ -2618,6 +2604,11 @@
             </div>
           </div>
         }
+      </section>
+
+      <!-- CONSOLE D'ADMINISTRATION INTÉGRÉE DIRECTEMENT SOUS LE BLOC D'ACCUEIL -->
+      <section class="home-admin-console-section" *ngIf="isUserAdmin && isAdminDashboardOpen">
+        <app-admin-dashboard (close)="closeAdminDashboard()"></app-admin-dashboard>
       </section>
 
       <!-- BANNIÈRE RAPIDE COURSE EN COURS DEPUIS L'ACCUEIL -->
@@ -2903,7 +2894,7 @@
       </section>
 
       <!-- VUE 2D EN DESSOUS DES CLASSEMENTS ET HISTORIQUES AVEC LES LIGNES D'EAU OÙ LES JOUEURS SONT ENGAGÉS -->
-      <section class="lobby-regatta-preview-section" *ngIf="!isMobileFullscreenOnly" aria-label="Grille de départ et lignes d'eau engagées">
+      <section class="lobby-regatta-preview-section" *ngIf="!isSmartphone && !isMobileFullscreenOnly" aria-label="Grille de départ et lignes d'eau engagées">
         <div class="lobby-preview-card">
           <div class="panel-header">
             <div class="panel-title-group">
@@ -3785,13 +3776,5 @@
             </div>
           </div>
         </div>
-      }
-
-      <!-- MODALE BACK-OFFICE ADMINISTRATION PLATEFORME -->
-      @defer (when isAdminDashboardOpen) {
-        <app-admin-dashboard
-          *ngIf="isAdminDashboardOpen"
-          (close)="closeAdminDashboard()">
-        </app-admin-dashboard>
       }
 </div>

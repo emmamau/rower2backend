@@ -62,7 +62,9 @@ export interface UserProfile {
   gender?: string; // Sexe ('M' | 'F' | 'Autre')
   country?: string; // Pays
   isSubscriber?: boolean; // Droit de créer des salons privés
+  is_subscriber?: boolean;
   subscriptionTier?: string;
+  subscription_tier?: string;
   subscriptionStatus?: string;
   isConfirmed?: boolean; // Confirmé via montre Garmin
   watchUserId?: string; // ID de la montre Garmin
@@ -82,6 +84,7 @@ export interface UserProfile {
   bestRank?: number;
   lastRank?: number;
   isAdmin?: boolean;
+  is_admin?: boolean;
   role?: string;
   isRevoked?: boolean;
   isGarminPaired?: boolean;
@@ -128,6 +131,7 @@ export interface AuthResponse {
   user: UserProfile;
   isSubscriber?: boolean;
   isAdmin?: boolean;
+  subscriptionTier?: string;
   isGarminPaired?: boolean;
   pairedDevice?: {
     deviceId?: string;

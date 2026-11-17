@@ -608,13 +608,19 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
   }
 
   public formatGap(racer: LiveRacerMetric, leader: LiveRacerMetric): string {
-    if (!leader || racer.userId === leader.userId) return 'Leader';
-    const distDiff = Math.round((leader.dist || 0) - (racer.dist || 0));
+    if (!racer || !leader || racer.userId === leader.userId) return 'Leader';
+    const leaderDist = Number(leader.dist);
+    const racerDist = Number(racer.dist);
+    if (!Number.isFinite(leaderDist) || !Number.isFinite(racerDist)) return '--';
+    const distDiff = Math.round(leaderDist - racerDist);
     if (distDiff <= 0) return 'Leader';
     let text = `-${distDiff}m`;
-    if (racer.split && racer.split > 0 && racer.split < 600) {
-      const secDiff = ((distDiff * racer.split) / 500).toFixed(1);
-      text += ` (+${secDiff}s)`;
+    const split = Number(racer.split);
+    if (Number.isFinite(split) && split > 0 && split < 600) {
+      const secDiff = (distDiff * split) / 500;
+      if (Number.isFinite(secDiff) && secDiff > 0) {
+        text += ` (+${secDiff.toFixed(1)}s)`;
+      }
     }
     return text;
   }
@@ -787,7 +793,10 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
         };
         this.boatsMap.set(r.userId, boat);
       } else {
-        boat.name = r.name;
+        const isGarminTech = (n: string) => n.startsWith('Garmin_') || n.startsWith('fenix') || n.startsWith('forerunner');
+        if (r.name && (!boat.name || !isGarminTech(r.name) || isGarminTech(boat.name))) {
+          boat.name = r.name;
+        }
         boat.isBot = Boolean(r.isBot || String(r.userId || '').toLowerCase().startsWith('bot_') || /\(bot\)/i.test(String(r.name || '')));
         boat.isPaired = Boolean(r.isPaired);
         boat.status = isFinished ? 'finished' : r.status;

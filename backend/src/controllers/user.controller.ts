@@ -43,9 +43,16 @@ function sanitizeUser(user: any): Record<string, any> {
   plain.leagueBadge = leagueInfo.badge;
   plain.totalCareerPoints = plain.totalCareerPoints !== undefined ? Number(plain.totalCareerPoints) : (plain.total_career_points !== undefined ? Number(plain.total_career_points) : Number(plain.points || 0));
   plain.isResting = plain.isResting !== undefined ? Boolean(plain.isResting) : Boolean(plain.is_resting);
-  plain.role = plain.role ? String(plain.role).toUpperCase() : (plain.isAdmin ? "ADMIN" : "USER");
+  plain.role = plain.role ? String(plain.role).toUpperCase() : (plain.isAdmin || plain.is_admin ? "ADMIN" : "USER");
   plain.isRevoked = plain.isRevoked !== undefined ? Boolean(plain.isRevoked) : Boolean(plain.is_revoked);
-  plain.subscriptionTier = plain.subscriptionTier || plain.subscription_tier || "free";
+  plain.subscriptionTier = String(plain.subscriptionTier || plain.subscription_tier || "free").toLowerCase();
+  plain.isAdmin = Boolean(plain.isAdmin || plain.is_admin || plain.role === "ADMIN");
+  plain.isSubscriber = Boolean(
+    plain.isSubscriber ||
+    plain.is_subscriber ||
+    (plain.subscriptionTier !== "free" && plain.subscriptionTier !== "") ||
+    plain.isAdmin
+  );
   return plain;
 }
 
@@ -363,7 +370,7 @@ export const loginUser = async (req: Request, res: Response): Promise<void> => {
     sanitized.isGarminPaired = isGarminPaired;
     if (pairedDevice) sanitized.pairedDevice = pairedDevice;
 
-    const effectiveRole = String(user.role || (isEmma || user.isAdmin ? "ADMIN" : "USER")).toUpperCase();
+    const effectiveRole = String(sanitized.role || "USER").toUpperCase();
     sanitized.role = effectiveRole;
 
     const token = JwtService.sign({
@@ -382,8 +389,9 @@ export const loginUser = async (req: Request, res: Response): Promise<void> => {
       user: sanitized,
       isGarminPaired,
       pairedDevice,
-      isSubscriber: Boolean(user.isSubscriber || isEmma),
-      isAdmin: Boolean(user.isAdmin || isEmma || effectiveRole === "ADMIN"),
+      isSubscriber: Boolean(sanitized.isSubscriber),
+      isAdmin: Boolean(sanitized.isAdmin),
+      subscriptionTier: sanitized.subscriptionTier,
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
@@ -1011,8 +1019,12 @@ export const getMe = async (req: Request, res: Response): Promise<void> => {
     let user: any = null;
     try {
       user = await db.users.findByPk(check.payload.userId);
-    } catch {
+    } catch {}
+    if (!user) {
       user = await userStore.findUser(check.payload.userId);
+    }
+    if (!user && check.payload.login) {
+      user = await userStore.findUser(check.payload.login);
     }
 
     if (!user) {
@@ -1030,6 +1042,9 @@ export const getMe = async (req: Request, res: Response): Promise<void> => {
       success: true,
       user: sanitized,
       role: sanitized.role,
+      isAdmin: sanitized.isAdmin,
+      isSubscriber: sanitized.isSubscriber,
+      subscriptionTier: sanitized.subscriptionTier,
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
