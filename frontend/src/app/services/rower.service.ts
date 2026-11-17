@@ -17,7 +17,9 @@ import {
   GeneralLeaderboardResponse,
   RegisterUserDto,
   LoginDto,
-  AuthResponse
+  AuthResponse,
+  KayakCustomization,
+  UserProfile
 } from '../models/user.model';
 
 @Injectable({
@@ -429,6 +431,14 @@ export class RowerService {
 
   updatePublicRaceAdminConfig(config: any): Observable<{ success: boolean; message: string; config: any }> {
     return this.http.put<{ success: boolean; message: string; config: any }>(`${this.apiUrl}/api/race/admin/config`, config);
+  }
+
+  // Mise à jour de la personnalisation du kayak 2D
+  updateKayakCustomization(userId: string, kayakCustomization: KayakCustomization): Observable<{ success: boolean; message: string; user: UserProfile }> {
+    return this.http.put<{ success: boolean; message: string; user: UserProfile }>(
+      `${this.apiUrl}/api/user/kayak`,
+      { userId, kayakCustomization }
+    );
   }
 
   checkHealth(): Observable<{ status: string; database: string }> {

@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef, ViewChild, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RowerService } from './services/rower.service';
@@ -12,7 +12,7 @@ import {
 } from './components/private-room-manager/private-room-manager.component';
 import { RowerData, NextRaceInfo, PastRaceResult, PrivateRacePayload } from './models/rower-data.model';
 import { extractRoomFromLocation } from './utils/room-link.util';
-import { UserProfile, UserHistoryItem } from './models/user.model';
+import { UserProfile, UserHistoryItem, KayakCustomization, KayakPattern } from './models/user.model';
 import { getLeagueByPoints, LeagueInfo } from './utils/league.util';
 import { interval, Subscription, of, Observable } from 'rxjs';
 import { switchMap, startWith, catchError } from 'rxjs/operators';
@@ -155,10 +155,353 @@ export class AppComponent implements OnInit, OnDestroy {
 
   // Subscriber Account Management Modal
   isAccountModalOpen = false;
-  accountModalTab: 'login' | 'register' | 'profile' | 'forgot' = 'login';
+  accountModalTab: 'login' | 'register' | 'profile' | 'forgot' | 'kayak-customizer' = 'login';
   accountAuthError = '';
   accountAuthSuccess = '';
   isAccountSubmitting = false;
+
+  // Personnalisation du Kayak 2D
+  customKayakHullColor = '#00e5ff';
+  customKayakBladeColor = '#00f0ff';
+  customKayakPattern: KayakPattern = 'racing-stripe';
+  customKayakGlowColor = '#00f0ff';
+  isSavingKayak = false;
+  isPostRegisterOnboarding = false;
+
+  private _previewCanvasRef?: ElementRef<HTMLCanvasElement>;
+  private _previewAnimFrameId?: any;
+
+  @ViewChild('kayakPreviewCanvas')
+  set kayakPreviewCanvas(ref: ElementRef<HTMLCanvasElement> | undefined) {
+    this._previewCanvasRef = ref;
+    if (ref) {
+      this.startKayakPreviewAnimation();
+    } else {
+      this.stopKayakPreviewAnimation();
+    }
+  }
+
+  readonly presetColors = [
+    { name: 'Cyan Néon', hex: '#00e5ff' },
+    { name: 'Bleu Royal', hex: '#0055ff' },
+    { name: 'Rouge Racing', hex: '#ff0055' },
+    { name: 'Orange Éclair', hex: '#ff6600' },
+    { name: 'Or Vainqueur', hex: '#ffe600' },
+    { name: 'Vert Émeraude', hex: '#39ff14' },
+    { name: 'Violet Pulsar', hex: '#b026ff' },
+    { name: 'Noir Carbone', hex: '#1a1f2c' },
+    { name: 'Blanc Pur', hex: '#ffffff' }
+  ];
+
+  readonly patternOptions: { id: KayakPattern; label: string; icon: string; desc: string }[] = [
+    { id: 'solid', label: 'Uni Épuré', icon: '🎨', desc: 'Finition classique monochrome' },
+    { id: 'racing-stripe', label: 'Bande Racing', icon: '⚡', desc: 'Double liseré central athlétique' },
+    { id: 'dual-tone', label: 'Bi-Colore', icon: '🌗', desc: 'Contraste marqué proue / poupe' },
+    { id: 'gradient', label: 'Dégradé', icon: '🌈', desc: 'Fusion fluide de teintes sportives' }
+  ];
+
+  get currentKayakCustomization(): KayakCustomization {
+    return {
+      hullColor: this.customKayakHullColor,
+      bladeColor: this.customKayakBladeColor,
+      pattern: this.customKayakPattern,
+      glowColor: this.customKayakGlowColor
+    };
+  }
+
+  getPatternLabel(pattern: KayakPattern): string {
+    const found = this.patternOptions.find(p => p.id === pattern);
+    return found ? `${found.icon} ${found.label}` : 'Uni Épuré';
+  }
+
+  getLocalKayakCustomization(): KayakCustomization | null {
+    if (typeof localStorage === 'undefined') return null;
+    try {
+      const raw = localStorage.getItem('rower_kayak_customization');
+      if (raw) {
+        return JSON.parse(raw);
+      }
+    } catch {}
+    return null;
+  }
+
+  syncKayakCustomizationFromUser(user?: UserProfile): void {
+    const custom = user?.kayakCustomization || this.getLocalKayakCustomization();
+    if (custom) {
+      this.customKayakHullColor = custom.hullColor || '#00e5ff';
+      this.customKayakBladeColor = custom.bladeColor || '#00f0ff';
+      this.customKayakPattern = custom.pattern || 'racing-stripe';
+      this.customKayakGlowColor = custom.glowColor || '#00f0ff';
+    }
+  }
+
+  openKayakCustomizer(): void {
+    this.syncKayakCustomizationFromUser(this.currentUser);
+    this.accountModalTab = 'kayak-customizer';
+    this.accountAuthError = '';
+    this.accountAuthSuccess = '';
+    this.isAccountModalOpen = true;
+    this.cdr.markForCheck();
+  }
+
+  saveKayakCustomization(): void {
+    const customization = this.currentKayakCustomization;
+    try {
+      localStorage.setItem('rower_kayak_customization', JSON.stringify(customization));
+    } catch {}
+
+    const targetUserId = this.currentUser?.login || this.currentUser?.id || this.activeUserId;
+    if (!targetUserId || !this.isRegisteredUser) {
+      this.isPostRegisterOnboarding = false;
+      this.accountAuthSuccess = 'Style de kayak sauvegardé en local !';
+      this.accountModalTab = 'profile';
+      this.cdr.markForCheck();
+      return;
+    }
+
+    this.isSavingKayak = true;
+    this.accountAuthError = '';
+    this.accountAuthSuccess = '';
+
+    this.rowerService.updateKayakCustomization(targetUserId, customization).subscribe({
+      next: (res) => {
+        this.isSavingKayak = false;
+        if (res.success && res.user) {
+          this.currentUser = { ...this.currentUser, ...res.user };
+          this.syncKayakCustomizationFromUser(res.user);
+          this.accountAuthSuccess = 'Votre kayak personnalisé a été enregistré avec succès !';
+        } else {
+          this.accountAuthSuccess = 'Style de kayak sauvegardé !';
+        }
+        this.isPostRegisterOnboarding = false;
+        this.accountModalTab = 'profile';
+        this.cdr.markForCheck();
+      },
+      error: (err) => {
+        this.isSavingKayak = false;
+        this.accountAuthError = err.error?.message || 'Erreur lors de la sauvegarde du kayak.';
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  skipKayakCustomization(): void {
+    this.isPostRegisterOnboarding = false;
+    this.accountModalTab = 'profile';
+    this.cdr.markForCheck();
+  }
+
+  startKayakPreviewAnimation(): void {
+    this.stopKayakPreviewAnimation();
+    const render = () => {
+      this.drawKayakCustomizerPreview();
+      this._previewAnimFrameId = requestAnimationFrame(render);
+    };
+    this._previewAnimFrameId = requestAnimationFrame(render);
+  }
+
+  stopKayakPreviewAnimation(): void {
+    if (this._previewAnimFrameId) {
+      cancelAnimationFrame(this._previewAnimFrameId);
+      this._previewAnimFrameId = undefined;
+    }
+  }
+
+  drawKayakCustomizerPreview(): void {
+    const canvas = this._previewCanvasRef?.nativeElement;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const width = canvas.width;
+    const height = canvas.height;
+    const nowSec = performance.now() / 1000;
+
+    // Background water
+    const bgGrad = ctx.createLinearGradient(0, 0, width, height);
+    bgGrad.addColorStop(0, '#0a1628');
+    bgGrad.addColorStop(0.5, '#0c223d');
+    bgGrad.addColorStop(1, '#07111e');
+    ctx.fillStyle = bgGrad;
+    ctx.fillRect(0, 0, width, height);
+
+    // Subtle water ripples / wave lines
+    ctx.strokeStyle = 'rgba(0, 229, 255, 0.08)';
+    ctx.lineWidth = 1;
+    for (let i = 0; i < 4; i++) {
+      const waveY = ((height * 0.25 * i + (nowSec * 15)) % height);
+      ctx.beginPath();
+      ctx.moveTo(0, waveY);
+      for (let xPos = 0; xPos <= width; xPos += 20) {
+        const offset = Math.sin(xPos * 0.03 + nowSec * 2 + i) * 3;
+        ctx.lineTo(xPos, waveY + offset);
+      }
+      ctx.stroke();
+    }
+
+    // Floating bobbing effect
+    const bobbingY = Math.sin(nowSec * 2.2) * 2;
+    const centerX = width * 0.5;
+    const centerY = height * 0.5 + bobbingY;
+
+    const hullRx = Math.min(width * 0.26, 85);
+    const hullRy = 14;
+
+    // Wake / Sillage behind boat
+    const sternX = centerX - hullRx;
+    ctx.fillStyle = 'rgba(0, 229, 255, 0.15)';
+    ctx.beginPath();
+    ctx.ellipse(sternX - 16, centerY, 32, 9, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = 'rgba(0, 229, 255, 0.28)';
+    ctx.beginPath();
+    ctx.ellipse(sternX - 6, centerY, 18, 6, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Glow effect
+    ctx.save();
+    ctx.shadowColor = this.customKayakGlowColor || '#00f0ff';
+    ctx.shadowBlur = 16 + Math.sin(nowSec * 4) * 4;
+    ctx.strokeStyle = this.customKayakGlowColor || '#00f0ff';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.ellipse(centerX, centerY, hullRx + 4, hullRy + 4, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+
+    // Oars and rowing animation
+    const strokeAngle = Math.sin(nowSec * 2.4) * 0.42;
+    const oarLen = 44;
+    const dxOar = Math.sin(strokeAngle) * oarLen;
+    const dyOar = Math.cos(strokeAngle) * oarLen;
+    const x1 = centerX - dxOar;
+    const y1 = centerY - dyOar;
+    const x2 = centerX + dxOar;
+    const y2 = centerY + dyOar;
+
+    // Splashes at blade tips when moving
+    if (Math.abs(strokeAngle) > 0.2) {
+      ctx.fillStyle = 'rgba(0, 240, 255, 0.5)';
+      ctx.beginPath();
+      ctx.arc(x1, y1, 3.5, 0, Math.PI * 2);
+      ctx.arc(x2, y2, 3.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Oar shafts
+    ctx.strokeStyle = '#e2e8f0';
+    ctx.lineWidth = 2.5;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
+
+    // Blades (Pelles)
+    const bladeColor = this.customKayakBladeColor || '#00f0ff';
+    // Port blade
+    ctx.save();
+    ctx.translate(x1, y1);
+    ctx.rotate(-strokeAngle);
+    ctx.fillStyle = bladeColor;
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 7.5, 4, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+
+    // Starboard blade
+    ctx.save();
+    ctx.translate(x2, y2);
+    ctx.rotate(-strokeAngle);
+    ctx.fillStyle = bladeColor;
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 7.5, 4, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+
+    // Boat Hull
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(centerX + hullRx, centerY);
+    ctx.quadraticCurveTo(centerX, centerY - hullRy, centerX - hullRx, centerY);
+    ctx.quadraticCurveTo(centerX, centerY + hullRy, centerX + hullRx, centerY);
+    ctx.closePath();
+
+    const hullColor = this.customKayakHullColor || '#00e5ff';
+    const pattern = this.customKayakPattern || 'racing-stripe';
+
+    if (pattern === 'gradient') {
+      const grad = ctx.createLinearGradient(centerX - hullRx, centerY, centerX + hullRx, centerY);
+      grad.addColorStop(0, bladeColor);
+      grad.addColorStop(1, hullColor);
+      ctx.fillStyle = grad;
+      ctx.fill();
+    } else if (pattern === 'dual-tone') {
+      ctx.fillStyle = hullColor;
+      ctx.fill();
+      ctx.save();
+      ctx.clip();
+      ctx.fillStyle = bladeColor;
+      ctx.fillRect(centerX - hullRx, centerY - hullRy * 2, hullRx, hullRy * 4);
+      ctx.restore();
+    } else {
+      ctx.fillStyle = hullColor;
+      ctx.fill();
+    }
+
+    // Racing stripe pattern
+    if (pattern === 'racing-stripe') {
+      ctx.save();
+      ctx.clip();
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(centerX - hullRx + 4, centerY - 2.5);
+      ctx.lineTo(centerX + hullRx - 4, centerY - 2.5);
+      ctx.moveTo(centerX - hullRx + 4, centerY + 2.5);
+      ctx.lineTo(centerX + hullRx - 4, centerY + 2.5);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // Hull 3D highlight (top curvature sheen)
+    ctx.save();
+    ctx.clip();
+    const sheenGrad = ctx.createLinearGradient(centerX, centerY - hullRy, centerX, centerY);
+    sheenGrad.addColorStop(0, 'rgba(255, 255, 255, 0.45)');
+    sheenGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+    ctx.fillStyle = sheenGrad;
+    ctx.fill();
+    ctx.restore();
+
+    // Hull border
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+    ctx.restore();
+
+    // Cockpit
+    ctx.fillStyle = '#0f172a';
+    ctx.beginPath();
+    ctx.ellipse(centerX - 4, centerY, 13, 5.5, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Rower head icon/circle
+    ctx.fillStyle = '#f8fafc';
+    ctx.beginPath();
+    ctx.arc(centerX - 4, centerY, 3.2, 0, Math.PI * 2);
+    ctx.fill();
+  }
 
   // Login inputs
   loginAccountInput = '';
@@ -427,6 +770,7 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
+    this.syncKayakCustomizationFromUser();
     this.activeViewMode = this.detectTerminalViewMode();
     this.syncSeoLanguage(this.i18n.getCurrentLang());
     this.loadUserProfile();
@@ -487,6 +831,7 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.stopKayakPreviewAnimation();
     if (this.pollingSub) {
       this.pollingSub.unsubscribe();
       this.pollingSub = undefined;
@@ -790,6 +1135,7 @@ export class AppComponent implements OnInit, OnDestroy {
           } catch {}
         }
 
+        this.syncKayakCustomizationFromUser(res.user);
         this.autoResolveMyPublicKayak();
         this.cdr.markForCheck();
       }
@@ -1035,7 +1381,7 @@ export class AppComponent implements OnInit, OnDestroy {
     this.rowerService.getRaceHistory().pipe(
       catchError(() => of([]))
     ).subscribe((history) => {
-      this.raceHistory = history;
+      this.raceHistory = (history || []).filter((item: any) => item?.race?.status === 'finished');
       this.cdr.markForCheck();
     });
   }
@@ -1074,11 +1420,39 @@ export class AppComponent implements OnInit, OnDestroy {
     this.cdr.markForCheck();
   }
 
-  formatPace(seconds?: number): string {
-    if (!seconds || seconds <= 0) return '--:--';
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+  formatPace(pace?: number | string | null): string {
+    if (!pace) return '--:--';
+    if (typeof pace === 'string') {
+      const trimmed = pace.trim();
+      if (!trimmed || trimmed === '--' || trimmed === '--:--' || trimmed.includes('NaN')) return '--:--';
+      if (trimmed.includes("'")) {
+        const parts = trimmed.replace('"', '').split("'");
+        const m = parseInt(parts[0], 10);
+        const s = parseInt(parts[1], 10);
+        if (!isNaN(m) && !isNaN(s)) {
+          return `${m}:${s < 10 ? '0' : ''}${s}`;
+        }
+      }
+      if (trimmed.includes(':')) {
+        const parts = trimmed.split(':');
+        const m = parseInt(parts[0], 10);
+        const s = parseInt(parts[1], 10);
+        if (!isNaN(m) && !isNaN(s)) {
+          return `${m}:${s < 10 ? '0' : ''}${s}`;
+        }
+      }
+      const num = Number(trimmed);
+      if (isNaN(num) || num <= 0) return '--:--';
+      pace = num;
+    }
+    if (typeof pace === 'number') {
+      if (isNaN(pace) || pace <= 0) return '--:--';
+      const totalSec = Math.round(pace);
+      const mins = Math.floor(totalSec / 60);
+      const secs = totalSec % 60;
+      return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+    }
+    return '--:--';
   }
 
   formatTime(seconds?: number): string {
@@ -1119,7 +1493,7 @@ export class AppComponent implements OnInit, OnDestroy {
     return this.currentUser?.subscriptionTier || (this.isSubscriber ? 'club' : 'free');
   }
 
-  openAccountModal(tab: 'login' | 'register' | 'profile' | 'forgot' = 'login'): void {
+  openAccountModal(tab: 'login' | 'register' | 'profile' | 'forgot' | 'kayak-customizer' = 'login'): void {
     if (!this.isPaired && typeof localStorage !== 'undefined') {
       const storedToken = localStorage.getItem('rower_device_token');
       const storedPaired = localStorage.getItem('rower_is_paired') === 'true';
@@ -1137,6 +1511,9 @@ export class AppComponent implements OnInit, OnDestroy {
     } else {
       this.accountModalTab = tab;
     }
+    if (this.accountModalTab === 'kayak-customizer') {
+      this.syncKayakCustomizationFromUser(this.currentUser);
+    }
     this.accountAuthError = '';
     this.accountAuthSuccess = '';
     this.isAccountModalOpen = true;
@@ -1145,6 +1522,7 @@ export class AppComponent implements OnInit, OnDestroy {
 
   closeAccountModal(): void {
     this.isAccountModalOpen = false;
+    this.isPostRegisterOnboarding = false;
     this.accountAuthError = '';
     this.accountAuthSuccess = '';
     this.cdr.markForCheck();
@@ -1180,6 +1558,7 @@ export class AppComponent implements OnInit, OnDestroy {
           // Règle stricte d'identité joueur : utilisateur connecté => login/username exclusif
           this.currentUser = { ...res.user, name: userLogin };
           this.userLoginInput = userLogin;
+          this.syncKayakCustomizationFromUser(res.user);
 
           try {
             localStorage.setItem('rower_user_id', userLogin);
@@ -1316,8 +1695,9 @@ export class AppComponent implements OnInit, OnDestroy {
           }
           this.loadUserProfile();
           this.loadGeneralLeaderboard();
+          this.isPostRegisterOnboarding = true;
           setTimeout(() => {
-            this.accountModalTab = 'profile';
+            this.accountModalTab = 'kayak-customizer';
             this.cdr.markForCheck();
           }, 1200);
         } else {
@@ -1410,6 +1790,7 @@ export class AppComponent implements OnInit, OnDestroy {
       localStorage.removeItem('rower_user_login');
       localStorage.removeItem('rower_is_subscriber');
       localStorage.removeItem('rower_is_admin');
+      localStorage.removeItem('rower_kayak_customization');
       if (!keepPairing) {
         localStorage.removeItem('rower_is_paired');
         localStorage.removeItem('rower_watch_confirmed');
@@ -1459,6 +1840,11 @@ export class AppComponent implements OnInit, OnDestroy {
     };
     this.userLoginInput = this.currentUser.name;
     this.accountModalTab = 'login';
+    this.customKayakHullColor = '#00e5ff';
+    this.customKayakBladeColor = '#00f0ff';
+    this.customKayakPattern = 'racing-stripe';
+    this.customKayakGlowColor = '#00f0ff';
+    this.isPostRegisterOnboarding = false;
     this.accountAuthSuccess = keepPairing
       ? 'Déconnecté du compte. Montre conservée active en mode invité.'
       : 'Vous avez été déconnecté.';
