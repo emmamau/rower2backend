@@ -573,6 +573,12 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
     });
   }
 
+  get hasSubscriberRights(): boolean {
+    const rawTier = String(this.userSubscriptionTier || '').toLowerCase().trim();
+    const isPaidTier = rawTier !== '' && rawTier !== 'free' && rawTier !== 'none';
+    return Boolean(this.isUserAdmin || this.isSubscriber || isPaidTier);
+  }
+
   get canCreateRoom(): boolean {
     if (this.isUserAdmin) return true;
     const hasWatch = this.isWatchConnected || (this.quotaInfo ? this.quotaInfo.isWatchConnected : false);
@@ -616,7 +622,7 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
       return;
     }
 
-    if (this.selectedGameMode === 'multi' && !this.isUserAdmin && !this.isSubscriber) {
+    if (this.selectedGameMode === 'multi' && !this.hasSubscriberRights) {
       this.createGeneralError = "La création de salon multi-joueurs est réservée aux abonnés Club et Élite Pro. Connectez-vous avec votre compte ou découvrez nos offres.";
       this.cdr.markForCheck();
       return;

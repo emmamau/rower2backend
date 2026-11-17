@@ -411,7 +411,7 @@
             <div
               class="priv-mode-card"
               [class.is-selected]="selectedGameMode === 'multi'"
-              [class.is-locked]="!isUserAdmin && !isSubscriber"
+              [class.is-locked]="!hasSubscriberRights"
               (click)="selectGameMode('multi')">
               <div class="priv-mode-header">
                 <span class="priv-mode-icon">👥</span>
@@ -607,7 +607,7 @@
             </div>
           }
 
-          @if (selectedGameMode === 'multi' && !isUserAdmin && !isSubscriber) {
+          @if (selectedGameMode === 'multi' && !hasSubscriberRights) {
             <div class="priv-sub-alert-box">
               <div class="priv-sub-alert-title">⭐ Création réservée aux abonnés Club & Élite Pro</div>
               <p class="priv-sub-alert-desc">
@@ -629,7 +629,7 @@
               type="submit"
               class="priv-btn priv-btn-launch priv-btn-wide"
               [title]="createDisabledReason"
-              [disabled]="isCreating || !canCreateRoom || (selectedGameMode === 'duel_1v1' && !isRegisteredUser && !isUserAdmin) || (selectedGameMode === 'multi' && !isUserAdmin && !isSubscriber)">
+              [disabled]="isCreating || !canCreateRoom || (selectedGameMode === 'duel_1v1' && !isRegisteredUser && !isUserAdmin) || (selectedGameMode === 'multi' && !hasSubscriberRights)">
               {{ isCreating ? i18n.t('CREATING_ROOM') : (selectedGameMode === 'solo' || selectedGameMode === 'bot_duel' ? 'Obtenir mon code PIN montre' : 'Lancer le salon privé') }}
             </button>
             @if (createDisabledReason && !isCreating) {
