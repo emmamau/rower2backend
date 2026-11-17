@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { Op } from "sequelize";
 import db from "../models";
+import { KayakCustomization } from "../models/user.model";
 import { hashPassword, verifyPassword, isEmmaAdminUser, generateSecureToken } from "../services/auth.service";
 import emailService from "../services/email.service";
 import userStore from "../services/user-store.service";
@@ -9,6 +10,19 @@ import pairingService from "../services/pairing.service";
 import { getLeagueByPoints } from "../utils/league.util";
 
 const Activities = db.activities;
+
+function isValidHexColor(color: any): boolean {
+  return typeof color === "string" && /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(color.trim());
+}
+
+const VALID_PATTERNS = ["solid", "racing-stripe", "dual-tone", "gradient"];
+
+const DEFAULT_KAYAK_CUSTOMIZATION: KayakCustomization = {
+  hullColor: "#00f0ff",
+  bladeColor: "#ff0055",
+  pattern: "racing-stripe",
+  glowColor: "#00f0ff",
+};
 
 /**
  * Sanitise l'objet utilisateur pour ne jamais exposer de données sensibles (mot de passe / sel / tokens).
@@ -51,6 +65,7 @@ export const registerUser = async (req: Request, res: Response): Promise<void> =
       watchUserId,
       guestPairingToken,
       guestToken,
+      kayakCustomization,
     } = req.body || {};
 
     const cleanLastName = String(lastName || nom || "").trim();
@@ -148,6 +163,24 @@ export const registerUser = async (req: Request, res: Response): Promise<void> =
     // EmmaRacer est administratrice en dur
     const isEmmaAdmin = isEmmaAdminUser(cleanLogin, `${cleanFirstName} ${cleanLastName}`);
 
+    let initialKayak: KayakCustomization = DEFAULT_KAYAK_CUSTOMIZATION;
+    if (kayakCustomization && typeof kayakCustomization === "object") {
+      const { hullColor, bladeColor, pattern, glowColor } = kayakCustomization;
+      if (
+        isValidHexColor(hullColor) &&
+        isValidHexColor(bladeColor) &&
+        isValidHexColor(glowColor) &&
+        VALID_PATTERNS.includes(pattern)
+      ) {
+        initialKayak = {
+          hullColor: hullColor.trim(),
+          bladeColor: bladeColor.trim(),
+          pattern,
+          glowColor: glowColor.trim(),
+        };
+      }
+    }
+
     const newUser = await userStore.createUser({
       id: cleanLogin,
       name: `${cleanFirstName} ${cleanLastName}`.trim() || cleanLogin,
@@ -175,6 +208,7 @@ export const registerUser = async (req: Request, res: Response): Promise<void> =
       points: 0,
       bestRank: 0,
       lastRank: 0,
+      kayakCustomization: initialKayak,
     });
 
     // Migration automatique de l'appairage invité vers le nouveau compte abonné
@@ -867,6 +901,58 @@ export const getUserStatistics = async (req: Request, res: Response): Promise<vo
   }
 };
 
+/**
+ * PUT /api/user/kayak
+ * Met à jour la personnalisation visuelle du kayak (couleurs, motif, aura lumineuse).
+ */
+export const updateKayakCustomization = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { userId, kayakCustomization } = req.body || {};
+    const cleanUserId = String(userId || "").trim();
+
+    if (!cleanUserId) {
+      res.status(400).json({ success: false, message: "L'identifiant utilisateur est requis." });
+      return;
+    }
+    if (!kayakCustomization || typeof kayakCustomization !== "object") {
+      res.status(400).json({ success: false, message: "La configuration du kayak est requise." });
+      return;
+    }
+
+    const { hullColor, bladeColor, pattern, glowColor } = kayakCustomization;
+    if (!isValidHexColor(hullColor) || !isValidHexColor(bladeColor) || !isValidHexColor(glowColor)) {
+      res.status(400).json({ success: false, message: "Les couleurs doivent être au format hexadécimal (#RRGGBB)." });
+      return;
+    }
+    if (!VALID_PATTERNS.includes(pattern)) {
+      res.status(400).json({ success: false, message: "Le motif choisi est invalide." });
+      return;
+    }
+
+    const cleanCustomization: KayakCustomization = {
+      hullColor: hullColor.trim(),
+      bladeColor: bladeColor.trim(),
+      pattern,
+      glowColor: glowColor.trim(),
+    };
+
+    const user = (await userStore.getUserById(cleanUserId)) || (await userStore.findUser(cleanUserId));
+    if (!user) {
+      res.status(404).json({ success: false, message: "Utilisateur introuvable." });
+      return;
+    }
+
+    const updated = await userStore.updateUser(cleanUserId, { kayakCustomization: cleanCustomization });
+    res.status(200).json({
+      success: true,
+      message: "Style du kayak mis à jour avec succès.",
+      user: sanitizeUser(updated || user),
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error?.message || "Erreur lors de la mise à jour du kayak." });
+  }
+};
+
 export default {
   registerUser,
   loginUser,
@@ -878,4 +964,5 @@ export default {
   unsubscribeUser,
   deleteUserAccount,
   getUserStatistics,
+  updateKayakCustomization,
 };

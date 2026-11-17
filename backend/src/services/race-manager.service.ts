@@ -1,5 +1,6 @@
 import { Op } from "sequelize";
 import db from "../models";
+import { KayakCustomization } from "../models/user.model";
 import socketGateway, { LiveRacerMetric } from "../websocket/socket.gateway";
 import config from "../config";
 import userStore from "./user-store.service";
@@ -25,6 +26,7 @@ export interface PrivateParticipantInfo {
   lastTelemetryAtMs?: number;
   lastElapsedSec?: number;
   isPaired?: boolean;
+  kayak?: KayakCustomization;
 }
 
 let _pairingService: any = null;
@@ -197,6 +199,19 @@ export class RaceManager {
 
   private constructor() {
     this.startOrchestratorLoop();
+    this.purgeNonFinishedRaces().catch(() => {});
+  }
+
+  public async purgeNonFinishedRaces(): Promise<void> {
+    try {
+      await Races.destroy({
+        where: {
+          status: { [Op.in]: ["cancelled", "stopped", "abandoned"] }
+        }
+      });
+    } catch {
+      // Ignorer si la base de données est hors ligne
+    }
   }
 
   public static getInstance(): RaceManager {
@@ -371,6 +386,9 @@ export class RaceManager {
         }))
       );
 
+      const userObj = userStore.findUserSync(userId) || (userStore as any).getUserByIdSync?.(userId);
+      const kayak = participantInfo?.kayak || userObj?.kayakCustomization;
+
       return {
         lane,
         userId,
@@ -386,7 +404,8 @@ export class RaceManager {
         ready: isParticipantReady,
         connectionState,
         isBot,
-        isPaired
+        isPaired,
+        kayak,
       };
     });
   }
@@ -659,9 +678,9 @@ export class RaceManager {
         } else {
           console.log(`[RaceManager] 0 human participants in Lobby at expiration. Silent reset.`);
           try {
-            await Races.update({ status: "cancelled" }, { where: { id: race.id } });
+            await Races.destroy({ where: { id: race.id } });
           } catch (err) {
-            console.error("[RaceManager] Unable to cancel empty race:", err);
+            console.error("[RaceManager] Unable to remove empty race:", err);
           }
           if (race.pinCode) {
             this.pinToRaceMap.delete(race.pinCode);
@@ -1144,7 +1163,11 @@ export class RaceManager {
       console.error(`[RaceManager] Unable to finalise race ${raceId}:`, err);
     }
     try {
-      await Races.update({ status: "finished" }, { where: { id: raceId } });
+      if (reason === "organizer_stopped" || reason === "no_active_humans") {
+        await Races.destroy({ where: { id: raceId } });
+      } else {
+        await Races.update({ status: "finished" }, { where: { id: raceId } });
+      }
     } catch { /* ignore when DB offline */ }
 
     if (managed) {
@@ -2478,6 +2501,13 @@ export class RaceManager {
       this.privateRaces.delete(race.code);
     }
     this.privateRacesById.delete(race.id);
+    if (finalStatus === "ABANDONED") {
+      try {
+        Races.destroy({ where: { id: race.id } }).catch(() => {});
+      } catch {
+        // Non-blocking
+      }
+    }
   }
 
   private generateUniquePinCode(avoidPin?: string): string {

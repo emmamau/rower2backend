@@ -14,6 +14,7 @@ export default (app: Application): void => {
   // Profil et historique des courses (uniquement les classements)
   router.get("/profile/:userId", userController.getUserProfile);
   router.get("/leaderboard", userController.getGeneralLeaderboard);
+  router.put("/kayak", userController.updateKayakCustomization);
 
   // Espace Statistiques & Analyses de courses (abonnés = illimité, gratuits = 10 jours)
   router.get("/statistics", userController.getUserStatistics);

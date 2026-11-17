@@ -246,6 +246,14 @@ export class UserStoreService {
     return null;
   }
 
+  public getUserByIdSync(id: string): StoredUser | null {
+    return this.findUserSync(id);
+  }
+
+  public async getUserById(id: string): Promise<StoredUser | null> {
+    return this.findUser(id);
+  }
+
   public async findUser(identifier: string): Promise<StoredUser | null> {
     if (!identifier) return null;
     const clean = identifier.trim().toLowerCase();
@@ -387,6 +395,7 @@ export class UserStoreService {
       bestRank: data.bestRank || 0,
       lastRank: data.lastRank || 0,
       isAdmin: isEmma ? true : Boolean(data.isAdmin),
+      kayakCustomization: data.kayakCustomization,
       createdAt: now,
       updatedAt: now,
     };
