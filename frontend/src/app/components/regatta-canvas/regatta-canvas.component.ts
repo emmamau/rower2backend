@@ -12,6 +12,7 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { LiveRacerMetric } from '../../services/socket.service';
+import { KayakCustomization } from '../../models/user.model';
 
 interface BoatRenderState {
   userId: string;
@@ -29,6 +30,7 @@ interface BoatRenderState {
   connectionState?: 'CONNECTED' | 'READY';
   isBot?: boolean;
   isPaired?: boolean;
+  kayak?: KayakCustomization;
 }
 
 @Component({
@@ -343,6 +345,7 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
   @Input() activeUserId = '';
   @Input() focusedUserId = '';
   @Input() canSelectKayak = false;
+  @Input() myKayakCustomization?: KayakCustomization;
   @Output() racerSelected = new EventEmitter<string>();
   @Output() kayakClaimed = new EventEmitter<string>();
 
@@ -423,6 +426,12 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
     if (changes['racers'] && this.racers) {
       this.syncRacersData();
       this.updateLeaderboard();
+    }
+    if (changes['myKayakCustomization'] && this.activeUserId) {
+      const myBoat = this.boatsMap.get(this.activeUserId);
+      if (myBoat && this.myKayakCustomization) {
+        myBoat.kayak = this.myKayakCustomization;
+      }
     }
   }
 
@@ -713,6 +722,9 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
       const effectiveDist = isFinished && this.targetDistance > 0 ? this.targetDistance : clampedDist;
 
       let boat = this.boatsMap.get(r.userId);
+      const racerKayak = (r.userId === this.activeUserId && this.myKayakCustomization)
+        ? this.myKayakCustomization
+        : r.kayak;
       if (!boat) {
         boat = {
           userId: r.userId,
@@ -729,7 +741,8 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
           ready: r.ready !== undefined ? r.ready : (r.connectionState !== 'CONNECTED'),
           connectionState: r.connectionState || (r.ready === false ? 'CONNECTED' : 'READY'),
           isBot: Boolean(r.isBot || String(r.userId || '').toLowerCase().startsWith('bot_') || /\(bot\)/i.test(String(r.name || ''))),
-          isPaired: Boolean(r.isPaired)
+          isPaired: Boolean(r.isPaired),
+          kayak: racerKayak
         };
         this.boatsMap.set(r.userId, boat);
       } else {
@@ -737,6 +750,7 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
         boat.isBot = Boolean(r.isBot || String(r.userId || '').toLowerCase().startsWith('bot_') || /\(bot\)/i.test(String(r.name || '')));
         boat.isPaired = Boolean(r.isPaired);
         boat.status = isFinished ? 'finished' : r.status;
+        boat.kayak = racerKayak;
         // Protection anti-recul : la distance cible ne régresse jamais, sauf réinitialisation de course (r.dist === 0)
         if ((r.dist || 0) === 0 && boat.targetPacketDist > 50 && !isFinished) {
           boat.targetPacketDist = 0;
@@ -927,6 +941,11 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
 
       const isUser = boat.userId === this.activeUserId;
       const isFocused = boat.userId === this.effectiveFocusedUserId;
+      const custom = boat.kayak || (isUser ? this.myKayakCustomization : undefined);
+      const effectiveHullColor = custom?.hullColor || (isUser ? '#00e5ff' : boat.color);
+      const effectiveBladeColor = custom?.bladeColor || (isUser ? '#00f0ff' : boat.color);
+      const effectiveGlowColor = custom?.glowColor || (isUser ? '#00f0ff' : '#ffe600');
+      const effectivePattern = custom?.pattern || (isUser ? 'racing-stripe' : 'solid');
 
       // Numéro de ligne d'eau + Voyant BLE (Orange = CONNECTED / En attente du rameur, Vert = READY / Rameur prêt)
       const laneNum = boat.lane || (laneIdx + 1);
@@ -1000,12 +1019,12 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
       // =========================================================================
       // MISE EN VALEUR JOUEUR CONNECTÉ : Halo lumineux / Contour fluo (Glow)
       // =========================================================================
-      if (isUser || isFocused) {
+      if (isUser || isFocused || custom) {
         ctx.save();
-        ctx.shadowColor = isUser ? '#00f0ff' : '#ffe600';
-        ctx.shadowBlur = 14 + Math.sin(nowSec * 5) * 5;
-        ctx.strokeStyle = isUser ? 'rgba(0, 240, 255, 0.95)' : 'rgba(255, 230, 0, 0.95)';
-        ctx.lineWidth = 2.5;
+        ctx.shadowColor = effectiveGlowColor;
+        ctx.shadowBlur = (isUser || isFocused) ? (14 + Math.sin(nowSec * 5) * 5) : 8;
+        ctx.strokeStyle = effectiveGlowColor;
+        ctx.lineWidth = (isUser || isFocused) ? 2.5 : 1.5;
         ctx.beginPath();
         ctx.ellipse(x, y, hullRx + 4, hullRy + 3, 0, 0, Math.PI * 2);
         ctx.stroke();
@@ -1022,7 +1041,7 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
       ctx.stroke();
 
       // Pelles
-      ctx.fillStyle = isUser ? '#00f0ff' : boat.color;
+      ctx.fillStyle = effectiveBladeColor;
       ctx.strokeStyle = '#ffffff';
       ctx.lineWidth = 1;
 
@@ -1046,17 +1065,57 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
       ctx.stroke();
       ctx.restore();
 
-      // Coque profilée
-      ctx.fillStyle = isUser ? '#00e5ff' : boat.color;
-      ctx.beginPath();
-      ctx.moveTo(x + hullRx, y);
-      ctx.quadraticCurveTo(x, y - hullRy, x - hullRx, y);
-      ctx.quadraticCurveTo(x, y + hullRy, x + hullRx, y);
-      ctx.closePath();
-      ctx.fill();
+      // Coque de base
+      ctx.save();
+      const traceHull = () => {
+        ctx.beginPath();
+        ctx.moveTo(x + hullRx, y);
+        ctx.quadraticCurveTo(x, y - hullRy, x - hullRx, y);
+        ctx.quadraticCurveTo(x, y + hullRy, x + hullRx, y);
+        ctx.closePath();
+      };
+
+      traceHull();
+
+      if (effectivePattern === 'gradient') {
+        const grad = ctx.createLinearGradient(x - hullRx, y, x + hullRx, y);
+        grad.addColorStop(0, effectiveBladeColor);
+        grad.addColorStop(1, effectiveHullColor);
+        ctx.fillStyle = grad;
+        ctx.fill();
+      } else if (effectivePattern === 'dual-tone') {
+        ctx.fillStyle = effectiveHullColor;
+        ctx.fill();
+        ctx.save();
+        ctx.clip();
+        ctx.fillStyle = effectiveBladeColor;
+        ctx.fillRect(x - hullRx, y - hullRy * 2, hullRx, hullRy * 4); // stern half
+        ctx.restore();
+      } else {
+        ctx.fillStyle = effectiveHullColor;
+        ctx.fill();
+      }
+
+      // Racing stripes pattern
+      if (effectivePattern === 'racing-stripe') {
+        ctx.save();
+        ctx.clip();
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.85)';
+        ctx.lineWidth = isCompact ? 1.0 : 1.4;
+        ctx.beginPath();
+        ctx.moveTo(x - hullRx + 2, y - 1.2);
+        ctx.lineTo(x + hullRx - 2, y - 1.2);
+        ctx.moveTo(x - hullRx + 2, y + 1.2);
+        ctx.lineTo(x + hullRx - 2, y + 1.2);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      traceHull();
       ctx.strokeStyle = isUser ? '#ffffff' : 'rgba(255, 255, 255, 0.4)';
       ctx.lineWidth = isUser ? 1.5 : 1;
       ctx.stroke();
+      ctx.restore();
 
       // Cockpit
       ctx.fillStyle = '#060913';
