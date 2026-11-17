@@ -2076,6 +2076,7 @@
             [focusedUserId]="selectedSpectatorUserId"
             [canSelectKayak]="canManualSelectPublicKayak"
             [myKayakCustomization]="currentKayakCustomization"
+            [isRaceActive]="isRaceActive"
             (racerSelected)="onSpectatorSelect($event)"
             (kayakClaimed)="onKayakClaimed($event)">
           </app-regatta-canvas>
@@ -2754,6 +2755,7 @@
               [activeUserId]="activeUserId"
               [canSelectKayak]="canManualSelectPublicKayak"
               [myKayakCustomization]="currentKayakCustomization"
+              [isRaceActive]="isRaceActive"
               (racerSelected)="onSpectatorSelect($event)"
               (kayakClaimed)="onKayakClaimed($event)">
             </app-regatta-canvas>

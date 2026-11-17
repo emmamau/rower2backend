@@ -348,6 +348,7 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
   @Input() focusedUserId = '';
   @Input() canSelectKayak = false;
   @Input() myKayakCustomization?: KayakCustomization;
+  @Input() isRaceActive = false;
   @Output() racerSelected = new EventEmitter<string>();
   @Output() kayakClaimed = new EventEmitter<string>();
 
@@ -398,6 +399,44 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
     }
     const suffix = rank === 1 ? 'er' : 'e';
     return `${rank}${suffix} / ${total}`;
+  }
+
+  public getRacerRank(userId: string): { rank: number; medal: string | null; label: string; color: string } | null {
+    if (!userId) return null;
+    let rankIndex = this.sortedLeaderboard.findIndex((r) => r.userId === userId);
+
+    if (rankIndex < 0 && this.boatsMap.has(userId)) {
+      const myBoat = this.boatsMap.get(userId)!;
+      let aheadCount = 0;
+      this.boatsMap.forEach((b) => {
+        if (b.userId !== userId && b.currentDisplayDist > myBoat.currentDisplayDist) {
+          aheadCount++;
+        }
+      });
+      rankIndex = aheadCount;
+    }
+
+    if (rankIndex < 0) return null;
+    const rank = rankIndex + 1;
+    let medal: string | null = null;
+    let label = `${rank}e`;
+    let color = '#00f0ff';
+
+    if (rank === 1) {
+      medal = '🥇';
+      label = '1er';
+      color = '#ffd700';
+    } else if (rank === 2) {
+      medal = '🥈';
+      label = '2e';
+      color = '#e2e8f0';
+    } else if (rank === 3) {
+      medal = '🥉';
+      label = '3e';
+      color = '#cd7f32';
+    }
+
+    return { rank, medal, label, color };
   }
 
   ngAfterViewInit(): void {
@@ -1174,6 +1213,72 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
         const tw = ctx.measureText(text).width;
         const lx = Math.max(6, Math.min(w - tw - 6, x - tw / 2));
         ctx.fillText(text, lx, y - 9);
+      }
+
+      // =========================================================================
+      // INDICATEUR DEVANT LE RAMEUR DU JOUEUR CONNECTÉ DANS SA LIGNE D'EAU
+      // Classement avec médaille (Or, Argent, Bronze si 1er, 2e, 3e) + Distance restante
+      // Uniquement pour le joueur connecté dans son couloir durant la course
+      // =========================================================================
+      if (isUser && (this.isRaceActive || (boat.currentDisplayDist > 0 && boat.status !== 'finished'))) {
+        const rankInfo = this.getRacerRank(boat.userId);
+        const remainingDist = Math.max(0, Math.round((this.targetDistance || 2000) - boat.targetPacketDist));
+        const distLabel = remainingDist > 0 ? `${remainingDist}m` : 'Arrivé !';
+
+        let badgeText = '';
+        if (rankInfo) {
+          if (rankInfo.medal) {
+            badgeText = `${rankInfo.medal} ${rankInfo.label} · ${distLabel}`;
+          } else {
+            badgeText = `${rankInfo.label} · ${distLabel}`;
+          }
+        } else {
+          badgeText = distLabel;
+        }
+
+        const badgeColor = rankInfo?.color || '#00f0ff';
+        ctx.font = isCompact ? 'bold 9.5px sans-serif' : 'bold 11px sans-serif';
+        const badgeTextWidth = ctx.measureText(badgeText).width;
+        const padX = isCompact ? 6 : 8;
+        const badgeW = badgeTextWidth + padX * 2;
+        const badgeH = Math.min(18, Math.max(14, laneH * 0.68));
+
+        // Positionné directement devant la proue du bateau dans sa ligne d'eau
+        const desiredBadgeX = x + hullRx + (isCompact ? 8 : 12);
+        // Sécurité anti-débordement bord droit du canvas
+        const badgeX = Math.min(desiredBadgeX, Math.max(x + hullRx + 4, w - badgeW - 6));
+        const badgeY = y - badgeH / 2;
+
+        // Tracé du badge pilule
+        ctx.save();
+        ctx.fillStyle = 'rgba(6, 15, 33, 0.90)';
+        ctx.strokeStyle = badgeColor;
+        ctx.lineWidth = 1.2;
+        ctx.shadowColor = badgeColor;
+        ctx.shadowBlur = (rankInfo?.rank && rankInfo.rank <= 3) ? 8 : 4;
+
+        const radius = badgeH / 2;
+        if (typeof ctx.roundRect === 'function') {
+          ctx.beginPath();
+          ctx.roundRect(badgeX, badgeY, badgeW, badgeH, radius);
+          ctx.fill();
+          ctx.stroke();
+        } else {
+          ctx.beginPath();
+          ctx.rect(badgeX, badgeY, badgeW, badgeH);
+          ctx.fill();
+          ctx.stroke();
+        }
+        ctx.restore();
+
+        // Texte du badge
+        ctx.save();
+        ctx.fillStyle = '#ffffff';
+        ctx.font = isCompact ? 'bold 9.5px sans-serif' : 'bold 11px sans-serif';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(badgeText, badgeX + padX, y);
+        ctx.restore();
       }
 
       laneIdx++;
