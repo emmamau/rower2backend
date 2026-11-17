@@ -432,11 +432,9 @@ export const getRaceHistory = async (_req: Request, res: Response): Promise<void
   try {
     const finishedRaces = await Races.findAll({
       where: {
-        status: { [Op.in]: ["finished", "cancelled"] },
         status: { [Op.in]: ["finished", "completed", "COMPLETED", "FINISHED"] },
       },
       order: [["startTime", "DESC"]],
-      limit: 15,
       limit: 25,
     });
 
@@ -635,8 +633,6 @@ export const getRaceLeaderboard = async (req: Request, res: Response): Promise<v
           Boolean(storedUser)
         );
 
-        // Allure moyenne /500m
-        let rawPace = Number(getVal("avgPace")) || Number(getVal("lastPace")) || 0;
         // Allure moyenne /500m sécurisée
         let rawPace = Number(getVal("avgPaceSec") ?? getVal("avgPace") ?? getVal("lastPace") ?? 0);
         if (!Number.isFinite(rawPace) || rawPace < 0 || rawPace > 3600) {
@@ -650,19 +646,14 @@ export const getRaceLeaderboard = async (req: Request, res: Response): Promise<v
         }
         const paceM = Math.floor(rawPace / 60);
         const paceS = Math.floor(rawPace % 60);
-        const formattedPace = rawPace > 0 ? `${paceM}'${paceS.toString().padStart(2, "0")}"` : "--";
         const formattedPace = rawPace > 0 ? `${paceM}'${paceS.toString().padStart(2, "0")}"` : "--:--";
 
-        // Chrono mm:ss
-        const mins = Math.floor(elapsed / 60);
-        const secs = Math.floor(elapsed % 60);
         // Chrono mm:ss sécurisé
         const mins = Number.isFinite(elapsed) && elapsed >= 0 ? Math.floor(elapsed / 60) : 0;
         const secs = Number.isFinite(elapsed) && elapsed >= 0 ? Math.floor(elapsed % 60) : 0;
         const chrono = `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
 
         // Calcul de l'écart (gap)
-        let gap = "-";
         let gap = "--";
         if (status === "abandoned") {
           gap = "Abandon";
@@ -670,14 +661,11 @@ export const getRaceLeaderboard = async (req: Request, res: Response): Promise<v
           gap = "DNF";
         } else if (idx === 0) {
           gap = isFinisher ? "Vainqueur" : (sortedActive.length > 0 ? "Leader" : "Non classé");
-        } else if (isFinisher && leaderTime !== null) {
-          const deltaSec = Math.max(0, elapsed - leaderTime);
         } else if (isFinisher && Number.isFinite(leaderTime) && leaderTime !== null) {
           const deltaSec = Math.max(0, elapsed - Number(leaderTime));
           const m = Math.floor(deltaSec / 60);
           const s = Math.floor(deltaSec % 60);
           gap = `+${m > 0 ? `${m}m ` : ""}${s.toString().padStart(2, "0")}s`;
-        } else if (leaderDist > dist) {
         } else if (Number.isFinite(leaderDist) && leaderDist > dist) {
           const deltaM = Math.round(leaderDist - dist);
           gap = `-${deltaM}m`;
@@ -693,12 +681,10 @@ export const getRaceLeaderboard = async (req: Request, res: Response): Promise<v
         const participantInfo = managedForParts?.participants?.get(userId);
         const kayak = storedUser?.kayakCustomization || participantInfo?.kayak;
 
-        // Points attribués pour la course (0 si abandon)
         // Points attribués pour la course (0 si abandon ou DNF)
         const rawPoints = getVal("pointsEarned") !== undefined && getVal("pointsEarned") !== null 
           ? getVal("pointsEarned") 
           : getVal("points");
-        const earnedPoints = status === "abandoned"
         let earnedPoints = (status === "abandoned" || status === "out_of_time" || status === "dnf")
           ? 0
           : (rawPoints !== undefined && rawPoints !== null ? Number(rawPoints) : calculateRacePoints(rank, sortedAll.length, isFinisher));
@@ -714,11 +700,9 @@ export const getRaceLeaderboard = async (req: Request, res: Response): Promise<v
           isPaired,
           status,
           chrono,
-          elapsedTime: elapsed,
           elapsedTime: Number.isFinite(elapsed) ? elapsed : 0,
           avgPace: formattedPace,
           avgPaceSec: rawPace,
-          netDistance: dist,
           netDistance: Number.isFinite(dist) ? dist : 0,
           gap,
           points: earnedPoints,
