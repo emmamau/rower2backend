@@ -277,6 +277,10 @@ export class UserStoreService {
       });
       if (dbUser) {
         const plain = dbUser.toJSON() as StoredUser;
+        const tier = String(plain.subscriptionTier || (plain as any).subscription_tier || "").toLowerCase().trim();
+        if ((tier && tier !== "free" && tier !== "none") || (plain.subscriptionStatus === "active" && tier !== "free")) {
+          plain.isSubscriber = true;
+        }
         this.cacheUser(plain);
         return plain;
       }
@@ -311,6 +315,10 @@ export class UserStoreService {
       });
       if (dbUser) {
         const plain = dbUser.toJSON() as StoredUser;
+        const tier = String(plain.subscriptionTier || (plain as any).subscription_tier || "").toLowerCase().trim();
+        if ((tier && tier !== "free" && tier !== "none") || (plain.subscriptionStatus === "active" && tier !== "free")) {
+          plain.isSubscriber = true;
+        }
         this.cacheUser(plain);
         return plain;
       }
@@ -343,6 +351,10 @@ export class UserStoreService {
       });
       if (dbUser) {
         const plain = dbUser.toJSON() as StoredUser;
+        const tier = String(plain.subscriptionTier || (plain as any).subscription_tier || "").toLowerCase().trim();
+        if ((tier && tier !== "free" && tier !== "none") || (plain.subscriptionStatus === "active" && tier !== "free")) {
+          plain.isSubscriber = true;
+        }
         this.cacheUser(plain);
         return plain;
       }
@@ -381,7 +393,11 @@ export class UserStoreService {
       pays: country,
       passwordHash: data.passwordHash,
       passwordSalt: data.passwordSalt,
-      isSubscriber: isEmma ? true : (data.isSubscriber !== undefined ? Boolean(data.isSubscriber) : false),
+      isSubscriber: isEmma
+        ? true
+        : (data.isSubscriber !== undefined
+            ? Boolean(data.isSubscriber)
+            : Boolean(data.subscriptionTier && !["free", "none", ""].includes(String(data.subscriptionTier).toLowerCase().trim()))),
       subscriptionTier: data.subscriptionTier,
       subscriptionStatus: data.subscriptionStatus,
       stripeCustomerId: data.stripeCustomerId,
@@ -437,9 +453,16 @@ export class UserStoreService {
     const totalCareerPoints = updates.totalCareerPoints !== undefined ? updates.totalCareerPoints : (existing.totalCareerPoints !== undefined ? existing.totalCareerPoints : updatedPoints);
     const isResting = updates.isResting !== undefined ? Boolean(updates.isResting) : Boolean(existing.isResting);
 
+    const rawTier = updates.subscriptionTier !== undefined ? updates.subscriptionTier : existing.subscriptionTier;
+    const cleanTier = String(rawTier || "").toLowerCase().trim();
+    const updatedIsSubscriber = updates.isSubscriber !== undefined
+      ? Boolean(updates.isSubscriber)
+      : (cleanTier && !["free", "none", ""].includes(cleanTier) ? true : existing.isSubscriber);
+
     const updated: StoredUser = {
       ...existing,
       ...updates,
+      isSubscriber: updatedIsSubscriber,
       points: updatedPoints,
       league,
       currentLeague,
@@ -497,6 +520,10 @@ export class UserStoreService {
       });
       if (dbUser) {
         const plain = dbUser.toJSON() as StoredUser;
+        const tier = String(plain.subscriptionTier || (plain as any).subscription_tier || "").toLowerCase().trim();
+        if ((tier && tier !== "free" && tier !== "none") || (plain.subscriptionStatus === "active" && tier !== "free")) {
+          plain.isSubscriber = true;
+        }
         this.cacheUser(plain);
         return plain;
       }

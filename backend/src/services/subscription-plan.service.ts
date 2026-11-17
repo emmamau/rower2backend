@@ -82,6 +82,32 @@ const DEFAULT_FALLBACK_LIMITS: Record<string, PlanLimits> = {
     priceMonthly: 8.99,
     priceYearly: 89.99,
   },
+  pro: {
+    code: "PREMIUM",
+    name: "Offre Élite Pro",
+    maxBots: 5,
+    maxDistance: 10000,
+    maxParticipants: 10,
+    maxConcurrentRooms: 5,
+    maxWeeklyRooms: 15,
+    canCreateDuel1v1: true,
+    canScheduleRaces: true,
+    priceMonthly: 8.99,
+    priceYearly: 89.99,
+  },
+  elite_pro: {
+    code: "PREMIUM",
+    name: "Offre Élite Pro",
+    maxBots: 5,
+    maxDistance: 10000,
+    maxParticipants: 10,
+    maxConcurrentRooms: 5,
+    maxWeeklyRooms: 15,
+    canCreateDuel1v1: true,
+    canScheduleRaces: true,
+    priceMonthly: 8.99,
+    priceYearly: 89.99,
+  },
 };
 
 export class SubscriptionPlanService {
@@ -141,6 +167,7 @@ export class SubscriptionPlanService {
     // Mapping code normalisé
     let lookupCode = tierCode.toUpperCase();
     if (lookupCode === "INTERMEDIATE" || lookupCode === "CLUB") lookupCode = "STANDARD";
+    if (lookupCode === "PRO" || lookupCode === "ELITE_PRO") lookupCode = "PREMIUM";
 
     const dbPlan = this.cachedPlans.get(lookupCode);
     if (dbPlan) {

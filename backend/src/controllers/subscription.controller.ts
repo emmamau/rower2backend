@@ -92,6 +92,12 @@ export const SUBSCRIPTION_TIERS: Record<string, SubscriptionTierConfig> = {
   },
 };
 
+// Aliases d'offres
+SUBSCRIPTION_TIERS.pro = SUBSCRIPTION_TIERS.premium;
+SUBSCRIPTION_TIERS.elite_pro = SUBSCRIPTION_TIERS.premium;
+SUBSCRIPTION_TIERS.club = SUBSCRIPTION_TIERS.intermediate;
+SUBSCRIPTION_TIERS.standard = SUBSCRIPTION_TIERS.intermediate;
+
 /**
  * GET /api/v1/subscriptions/tiers
  * Retourne les 3 offres d'abonnement officielles et leurs caractéristiques
@@ -99,7 +105,7 @@ export const SUBSCRIPTION_TIERS: Record<string, SubscriptionTierConfig> = {
 export const getSubscriptionTiers = (_req: Request, res: Response): void => {
   res.status(200).json({
     success: true,
-    tiers: Object.values(SUBSCRIPTION_TIERS),
+    tiers: [SUBSCRIPTION_TIERS.free, SUBSCRIPTION_TIERS.intermediate, SUBSCRIPTION_TIERS.premium],
   });
 };
 
@@ -113,18 +119,28 @@ export const getUserSubscriptionStatus = async (req: Request, res: Response): Pr
     const user = await userStore.findUser(userId);
 
     const isEmma = user ? isEmmaAdminUser(user.login || user.id, user.name) : isEmmaAdminUser(userId);
+    const rawTier = String((user?.subscriptionTier as any) || (user?.isSubscriber ? "intermediate" : "free")).toLowerCase().trim();
     const tierId: "free" | "intermediate" | "premium" = isEmma
       ? "premium"
-      : (user?.subscriptionTier as any) || (user?.isSubscriber ? "intermediate" : "free");
+      : (rawTier === "pro" || rawTier === "elite_pro" ? "premium" : (rawTier === "club" || rawTier === "standard" ? "intermediate" : (rawTier as any) || "free"));
 
     const tierConfig = SUBSCRIPTION_TIERS[tierId] || SUBSCRIPTION_TIERS.free;
+
+    const isSub = Boolean(
+      isEmma ||
+      user?.isAdmin ||
+      user?.isSubscriber ||
+      (user as any)?.is_subscriber ||
+      (user?.subscriptionTier && !["free", "none", ""].includes(String(user.subscriptionTier).toLowerCase().trim())) ||
+      (user?.subscriptionStatus === "active" && String(user?.subscriptionTier).toLowerCase().trim() !== "free")
+    );
 
     res.status(200).json({
       success: true,
       userId,
       tier: tierId,
-      status: isEmma ? "active" : user?.subscriptionStatus || (user?.isSubscriber ? "active" : "none"),
-      isSubscriber: Boolean(user?.isSubscriber || isEmma),
+      status: isEmma ? "active" : user?.subscriptionStatus || (isSub ? "active" : "none"),
+      isSubscriber: isSub,
       isAdmin: Boolean(user?.isAdmin || isEmma),
       limits: tierConfig,
       lemonCustomerId: user?.lemonCustomerId || null,
@@ -146,7 +162,9 @@ export const createCheckoutSession = async (req: Request, res: Response): Promis
   try {
     const { userId, tier, returnUrl } = req.body || {};
     const cleanUserId = String(userId || "").trim();
-    const cleanTier = String(tier || "").toLowerCase();
+    let cleanTier = String(tier || "").toLowerCase().trim();
+    if (cleanTier === "pro" || cleanTier === "elite_pro") cleanTier = "premium";
+    if (cleanTier === "club" || cleanTier === "standard") cleanTier = "intermediate";
 
     if (!cleanUserId) {
       res.status(400).json({ success: false, message: "L'identifiant utilisateur est obligatoire." });
@@ -384,7 +402,9 @@ export const createStripeCheckoutSession = async (req: Request, res: Response): 
   try {
     const { userId, tier, returnUrl, successUrl, cancelUrl } = req.body || {};
     const cleanUserId = String(userId || "").trim();
-    const cleanTier = String(tier || "intermediate").toLowerCase();
+    let cleanTier = String(tier || "intermediate").toLowerCase().trim();
+    if (cleanTier === "pro" || cleanTier === "elite_pro") cleanTier = "premium";
+    if (cleanTier === "club" || cleanTier === "standard") cleanTier = "intermediate";
 
     if (!cleanUserId) {
       res.status(400).json({ success: false, message: "L'identifiant utilisateur est obligatoire." });

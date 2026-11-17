@@ -146,7 +146,14 @@ export class RoomController {
 
       const isEmma = isEmmaAdminUser(String(userId), userName || user?.name);
       const isAdmin = Boolean(user?.isAdmin || isEmma);
-      const isSubscriber = Boolean(user?.isSubscriber || isAdmin);
+      const rawUserTier = String(user?.subscriptionTier || (user as any)?.subscription_tier || "").toLowerCase().trim();
+      const isSubscriber = Boolean(
+        isAdmin ||
+        user?.isSubscriber ||
+        (user as any)?.is_subscriber ||
+        (rawUserTier && !["free", "none", ""].includes(rawUserTier)) ||
+        (user?.subscriptionStatus === "active" && rawUserTier !== "free")
+      );
       const userLeague = (user as any)?.league || (user?.points !== undefined ? getLeagueByPoints(user.points).id : "bronze");
 
       const country = user?.country || user?.pays || (await IpGeoService.resolveCountryFromRequest(req));

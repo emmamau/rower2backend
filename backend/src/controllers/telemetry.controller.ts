@@ -41,7 +41,7 @@ async function isUserSubscriberOrAdmin(userId?: string, userName?: string): Prom
   const cleanId = String(userId || "").trim();
 
   // Les utilisateurs invités / anonymes non connectés ne peuvent pas créer de salons privés
-  if (!cleanId || cleanId === "anonymous" || cleanId.startsWith("guest_") || cleanId.startsWith("usr_")) {
+  if (!cleanId || cleanId === "anonymous" || cleanId.startsWith("guest_")) {
     return {
       authorized: false,
       reason: "La création de salon privé est réservée aux abonnés. Veuillez vous connecter avec votre compte abonné."
@@ -49,10 +49,34 @@ async function isUserSubscriberOrAdmin(userId?: string, userName?: string): Prom
   }
 
   const user = await userStore.findUser(cleanId);
+  // Si le cleanId commence par usr_ et qu'aucun utilisateur n'est trouvé, c'est un invité non connecté
+  if (!user && cleanId.startsWith("usr_")) {
+    return {
+      authorized: false,
+      reason: "La création de salon privé est réservée aux abonnés. Veuillez vous connecter avec votre compte abonné."
+    };
+  }
+
   if (user) {
-    if (user.isAdmin || user.isSubscriber) {
+    const rawTier = String(user.subscriptionTier || (user as any).subscription_tier || "").toLowerCase().trim();
+    const isSub = Boolean(
+      user.isAdmin ||
+      (user as any).is_admin ||
+      user.role === "ADMIN" ||
+      user.isSubscriber ||
+      (user as any).is_subscriber ||
+      (rawTier && !["free", "none", ""].includes(rawTier)) ||
+      (user.subscriptionStatus === "active" && rawTier !== "free")
+    );
+
+    if (isSub) {
+      if (!user.isSubscriber) {
+        user.isSubscriber = true;
+        userStore.updateUser(user.id, { isSubscriber: true }).catch(() => {});
+      }
       return { authorized: true };
     }
+
     return {
       authorized: false,
       reason: "Votre compte n'a pas d'abonnement actif pour créer des salons privés."
@@ -895,7 +919,8 @@ export class TelemetryController {
       // Club : 3 simultanés, 10 / semaine
       // Élite Pro : 5 simultanés, 15 / semaine
       if (!isUserAdmin && hostUserId && hostUserId !== "anonymous") {
-        const tierId = user?.subscriptionTier || (user?.isSubscriber ? "intermediate" : "free");
+        const rawTier = String(user?.subscriptionTier || (user?.isSubscriber ? "intermediate" : "free")).toLowerCase().trim();
+        const tierId = rawTier === "pro" || rawTier === "elite_pro" ? "premium" : (rawTier === "club" || rawTier === "standard" ? "intermediate" : rawTier);
         const limits = await subscriptionPlanService.getLimitsForTier(user || tierId);
 
         const maxConcurrent = limits.maxConcurrentRooms !== undefined ? limits.maxConcurrentRooms : 1;
@@ -970,13 +995,15 @@ export class TelemetryController {
       let botsAllowed = isSolo ? 0 : isBotDuel ? 1 : 5;
 
       if (!isSolo && !isBotDuel && user && !isEmma && !user.isAdmin && user.subscriptionTier) {
-        const tierId: string = user.subscriptionTier;
+        const rawTier = String(user.subscriptionTier).toLowerCase().trim();
+        const tierId = rawTier === "pro" || rawTier === "elite_pro" ? "premium" : (rawTier === "club" || rawTier === "standard" ? "intermediate" : rawTier);
         const limits = SUBSCRIPTION_TIERS[tierId] || SUBSCRIPTION_TIERS.intermediate;
         maxAllowed = limits.maxParticipants;
         distAllowed = limits.maxDistance;
         botsAllowed = limits.maxBots;
       } else if ((isSolo || isBotDuel || isDuel1v1) && user && !isEmma && !user.isAdmin && user.subscriptionTier) {
-        const tierId: string = user.subscriptionTier;
+        const rawTier = String(user.subscriptionTier).toLowerCase().trim();
+        const tierId = rawTier === "pro" || rawTier === "elite_pro" ? "premium" : (rawTier === "club" || rawTier === "standard" ? "intermediate" : rawTier);
         const limits = SUBSCRIPTION_TIERS[tierId] || SUBSCRIPTION_TIERS.intermediate;
         distAllowed = limits.maxDistance;
       }
@@ -1108,9 +1135,10 @@ export class TelemetryController {
       const isEmma = isEmmaAdminUser(hostUserId, user?.name);
       const isUserAdmin = Boolean(isEmma || user?.isAdmin);
 
+      const rawTier = String((user?.subscriptionTier as any) || (user?.isSubscriber ? "intermediate" : "free")).toLowerCase().trim();
       const tierId = isEmma
         ? "premium"
-        : ((user?.subscriptionTier as any) || (user?.isSubscriber ? "intermediate" : "free"));
+        : (rawTier === "pro" || rawTier === "elite_pro" ? "premium" : (rawTier === "club" || rawTier === "standard" ? "intermediate" : (rawTier as any) || "free"));
       const tierConfig = await subscriptionPlanService.getLimitsForTier(user || tierId);
 
       const maxConcurrent = isUserAdmin ? 999 : (tierConfig.maxConcurrentRooms || 1);
