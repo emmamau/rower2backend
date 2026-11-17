@@ -1,5 +1,14 @@
 import { Sequelize, DataTypes, Model, ModelStatic } from "sequelize";
 
+export type KayakPattern = 'solid' | 'racing-stripe' | 'dual-tone' | 'gradient';
+
+export interface KayakCustomization {
+  hullColor: string;
+  bladeColor: string;
+  pattern: KayakPattern;
+  glowColor: string;
+}
+
 export interface UserAttributes {
   id: string;               // Identifiant unique (login ou ID montre/généré)
   name: string;             // Nom d'affichage ou login du joueur
@@ -38,6 +47,7 @@ export interface UserAttributes {
   bestRank?: number;        // Meilleur classement jamais obtenu (ex: 1, 2...)
   lastRank?: number;        // Classement à la précédente course
   isAdmin?: boolean;        // Rôle administrateur (EmmaRacer en dur)
+  kayakCustomization?: KayakCustomization;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -196,6 +206,10 @@ export default (sequelize: Sequelize, _DataTypesInstance: typeof DataTypes): Use
       isAdmin: {
         type: DataTypes.BOOLEAN,
         defaultValue: false,
+      },
+      kayakCustomization: {
+        type: DataTypes.JSON,
+        allowNull: true,
       },
     },
     {

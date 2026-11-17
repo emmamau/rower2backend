@@ -1,5 +1,6 @@
 import { DataTypes, Model, Optional } from 'sequelize';
 import { sequelize } from '../database';
+import { KayakCustomization } from './user.model';
 
 export interface UserAttributes {
   id: number;
@@ -11,6 +12,7 @@ export interface UserAttributes {
   heightCm?: number;
   maxHeartRate?: number;
   vo2MaxEstimate?: number;
+  kayakCustomization?: KayakCustomization;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -27,6 +29,7 @@ export class User extends Model<UserAttributes, UserCreationAttributes> implemen
   public heightCm?: number;
   public maxHeartRate?: number;
   public vo2MaxEstimate?: number;
+  public kayakCustomization?: KayakCustomization;
 
   public readonly createdAt!: Date;
   public readonly updatedAt!: Date;
@@ -70,6 +73,10 @@ User.init(
     },
     vo2MaxEstimate: {
       type: DataTypes.FLOAT,
+      allowNull: true,
+    },
+    kayakCustomization: {
+      type: DataTypes.JSON,
       allowNull: true,
     },
   },

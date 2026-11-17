@@ -1,5 +1,6 @@
 import { Server as HttpServer } from "http";
 import { Server, Socket } from "socket.io";
+import { KayakCustomization } from "../models/user.model";
 
 export interface LiveRacerMetric {
   lane: number;
@@ -17,6 +18,7 @@ export interface LiveRacerMetric {
   connectionState?: "CONNECTED" | "READY";
   isBot?: boolean;
   isPaired?: boolean;
+  kayak?: KayakCustomization;
 }
 
 export interface LeaderboardUpdatePayload {

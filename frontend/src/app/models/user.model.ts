@@ -1,3 +1,12 @@
+export type KayakPattern = 'solid' | 'racing-stripe' | 'dual-tone' | 'gradient';
+
+export interface KayakCustomization {
+  hullColor: string;
+  bladeColor: string;
+  pattern: KayakPattern;
+  glowColor: string;
+}
+
 export interface UserProfile {
   id: string; // Identifiant ou login
   name: string; // Nom d'affichage ou login du joueur
@@ -31,6 +40,7 @@ export interface UserProfile {
     deviceToken?: string;
     pairedAt?: string;
   };
+  kayakCustomization?: KayakCustomization;
   createdAt?: string;
   updatedAt?: string;
 }

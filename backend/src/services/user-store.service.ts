@@ -1,5 +1,6 @@
 import { Op } from "sequelize";
 import db from "../models";
+import { KayakCustomization } from "../models/user.model";
 import { isEmmaAdminUser, hashPassword } from "./auth.service";
 import { getLeagueByPoints } from "../utils/league.util";
 
@@ -44,6 +45,7 @@ export interface StoredUser {
   bestRank: number;
   lastRank: number;
   isAdmin: boolean;
+  kayakCustomization?: KayakCustomization;
   createdAt: Date;
   updatedAt: Date;
   toJSON?: () => Record<string, any>;
