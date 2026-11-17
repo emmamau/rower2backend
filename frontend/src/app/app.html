@@ -135,7 +135,7 @@
       <!-- Profil utilisateur cliquable immédiatement à droite du bouton Accueil -->
       <div
         class="pure-user-pill is-clickable"
-        (click)="openAccountModal(isSubscriber || isUserAdmin ? 'profile' : 'login')"
+        (click)="openAccountModal(isIdentified ? 'profile' : 'login')"
         title="Gérer mon compte">
         @if (isIdentified) {
           <span class="pure-league-badge" [title]="currentUserLeague.name">{{ currentUserLeague.badge }}</span>
@@ -288,7 +288,7 @@
               <button
                 type="button"
                 class="btn-line1-auth smartphone-auth-btn"
-                (click)="openAccountModal(isSubscriber || isUserAdmin ? 'profile' : 'login')"
+                (click)="openAccountModal(isIdentified ? 'profile' : 'login')"
                 title="Gérer mon compte et abonnement">
                 <span class="user-avatar-tag">{{ currentUser.name.slice(0, 2).toUpperCase() }}</span>
                 <span class="user-league-badge-tag" [title]="currentUserLeague.name">{{ currentUserLeague.badge }}</span>
@@ -430,7 +430,7 @@
               <button
                 type="button"
                 class="btn-line1-auth"
-                (click)="openAccountModal(isSubscriber || isUserAdmin ? 'profile' : 'login')"
+                (click)="openAccountModal(isIdentified ? 'profile' : 'login')"
                 title="Gérer mon compte et abonnement">
                 <span class="user-avatar-tag">{{ currentUser.name.slice(0, 2).toUpperCase() }}</span>
                 <span class="user-league-badge-tag" [title]="currentUserLeague.name">{{ currentUserLeague.badge }}</span>
@@ -478,7 +478,7 @@
       <div class="user-nav-cluster">
         <!-- GAUCHE 2EME LIGNE : Appareillage Montre Garmin OU Joueur identifié -->
         @if (isIdentified) {
-          <div class="player-card" (click)="openAccountModal(isSubscriber || isUserAdmin ? 'profile' : 'login')">
+          <div class="player-card" (click)="openAccountModal(isIdentified ? 'profile' : 'login')">
             <div class="player-avatar-box">
               <div class="player-avatar-initial">{{ currentUser.name.slice(0, 2).toUpperCase() }}</div>
               <span class="player-status-dot"></span>
@@ -501,8 +501,8 @@
               <button
                 type="button"
                 class="btn-hud btn-connect"
-                (click)="$event.stopPropagation(); openAccountModal(isSubscriber || isUserAdmin ? 'profile' : 'login')">
-                {{ (isSubscriber || isUserAdmin) ? 'Mon Compte' : 'Mon Compte' }}
+                (click)="$event.stopPropagation(); openAccountModal(isIdentified ? 'profile' : 'login')">
+                {{ isIdentified ? 'Mon Compte' : 'Connexion' }}
               </button>
             </div>
           </div>

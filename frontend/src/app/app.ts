@@ -1256,7 +1256,8 @@ export class AppComponent implements OnInit, OnDestroy {
           if (status.deviceToken) {
             this.deviceToken = status.deviceToken;
           }
-          if (status.userId && (!this.isRegisteredUser || status.userId === this.currentUser?.login)) {
+          const storedLogin = typeof localStorage !== 'undefined' ? localStorage.getItem('rower_user_login') : null;
+          if (status.userId && storedLogin && (status.userId === storedLogin || status.userId === this.currentUser?.login)) {
             this.activeUserId = status.userId;
             this.currentUser.id = status.userId;
           }
@@ -1755,7 +1756,7 @@ export class AppComponent implements OnInit, OnDestroy {
         this.watchPairingRecovered = true;
       }
     }
-    if (tab === 'login' && (this.isSubscriber || this.isUserAdmin)) {
+    if (tab === 'login' && this.isIdentified) {
       this.accountModalTab = 'profile';
     } else {
       this.accountModalTab = tab;
@@ -2065,8 +2066,10 @@ export class AppComponent implements OnInit, OnDestroy {
       localStorage.removeItem('rower_is_subscriber');
       localStorage.removeItem('rower_is_admin');
       localStorage.removeItem('rower_user_role');
+      localStorage.removeItem('rower_subscription_tier');
       localStorage.removeItem('rower_auth_token');
       localStorage.removeItem('rower_kayak_customization');
+      localStorage.removeItem('rower_claimed_kayak_id');
       if (!keepPairing) {
         localStorage.removeItem('rower_is_paired');
         localStorage.removeItem('rower_watch_confirmed');
@@ -2075,6 +2078,15 @@ export class AppComponent implements OnInit, OnDestroy {
     } catch {}
 
     this.isAdminDashboardOpen = false;
+    this.isAccountModalOpen = false;
+    this.isLogoutConfirmModalOpen = false;
+    this.isLoginModalOpen = false;
+    this.isWatchGuidanceModalOpen = false;
+    this.activePrivateRoom = null;
+    this.myActivity = null;
+    this.selectedSpectatorUserId = '';
+    this.claimedRacerUserId = '';
+    this.selectedCockpitPlayerId = '';
 
     if (!keepPairing) {
       this.isPaired = false;
@@ -2098,12 +2110,6 @@ export class AppComponent implements OnInit, OnDestroy {
     }
 
     this.myAssignedLane = 1;
-    this.myActivity = null;
-    this.selectedSpectatorUserId = '';
-    this.activePrivateRoom = null;
-    this.isWatchGuidanceModalOpen = false;
-    this.isLoginModalOpen = false;
-
     const randId = Math.random().toString(36).substring(2, 8);
     this.activeUserId = `usr_${randId}`;
     this.userIdInput = this.activeUserId;
@@ -2115,17 +2121,34 @@ export class AppComponent implements OnInit, OnDestroy {
       podiums: 0,
       isAdmin: false,
       isSubscriber: false,
+      subscriptionTier: 'free',
+      role: 'USER',
+      points: 0,
     };
     this.userLoginInput = this.currentUser.name;
+    this.userHistory = [];
+    this.generalUserRank = 1;
+    this.generalTotalPlayers = 1;
+    this.userStatisticsData = null;
+    this.unseenWeeklySummary = null;
     this.accountModalTab = 'login';
     this.customKayakHullColor = '#00e5ff';
     this.customKayakBladeColor = '#00f0ff';
     this.customKayakPattern = 'racing-stripe';
     this.customKayakGlowColor = '#00f0ff';
     this.isPostRegisterOnboarding = false;
+    this.loginAccountInput = '';
+    this.passwordAccountInput = '';
+    this.regLogin = '';
+    this.regEmail = '';
+    this.regPassword = '';
+    this.accountAuthError = '';
     this.accountAuthSuccess = keepPairing
       ? 'Déconnecté du compte. Montre conservée active en mode invité.'
       : 'Vous avez été déconnecté.';
+
+    this.setSiteView('home');
+    this.userExplicitlyNavigatedHome = true;
     this.cdr.markForCheck();
   }
 
@@ -2825,8 +2848,6 @@ export class AppComponent implements OnInit, OnDestroy {
 
   get isIdentified(): boolean {
     return Boolean(
-      this.isPaired ||
-      this.isWatchConfirmed ||
       this.isSubscriber ||
       this.isUserAdmin ||
       this.isRegisteredUser
