@@ -30,16 +30,21 @@ export { sanitizeKayakCustomization };
 import { getLeagueByPoints, getLeagueByTier, LeagueInfo, WEEKLY_LEAGUES } from './utils/league.util';
 import { interval, Subscription, of, Observable } from 'rxjs';
 import { switchMap, startWith, catchError } from 'rxjs/operators';
+import { AdminDashboardComponent } from './components/admin-dashboard/admin-dashboard.component';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule, FormsModule, RegattaCanvasComponent, PrivateRoomManagerComponent],
+  imports: [CommonModule, FormsModule, RegattaCanvasComponent, PrivateRoomManagerComponent, AdminDashboardComponent],
   templateUrl: './app.html',
   styleUrls: ['./app.css']
 })
 export class AppComponent implements OnInit, OnDestroy {
   protected Math = Math;
+
+  // Administration de la plateforme & statut des courses publiques
+  isAdminDashboardOpen = false;
+  isPublicRaceSuspended = false;
 
   // Current user / player login
   activeUserId = '';
@@ -771,6 +776,7 @@ export class AppComponent implements OnInit, OnDestroy {
 
     const storedIsSub = typeof localStorage !== 'undefined' ? localStorage.getItem('rower_is_subscriber') === 'true' : false;
     const storedIsAdmin = typeof localStorage !== 'undefined' ? localStorage.getItem('rower_is_admin') === 'true' : false;
+    const storedRole = typeof localStorage !== 'undefined' ? localStorage.getItem('rower_user_role') : null;
     const storedDeviceToken = typeof localStorage !== 'undefined' ? localStorage.getItem('rower_device_token') : null;
     const storedIsPaired = typeof localStorage !== 'undefined' ? localStorage.getItem('rower_is_paired') === 'true' : false;
 
@@ -807,11 +813,20 @@ export class AppComponent implements OnInit, OnDestroy {
     }
     this.currentUser.id = this.activeUserId;
     const isEmma = storedLogin?.toLowerCase() === 'emmaracer' || this.activeUserId?.toLowerCase() === 'emmaracer';
-    this.currentUser.isAdmin = isEmma || storedIsAdmin;
-    this.currentUser.isSubscriber = isEmma || storedIsSub;
+    const isAdminUser = isEmma || storedIsAdmin || storedRole === 'ADMIN';
+    this.currentUser.isAdmin = isAdminUser;
+    this.currentUser.role = storedRole || (isAdminUser ? 'ADMIN' : 'USER');
+    this.currentUser.isSubscriber = isEmma || storedIsSub || isAdminUser;
   }
 
   ngOnInit(): void {
+    if (typeof window !== 'undefined' && window.location.pathname === '/admin') {
+      if (this.isUserAdmin) {
+        this.isAdminDashboardOpen = true;
+      } else {
+        try { window.history.replaceState({}, '', '/'); } catch {}
+      }
+    }
     this.syncKayakCustomizationFromUser();
     this.activeViewMode = this.detectTerminalViewMode();
     this.syncSeoLanguage(this.i18n.getCurrentLang());
@@ -973,6 +988,9 @@ export class AppComponent implements OnInit, OnDestroy {
         if (raceData) {
           this.backendConnected = true;
           this.nextRaceInfo = raceData;
+          if ((raceData as any).isSuspended !== undefined) {
+            this.isPublicRaceSuspended = Boolean((raceData as any).isSuspended);
+          }
           if (this.activePrivateRoom && raceData.race.type === 'PRIVATE_INVITE') {
             this.activePrivateRoom = raceData as PrivateRacePayload;
           }
@@ -1610,9 +1628,11 @@ export class AppComponent implements OnInit, OnDestroy {
 
   get isUserAdmin(): boolean {
     return Boolean(
+      this.currentUser.role === 'ADMIN' ||
       this.currentUser.isAdmin ||
       this.currentUser.name?.toLowerCase() === 'emmaracer' ||
-      this.activeUserId?.toLowerCase() === 'emmaracer'
+      this.activeUserId?.toLowerCase() === 'emmaracer' ||
+      (typeof localStorage !== 'undefined' && (localStorage.getItem('rower_user_role') === 'ADMIN' || localStorage.getItem('rower_is_admin') === 'true'))
     );
   }
 
@@ -1702,18 +1722,24 @@ export class AppComponent implements OnInit, OnDestroy {
         this.isAccountSubmitting = false;
         if (res.success && res.user) {
           const userLogin = res.user.login || res.user.id;
+          const isAdminUser = Boolean(res.isAdmin || res.role === 'ADMIN' || res.user.isAdmin || res.user.role === 'ADMIN');
+          const resolvedRole = res.role || res.user.role || (isAdminUser ? 'ADMIN' : 'USER');
           this.activeUserId = userLogin;
           this.userIdInput = res.user.watchUserId || userLogin;
           // Règle stricte d'identité joueur : utilisateur connecté => login/username exclusif
-          this.currentUser = { ...res.user, name: userLogin };
+          this.currentUser = { ...res.user, name: userLogin, isAdmin: isAdminUser, role: resolvedRole };
           this.userLoginInput = userLogin;
           this.syncKayakCustomizationFromUser(res.user);
 
           try {
             localStorage.setItem('rower_user_id', userLogin);
             localStorage.setItem('rower_user_login', userLogin);
-            localStorage.setItem('rower_is_subscriber', String(Boolean(res.isSubscriber)));
-            localStorage.setItem('rower_is_admin', String(Boolean(res.isAdmin)));
+            localStorage.setItem('rower_is_subscriber', String(Boolean(res.isSubscriber || isAdminUser)));
+            localStorage.setItem('rower_is_admin', String(isAdminUser));
+            localStorage.setItem('rower_user_role', resolvedRole);
+            if (res.token) {
+              localStorage.setItem('rower_auth_token', res.token);
+            }
           } catch {}
 
           // Prise en charge multi-terminal transparente : réactivation automatique de la montre si appairée au compte
@@ -1939,6 +1965,8 @@ export class AppComponent implements OnInit, OnDestroy {
       localStorage.removeItem('rower_user_login');
       localStorage.removeItem('rower_is_subscriber');
       localStorage.removeItem('rower_is_admin');
+      localStorage.removeItem('rower_user_role');
+      localStorage.removeItem('rower_auth_token');
       localStorage.removeItem('rower_kayak_customization');
       if (!keepPairing) {
         localStorage.removeItem('rower_is_paired');
@@ -1946,6 +1974,8 @@ export class AppComponent implements OnInit, OnDestroy {
         localStorage.removeItem('rower_device_token');
       }
     } catch {}
+
+    this.isAdminDashboardOpen = false;
 
     if (!keepPairing) {
       this.isPaired = false;
@@ -2227,11 +2257,30 @@ export class AppComponent implements OnInit, OnDestroy {
     this.isConfigRaceOpen = false;
     this.isAdminConfigOpen = false;
     this.isUnifiedConfigOpen = false;
+    this.isAdminDashboardOpen = false;
     this.isStandingsOpen = false;
     this.isLegalTermsOpen = false;
     this.isBotDuelModalOpen = false;
     this.isStatisticsModalOpen = false;
     this.isWatchGuidanceModalOpen = false;
+  }
+
+  openAdminDashboard(): void {
+    if (!this.isUserAdmin) return;
+    this.closeAllOverlayModals();
+    this.isAdminDashboardOpen = true;
+    if (typeof window !== 'undefined' && window.location.pathname !== '/admin') {
+      try { window.history.pushState({}, '', '/admin'); } catch {}
+    }
+    this.cdr.markForCheck();
+  }
+
+  closeAdminDashboard(): void {
+    this.isAdminDashboardOpen = false;
+    if (typeof window !== 'undefined' && window.location.pathname === '/admin') {
+      try { window.history.pushState({}, '', '/'); } catch {}
+    }
+    this.cdr.markForCheck();
   }
 
   openWatchGuidanceAndPair(): void {
@@ -3792,7 +3841,16 @@ export class AppComponent implements OnInit, OnDestroy {
       this.statusSub.unsubscribe();
     }
     this.statusSub = this.socketService.onRaceStatusChange().subscribe((update) => {
-      if (this.nextRaceInfo && (update.raceId === this.nextRaceInfo.race?.id || !update.raceId)) {
+      if (update.status === 'PUBLIC_RACES_SUSPENDED') {
+        this.isPublicRaceSuspended = true;
+        this.triggerFinishToast("⚠️ Les courses publiques sont temporairement suspendues.");
+        this.cdr.markForCheck();
+      } else if (update.status === 'PUBLIC_RACES_RESUMED') {
+        this.isPublicRaceSuspended = false;
+        this.triggerFinishToast("✓ Les courses publiques ont repris !");
+        this.loadNextRaceInfo();
+        this.cdr.markForCheck();
+      } else if (this.nextRaceInfo && (update.raceId === this.nextRaceInfo.race?.id || !update.raceId)) {
         if (update.status === 'COUNTDOWN') {
           const sec = update.details?.countdownSeconds ?? update.details?.secondsUntilStart ?? 15;
           this.countdownSeconds = sec;
@@ -4095,6 +4153,16 @@ export class AppComponent implements OnInit, OnDestroy {
     if (typeof window === 'undefined') {
       this.initGameLoop();
       return;
+    }
+
+    if (window.location.pathname === '/admin') {
+      if (this.isUserAdmin) {
+        this.isAdminDashboardOpen = true;
+      } else {
+        this.isAdminDashboardOpen = false;
+        try { window.history.replaceState({}, '', '/'); } catch {}
+      }
+      this.cdr.markForCheck();
     }
 
     const extracted = extractRoomFromLocation(window.location.pathname, window.location.search);

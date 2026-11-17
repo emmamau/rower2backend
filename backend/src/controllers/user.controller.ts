@@ -3,6 +3,7 @@ import { Op } from "sequelize";
 import db from "../models";
 import { KayakCustomization } from "../models/user.model";
 import { hashPassword, verifyPassword, isEmmaAdminUser, generateSecureToken } from "../services/auth.service";
+import JwtService from "../services/jwt.service";
 import emailService from "../services/email.service";
 import userStore from "../services/user-store.service";
 import raceManager from "../services/race-manager.service";
@@ -42,6 +43,9 @@ function sanitizeUser(user: any): Record<string, any> {
   plain.leagueBadge = leagueInfo.badge;
   plain.totalCareerPoints = plain.totalCareerPoints !== undefined ? Number(plain.totalCareerPoints) : (plain.total_career_points !== undefined ? Number(plain.total_career_points) : Number(plain.points || 0));
   plain.isResting = plain.isResting !== undefined ? Boolean(plain.isResting) : Boolean(plain.is_resting);
+  plain.role = plain.role ? String(plain.role).toUpperCase() : (plain.isAdmin ? "ADMIN" : "USER");
+  plain.isRevoked = plain.isRevoked !== undefined ? Boolean(plain.isRevoked) : Boolean(plain.is_revoked);
+  plain.subscriptionTier = plain.subscriptionTier || plain.subscription_tier || "free";
   return plain;
 }
 
@@ -279,6 +283,17 @@ export const loginUser = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
+    // Blocage immédiat des utilisateurs révoqués
+    const isRevoked = Boolean(user.isRevoked || user.is_revoked);
+    if (isRevoked) {
+      res.status(403).json({
+        success: false,
+        error: "Forbidden",
+        message: "Compte révoqué. Accès interdit.",
+      });
+      return;
+    }
+
     const storedHash = user.passwordHash;
     const storedSalt = user.passwordSalt;
 
@@ -348,14 +363,27 @@ export const loginUser = async (req: Request, res: Response): Promise<void> => {
     sanitized.isGarminPaired = isGarminPaired;
     if (pairedDevice) sanitized.pairedDevice = pairedDevice;
 
+    const effectiveRole = String(user.role || (isEmma || user.isAdmin ? "ADMIN" : "USER")).toUpperCase();
+    sanitized.role = effectiveRole;
+
+    const token = JwtService.sign({
+      userId: String(user.id),
+      login: user.login || user.id,
+      email: user.email,
+      role: effectiveRole,
+      isRevoked: false,
+    });
+
     res.status(200).json({
       success: true,
       message: "Connexion réussie.",
+      token,
+      role: effectiveRole,
       user: sanitized,
       isGarminPaired,
       pairedDevice,
       isSubscriber: Boolean(user.isSubscriber || isEmma),
-      isAdmin: Boolean(user.isAdmin || isEmma),
+      isAdmin: Boolean(user.isAdmin || isEmma || effectiveRole === "ADMIN"),
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
@@ -961,9 +989,58 @@ export const updateKayakCustomization = async (req: Request, res: Response): Pro
   }
 };
 
+/**
+ * GET /api/auth/me ou /api/user/me
+ * Retourne le profil de l'utilisateur authentifié via Bearer token
+ */
+export const getMe = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const authHeader = req.headers.authorization;
+    const token = authHeader && authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : null;
+    if (!token) {
+      res.status(401).json({ success: false, message: "Authentification requise." });
+      return;
+    }
+
+    const check = JwtService.verify(token);
+    if (!check.valid || !check.payload) {
+      res.status(401).json({ success: false, message: "Jeton invalide ou expiré." });
+      return;
+    }
+
+    let user: any = null;
+    try {
+      user = await db.users.findByPk(check.payload.userId);
+    } catch {
+      user = await userStore.findUser(check.payload.userId);
+    }
+
+    if (!user) {
+      res.status(404).json({ success: false, message: "Utilisateur non trouvé." });
+      return;
+    }
+
+    if (Boolean(user.isRevoked || user.is_revoked)) {
+      res.status(403).json({ success: false, message: "Compte révoqué." });
+      return;
+    }
+
+    const sanitized = sanitizeUser(user);
+    res.status(200).json({
+      success: true,
+      user: sanitized,
+      role: sanitized.role,
+    });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ success: false, message: "Erreur getMe: " + message });
+  }
+};
+
 export default {
   registerUser,
   loginUser,
+  getMe,
   forgotPassword,
   resetPassword,
   getUserAccount,

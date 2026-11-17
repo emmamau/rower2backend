@@ -183,23 +183,102 @@ export class RaceManager {
   private loopBusy = false;
   private publicTickChain: Promise<void> = Promise.resolve();
 
+  public isPublicRaceEnabled: boolean = true;
+  public publicRaceDistanceM: number = 1000;
+  public publicMaxDurationSec: number = 600;
+  public publicMaxPlayers: number = 6;
+  public publicBotCount: number = 2;
+  public publicInterRaceDelaySec: number = 120;
+
   public adminPrivateRaceConfig = {
     maxDurationMinutes: 55,
   };
 
   public adminPublicRaceConfig = {
-    targetDistance: 2000,
-    maxParticipants: 20,
-    maxDurationMinutes: 55,
+    targetDistance: 1000,
+    maxParticipants: 6,
+    maxDurationMinutes: 10,
     privateMaxDurationMinutes: 55,
-    defaultBotsCount: 3,
+    defaultBotsCount: 2,
     defaultBotsPace: 145, // 2:25 / 500m (palier débutant/loisir 2m20s - 2m45s)
     countdownAfterLastJoinSeconds: 15,
-    lobbyWaitMinutes: 15,
+    lobbyWaitMinutes: 2,
   };
 
   private constructor() {
+    this.loadPublicRaceSettingsFromDb().catch(() => {});
     this.startOrchestratorLoop();
+  }
+
+  /**
+   * Recharge les paramètres dynamiques depuis la table PostgreSQL public_race_settings
+   */
+  public async loadPublicRaceSettingsFromDb(): Promise<void> {
+    try {
+      if (db.publicRaceSettings) {
+        const row = await db.publicRaceSettings.findByPk(1);
+        if (row) {
+          const plain: any = typeof row.toJSON === "function" ? row.toJSON() : row;
+          this.isPublicRaceEnabled = Boolean(plain.isEnabled ?? plain.is_enabled ?? true);
+          this.publicRaceDistanceM = Number(plain.raceDistanceM ?? plain.race_distance_m ?? 1000);
+          this.publicMaxDurationSec = Number(plain.maxDurationSec ?? plain.max_duration_sec ?? 600);
+          this.publicMaxPlayers = Number(plain.maxPlayers ?? plain.max_players ?? 6);
+          this.publicBotCount = Number(plain.botCount ?? plain.bot_count ?? 2);
+          this.publicInterRaceDelaySec = Number(plain.interRaceDelaySec ?? plain.inter_race_delay_sec ?? 120);
+
+          this.adminPublicRaceConfig.targetDistance = this.publicRaceDistanceM;
+          this.adminPublicRaceConfig.maxParticipants = this.publicMaxPlayers;
+          this.adminPublicRaceConfig.defaultBotsCount = this.publicBotCount;
+          this.adminPublicRaceConfig.maxDurationMinutes = Math.max(1, Math.round(this.publicMaxDurationSec / 60));
+          this.adminPublicRaceConfig.lobbyWaitMinutes = Math.max(1, Math.round(this.publicInterRaceDelaySec / 60));
+
+          if (this.currentPublicRace && (this.currentPublicRace.status === "LOBBY" || this.currentPublicRace.status === "COUNTDOWN")) {
+            this.currentPublicRace.targetDistance = this.publicRaceDistanceM;
+            this.currentPublicRace.maxParticipants = this.publicMaxPlayers;
+            this.currentPublicRace.maxDurationMinutes = Math.max(1, Math.round(this.publicMaxDurationSec / 60));
+            this.currentPublicRace.botCount = this.publicBotCount;
+          }
+        }
+      }
+    } catch (err) {
+      // Tolérance DB
+    }
+  }
+
+  /**
+   * Interrupteur maître marche/arrêt des courses publiques
+   */
+  public async togglePublicRaces(enabled: boolean): Promise<boolean> {
+    this.isPublicRaceEnabled = Boolean(enabled);
+    try {
+      if (db.publicRaceSettings) {
+        await db.publicRaceSettings.update({ isEnabled: this.isPublicRaceEnabled }, { where: { id: 1 } });
+      }
+    } catch {}
+
+    if (!this.isPublicRaceEnabled) {
+      console.log("[RaceManager] Courses publiques suspendues par l'administrateur.");
+      socketGateway.broadcastRaceStatus("PUBLIC", "PUBLIC_RACES_SUSPENDED", {
+        message: "Les courses publiques sont temporairement suspendues",
+        isSuspended: true,
+        timestamp: Date.now(),
+      });
+      if (this.currentPublicRace && this.currentPublicRace.status === "LOBBY") {
+        this.currentPublicRace.status = "ABANDONED";
+        this.currentPublicRace = null;
+      }
+    } else {
+      console.log("[RaceManager] Courses publiques réactivées par l'administrateur.");
+      socketGateway.broadcastRaceStatus("PUBLIC", "PUBLIC_RACES_RESUMED", {
+        message: "Les courses publiques ont repris.",
+        isSuspended: false,
+        timestamp: Date.now(),
+      });
+      if (!this.currentPublicRace || this.currentPublicRace.status === "COMPLETED" || this.currentPublicRace.status === "ABANDONED") {
+        await this.initNextPublicRace();
+      }
+    }
+    return this.isPublicRaceEnabled;
   }
 
   public static getInstance(): RaceManager {
@@ -612,8 +691,17 @@ export class RaceManager {
   private async runPublicTick(): Promise<RaceState> {
     const now = new Date();
 
+    if (!this.isPublicRaceEnabled) {
+      if (!this.currentPublicRace || this.currentPublicRace.status === "COMPLETED" || (this.currentPublicRace.status as any) === "POST_RACE_PAUSE" || this.currentPublicRace.status === "ABANDONED") {
+        this.currentPublicRace = null;
+        return null as any;
+      }
+    }
+
     if (!this.currentPublicRace) {
-      await this.initNextPublicRace();
+      if (this.isPublicRaceEnabled) {
+        await this.initNextPublicRace();
+      }
       return this.currentPublicRace!;
     }
 
@@ -623,7 +711,11 @@ export class RaceManager {
       if (race.pauseEndsAt) {
         if (now.getTime() >= race.pauseEndsAt.getTime()) {
           console.log(`[RaceManager] Fin des 2 minutes de pause post-course pour ${race.id}. Enchaînement vers le nouveau lobby.`);
-          await this.initNextPublicRace(15);
+          if (this.isPublicRaceEnabled) {
+            await this.initNextPublicRace();
+          } else {
+            this.currentPublicRace = null;
+          }
         } else {
           const pauseRemainingSec = Math.max(0, Math.ceil((race.pauseEndsAt.getTime() - now.getTime()) / 1000));
           socketGateway.broadcastRaceStatus(race.id, "POST_RACE_PAUSE", {
@@ -703,7 +795,11 @@ export class RaceManager {
             this.pinToRaceMap.delete(race.pinCode);
           }
           race.status = "ABANDONED";
-          await this.initNextPublicRace(15);
+          if (this.isPublicRaceEnabled) {
+            await this.initNextPublicRace();
+          } else {
+            this.currentPublicRace = null;
+          }
         }
       }
     } else if (race.status === "RUNNING") {

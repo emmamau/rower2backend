@@ -6,6 +6,7 @@ import initRoutes from "./routes";
 import socketGateway from "./websocket/socket.gateway";
 import raceManager from "./services/race-manager.service";
 import { initializeLeagueSchema } from "./services/league-db.service";
+import AdminInitService from "./services/admin-init.service";
 
 const app: Application = express();
 const server = http.createServer(app);
@@ -53,10 +54,16 @@ db.sequelize
   .sync({ alter: true })
   .then(async () => {
     console.log("Synced Rower Race PostgreSQL db successfully.");
+    // Initialisation du schéma d'administration, compte admin par défaut et offres
+    await AdminInitService.init();
+    // Chargement des paramètres dynamiques des courses publiques
+    await raceManager.loadPublicRaceSettingsFromDb();
     // Initialisation du schéma de ligues paresseuses
     await initializeLeagueSchema();
-    // Démarrer la première course publique
-    await raceManager.tickPublicRace();
+    // Démarrer la première course publique si activée
+    if (raceManager.isPublicRaceEnabled) {
+      await raceManager.tickPublicRace();
+    }
   })
   .catch((err: Error) => {
     console.error("Failed to sync db: " + err.message);

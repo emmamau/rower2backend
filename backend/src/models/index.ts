@@ -5,6 +5,8 @@ import defineRaces, { RaceSessionModel } from "./race.model";
 import defineUsers, { UserModel } from "./user.model";
 import defineLoginRequests, { LoginRequestModel } from "./login-request.model";
 import definePairings, { PairingModel } from "./pairing.model";
+import definePublicRaceSettings, { PublicRaceSettingsModel } from "./public-race-settings.model";
+import defineSubscriptionPlans, { SubscriptionPlanModel } from "./subscription-plan.model";
 
 const connectionUrl =
   process.env.DATABASE_URL ||
@@ -40,6 +42,8 @@ export interface Database {
   users: UserModel;
   loginRequests: LoginRequestModel;
   pairings: PairingModel;
+  publicRaceSettings: PublicRaceSettingsModel;
+  subscriptionPlans: SubscriptionPlanModel;
 }
 
 export const db: Database = {
@@ -50,6 +54,8 @@ export const db: Database = {
   users: defineUsers(sequelize, DataTypes),
   loginRequests: defineLoginRequests(sequelize, DataTypes),
   pairings: definePairings(sequelize, DataTypes),
+  publicRaceSettings: definePublicRaceSettings(sequelize, DataTypes),
+  subscriptionPlans: defineSubscriptionPlans(sequelize, DataTypes),
 };
 
 export default db;

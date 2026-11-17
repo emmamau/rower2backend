@@ -50,6 +50,8 @@ export interface UserAttributes {
   bestRank?: number;        // Meilleur classement jamais obtenu (ex: 1, 2...)
   lastRank?: number;        // Classement à la précédente course
   isAdmin?: boolean;        // Rôle administrateur (EmmaRacer en dur)
+  role?: string;            // 'USER' | 'ADMIN'
+  isRevoked?: boolean;      // Compte banni/révoqué
   kayakCustomization?: KayakCustomization;
   createdAt?: Date;
   updatedAt?: Date;
@@ -223,6 +225,15 @@ export default (sequelize: Sequelize, _DataTypesInstance: typeof DataTypes): Use
       },
       isAdmin: {
         type: DataTypes.BOOLEAN,
+        defaultValue: false,
+      },
+      role: {
+        type: DataTypes.STRING(20),
+        defaultValue: "USER",
+      },
+      isRevoked: {
+        type: DataTypes.BOOLEAN,
+        field: "is_revoked",
         defaultValue: false,
       },
       kayakCustomization: {

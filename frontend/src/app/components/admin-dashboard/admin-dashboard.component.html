@@ -1,0 +1,544 @@
+<div class="admin-container">
+  <!-- En-tête du Dashboard -->
+  <header class="admin-header">
+    <div class="admin-title-group">
+      <h2 class="admin-title">⚙️ Administration de la Plateforme</h2>
+      <span class="admin-badge">Back-Office</span>
+    </div>
+    <button class="btn-close" (click)="onClose()">✕ Fermer</button>
+  </header>
+
+  <!-- Navigation par Onglets -->
+  <nav class="admin-tabs">
+    <button
+      class="tab-btn"
+      [class.active]="activeTab === 'public'"
+      (click)="setTab('public')"
+    >
+      🏁 Courses Publiques
+    </button>
+    <button
+      class="tab-btn"
+      [class.active]="activeTab === 'users'"
+      (click)="setTab('users')"
+    >
+      👥 Utilisateurs
+    </button>
+    <button
+      class="tab-btn"
+      [class.active]="activeTab === 'plans'"
+      (click)="setTab('plans')"
+    >
+      💎 Offres & Quotas
+    </button>
+  </nav>
+
+  <!-- Corps de l'onglet actif -->
+  <main class="admin-tab-body">
+    <!-- Bannières de notification -->
+    <div *ngIf="feedbackMessage" class="alert-banner alert-success">
+      <span>{{ feedbackMessage }}</span>
+      <button class="btn-close" style="padding: 2px 8px; font-size: 0.8rem;" (click)="feedbackMessage = ''">✕</button>
+    </div>
+    <div *ngIf="errorMessage" class="alert-banner alert-error">
+      <span>{{ errorMessage }}</span>
+      <button class="btn-close" style="padding: 2px 8px; font-size: 0.8rem;" (click)="errorMessage = ''">✕</button>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- ONGLET 1 : COURSES PUBLIQUES -->
+    <!-- ===================================================================== -->
+    <section *ngIf="activeTab === 'public'">
+      <!-- Interrupteur Maître -->
+      <div class="toggle-box">
+        <div class="toggle-info">
+          <h4>Interrupteur Général des Régates Publiques</h4>
+          <p style="margin: 0; color: #94a3b8; font-size: 0.9rem;">
+            État actuel du moteur :
+            <span
+              class="toggle-status-badge"
+              [ngClass]="publicSettings.isEnabled ? 'status-active' : 'status-suspended'"
+            >
+              {{ publicSettings.isEnabled ? '● ACTIVES (En rotation continue)' : '■ SUSPENDUES (Arrêtées)' }}
+            </span>
+          </p>
+        </div>
+        <button
+          class="btn-master-toggle"
+          [ngClass]="publicSettings.isEnabled ? 'btn-suspend' : 'btn-activate'"
+          (click)="toggleMasterPublicRaces()"
+        >
+          {{ publicSettings.isEnabled ? 'Suspendre les courses' : 'Réactiver les courses' }}
+        </button>
+      </div>
+
+      <!-- Formulaire de Configuration -->
+      <div class="card-section">
+        <h3 class="card-title">⚙️ Paramètres de Régate Officielle</h3>
+        <form (ngSubmit)="savePublicSettings()">
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Distance de course (m)</label>
+              <input
+                type="number"
+                class="form-input"
+                name="raceDistanceM"
+                [(ngModel)]="publicSettings.raceDistanceM"
+                min="200"
+                max="50000"
+                step="50"
+                required
+              />
+            </div>
+            <div class="form-group">
+              <label>Durée maximale (secondes)</label>
+              <input
+                type="number"
+                class="form-input"
+                name="maxDurationSec"
+                [(ngModel)]="publicSettings.maxDurationSec"
+                min="60"
+                max="7200"
+                step="30"
+                required
+              />
+            </div>
+            <div class="form-group">
+              <label>Nombre max de joueurs humains</label>
+              <input
+                type="number"
+                class="form-input"
+                name="maxPlayers"
+                [(ngModel)]="publicSettings.maxPlayers"
+                min="2"
+                max="100"
+                required
+              />
+            </div>
+            <div class="form-group">
+              <label>Nombre de bots d'accompagnement</label>
+              <input
+                type="number"
+                class="form-input"
+                name="botCount"
+                [(ngModel)]="publicSettings.botCount"
+                min="0"
+                max="20"
+                required
+              />
+            </div>
+            <div class="form-group">
+              <label>Délai entre courses / Lobby (secondes)</label>
+              <input
+                type="number"
+                class="form-input"
+                name="interRaceDelaySec"
+                [(ngModel)]="publicSettings.interRaceDelaySec"
+                min="15"
+                max="3600"
+                step="15"
+                required
+              />
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            class="btn-submit"
+            [disabled]="isPublicSubmitting"
+          >
+            {{ isPublicSubmitting ? 'Application en cours...' : '💾 Enregistrer & Appliquer à chaud' }}
+          </button>
+        </form>
+      </div>
+    </section>
+
+    <!-- ===================================================================== -->
+    <!-- ONGLET 2 : GESTION DES UTILISATEURS -->
+    <!-- ===================================================================== -->
+    <section *ngIf="activeTab === 'users'">
+      <!-- Barre de recherche et filtres -->
+      <div class="filters-bar">
+        <div class="search-box">
+          <input
+            type="text"
+            class="form-input"
+            style="width: 100%;"
+            placeholder="Rechercher par pseudo ou email..."
+            [(ngModel)]="searchQuery"
+            (keyup.enter)="loadUsers(1)"
+          />
+        </div>
+        <select class="select-filter" [(ngModel)]="filterRole" (change)="loadUsers(1)">
+          <option value="">Tous les rôles</option>
+          <option value="USER">USER</option>
+          <option value="ADMIN">ADMIN</option>
+        </select>
+        <select class="select-filter" [(ngModel)]="filterTier" (change)="loadUsers(1)">
+          <option value="">Toutes les offres</option>
+          <option value="free">Gratuit</option>
+          <option value="intermediate">Club</option>
+          <option value="premium">Élite Pro</option>
+        </select>
+        <select class="select-filter" [(ngModel)]="filterStatus" (change)="loadUsers(1)">
+          <option value="">Tous les statuts</option>
+          <option value="active">Actif</option>
+          <option value="revoked">Révoqué</option>
+        </select>
+        <button class="btn-submit" style="padding: 10px 18px;" (click)="loadUsers(1)">
+          🔍 Filtrer
+        </button>
+      </div>
+
+      <!-- Tableau des utilisateurs -->
+      <div class="table-responsive">
+        <table class="admin-table">
+          <thead>
+            <tr>
+              <th>Pseudo / Compte</th>
+              <th>Email</th>
+              <th>Rôle</th>
+              <th>Offre</th>
+              <th>Ligue</th>
+              <th>Statut</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let u of usersList">
+              <td>
+                <strong>{{ u.login || u.name }}</strong>
+                <div *ngIf="u.name && u.name !== u.login" style="font-size: 0.75rem; color: #94a3b8;">{{ u.name }}</div>
+              </td>
+              <td>{{ u.email || '—' }}</td>
+              <td>
+                <select
+                  class="select-filter"
+                  style="padding: 4px 8px; font-size: 0.8rem;"
+                  [ngModel]="u.role"
+                  (ngModelChange)="changeUserRole(u, $event)"
+                >
+                  <option value="USER">USER</option>
+                  <option value="ADMIN">ADMIN</option>
+                </select>
+              </td>
+              <td>
+                <select
+                  class="select-filter"
+                  style="padding: 4px 8px; font-size: 0.8rem;"
+                  [ngModel]="u.subscriptionTier || 'free'"
+                  (ngModelChange)="changeUserPlan(u, $event)"
+                >
+                  <option value="free">Gratuit</option>
+                  <option value="intermediate">Club</option>
+                  <option value="premium">Élite Pro</option>
+                </select>
+              </td>
+              <td>
+                <span class="table-badge" style="background: rgba(255, 215, 0, 0.15); color: #ffd700;">
+                  {{ u.currentLeague || 'BRONZE' }}
+                </span>
+              </td>
+              <td>
+                <span
+                  class="table-badge"
+                  [ngClass]="u.isRevoked ? 'badge-status-revoked' : 'badge-status-active'"
+                >
+                  {{ u.isRevoked ? 'Révoqué' : 'Actif' }}
+                </span>
+              </td>
+              <td>
+                <div class="action-buttons">
+                  <button
+                    class="btn-action"
+                    [ngClass]="u.isRevoked ? 'btn-action-restore' : 'btn-action-revoke'"
+                    (click)="openRevokeModal(u)"
+                  >
+                    {{ u.isRevoked ? 'Rétablir' : 'Révoquer' }}
+                  </button>
+                  <button
+                    class="btn-action btn-action-pwd"
+                    (click)="openPasswordModal(u)"
+                  >
+                    🔑 Mot de passe
+                  </button>
+                </div>
+              </td>
+            </tr>
+            <tr *ngIf="usersList.length === 0">
+              <td colspan="7" style="text-align: center; color: #94a3b8; padding: 24px;">
+                {{ isLoadingUsers ? 'Chargement des utilisateurs...' : 'Aucun utilisateur trouvé.' }}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Pagination -->
+      <div class="pagination-controls" *ngIf="totalPages > 1">
+        <button
+          class="pagination-btn"
+          [disabled]="currentPage <= 1"
+          (click)="loadUsers(currentPage - 1)"
+        >
+          ← Précédent
+        </button>
+        <span style="color: #94a3b8; font-size: 0.9rem;">
+          Page {{ currentPage }} sur {{ totalPages }} ({{ totalUsers }} utilisateurs)
+        </span>
+        <button
+          class="pagination-btn"
+          [disabled]="currentPage >= totalPages"
+          (click)="loadUsers(currentPage + 1)"
+        >
+          Suivant →
+        </button>
+      </div>
+    </section>
+
+    <!-- ===================================================================== -->
+    <!-- ONGLET 3 : OFFRES & QUOTAS -->
+    <!-- ===================================================================== -->
+    <section *ngIf="activeTab === 'plans'">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h3 class="card-title" style="margin: 0;">💎 Gestion des Offres & Quotas Techniques</h3>
+        <button class="btn-submit" (click)="openCreatePlanModal()">+ Nouvelle Offre</button>
+      </div>
+
+      <div class="plans-grid">
+        <div class="plan-card" *ngFor="let p of plansList">
+          <div class="plan-card-header">
+            <div>
+              <h4 class="plan-name">{{ p.name }}</h4>
+              <span class="plan-code">CODE : {{ p.code }}</span>
+            </div>
+            <div class="plan-price">
+              {{ p.priceMonthly > 0 ? (p.priceMonthly + ' €/m') : 'Gratuit' }}
+            </div>
+          </div>
+
+          <p style="margin: 0; color: #94a3b8; font-size: 0.85rem;">{{ p.description || 'Aucune description' }}</p>
+
+          <ul class="quota-list">
+            <li class="quota-item">
+              <span>Bots max par course :</span>
+              <strong>{{ p.maxBotsPerRace }}</strong>
+            </li>
+            <li class="quota-item">
+              <span>Distance max autorisée :</span>
+              <strong>{{ p.maxRaceDistanceM }} m</strong>
+            </li>
+            <li class="quota-item">
+              <span>Joueurs max par salon privé :</span>
+              <strong>{{ p.maxPlayersPerRoom }}</strong>
+            </li>
+            <li class="quota-item">
+              <span>Salons simultanés max :</span>
+              <strong>{{ p.maxConcurrentRooms }}</strong>
+            </li>
+            <li class="quota-item">
+              <span>Salons max par semaine :</span>
+              <strong>{{ p.maxRoomsPerWeek }}</strong>
+            </li>
+            <li class="quota-item">
+              <span>Duel 1v1 :</span>
+              <strong>{{ p.canCreateDuel1v1 ? '✓ Activé' : '✕ Bloqué' }}</strong>
+            </li>
+            <li class="quota-item">
+              <span>Planification horaire :</span>
+              <strong>{{ p.canScheduleRaces ? '✓ Activée' : '✕ Désactivée' }}</strong>
+            </li>
+            <li class="quota-item">
+              <span>Statut de l'offre :</span>
+              <strong>{{ p.isActive ? 'Active' : 'Inféodée/Désactivée' }}</strong>
+            </li>
+          </ul>
+
+          <button
+            class="btn-action btn-action-pwd"
+            style="width: 100%; padding: 10px; margin-top: 8px;"
+            (click)="openEditPlanModal(p)"
+          >
+            ✏️ Modifier l'offre & Quotas
+          </button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ===================================================================== -->
+  <!-- MODALES DE GESTION -->
+  <!-- ===================================================================== -->
+
+  <!-- Modale Confirmation Révocation -->
+  <div class="modal-overlay" *ngIf="isRevokeModalOpen">
+    <div class="modal-dialog">
+      <h3 class="modal-title">
+        {{ userToRevoke?.isRevoked ? 'Rétablir l\'accès utilisateur' : 'Révoquer l\'accès utilisateur' }}
+      </h3>
+      <p>
+        Êtes-vous certain de vouloir
+        <strong>{{ userToRevoke?.isRevoked ? 'rétablir l\'accès de' : 'bannir/révoquer' }}</strong>
+        le compte de <strong>{{ userToRevoke?.login || userToRevoke?.name }}</strong> ?
+      </p>
+      <p *ngIf="!userToRevoke?.isRevoked" style="color: #f87171; font-size: 0.85rem;">
+        ⚠️ L'utilisateur sera immédiatement déconnecté de ses sessions actives et ses connexions WebSocket seront interrompues.
+      </p>
+      <div class="modal-actions">
+        <button class="btn-close" (click)="closeRevokeModal()">Annuler</button>
+        <button
+          class="btn-master-toggle"
+          [ngClass]="userToRevoke?.isRevoked ? 'btn-activate' : 'btn-suspend'"
+          (click)="confirmRevokeToggle()"
+        >
+          Confirmer
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modale Réinitialisation Mot de passe -->
+  <div class="modal-overlay" *ngIf="isPasswordModalOpen">
+    <div class="modal-dialog">
+      <h3 class="modal-title">🔑 Réinitialiser le Mot de Passe</h3>
+      <p>
+        Définir un nouveau mot de passe pour <strong>{{ userToReset?.login || userToReset?.name }}</strong> :
+      </p>
+      <div class="form-group" style="margin-bottom: 16px;">
+        <label>Nouveau mot de passe</label>
+        <input
+          type="text"
+          class="form-input"
+          [(ngModel)]="newPasswordInput"
+          placeholder="Entrez au moins 4 caractères..."
+          minlength="4"
+        />
+      </div>
+      <div class="modal-actions">
+        <button class="btn-close" (click)="closePasswordModal()">Annuler</button>
+        <button class="btn-submit" (click)="confirmPasswordReset()">Enregistrer le nouveau mot de passe</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modale Création / Édition Offre -->
+  <div class="modal-overlay" *ngIf="isPlanModalOpen">
+    <div class="modal-dialog" style="max-width: 650px;">
+      <h3 class="modal-title">
+        {{ isEditingExistingPlan ? ('Modifier l\'offre ' + editingPlan.name) : 'Créer une nouvelle offre' }}
+      </h3>
+      <div class="form-grid" style="margin-top: 16px;">
+        <div class="form-group">
+          <label>Code Offre (Unique)</label>
+          <input
+            type="text"
+            class="form-input"
+            [(ngModel)]="editingPlan.code"
+            [disabled]="isEditingExistingPlan"
+            placeholder="Ex: PRO_CLUB"
+          />
+        </div>
+        <div class="form-group">
+          <label>Nom Affiché</label>
+          <input
+            type="text"
+            class="form-input"
+            [(ngModel)]="editingPlan.name"
+            placeholder="Ex: Offre Club Pro"
+          />
+        </div>
+        <div class="form-group">
+          <label>Prix Mensuel (€)</label>
+          <input
+            type="number"
+            class="form-input"
+            [(ngModel)]="editingPlan.priceMonthly"
+            step="0.01"
+            min="0"
+          />
+        </div>
+        <div class="form-group">
+          <label>Prix Annuel (€)</label>
+          <input
+            type="number"
+            class="form-input"
+            [(ngModel)]="editingPlan.priceYearly"
+            step="0.01"
+            min="0"
+          />
+        </div>
+        <div class="form-group">
+          <label>Bots max par course</label>
+          <input
+            type="number"
+            class="form-input"
+            [(ngModel)]="editingPlan.maxBotsPerRace"
+            min="0"
+            max="20"
+          />
+        </div>
+        <div class="form-group">
+          <label>Distance max (m)</label>
+          <input
+            type="number"
+            class="form-input"
+            [(ngModel)]="editingPlan.maxRaceDistanceM"
+            min="500"
+            max="100000"
+            step="500"
+          />
+        </div>
+        <div class="form-group">
+          <label>Joueurs max par salon privé</label>
+          <input
+            type="number"
+            class="form-input"
+            [(ngModel)]="editingPlan.maxPlayersPerRoom"
+            min="2"
+            max="100"
+          />
+        </div>
+        <div class="form-group">
+          <label>Salons simultanés max</label>
+          <input
+            type="number"
+            class="form-input"
+            [(ngModel)]="editingPlan.maxConcurrentRooms"
+            min="1"
+            max="50"
+          />
+        </div>
+        <div class="form-group">
+          <label>Salons max par semaine</label>
+          <input
+            type="number"
+            class="form-input"
+            [(ngModel)]="editingPlan.maxRoomsPerWeek"
+            min="1"
+            max="200"
+          />
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 20px; margin: 16px 0;">
+        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+          <input type="checkbox" [(ngModel)]="editingPlan.canCreateDuel1v1" />
+          Duel 1v1 autorisé
+        </label>
+        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+          <input type="checkbox" [(ngModel)]="editingPlan.canScheduleRaces" />
+          Courses planifiées à date/heure
+        </label>
+        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+          <input type="checkbox" [(ngModel)]="editingPlan.isActive" />
+          Offre active
+        </label>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn-close" (click)="closePlanModal()">Annuler</button>
+        <button class="btn-submit" (click)="savePlan()">Enregistrer l'offre</button>
+      </div>
+    </div>
+  </div>
+</div>

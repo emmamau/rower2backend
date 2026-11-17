@@ -120,6 +120,21 @@ function mapStateToApiStatus(status: RaceState["status"]): string {
  */
 export async function buildPublicRacePayload(): Promise<any> {
   const state = await raceManager.tickPublicRace();
+  if (!state) {
+    return {
+      success: true,
+      isSuspended: true,
+      isEnabled: false,
+      message: "Les courses publiques sont temporairement suspendues",
+      race: null,
+      secondsRemaining: 0,
+      remainingSeconds: 0,
+      elapsedSeconds: 0,
+      totalParticipants: 0,
+      status: "suspended",
+      isRaceInProgress: false,
+    };
+  }
   const row = await ensurePublicRaceRow(state);
   const timing = raceManager.getRaceTiming(state);
 

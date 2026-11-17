@@ -48,6 +48,9 @@ export interface StoredUser {
   bestRank: number;
   lastRank: number;
   isAdmin: boolean;
+  role?: string;
+  isRevoked?: boolean;
+  is_revoked?: boolean;
   kayakCustomization?: KayakCustomization;
   createdAt: Date;
   updatedAt: Date;
@@ -363,7 +366,7 @@ export class UserStoreService {
     const country = data.country || data.pays;
 
     const newUser: StoredUser = {
-      id: login || `usr_${Date.now()}`,
+      id: data.id || login || `usr_${Date.now()}`,
       login,
       name: data.name || login,
       email: data.email ? String(data.email).trim().toLowerCase() : undefined,
@@ -400,7 +403,9 @@ export class UserStoreService {
       isResting: Boolean(data.isResting),
       bestRank: data.bestRank || 0,
       lastRank: data.lastRank || 0,
-      isAdmin: isEmma ? true : Boolean(data.isAdmin),
+      isAdmin: isEmma ? true : Boolean(data.isAdmin || data.role === "ADMIN"),
+      role: data.role ? String(data.role).toUpperCase() : (isEmma || data.isAdmin ? "ADMIN" : "USER"),
+      isRevoked: Boolean(data.isRevoked || data.is_revoked),
       kayakCustomization: data.kayakCustomization,
       createdAt: now,
       updatedAt: now,
@@ -645,6 +650,21 @@ export class UserStoreService {
     }
 
     return updated;
+  }
+
+  public async getAllUsers(): Promise<StoredUser[]> {
+    const usersMap = new Map<string, StoredUser>();
+    for (const u of this.inMemoryUsers.values()) {
+      usersMap.set(u.id, u);
+    }
+    try {
+      const dbUsers = await Users.findAll({ order: [["createdAt", "DESC"]] });
+      for (const d of dbUsers) {
+        const p = d.toJSON() as StoredUser;
+        usersMap.set(p.id, p);
+      }
+    } catch {}
+    return Array.from(usersMap.values());
   }
 
   public async getAllUsersForLeaderboard(): Promise<StoredUser[]> {

@@ -82,6 +82,8 @@ export interface UserProfile {
   bestRank?: number;
   lastRank?: number;
   isAdmin?: boolean;
+  role?: string;
+  isRevoked?: boolean;
   isGarminPaired?: boolean;
   pairedDevice?: {
     deviceId?: string;
@@ -121,6 +123,8 @@ export interface LoginDto {
 export interface AuthResponse {
   success: boolean;
   message: string;
+  token?: string;
+  role?: string;
   user: UserProfile;
   isSubscriber?: boolean;
   isAdmin?: boolean;

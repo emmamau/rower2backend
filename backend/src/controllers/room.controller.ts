@@ -8,6 +8,7 @@ import { IpGeoService } from "../services/ip-geo.service";
 import { isEmmaAdminUser } from "../services/auth.service";
 import { getLeagueByPoints } from "../utils/league.util";
 import { SUBSCRIPTION_TIERS } from "./subscription.controller";
+import subscriptionPlanService from "../services/subscription-plan.service";
 
 const Activities = db.activities;
 const raceManager = RaceManager.getInstance();
@@ -103,7 +104,7 @@ export class RoomController {
         organizerCapacity = 20;
       } else if (hostUser) {
         const tierKey = (hostUser.subscriptionTier || (hostUser.isSubscriber ? "intermediate" : "free")) as string;
-        const tierConfig = SUBSCRIPTION_TIERS[tierKey];
+        const tierConfig = await subscriptionPlanService.getLimitsForTier(hostUser || tierKey);
         organizerCapacity = tierConfig ? tierConfig.maxParticipants : (hostUser.isSubscriber ? 5 : 2);
       }
 

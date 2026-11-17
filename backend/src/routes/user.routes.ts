@@ -7,6 +7,7 @@ export default (app: Application): void => {
   // Inscription & Connexion avec mot de passe pour les abonnés
   router.post("/register", userController.registerUser);
   router.post("/login", userController.loginUser);
+  router.get("/me", userController.getMe);
   router.post("/forgot-password", userController.forgotPassword);
   router.post("/reset-password", userController.resetPassword);
   router.get("/account/:identifier", userController.getUserAccount);

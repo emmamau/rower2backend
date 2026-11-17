@@ -7,6 +7,7 @@ import { TelemetryValidator } from "../services/telemetry-validator.service";
 import { isEmmaAdminUser } from "../services/auth.service";
 import userStore from "../services/user-store.service";
 import { SUBSCRIPTION_TIERS } from "./subscription.controller";
+import subscriptionPlanService from "../services/subscription-plan.service";
 import { IpGeoService } from "../services/ip-geo.service";
 import pairingService from "../services/pairing.service";
 import { calculateRacePointsEarned } from "../utils/league.util";
@@ -858,7 +859,7 @@ export class TelemetryController {
       // Élite Pro : 5 simultanés, 15 / semaine
       if (!isUserAdmin && hostUserId && hostUserId !== "anonymous") {
         const tierId = user?.subscriptionTier || (user?.isSubscriber ? "intermediate" : "free");
-        const limits = SUBSCRIPTION_TIERS[tierId] || SUBSCRIPTION_TIERS.free;
+        const limits = await subscriptionPlanService.getLimitsForTier(user || tierId);
 
         const maxConcurrent = limits.maxConcurrentRooms !== undefined ? limits.maxConcurrentRooms : 1;
         const maxWeekly = limits.maxWeeklyRooms !== undefined ? limits.maxWeeklyRooms : 5;
@@ -1073,7 +1074,7 @@ export class TelemetryController {
       const tierId = isEmma
         ? "premium"
         : ((user?.subscriptionTier as any) || (user?.isSubscriber ? "intermediate" : "free"));
-      const tierConfig = SUBSCRIPTION_TIERS[tierId] || SUBSCRIPTION_TIERS.free;
+      const tierConfig = await subscriptionPlanService.getLimitsForTier(user || tierId);
 
       const maxConcurrent = isUserAdmin ? 999 : (tierConfig.maxConcurrentRooms || 1);
       const maxWeekly = isUserAdmin ? 999 : (tierConfig.maxWeeklyRooms || 5);

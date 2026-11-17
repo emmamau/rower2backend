@@ -8,8 +8,12 @@ import garminRoutes from "./garmin.routes";
 import roomRoutes from "./room.routes";
 import sessionRoutes from "./session.routes";
 import leagueRoutes from "./league.routes";
+import authRoutes from "./auth.routes";
+import adminRoutes from "./admin.routes";
 
 export default (app: Application): void => {
+  authRoutes(app);
+  adminRoutes(app);
   sessionRoutes(app);
   garminRoutes(app);
   telemetryRoutes(app);

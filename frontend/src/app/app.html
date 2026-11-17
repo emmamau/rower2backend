@@ -163,6 +163,15 @@
     </div>
 
     <div class="pure-header-right">
+      <button
+        *ngIf="isUserAdmin"
+        type="button"
+        class="btn-pure-nav btn-pure-admin"
+        (click)="openAdminDashboard()"
+        title="Administration">
+        <span class="pure-icon" aria-hidden="true">🛡️</span>
+        <span class="pure-label">Admin</span>
+      </button>
       <span class="pure-screen-tag">
         {{ siteView === 'regatta' ? i18n.t('MODE_REGATTA') : i18n.t('MODE_COCKPIT') }}
       </span>
@@ -237,6 +246,16 @@
             [title]="i18n.t('MODE_COCKPIT')">
             <span class="mode-icon">📱</span>
             <span class="mode-txt">{{ i18n.t('MODE_COCKPIT') }}</span>
+          </button>
+          <button
+            *ngIf="isUserAdmin"
+            type="button"
+            class="btn-nav-mode btn-nav-admin"
+            [class.active]="isAdminDashboardOpen"
+            (click)="openAdminDashboard()"
+            title="Administration Plateforme">
+            <span class="mode-icon">🛡️</span>
+            <span class="mode-txt">Admin</span>
           </button>
         </nav>
 
@@ -493,6 +512,16 @@
           ⚙️ Admin Courses
         </button>
 
+        <!-- Bouton Administration Plateforme (Back-Office Complet) -->
+        <button
+          *ngIf="isUserAdmin"
+          type="button"
+          class="btn-hud btn-admin-backoffice is-admin"
+          (click)="openAdminDashboard()"
+          title="🛡️ Ouvrir le tableau de bord d'administration de la plateforme">
+          🛡️ Administration
+        </button>
+
         <!-- Boutons Salons Privés -->
         <button
           type="button"
@@ -541,6 +570,14 @@
       </div>
     </div>
   </header>
+
+  <!-- Bannière d'information si les courses publiques sont suspendues -->
+  <div class="public-races-suspended-banner" *ngIf="isPublicRaceSuspended">
+    <div class="banner-content">
+      <span class="banner-icon">⚠️</span>
+      <span class="banner-text"><strong>Information :</strong> Les courses publiques sont actuellement suspendues par l'administration. Les courses en cours se terminent normalement et les salons privés restent disponibles.</span>
+    </div>
+  </div>
 
   <!-- Modals -->
   <!-- 1. USER ACCOUNT & SUBSCRIBER MANAGEMENT MODAL -->
@@ -3749,4 +3786,10 @@
           </div>
         </div>
       }
+
+      <!-- MODALE BACK-OFFICE ADMINISTRATION PLATEFORME -->
+      <app-admin-dashboard
+        *ngIf="isAdminDashboardOpen"
+        (close)="closeAdminDashboard()">
+      </app-admin-dashboard>
 </div>
