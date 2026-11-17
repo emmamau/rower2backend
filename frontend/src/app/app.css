@@ -1116,7 +1116,7 @@ body.app-pseudo-fullscreen .game-container {
 }
 
 .race-arena {
-  flex: 1;
+  flex: 1 0 auto;
   inline-size: 100%;
   padding: 1.1rem max(1.5rem, var(--safe-right)) 1.5rem max(1.5rem, var(--safe-left));
   display: flex;
@@ -1906,7 +1906,11 @@ input[type="number"]:focus { border-color: var(--neon-cyan); box-shadow: 0 0 10p
   .hud-actions:empty,
   .hud-actions:not(:has(.btn-admin)) { display: none; }
 
-  .race-arena { padding: 0.75rem max(0.75rem, var(--safe-right)) 1rem max(0.75rem, var(--safe-left)); gap: 0.85rem; }
+  .race-arena {
+    flex: 1 0 auto;
+    padding: 0.75rem max(0.75rem, var(--safe-right)) 1rem max(0.75rem, var(--safe-left));
+    gap: 0.85rem;
+  }
   .arena-mode-bar { gap: 0.5rem; }
   .view-mode-toggle { inline-size: 100%; display: grid; grid-template-columns: 1fr 1fr; }
   .btn-toggle-view { padding-inline: 0.5rem; font-size: 0.78rem; }
@@ -3281,7 +3285,7 @@ input[type="number"]:focus { border-color: var(--neon-cyan); box-shadow: 0 0 10p
     font-size: 1.15rem;
   }
   .smartphone-table-links {
-    display: flex;
+    display: flex !important;
     flex-direction: column;
     gap: 0.75rem;
     inline-size: 100%;
@@ -4829,7 +4833,7 @@ body.rigid-viewport {
 /* Regatta Canvas in Rigid Viewport or when Private Salon Banner is Collapsed */
 .game-container.rigid-viewport .race-arena,
 .game-container.mobile-fullscreen-view .race-arena,
-.game-container.priv-banner-collapsed .race-arena {
+.game-container.pure-screen-active.priv-banner-collapsed .race-arena {
   flex: 1 1 0;
   min-height: 0;
   display: flex;
@@ -4840,7 +4844,7 @@ body.rigid-viewport {
 
 .game-container.rigid-viewport .regatta-canvas-section,
 .game-container.mobile-fullscreen-view .regatta-canvas-section,
-.game-container.priv-banner-collapsed .regatta-canvas-section {
+.game-container.pure-screen-active.priv-banner-collapsed .regatta-canvas-section {
   flex: 1 1 0 !important;
   min-height: 0;
   max-height: none !important;
@@ -5673,7 +5677,8 @@ body.rigid-viewport {
     margin: 0 !important;
     padding: 0 !important;
   }
-  .game-container {
+  .game-container.rigid-viewport,
+  .game-container.pure-screen-active {
     position: fixed !important;
     inset: 0 !important;
     width: 100vw !important;
@@ -5715,11 +5720,12 @@ body.rigid-viewport {
     font-size: 0.70rem !important;
   }
 
-  .hud-header {
+  .game-container.pure-screen-active .hud-header {
     display: none !important;
   }
 
-  .race-arena {
+  .game-container.rigid-viewport .race-arena,
+  .game-container.pure-screen-active .race-arena {
     padding: 0 !important;
     margin: 0 !important;
     gap: 0 !important;
@@ -5804,19 +5810,19 @@ body.rigid-viewport {
   }
 
   /* Éléments masqués pour dédier 100% de la hauteur utile au plan d'eau */
-  .spectator-camera-bar,
-  .regatta-user-summary,
-  .concept2-fairness-banner,
-  .regatta-fairness-banner,
-  .mobile-bottom-nav,
-  .app-footer,
-  .watch-auth-strip,
-  .smartphone-table-links,
-  .dual-standings-history-container,
-  .lobby-regatta-preview-section,
-  .seo-hub-section,
-  .btn-floating-fullscreen,
-  .finish-celebration-banner {
+  .game-container.pure-screen-active .spectator-camera-bar,
+  .game-container.pure-screen-active .regatta-user-summary,
+  .game-container.pure-screen-active .concept2-fairness-banner,
+  .game-container.pure-screen-active .regatta-fairness-banner,
+  .game-container.pure-screen-active .mobile-bottom-nav,
+  .game-container.pure-screen-active .app-footer,
+  .game-container.pure-screen-active .watch-auth-strip,
+  .game-container.pure-screen-active .smartphone-table-links,
+  .game-container.pure-screen-active .dual-standings-history-container,
+  .game-container.pure-screen-active .lobby-regatta-preview-section,
+  .game-container.pure-screen-active .seo-hub-section,
+  .game-container.pure-screen-active .btn-floating-fullscreen,
+  .game-container.pure-screen-active .finish-celebration-banner {
     display: none !important;
   }
   .canvas-display-card {
@@ -6743,7 +6749,9 @@ body.rigid-viewport {
   }
 
   /* Arène de course dédiée au Cockpit : flex-start, pas de scroll, calée immédiatement en haut */
-  .race-arena {
+  .game-container:has(.cockpit-hud) .race-arena,
+  .game-container.pure-screen-active:has(.cockpit-hud) .race-arena,
+  .game-container.rigid-viewport:has(.cockpit-hud) .race-arena {
     padding: 0 !important;
     margin: 0 !important;
     gap: 4px !important;

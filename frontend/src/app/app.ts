@@ -2723,7 +2723,7 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   get isMobileFullscreenOnly(): boolean {
-    return Boolean((this.isFullscreen || this.isPseudoFullscreen) && this.isMobileOrTablet);
+    return Boolean(this.siteView !== 'home' && (this.isFullscreen || this.isPseudoFullscreen) && this.isMobileOrTablet);
   }
 
   get canAccessCockpit(): boolean {
