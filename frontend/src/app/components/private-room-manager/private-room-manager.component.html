@@ -83,20 +83,7 @@
         </div>
 
         <div class="priv-banner-nav">
-          @if (isRoomCompleted) {
-            <button
-              type="button"
-              class="priv-btn priv-btn-gold"
-              (click)="viewRankingRequest.emit(activeRoom.race.id)">
-              {{ i18n.t('BTN_VIEW_RANKING') || '🏆 Voir le classement' }}
-            </button>
-            <button
-              type="button"
-              class="priv-btn priv-btn-cyan"
-              (click)="leaveToPublicRace()">
-              {{ i18n.t('BTN_LEAVE_ROOM_TO_PUBLIC') || '🚪 Quitter le salon' }}
-            </button>
-          } @else {
+          @if (!isRoomCompleted) {
             <button
               type="button"
               class="priv-btn priv-btn-cyan"
