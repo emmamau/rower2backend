@@ -1589,6 +1589,32 @@ body.app-pseudo-fullscreen .game-container {
   box-shadow: 0 0 16px rgba(239, 68, 68, 0.7);
   transform: translateY(-1px);
 }
+
+/* Minuteur de course intégré à droite de la barre rapide (notamment en mode paysage) */
+.regatta-nav-timer {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+}
+
+.nav-timer-pill {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.80rem;
+  font-weight: 800;
+  padding: 0.22rem 0.55rem;
+  background: rgba(15, 23, 42, 0.92);
+  border: 1px solid rgba(245, 158, 11, 0.5);
+  border-radius: 6px;
+  color: #fbd38d;
+  white-space: nowrap;
+  letter-spacing: 0.02em;
+}
+
+.nav-timer-pill.is-running {
+  border-color: rgba(0, 240, 255, 0.6);
+  color: #00f0ff;
+  box-shadow: 0 0 10px rgba(0, 240, 255, 0.3);
+}
 .btn-quick-icon {
   font-size: 0.85rem;
   line-height: 1;
@@ -5582,6 +5608,59 @@ body.rigid-viewport {
   box-shadow: 0 0 18px rgba(0, 240, 255, 0.7);
 }
 
+.btn-pure-start {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.3) 0%, rgba(15, 23, 42, 0.9) 100%) !important;
+  border: 1.5px solid #10b981 !important;
+  color: #6ee7b7 !important;
+  font-weight: 800;
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.35);
+}
+
+.btn-pure-start:hover {
+  background: #10b981 !important;
+  color: #080e1e !important;
+  box-shadow: 0 0 18px rgba(16, 185, 129, 0.7);
+}
+
+.btn-pure-stop {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.3) 0%, rgba(15, 23, 42, 0.9) 100%) !important;
+  border: 1.5px solid #ef4444 !important;
+  color: #fca5a5 !important;
+  font-weight: 800;
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.35);
+  animation: pulseRedStop 1.8s infinite;
+}
+
+.btn-pure-stop:hover {
+  background: #ef4444 !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 18px rgba(239, 68, 68, 0.7);
+}
+
+.pure-header-timer {
+  display: inline-flex;
+  align-items: center;
+  margin-inline: 0.25rem;
+}
+
+.pure-timer-badge {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.78rem;
+  font-weight: 800;
+  padding: 0.22rem 0.55rem;
+  background: rgba(15, 23, 42, 0.9);
+  border: 1px solid rgba(245, 158, 11, 0.5);
+  border-radius: 6px;
+  color: #fbd38d;
+  white-space: nowrap;
+}
+
+.pure-timer-badge.is-running {
+  border-color: rgba(0, 240, 255, 0.6);
+  color: #00f0ff;
+  box-shadow: 0 0 8px rgba(0, 240, 255, 0.3);
+}
+
 /* Navigation modes sur la page d'accueil */
 .home-nav-modes {
   display: inline-flex;
@@ -6225,9 +6304,20 @@ body.rigid-viewport {
   /* Boutons Accueil et Cockpit placés au-dessus des lignes d'eau */
   .regatta-quick-nav-bar {
     order: 1 !important;
-    display: inline-flex !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    width: 100% !important;
     margin: 1px 0 !important;
     gap: 4px !important;
+  }
+  .regatta-quick-nav-bar .regatta-nav-timer {
+    margin-left: auto !important;
+    display: inline-flex !important;
+  }
+  .regatta-quick-nav-bar .nav-timer-pill {
+    padding: 1px 5px !important;
+    font-size: 0.68rem !important;
   }
   .regatta-quick-nav-bar .btn-cockpit-quick {
     padding: 1px 6px !important;

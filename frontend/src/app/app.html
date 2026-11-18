@@ -185,6 +185,36 @@
     </div>
 
     <div class="pure-header-right">
+      <!-- Bouton dédié Organisateur : Démarrer / Arrêter la course dans la barre d'en-tête épurée -->
+      @if (canStartOrStopRace) {
+        @if (isRaceActive) {
+          <button
+            type="button"
+            class="btn-pure-nav btn-pure-stop"
+            (click)="stopActiveRace()"
+            title="Arrêter la course immédiatement et finaliser le classement">
+            <span class="pure-icon" aria-hidden="true">🛑</span>
+            <span class="pure-label">Arrêter</span>
+          </button>
+        } @else if (canStartRace) {
+          <button
+            type="button"
+            class="btn-pure-nav btn-pure-start"
+            (click)="startActivePrivateRace()"
+            title="Démarrer la course manuellement (compte à rebours de 10s)">
+            <span class="pure-icon" aria-hidden="true">🚀</span>
+            <span class="pure-label">Démarrer</span>
+          </button>
+        }
+      }
+
+      <!-- Affichage du temps restant de course à droite dans la barre d'en-tête (notamment en mode paysage) -->
+      <div class="pure-header-timer" *ngIf="siteView === 'regatta' && (isRaceActive || nextRaceInfo?.status === 'in_progress' || isPreStartCountdown)">
+        <span class="pure-timer-badge" [class.is-running]="isRaceActive">
+          ⏱️ {{ isRaceActive ? (formattedGameRemaining ? ('Fin : ' + formattedGameRemaining) : 'Course en cours') : ('Départ : ' + formattedPreRaceCountdown) }}
+        </span>
+      </div>
+
       <button
         *ngIf="isUserAdmin"
         type="button"
@@ -2326,40 +2356,6 @@
         </div>
       </section>
 
-      <!-- BANDEAU DE STATUT DE SALON PRIVÉ / DUEL / RÉGATE POUR PARTICIPANTS ET ORGANISATEUR -->
-      <aside
-        class="regatta-waiting-banner"
-        [class.is-running]="isRaceActive"
-        *ngIf="(activePrivateRoom || canStartOrStopRace) && (!isPrivateBannerCollapsed || canStartOrStopRace) && nextRaceInfo?.status !== 'finished' && nextRaceInfo?.race?.status !== 'COMPLETED' && (!isRaceActive || canStartOrStopRace)"
-        role="status"
-        aria-live="polite">
-        <div class="rwb-content">
-          <span class="rwb-icon">{{ isRaceActive ? '🔴' : '⏳' }}</span>
-          <span class="rwb-text">{{ getWaitingStatusText() }}</span>
-          <span class="rwb-lane-badge" *ngIf="myAssignedLane > 0">Ligne {{ myAssignedLane }}</span>
-
-          <!-- BOUTON DÉDIÉ DÉPART / ARRÊT DANS LE BANDEAU DE LA VUE RÉGATE DE L'ORGANISATEUR -->
-          <div class="rwb-actions" *ngIf="canStartOrStopRace">
-            @if (isRaceActive) {
-              <button
-                type="button"
-                class="btn-rwb-action btn-rwb-stop"
-                (click)="stopActiveRace()"
-                title="Arrêter la course immédiatement et finaliser le classement officiel selon les positions actuelles">
-                🛑 Arrêter la course
-              </button>
-            } @else if (canStartRace) {
-              <button
-                type="button"
-                class="btn-rwb-action btn-rwb-start"
-                (click)="startActivePrivateRace()"
-                title="Démarrer la course manuellement (compte à rebours de 10s)">
-                🚀 Démarrer la course
-              </button>
-            }
-          </div>
-        </div>
-      </aside>
 
       <!-- SÉLECTEUR D'IDENTIFICATION DU KAYAK (SI NON CONNECTÉ ET SANS MONTRE APPAIRÉE) + SUIVI CAMÉRA -->
       <div class="spectator-camera-bar">
@@ -2500,6 +2496,13 @@
           <span class="btn-quick-icon">⚙️</span>
           <span class="btn-quick-label">Données ({{ visibleRegattaMetrics.length }})</span>
         </button>
+
+        <!-- TEMPS RESTANT DE COURSE EN MODE PAYSAGE / RÉGATE À DROITE -->
+        <div class="regatta-nav-timer" *ngIf="isRaceActive || nextRaceInfo?.status === 'in_progress' || isPreStartCountdown" role="status" aria-live="polite">
+          <span class="nav-timer-pill" [class.is-running]="isRaceActive">
+            ⏱️ {{ isRaceActive ? (formattedGameRemaining ? ('Fin : ' + formattedGameRemaining) : 'Course en cours') : ('Départ : ' + formattedPreRaceCountdown) }}
+          </span>
+        </div>
       </aside>
 
       <!-- Vue Régate Canvas 2D (Tableau de la Régate avec Zoom x1..x3) -->
@@ -2718,40 +2721,6 @@
         </div>
       </section>
 
-      <!-- BANDEAU DE STATUT DE SALON PRIVÉ / DUEL / COCKPIT POUR PARTICIPANTS ET ORGANISATEUR -->
-      <aside
-        class="regatta-waiting-banner cockpit-waiting-banner"
-        [class.is-running]="isRaceActive"
-        *ngIf="(activePrivateRoom || canStartOrStopRace) && (!isPrivateBannerCollapsed || canStartOrStopRace) && nextRaceInfo?.status !== 'finished' && nextRaceInfo?.race?.status !== 'COMPLETED' && (!isRaceActive || canStartOrStopRace)"
-        role="status"
-        aria-live="polite">
-        <div class="rwb-content">
-          <span class="rwb-icon">{{ isRaceActive ? '🔴' : '⏳' }}</span>
-          <span class="rwb-text">{{ getWaitingStatusText() }}</span>
-          <span class="rwb-lane-badge" *ngIf="myAssignedLane > 0">Ligne {{ myAssignedLane }}</span>
-
-          <!-- BOUTON DÉDIÉ DÉPART / ARRÊT DANS LA VUE COCKPIT DE L'ORGANISATEUR -->
-          <div class="rwb-actions" *ngIf="canStartOrStopRace">
-            @if (isRaceActive) {
-              <button
-                type="button"
-                class="btn-rwb-action btn-rwb-stop"
-                (click)="stopActiveRace()"
-                title="Arrêter la course immédiatement et finaliser le classement officiel selon les positions actuelles">
-                🛑 Arrêter la course
-              </button>
-            } @else if (canStartRace) {
-              <button
-                type="button"
-                class="btn-rwb-action btn-rwb-start"
-                (click)="startActivePrivateRace()"
-                title="Démarrer la course manuellement (compte à rebours de 10s)">
-                🚀 Démarrer la course
-              </button>
-            }
-          </div>
-        </div>
-      </aside>
 
       <!-- SÉLECTEUR DE VUE / SUIVI DE JOUEUR DANS LE COCKPIT -->
       <div class="spectator-camera-bar cockpit-spectator-bar">
