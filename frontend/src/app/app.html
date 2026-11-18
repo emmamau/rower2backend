@@ -746,6 +746,7 @@
                 name="login"
                 type="text"
                 class="form-control"
+                autocomplete="username"
                 [(ngModel)]="loginAccountInput"
                 placeholder="ex: EmmaRacer"
                 required />
@@ -757,6 +758,7 @@
                 name="password"
                 type="password"
                 class="form-control"
+                autocomplete="current-password"
                 [(ngModel)]="passwordAccountInput"
                 placeholder="Votre mot de passe"
                 required />
@@ -784,11 +786,11 @@
             <div class="form-row-2">
               <div class="form-group">
                 <label for="reg-nom">Nom *</label>
-                <input id="reg-nom" name="nom" type="text" [(ngModel)]="regNom" placeholder="ex: Dupont" required />
+                <input id="reg-nom" name="nom" type="text" autocomplete="family-name" [(ngModel)]="regNom" placeholder="ex: Dupont" required />
               </div>
               <div class="form-group">
                 <label for="reg-prenom">Prénom *</label>
-                <input id="reg-prenom" name="prenom" type="text" [(ngModel)]="regPrenom" placeholder="ex: Jean" required />
+                <input id="reg-prenom" name="prenom" type="text" autocomplete="given-name" [(ngModel)]="regPrenom" placeholder="ex: Jean" required />
               </div>
             </div>
 
@@ -836,13 +838,13 @@
 
             <div class="form-group">
               <label for="reg-login">Login unique *</label>
-              <input id="reg-login" name="login" type="text" [(ngModel)]="regLogin" placeholder="ex: RameurPro75" required />
+              <input id="reg-login" name="login" type="text" autocomplete="username" [(ngModel)]="regLogin" placeholder="ex: RameurPro75" required />
               <span class="field-hint">Le login est unique. Il sert à confirmer votre inscription via l'application montre Garmin.</span>
             </div>
 
             <div class="form-group">
               <label for="reg-email">Email *</label>
-              <input id="reg-email" name="email" type="email" [(ngModel)]="regEmail" placeholder="votre.email@exemple.com" required />
+              <input id="reg-email" name="email" type="email" autocomplete="email" [(ngModel)]="regEmail" placeholder="votre.email@exemple.com" required />
             </div>
 
             <!-- Honeypot anti-robots invisible -->
@@ -858,6 +860,7 @@
                   id="reg-password"
                   name="password"
                   [type]="showRegPassword ? 'text' : 'password'"
+                  autocomplete="new-password"
                   [(ngModel)]="regPassword"
                   placeholder="Min. 8 car. (Maj, min, chiffre, symbole)"
                   required />
@@ -895,6 +898,7 @@
                   id="reg-password-confirm"
                   name="passwordConfirm"
                   [type]="showRegPasswordConfirm ? 'text' : 'password'"
+                  autocomplete="new-password"
                   [(ngModel)]="regPasswordConfirm"
                   placeholder="Confirmez votre mot de passe"
                   required />
@@ -1281,6 +1285,7 @@
                   id="reset-pwd-input"
                   name="newPassword"
                   type="password"
+                  autocomplete="new-password"
                   [(ngModel)]="resetNewPassword"
                   placeholder="Min. 8 car. (Maj, min, chiffre, symbole)"
                   required />

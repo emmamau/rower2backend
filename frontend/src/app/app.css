@@ -1796,27 +1796,86 @@ body.app-pseudo-fullscreen .game-container {
   flex-shrink: 0;
 }
 
-.modal-desc { font-size: 0.82rem; color: var(--text-dim); margin: 0.65rem 0 1.1rem; line-height: 1.45; }
-.modal-form { display: flex; flex-direction: column; gap: 0.95rem; }
-.form-group { display: flex; flex-direction: column; gap: 0.38rem; }
-.form-group label { font-size: 0.75rem; font-weight: 700; color: var(--neon-yellow); text-transform: uppercase; }
-
-input[type="text"],
-input[type="number"] {
-  min-block-size: 44px;
-  background: #060b18;
-  border: 1px solid rgba(0, 240, 255, 0.4);
-  border-radius: 8px;
-  color: #fff !important;
-  -webkit-text-fill-color: #fff;
-  font-size: 1rem;
-  padding: 0.6rem 0.9rem;
-  outline: none;
+.modal-desc {
+  font-size: 0.88rem;
+  color: #cbd5e1;
+  margin: 0.5rem 0 1.1rem;
+  line-height: 1.5;
 }
-input[type="text"]::placeholder,
-input[type="number"]::placeholder { color: #94a3b8; opacity: 0.8; }
-input[type="text"]:focus,
-input[type="number"]:focus { border-color: var(--neon-cyan); box-shadow: 0 0 10px rgba(0, 240, 255, 0.5); }
+.modal-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+.form-group label {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #38bdf8;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.modal-form input[type="text"],
+.modal-form input[type="password"],
+.modal-form input[type="email"],
+.modal-form input[type="number"],
+.modal-form select,
+.form-control {
+  min-block-size: 46px;
+  background: #0b1329;
+  border: 1.5px solid rgba(0, 240, 255, 0.45);
+  border-radius: 9px;
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff;
+  font-size: 0.95rem;
+  font-weight: 500;
+  padding: 0.65rem 0.95rem;
+  outline: none;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.4);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+}
+
+.modal-form select {
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2300f0ff' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 0.85rem center;
+  background-size: 1.1em;
+  padding-right: 2.5rem;
+}
+
+.modal-form select option {
+  background: #0b1329;
+  color: #ffffff;
+  padding: 0.5rem;
+}
+
+.modal-form input[type="text"]::placeholder,
+.modal-form input[type="password"]::placeholder,
+.modal-form input[type="email"]::placeholder,
+.modal-form input[type="number"]::placeholder,
+.form-control::placeholder {
+  color: #94a3b8;
+  opacity: 1;
+  font-weight: 400;
+}
+
+.modal-form input:focus,
+.modal-form select:focus,
+.form-control:focus {
+  background: #0f1c3f;
+  border-color: #00f0ff;
+  box-shadow: 0 0 12px rgba(0, 240, 255, 0.55), inset 0 1px 3px rgba(0, 0, 0, 0.3);
+}
 
 .auth-feedback {
   display: flex;
@@ -1872,15 +1931,16 @@ input[type="number"]:focus { border-color: var(--neon-cyan); box-shadow: 0 0 10p
   cursor: pointer;
   padding: 4px 8px;
   border-radius: 4px;
-  color: #94a3b8;
+  color: #cbd5e1;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: opacity 0.2s ease, transform 0.1s ease;
+  transition: opacity 0.2s ease, transform 0.1s ease, color 0.2s ease;
 }
 .btn-toggle-pwd:hover {
-  opacity: 0.85;
-  transform: translateY(-50%) scale(1.1);
+  color: #00f0ff;
+  opacity: 1;
+  transform: translateY(-50%) scale(1.15);
 }
 .pwd-strength-container {
   display: flex;
@@ -2328,10 +2388,10 @@ input[type="number"]:focus { border-color: var(--neon-cyan); box-shadow: 0 0 10p
   flex-wrap: wrap;
 }
 .modal-tab-btn {
-  background: rgba(15, 23, 42, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  color: #94a3b8;
-  padding: 0.45rem 0.85rem;
+  background: rgba(30, 41, 59, 0.85);
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  color: #e2e8f0;
+  padding: 0.5rem 0.9rem;
   border-radius: 8px;
   font-size: 0.82rem;
   font-weight: 700;
@@ -2340,12 +2400,15 @@ input[type="number"]:focus { border-color: var(--neon-cyan); box-shadow: 0 0 10p
 }
 .modal-tab-btn:hover {
   color: #ffffff;
-  border-color: rgba(0, 240, 255, 0.4);
+  background: rgba(51, 65, 85, 0.95);
+  border-color: rgba(0, 240, 255, 0.5);
 }
 .modal-tab-btn.active {
-  background: rgba(0, 240, 255, 0.15);
-  color: var(--neon-cyan);
+  background: rgba(0, 240, 255, 0.22);
+  color: #ffffff;
   border-color: var(--neon-cyan);
+  text-shadow: 0 0 8px rgba(0, 240, 255, 0.7);
+  box-shadow: 0 0 10px rgba(0, 240, 255, 0.25);
 }
 
 .modal-form-scrollable {
@@ -2371,32 +2434,42 @@ input[type="number"]:focus { border-color: var(--neon-cyan); box-shadow: 0 0 10p
 }
 
 .field-hint {
-  font-size: 0.75rem;
-  color: #94a3b8;
+  font-size: 0.78rem;
+  color: #cbd5e1;
   display: block;
-  margin-top: 0.25rem;
+  margin-top: 0.3rem;
+  line-height: 1.45;
 }
 
 .subscriber-perks-box {
-  background: rgba(255, 230, 0, 0.08);
-  border: 1px solid rgba(255, 230, 0, 0.35);
-  border-radius: 8px;
-  padding: 0.65rem 0.85rem;
-  margin-bottom: 0.85rem;
-  font-size: 0.82rem;
-  color: #e2e8f0;
-  line-height: 1.35;
+  background: rgba(254, 240, 138, 0.12);
+  border: 1.5px solid rgba(253, 224, 71, 0.5);
+  border-radius: 9px;
+  padding: 0.75rem 0.95rem;
+  margin-bottom: 0.9rem;
+  font-size: 0.85rem;
+  color: #f8fafc;
+  line-height: 1.45;
+}
+.subscriber-perks-box strong {
+  color: #fef08a;
+  font-weight: 800;
+  display: block;
+  margin-bottom: 0.25rem;
 }
 
 .auth-feedback-success {
-  background: rgba(0, 255, 136, 0.12);
-  border: 1px solid #00ff88;
-  color: #00ff88;
-  padding: 0.6rem 0.85rem;
-  border-radius: 6px;
+  background: rgba(16, 185, 129, 0.18);
+  border: 1.5px solid #10b981;
+  color: #ffffff;
+  padding: 0.65rem 0.95rem;
+  border-radius: 8px;
   font-size: 0.85rem;
   font-weight: 600;
   margin-bottom: 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .garmin-watch-section {
