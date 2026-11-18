@@ -4374,6 +4374,7 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   openPrivateModal(tab?: PrivateModalTab): void {
+    this.closeAllOverlayModals();
     this.privateModalTab = tab || (this.activePrivateRoom ? 'share' : 'create');
     this.isPrivateModalOpen = true;
     this.cdr.markForCheck();

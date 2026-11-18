@@ -2204,9 +2204,9 @@
 
   <!-- MAIN RACING ARENA (2D KAYAK RACE VISUALIZATION) -->
   <main class="race-arena">
-    <!-- Private Salons Banner & Modal (Totalement masqué sur smartphone plein écran conformément à la spécification) -->
+    <!-- Private Salons Banner & Modal (Totalement masqué sur smartphone plein écran conformément à la spécification, sauf si la modale est ouverte) -->
     <app-private-room-manager
-      *ngIf="!isMobileFullscreenOnly"
+      *ngIf="!isMobileFullscreenOnly || isPrivateModalOpen"
       [isOpen]="isPrivateModalOpen"
       [initialTab]="privateModalTab"
       [activeRoom]="activePrivateRoom"

@@ -36,7 +36,7 @@ const SAVED_SALONS_STORAGE_KEY = 'rower_saved_private_salons';
   styleUrls: ['./private-room-manager.component.css']
 })
 export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy {
-  @ViewChild('dialogEl') dialogRef?: ElementRef<HTMLDialogElement>;
+  @ViewChild('dialogEl') dialogRef?: ElementRef<HTMLElement>;
 
   @Input() isOpen = false;
   @Input() initialTab: PrivateModalTab = 'create';
@@ -420,48 +420,32 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
   }
 
   private syncDialogState(open: boolean): void {
-    setTimeout(() => {
-      const dialog = this.dialogRef?.nativeElement;
-      if (!dialog) return;
-      if (open) {
-        if (!dialog.open) {
-          if (typeof dialog.showModal === 'function') {
-            try {
-              dialog.showModal();
-            } catch {
-              dialog.setAttribute('open', '');
-            }
-          } else {
-            dialog.setAttribute('open', '');
-          }
-        }
-      } else if (dialog.open) {
-        if (typeof dialog.close === 'function') {
-          dialog.close();
-        } else {
-          dialog.removeAttribute('open');
-        }
-      }
-      this.cdr.markForCheck();
-    }, 0);
+    if (open) {
+      setTimeout(() => {
+        const firstInput = this.dialogRef?.nativeElement?.querySelector<HTMLElement>(
+          'input, select, textarea, button:not(.priv-close-btn)'
+        );
+        firstInput?.focus();
+        this.cdr.markForCheck();
+      }, 50);
+    }
   }
 
   onNativeDialogClose(): void {
     if (this.isOpen) {
-      this.modalClose.emit();
-    }
-  }
-
-  onBackdropClick(event: MouseEvent): void {
-    const dialog = this.dialogRef?.nativeElement;
-    if (dialog && event.target === dialog) {
       this.closeModal();
     }
   }
 
+  onBackdropClick(_event?: MouseEvent): void {
+    this.closeModal();
+  }
+
   closeModal(): void {
-    this.syncDialogState(false);
+    this.isOpen = false;
+    this.stopModalPolling();
     this.modalClose.emit();
+    this.cdr.markForCheck();
   }
 
   switchTab(tab: PrivateModalTab): void {

@@ -274,13 +274,16 @@
   }
 </div>
 
-<!-- NATIVE MODAL DIALOG FOR PRIVATE SALONS -->
-<dialog
-  #dialogEl
-  class="priv-dialog"
-  aria-labelledby="priv-dialog-title"
-  (close)="onNativeDialogClose()"
-  (click)="onBackdropClick($event)">
+<!-- MODAL OVERLAY FOR PRIVATE SALONS (OPTIMISÉ MOBILE & IPHONE) -->
+@if (isOpen) {
+  <div class="priv-dialog-overlay" (click)="onBackdropClick($event)" role="presentation">
+    <div
+      #dialogEl
+      class="priv-dialog"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="priv-dialog-title"
+      (click)="$event.stopPropagation()">
   <div class="priv-dialog-shell">
     <div class="priv-dialog-header">
       <div>
@@ -1200,5 +1203,7 @@
       </div>
     }
   </div>
-</dialog>
+    </div>
+  </div>
+}
 
