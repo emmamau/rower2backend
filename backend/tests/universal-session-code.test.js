@@ -107,7 +107,7 @@ test('Universal 5-character session code: Generation, claim (account, room, gues
       body: JSON.stringify({
         login: uniqueLogin,
         email: `${uniqueLogin}@example.com`,
-        password: 'password123',
+        password: 'Password123!',
         nom: 'Dupont',
         prenom: 'Jean',
         anneeNaissance: 1990,
@@ -125,7 +125,7 @@ test('Universal 5-character session code: Generation, claim (account, room, gues
     const resLogin = await fetch(`${baseUrl}/api/user/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ login: uniqueLogin, password: 'password123' }),
+      body: JSON.stringify({ login: uniqueLogin, password: 'Password123!' }),
     });
     assert.equal(resLogin.status, 200);
     const loginData = await resLogin.json();

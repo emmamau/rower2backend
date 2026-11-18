@@ -845,9 +845,72 @@
               <input id="reg-email" name="email" type="email" [(ngModel)]="regEmail" placeholder="votre.email@exemple.com" required />
             </div>
 
+            <!-- Honeypot anti-robots invisible -->
+            <div class="bot-trap-field" aria-hidden="true" style="position: absolute; left: -9999px; top: -9999px; width: 1px; height: 1px; overflow: hidden; opacity: 0; pointer-events: none;">
+              <label for="reg-website">Website URL (ne pas remplir)</label>
+              <input id="reg-website" name="website_url" type="text" [(ngModel)]="regWebsiteUrl" tabindex="-1" autocomplete="off" />
+            </div>
+
             <div class="form-group">
               <label for="reg-password">Mot de passe *</label>
-              <input id="reg-password" name="password" type="password" [(ngModel)]="regPassword" placeholder="Minimum 4 caractères" required />
+              <div class="pwd-input-wrapper">
+                <input
+                  id="reg-password"
+                  name="password"
+                  [type]="showRegPassword ? 'text' : 'password'"
+                  [(ngModel)]="regPassword"
+                  placeholder="Min. 8 car. (Maj, min, chiffre, symbole)"
+                  required />
+                <button
+                  type="button"
+                  class="btn-toggle-pwd"
+                  (click)="showRegPassword = !showRegPassword"
+                  [attr.aria-label]="showRegPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'">
+                  {{ showRegPassword ? '🙈' : '👁️' }}
+                </button>
+              </div>
+
+              <!-- Jauge de robustesse du mot de passe -->
+              @if (regPassword) {
+                <div class="pwd-strength-container">
+                  <div class="pwd-strength-track">
+                    <div
+                      class="pwd-strength-bar"
+                      [ngClass]="getPasswordStrength(regPassword).class"
+                      [style.width]="getPasswordStrength(regPassword).width">
+                    </div>
+                  </div>
+                  <span class="pwd-strength-label" [ngClass]="getPasswordStrength(regPassword).class">
+                    Robustesse : {{ getPasswordStrength(regPassword).label }}
+                  </span>
+                </div>
+              }
+              <span class="field-hint">Minimum 8 caractères avec au moins une majuscule, une minuscule, un chiffre et un caractère spécial (!@#$%^&*...).</span>
+            </div>
+
+            <div class="form-group">
+              <label for="reg-password-confirm">Confirmer le mot de passe *</label>
+              <div class="pwd-input-wrapper">
+                <input
+                  id="reg-password-confirm"
+                  name="passwordConfirm"
+                  [type]="showRegPasswordConfirm ? 'text' : 'password'"
+                  [(ngModel)]="regPasswordConfirm"
+                  placeholder="Confirmez votre mot de passe"
+                  required />
+                <button
+                  type="button"
+                  class="btn-toggle-pwd"
+                  (click)="showRegPasswordConfirm = !showRegPasswordConfirm"
+                  [attr.aria-label]="showRegPasswordConfirm ? 'Masquer le mot de passe' : 'Afficher le mot de passe'">
+                  {{ showRegPasswordConfirm ? '🙈' : '👁️' }}
+                </button>
+              </div>
+              @if (regPasswordConfirm && regPassword !== regPasswordConfirm) {
+                <span class="pwd-mismatch-error">⚠️ Les deux mots de passe ne correspondent pas.</span>
+              } @else if (regPasswordConfirm && regPassword === regPasswordConfirm && isPasswordPolicySatisfied(regPassword)) {
+                <span class="pwd-match-success">✓ Les mots de passe correspondent.</span>
+              }
             </div>
 
             <div class="modal-buttons">
@@ -1219,7 +1282,7 @@
                   name="newPassword"
                   type="password"
                   [(ngModel)]="resetNewPassword"
-                  placeholder="Au moins 4 caractères"
+                  placeholder="Min. 8 car. (Maj, min, chiffre, symbole)"
                   required />
               </div>
 

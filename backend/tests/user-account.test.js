@@ -511,6 +511,8 @@ test('Unsubscribe, Delete Account, and 10-day vs Unlimited Statistics Space', as
       }),
     });
     assert.equal(regRes.status, 201);
+    const regData = await regRes.json();
+    const userToken = regData.token;
 
     // Mock 2 activities in the store: one recent (2 days ago), one old (25 days ago)
     const db = require('../dist/models').default;
@@ -575,7 +577,10 @@ test('Unsubscribe, Delete Account, and 10-day vs Unlimited Statistics Space', as
     // 3. User unsubscribes via POST /api/user/unsubscribe
     const unsubRes = await fetch(`${ctx.baseUrl}/api/user/unsubscribe`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${userToken}`,
+      },
       body: JSON.stringify({ userId: login }),
     });
     assert.equal(unsubRes.status, 200);
@@ -599,7 +604,10 @@ test('Unsubscribe, Delete Account, and 10-day vs Unlimited Statistics Space', as
     // 5. Delete account: EmmaRacer cannot be deleted (403)
     const delEmmaRes = await fetch(`${ctx.baseUrl}/api/user/account`, {
       method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${userToken}`,
+      },
       body: JSON.stringify({ userId: 'EmmaRacer' }),
     });
     assert.equal(delEmmaRes.status, 403);
@@ -607,7 +615,10 @@ test('Unsubscribe, Delete Account, and 10-day vs Unlimited Statistics Space', as
     // 6. Delete account: regular user Claire Martin is permanently deleted
     const delRes = await fetch(`${ctx.baseUrl}/api/user/account`, {
       method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${userToken}`,
+      },
       body: JSON.stringify({ userId: login }),
     });
     assert.equal(delRes.status, 200);
@@ -644,6 +655,8 @@ test('Statistics space gracefully handles raw in-memory activity objects without
       }),
     });
     assert.equal(regRes.status, 201);
+    const regData = await regRes.json();
+    const userToken = regData.token;
 
     // Insert a raw object without any .get() method into userStore
     const rawActivity = {
@@ -702,6 +715,7 @@ test('User regattaPreferences (zoom x3 & 14 configurable metrics) persistence an
     });
     assert.equal(regRes.status, 201);
     const regData = await regRes.json();
+    const userToken = regData.token;
     assert.ok(regData.user.regattaPreferences);
     assert.equal(regData.user.regattaPreferences.zoomLevel, 1);
     assert.equal(regData.user.regattaPreferences.selectedMetrics.length >= 3, true);
@@ -709,7 +723,10 @@ test('User regattaPreferences (zoom x3 & 14 configurable metrics) persistence an
     // Reject if fewer than 3 metrics selected
     const badRes = await fetch(`${ctx.baseUrl}/api/user/regatta-preferences`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${userToken}`,
+      },
       body: JSON.stringify({
         userId: login,
         regattaPreferences: {
@@ -740,7 +757,10 @@ test('User regattaPreferences (zoom x3 & 14 configurable metrics) persistence an
 
     const saveRes = await fetch(`${ctx.baseUrl}/api/user/regatta-preferences`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${userToken}`,
+      },
       body: JSON.stringify({
         userId: login,
         regattaPreferences: {

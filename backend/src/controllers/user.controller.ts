@@ -13,6 +13,33 @@ import { ensureCurrentWeek } from "../services/league-db.service";
 
 const Activities = db.activities;
 
+export const PASSWORD_SPECIAL_CHARS_REGEX = /[!@#$%^&*(),.?":{}|<>]/;
+
+export function validateStrongPassword(password: string): { valid: boolean; message?: string } {
+  if (!password || typeof password !== "string") {
+    return { valid: false, message: "Le mot de passe est obligatoire." };
+  }
+  if (password.length < 8) {
+    return { valid: false, message: "Le mot de passe doit comporter au moins 8 caractères." };
+  }
+  if (!/[A-Z]/.test(password)) {
+    return { valid: false, message: "Le mot de passe doit comporter au moins une lettre majuscule." };
+  }
+  if (!/[a-z]/.test(password)) {
+    return { valid: false, message: "Le mot de passe doit comporter au moins une lettre minuscule." };
+  }
+  if (!/\d/.test(password)) {
+    return { valid: false, message: "Le mot de passe doit comporter au moins un chiffre." };
+  }
+  if (!PASSWORD_SPECIAL_CHARS_REGEX.test(password)) {
+    return {
+      valid: false,
+      message: 'Le mot de passe doit comporter au moins un caractère spécial (!@#$%^&*(),.?":{}|<>).'
+    };
+  }
+  return { valid: true };
+}
+
 function isValidHexColor(color: any): boolean {
   return typeof color === "string" && /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(color.trim());
 }
@@ -150,7 +177,20 @@ export const registerUser = async (req: Request, res: Response): Promise<void> =
       guestToken,
       kayakCustomization,
       regattaPreferences,
+      website_url,
+      bot_trap,
     } = req.body || {};
+
+    // 0. Protection Anti-Robots (Honeypot)
+    const honeyField = website_url || bot_trap;
+    if (honeyField && String(honeyField).trim() !== "") {
+      // Simulation d'un succès immédiat sans écriture en base de données
+      res.status(200).json({
+        success: true,
+        message: "Compte abonné créé avec succès.",
+      });
+      return;
+    }
 
     const cleanLastName = String(lastName || nom || "").trim();
     const cleanFirstName = String(firstName || prenom || "").trim();
@@ -172,8 +212,9 @@ export const registerUser = async (req: Request, res: Response): Promise<void> =
       });
       return;
     }
-    if (!cleanPassword || cleanPassword.length < 4) {
-      res.status(400).json({ success: false, message: "Un mot de passe d'au moins 4 caractères est requis." });
+    const pwdCheck = validateStrongPassword(cleanPassword);
+    if (!pwdCheck.valid) {
+      res.status(400).json({ success: false, message: pwdCheck.message });
       return;
     }
     if (!cleanEmail || !cleanEmail.includes("@")) {
@@ -320,10 +361,22 @@ export const registerUser = async (req: Request, res: Response): Promise<void> =
       sanitized.isGarminPaired = true;
     }
 
+    const effectiveRole = String(sanitized.role || "USER").toUpperCase();
+    sanitized.role = effectiveRole;
+
+    const token = JwtService.sign({
+      userId: newUser.id,
+      login: newUser.login,
+      email: newUser.email,
+      role: effectiveRole,
+      isRevoked: Boolean(newUser.isRevoked),
+    });
+
     res.status(201).json({
       success: true,
       message: "Compte abonné créé avec succès.",
       user: sanitized,
+      token,
       isGarminPaired: Boolean(sanitized.isGarminPaired),
     });
   } catch (err: unknown) {
@@ -530,10 +583,19 @@ export const resetPassword = async (req: Request, res: Response): Promise<void> 
     const cleanToken = String(token || "").trim();
     const cleanNewPassword = String(newPassword || "").trim();
 
-    if (!cleanToken || !cleanNewPassword || cleanNewPassword.length < 4) {
+    if (!cleanToken) {
       res.status(400).json({
         success: false,
-        message: "Le jeton et un nouveau mot de passe d'au moins 4 caractères sont requis."
+        message: "Le jeton de réinitialisation est obligatoire."
+      });
+      return;
+    }
+
+    const pwdCheck = validateStrongPassword(cleanNewPassword);
+    if (!pwdCheck.valid) {
+      res.status(400).json({
+        success: false,
+        message: pwdCheck.message
       });
       return;
     }
@@ -781,12 +843,28 @@ export const getGeneralLeaderboard = async (req: Request, res: Response): Promis
  * POST /api/user/unsubscribe
  * Permet à un utilisateur abonné de résilier son abonnement et de repasser en offre gratuite.
  */
+function isAuthorizedForUser(req: Request, targetId: string): boolean {
+  const authUser = (req as any).user;
+  if (!authUser) return true;
+  const isSelf = Boolean(
+    (authUser.id && targetId === String(authUser.id)) ||
+    (authUser.login && targetId === String(authUser.login))
+  );
+  const isAdmin = Boolean(authUser.isAdmin || authUser.role === "ADMIN" || isEmmaAdminUser(authUser.id, authUser.name));
+  return isSelf || isAdmin;
+}
+
 export const unsubscribeUser = async (req: Request, res: Response): Promise<void> => {
   try {
     const { userId } = req.body || {};
-    const cleanId = String(userId || "").trim();
+    const cleanId = String(userId || (req as any).user?.id || (req as any).user?.login || "").trim();
     if (!cleanId) {
       res.status(400).json({ success: false, message: "L'identifiant utilisateur est requis." });
+      return;
+    }
+
+    if (!isAuthorizedForUser(req, cleanId)) {
+      res.status(403).json({ success: false, message: "Accès refusé : vous ne pouvez résilier que votre propre compte." });
       return;
     }
 
@@ -822,9 +900,14 @@ export const unsubscribeUser = async (req: Request, res: Response): Promise<void
 export const deleteUserAccount = async (req: Request, res: Response): Promise<void> => {
   try {
     const userId = req.body?.userId || req.params?.userId || req.query?.userId;
-    const cleanId = String(userId || "").trim();
+    const cleanId = String(userId || (req as any).user?.id || (req as any).user?.login || "").trim();
     if (!cleanId) {
       res.status(400).json({ success: false, message: "L'identifiant utilisateur est requis pour la suppression." });
+      return;
+    }
+
+    if (!isAuthorizedForUser(req, cleanId)) {
+      res.status(403).json({ success: false, message: "Accès refusé : vous ne pouvez supprimer que votre propre compte." });
       return;
     }
 
@@ -1020,10 +1103,15 @@ export const getUserStatistics = async (req: Request, res: Response): Promise<vo
 export const updateKayakCustomization = async (req: Request, res: Response): Promise<void> => {
   try {
     const { userId, kayakCustomization } = req.body || {};
-    const cleanUserId = String(userId || "").trim();
+    const cleanUserId = String(userId || (req as any).user?.id || (req as any).user?.login || "").trim();
 
     if (!cleanUserId) {
       res.status(400).json({ success: false, message: "L'identifiant utilisateur est requis." });
+      return;
+    }
+
+    if (!isAuthorizedForUser(req, cleanUserId)) {
+      res.status(403).json({ success: false, message: "Accès refusé : vous ne pouvez modifier que votre propre kayak." });
       return;
     }
     if (!kayakCustomization || typeof kayakCustomization !== "object") {
@@ -1073,10 +1161,15 @@ export const updateKayakCustomization = async (req: Request, res: Response): Pro
 export const updateRegattaPreferences = async (req: Request, res: Response): Promise<void> => {
   try {
     const { userId, regattaPreferences } = req.body || {};
-    const cleanUserId = String(userId || "").trim();
+    const cleanUserId = String(userId || (req as any).user?.id || (req as any).user?.login || "").trim();
 
     if (!cleanUserId) {
       res.status(400).json({ success: false, message: "L'identifiant utilisateur est requis." });
+      return;
+    }
+
+    if (!isAuthorizedForUser(req, cleanUserId)) {
+      res.status(403).json({ success: false, message: "Accès refusé : vous ne pouvez modifier que vos propres préférences." });
       return;
     }
     if (!regattaPreferences || typeof regattaPreferences !== "object") {

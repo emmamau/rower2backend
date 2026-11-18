@@ -1850,6 +1850,89 @@ input[type="number"]:focus { border-color: var(--neon-cyan); box-shadow: 0 0 10p
   font-weight: 600;
 }
 
+/* Password Strength & Visibility Toggle Styles */
+.pwd-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+.pwd-input-wrapper input {
+  width: 100%;
+  padding-right: 48px;
+}
+.btn-toggle-pwd {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: transparent;
+  border: none;
+  font-size: 1.15rem;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  color: #94a3b8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.2s ease, transform 0.1s ease;
+}
+.btn-toggle-pwd:hover {
+  opacity: 0.85;
+  transform: translateY(-50%) scale(1.1);
+}
+.pwd-strength-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  margin-top: 0.35rem;
+}
+.pwd-strength-track {
+  width: 100%;
+  height: 6px;
+  background: rgba(15, 23, 42, 0.8);
+  border-radius: 4px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+.pwd-strength-bar {
+  height: 100%;
+  transition: width 0.3s ease, background-color 0.3s ease;
+  border-radius: 4px;
+}
+.pwd-strength-bar.strength-weak {
+  background: #ef4444;
+  box-shadow: 0 0 8px rgba(239, 68, 68, 0.6);
+}
+.pwd-strength-bar.strength-medium {
+  background: #f59e0b;
+  box-shadow: 0 0 8px rgba(245, 158, 11, 0.6);
+}
+.pwd-strength-bar.strength-strong {
+  background: #10b981;
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.7);
+}
+.pwd-strength-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.pwd-strength-label.strength-weak { color: #f87171; }
+.pwd-strength-label.strength-medium { color: #fbbf24; }
+.pwd-strength-label.strength-strong { color: #34d399; }
+
+.pwd-mismatch-error {
+  font-size: 0.76rem;
+  color: #f87171;
+  margin-top: 0.25rem;
+}
+.pwd-match-success {
+  font-size: 0.76rem;
+  color: #34d399;
+  margin-top: 0.25rem;
+}
+
 .modal-buttons { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 0.4rem; }
 .btn-primary,
 .btn-secondary {

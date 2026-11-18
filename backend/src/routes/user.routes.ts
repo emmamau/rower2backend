@@ -1,5 +1,6 @@
 import { Application, Router } from "express";
 import userController from "../controllers/user.controller";
+import { requireAuth } from "../middleware/auth.middleware";
 
 export default (app: Application): void => {
   const router = Router();
@@ -15,17 +16,17 @@ export default (app: Application): void => {
   // Profil et historique des courses (uniquement les classements)
   router.get("/profile/:userId", userController.getUserProfile);
   router.get("/leaderboard", userController.getGeneralLeaderboard);
-  router.put("/kayak", userController.updateKayakCustomization);
-  router.put("/regatta-preferences", userController.updateRegattaPreferences);
+  router.put("/kayak", requireAuth, userController.updateKayakCustomization);
+  router.put("/regatta-preferences", requireAuth, userController.updateRegattaPreferences);
 
   // Espace Statistiques & Analyses de courses (abonnés = illimité, gratuits = 10 jours)
   router.get("/statistics", userController.getUserStatistics);
   router.get("/statistics/:userId", userController.getUserStatistics);
 
   // Gestion de l'abonnement & Conformité RGPD (résiliation et suppression de compte)
-  router.post("/unsubscribe", userController.unsubscribeUser);
-  router.delete("/account", userController.deleteUserAccount);
-  router.delete("/account/:userId", userController.deleteUserAccount);
+  router.post("/unsubscribe", requireAuth, userController.unsubscribeUser);
+  router.delete("/account", requireAuth, userController.deleteUserAccount);
+  router.delete("/account/:userId", requireAuth, userController.deleteUserAccount);
 
   app.use("/api/user", router);
   app.use("/api/users", router);

@@ -948,6 +948,10 @@ export class AppComponent implements OnInit, OnDestroy {
   regLogin = '';
   regEmail = '';
   regPassword = '';
+  regPasswordConfirm = '';
+  showRegPassword = false;
+  showRegPasswordConfirm = false;
+  regWebsiteUrl = '';
   regWatchUserId = '';
 
   // Forgot / Reset inputs
@@ -955,6 +959,31 @@ export class AppComponent implements OnInit, OnDestroy {
   resetToken = '';
   resetNewPassword = '';
   showResetFields = false;
+
+  getPasswordStrength(pwd: string): { score: number; label: string; class: string; width: string } {
+    if (!pwd) return { score: 0, label: '', class: '', width: '0%' };
+    let score = 0;
+    if (pwd.length >= 8) score++;
+    if (/[A-Z]/.test(pwd)) score++;
+    if (/[a-z]/.test(pwd)) score++;
+    if (/\d/.test(pwd)) score++;
+    if (/[!@#$%^&*(),.?":{}|<>]/.test(pwd)) score++;
+
+    if (score <= 2) return { score, label: 'Faible', class: 'strength-weak', width: '33%' };
+    if (score <= 4) return { score, label: 'Moyen', class: 'strength-medium', width: '66%' };
+    return { score, label: 'Robuste', class: 'strength-strong', width: '100%' };
+  }
+
+  isPasswordPolicySatisfied(pwd: string): boolean {
+    return Boolean(
+      pwd &&
+      pwd.length >= 8 &&
+      /[A-Z]/.test(pwd) &&
+      /[a-z]/.test(pwd) &&
+      /\d/.test(pwd) &&
+      /[!@#$%^&*(),.?":{}|<>]/.test(pwd)
+    );
+  }
 
   isHistoryOpen = false;
   isConfigRaceOpen = false;
@@ -2377,8 +2406,13 @@ export class AppComponent implements OnInit, OnDestroy {
       return;
     }
 
-    if (this.regPassword.trim().length < 4) {
-      this.accountAuthError = 'Le mot de passe doit comporter au moins 4 caractères.';
+    if (!this.isPasswordPolicySatisfied(this.regPassword)) {
+      this.accountAuthError = 'Le mot de passe doit comporter au moins 8 caractères, dont une majuscule, une minuscule, un chiffre et un caractère spécial (!@#$%^&*(),.?":{}|<>).';
+      return;
+    }
+
+    if (this.regPassword !== this.regPasswordConfirm) {
+      this.accountAuthError = 'Les deux mots de passe ne correspondent pas. Veuillez vérifier votre saisie.';
       return;
     }
 
@@ -2408,6 +2442,7 @@ export class AppComponent implements OnInit, OnDestroy {
       guestPairingToken: existingGuestToken || undefined,
       guestToken: existingGuestToken || undefined,
       guestUserId: this.activeUserId || undefined,
+      website_url: this.regWebsiteUrl.trim() || undefined,
     }).subscribe({
       next: (res) => {
         this.isAccountSubmitting = false;
@@ -2424,6 +2459,9 @@ export class AppComponent implements OnInit, OnDestroy {
             localStorage.setItem('rower_user_login', res.user.name || userLogin);
             localStorage.setItem('rower_is_subscriber', 'true');
             localStorage.setItem('rower_is_admin', String(Boolean(res.user.isAdmin)));
+            if (res.token) {
+              localStorage.setItem('rower_auth_token', res.token);
+            }
           } catch {}
 
           if (res.user.isGarminPaired || existingGuestToken || hadPriorPairing) {
@@ -2497,6 +2535,11 @@ export class AppComponent implements OnInit, OnDestroy {
   submitResetPassword(): void {
     if (!this.resetToken.trim() || !this.resetNewPassword.trim()) {
       this.accountAuthError = 'Veuillez fournir le jeton et un nouveau mot de passe.';
+      return;
+    }
+
+    if (!this.isPasswordPolicySatisfied(this.resetNewPassword)) {
+      this.accountAuthError = 'Le mot de passe doit comporter au moins 8 caractères, dont une majuscule, une minuscule, un chiffre et un caractère spécial (!@#$%^&*(),.?":{}|<>).';
       return;
     }
 

@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { HttpClient, HttpParams } from '@angular/common/http';
+import { HttpClient, HttpParams, HttpHeaders } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
@@ -416,16 +416,34 @@ export class RowerService {
     return this.http.get<any>(`${this.apiUrl}/api/user/statistics/${encodeURIComponent(userId.trim())}`);
   }
 
+  private getAuthHeaders(): HttpHeaders {
+    let headers = new HttpHeaders({
+      'Content-Type': 'application/json'
+    });
+    if (typeof localStorage !== 'undefined') {
+      const token = localStorage.getItem('rower_auth_token');
+      if (token) {
+        headers = headers.set('Authorization', `Bearer ${token}`);
+      }
+    }
+    return headers;
+  }
+
   // Résiliation abonnement (repasse en offre gratuite)
   unsubscribeUser(userId: string): Observable<{ success: boolean; message: string; user?: any }> {
-    return this.http.post<{ success: boolean; message: string; user?: any }>(`${this.apiUrl}/api/user/unsubscribe`, {
-      userId: userId.trim()
-    });
+    return this.http.post<{ success: boolean; message: string; user?: any }>(
+      `${this.apiUrl}/api/user/unsubscribe`,
+      { userId: userId.trim() },
+      { headers: this.getAuthHeaders() }
+    );
   }
 
   // Suppression définitive de compte RGPD Art. 17
   deleteUserAccount(userId: string): Observable<{ success: boolean; message: string }> {
-    return this.http.delete<{ success: boolean; message: string }>(`${this.apiUrl}/api/user/account/${encodeURIComponent(userId.trim())}`);
+    return this.http.delete<{ success: boolean; message: string }>(
+      `${this.apiUrl}/api/user/account/${encodeURIComponent(userId.trim())}`,
+      { headers: this.getAuthHeaders() }
+    );
   }
 
   // Configuration admin course publique
@@ -441,7 +459,8 @@ export class RowerService {
   updateKayakCustomization(userId: string, kayakCustomization: KayakCustomization): Observable<{ success: boolean; message: string; user: UserProfile }> {
     return this.http.put<{ success: boolean; message: string; user: UserProfile }>(
       `${this.apiUrl}/api/user/kayak`,
-      { userId, kayakCustomization }
+      { userId, kayakCustomization },
+      { headers: this.getAuthHeaders() }
     );
   }
 
@@ -449,7 +468,8 @@ export class RowerService {
   updateRegattaPreferences(userId: string, regattaPreferences: RegattaPreferences): Observable<{ success: boolean; message: string; user: UserProfile }> {
     return this.http.put<{ success: boolean; message: string; user: UserProfile }>(
       `${this.apiUrl}/api/user/regatta-preferences`,
-      { userId, regattaPreferences }
+      { userId, regattaPreferences },
+      { headers: this.getAuthHeaders() }
     );
   }
 

@@ -32,7 +32,7 @@ describe("Kayak Customization API & Telemetry", () => {
       pays: "France",
       login: "kayak_pilot_" + Date.now().toString().slice(-6),
       email: `pilot_${Date.now()}@test.com`,
-      password: "password123",
+      password: "Password123!",
       kayakCustomization: {
         hullColor: "#ff0055",
         bladeColor: "#ffe600",
@@ -62,7 +62,7 @@ describe("Kayak Customization API & Telemetry", () => {
       pays: "France",
       login: "kayak_def_" + Date.now().toString().slice(-6),
       email: `def_${Date.now()}@test.com`,
-      password: "password123",
+      password: "Password123!",
     };
 
     const res = await fetch(`${baseUrl}/api/user/register`, {
@@ -87,7 +87,7 @@ describe("Kayak Customization API & Telemetry", () => {
     const raceManager = RaceManager.getInstance();
 
     const login = "active_pilot_" + Date.now().toString().slice(-6);
-    await fetch(`${baseUrl}/api/user/register`, {
+    const regRes = await fetch(`${baseUrl}/api/user/register`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -98,9 +98,11 @@ describe("Kayak Customization API & Telemetry", () => {
         pays: "France",
         login,
         email: `${login}@test.com`,
-        password: "password123",
+        password: "Password123!",
       }),
     });
+    const regData = await regRes.json();
+    const token = regData.token;
 
     const privateRace = raceManager.createPrivateRace({
       title: "Test Room",
@@ -120,7 +122,10 @@ describe("Kayak Customization API & Telemetry", () => {
 
     const updateRes = await fetch(`${baseUrl}/api/user/kayak`, {
       method: "PUT",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`,
+      },
       body: JSON.stringify({
         userId: login,
         kayakCustomization: newKayak,
@@ -143,7 +148,7 @@ describe("Kayak Customization API & Telemetry", () => {
 
   it("should update kayak customization via PUT /api/user/kayak", async () => {
     const login = "kayak_update_" + Date.now().toString().slice(-6);
-    await fetch(`${baseUrl}/api/user/register`, {
+    const regRes = await fetch(`${baseUrl}/api/user/register`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -154,13 +159,18 @@ describe("Kayak Customization API & Telemetry", () => {
         pays: "France",
         login,
         email: `${login}@test.com`,
-        password: "password123",
+        password: "Password123!",
       }),
     });
+    const regData = await regRes.json();
+    const token = regData.token;
 
     const updateRes = await fetch(`${baseUrl}/api/user/kayak`, {
       method: "PUT",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`,
+      },
       body: JSON.stringify({
         userId: login,
         kayakCustomization: {
@@ -179,11 +189,32 @@ describe("Kayak Customization API & Telemetry", () => {
   });
 
   it("should reject invalid color formats on PUT /api/user/kayak", async () => {
-    const res = await fetch(`${baseUrl}/api/user/kayak`, {
-      method: "PUT",
+    const login = "kayak_invalid_" + Date.now().toString().slice(-6);
+    const regRes = await fetch(`${baseUrl}/api/user/register`, {
+      method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        userId: "any_user",
+        nom: "Invalid",
+        prenom: "Color",
+        anneeNaissance: 1990,
+        sexe: "M",
+        pays: "France",
+        login,
+        email: `${login}@test.com`,
+        password: "Password123!",
+      }),
+    });
+    const regData = await regRes.json();
+    const token = regData.token;
+
+    const res = await fetch(`${baseUrl}/api/user/kayak`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        userId: login,
         kayakCustomization: {
           hullColor: "not-a-color",
           bladeColor: "#000",

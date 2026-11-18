@@ -211,6 +211,8 @@ export interface RegisterUserDto {
   guestPairingToken?: string;
   guestToken?: string;
   guestUserId?: string;
+  website_url?: string;
+  bot_trap?: string;
 }
 
 export interface LoginDto {
