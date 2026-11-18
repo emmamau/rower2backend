@@ -959,6 +959,7 @@ export class AppComponent implements OnInit, OnDestroy {
   resetToken = '';
   resetNewPassword = '';
   showResetFields = false;
+  showResetPassword = false;
 
   getPasswordStrength(pwd: string): { score: number; label: string; class: string; width: string } {
     if (!pwd) return { score: 0, label: '', class: '', width: '0%' };
@@ -1244,6 +1245,22 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
+    if (typeof window !== 'undefined' && window.location.search) {
+      try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const incomingResetToken = urlParams.get('resetToken') || urlParams.get('token');
+        if (incomingResetToken) {
+          this.resetToken = incomingResetToken.trim();
+          this.showResetFields = true;
+          this.setSiteView('home');
+          this.openAccountModal('forgot');
+          const cleanUrl = window.location.pathname + (window.location.hash || '');
+          window.history.replaceState({}, '', cleanUrl || '/');
+        }
+      } catch (err) {
+        console.warn('[Init] Erreur analyse paramètre resetToken URL:', err);
+      }
+    }
     if (typeof window !== 'undefined' && window.location.pathname === '/admin') {
       if (this.isUserAdmin) {
         this.isAdminDashboardOpen = true;

@@ -353,8 +353,12 @@ export const registerUser = async (req: Request, res: Response): Promise<void> =
       } catch {}
     }
 
-    // Envoi du courriel de bienvenue (préparé pour la production)
-    emailService.sendWelcomeEmail(cleanEmail, `${cleanFirstName} ${cleanLastName}`, cleanLogin).catch(() => {});
+    // Envoi du courriel de bienvenue (de manière asynchrone sans bloquer la réponse HTTP)
+    if (cleanEmail) {
+      emailService.sendWelcomeEmail(cleanEmail, `${cleanFirstName} ${cleanLastName}`.trim(), cleanLogin).catch((mailErr) => {
+        console.warn("[Register] Erreur non bloquante envoi email bienvenue:", mailErr);
+      });
+    }
 
     const sanitized = sanitizeUser(newUser);
     if (migratedPairing) {
@@ -541,16 +545,18 @@ export const forgotPassword = async (req: Request, res: Response): Promise<void>
     }
 
     if (!user) {
-      // Pour éviter l'énumération des utilisateurs, on renvoie un message générique
+      // Pour éviter l'énumération des utilisateurs, on renvoie un message rassurant sans divulguer l'existence
       res.status(200).json({
         success: true,
-        message: "Si un compte correspond à cette saisie, un courriel de réinitialisation sera envoyé.",
+        message: "Si un compte correspond à cette saisie, un courriel de réinitialisation avec un lien sécurisé a été envoyé.",
       });
       return;
     }
 
-    const resetToken = generateSecureToken(24);
-    const expires = new Date(Date.now() + 60 * 60 * 1000); // 1 heure de validité
+    // Génération d'un jeton cryptographique aléatoire de 64 caractères (32 octets hexadécimaux)
+    const resetToken = generateSecureToken(32);
+    // Expiration définie à exactement 1 heure (3 600 000 ms)
+    const expires = new Date(Date.now() + 3600000);
 
     await userStore.updateUser(user.id, {
       resetPasswordToken: resetToken,
@@ -563,7 +569,7 @@ export const forgotPassword = async (req: Request, res: Response): Promise<void>
 
     res.status(200).json({
       success: true,
-      message: "Si un compte correspond à cette saisie, un courriel de réinitialisation sera envoyé.",
+      message: "Si un compte correspond à cette saisie, un courriel de réinitialisation avec un lien sécurisé a été envoyé.",
       token: process.env.NODE_ENV === "test" || !process.env.NODE_ENV ? resetToken : undefined,
     });
   } catch (err: unknown) {

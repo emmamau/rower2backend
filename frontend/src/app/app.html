@@ -1280,20 +1280,46 @@
                   required />
               </div>
               <div class="form-group">
-                <label for="reset-pwd-input">Nouveau mot de passe</label>
-                <input
-                  id="reset-pwd-input"
-                  name="newPassword"
-                  type="password"
-                  autocomplete="new-password"
-                  [(ngModel)]="resetNewPassword"
-                  placeholder="Min. 8 car. (Maj, min, chiffre, symbole)"
-                  required />
+                <label for="reset-pwd-input">Nouveau mot de passe *</label>
+                <div class="pwd-input-wrapper">
+                  <input
+                    id="reset-pwd-input"
+                    name="newPassword"
+                    [type]="showResetPassword ? 'text' : 'password'"
+                    autocomplete="new-password"
+                    [(ngModel)]="resetNewPassword"
+                    placeholder="Min. 8 car. (Maj, min, chiffre, symbole)"
+                    required />
+                  <button
+                    type="button"
+                    class="btn-toggle-pwd"
+                    (click)="showResetPassword = !showResetPassword"
+                    [attr.aria-label]="showResetPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'">
+                    {{ showResetPassword ? '🙈' : '👁️' }}
+                  </button>
+                </div>
+
+                <!-- Jauge de robustesse du mot de passe en direct -->
+                @if (resetNewPassword) {
+                  <div class="pwd-strength-container">
+                    <div class="pwd-strength-track">
+                      <div
+                        class="pwd-strength-bar"
+                        [ngClass]="getPasswordStrength(resetNewPassword).class"
+                        [style.width]="getPasswordStrength(resetNewPassword).width">
+                      </div>
+                    </div>
+                    <span class="pwd-strength-label" [ngClass]="getPasswordStrength(resetNewPassword).class">
+                      Robustesse : {{ getPasswordStrength(resetNewPassword).label }}
+                    </span>
+                  </div>
+                }
+                <span class="field-hint">Minimum 8 caractères avec au moins une majuscule, une minuscule, un chiffre et un caractère spécial (!@#$%^&*...).</span>
               </div>
 
               <div class="modal-buttons">
-                <button type="submit" class="btn-primary" [disabled]="isAccountSubmitting">
-                  Mettre à jour mon mot de passe
+                <button type="submit" class="btn-primary" [disabled]="isAccountSubmitting || !isPasswordPolicySatisfied(resetNewPassword)">
+                  {{ isAccountSubmitting ? 'Mise à jour...' : 'Mettre à jour mon mot de passe' }}
                 </button>
                 <button type="button" class="btn-secondary" (click)="showResetFields = false; accountModalTab = 'login'">
                   Annuler
