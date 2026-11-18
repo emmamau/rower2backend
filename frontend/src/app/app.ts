@@ -2698,14 +2698,76 @@ export class AppComponent implements OnInit, OnDestroy {
 
     this.rowerService.stopRace(raceId, this.activeUserId).subscribe({
       next: (res) => {
-        alert(res.message || "Course arrêtée ! Le classement a été établi.");
-        this.initGameLoop();
+        this.isPostRaceRankingActive = true;
+        this.isPrivateRoomCompleted = true;
+        if (this.nextRaceInfo) {
+          this.nextRaceInfo.status = 'finished';
+          (this.nextRaceInfo as any).stopReason = 'organizer_stopped';
+          if (this.nextRaceInfo.race) {
+            this.nextRaceInfo.race.status = 'COMPLETED';
+            (this.nextRaceInfo.race as any).stopReason = 'organizer_stopped';
+          }
+        }
+        if (this.activePrivateRoom) {
+          this.activePrivateRoom.status = 'COMPLETED';
+          (this.activePrivateRoom as any).stopReason = 'organizer_stopped';
+          if (this.activePrivateRoom.race) {
+            this.activePrivateRoom.race.status = 'COMPLETED';
+            (this.activePrivateRoom.race as any).stopReason = 'organizer_stopped';
+          }
+        }
+        if (res.ranking && res.ranking.length > 0) {
+          this.selectedRaceLeaderboard = res.ranking;
+        }
+        this.openRaceLeaderboard(raceId);
+        this.triggerFinishToast("🛑 Course arrêtée ! Le classement officiel est affiché.");
         this.cdr.markForCheck();
       },
       error: (err) => {
         alert(err.error?.message || "Erreur lors de l'arrêt de la course.");
       }
     });
+  }
+
+  get isRaceStoppedByOrganizer(): boolean {
+    return Boolean(
+      (this.nextRaceInfo?.race as any)?.stopReason === 'organizer_stopped' ||
+      (this.nextRaceInfo as any)?.stopReason === 'organizer_stopped' ||
+      (this.activePrivateRoom?.race as any)?.stopReason === 'organizer_stopped' ||
+      (this.activePrivateRoom as any)?.stopReason === 'organizer_stopped'
+    );
+  }
+
+  get isRaceEnded(): boolean {
+    const st = String(this.nextRaceInfo?.status || this.nextRaceInfo?.race?.status || this.activePrivateRoom?.status || this.activePrivateRoom?.race?.status || '').toLowerCase();
+    return Boolean(
+      this.isPostRaceRankingActive ||
+      this.isPrivateRoomCompleted ||
+      st === 'completed' ||
+      st === 'finished' ||
+      st === 'stopped'
+    );
+  }
+
+  get isPostRaceDisplayActive(): boolean {
+    return Boolean(this.isFinished || this.isPostRaceRankingActive || this.isRaceEnded);
+  }
+
+  returnToHomeAfterRace(): void {
+    this.closeRaceLeaderboardModal();
+    this.isPostRaceRankingActive = false;
+    this.showFinishCelebration = false;
+    this.isPrivateRoomCompleted = false;
+    if (this.finishCelebrationTimer) {
+      clearTimeout(this.finishCelebrationTimer);
+      this.finishCelebrationTimer = null;
+    }
+    if (this.activePrivateRoom) {
+      this.exitPrivateRoomToPublic(true);
+    }
+    this.setSiteView('home');
+    this.initGameLoop();
+    this.cdr.markForCheck();
   }
 
   onLanguageSelectChange(event: Event): void {
@@ -3876,6 +3938,10 @@ export class AppComponent implements OnInit, OnDestroy {
         if (res && res.success) {
           this.selectedRaceInfo = res.race;
           this.selectedRaceLeaderboard = res.leaderboard || [];
+          const myEntry = this.selectedRaceLeaderboard.find(e => e.userId === this.activeUserId);
+          if (myEntry) {
+            this.myRank = myEntry.position;
+          }
         } else {
           this.raceLeaderboardError = 'Impossible de charger le classement de cette régate.';
         }
@@ -4684,40 +4750,61 @@ export class AppComponent implements OnInit, OnDestroy {
         this.syncCountdownUI();
       } else if (update.status === 'COMPLETED' || update.status === 'STOPPED' || update.status === 'CANCELLED' || update.status === 'ABANDONED') {
         if (isPrivateTarget && this.activePrivateRoom) {
-          if (update.status === 'COMPLETED') {
+          if (update.status === 'COMPLETED' || update.status === 'STOPPED') {
             this.isPrivateRoomCompleted = true;
+            const stopReason = update.details?.reason || (update.status === 'STOPPED' ? 'organizer_stopped' : 'completed');
             if (this.activePrivateRoom.race) {
               this.activePrivateRoom.race.status = 'COMPLETED';
+              (this.activePrivateRoom.race as any).stopReason = stopReason;
             }
             this.activePrivateRoom.status = 'COMPLETED';
+            (this.activePrivateRoom as any).stopReason = stopReason;
+            if (this.nextRaceInfo) {
+              this.nextRaceInfo.status = 'finished';
+              (this.nextRaceInfo as any).stopReason = stopReason;
+              if (this.nextRaceInfo.race) {
+                this.nextRaceInfo.race.status = 'COMPLETED';
+                (this.nextRaceInfo.race as any).stopReason = stopReason;
+              }
+            }
             this.countdownSeconds = 0;
             this.is3sCountdown = false;
             this.isPreStartCountdown = false;
             this.formattedGameRemaining = '';
             const targetRaceId = update.raceId || this.activePrivateRoom.race.id;
-            if (!this.hasCelebratedFinish && this.isFinished) {
-              this.triggerFinishCelebration(targetRaceId);
-            } else if (!this.showFinishCelebration) {
-              this.openRaceLeaderboard(targetRaceId);
-              this.isPostRaceRankingActive = true;
+            if (update.details?.ranking && update.details.ranking.length > 0) {
+              this.selectedRaceLeaderboard = update.details.ranking;
             }
-            this.triggerFinishToast(`🏁 Course terminée ! Salon fermé.`);
-          } else if (update.status === 'STOPPED' || update.status === 'CANCELLED' || update.status === 'ABANDONED') {
-            const reasonMsg = update.details?.reason === 'organizer_stopped'
-              ? "Course arrêtée par l'organisateur"
-              : update.details?.reason === 'all_players_left'
+            if (targetRaceId) {
+              this.openRaceLeaderboard(targetRaceId);
+            }
+            this.isPostRaceRankingActive = true;
+            const finishMsg = stopReason === 'organizer_stopped'
+              ? "🛑 Course arrêtée par l'organisateur. Le classement officiel est affiché."
+              : "🏁 Course terminée ! Le classement officiel est affiché.";
+            this.triggerFinishToast(finishMsg);
+          } else if (update.status === 'CANCELLED' || update.status === 'ABANDONED') {
+            const reasonMsg = update.details?.reason === 'all_players_left'
               ? 'Tous les participants ont quitté le salon'
               : 'Course annulée';
             this.triggerFinishToast(`⚠️ Salon fermé : ${reasonMsg}`);
             this.exitPrivateRoomToPublic(true);
           }
-        } else if (isPublicTarget && update.status === 'COMPLETED') {
+        } else if (isPublicTarget && (update.status === 'COMPLETED' || update.status === 'STOPPED')) {
           if (this.nextRaceInfo) {
             this.nextRaceInfo.status = 'completed';
             if (this.nextRaceInfo.race) {
               this.nextRaceInfo.race.status = 'COMPLETED';
             }
           }
+          const targetRaceId = update.raceId || this.nextRaceInfo?.race?.id;
+          if (update.details?.ranking && update.details.ranking.length > 0) {
+            this.selectedRaceLeaderboard = update.details.ranking;
+          }
+          if (targetRaceId) {
+            this.openRaceLeaderboard(targetRaceId);
+          }
+          this.isPostRaceRankingActive = true;
         }
       }
       this.cdr.markForCheck();
@@ -4792,6 +4879,16 @@ export class AppComponent implements OnInit, OnDestroy {
 
       if (this.activePrivateRoom && (update.raceId === this.activePrivateRoom.race?.id || update.raceId === this.activePrivateRoom.code)) {
         if (Boolean((update as any)?.roomClosed) || update?.['type'] === 'ROOM_CLOSED') {
+          if (this.isPostRaceDisplayActive || this.isPrivateRoomCompleted || update.status === 'COMPLETED' || update.status === 'STOPPED') {
+            this.isPrivateRoomCompleted = true;
+            this.isPostRaceRankingActive = true;
+            const targetRaceId = update.raceId || this.activePrivateRoom.race?.id;
+            if (targetRaceId) {
+              this.openRaceLeaderboard(targetRaceId);
+            }
+            this.cdr.markForCheck();
+            return;
+          }
           this.exitPrivateRoomToPublic(true);
           return;
         }
