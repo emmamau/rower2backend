@@ -44,9 +44,15 @@ interface BoatRenderState {
   imports: [CommonModule],
   template: `
     <div #wrapperEl class="canvas-wrapper">
-      <canvas #raceCanvas (click)="onCanvasClick($event)"></canvas>
+      <canvas
+        #raceCanvas
+        (pointerdown)="onCanvasPointerDown($event)"
+        (pointermove)="onCanvasPointerMove($event)"
+        (pointerup)="onCanvasPointerUp($event)"
+        (pointercancel)="onCanvasPointerCancel($event)"
+        (click)="onCanvasClick($event)"></canvas>
 
-      <!-- Barre d'outils en haut à gauche : Mode Dynamique/Fixe + Zoom Lignes d'Eau (x1 à x3) -->
+      <!-- Barre d'outils en haut à gauche : Mode Dynamique/Fixe -->
       <div class="canvas-top-left-controls">
         <button
           type="button"
@@ -56,34 +62,6 @@ interface BoatRenderState {
           <span class="mode-icon">{{ dynamicLaneMode ? '⚡' : '⚓' }}</span>
           <span class="mode-label">{{ dynamicLaneMode ? 'Lignes dynamiques' : 'Lignes fixes' }}</span>
         </button>
-
-        <div class="canvas-zoom-controls" role="group" aria-label="Zoom sur les lignes d'eau">
-          <button
-            type="button"
-            class="btn-zoom-step"
-            [disabled]="effectiveZoomLevel <= 1"
-            (click)="stepZoom(-0.5)"
-            title="Réduire le zoom (voir plus de kayaks)"
-            aria-label="Zoom moins">−</button>
-          <button
-            type="button"
-            class="btn-zoom-badge"
-            [class.is-zoomed]="effectiveZoomLevel > 1"
-            (click)="cycleZoomPreset()"
-            title="Cliquer pour changer le zoom (x1 → x1.5 → x2 → x2.5 → x3)">
-            🔍 x{{ effectiveZoomLevel }}
-            <span class="zoom-kayak-count" *ngIf="totalBoatsCount > 3 && effectiveZoomLevel > 1">
-              ({{ visibleBoatsCount }}/{{ totalBoatsCount }} 🛶)
-            </span>
-          </button>
-          <button
-            type="button"
-            class="btn-zoom-step"
-            [disabled]="effectiveZoomLevel >= 3"
-            (click)="stepZoom(0.5)"
-            title="Augmenter le zoom jusqu'à x3 (texte géant, min 3 kayaks centrés sur vous)"
-            aria-label="Zoom plus">+</button>
-        </div>
       </div>
 
       <!-- Panneau contextuel de sélection de kayak -->
@@ -113,52 +91,6 @@ interface BoatRenderState {
             (click)="selectedKayakForClaim = null">
             ✕
           </button>
-        </div>
-      </div>
-
-      <!-- Mini-leaderboard rétractable avec classements et écarts temps réel -->
-      <div
-        #leaderboardBoxEl
-        class="mini-leaderboard"
-        [class.collapsed]="isLeaderboardCollapsed"
-        [class.is-dragging]="isDraggingLeaderboard"
-        [style.left.px]="leaderboardPosition ? leaderboardPosition.x : null"
-        [style.top.px]="leaderboardPosition ? leaderboardPosition.y : null"
-        [style.right]="leaderboardPosition ? 'auto' : null"
-        (pointerdown)="onLeaderboardPointerDown($event)"
-        (pointermove)="onLeaderboardPointerMove($event)"
-        (pointerup)="onLeaderboardPointerUp($event)"
-        (pointercancel)="onLeaderboardPointerUp($event)"
-        *ngIf="sortedLeaderboard.length > 0">
-        <button
-          type="button"
-          class="mini-lead-header"
-          (click)="onLeaderboardHeaderClick($event)"
-          title="Afficher/Masquer le classement des écarts">
-          <span class="mini-lead-title">
-            🏆 {{ isLeaderboardCollapsed ? myRankBadgeText : 'Classement en direct' }}
-          </span>
-          <span class="mini-lead-toggle">{{ isLeaderboardCollapsed ? '◀' : '▼' }}</span>
-        </button>
-        <div class="mini-lead-body" *ngIf="!isLeaderboardCollapsed">
-          <div
-            *ngFor="let racer of sortedLeaderboard; let rank = index"
-            class="mini-lead-row"
-            [class.active-player]="racer.userId === activeUserId"
-            [class.focused-racer]="racer.userId === effectiveFocusedUserId"
-            (click)="selectRacerToFollow(racer.userId)">
-            <span class="mini-lead-rank">{{ rank + 1 }}</span>
-            <span
-              class="ble-state-dot"
-              [class.is-ready]="racer.ready !== false && racer.connectionState !== 'CONNECTED'"
-              [class.is-waiting]="racer.ready === false || racer.connectionState === 'CONNECTED'"
-              [title]="(racer.ready === false || racer.connectionState === 'CONNECTED') ? 'En attente du rameur' : 'Rameur prêt'"></span>
-            <span class="mini-lead-name">{{ racer.name }}</span>
-            <span class="mini-lead-dist">{{ Math.round(racer.dist) }}m</span>
-            <span class="mini-lead-gap" [class.leader]="rank === 0">
-              {{ formatGap(racer, sortedLeaderboard[0]) }}
-            </span>
-          </div>
         </div>
       </div>
     </div>
@@ -221,64 +153,6 @@ interface BoatRenderState {
     .lane-mode-toggle .mode-icon {
       font-size: 0.82rem;
     }
-    .canvas-zoom-controls {
-      display: inline-flex;
-      align-items: center;
-      gap: 2px;
-      padding: 2px;
-      border-radius: 20px;
-      border: 1px solid rgba(0, 240, 255, 0.45);
-      background: rgba(6, 15, 33, 0.88);
-      backdrop-filter: blur(8px);
-      -webkit-backdrop-filter: blur(8px);
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
-    }
-    .btn-zoom-step {
-      width: 24px;
-      height: 22px;
-      border-radius: 50%;
-      border: 1px solid rgba(0, 240, 255, 0.35);
-      background: rgba(0, 240, 255, 0.12);
-      color: #00f0ff;
-      font-size: 0.88rem;
-      font-weight: 900;
-      line-height: 1;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      transition: all 0.15s ease;
-    }
-    .btn-zoom-step:hover:not(:disabled) {
-      background: #00f0ff;
-      color: #060d1d;
-    }
-    .btn-zoom-step:disabled {
-      opacity: 0.35;
-      cursor: not-allowed;
-    }
-    .btn-zoom-badge {
-      border: none;
-      background: transparent;
-      color: #e2e8f0;
-      font-size: 0.72rem;
-      font-weight: 800;
-      padding: 2px 7px;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      white-space: nowrap;
-    }
-    .btn-zoom-badge.is-zoomed {
-      color: #ffe600;
-      text-shadow: 0 0 8px rgba(255, 230, 0, 0.5);
-    }
-    .zoom-kayak-count {
-      font-size: 0.65rem;
-      color: #00f0ff;
-      font-weight: 700;
-    }
     @media (max-width: 520px) {
       .canvas-top-left-controls {
         top: 6px;
@@ -289,20 +163,17 @@ interface BoatRenderState {
         padding: 3px 8px;
         font-size: 0.65rem;
       }
-      .btn-zoom-step {
-        width: 20px;
-        height: 19px;
-        font-size: 0.78rem;
-      }
-      .btn-zoom-badge {
-        font-size: 0.65rem;
-        padding: 1px 5px;
-      }
     }
     canvas {
       display: block;
       inline-size: 100%;
       block-size: 100%;
+      touch-action: none;
+      user-select: none;
+      cursor: grab;
+    }
+    canvas:active {
+      cursor: grabbing;
     }
     @media (max-width: 768px), (max-height: 600px) and (orientation: landscape) {
       .canvas-wrapper {
@@ -313,135 +184,6 @@ interface BoatRenderState {
         border-radius: 8px;
         margin: 0 !important;
       }
-    }
-    .mini-leaderboard {
-      position: absolute;
-      top: 10px;
-      right: 10px;
-      z-index: 20;
-      background: rgba(6, 13, 29, 0.94);
-      border: 1px solid rgba(0, 240, 255, 0.45);
-      border-radius: 8px;
-      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.65), 0 0 12px rgba(0, 240, 255, 0.2);
-      backdrop-filter: blur(8px);
-      max-width: 250px;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      transition: box-shadow 0.2s ease, opacity 0.2s ease;
-      overflow: hidden;
-      touch-action: none;
-      user-select: none;
-    }
-    .mini-leaderboard.is-dragging {
-      cursor: grabbing;
-      opacity: 0.92;
-      box-shadow: 0 8px 25px rgba(0, 240, 255, 0.45);
-      z-index: 50;
-    }
-    .mini-leaderboard.collapsed {
-      max-width: fit-content;
-      border-radius: 20px;
-    }
-    .mini-leaderboard.collapsed .mini-lead-header {
-      padding: 6px 12px;
-      border-radius: 20px;
-      font-size: 11px;
-      font-weight: 800;
-      background: rgba(0, 240, 255, 0.2);
-    }
-    .mini-lead-header {
-      width: 100%;
-      border: none;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 6px 10px;
-      background: rgba(0, 240, 255, 0.14);
-      cursor: pointer;
-      font-size: 11px;
-      font-weight: 700;
-      color: #00f0ff;
-      letter-spacing: 0.5px;
-      text-transform: uppercase;
-      gap: 6px;
-    }
-    .mini-lead-header:hover {
-      background: rgba(0, 240, 255, 0.22);
-    }
-    .mini-lead-title {
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .mini-lead-toggle {
-      font-size: 10px;
-      color: #00f0ff;
-    }
-    .mini-lead-body {
-      max-height: 160px;
-      overflow-y: auto;
-      padding: 4px 0;
-    }
-    .mini-lead-row {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      padding: 4px 8px;
-      font-size: 10.5px;
-      cursor: pointer;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-      transition: background 0.15s ease;
-    }
-    .mini-lead-row:hover {
-      background: rgba(0, 240, 255, 0.18);
-    }
-    .mini-lead-row.active-player {
-      background: rgba(0, 240, 255, 0.25);
-      font-weight: bold;
-      color: #00f0ff;
-    }
-    .mini-lead-row.focused-racer {
-      border-left: 3px solid #ffe600;
-    }
-    .mini-lead-rank {
-      font-weight: 800;
-      color: #ffe600;
-      min-width: 14px;
-      text-align: center;
-    }
-    .ble-state-dot {
-      width: 7px;
-      height: 7px;
-      border-radius: 50%;
-      flex-shrink: 0;
-      background: #22c55e;
-      box-shadow: 0 0 6px rgba(34, 197, 94, 0.8);
-    }
-    .ble-state-dot.is-waiting {
-      background: #f97316;
-      box-shadow: 0 0 6px rgba(249, 115, 22, 0.85);
-    }
-    .mini-lead-name {
-      flex: 1;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      color: #e2e8f0;
-    }
-    .mini-lead-dist {
-      color: #94a3b8;
-      font-variant-numeric: tabular-nums;
-      font-size: 10px;
-    }
-    .mini-lead-gap {
-      font-variant-numeric: tabular-nums;
-      font-size: 9.5px;
-      color: #f87171;
-      min-width: 38px;
-      text-align: right;
-    }
-    .mini-lead-gap.leader {
-      color: #4ade80;
-      font-weight: 700;
     }
     .kayak-claim-popup {
       position: absolute;
@@ -499,7 +241,6 @@ interface BoatRenderState {
 export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChanges {
   @ViewChild('wrapperEl', { static: true }) wrapperRef!: ElementRef<HTMLDivElement>;
   @ViewChild('raceCanvas', { static: true }) canvasRef!: ElementRef<HTMLCanvasElement>;
-  @ViewChild('leaderboardBoxEl') leaderboardBoxRef?: ElementRef<HTMLDivElement>;
   @Input() racers: LiveRacerMetric[] = [];
   @Input() targetDistance = 2000;
   @Input() activeUserId = '';
@@ -517,37 +258,25 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
   public visibleBoatsCount = 0;
   public totalBoatsCount = 0;
 
+  // Défilement vertical du plan d'eau (Vertical Scroll / Drag)
+  public scrollY: number = 0;
+  public maxScrollY: number = 0;
+  private isPointerDragging = false;
+  private pointerStartY = 0;
+  private startScrollY = 0;
+  private hasScrolledWhileDragging = false;
+  private ignoreNextClick = false;
+  private lastUserScrollTime = 0;
+
   get effectiveZoomLevel(): number {
     const raw = Number(this.zoomLevel);
     if (!Number.isFinite(raw) || raw < 1) return 1;
     return Math.min(4, Math.max(1, Math.round(raw * 2) / 2));
   }
 
-  public stepZoom(delta: number): void {
-    const next = Math.min(3, Math.max(1, Math.round((this.effectiveZoomLevel + delta) * 2) / 2));
-    if (next !== this.effectiveZoomLevel) {
-      this.zoomLevel = next;
-      this.zoomLevelChange.emit(next);
-      this.resizeCanvas();
-    }
-  }
-
-  public cycleZoomPreset(): void {
-    const presets = [1, 1.5, 2, 2.5, 3];
-    const currentIdx = presets.findIndex((p) => Math.abs(p - this.effectiveZoomLevel) < 0.1);
-    const next = presets[(currentIdx + 1) % presets.length];
-    this.zoomLevel = next;
-    this.zoomLevelChange.emit(next);
-    this.resizeCanvas();
-  }
-
   /**
-   * Calcule la liste ordonnée des kayaks visibles selon le niveau de zoom (de x1 jusqu'à x3).
-   * - À zoom x1 : tous les kayaks sont visibles.
-   * - En zoomant jusqu'à x3 : réduit le nombre de kayaks visibles jusqu'à un minimum de 3 kayaks :
-   *   - Si le joueur est en tête (1er) : garde les 3 premiers kayaks.
-   *   - Si le joueur est en queue (dernier) : garde les 3 derniers kayaks.
-   *   - Sinon : garde le kayak devant le joueur, le kayak du joueur et le kayak derrière le joueur.
+   * Calcule la liste ordonnée des kayaks du plan d'eau.
+   * L'ensemble des kayaks est conservé et rendu accessible par défilement vertical.
    */
   public getVisibleBoatsWindow(): {
     visibleBoats: BoatRenderState[];
@@ -583,46 +312,12 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
       return (a.assignedLane || a.lane || 1) - (b.assignedLane || b.lane || 1);
     });
 
-    if (totalCount <= 3 || zoom <= 1) {
-      this.visibleBoatsCount = totalCount;
-      return {
-        visibleBoats: sorted,
-        startIndex: 0,
-        totalCount,
-        visibleCount: totalCount,
-      };
-    }
-
-    // Réduction progressive du nombre de kayaks visibles de totalCount (à x1) jusqu'à 3 (à x3)
-    const zoomRatio = Math.min(1, Math.max(0, (zoom - 1) / 2));
-    const visibleCount = Math.max(3, Math.round(totalCount - (totalCount - 3) * zoomRatio));
-
-    const focusId = this.effectiveFocusedUserId;
-    let playerIdx = focusId ? sorted.findIndex((b) => b.userId === focusId) : -1;
-    if (playerIdx < 0 && this.activeUserId) {
-      playerIdx = sorted.findIndex((b) => b.userId === this.activeUserId);
-    }
-
-    let startIndex = 0;
-    if (playerIdx <= 0) {
-      // Joueur en tête (ou non trouvé) -> les K premiers (les 3 premiers à zoom x3)
-      startIndex = 0;
-    } else if (playerIdx >= totalCount - 1) {
-      // Joueur en queue -> les K derniers (les 3 derniers à zoom x3)
-      startIndex = Math.max(0, totalCount - visibleCount);
-    } else {
-      // Joueur au milieu -> encadré par le kayak devant lui et le kayak derrière lui
-      const halfBefore = Math.floor((visibleCount - 1) / 2);
-      startIndex = Math.max(0, Math.min(totalCount - visibleCount, playerIdx - halfBefore));
-    }
-
-    const visibleBoats = sorted.slice(startIndex, startIndex + visibleCount);
-    this.visibleBoatsCount = visibleBoats.length;
+    this.visibleBoatsCount = totalCount;
     return {
-      visibleBoats,
-      startIndex,
+      visibleBoats: sorted,
+      startIndex: 0,
       totalCount,
-      visibleCount: visibleBoats.length,
+      visibleCount: totalCount,
     };
   }
 
@@ -648,14 +343,7 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
   }
 
   protected Math = Math;
-  public isLeaderboardCollapsed = true;
   public sortedLeaderboard: LiveRacerMetric[] = [];
-  public leaderboardPosition: { x: number; y: number } | null = null;
-  public isDraggingLeaderboard = false;
-  private dragStartPointer = { x: 0, y: 0 };
-  private dragStartLeaderboardPos = { x: 0, y: 0 };
-  private hasMovedWhileDragging = false;
-  private lastToggleTimestamp = 0;
 
   private ctx: CanvasRenderingContext2D | null = null;
   private animFrameId: number | null = null;
@@ -741,18 +429,8 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
       this.resizeObserver.observe(this.wrapperRef.nativeElement);
     }
     window.addEventListener('resize', this.onResize);
+    canvas.addEventListener('wheel', this.onCanvasWheel, { passive: false });
     this.startRenderLoop();
-
-    if (typeof localStorage !== 'undefined') {
-      try {
-        const sx = localStorage.getItem('rower_canvas_lb_pos_x');
-        const sy = localStorage.getItem('rower_canvas_lb_pos_y');
-        if (sx && sy) {
-          this.leaderboardPosition = { x: Number(sx), y: Number(sy) };
-        }
-      } catch {}
-    }
-    setTimeout(() => this.clampCurrentPosition(), 60);
   }
 
   ngOnChanges(changes: SimpleChanges): void {
@@ -780,127 +458,63 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
       this.resizeObserver = null;
     }
     window.removeEventListener('resize', this.onResize);
-  }
-
-  public toggleLeaderboard(): void {
-    const now = Date.now();
-    if (now - this.lastToggleTimestamp < 250) return;
-    this.lastToggleTimestamp = now;
-    this.isLeaderboardCollapsed = !this.isLeaderboardCollapsed;
-    setTimeout(() => this.clampCurrentPosition(), 50);
-  }
-
-  public onLeaderboardHeaderClick(event: MouseEvent): void {
-    if (this.hasMovedWhileDragging) {
-      event.preventDefault();
-      event.stopPropagation();
-      this.hasMovedWhileDragging = false;
-      return;
+    const canvas = this.canvasRef?.nativeElement;
+    if (canvas) {
+      canvas.removeEventListener('wheel', this.onCanvasWheel);
     }
-    this.toggleLeaderboard();
   }
 
-  public onLeaderboardPointerDown(event: PointerEvent): void {
+  public onCanvasPointerDown(event: PointerEvent): void {
     if (event.button !== 0 && event.pointerType === 'mouse') return;
-    const target = event.target as HTMLElement;
-    if (target?.closest('.mini-lead-body')) return;
-
-    const box = this.leaderboardBoxRef?.nativeElement;
-    if (!box) return;
-
-    this.isDraggingLeaderboard = true;
-    this.hasMovedWhileDragging = false;
-    this.dragStartPointer = { x: event.clientX, y: event.clientY };
-
-    const wrapper = this.wrapperRef.nativeElement;
-    const wrapperRect = wrapper.getBoundingClientRect();
-    const boxRect = box.getBoundingClientRect();
-
-    if (!this.leaderboardPosition) {
-      this.leaderboardPosition = {
-        x: Math.round(boxRect.left - wrapperRect.left),
-        y: Math.round(boxRect.top - wrapperRect.top),
-      };
-    }
-    this.dragStartLeaderboardPos = { ...this.leaderboardPosition };
-
+    this.pointerStartY = event.clientY;
+    this.startScrollY = this.scrollY;
+    this.isPointerDragging = true;
+    this.hasScrolledWhileDragging = false;
     try {
-      box.setPointerCapture(event.pointerId);
+      (event.target as HTMLElement).setPointerCapture(event.pointerId);
     } catch {}
   }
 
-  public onLeaderboardPointerMove(event: PointerEvent): void {
-    if (!this.isDraggingLeaderboard) return;
-    const dx = event.clientX - this.dragStartPointer.x;
-    const dy = event.clientY - this.dragStartPointer.y;
-
-    if (Math.hypot(dx, dy) > 5) {
-      this.hasMovedWhileDragging = true;
+  public onCanvasPointerMove(event: PointerEvent): void {
+    if (!this.isPointerDragging) return;
+    const dy = event.clientY - this.pointerStartY;
+    if (Math.abs(dy) > 4) {
+      this.hasScrolledWhileDragging = true;
+      this.lastUserScrollTime = Date.now();
+      if (this.maxScrollY > 0) {
+        this.scrollY = Math.max(0, Math.min(this.maxScrollY, this.startScrollY - dy));
+      }
     }
-    if (!this.hasMovedWhileDragging) return;
-
-    if (event.cancelable) {
-      event.preventDefault();
-    }
-
-    const wrapper = this.wrapperRef.nativeElement;
-    const wrapperRect = wrapper.getBoundingClientRect();
-    const box = this.leaderboardBoxRef?.nativeElement;
-    const boxWidth = box ? box.offsetWidth : (this.isLeaderboardCollapsed ? 120 : 180);
-    const boxHeight = box ? box.offsetHeight : (this.isLeaderboardCollapsed ? 32 : 160);
-
-    this.leaderboardPosition = this.clampLeaderboardPosition(
-      this.dragStartLeaderboardPos,
-      { dx, dy },
-      wrapperRect.width,
-      wrapperRect.height,
-      boxWidth,
-      boxHeight
-    );
   }
 
-  public onLeaderboardPointerUp(event: PointerEvent): void {
-    if (!this.isDraggingLeaderboard) return;
-    this.isDraggingLeaderboard = false;
-    const box = this.leaderboardBoxRef?.nativeElement;
+  public onCanvasPointerUp(event: PointerEvent): void {
+    if (!this.isPointerDragging) return;
+    this.isPointerDragging = false;
     try {
-      if (box && box.hasPointerCapture(event.pointerId)) {
-        box.releasePointerCapture(event.pointerId);
+      const el = event.target as HTMLElement;
+      if (el && el.hasPointerCapture(event.pointerId)) {
+        el.releasePointerCapture(event.pointerId);
       }
     } catch {}
-
-    if (!this.hasMovedWhileDragging) {
-      const target = event.target as HTMLElement;
-      if (target?.closest('.mini-lead-header') || this.isLeaderboardCollapsed) {
-        this.toggleLeaderboard();
-      }
-    }
-
-    if (this.leaderboardPosition && typeof localStorage !== 'undefined') {
-      try {
-        localStorage.setItem('rower_canvas_lb_pos_x', String(this.leaderboardPosition.x));
-        localStorage.setItem('rower_canvas_lb_pos_y', String(this.leaderboardPosition.y));
-      } catch {}
+    if (this.hasScrolledWhileDragging) {
+      this.ignoreNextClick = true;
+      setTimeout(() => {
+        this.ignoreNextClick = false;
+      }, 120);
     }
   }
 
-  public clampCurrentPosition(): void {
-    if (!this.leaderboardPosition) return;
-    const wrapper = this.wrapperRef?.nativeElement;
-    if (!wrapper) return;
-    const wrapperRect = wrapper.getBoundingClientRect();
-    const box = this.leaderboardBoxRef?.nativeElement;
-    const boxWidth = box ? box.offsetWidth : (this.isLeaderboardCollapsed ? 120 : 180);
-    const boxHeight = box ? box.offsetHeight : (this.isLeaderboardCollapsed ? 32 : 160);
-    this.leaderboardPosition = this.clampLeaderboardPosition(
-      this.leaderboardPosition,
-      { dx: 0, dy: 0 },
-      wrapperRect.width,
-      wrapperRect.height,
-      boxWidth,
-      boxHeight
-    );
+  public onCanvasPointerCancel(event: PointerEvent): void {
+    this.isPointerDragging = false;
+    this.hasScrolledWhileDragging = false;
   }
+
+  private onCanvasWheel = (event: WheelEvent): void => {
+    if (this.maxScrollY <= 0) return;
+    event.preventDefault();
+    this.lastUserScrollTime = Date.now();
+    this.scrollY = Math.max(0, Math.min(this.maxScrollY, this.scrollY + event.deltaY));
+  };
 
   public formatGap(racer: LiveRacerMetric, leader: LiveRacerMetric): string {
     if (!racer || !leader || racer.userId === leader.userId) return 'Leader';
@@ -918,21 +532,6 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
       }
     }
     return text;
-  }
-
-  public clampLeaderboardPosition(
-    pos: { x: number; y: number },
-    delta: { dx: number; dy: number },
-    containerWidth: number = 900,
-    containerHeight: number = 260,
-    boxWidth: number = 160,
-    boxHeight: number = 40
-  ): { x: number; y: number } {
-    const maxX = Math.max(5, containerWidth - boxWidth - 5);
-    const maxY = Math.max(5, containerHeight - boxHeight - 5);
-    const nextX = Math.min(Math.max(5, pos.x + delta.dx), maxX);
-    const nextY = Math.min(Math.max(5, pos.y + delta.dy), maxY);
-    return { x: Math.round(nextX), y: Math.round(nextY) };
   }
 
   public selectRacerToFollow(userId: string): void {
@@ -966,6 +565,10 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
   }
 
   public onCanvasClick(event: MouseEvent): void {
+    if (this.ignoreNextClick) {
+      this.ignoreNextClick = false;
+      return;
+    }
     const canvas = this.canvasRef?.nativeElement;
     const wrapper = this.wrapperRef?.nativeElement;
     if (!canvas || !wrapper || this.boatsMap.size === 0) return;
@@ -985,19 +588,21 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
     const trackW = Math.max(120, this.cssWidth - marginX - rightPad);
 
     const isSmallLandscape = (typeof window !== 'undefined' && window.innerHeight <= 500) || this.cssHeight <= 320;
-    const baseTopOffset = isSmallLandscape ? 26 : (isCompact ? 40 : 48);
-    const topOffset = Math.round(baseTopOffset + (zoom - 1) * (isSmallLandscape ? 4 : 8));
+    const topOffset = isSmallLandscape ? 24 : (isCompact ? 38 : 46);
     const bottomPad = isSmallLandscape ? 8 : (isCompact ? 12 : 20);
     const availableLaneH = Math.max(20, this.cssHeight - topOffset - bottomPad);
+    const minLaneH = isSmallLandscape ? 26 : 34;
     const baseMaxLaneH = isSmallLandscape ? 38 : 48;
-    const maxLaneH = zoom > 1 ? Math.max(baseMaxLaneH * zoom * 1.35, availableLaneH / boatCount) : baseMaxLaneH;
-    const laneH = Math.max(isSmallLandscape ? 6 : 12, Math.min(maxLaneH, availableLaneH / boatCount));
+    const baseLaneH = Math.max(minLaneH, Math.min(baseMaxLaneH, availableLaneH / boatCount));
+    const laneH = zoom > 1
+      ? Math.max(baseLaneH * zoom * 0.95, baseLaneH + (zoom - 1) * (isSmallLandscape ? 16 : 22))
+      : baseLaneH;
 
     let foundBoat: BoatRenderState | null = null;
 
     for (let idx = 0; idx < visibleBoats.length; idx++) {
       const boat = visibleBoats[idx];
-      const y = topOffset + (idx + 0.5) * laneH;
+      const y = topOffset + (idx + 0.5) * laneH - this.scrollY;
       const progress = Math.min(1.0, Math.max(0, boat.currentDisplayDist / (this.targetDistance || 2000)));
       const rawX = marginX + trackW * progress;
       const x = rawX - this.cameraX;
@@ -1052,7 +657,6 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
     if (this.ctx) {
       this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     }
-    this.clampCurrentPosition();
   }
 
   private syncRacersData(): void {
@@ -1290,13 +894,37 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
     const rightPad = isCompact ? 24 : 40;
     const trackW = Math.max(120, w - marginX - rightPad);
 
-    const baseTopOffset = isSmallLandscape ? 26 : (isCompact ? 40 : 48);
-    const topOffset = Math.round(baseTopOffset + (zoom - 1) * (isSmallLandscape ? 4 : 8));
+    const baseTopOffset = isSmallLandscape ? 24 : (isCompact ? 38 : 46);
+    const topOffset = isSmallLandscape ? 24 : (isCompact ? 38 : 46);
     const bottomPad = isSmallLandscape ? 8 : (isCompact ? 12 : 20);
     const availableLaneH = Math.max(20, h - topOffset - bottomPad);
+
+    const minLaneH = isSmallLandscape ? 26 : 34;
     const baseMaxLaneH = isSmallLandscape ? 38 : 48;
-    const maxLaneH = zoom > 1 ? Math.max(baseMaxLaneH * zoom * 1.35, availableLaneH / boatCount) : baseMaxLaneH;
-    const laneH = Math.max(isSmallLandscape ? 6 : 12, Math.min(maxLaneH, availableLaneH / boatCount));
+    const baseLaneH = Math.max(minLaneH, Math.min(baseMaxLaneH, availableLaneH / boatCount));
+    const laneH = zoom > 1
+      ? Math.max(baseLaneH * zoom * 0.95, baseLaneH + (zoom - 1) * (isSmallLandscape ? 16 : 22))
+      : baseLaneH;
+
+    const totalTrackH = topOffset + boatCount * laneH + bottomPad;
+    this.maxScrollY = Math.max(0, Math.round(totalTrackH - h));
+    if (this.scrollY > this.maxScrollY) {
+      this.scrollY = this.maxScrollY;
+    }
+    if (this.scrollY < 0) {
+      this.scrollY = 0;
+    }
+
+    // Centrage automatique intelligent sur le joueur lorsqu'il ne fait pas défiler manuellement
+    if (this.maxScrollY > 0 && Date.now() - this.lastUserScrollTime > 3500) {
+      const targetUserId = this.effectiveFocusedUserId;
+      const targetIdx = targetUserId ? visibleBoats.findIndex((b) => b.userId === targetUserId) : -1;
+      if (targetIdx >= 0) {
+        const targetCenterY = topOffset + (targetIdx + 0.5) * laneH;
+        const desiredScrollY = Math.max(0, Math.min(this.maxScrollY, targetCenterY - h / 2));
+        this.scrollY += (desiredScrollY - this.scrollY) * 0.06;
+      }
+    }
 
     // Facteur d'échelle typographique maximisant la taille de la police selon le zoom et la hauteur de couloir
     const laneRatio = Math.max(1, laneH / (isSmallLandscape ? 26 : 36));
@@ -1322,26 +950,24 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
 
     const camOffset = this.cameraX;
 
-    // 2. Lignes d'eau et repères de distance (police agrandie avec le zoom)
+    // 2. Zone scrollable du plan d'eau (lignes, bouées, couloirs et kayaks)
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(0, topOffset, w, h - topOffset);
+    ctx.clip();
+
     const markers = w < 380 ? [0, 0.5, 1.0] : [0, 0.25, 0.5, 0.75, 1.0];
     const markerFontPx = Math.round((isCompact ? 10 : 11) * Math.min(1.85, 1 + (zoom - 1) * 0.4));
     ctx.strokeStyle = 'rgba(0, 240, 255, 0.16)';
     ctx.lineWidth = 1;
-    ctx.font = `700 ${markerFontPx}px monospace`;
-    ctx.fillStyle = 'rgba(0, 240, 255, 0.85)';
 
     markers.forEach((pct) => {
       const x = marginX + trackW * pct - camOffset;
       if (x < -20 || x > w + 20) return;
       ctx.beginPath();
-      ctx.moveTo(x, topOffset);
-      ctx.lineTo(x, topOffset + boatCount * laneH);
+      ctx.moveTo(x, topOffset - this.scrollY);
+      ctx.lineTo(x, topOffset + boatCount * laneH - this.scrollY);
       ctx.stroke();
-
-      const label = `${Math.round(pct * this.targetDistance)}m`;
-      const tw = ctx.measureText(label).width;
-      const tx = Math.max(4, Math.min(w - tw - 4, x - tw / 2));
-      ctx.fillText(label, tx, Math.max(markerFontPx + 2, topOffset - 6));
     });
 
     // Ligne d'arrivée
@@ -1349,15 +975,16 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
     ctx.strokeStyle = '#ffe600';
     ctx.lineWidth = 2.5 * Math.min(1.5, boatScale);
     ctx.beginPath();
-    ctx.moveTo(finishX, topOffset);
-    ctx.lineTo(finishX, topOffset + boatCount * laneH);
+    ctx.moveTo(finishX, topOffset - this.scrollY);
+    ctx.lineTo(finishX, topOffset + boatCount * laneH - this.scrollY);
     ctx.stroke();
 
     // Bouées de balisage le long des couloirs et de la ligne d'arrivée
     const buoyRadius = (isSmallLandscape ? 1.5 : 2.5) * Math.min(1.6, boatScale);
     const finishBuoyRadius = (isSmallLandscape ? 2.0 : 3.0) * Math.min(1.6, boatScale);
     for (let l = 0; l <= boatCount; l++) {
-      const buoyY = topOffset + l * laneH;
+      const buoyY = topOffset + l * laneH - this.scrollY;
+      if (buoyY < topOffset - 20 || buoyY > h + 20) continue;
       markers.forEach((pct) => {
         const bx = marginX + trackW * pct - camOffset;
         if (bx >= -10 && bx <= w + 10) {
@@ -1382,17 +1009,19 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
       const emptyMsg = '🛶 Ligne d’eau prête — en attente des rameurs...';
       const msgW = ctx.measureText(emptyMsg).width;
       ctx.fillText(emptyMsg, Math.max(10, (w - msgW) / 2), h / 2 + 6);
+      ctx.restore();
       return;
     }
 
     // 3. Couloirs visibles du plan d'eau (police maximisée avec le zoom)
     const laneFontPx = Math.min(Math.floor(laneH * 0.45), Math.round((isCompact ? 10 : 11.5) * fontScale));
     for (let l = 0; l < boatCount; l++) {
+      const laneY = topOffset + (l + 0.5) * laneH - this.scrollY;
+      if (laneY < topOffset - laneH || laneY > h + laneH) continue;
       const boatInLane = visibleBoats[l];
       const displayLaneNum = (zoom > 1 || this.dynamicLaneMode)
         ? (startIndex + l + 1)
         : (boatInLane?.assignedLane || boatInLane?.lane || (l + 1));
-      const laneY = topOffset + (l + 0.5) * laneH;
       const laneLabel = isCompact ? `L${displayLaneNum}` : `Ligne ${displayLaneNum}`;
       ctx.font = `bold ${Math.max(9, laneFontPx)}px monospace`;
       ctx.fillStyle = boatInLane?.userId === this.activeUserId ? '#00f0ff' : 'rgba(0, 240, 255, 0.72)';
@@ -1402,8 +1031,8 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
       ctx.strokeStyle = 'rgba(255, 255, 255, 0.10)';
       ctx.lineWidth = zoom > 1 ? 1.4 : 1;
       ctx.beginPath();
-      ctx.moveTo(marginX, topOffset + (l + 1) * laneH);
-      ctx.lineTo(finishX + camOffset, topOffset + (l + 1) * laneH);
+      ctx.moveTo(marginX, topOffset + (l + 1) * laneH - this.scrollY);
+      ctx.lineTo(finishX + camOffset, topOffset + (l + 1) * laneH - this.scrollY);
       ctx.stroke();
     }
 
@@ -1416,7 +1045,8 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
       const effectiveLaneIdx = zoom > 1
         ? visibleIdx
         : (boat.currentLaneIndex !== undefined ? Math.min(boatCount - 1, Math.max(0, boat.currentLaneIndex)) : visibleIdx);
-      const y = topOffset + (effectiveLaneIdx + 0.5) * laneH;
+      const y = topOffset + (effectiveLaneIdx + 0.5) * laneH - this.scrollY;
+      if (y < topOffset - laneH * 1.5 || y > h + laneH * 1.5) return;
       const progress = Math.min(1.0, Math.max(0, boat.currentDisplayDist / (this.targetDistance || 2000)));
       const rawX = marginX + trackW * progress;
       const x = rawX - camOffset;
@@ -1609,7 +1239,7 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
         // Flèche animée qui flotte au-dessus du bateau
         const arrowBounce = Math.sin(nowSec * 5.5) * 3;
         const rawArrowY = y - (hullRy + 12 * boatScale) + arrowBounce;
-        const arrowY = Math.max(topOffset + 6, rawArrowY);
+        const arrowY = Math.max(22, rawArrowY);
         ctx.fillStyle = isUser ? '#00f0ff' : '#ffe600';
         ctx.beginPath();
         ctx.moveTo(x, arrowY + 4 * boatScale);
@@ -1625,7 +1255,7 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
         const boxPadX = Math.round(5 * Math.min(1.8, fontScale));
         const boxH = Math.round(labelFontPx + 6 * Math.min(1.6, fontScale));
         const bx = Math.max(6, Math.min(w - btw - boxPadX * 2 - 4, x - btw / 2));
-        const by = Math.max(topOffset + labelFontPx * 0.85, y - hullRy - 10 * boatScale);
+        const by = Math.max(14, arrowY - 14);
 
         // Fond bannière
         ctx.fillStyle = 'rgba(6, 15, 33, 0.92)';
@@ -1642,7 +1272,7 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
         ctx.font = `bold ${labelFontPx}px sans-serif`;
         const tw = ctx.measureText(text).width;
         const lx = Math.max(6, Math.min(w - tw - 8, x - tw / 2));
-        const ly = Math.max(topOffset + labelFontPx * 0.85, y - hullRy - 6 * boatScale);
+        const ly = Math.max(12, y - 9);
         if (zoom > 1) {
           const pad = Math.round(4 * Math.min(1.6, fontScale));
           ctx.fillStyle = 'rgba(6, 15, 33, 0.78)';
@@ -1723,5 +1353,44 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
         ctx.restore();
       }
     });
+    ctx.restore();
+
+    // 5. Repères de distance épinglés en haut du plan d'eau
+    ctx.font = `700 ${markerFontPx}px monospace`;
+    ctx.fillStyle = 'rgba(0, 240, 255, 0.85)';
+    markers.forEach((pct) => {
+      const x = marginX + trackW * pct - camOffset;
+      if (x < -20 || x > w + 20) return;
+      const label = `${Math.round(pct * this.targetDistance)}m`;
+      const tw = ctx.measureText(label).width;
+      const tx = Math.max(4, Math.min(w - tw - 4, x - tw / 2));
+      ctx.fillText(label, tx, Math.max(markerFontPx + 2, topOffset - 6));
+    });
+
+    // 6. Barre de défilement verticale élégante (si contenu scrollable)
+    if (this.maxScrollY > 0) {
+      const scrollbarW = 4;
+      const scrollbarX = w - scrollbarW - 4;
+      const trackTop = topOffset + 2;
+      const trackH = Math.max(20, h - topOffset - bottomPad - 4);
+      const thumbH = Math.max(20, Math.round((h / totalTrackH) * trackH));
+      const thumbY = trackTop + Math.round((this.scrollY / this.maxScrollY) * (trackH - thumbH));
+
+      ctx.save();
+      ctx.fillStyle = 'rgba(0, 240, 255, 0.12)';
+      ctx.fillRect(scrollbarX, trackTop, scrollbarW, trackH);
+
+      ctx.fillStyle = 'rgba(0, 240, 255, 0.7)';
+      ctx.shadowColor = '#00f0ff';
+      ctx.shadowBlur = 4;
+      if (typeof ctx.roundRect === 'function') {
+        ctx.beginPath();
+        ctx.roundRect(scrollbarX, thumbY, scrollbarW, thumbH, 2);
+        ctx.fill();
+      } else {
+        ctx.fillRect(scrollbarX, thumbY, scrollbarW, thumbH);
+      }
+      ctx.restore();
+    }
   }
 }

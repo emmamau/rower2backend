@@ -2373,7 +2373,7 @@
         </span>
       </div>
 
-      <!-- BARRE D'ACTION RAPIDE VUE RÉGATE : BASCULE ACCUEIL, COCKPIT, ZOOM X3 & PARAMÉTRAGE DONNÉES -->
+      <!-- BARRE D'ACTION RAPIDE VUE RÉGATE : BASCULE ACCUEIL, COCKPIT, CLASSEMENT, ZOOM X3 & PARAMÉTRAGE DONNÉES -->
       <aside class="regatta-quick-nav-bar" role="toolbar" aria-label="Navigation rapide et zoom régate">
         <button
           type="button"
@@ -2394,6 +2394,18 @@
           <span class="btn-quick-label">Cockpit</span>
         </button>
 
+        <!-- Bouton classement placé au-dessus du plan d'eau -->
+        <button
+          type="button"
+          class="btn-cockpit-quick btn-quick-ranking"
+          [class.active]="isRegattaLeaderboardOpen"
+          (click)="toggleRegattaLeaderboard()"
+          title="Afficher/Masquer le classement en direct"
+          aria-label="Classement">
+          <span class="btn-quick-icon">🏆</span>
+          <span class="btn-quick-label">Classement</span>
+        </button>
+
         <!-- Contrôle direct du Zoom (x1 à x3) dans la barre rapide de régate -->
         <div class="regatta-quick-zoom-group" role="group" aria-label="Zoom lignes d'eau et données">
           <button
@@ -2401,18 +2413,20 @@
             class="btn-cockpit-quick btn-quick-zoom"
             [disabled]="regattaZoomLevel <= 1"
             (click)="stepRegattaZoom(-0.5)"
-            title="Réduire le zoom">
+            title="Réduire le zoom"
+            aria-label="Zoom moins">
             🔍 −
           </button>
           <span class="quick-zoom-indicator" [class.is-zoomed]="regattaZoomLevel > 1">
-            Zoom x{{ regattaZoomLevel }}
+            <span class="zoom-prefix">Zoom </span>x{{ regattaZoomLevel }}
           </span>
           <button
             type="button"
             class="btn-cockpit-quick btn-quick-zoom"
             [disabled]="regattaZoomLevel >= 3"
             (click)="stepRegattaZoom(0.5)"
-            title="Augmenter le zoom jusqu'à x3 (texte maximisé, 3 kayaks et 3 données)">
+            title="Augmenter le zoom jusqu'à x3 (texte maximisé, 3 kayaks et 3 données)"
+            aria-label="Zoom plus">
             +
           </button>
         </div>
@@ -2421,11 +2435,55 @@
           type="button"
           class="btn-cockpit-quick btn-quick-prefs"
           (click)="openRegattaSettings()"
-          title="Configurer les données affichées sous les lignes d'eau dans votre profil">
+          title="Configurer les données affichées sous les lignes d'eau dans votre profil"
+          aria-label="Données télémétrie">
           <span class="btn-quick-icon">⚙️</span>
           <span class="btn-quick-label">Données ({{ visibleRegattaMetrics.length }})</span>
         </button>
       </aside>
+
+      <!-- PANNEAU CLASSEMENT EN DIRECT POSITIONNÉ AU-DESSUS DU CANVAS -->
+      <div
+        class="regatta-top-leaderboard-panel"
+        *ngIf="isRegattaLeaderboardOpen"
+        role="region"
+        aria-label="Classement en direct de la régate">
+        <div class="regatta-lead-header">
+          <span class="regatta-lead-title">
+            🏆 {{ i18n.t('LEADERBOARD') || 'Classement en direct' }} ({{ sortedLiveMetrics.length }})
+          </span>
+          <button
+            type="button"
+            class="btn-close-lead"
+            (click)="isRegattaLeaderboardOpen = false"
+            title="Fermer le classement"
+            aria-label="Fermer">✕</button>
+        </div>
+        <div class="regatta-lead-body" *ngIf="sortedLiveMetrics.length > 0">
+          <div
+            *ngFor="let racer of sortedLiveMetrics; let rank = index"
+            class="mini-lead-row"
+            [class.active-player]="racer.userId === activeUserId"
+            [class.focused-racer]="racer.userId === selectedSpectatorUserId"
+            (click)="onSpectatorSelect(racer.userId); isRegattaLeaderboardOpen = false;"
+            title="Cliquer pour centrer la caméra sur ce concurrent">
+            <span class="mini-lead-rank">{{ rank + 1 }}</span>
+            <span
+              class="ble-state-dot"
+              [class.is-ready]="racer.ready !== false && racer.connectionState !== 'CONNECTED'"
+              [class.is-waiting]="racer.ready === false || racer.connectionState === 'CONNECTED'"
+              [title]="(racer.ready === false || racer.connectionState === 'CONNECTED') ? 'En attente du rameur' : 'Rameur prêt'"></span>
+            <span class="mini-lead-name">{{ racer.name }}</span>
+            <span class="mini-lead-dist">{{ Math.round(racer.dist) }}m</span>
+            <span class="mini-lead-gap" [class.leader]="rank === 0">
+              {{ formatRacerGap(racer, sortedLiveMetrics[0]) }}
+            </span>
+          </div>
+        </div>
+        <div class="regatta-lead-empty" *ngIf="sortedLiveMetrics.length === 0">
+          En attente des rameurs...
+        </div>
+      </div>
 
       <!-- Vue Régate Canvas 2D (Tableau de la Régate avec Zoom x1..x3) -->
       <section class="regatta-canvas-section">

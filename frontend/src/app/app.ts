@@ -990,6 +990,9 @@ export class AppComponent implements OnInit, OnDestroy {
   private dragStartCockpitPos = { x: 0, y: 0 };
   private hasMovedCockpitLeaderboard = false;
 
+  // Popup de classement en mode régate au-dessus du plan d'eau
+  isRegattaLeaderboardOpen = false;
+
   // Espace Statistiques & Analyses de courses (abonnés = illimité, comptes gratuits = 10 jours)
   isStatisticsModalOpen = false;
   userStatisticsData: any = null;
@@ -3023,6 +3026,11 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   private lastCockpitToggleTimestamp = 0;
+
+  toggleRegattaLeaderboard(): void {
+    this.isRegattaLeaderboardOpen = !this.isRegattaLeaderboardOpen;
+    this.cdr.markForCheck();
+  }
 
   toggleCockpitLeaderboard(): void {
     const now = Date.now();

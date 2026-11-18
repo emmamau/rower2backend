@@ -121,3 +121,58 @@ test('Finish Line Celebration: 2-second fireworks and bold BRAVO overlay before 
   assert.match(htmlCode, /class="fireworks-canvas-backdrop"/,
     'Celebration overlay must include fireworks visual burst container');
 });
+
+test('Regatta Mode: Duplicate internal canvas zoom is deleted, leaving zoom solely above in quick-nav-bar', () => {
+  const canvasTsPath = path.join(rootDir, 'src/app/components/regatta-canvas/regatta-canvas.component.ts');
+  const canvasCode = fs.readFileSync(canvasTsPath, 'utf-8');
+
+  assert.ok(!canvasCode.includes('canvas-zoom-controls'), 'Internal canvas-zoom-controls must be deleted from regatta canvas');
+  assert.ok(!canvasCode.includes('btn-zoom-step'), 'Internal btn-zoom-step must be deleted from regatta canvas');
+
+  const appHtmlPath = path.join(rootDir, 'src/app/app.html');
+  const appHtml = fs.readFileSync(appHtmlPath, 'utf-8');
+  assert.match(appHtml, /class="regatta-quick-zoom-group"/, 'Zoom controls must remain in regatta-quick-nav-bar above the canvas');
+});
+
+test('Regatta Mode: Leaderboard popup removed from canvas DOM and placed above canvas with toggle button', () => {
+  const canvasTsPath = path.join(rootDir, 'src/app/components/regatta-canvas/regatta-canvas.component.ts');
+  const canvasCode = fs.readFileSync(canvasTsPath, 'utf-8');
+
+  assert.ok(!canvasCode.includes('mini-leaderboard'), 'Mini-leaderboard popup must be removed from canvas DOM');
+
+  const appHtmlPath = path.join(rootDir, 'src/app/app.html');
+  const appHtml = fs.readFileSync(appHtmlPath, 'utf-8');
+  assert.match(appHtml, /class="btn-cockpit-quick btn-quick-ranking"/, 'Top bar must include btn-quick-ranking with 🏆');
+  assert.match(appHtml, /class="regatta-top-leaderboard-panel"/, 'regatta-top-leaderboard-panel must be placed above the canvas in HTML');
+
+  const appTsPath = path.join(rootDir, 'src/app/app.ts');
+  const appTs = fs.readFileSync(appTsPath, 'utf-8');
+  assert.match(appTs, /isRegattaLeaderboardOpen\s*=\s*false/, 'app.ts must declare isRegattaLeaderboardOpen');
+  assert.match(appTs, /toggleRegattaLeaderboard\s*\(/, 'app.ts must declare toggleRegattaLeaderboard');
+});
+
+test('Portrait Mode: Buttons in regatta-quick-nav-bar are reduced to icons to prevent overflowing screen', () => {
+  const appCssPath = path.join(rootDir, 'src/app/app.css');
+  const appCss = fs.readFileSync(appCssPath, 'utf-8');
+
+  assert.match(appCss, /\.regatta-quick-nav-bar\s+\.btn-quick-label[\s\S]*?display:\s*none\s*!important/,
+    'Portrait CSS must hide btn-quick-label to reduce buttons to pure compact icons');
+  assert.match(appCss, /\.regatta-quick-nav-bar\s+\.zoom-prefix[\s\S]*?display:\s*none\s*!important/,
+    'Portrait CSS must hide zoom-prefix to keep zoom indicator compact');
+});
+
+test('Regatta Canvas: Vertical scrolling (wheel, touch/drag) and scrollbar for large fleet of kayaks', () => {
+  const canvasTsPath = path.join(rootDir, 'src/app/components/regatta-canvas/regatta-canvas.component.ts');
+  const canvasCode = fs.readFileSync(canvasTsPath, 'utf-8');
+
+  assert.match(canvasCode, /public\s+scrollY\s*:\s*number\s*=\s*0/, 'Must declare public scrollY in regatta canvas');
+  assert.match(canvasCode, /public\s+maxScrollY\s*:\s*number\s*=\s*0/, 'Must declare public maxScrollY in regatta canvas');
+  assert.match(canvasCode, /onCanvasWheel/, 'Must define wheel handler for vertical scrolling');
+  assert.match(canvasCode, /onCanvasPointerDown/, 'Must define pointerdown handler for touch drag scroll');
+  assert.match(canvasCode, /onCanvasPointerMove/, 'Must define pointermove handler for touch drag scroll');
+  assert.match(canvasCode, /onCanvasPointerUp/, 'Must define pointerup handler for touch drag scroll');
+
+  // Verify that click detection incorporates scrollY
+  assert.match(canvasCode, /const\s+y\s*=\s*topOffset\s*\+\s*\(idx\s*\+\s*0\.5\)\s*\*\s*laneH\s*-\s*this\.scrollY/,
+    'Click detection must offset y by - this.scrollY to correctly identify clicked kayak');
+});
