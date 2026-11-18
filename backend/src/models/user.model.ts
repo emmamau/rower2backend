@@ -9,6 +9,27 @@ export interface KayakCustomization {
   glowColor: string;
 }
 
+export type RegattaMetricKey =
+  | 'speed'
+  | 'pace'
+  | 'power'
+  | 'position'
+  | 'distToPrev'
+  | 'distToLeader'
+  | 'distToNext'
+  | 'distRemaining'
+  | 'distCovered'
+  | 'force'
+  | 'work'
+  | 'avgSpeed'
+  | 'avgPower'
+  | 'avgPace';
+
+export interface RegattaPreferences {
+  zoomLevel: number;
+  selectedMetrics: RegattaMetricKey[];
+}
+
 export interface UserAttributes {
   id: string;               // Identifiant unique (login ou ID montre/généré)
   name: string;             // Nom d'affichage ou login du joueur
@@ -52,7 +73,10 @@ export interface UserAttributes {
   isAdmin?: boolean;        // Rôle administrateur (EmmaRacer en dur)
   role?: string;            // 'USER' | 'ADMIN'
   isRevoked?: boolean;      // Compte banni/révoqué
+  customConcurrentRooms?: number | null; // Surcharge admin du nombre max de salons en parallèle
+  customWeeklyRooms?: number | null;     // Surcharge admin du nombre max de salons par semaine
   kayakCustomization?: KayakCustomization;
+  regattaPreferences?: RegattaPreferences;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -240,7 +264,21 @@ export default (sequelize: Sequelize, _DataTypesInstance: typeof DataTypes): Use
         field: "is_revoked",
         defaultValue: false,
       },
+      customConcurrentRooms: {
+        type: DataTypes.INTEGER,
+        field: "custom_concurrent_rooms",
+        allowNull: true,
+      },
+      customWeeklyRooms: {
+        type: DataTypes.INTEGER,
+        field: "custom_weekly_rooms",
+        allowNull: true,
+      },
       kayakCustomization: {
+        type: DataTypes.JSON,
+        allowNull: true,
+      },
+      regattaPreferences: {
         type: DataTypes.JSON,
         allowNull: true,
       },

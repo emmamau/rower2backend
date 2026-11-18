@@ -48,6 +48,104 @@ export function sanitizeKayakCustomization(custom?: any): KayakCustomization {
   return { hullColor, bladeColor, pattern, glowColor };
 }
 
+export type RegattaMetricKey =
+  | 'speed'
+  | 'pace'
+  | 'power'
+  | 'position'
+  | 'distToPrev'
+  | 'distToLeader'
+  | 'distToNext'
+  | 'distRemaining'
+  | 'distCovered'
+  | 'force'
+  | 'work'
+  | 'avgSpeed'
+  | 'avgPower'
+  | 'avgPace';
+
+export interface RegattaPreferences {
+  zoomLevel: number;
+  selectedMetrics: RegattaMetricKey[];
+}
+
+export interface RegattaMetricOption {
+  key: RegattaMetricKey;
+  label: string;
+  shortLabel: string;
+  unit: string;
+  icon: string;
+  desc: string;
+}
+
+export const REGATTA_METRICS_CATALOG: RegattaMetricOption[] = [
+  { key: 'speed', label: 'Vitesse', shortLabel: 'VITESSE', unit: 'km/h', icon: '🚀', desc: 'Vitesse instantanée du kayak' },
+  { key: 'pace', label: 'Allure', shortLabel: 'ALLURE /500M', unit: '/500m', icon: '⏱️', desc: 'Allure instantanée aux 500m' },
+  { key: 'power', label: 'Puissance', shortLabel: 'PUISSANCE', unit: 'W', icon: '⚡', desc: 'Puissance instantanée développée en Watts' },
+  { key: 'position', label: 'Position', shortLabel: 'POSITION', unit: '', icon: '🏆', desc: 'Classement en direct dans la régate' },
+  { key: 'distToPrev', label: 'Distance / joueur devant', shortLabel: 'ÉCART DEVANT', unit: 'm', icon: '⬆️', desc: 'Distance par rapport au joueur juste devant' },
+  { key: 'distToLeader', label: 'Distance / premier', shortLabel: 'ÉCART 1ER', unit: 'm', icon: '👑', desc: 'Distance par rapport au leader de la course' },
+  { key: 'distToNext', label: 'Distance / joueur derrière', shortLabel: 'ÉCART DERRIÈRE', unit: 'm', icon: '⬇️', desc: 'Distance par rapport au joueur qui suit' },
+  { key: 'distRemaining', label: 'Distance restante', shortLabel: 'DIST. RESTANTE', unit: 'm', icon: '🎯', desc: 'Mètres restants jusqu’à la ligne d’arrivée' },
+  { key: 'distCovered', label: 'Distance effectuée', shortLabel: 'DIST. EFFECTUÉE', unit: 'm', icon: '🚣', desc: 'Distance parcourue depuis le départ' },
+  { key: 'force', label: 'Force', shortLabel: 'FORCE', unit: 'N', icon: '💪', desc: 'Force de traction par coup de rame (Newtons)' },
+  { key: 'work', label: 'Travail', shortLabel: 'TRAVAIL', unit: 'J', icon: '🔋', desc: 'Travail mécanique par coup de rame (Joules)' },
+  { key: 'avgSpeed', label: 'Vitesse moyenne', shortLabel: 'VITESSE MOY.', unit: 'km/h', icon: '📈', desc: 'Vitesse moyenne sur la course' },
+  { key: 'avgPower', label: 'Puissance moyenne', shortLabel: 'PUISSANCE MOY.', unit: 'W', icon: '🔥', desc: 'Puissance moyenne en Watts sur la course' },
+  { key: 'avgPace', label: 'Allure moyenne', shortLabel: 'ALLURE MOY.', unit: '/500m', icon: '⏳', desc: 'Allure moyenne aux 500m sur la course' },
+];
+
+export const VALID_REGATTA_METRIC_KEYS: RegattaMetricKey[] = REGATTA_METRICS_CATALOG.map((m) => m.key);
+
+export const DEFAULT_REGATTA_METRICS: RegattaMetricKey[] = [
+  'position',
+  'power',
+  'pace',
+  'distCovered',
+  'distRemaining',
+  'distToPrev',
+];
+
+export const DEFAULT_REGATTA_PREFERENCES: RegattaPreferences = {
+  zoomLevel: 1,
+  selectedMetrics: [...DEFAULT_REGATTA_METRICS],
+};
+
+export function sanitizeRegattaPreferences(prefs?: any): RegattaPreferences {
+  const rawZoom = Number(prefs?.zoomLevel);
+  const zoomLevel = Number.isFinite(rawZoom)
+    ? Math.min(4, Math.max(1, Math.round(rawZoom * 2) / 2))
+    : DEFAULT_REGATTA_PREFERENCES.zoomLevel;
+
+  const validSet = new Set<string>(VALID_REGATTA_METRIC_KEYS);
+  const uniqueMetrics: RegattaMetricKey[] = [];
+
+  if (Array.isArray(prefs?.selectedMetrics)) {
+    for (const item of prefs.selectedMetrics) {
+      const k = String(item || '').trim() as RegattaMetricKey;
+      if (validSet.has(k) && !uniqueMetrics.includes(k)) {
+        uniqueMetrics.push(k);
+      }
+    }
+  }
+
+  if (uniqueMetrics.length === 0) {
+    uniqueMetrics.push(...DEFAULT_REGATTA_METRICS);
+  } else if (uniqueMetrics.length < 3) {
+    for (const fallbackKey of DEFAULT_REGATTA_METRICS) {
+      if (!uniqueMetrics.includes(fallbackKey)) {
+        uniqueMetrics.push(fallbackKey);
+      }
+      if (uniqueMetrics.length >= 3) break;
+    }
+  }
+
+  return {
+    zoomLevel,
+    selectedMetrics: uniqueMetrics,
+  };
+}
+
 export type LeagueTier = 'BRONZE' | 'SILVER' | 'GOLD';
 export type LeagueOutcome = 'PROMOTED' | 'RELEGATED' | 'MAINTAINED' | 'FROZEN';
 
@@ -94,6 +192,7 @@ export interface UserProfile {
     pairedAt?: string;
   };
   kayakCustomization?: KayakCustomization;
+  regattaPreferences?: RegattaPreferences;
   createdAt?: string;
   updatedAt?: string;
 }

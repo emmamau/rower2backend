@@ -589,32 +589,6 @@
               </div>
             }
 
-            <!-- CONFIGURATION SPÉCIFIQUE : SOLO (DÉPART AU PREMIER COUP DE RAME OU DÉCOMPTE) -->
-            @if (selectedGameMode === 'solo') {
-              <div class="priv-field">
-                <label class="priv-label">⚡ Mode de départ pour l'entraînement Solo</label>
-                <div class="priv-preset-row">
-                  <button
-                    type="button"
-                    class="priv-preset-chip"
-                    [class.active]="soloStartMode === 'first_stroke'"
-                    (click)="soloStartMode = 'first_stroke'">
-                    <strong>🚣 Au premier coup de rame</strong> (Recommandé)
-                  </button>
-                  <button
-                    type="button"
-                    class="priv-preset-chip"
-                    [class.active]="soloStartMode === 'countdown'"
-                    (click)="soloStartMode = 'countdown'">
-                    <strong>⏱️ Décompte manuel (10s / 3s)</strong>
-                  </button>
-                </div>
-                <div class="priv-hint">
-                  {{ soloStartMode === 'first_stroke' ? 'Dès que vous commencez à ramer, la course et le chronomètre se déclenchent instantanément.' : 'Vous lancerez le décompte manuellement avec les boutons 10s ou 3s.' }}
-                </div>
-              </div>
-            }
-
             <!-- CONFIGURATION SPÉCIFIQUE : MULTI-JOUEURS -->
             @if (selectedGameMode === 'multi') {
               <div class="priv-field">

@@ -36,13 +36,8 @@ test('PrivateRoomManagerComponent: Solo start mode "Au premier coup de rame" sup
   const htmlPath = path.join(rootDir, 'src/app/components/private-room-manager/private-room-manager.component.html');
   const htmlContent = fs.readFileSync(htmlPath, 'utf-8');
 
-  // 4. Check that creation form for solo contains start mode option
-  assert.match(
-    htmlContent,
-    /selectedGameMode\s*===\s*'solo'[\s\S]*?Au premier coup de rame/s,
-    'Creation form in solo mode must present "Au premier coup de rame" option'
-  );
-
+  // 4. Creation form must NOT configure start mode for solo (deferred to room)
+  assert.doesNotMatch(htmlContent, /Mode de départ pour l'entraînement Solo/, "Creation form for solo must not present start mode choice");
   // 5. Check banner and quick actions support solo for first stroke
   assert.match(
     htmlContent,

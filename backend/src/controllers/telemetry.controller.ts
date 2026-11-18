@@ -941,8 +941,16 @@ export class TelemetryController {
         const tierId = rawTier === "pro" || rawTier === "elite_pro" ? "premium" : (rawTier === "club" || rawTier === "standard" ? "intermediate" : rawTier);
         const limits = await subscriptionPlanService.getLimitsForTier(user || tierId);
 
-        const maxConcurrent = limits.maxConcurrentRooms !== undefined ? limits.maxConcurrentRooms : 1;
-        const maxWeekly = limits.maxWeeklyRooms !== undefined ? limits.maxWeeklyRooms : 5;
+        const customConcurrent = (user as any)?.customConcurrentRooms ?? (user as any)?.custom_concurrent_rooms;
+        const customWeekly = (user as any)?.customWeeklyRooms ?? (user as any)?.custom_weekly_rooms;
+
+        const maxConcurrent = customConcurrent !== null && customConcurrent !== undefined && Number.isFinite(Number(customConcurrent))
+          ? Number(customConcurrent)
+          : (limits.maxConcurrentRooms !== undefined ? limits.maxConcurrentRooms : 1);
+
+        const maxWeekly = customWeekly !== null && customWeekly !== undefined && Number.isFinite(Number(customWeekly))
+          ? Number(customWeekly)
+          : (limits.maxWeeklyRooms !== undefined ? limits.maxWeeklyRooms : 5);
 
         // 1. Vérification du plafond de salons ouverts simultanément
         const activeRoomsCount = raceManager.getActiveRoomsCount(String(hostUserId));
@@ -1163,8 +1171,19 @@ export class TelemetryController {
         : (rawTier === "pro" || rawTier === "elite_pro" ? "premium" : (rawTier === "club" || rawTier === "standard" ? "intermediate" : (rawTier as any) || "free"));
       const tierConfig = await subscriptionPlanService.getLimitsForTier(user || tierId);
 
-      const maxConcurrent = isUserAdmin ? 999 : (tierConfig.maxConcurrentRooms || 1);
-      const maxWeekly = isUserAdmin ? 999 : (tierConfig.maxWeeklyRooms || 5);
+      const customConcurrent = (user as any)?.customConcurrentRooms ?? (user as any)?.custom_concurrent_rooms;
+      const customWeekly = (user as any)?.customWeeklyRooms ?? (user as any)?.custom_weekly_rooms;
+
+      const defaultMaxConcurrent = isUserAdmin ? 999 : (tierConfig.maxConcurrentRooms || 1);
+      const defaultMaxWeekly = isUserAdmin ? 999 : (tierConfig.maxWeeklyRooms || 5);
+
+      const maxConcurrent = (!isUserAdmin && customConcurrent !== null && customConcurrent !== undefined && Number.isFinite(Number(customConcurrent)))
+        ? Number(customConcurrent)
+        : defaultMaxConcurrent;
+
+      const maxWeekly = (!isUserAdmin && customWeekly !== null && customWeekly !== undefined && Number.isFinite(Number(customWeekly)))
+        ? Number(customWeekly)
+        : defaultMaxWeekly;
 
       const activeCount = hostUserId ? raceManager.getActiveRoomsCount(hostUserId) : 0;
       const weeklyCount = hostUserId ? await raceManager.getWeeklyRoomsCount(hostUserId) : 0;

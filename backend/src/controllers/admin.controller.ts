@@ -20,6 +20,8 @@ function sanitizeAdminUser(user: any): Record<string, any> {
   plain.role = plain.role ? String(plain.role).toUpperCase() : (plain.isAdmin ? "ADMIN" : "USER");
   plain.isRevoked = plain.isRevoked !== undefined ? Boolean(plain.isRevoked) : Boolean(plain.is_revoked);
   plain.subscriptionTier = plain.subscriptionTier || plain.subscription_tier || "free";
+  plain.customConcurrentRooms = plain.customConcurrentRooms !== undefined ? plain.customConcurrentRooms : (plain.custom_concurrent_rooms ?? null);
+  plain.customWeeklyRooms = plain.customWeeklyRooms !== undefined ? plain.customWeeklyRooms : (plain.custom_weekly_rooms ?? null);
   return plain;
 }
 
@@ -542,6 +544,86 @@ export class AdminController {
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       res.status(500).json({ success: false, message: `Erreur modification offre: ${message}` });
+    }
+  }
+
+  public static async updateUserRoomQuotas(req: Request, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+      const { customConcurrentRooms, customWeeklyRooms } = req.body || {};
+
+      const targetId = String(id).trim();
+      let user: any = null;
+      try {
+        user = await Users.findByPk(targetId);
+        if (!user) {
+          user = await Users.findOne({ where: { login: targetId } });
+        }
+      } catch {}
+      if (!user) {
+        user = await userStore.findUser(targetId);
+      }
+
+      if (!user) {
+        res.status(404).json({ success: false, message: "Utilisateur introuvable." });
+        return;
+      }
+
+      const targetUserId = String(user.id || (typeof user.get === "function" ? user.get("id") : targetId));
+      const userLogin = String(user.login || (typeof user.get === "function" ? user.get("login") : targetId));
+
+      const parsedConcurrent = (customConcurrentRooms === null || customConcurrentRooms === undefined || customConcurrentRooms === "")
+        ? null
+        : Math.max(0, parseInt(String(customConcurrentRooms), 10));
+
+      const parsedWeekly = (customWeeklyRooms === null || customWeeklyRooms === undefined || customWeeklyRooms === "")
+        ? null
+        : Math.max(0, parseInt(String(customWeeklyRooms), 10));
+
+      const updates: any = {
+        customConcurrentRooms: Number.isFinite(parsedConcurrent as any) ? parsedConcurrent : null,
+        customWeeklyRooms: Number.isFinite(parsedWeekly as any) ? parsedWeekly : null,
+      };
+
+      try {
+        if (typeof user.update === "function") {
+          await user.update(updates);
+        }
+      } catch {}
+
+      try {
+        await db.sequelize.query(
+          `UPDATE rower_race_users 
+           SET custom_concurrent_rooms = :concurrent, 
+               custom_weekly_rooms = :weekly 
+           WHERE id = :id OR login = :id`,
+          {
+            replacements: {
+              concurrent: updates.customConcurrentRooms,
+              weekly: updates.customWeeklyRooms,
+              id: targetUserId,
+            },
+          }
+        );
+      } catch {}
+
+      await userStore.updateUser(targetUserId, updates);
+      if (userLogin && userLogin !== targetUserId) {
+        await userStore.updateUser(userLogin, updates);
+      }
+
+      const displayLogin = typeof user.get === "function" ? (user.get("login") || user.get("id")) : (user.login || user.id);
+      res.status(200).json({
+        success: true,
+        message: `Quotas de salons mis à jour pour ${displayLogin}.`,
+        user: sanitizeAdminUser({
+          ...user,
+          ...updates,
+        }),
+      });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      res.status(500).json({ success: false, message: `Erreur modification quotas salons: ${message}` });
     }
   }
 

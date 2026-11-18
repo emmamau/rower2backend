@@ -20,6 +20,12 @@ import {
   sanitizeKayakCustomization,
   hexToRgba,
   DEFAULT_KAYAK_CUSTOMIZATION,
+  RegattaMetricKey,
+  RegattaPreferences,
+  RegattaMetricOption,
+  REGATTA_METRICS_CATALOG,
+  DEFAULT_REGATTA_PREFERENCES,
+  sanitizeRegattaPreferences,
   LeagueTier,
   LeagueOutcome,
   LeagueStandingItem,
@@ -191,10 +197,19 @@ export class AppComponent implements OnInit, OnDestroy {
 
   // Subscriber Account Management Modal
   isAccountModalOpen = false;
-  accountModalTab: 'login' | 'register' | 'profile' | 'forgot' | 'kayak-customizer' = 'login';
+  accountModalTab: 'login' | 'register' | 'profile' | 'forgot' | 'kayak-customizer' | 'regatta-settings' = 'login';
   accountAuthError = '';
   accountAuthSuccess = '';
   isAccountSubmitting = false;
+
+  // Préférences d'affichage en Mode Régate (Zoom Lignes d'Eau x1..x3 & Données sous le Canvas)
+  readonly regattaMetricsCatalog: RegattaMetricOption[] = REGATTA_METRICS_CATALOG;
+  readonly regattaZoomPresets: number[] = [1, 1.5, 2, 2.5, 3];
+  regattaZoomLevel = DEFAULT_REGATTA_PREFERENCES.zoomLevel;
+  selectedRegattaMetrics: RegattaMetricKey[] = [...DEFAULT_REGATTA_PREFERENCES.selectedMetrics];
+  isSavingRegattaPreferences = false;
+  regattaPreferencesFeedback = '';
+  regattaPreferencesError = '';
 
   // Personnalisation du Kayak 2D
   customKayakHullColor = '#00e5ff';
@@ -338,6 +353,371 @@ export class AppComponent implements OnInit, OnDestroy {
     this.isPostRegisterOnboarding = false;
     this.accountModalTab = 'profile';
     this.cdr.markForCheck();
+  }
+
+  // --------------------------------------------------------------------------
+  // PRÉFÉRENCES D'AFFICHAGE EN MODE RÉGATE (ZOOM X3 & DONNÉES SOUS LE CANVAS)
+  // --------------------------------------------------------------------------
+  getLocalRegattaPreferences(): RegattaPreferences | null {
+    if (typeof localStorage === 'undefined') return null;
+    try {
+      const raw = localStorage.getItem('rower_regatta_preferences');
+      if (raw) {
+        return sanitizeRegattaPreferences(JSON.parse(raw));
+      }
+    } catch {}
+    return null;
+  }
+
+  syncRegattaPreferencesFromUser(user?: UserProfile): void {
+    const prefs = sanitizeRegattaPreferences(user?.regattaPreferences || this.getLocalRegattaPreferences());
+    this.regattaZoomLevel = prefs.zoomLevel;
+    this.selectedRegattaMetrics = [...prefs.selectedMetrics];
+  }
+
+  openRegattaSettings(): void {
+    this.syncRegattaPreferencesFromUser(this.currentUser);
+    this.accountModalTab = 'regatta-settings';
+    this.accountAuthError = '';
+    this.accountAuthSuccess = '';
+    this.regattaPreferencesError = '';
+    this.regattaPreferencesFeedback = '';
+    this.isAccountModalOpen = true;
+    this.cdr.markForCheck();
+  }
+
+  isRegattaMetricSelected(key: RegattaMetricKey): boolean {
+    return this.selectedRegattaMetrics.includes(key);
+  }
+
+  getRegattaMetricOption(key: RegattaMetricKey): RegattaMetricOption {
+    return (
+      this.regattaMetricsCatalog.find((m) => m.key === key) || {
+        key,
+        label: key,
+        shortLabel: key.toUpperCase(),
+        unit: '',
+        icon: '📊',
+        desc: '',
+      }
+    );
+  }
+
+  toggleRegattaMetric(key: RegattaMetricKey): void {
+    this.regattaPreferencesError = '';
+    this.regattaPreferencesFeedback = '';
+    const idx = this.selectedRegattaMetrics.indexOf(key);
+    if (idx >= 0) {
+      if (this.selectedRegattaMetrics.length <= 3) {
+        this.regattaPreferencesError = 'Au minimum 3 données doivent rester sélectionnées pour le confort de lecture en zoom maximal.';
+        this.cdr.markForCheck();
+        return;
+      }
+      this.selectedRegattaMetrics = this.selectedRegattaMetrics.filter((k) => k !== key);
+    } else {
+      this.selectedRegattaMetrics = [...this.selectedRegattaMetrics, key];
+    }
+    this.cdr.markForCheck();
+  }
+
+  moveRegattaMetric(index: number, direction: -1 | 1): void {
+    const targetIdx = index + direction;
+    if (targetIdx < 0 || targetIdx >= this.selectedRegattaMetrics.length) return;
+    const copy = [...this.selectedRegattaMetrics];
+    const temp = copy[index];
+    copy[index] = copy[targetIdx];
+    copy[targetIdx] = temp;
+    this.selectedRegattaMetrics = copy;
+    this.cdr.markForCheck();
+  }
+
+  resetRegattaPreferencesDefault(): void {
+    this.regattaZoomLevel = DEFAULT_REGATTA_PREFERENCES.zoomLevel;
+    this.selectedRegattaMetrics = [...DEFAULT_REGATTA_PREFERENCES.selectedMetrics];
+    this.regattaPreferencesError = '';
+    this.regattaPreferencesFeedback = 'Paramètres par défaut restaurés.';
+    this.cdr.markForCheck();
+  }
+
+  setRegattaZoom(level: number, persist: boolean = true): void {
+    const cleanLevel = Math.min(3, Math.max(1, Math.round(Number(level || 1) * 2) / 2));
+    this.regattaZoomLevel = cleanLevel;
+    if (persist) {
+      this.persistRegattaPreferencesSilent();
+    }
+    this.cdr.markForCheck();
+  }
+
+  stepRegattaZoom(delta: number): void {
+    const next = Math.min(3, Math.max(1, Math.round((this.regattaZoomLevel + delta) * 2) / 2));
+    this.setRegattaZoom(next, true);
+  }
+
+  private persistRegattaPreferencesSilent(): void {
+    const prefs = sanitizeRegattaPreferences({
+      zoomLevel: this.regattaZoomLevel,
+      selectedMetrics: this.selectedRegattaMetrics,
+    });
+    try {
+      localStorage.setItem('rower_regatta_preferences', JSON.stringify(prefs));
+    } catch {}
+    if (this.currentUser) {
+      this.currentUser.regattaPreferences = prefs;
+    }
+    const targetUserId = this.currentUser?.login || this.currentUser?.id || this.activeUserId;
+    if (targetUserId && this.isRegisteredUser) {
+      this.rowerService.updateRegattaPreferences(targetUserId, prefs).subscribe({
+        next: () => {},
+        error: () => {},
+      });
+    }
+  }
+
+  saveRegattaPreferences(): void {
+    if (this.selectedRegattaMetrics.length < 3) {
+      this.regattaPreferencesError = 'Veuillez sélectionner au minimum 3 données à afficher sous les lignes d’eau.';
+      this.cdr.markForCheck();
+      return;
+    }
+
+    const prefs = sanitizeRegattaPreferences({
+      zoomLevel: this.regattaZoomLevel,
+      selectedMetrics: this.selectedRegattaMetrics,
+    });
+
+    try {
+      localStorage.setItem('rower_regatta_preferences', JSON.stringify(prefs));
+    } catch {}
+
+    const targetUserId = this.currentUser?.login || this.currentUser?.id || this.activeUserId;
+    if (!targetUserId || !this.isRegisteredUser) {
+      this.currentUser.regattaPreferences = prefs;
+      this.regattaPreferencesFeedback = 'Préférences d’affichage enregistrées sur cet appareil !';
+      this.accountAuthSuccess = 'Préférences de régate sauvegardées !';
+      this.cdr.markForCheck();
+      return;
+    }
+
+    this.isSavingRegattaPreferences = true;
+    this.regattaPreferencesError = '';
+    this.regattaPreferencesFeedback = '';
+
+    this.rowerService.updateRegattaPreferences(targetUserId, prefs).subscribe({
+      next: (res) => {
+        this.isSavingRegattaPreferences = false;
+        this.currentUser = {
+          ...this.currentUser,
+          ...(res.user || {}),
+          regattaPreferences: prefs,
+        };
+        this.regattaPreferencesFeedback = 'Vos préférences de régate et de zoom ont été enregistrées dans votre profil !';
+        this.accountAuthSuccess = 'Préférences de régate enregistrées avec succès !';
+        this.cdr.markForCheck();
+      },
+      error: (err) => {
+        this.isSavingRegattaPreferences = false;
+        this.regattaPreferencesError = err.error?.message || 'Erreur lors de la sauvegarde des préférences.';
+        this.cdr.markForCheck();
+      },
+    });
+  }
+
+  /**
+   * Liste des données visibles sous le canevas des lignes d'eau :
+   * En zoomant (de x1 à x3), réduit progressivement le nombre de données visibles jusqu'à un minimum de 3.
+   */
+  get visibleRegattaMetrics(): RegattaMetricKey[] {
+    const list = this.selectedRegattaMetrics.length >= 3
+      ? this.selectedRegattaMetrics
+      : DEFAULT_REGATTA_PREFERENCES.selectedMetrics;
+    const total = list.length;
+    if (total <= 3 || this.regattaZoomLevel <= 1) {
+      return list;
+    }
+    const zoomRatio = Math.min(1, Math.max(0, (this.regattaZoomLevel - 1) / 2));
+    const visibleCount = Math.max(3, Math.round(total - (total - 3) * zoomRatio));
+    return list.slice(0, visibleCount);
+  }
+
+  /**
+   * Calcule la valeur formatée, l'unité et le sous-titre pour chacune des 14 données configurables sous les lignes d'eau.
+   */
+  getRegattaMetricDisplay(key: RegattaMetricKey): {
+    key: RegattaMetricKey;
+    label: string;
+    icon: string;
+    value: string;
+    unit: string;
+    sub: string;
+    isHighlight: boolean;
+  } {
+    const opt = this.getRegattaMetricOption(key);
+    const telem = this.focusedTelemetry || this.myActivity;
+    const watts = Math.round(Number(telem?.lastPower || 0));
+    const avgWatts = Math.round(Number(telem?.avgPower || 0));
+    const paceSec = Number(telem?.lastPace || 0);
+    const avgPaceSec = Number(telem?.avgPace || 0);
+    const spm = Number(telem?.lastStrokeRate || telem?.avgStrokeRate || 0);
+    const netDist = Math.round(Number(telem?.netDistance || 0));
+    const remDist = Math.max(0, Math.round(this.activeTargetDistance - netDist));
+
+    // Vitesse instantanée (km/h) basée sur l'allure ou la formule Concept2 v = (W / 2.80)^(1/3)
+    let instSpeedKmh = 0;
+    if (paceSec >= 60 && paceSec < 600) {
+      instSpeedKmh = (500 / paceSec) * 3.6;
+    } else if (watts > 0) {
+      instSpeedKmh = Math.cbrt(watts / 2.80) * 3.6;
+    }
+    const avgSpeedKmh = Number(telem?.avgSpeedKmh || (avgPaceSec >= 60 && avgPaceSec < 600 ? (500 / avgPaceSec) * 3.6 : 0));
+
+    // Travail par coup (Joules) et Force (Newtons) selon le modèle biomécanique RowerDataModel
+    const workJoules = spm > 0 && watts > 0 ? Math.round((watts * 60) / spm) : 0;
+    const handleLengthM = Math.min(1.35, Math.max(0.80, (136 - 1.2 * spm) / 100));
+    const forceNewtons = workJoules > 0 && handleLengthM > 0 ? Math.round(workJoules / handleLengthM) : 0;
+
+    switch (key) {
+      case 'speed':
+        return {
+          key,
+          label: opt.shortLabel,
+          icon: opt.icon,
+          value: instSpeedKmh.toFixed(1),
+          unit: 'km/h',
+          sub: `Moy: ${avgSpeedKmh.toFixed(1)} km/h`,
+          isHighlight: false,
+        };
+      case 'pace':
+        return {
+          key,
+          label: opt.shortLabel,
+          icon: opt.icon,
+          value: this.formatPace(paceSec),
+          unit: '/500m',
+          sub: `Moy: ${this.formatPace(avgPaceSec)}`,
+          isHighlight: false,
+        };
+      case 'power':
+        return {
+          key,
+          label: opt.shortLabel,
+          icon: opt.icon,
+          value: String(watts),
+          unit: 'W',
+          sub: `Moy: ${avgWatts} W`,
+          isHighlight: true,
+        };
+      case 'position':
+        return {
+          key,
+          label: opt.shortLabel,
+          icon: opt.icon,
+          value: this.myRank ? `#${this.myRank}` : '--',
+          unit: `/${this.totalActiveRacers || 1}`,
+          sub: this.myRank === 1 ? '🥇 En tête' : (this.myRank ? `-${this.distToLeader}m du 1er` : 'Classement'),
+          isHighlight: true,
+        };
+      case 'distToPrev':
+        return {
+          key,
+          label: opt.shortLabel,
+          icon: opt.icon,
+          value: this.myRank === 1 ? 'Leader' : (this.myRank && this.myRank > 1 ? `-${this.distToPrev}` : '--'),
+          unit: this.myRank && this.myRank > 1 ? 'm' : '',
+          sub: 'Joueur devant',
+          isHighlight: false,
+        };
+      case 'distToLeader':
+        return {
+          key,
+          label: opt.shortLabel,
+          icon: opt.icon,
+          value: this.myRank === 1 ? 'Leader' : (this.myRank && this.myRank > 1 ? `-${this.distToLeader}` : '--'),
+          unit: this.myRank && this.myRank > 1 ? 'm' : '',
+          sub: 'Écart 1er',
+          isHighlight: false,
+        };
+      case 'distToNext':
+        return {
+          key,
+          label: opt.shortLabel,
+          icon: opt.icon,
+          value: this.myRank && this.myRank < this.totalActiveRacers ? `+${this.distToNext}` : '--',
+          unit: this.myRank && this.myRank < this.totalActiveRacers ? 'm' : '',
+          sub: 'Joueur derrière',
+          isHighlight: false,
+        };
+      case 'distRemaining':
+        return {
+          key,
+          label: opt.shortLabel,
+          icon: opt.icon,
+          value: String(remDist),
+          unit: 'm',
+          sub: `Objectif ${this.activeTargetDistance}m`,
+          isHighlight: false,
+        };
+      case 'distCovered':
+        return {
+          key,
+          label: opt.shortLabel,
+          icon: opt.icon,
+          value: String(netDist),
+          unit: 'm',
+          sub: `${this.myProgressPercent}% effectué`,
+          isHighlight: false,
+        };
+      case 'force':
+        return {
+          key,
+          label: opt.shortLabel,
+          icon: opt.icon,
+          value: String(forceNewtons),
+          unit: 'N',
+          sub: `${spm.toFixed(0)} SPM`,
+          isHighlight: false,
+        };
+      case 'work':
+        return {
+          key,
+          label: opt.shortLabel,
+          icon: opt.icon,
+          value: String(workJoules),
+          unit: 'J',
+          sub: 'Par coup de rame',
+          isHighlight: false,
+        };
+      case 'avgSpeed':
+        return {
+          key,
+          label: opt.shortLabel,
+          icon: opt.icon,
+          value: avgSpeedKmh.toFixed(1),
+          unit: 'km/h',
+          sub: `Inst: ${instSpeedKmh.toFixed(1)} km/h`,
+          isHighlight: false,
+        };
+      case 'avgPower':
+        return {
+          key,
+          label: opt.shortLabel,
+          icon: opt.icon,
+          value: String(avgWatts),
+          unit: 'W',
+          sub: `Inst: ${watts} W`,
+          isHighlight: false,
+        };
+      case 'avgPace':
+      default:
+        return {
+          key,
+          label: opt.shortLabel,
+          icon: opt.icon,
+          value: this.formatPace(avgPaceSec),
+          unit: '/500m',
+          sub: `Inst: ${this.formatPace(paceSec)}`,
+          isHighlight: false,
+        };
+    }
   }
 
   startKayakPreviewAnimation(): void {
@@ -839,6 +1219,7 @@ export class AppComponent implements OnInit, OnDestroy {
       this.openAccountModal('login');
     }
     this.syncKayakCustomizationFromUser();
+    this.syncRegattaPreferencesFromUser();
     this.activeViewMode = this.detectTerminalViewMode();
     this.syncSeoLanguage(this.i18n.getCurrentLang());
     this.loadUserProfile();
@@ -1244,6 +1625,7 @@ export class AppComponent implements OnInit, OnDestroy {
         }
 
         this.syncKayakCustomizationFromUser(res.user);
+        this.syncRegattaPreferencesFromUser(res.user);
         this.autoResolveMyPublicKayak();
         this.cdr.markForCheck();
       }
@@ -1824,7 +2206,7 @@ export class AppComponent implements OnInit, OnDestroy {
     return this.currentUser?.subscriptionTier || (typeof localStorage !== 'undefined' ? localStorage.getItem('rower_subscription_tier') || '' : '') || (this.isSubscriber ? 'standard' : 'free');
   }
 
-  openAccountModal(tab: 'login' | 'register' | 'profile' | 'forgot' | 'kayak-customizer' = 'login'): void {
+  openAccountModal(tab: 'login' | 'register' | 'profile' | 'forgot' | 'kayak-customizer' | 'regatta-settings' = 'login'): void {
     if (!this.isPaired && typeof localStorage !== 'undefined') {
       const storedToken = localStorage.getItem('rower_device_token');
       const storedPaired = localStorage.getItem('rower_is_paired') === 'true';
@@ -1845,8 +2227,13 @@ export class AppComponent implements OnInit, OnDestroy {
     if (this.accountModalTab === 'kayak-customizer') {
       this.syncKayakCustomizationFromUser(this.currentUser);
     }
+    if (this.accountModalTab === 'regatta-settings' || this.accountModalTab === 'profile') {
+      this.syncRegattaPreferencesFromUser(this.currentUser);
+    }
     this.accountAuthError = '';
     this.accountAuthSuccess = '';
+    this.regattaPreferencesError = '';
+    this.regattaPreferencesFeedback = '';
     this.isAccountModalOpen = true;
     this.cdr.markForCheck();
   }
@@ -1905,6 +2292,7 @@ export class AppComponent implements OnInit, OnDestroy {
           };
           this.userLoginInput = userLogin;
           this.syncKayakCustomizationFromUser(res.user);
+          this.syncRegattaPreferencesFromUser(res.user);
 
           try {
             localStorage.setItem('rower_user_id', userLogin);
@@ -2018,6 +2406,7 @@ export class AppComponent implements OnInit, OnDestroy {
           this.userIdInput = res.user.watchUserId || userLogin;
           this.currentUser = res.user;
           this.userLoginInput = res.user.name || userLogin;
+          this.syncRegattaPreferencesFromUser(res.user);
 
           try {
             localStorage.setItem('rower_user_id', userLogin);

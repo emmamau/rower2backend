@@ -24,6 +24,8 @@ export interface AdminUserItem {
   leagueName?: string;
   isRevoked: boolean;
   totalRaces?: number;
+  customConcurrentRooms?: number | null;
+  customWeeklyRooms?: number | null;
   createdAt?: string;
 }
 
@@ -148,6 +150,14 @@ export class AdminService {
     return this.http.patch<{ success: boolean; message: string; user: AdminUserItem }>(
       `${this.apiUrl}/api/admin/users/${encodeURIComponent(userId)}/plan`,
       { subscriptionTier },
+      { headers: this.getAuthHeaders() }
+    );
+  }
+
+  updateUserRoomQuotas(userId: string, quotas: { customConcurrentRooms: number | null; customWeeklyRooms: number | null }): Observable<{ success: boolean; message: string; user: AdminUserItem }> {
+    return this.http.patch<{ success: boolean; message: string; user: AdminUserItem }>(
+      `${this.apiUrl}/api/admin/users/${encodeURIComponent(userId)}/room-quotas`,
+      quotas,
       { headers: this.getAuthHeaders() }
     );
   }

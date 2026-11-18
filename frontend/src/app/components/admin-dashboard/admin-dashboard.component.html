@@ -199,6 +199,7 @@
               <th>Email</th>
               <th>Rôle</th>
               <th>Offre</th>
+              <th>Quotas Salons</th>
               <th>Ligue</th>
               <th>Statut</th>
               <th>Actions</th>
@@ -236,6 +237,17 @@
                 </select>
               </td>
               <td>
+                <div class="quota-badge-cell" (click)="openQuotaModal(u)" title="Cliquez pour personnaliser les quotas de salons">
+                  <span class="quota-pill" [class.custom-override]="u.customConcurrentRooms !== null && u.customConcurrentRooms !== undefined">
+                    ⚡ {{ (u.customConcurrentRooms !== null && u.customConcurrentRooms !== undefined) ? u.customConcurrentRooms : getDefaultConcurrent(u.subscriptionTier) }} max
+                  </span>
+                  <span class="quota-pill" [class.custom-override]="u.customWeeklyRooms !== null && u.customWeeklyRooms !== undefined">
+                    📅 {{ (u.customWeeklyRooms !== null && u.customWeeklyRooms !== undefined) ? u.customWeeklyRooms : getDefaultWeekly(u.subscriptionTier) }}/sem
+                  </span>
+                  <button class="btn-quota-edit" (click)="$event.stopPropagation(); openQuotaModal(u)" title="Modifier les quotas">✏️</button>
+                </div>
+              </td>
+              <td>
                 <span class="table-badge" style="background: rgba(255, 215, 0, 0.15); color: #ffd700;">
                   {{ u.currentLeague || 'BRONZE' }}
                 </span>
@@ -263,11 +275,18 @@
                   >
                     🔑 Mot de passe
                   </button>
+                  <button
+                    class="btn-action btn-action-quota"
+                    (click)="openQuotaModal(u)"
+                    title="Ajuster les salons simultanés et par semaine"
+                  >
+                    🏟️ Salons
+                  </button>
                 </div>
               </td>
             </tr>
             <tr *ngIf="usersList.length === 0">
-              <td colspan="7" style="text-align: center; color: #94a3b8; padding: 24px;">
+              <td colspan="8" style="text-align: center; color: #94a3b8; padding: 24px;">
                 {{ isLoadingUsers ? 'Chargement des utilisateurs...' : 'Aucun utilisateur trouvé.' }}
               </td>
             </tr>
@@ -450,6 +469,67 @@
       <div class="modal-actions">
         <button class="btn-close" (click)="closePasswordModal()">Annuler</button>
         <button class="btn-submit" (click)="confirmPasswordReset()">Enregistrer le nouveau mot de passe</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modale Quotas Salons Personnalisés -->
+  <div class="modal-overlay" *ngIf="isQuotaModalOpen">
+    <div class="modal-dialog" style="max-width: 520px;">
+      <h3 class="modal-title">🏟️ Quotas de Salons Privés</h3>
+      <p style="color: #cbd5e1; font-size: 0.95rem; margin-bottom: 12px;">
+        Ajuster le nombre de salons qu'il peut encore créer en parallèle et dans la semaine pour l'utilisateur
+        <strong style="color: #38bdf8;">{{ userToEditQuotas?.login || userToEditQuotas?.name }}</strong>.
+      </p>
+
+      <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 8px; padding: 12px; margin-bottom: 16px; font-size: 0.85rem; color: #94a3b8;">
+        <div>Offre active : <strong style="color: #f1f5f9;">{{ userToEditQuotas?.subscriptionTier || 'free' }}</strong></div>
+        <div>Valeurs par défaut de l'offre :
+          <span style="color: #38bdf8;">{{ getDefaultConcurrent(userToEditQuotas?.subscriptionTier) }} simultané(s)</span>,
+          <span style="color: #38bdf8;">{{ getDefaultWeekly(userToEditQuotas?.subscriptionTier) }} / semaine</span>
+        </div>
+        <div style="margin-top: 4px; font-style: italic;">
+          * Laissez le champ vide pour restaurer le plafond automatique de l'offre.
+        </div>
+      </div>
+
+      <div class="form-grid" style="grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+        <div class="form-group">
+          <label>Salons en parallèle (simultanés)</label>
+          <input
+            type="number"
+            class="form-input"
+            [(ngModel)]="editConcurrentRooms"
+            placeholder="Ex: 5 (défaut: {{ getDefaultConcurrent(userToEditQuotas?.subscriptionTier) }})"
+            min="0"
+            max="100"
+          />
+          <small style="color: #64748b; font-size: 0.75rem;">Nombre max ouvert en même temps</small>
+        </div>
+        <div class="form-group">
+          <label>Salons dans la semaine</label>
+          <input
+            type="number"
+            class="form-input"
+            [(ngModel)]="editWeeklyRooms"
+            placeholder="Ex: 20 (défaut: {{ getDefaultWeekly(userToEditQuotas?.subscriptionTier) }})"
+            min="0"
+            max="500"
+          />
+          <small style="color: #64748b; font-size: 0.75rem;">Plafond hebdomadaire autorisé</small>
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn-close" (click)="closeQuotaModal()">Annuler</button>
+        <button
+          class="btn-submit"
+          style="background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);"
+          [disabled]="isSavingQuotas"
+          (click)="confirmQuotaSave()"
+        >
+          {{ isSavingQuotas ? 'Enregistrement...' : 'Enregistrer les quotas' }}
+        </button>
       </div>
     </div>
   </div>

@@ -7,6 +7,7 @@ const initAuthRoutes = require("../dist/routes/auth.routes").default;
 const initAdminRoutes = require("../dist/routes/admin.routes").default;
 const initUserRoutes = require("../dist/routes/user.routes").default;
 const initRaceRoutes = require("../dist/routes/race.routes").default;
+const initTelemetryRoutes = require("../dist/routes/telemetry.routes").default;
 const db = require("../dist/models").default;
 const AdminInitService = require("../dist/services/admin-init.service").default;
 const JwtService = require("../dist/services/jwt.service").default;
@@ -27,6 +28,7 @@ function createTestServer() {
   initAdminRoutes(app);
   initUserRoutes(app);
   initRaceRoutes(app);
+  initTelemetryRoutes(app);
 
   const server = http.createServer(app);
   return new Promise((resolve) => {
@@ -560,6 +562,88 @@ test("8. User Reconnection & Profile Reflection after Admin Updates Role and Pla
     assert.equal(meData.isAdmin, true);
     assert.equal(meData.subscriptionTier, "premium");
     assert.equal(meData.isSubscriber, true);
+  } finally {
+    await ctx.close();
+  }
+});
+
+test("9. User Custom Room Quotas: Admin modification and enforcement on limits & creation", async () => {
+  const ctx = await createTestServer();
+  try {
+    const adminToken = JwtService.sign({
+      userId: "usr_admin_rowerrace",
+      login: "Admin_RowerRace",
+      role: "ADMIN",
+    });
+
+    const targetUser = await userStore.createUser({
+      login: "quota_racer",
+      name: "Quota Racer",
+      email: "quota@example.com",
+      subscriptionTier: "free",
+      isSubscriber: false,
+      role: "USER",
+      isAdmin: false,
+      isRevoked: false,
+      isConfirmed: true,
+    });
+
+    // 9.1 Vérifier les quotas initiaux par défaut (offre free : 1 concurrent, 5 / semaine)
+    const initialLimitsRes = await fetch(`${ctx.baseUrl}/api/v1/races/private/limits?hostUserId=${targetUser.id}`);
+    assert.equal(initialLimitsRes.status, 200);
+    const initialLimits = await initialLimitsRes.json();
+    assert.equal(initialLimits.concurrent.max, 1);
+    assert.equal(initialLimits.weekly.max, 5);
+
+    // 9.2 L'administrateur personnalise les quotas du joueur : 4 simultanés, 25 par semaine
+    const patchRes = await fetch(`${ctx.baseUrl}/api/admin/users/${targetUser.id}/room-quotas`, {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${adminToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        customConcurrentRooms: 4,
+        customWeeklyRooms: 25,
+      }),
+    });
+    assert.equal(patchRes.status, 200);
+    const patchData = await patchRes.json();
+    assert.equal(patchData.success, true);
+    assert.equal(patchData.user.customConcurrentRooms, 4);
+    assert.equal(patchData.user.customWeeklyRooms, 25);
+
+    // 9.3 L'endpoint des quotas reflète immédiatement les surcharges personnalisées
+    const updatedLimitsRes = await fetch(`${ctx.baseUrl}/api/v1/races/private/limits?hostUserId=${targetUser.id}`);
+    assert.equal(updatedLimitsRes.status, 200);
+    const updatedLimits = await updatedLimitsRes.json();
+    assert.equal(updatedLimits.concurrent.max, 4);
+    assert.equal(updatedLimits.concurrent.remaining, 4);
+    assert.equal(updatedLimits.weekly.max, 25);
+    assert.equal(updatedLimits.weekly.remaining, 25);
+
+    // 9.4 Réinitialisation des surcharges (retour au comportement par défaut de l'offre)
+    const resetRes = await fetch(`${ctx.baseUrl}/api/admin/users/${targetUser.id}/room-quotas`, {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${adminToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        customConcurrentRooms: null,
+        customWeeklyRooms: null,
+      }),
+    });
+    assert.equal(resetRes.status, 200);
+    const resetData = await resetRes.json();
+    assert.equal(resetData.user.customConcurrentRooms, null);
+    assert.equal(resetData.user.customWeeklyRooms, null);
+
+    const resetLimitsRes = await fetch(`${ctx.baseUrl}/api/v1/races/private/limits?hostUserId=${targetUser.id}`);
+    assert.equal(resetLimitsRes.status, 200);
+    const resetLimits = await resetLimitsRes.json();
+    assert.equal(resetLimits.concurrent.max, 1);
+    assert.equal(resetLimits.weekly.max, 5);
   } finally {
     await ctx.close();
   }

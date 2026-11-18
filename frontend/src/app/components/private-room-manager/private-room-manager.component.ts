@@ -860,7 +860,7 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
           ? Math.min(this.BOT_PACE_MAX, Math.max(this.BOT_PACE_MIN, Math.round(Number(this.botMaxPace) || 145)))
           : (Number(this.botMaxPace) || 120),
         requireApproval: this.selectedGameMode === 'multi' ? this.requireApproval : false,
-        botStartMode: isBotDuel ? 'first_stroke' : (isSolo ? this.soloStartMode : undefined),
+        botStartMode: isSolo || isBotDuel ? 'first_stroke' : undefined,
         isBotDuel,
         isDuel1v1,
         isSolo,

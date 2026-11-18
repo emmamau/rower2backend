@@ -61,6 +61,13 @@ export class AdminDashboardComponent implements OnInit {
   pendingNewRole: 'ADMIN' | 'USER' = 'USER';
   isRoleModalOpen = false;
 
+  // Modale Quotas Salons Utilisateur
+  userToEditQuotas: AdminUserItem | null = null;
+  editConcurrentRooms: number | null = null;
+  editWeeklyRooms: number | null = null;
+  isQuotaModalOpen = false;
+  isSavingQuotas = false;
+
   // Onglet 3 : Offres & Quotas
   plansList: SubscriptionPlanItem[] = [];
   isLoadingPlans = false;
@@ -323,6 +330,69 @@ export class AdminDashboardComponent implements OnInit {
         this.cdr.markForCheck();
       }
     });
+  }
+
+  openQuotaModal(user: AdminUserItem): void {
+    this.userToEditQuotas = user;
+    this.editConcurrentRooms = user.customConcurrentRooms !== undefined ? user.customConcurrentRooms : null;
+    this.editWeeklyRooms = user.customWeeklyRooms !== undefined ? user.customWeeklyRooms : null;
+    this.isQuotaModalOpen = true;
+  }
+
+  closeQuotaModal(): void {
+    this.isQuotaModalOpen = false;
+    this.userToEditQuotas = null;
+    this.editConcurrentRooms = null;
+    this.editWeeklyRooms = null;
+    this.isSavingQuotas = false;
+  }
+
+  confirmQuotaSave(): void {
+    if (!this.userToEditQuotas) return;
+    const user = this.userToEditQuotas;
+    this.isSavingQuotas = true;
+
+    const payload = {
+      customConcurrentRooms: this.editConcurrentRooms === null || this.editConcurrentRooms === undefined || (this.editConcurrentRooms as any) === ''
+        ? null
+        : Math.max(0, Number(this.editConcurrentRooms)),
+      customWeeklyRooms: this.editWeeklyRooms === null || this.editWeeklyRooms === undefined || (this.editWeeklyRooms as any) === ''
+        ? null
+        : Math.max(0, Number(this.editWeeklyRooms))
+    };
+
+    this.adminService.updateUserRoomQuotas(user.id, payload).subscribe({
+      next: (res) => {
+        this.isSavingQuotas = false;
+        if (res.success && res.user) {
+          user.customConcurrentRooms = res.user.customConcurrentRooms;
+          user.customWeeklyRooms = res.user.customWeeklyRooms;
+          this.feedbackMessage = res.message;
+        }
+        this.closeQuotaModal();
+        this.cdr.markForCheck();
+      },
+      error: (err) => {
+        this.isSavingQuotas = false;
+        this.errorMessage = err.error?.message || 'Erreur modification quotas salons.';
+        this.closeQuotaModal();
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  getDefaultConcurrent(tier?: string): number {
+    const t = (tier || 'free').toLowerCase();
+    if (t === 'premium' || t === 'pro' || t === 'elite_pro') return 5;
+    if (t === 'intermediate' || t === 'standard' || t === 'club') return 3;
+    return 1;
+  }
+
+  getDefaultWeekly(tier?: string): number {
+    const t = (tier || 'free').toLowerCase();
+    if (t === 'premium' || t === 'pro' || t === 'elite_pro') return 15;
+    if (t === 'intermediate' || t === 'standard' || t === 'club') return 10;
+    return 5;
   }
 
   private syncOwnProfileIfAffected(affectedUserId: string, updates: { role?: string; plan?: string }): void {

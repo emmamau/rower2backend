@@ -658,6 +658,13 @@
           <button
             type="button"
             class="modal-tab-btn"
+            [class.active]="accountModalTab === 'regatta-settings'"
+            (click)="openRegattaSettings()">
+            🔍 Affichage Régate
+          </button>
+          <button
+            type="button"
+            class="modal-tab-btn"
             [class.active]="accountModalTab === 'forgot'"
             (click)="accountModalTab = 'forgot'; accountAuthError = ''; accountAuthSuccess = ''">
             ❓ Mot de passe
@@ -1043,6 +1050,32 @@
                   </div>
                 </div>
               </div>
+
+              <!-- Carte Préférences d'affichage en Régate (Zoom x3 & Données sous les lignes d'eau) -->
+              <div class="profile-kayak-card profile-regatta-prefs-card">
+                <div class="profile-kayak-header">
+                  <div class="kayak-card-title">
+                    <span class="kayak-icon">🔍</span>
+                    <div>
+                      <h5>Confort de Lecture en Régate (Zoom & Données)</h5>
+                      <span class="kayak-pattern-tag">Zoom x{{ regattaZoomLevel }} · {{ selectedRegattaMetrics.length }} données configurées ({{ visibleRegattaMetrics.length }} visibles au zoom actuel)</span>
+                    </div>
+                  </div>
+                  <button type="button" class="btn-cyan btn-sm btn-custom-kayak" (click)="openRegattaSettings()">
+                    ⚙️ Paramétrer Zoom & Données
+                  </button>
+                </div>
+                <div class="regatta-prefs-pills-preview">
+                  @for (mKey of selectedRegattaMetrics; track mKey; let idx = $index) {
+                    <span class="regatta-pref-pill" [class.is-top3]="idx < 3" [title]="idx < 3 ? 'Conservée même au zoom maximal x3' : 'Masquée progressivement en zoomant'">
+                      {{ getRegattaMetricOption(mKey).icon }} {{ getRegattaMetricOption(mKey).label }}
+                      @if (idx < 3) {
+                        <strong class="top3-star">★</strong>
+                      }
+                    </span>
+                  }
+                </div>
+              </div>
             </div>
 
               <!-- Actions d'abonnement & Suppression de compte RGPD -->
@@ -1316,6 +1349,144 @@
                 (click)="skipKayakCustomization()">
                 {{ isPostRegisterOnboarding ? 'Passer / Style par défaut' : 'Retour au profil' }}
               </button>
+            </div>
+          </div>
+        }
+
+        <!-- TAB 6: REGATTA DISPLAY & ZOOM SETTINGS -->
+        @if (accountModalTab === 'regatta-settings') {
+          <div class="modal-form modal-form-scrollable regatta-settings-form">
+            <p class="modal-desc">
+              Configurez votre <strong>confort de lecture en mode Régate</strong> : choisissez le zoom des lignes d'eau (jusqu'à <strong>x3</strong> avec un minimum de 3 kayaks centrés sur votre course) ainsi que les données affichées sous le canevas. En zoomant, le nombre de données affichées diminue progressivement jusqu'aux <strong>3 premières données prioritaires</strong> afin de maximiser la taille de la police.
+            </p>
+
+            @if (regattaPreferencesFeedback) {
+              <div class="auth-feedback-success">
+                ✅ {{ regattaPreferencesFeedback }}
+              </div>
+            }
+            @if (regattaPreferencesError) {
+              <div class="auth-error">
+                ⚠️ {{ regattaPreferencesError }}
+              </div>
+            }
+
+            <!-- 1. Niveau de Zoom des Lignes d'Eau -->
+            <div class="customizer-section">
+              <label class="customizer-section-title">
+                <span>🔍 Niveau de Zoom sur les Lignes d'Eau (x1 à x3)</span>
+              </label>
+              <div class="zoom-presets-row">
+                @for (z of regattaZoomPresets; track z) {
+                  <button
+                    type="button"
+                    class="zoom-preset-btn"
+                    [class.active]="regattaZoomLevel === z"
+                    (click)="setRegattaZoom(z, false)">
+                    <strong class="zp-level">Zoom x{{ z }}</strong>
+                    <span class="zp-desc">
+                      @if (z === 1) {
+                        Tous les kayaks · {{ selectedRegattaMetrics.length }} données
+                      } @else if (z >= 3) {
+                        Min. 3 kayaks (devant/vous/derrière) · 3 données géantes
+                      } @else {
+                        Vue intermédiaire agrandie
+                      }
+                    </span>
+                  </button>
+                }
+              </div>
+            </div>
+
+            <!-- 2. Sélection des données parmi les 14 disponibles -->
+            <div class="customizer-section">
+              <div class="customizer-section-title-row">
+                <label class="customizer-section-title">
+                  <span>📊 Données affichées sous le canevas ({{ selectedRegattaMetrics.length }} sélectionnées, min. 3)</span>
+                </label>
+                <button type="button" class="btn-reset-prefs-sm" (click)="resetRegattaPreferencesDefault()">
+                  ↺ Réinitialiser par défaut
+                </button>
+              </div>
+              <div class="regatta-metrics-selector-grid">
+                @for (item of regattaMetricsCatalog; track item.key) {
+                  <button
+                    type="button"
+                    class="metric-option-tile"
+                    [class.selected]="isRegattaMetricSelected(item.key)"
+                    (click)="toggleRegattaMetric(item.key)">
+                    <span class="mot-check">{{ isRegattaMetricSelected(item.key) ? '✓' : '+' }}</span>
+                    <span class="mot-icon">{{ item.icon }}</span>
+                    <div class="mot-texts">
+                      <strong class="mot-label">{{ item.label }}</strong>
+                      <span class="mot-unit" *ngIf="item.unit">{{ item.unit }}</span>
+                    </div>
+                  </button>
+                }
+              </div>
+            </div>
+
+            <!-- 3. Ordre de priorité (les 3 premières restent visibles au zoom maximal x3) -->
+            <div class="customizer-section">
+              <label class="customizer-section-title">
+                <span>⭐ Ordre d'affichage & Priorité au Zoom x3 (les 3 premières restent toujours visibles)</span>
+              </label>
+              <div class="selected-metrics-order-list">
+                @for (mKey of selectedRegattaMetrics; track mKey; let idx = $index) {
+                  @let opt = getRegattaMetricOption(mKey);
+                  <div class="metric-order-row" [class.is-priority-top3]="idx < 3">
+                    <span class="mor-rank">#{{ idx + 1 }}</span>
+                    <span class="mor-icon">{{ opt.icon }}</span>
+                    <div class="mor-info">
+                      <strong>{{ opt.label }}</strong>
+                      @if (idx < 3) {
+                        <span class="mor-priority-badge">★ Visible même en Zoom x3</span>
+                      } @else {
+                        <span class="mor-sub-badge">Masqué progressivement en zoomant</span>
+                      }
+                    </div>
+                    <div class="mor-actions">
+                      <button
+                        type="button"
+                        class="btn-mor-move"
+                        [disabled]="idx === 0"
+                        (click)="moveRegattaMetric(idx, -1)"
+                        title="Monter la priorité">↑</button>
+                      <button
+                        type="button"
+                        class="btn-mor-move"
+                        [disabled]="idx === selectedRegattaMetrics.length - 1"
+                        (click)="moveRegattaMetric(idx, 1)"
+                        title="Descendre la priorité">↓</button>
+                    </div>
+                  </div>
+                }
+              </div>
+            </div>
+
+            <div class="modal-buttons customizer-buttons">
+              <button
+                type="button"
+                class="btn-primary btn-save-kayak"
+                [disabled]="isSavingRegattaPreferences"
+                (click)="saveRegattaPreferences()">
+                {{ isSavingRegattaPreferences ? 'Enregistrement...' : 'Enregistrer dans mon profil 💾' }}
+              </button>
+              @if (isIdentified) {
+                <button
+                  type="button"
+                  class="btn-secondary"
+                  (click)="accountModalTab = 'profile'">
+                  Retour au profil
+                </button>
+              } @else {
+                <button
+                  type="button"
+                  class="btn-secondary"
+                  (click)="closeAccountModal()">
+                  Fermer
+                </button>
+              }
             </div>
           </div>
         }
@@ -2153,49 +2324,6 @@
         </div>
       </aside>
 
-      <!-- HUD TÉLÉMÉTRIE UNIFIÉ RÉGATE (PUISSANCE, ALLURE, CADENCE, DISTANCE, CHRONO - ZÉRO SCROLL) -->
-      <section class="regatta-unified-hud" aria-label="Télémétrie de bord en direct">
-        <div class="regatta-hud-grid">
-          <div class="hud-mini-card hud-power">
-            <span class="hm-lbl">{{ i18n.t('POWER') || 'PUISSANCE' }}</span>
-            <span class="hm-val font-mono">{{ (focusedTelemetry || myActivity)?.lastPower || 0 }}<span class="hm-unit">W</span></span>
-            <span class="hm-sub">Moy: {{ (focusedTelemetry || myActivity)?.avgPower || 0 }}W</span>
-          </div>
-
-          <div class="hud-mini-card hud-pace">
-            <span class="hm-lbl">{{ i18n.t('PACE_500M') || 'ALLURE' }}</span>
-            <span class="hm-val font-mono">{{ formatPace((focusedTelemetry || myActivity)?.lastPace) }}</span>
-            <span class="hm-sub">{{ (focusedTelemetry || myActivity)?.avgSpeedKmh || 0 }} km/h</span>
-          </div>
-
-          <div class="hud-mini-card hud-spm">
-            <span class="hm-lbl">{{ i18n.t('CADENCE') || 'CADENCE' }}</span>
-            <span class="hm-val font-mono">{{ ((focusedTelemetry || myActivity)?.lastStrokeRate || 0) | number:'1.0-0' }}<span class="hm-unit">SPM</span></span>
-            <span class="hm-sub">Coups: {{ (focusedTelemetry || myActivity)?.totalStrokes || 0 }}</span>
-          </div>
-
-          <div class="hud-mini-card hud-dist">
-            <span class="hm-lbl">{{ i18n.t('DISTANCE') || 'DISTANCE' }}</span>
-            <span class="hm-val font-mono">{{ (focusedTelemetry || myActivity)?.netDistance || 0 }}<span class="hm-unit">m</span></span>
-            <span class="hm-sub">/ {{ activeTargetDistance }}m</span>
-          </div>
-
-          <div class="hud-mini-card hud-chrono">
-            <span class="hm-lbl">{{ i18n.t('TIME_ELAPSED') || 'CHRONO' }}</span>
-            <span class="hm-val font-mono">{{ formatTime((focusedTelemetry || myActivity)?.elapsedTime) }}</span>
-            <span class="hm-sub" *ngIf="nextRaceInfo?.status === 'in_progress'">Fin: {{ formattedGameRemaining }}</span>
-            <span class="hm-sub" *ngIf="nextRaceInfo?.status !== 'in_progress'">{{ formattedPreRaceCountdown }}</span>
-          </div>
-
-          <div class="hud-mini-card hud-rank">
-            <span class="hm-lbl">{{ i18n.t('LEADERBOARD') || 'RANG' }}</span>
-            <span class="hm-val font-mono rank-glow">{{ myRank ? ('#' + myRank) : '--' }}<span class="hm-unit">/{{ totalActiveRacers || 1 }}</span></span>
-            <span class="hm-sub" *ngIf="myRank === 1">Leader</span>
-            <span class="hm-sub" *ngIf="myRank && myRank > 1">-{{ distToLeader }}m</span>
-          </div>
-        </div>
-      </section>
-
       <!-- SÉLECTEUR D'IDENTIFICATION DU KAYAK (SI NON CONNECTÉ ET SANS MONTRE APPAIRÉE) + SUIVI CAMÉRA -->
       <div class="spectator-camera-bar">
         @if (canManualSelectPublicKayak) {
@@ -2245,8 +2373,8 @@
         </span>
       </div>
 
-      <!-- BARRE FLOTTANTE D'ACTION RAPIDE VUE RÉGATE : BASCULE ACCUEIL & COCKPIT -->
-      <aside class="regatta-quick-nav-bar" role="toolbar" aria-label="Navigation rapide régate">
+      <!-- BARRE D'ACTION RAPIDE VUE RÉGATE : BASCULE ACCUEIL, COCKPIT, ZOOM X3 & PARAMÉTRAGE DONNÉES -->
+      <aside class="regatta-quick-nav-bar" role="toolbar" aria-label="Navigation rapide et zoom régate">
         <button
           type="button"
           class="btn-cockpit-quick btn-quick-home"
@@ -2265,9 +2393,41 @@
           <span class="btn-quick-icon">📱</span>
           <span class="btn-quick-label">Cockpit</span>
         </button>
+
+        <!-- Contrôle direct du Zoom (x1 à x3) dans la barre rapide de régate -->
+        <div class="regatta-quick-zoom-group" role="group" aria-label="Zoom lignes d'eau et données">
+          <button
+            type="button"
+            class="btn-cockpit-quick btn-quick-zoom"
+            [disabled]="regattaZoomLevel <= 1"
+            (click)="stepRegattaZoom(-0.5)"
+            title="Réduire le zoom">
+            🔍 −
+          </button>
+          <span class="quick-zoom-indicator" [class.is-zoomed]="regattaZoomLevel > 1">
+            Zoom x{{ regattaZoomLevel }}
+          </span>
+          <button
+            type="button"
+            class="btn-cockpit-quick btn-quick-zoom"
+            [disabled]="regattaZoomLevel >= 3"
+            (click)="stepRegattaZoom(0.5)"
+            title="Augmenter le zoom jusqu'à x3 (texte maximisé, 3 kayaks et 3 données)">
+            +
+          </button>
+        </div>
+
+        <button
+          type="button"
+          class="btn-cockpit-quick btn-quick-prefs"
+          (click)="openRegattaSettings()"
+          title="Configurer les données affichées sous les lignes d'eau dans votre profil">
+          <span class="btn-quick-icon">⚙️</span>
+          <span class="btn-quick-label">Données ({{ visibleRegattaMetrics.length }})</span>
+        </button>
       </aside>
 
-      <!-- Vue Régate Canvas 2D (Tableau de la Régate) -->
+      <!-- Vue Régate Canvas 2D (Tableau de la Régate avec Zoom x1..x3) -->
       <section class="regatta-canvas-section">
         <div class="canvas-display-card">
           <app-regatta-canvas
@@ -2278,25 +2438,34 @@
             [canSelectKayak]="canManualSelectPublicKayak"
             [myKayakCustomization]="currentKayakCustomization"
             [isRaceActive]="isRaceActive"
+            [zoomLevel]="regattaZoomLevel"
+            (zoomLevelChange)="setRegattaZoom($event)"
             (racerSelected)="onSpectatorSelect($event)"
             (kayakClaimed)="onKayakClaimed($event)">
           </app-regatta-canvas>
         </div>
       </section>
 
-      <!-- Résumé télémétrique compact du coureur sous la régate 2D -->
-      @if (focusedTelemetry || myActivity) {
-        <section class="regatta-user-summary" aria-label="Mes statistiques en direct">
-          <div class="regatta-summary-pill">
-            <span class="sum-lane" *ngIf="myAssignedLane" title="Ligne d'eau assignée">Ligne {{ myAssignedLane }}</span>
-            <span class="sum-rank" title="Classement dans la course">{{ myRank ? ('#' + myRank) : '--' }}</span>
-            <span class="sum-metric"><strong>{{ (focusedTelemetry || myActivity)?.netDistance || 0 }}</strong> m</span>
-            <span class="sum-metric"><strong>{{ (focusedTelemetry || myActivity)?.lastPower || 0 }}</strong> W</span>
-            <span class="sum-metric"><strong>{{ (focusedTelemetry || myActivity)?.lastStrokeRate | number:'1.1-1' }}</strong> SPM</span>
-            <span class="sum-metric"><strong>{{ formatPace((focusedTelemetry || myActivity)?.lastPace) }}</strong> /500m</span>
-          </div>
-        </section>
-      }
+      <!-- DONNÉES PARAMÉTRABLES AFFICHÉES SOUS LE CANEVAS DES LIGNES D'EAU (SE RÉDUISENT JUSQU'À MIN 3 EN ZOOMANT AVEC POLICE MAXIMISÉE) -->
+      <section
+        class="regatta-unified-hud regatta-under-canvas-hud"
+        [attr.data-zoom]="regattaZoomLevel"
+        [style.--regatta-zoom]="regattaZoomLevel"
+        [style.--regatta-cols]="visibleRegattaMetrics.length"
+        aria-label="Données de course configurables sous les lignes d'eau">
+        <div class="regatta-hud-grid" [style.grid-template-columns]="'repeat(' + visibleRegattaMetrics.length + ', minmax(0, 1fr))'">
+          @for (metricKey of visibleRegattaMetrics; track metricKey) {
+            @let metric = getRegattaMetricDisplay(metricKey);
+            <div class="hud-mini-card" [class.hud-power]="metric.key === 'power' || metric.key === 'avgPower'" [class.hud-rank]="metric.key === 'position'">
+              <span class="hm-lbl">{{ metric.icon }} {{ metric.label }}</span>
+              <span class="hm-val font-mono" [class.rank-glow]="metric.key === 'position'">
+                {{ metric.value }}<span class="hm-unit" *ngIf="metric.unit">{{ metric.unit }}</span>
+              </span>
+              <span class="hm-sub">{{ metric.sub }}</span>
+            </div>
+          }
+        </div>
+      </section>
 
       <!-- BANNIÈRE ÉGALITÉ SPORTIVE CONCEPT2 (POSITIONNÉE EN DESSOUS DE LA PRÉSENTATION DE LA RÉGATE) -->
       <aside class="concept2-fairness-banner regatta-fairness-banner" aria-label="Égalité sportive Concept2">

@@ -19,6 +19,7 @@ import {
   LoginDto,
   AuthResponse,
   KayakCustomization,
+  RegattaPreferences,
   UserProfile,
   LeagueTier,
   LeagueStandingsResponse,
@@ -441,6 +442,14 @@ export class RowerService {
     return this.http.put<{ success: boolean; message: string; user: UserProfile }>(
       `${this.apiUrl}/api/user/kayak`,
       { userId, kayakCustomization }
+    );
+  }
+
+  // Mise à jour des préférences d'affichage en mode régate (zoom & données sous le canevas)
+  updateRegattaPreferences(userId: string, regattaPreferences: RegattaPreferences): Observable<{ success: boolean; message: string; user: UserProfile }> {
+    return this.http.put<{ success: boolean; message: string; user: UserProfile }>(
+      `${this.apiUrl}/api/user/regatta-preferences`,
+      { userId, regattaPreferences }
     );
   }
 

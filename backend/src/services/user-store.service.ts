@@ -1,6 +1,6 @@
 import { Op } from "sequelize";
 import db from "../models";
-import { KayakCustomization } from "../models/user.model";
+import { KayakCustomization, RegattaPreferences } from "../models/user.model";
 import { isEmmaAdminUser, hashPassword } from "./auth.service";
 import { getLeagueByPoints } from "../utils/league.util";
 
@@ -51,7 +51,12 @@ export interface StoredUser {
   role?: string;
   isRevoked?: boolean;
   is_revoked?: boolean;
+  customConcurrentRooms?: number | null;
+  custom_concurrent_rooms?: number | null;
+  customWeeklyRooms?: number | null;
+  custom_weekly_rooms?: number | null;
   kayakCustomization?: KayakCustomization;
+  regattaPreferences?: RegattaPreferences;
   createdAt: Date;
   updatedAt: Date;
   toJSON?: () => Record<string, any>;
@@ -422,6 +427,7 @@ export class UserStoreService {
       role: data.role ? String(data.role).toUpperCase() : (isEmma || data.isAdmin ? "ADMIN" : "USER"),
       isRevoked: Boolean(data.isRevoked || data.is_revoked),
       kayakCustomization: data.kayakCustomization,
+      regattaPreferences: data.regattaPreferences,
       createdAt: now,
       updatedAt: now,
     };
@@ -544,6 +550,9 @@ export class UserStoreService {
     const cleanLogin = existing.login.toLowerCase();
     this.inMemoryUsers.delete(cleanId);
     this.inMemoryUsers.delete(cleanLogin);
+    if (existing.email) {
+      this.inMemoryUsers.delete(existing.email.toLowerCase());
+    }
     if (existing.watchUserId) {
       this.inMemoryUsers.delete(existing.watchUserId.toLowerCase());
     }

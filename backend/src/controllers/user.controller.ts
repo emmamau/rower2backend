@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { Op } from "sequelize";
 import db from "../models";
-import { KayakCustomization } from "../models/user.model";
+import { KayakCustomization, RegattaPreferences, RegattaMetricKey } from "../models/user.model";
 import { hashPassword, verifyPassword, isEmmaAdminUser, generateSecureToken } from "../services/auth.service";
 import JwtService from "../services/jwt.service";
 import emailService from "../services/email.service";
@@ -25,6 +25,72 @@ const DEFAULT_KAYAK_CUSTOMIZATION: KayakCustomization = {
   pattern: "racing-stripe",
   glowColor: "#00f0ff",
 };
+
+const VALID_REGATTA_METRICS: RegattaMetricKey[] = [
+  "speed",
+  "pace",
+  "power",
+  "position",
+  "distToPrev",
+  "distToLeader",
+  "distToNext",
+  "distRemaining",
+  "distCovered",
+  "force",
+  "work",
+  "avgSpeed",
+  "avgPower",
+  "avgPace",
+];
+
+const DEFAULT_REGATTA_METRICS: RegattaMetricKey[] = [
+  "position",
+  "power",
+  "pace",
+  "distCovered",
+  "distRemaining",
+  "distToPrev",
+];
+
+const DEFAULT_REGATTA_PREFERENCES: RegattaPreferences = {
+  zoomLevel: 1,
+  selectedMetrics: [...DEFAULT_REGATTA_METRICS],
+};
+
+function sanitizeRegattaPreferences(prefs?: any): RegattaPreferences {
+  const rawZoom = Number(prefs?.zoomLevel);
+  const zoomLevel = Number.isFinite(rawZoom)
+    ? Math.min(4, Math.max(1, Math.round(rawZoom * 2) / 2))
+    : DEFAULT_REGATTA_PREFERENCES.zoomLevel;
+
+  const validSet = new Set<string>(VALID_REGATTA_METRICS);
+  const uniqueMetrics: RegattaMetricKey[] = [];
+
+  if (Array.isArray(prefs?.selectedMetrics)) {
+    for (const item of prefs.selectedMetrics) {
+      const k = String(item || "").trim() as RegattaMetricKey;
+      if (validSet.has(k) && !uniqueMetrics.includes(k)) {
+        uniqueMetrics.push(k);
+      }
+    }
+  }
+
+  if (uniqueMetrics.length === 0) {
+    uniqueMetrics.push(...DEFAULT_REGATTA_METRICS);
+  } else if (uniqueMetrics.length < 3) {
+    for (const fallbackKey of DEFAULT_REGATTA_METRICS) {
+      if (!uniqueMetrics.includes(fallbackKey)) {
+        uniqueMetrics.push(fallbackKey);
+      }
+      if (uniqueMetrics.length >= 3) break;
+    }
+  }
+
+  return {
+    zoomLevel,
+    selectedMetrics: uniqueMetrics,
+  };
+}
 
 /**
  * Sanitise l'objet utilisateur pour ne jamais exposer de données sensibles (mot de passe / sel / tokens).
@@ -53,6 +119,7 @@ function sanitizeUser(user: any): Record<string, any> {
     (plain.subscriptionTier !== "free" && plain.subscriptionTier !== "") ||
     plain.isAdmin
   );
+  plain.regattaPreferences = sanitizeRegattaPreferences(plain.regattaPreferences);
   return plain;
 }
 
@@ -82,6 +149,7 @@ export const registerUser = async (req: Request, res: Response): Promise<void> =
       guestPairingToken,
       guestToken,
       kayakCustomization,
+      regattaPreferences,
     } = req.body || {};
 
     const cleanLastName = String(lastName || nom || "").trim();
@@ -225,6 +293,7 @@ export const registerUser = async (req: Request, res: Response): Promise<void> =
       bestRank: 0,
       lastRank: 0,
       kayakCustomization: initialKayak,
+      regattaPreferences: sanitizeRegattaPreferences(regattaPreferences),
     });
 
     // Migration automatique de l'appairage invité vers le nouveau compte abonné
@@ -998,6 +1067,67 @@ export const updateKayakCustomization = async (req: Request, res: Response): Pro
 };
 
 /**
+ * PUT /api/user/regatta-preferences
+ * Met à jour les préférences d'affichage en mode régate (niveau de zoom et données affichées sous le canevas).
+ */
+export const updateRegattaPreferences = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { userId, regattaPreferences } = req.body || {};
+    const cleanUserId = String(userId || "").trim();
+
+    if (!cleanUserId) {
+      res.status(400).json({ success: false, message: "L'identifiant utilisateur est requis." });
+      return;
+    }
+    if (!regattaPreferences || typeof regattaPreferences !== "object") {
+      res.status(400).json({ success: false, message: "Les préférences de régate sont requises." });
+      return;
+    }
+
+    const validSet = new Set<string>(VALID_REGATTA_METRICS);
+    if (!Array.isArray(regattaPreferences.selectedMetrics)) {
+      res.status(400).json({ success: false, message: "La liste des données à afficher est requise." });
+      return;
+    }
+
+    const filteredMetrics = regattaPreferences.selectedMetrics
+      .map((m: any) => String(m || "").trim())
+      .filter((m: string, idx: number, arr: string[]) => validSet.has(m) && arr.indexOf(m) === idx) as RegattaMetricKey[];
+
+    if (filteredMetrics.length < 3) {
+      res.status(400).json({
+        success: false,
+        message: "Veuillez sélectionner au minimum 3 données à afficher sous les lignes d'eau.",
+      });
+      return;
+    }
+
+    const cleanPreferences = sanitizeRegattaPreferences({
+      zoomLevel: regattaPreferences.zoomLevel,
+      selectedMetrics: filteredMetrics,
+    });
+
+    const user = (await userStore.getUserById(cleanUserId)) || (await userStore.findUser(cleanUserId));
+    if (!user) {
+      res.status(404).json({ success: false, message: "Utilisateur introuvable." });
+      return;
+    }
+
+    const updated = await userStore.updateUser(cleanUserId, { regattaPreferences: cleanPreferences });
+    res.status(200).json({
+      success: true,
+      message: "Préférences d'affichage en régate enregistrées avec succès.",
+      user: sanitizeUser(updated || user),
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      message: error?.message || "Erreur lors de la mise à jour des préférences de régate.",
+    });
+  }
+};
+
+/**
  * GET /api/auth/me ou /api/user/me
  * Retourne le profil de l'utilisateur authentifié via Bearer token
  */
@@ -1065,4 +1195,5 @@ export default {
   deleteUserAccount,
   getUserStatistics,
   updateKayakCustomization,
+  updateRegattaPreferences,
 };

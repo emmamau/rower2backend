@@ -52,6 +52,12 @@ export class AdminInitService {
             IF NOT EXISTS (SELECT FROM information_schema.columns WHERE table_name = 'rower_race_users' AND column_name = 'subscription_status') THEN
               ALTER TABLE rower_race_users ADD COLUMN subscription_status VARCHAR(32) DEFAULT 'none';
             END IF;
+            IF NOT EXISTS (SELECT FROM information_schema.columns WHERE table_name = 'rower_race_users' AND column_name = 'custom_concurrent_rooms') THEN
+              ALTER TABLE rower_race_users ADD COLUMN custom_concurrent_rooms INTEGER NULL;
+            END IF;
+            IF NOT EXISTS (SELECT FROM information_schema.columns WHERE table_name = 'rower_race_users' AND column_name = 'custom_weekly_rooms') THEN
+              ALTER TABLE rower_race_users ADD COLUMN custom_weekly_rooms INTEGER NULL;
+            END IF;
           END IF;
 
           -- Colonnes sur users (si présente)

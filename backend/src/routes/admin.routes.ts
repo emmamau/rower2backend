@@ -19,6 +19,7 @@ export default (app: Application): void => {
   router.patch("/users/:id/password", AdminController.resetUserPassword);
   router.patch("/users/:id/role", AdminController.updateUserRole);
   router.patch("/users/:id/plan", AdminController.updateUserPlan);
+  router.patch("/users/:id/room-quotas", AdminController.updateUserRoomQuotas);
 
   // 3. Gestion des offres & quotas
   router.get("/plans", AdminController.getPlans);

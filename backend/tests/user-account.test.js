@@ -680,3 +680,90 @@ test('Statistics space gracefully handles raw in-memory activity objects without
   }
 });
 
+test('User regattaPreferences (zoom x3 & 14 configurable metrics) persistence and validation', async () => {
+  const ctx = await createTestServer();
+  try {
+    const timestamp = Date.now();
+    const login = `regatta_pref_${timestamp}`;
+
+    const regRes = await fetch(`${ctx.baseUrl}/api/user/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        nom: 'Zoom',
+        prenom: 'Racer',
+        anneeNaissance: 1991,
+        sexe: 'M',
+        pays: 'France',
+        login,
+        email: `${login}@example.com`,
+        password: 'Password123!',
+      }),
+    });
+    assert.equal(regRes.status, 201);
+    const regData = await regRes.json();
+    assert.ok(regData.user.regattaPreferences);
+    assert.equal(regData.user.regattaPreferences.zoomLevel, 1);
+    assert.equal(regData.user.regattaPreferences.selectedMetrics.length >= 3, true);
+
+    // Reject if fewer than 3 metrics selected
+    const badRes = await fetch(`${ctx.baseUrl}/api/user/regatta-preferences`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId: login,
+        regattaPreferences: {
+          zoomLevel: 3,
+          selectedMetrics: ['power', 'pace'],
+        },
+      }),
+    });
+    assert.equal(badRes.status, 400);
+
+    // Save custom regattaPreferences with zoom x3 and all 14 configurable metrics
+    const all14Metrics = [
+      'speed',
+      'pace',
+      'power',
+      'position',
+      'distToPrev',
+      'distToLeader',
+      'distToNext',
+      'distRemaining',
+      'distCovered',
+      'force',
+      'work',
+      'avgSpeed',
+      'avgPower',
+      'avgPace',
+    ];
+
+    const saveRes = await fetch(`${ctx.baseUrl}/api/user/regatta-preferences`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId: login,
+        regattaPreferences: {
+          zoomLevel: 3,
+          selectedMetrics: all14Metrics,
+        },
+      }),
+    });
+    assert.equal(saveRes.status, 200);
+    const saveData = await saveRes.json();
+    assert.equal(saveData.success, true);
+    assert.equal(saveData.user.regattaPreferences.zoomLevel, 3);
+    assert.deepEqual(saveData.user.regattaPreferences.selectedMetrics, all14Metrics);
+
+    // Verify persistence on GET /api/user/profile/:userId
+    const profRes = await fetch(`${ctx.baseUrl}/api/user/profile/${login}`);
+    assert.equal(profRes.status, 200);
+    const profData = await profRes.json();
+    assert.equal(profData.user.regattaPreferences.zoomLevel, 3);
+    assert.deepEqual(profData.user.regattaPreferences.selectedMetrics, all14Metrics);
+  } finally {
+    await ctx.close();
+  }
+});
+
+
