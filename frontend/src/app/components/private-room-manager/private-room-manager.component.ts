@@ -146,7 +146,118 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
     { id: 'Pacific/Auckland', label: 'Auckland, Wellington (NZDT / UTC+13)' }
   ];
   botCount = 0;
+  botMinPace = 165; // Loisir (2:45 / 500m)
   botMaxPace = 145; // 2:25 / 500m
+  multiBotCount = 0;
+  isCustomBotMinPace = false;
+  customBotMinPaceText = '2:45';
+  botMinPaceError = '';
+  isCustomBotMaxPace = false;
+  customBotMaxPaceText = '1:55';
+  botMaxPaceError = '';
+
+  get maxBotsAllowed(): number {
+    if (this.isUserAdmin) return 20;
+    if (this.quotaInfo?.maxBots !== undefined) return this.quotaInfo.maxBots;
+    const rawTier = String(this.userSubscriptionTier || (this.isSubscriber ? 'intermediate' : 'free')).toLowerCase().trim();
+    if (rawTier === 'pro' || rawTier === 'elite_pro' || rawTier === 'premium') return 5;
+    if (rawTier === 'club' || rawTier === 'standard' || rawTier === 'intermediate') return 3;
+    return this.isSubscriber ? 3 : 1;
+  }
+
+  get multiBotCountOptions(): number[] {
+    const max = this.maxBotsAllowed;
+    const opts: number[] = [];
+    for (let i = 0; i <= max; i++) {
+      opts.push(i);
+    }
+    return opts;
+  }
+
+  selectMultiBotMinPreset(pace: number): void {
+    this.isCustomBotMinPace = false;
+    this.botMinPaceError = '';
+    this.botMinPace = pace;
+  }
+
+  selectCustomBotMinPace(): void {
+    this.isCustomBotMinPace = true;
+    this.customBotMinPaceText = this.formatPace(this.botMinPace);
+    this.onCustomBotMinPaceChange(this.customBotMinPaceText);
+  }
+
+  onCustomBotMinPaceChange(text: string): void {
+    this.customBotMinPaceText = text;
+    const p = this.parsePace(text);
+    if (p === null || p < this.BOT_PACE_MIN || p > this.BOT_PACE_MAX) {
+      this.botMinPaceError = `Allure entre ${this.formatPace(this.BOT_PACE_MIN)} et ${this.formatPace(this.BOT_PACE_MAX)} /500m.`;
+    } else {
+      this.botMinPaceError = '';
+      this.botMinPace = p;
+    }
+  }
+
+  selectMultiBotMaxPreset(pace: number): void {
+    this.isCustomBotMaxPace = false;
+    this.botMaxPaceError = '';
+    this.botMaxPace = pace;
+  }
+
+  selectCustomBotMaxPace(): void {
+    this.isCustomBotMaxPace = true;
+    this.customBotMaxPaceText = this.formatPace(this.botMaxPace);
+    this.onCustomBotMaxPaceChange(this.customBotMaxPaceText);
+  }
+
+  onCustomBotMaxPaceChange(text: string): void {
+    this.customBotMaxPaceText = text;
+    const p = this.parsePace(text);
+    if (p === null || p < this.BOT_PACE_MIN || p > this.BOT_PACE_MAX) {
+      this.botMaxPaceError = `Allure entre ${this.formatPace(this.BOT_PACE_MIN)} et ${this.formatPace(this.BOT_PACE_MAX)} /500m.`;
+    } else {
+      this.botMaxPaceError = '';
+      this.botMaxPace = p;
+    }
+  }
+
+  updateLobbyBots(count: number): void {
+    if (!this.activeRoom || this.isActionBusy) return;
+    const identifier = this.activeRoomCode || this.activeRoom.race?.id;
+    if (!identifier) return;
+
+    this.isActionBusy = true;
+    this.rowerService
+      .toggleBots(
+        count > 0,
+        identifier,
+        this.activeUserId,
+        count,
+        this.botMinPace,
+        this.botMaxPace
+      )
+      .subscribe({
+        next: () => {
+          this.isActionBusy = false;
+          this.showFeedback(count > 0 ? `${count} bot(s) engagé(s) !` : 'Bots retirés.');
+          this.refreshActiveRoom();
+          this.cdr.markForCheck();
+        },
+        error: (err) => {
+          this.isActionBusy = false;
+          this.actionError = err?.error?.message || err?.error?.error || 'Erreur bots salon';
+          this.cdr.markForCheck();
+        }
+      });
+  }
+
+  addQuickBots(): void {
+    const target = Math.min(3, this.maxBotsAllowed);
+    this.updateLobbyBots(target);
+  }
+
+  get activeRoomBotCount(): number {
+    return this.activeRoom?.race?.botCount ?? (this.activeRoom as any)?.botCount ?? 0;
+  }
   countdownMinutes = 5;
   requireApproval = true;
   readonly distancePresets = [500, 1000, 2000, 5000, 10000];
@@ -496,7 +607,11 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
   }
 
   get roomParticipants(): any[] {
-    return this.activeRoom?.race?.participants ?? [];
+    const raw: any = this.activeRoom?.race?.participants;
+    if (Array.isArray(raw)) return raw;
+    if (raw && typeof raw.values === 'function') return Array.from(raw.values());
+    if (raw && typeof raw === 'object') return Object.values(raw);
+    return [];
   }
 
   get areAllParticipantsReady(): boolean {
@@ -855,7 +970,8 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
           ? this.formatScheduledDateTimeForUtc(this.scheduledDateTime, this.selectedTimezone)
           : undefined,
         timezone: this.selectedGameMode === 'multi' && this.startMode === 'scheduled' ? this.selectedTimezone : undefined,
-        botCount: isBotDuel ? 1 : (this.selectedGameMode === 'multi' ? Number(this.botCount) || 0 : 0),
+        botCount: isBotDuel ? 1 : (this.selectedGameMode === 'multi' ? Math.min(this.maxBotsAllowed, Math.max(0, Number(this.multiBotCount) || 0)) : 0),
+        botMinPace: isBotDuel ? undefined : this.botMinPace,
         botMaxPace: isBotDuel
           ? Math.min(this.BOT_PACE_MAX, Math.max(this.BOT_PACE_MIN, Math.round(Number(this.botMaxPace) || 145)))
           : (Number(this.botMaxPace) || 120),

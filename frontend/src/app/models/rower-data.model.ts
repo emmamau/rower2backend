@@ -83,6 +83,7 @@ export interface NextRaceInfo {
     scheduledStartTimeEpoch?: number;
     timezone?: string;
     botCount?: number;
+    botMinPace?: number;
     botMaxPace?: number;
     botStartMode?: 'countdown' | 'first_stroke';
     autoStart?: boolean;
@@ -132,6 +133,7 @@ export interface CreatePrivateRaceRequest {
   scheduledStartTime?: string;
   timezone?: string;
   botCount?: number;
+  botMinPace?: number;
   botMaxPace?: number;
   botStartMode?: 'first_stroke' | 'countdown';
   isBotDuel?: boolean;
@@ -171,6 +173,7 @@ export interface RoomCreationQuotaInfo {
   isUserAdmin: boolean;
   tier: string;
   tierName?: string;
+  maxBots?: number;
   concurrent: {
     current: number;
     max: number;

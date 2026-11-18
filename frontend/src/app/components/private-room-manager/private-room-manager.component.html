@@ -606,6 +606,113 @@
                   [(ngModel)]="maxParticipants" />
               </div>
 
+              <!-- CONFIGURATION DES BOTS EN MODE MULTI-JOUEURS -->
+              <div class="priv-field priv-bots-config-box">
+                <div class="priv-bots-header">
+                  <label class="priv-label">
+                    🤖 Rameurs virtuels (Bots)
+                  </label>
+                  <span class="priv-badge-tier-limit">
+                    Max {{ maxBotsAllowed }} bot{{ maxBotsAllowed > 1 ? 's' : '' }} ({{ quotaInfo?.tierName || 'Forfait' }})
+                  </span>
+                </div>
+                <div class="priv-preset-row">
+                  @for (countOpt of multiBotCountOptions; track countOpt) {
+                    <button
+                      type="button"
+                      class="priv-preset-chip"
+                      [class.active]="multiBotCount === countOpt"
+                      (click)="multiBotCount = countOpt">
+                      {{ countOpt === 0 ? 'Aucun bot' : countOpt + ' bot' + (countOpt > 1 ? 's' : '') }}
+                    </button>
+                  }
+                </div>
+
+                @if (multiBotCount > 0) {
+                  <!-- NIVEAU MINI (ALLURE LA PLUS LENTE) -->
+                  <div class="priv-field priv-subfield">
+                    <label class="priv-label">
+                      🐢 Niveau minimum (allure la plus lente) : <strong>{{ formatPace(botMinPace) }}/500m</strong>
+                    </label>
+                    <div class="priv-preset-row">
+                      @for (lvl of botPacePresets; track lvl.pace) {
+                        <button
+                          type="button"
+                          class="priv-preset-chip"
+                          [class.active]="!isCustomBotMinPace && botMinPace === lvl.pace"
+                          (click)="selectMultiBotMinPreset(lvl.pace)">
+                          <strong>{{ lvl.label }}</strong> ({{ lvl.time }})
+                        </button>
+                      }
+                      <button
+                        type="button"
+                        class="priv-preset-chip"
+                        [class.active]="isCustomBotMinPace"
+                        (click)="selectCustomBotMinPace()">
+                        <strong>✏️ Personnalisée</strong>
+                      </button>
+                    </div>
+                    @if (isCustomBotMinPace) {
+                      <input
+                        type="text"
+                        name="customBotMinPace"
+                        class="priv-input priv-input-sm"
+                        inputmode="numeric"
+                        placeholder="m:ss (ex. 2:40)"
+                        maxlength="5"
+                        [ngModel]="customBotMinPaceText"
+                        (ngModelChange)="onCustomBotMinPaceChange($event)" />
+                      @if (botMinPaceError) {
+                        <div class="priv-error">{{ botMinPaceError }}</div>
+                      }
+                    }
+                  </div>
+
+                  <!-- NIVEAU MAXI (ALLURE LA PLUS RAPIDE) -->
+                  <div class="priv-field priv-subfield">
+                    <label class="priv-label">
+                      ⚡ Niveau maximum (allure la plus rapide) : <strong>{{ formatPace(botMaxPace) }}/500m</strong>
+                    </label>
+                    <div class="priv-preset-row">
+                      @for (lvl of botPacePresets; track lvl.pace) {
+                        <button
+                          type="button"
+                          class="priv-preset-chip"
+                          [class.active]="!isCustomBotMaxPace && botMaxPace === lvl.pace"
+                          (click)="selectMultiBotMaxPreset(lvl.pace)">
+                          <strong>{{ lvl.label }}</strong> ({{ lvl.time }})
+                        </button>
+                      }
+                      <button
+                        type="button"
+                        class="priv-preset-chip"
+                        [class.active]="isCustomBotMaxPace"
+                        (click)="selectCustomBotMaxPace()">
+                        <strong>✏️ Personnalisée</strong>
+                      </button>
+                    </div>
+                    @if (isCustomBotMaxPace) {
+                      <input
+                        type="text"
+                        name="customBotMaxPace"
+                        class="priv-input priv-input-sm"
+                        inputmode="numeric"
+                        placeholder="m:ss (ex. 1:55)"
+                        maxlength="5"
+                        [ngModel]="customBotMaxPaceText"
+                        (ngModelChange)="onCustomBotMaxPaceChange($event)" />
+                      @if (botMaxPaceError) {
+                        <div class="priv-error">{{ botMaxPaceError }}</div>
+                      }
+                    }
+                  </div>
+
+                  <div class="priv-hint-bot-distribution">
+                    🎲 Chaque bot aura une allure tirée au sort de façon réaliste entre <strong>{{ formatPace(botMinPace) }}</strong> et <strong>{{ formatPace(botMaxPace) }}</strong> /500m.
+                  </div>
+                }
+              </div>
+
               <fieldset class="priv-fieldset">
                 <legend class="priv-legend">Mode de départ de la course</legend>
                 <label class="priv-radio-card" [class.selected]="startMode === 'manual'">
@@ -946,6 +1053,16 @@
                     title="La course démarre quand vous commencez à ramer"
                     (click)="triggerStartOnFirstStroke()">
                     🚣 Au premier coup de rame{{ isFirstStrokeMode ? ' ✓' : '' }}
+                  </button>
+                }
+                @if (!isBotDuelRoom && !isSoloRoom && !isDuel1v1Room) {
+                  <button
+                    type="button"
+                    class="priv-btn priv-btn-cyan"
+                    [disabled]="isActionBusy"
+                    title="Gérer les bots dans ce salon"
+                    (click)="activeRoomBotCount === 0 ? addQuickBots() : updateLobbyBots(0)">
+                    {{ activeRoomBotCount === 0 ? '🤖 + Ajouter des bots' : '🤖 Retirer les ' + activeRoomBotCount + ' bot(s)' }}
                   </button>
                 }
               } @else {

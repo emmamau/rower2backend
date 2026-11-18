@@ -910,6 +910,7 @@ export class TelemetryController {
         scheduledStartTime,
         timezone,
         botCount,
+        botMinPace,
         botMaxPace,
         isBotDuel: reqIsBotDuel,
         mode,
@@ -1078,7 +1079,16 @@ export class TelemetryController {
 
       const rawBots = isSolo ? 0 : isBotDuel ? 1 : (Number(botCount) || 0);
       const finalBots = isSolo ? 0 : isBotDuel ? 1 : Math.min(botsAllowed, Math.max(0, rawBots));
-      const finalBotPace = isBotDuel ? Math.min(165, Math.max(105, Math.round(Number(botMaxPace) || 145))) : Math.min(300, Math.max(60, Number(botMaxPace) || 120));
+
+      const rawMinPace = Number(botMinPace ?? req.body?.botMinPace);
+      const rawMaxPace = Number(botMaxPace ?? req.body?.botMaxPace);
+      let finalMinPace = Number.isFinite(rawMinPace) && rawMinPace > 0 ? Math.min(300, Math.max(60, rawMinPace)) : 165;
+      let finalMaxPace = Number.isFinite(rawMaxPace) && rawMaxPace > 0 ? Math.min(300, Math.max(60, rawMaxPace)) : 105;
+
+      if (isBotDuel) {
+        finalMaxPace = Math.min(165, Math.max(105, Math.round(Number(botMaxPace) || 145)));
+        finalMinPace = finalMaxPace;
+      }
 
       const hostParticipates = Boolean(req.body?.hostParticipates !== undefined ? req.body?.hostParticipates : !allowAdminSpectator);
 
@@ -1094,7 +1104,8 @@ export class TelemetryController {
         countdownMinutes: countdownMinutes !== undefined ? Number(countdownMinutes) : 0,
         requireApproval: (isBotDuel || isDuel1v1 || allowAdminSpectator) ? false : (requireApproval !== undefined ? Boolean(requireApproval) : true),
         botCount: finalBots,
-        botMaxPace: finalBotPace,
+        botMinPace: finalMinPace,
+        botMaxPace: finalMaxPace,
         botStartMode: req.body?.botStartMode === "first_stroke"
           ? "first_stroke"
           : (isSolo && !req.body?.botStartMode ? "first_stroke" : (req.body?.botStartMode === "countdown" ? "countdown" : (isBotDuel ? "countdown" : "first_stroke"))),
@@ -1233,6 +1244,7 @@ export class TelemetryController {
         isUserAdmin,
         tier: isUserAdmin ? "admin" : tierId,
         tierName: isUserAdmin ? "Administrateur" : tierConfig.name,
+        maxBots: isUserAdmin ? 20 : (tierConfig.maxBots || (tierId === "premium" ? 5 : 3)),
         concurrent: {
           current: activeCount,
           max: maxConcurrent,

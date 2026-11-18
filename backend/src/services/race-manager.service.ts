@@ -81,6 +81,7 @@ export interface RaceState {
   scheduledStartTime?: Date;
   timezone?: string;
   botCount?: number;
+  botMinPace?: number;
   botMaxPace?: number;
   /** Mode de départ d'un duel contre un bot : décompte automatique ou attente du premier coup de rame */
   botStartMode?: "countdown" | "first_stroke";
@@ -1477,6 +1478,7 @@ export class RaceManager {
     countdownMinutes?: number;
     requireApproval?: boolean;
     botCount?: number;
+    botMinPace?: number;
     botMaxPace?: number;
     botStartMode?: "countdown" | "first_stroke";
     isBotDuel?: boolean;
@@ -1593,8 +1595,9 @@ export class RaceManager {
       });
     }
 
-    let botCount = isSolo ? 0 : isBotDuel ? 1 : Math.min(10, Math.max(0, Number(options.botCount) || 0));
-    let botMaxPace = Math.min(300, Math.max(60, Number(options.botMaxPace) || 120));
+    let botCount = isSolo ? 0 : isBotDuel ? 1 : Math.min(20, Math.max(0, Number(options.botCount) || 0));
+    let botMinPace = Number.isFinite(Number(options.botMinPace)) ? Math.min(300, Math.max(60, Number(options.botMinPace))) : 165;
+    let botMaxPace = Number.isFinite(Number(options.botMaxPace)) ? Math.min(300, Math.max(60, Number(options.botMaxPace))) : 120;
     let botCustomName = options.botCustomName;
 
     if (isBotDuel) {
@@ -1603,6 +1606,7 @@ export class RaceManager {
         botMaxPace = Math.floor(Math.random() * (BOT_PACE_MAX - BOT_PACE_MIN + 1)) + BOT_PACE_MIN;
       }
       botMaxPace = Math.min(BOT_PACE_MAX, Math.max(BOT_PACE_MIN, Math.round(botMaxPace)));
+      botMinPace = botMaxPace;
       let levelLabel = "Intermédiaire";
       if (botMaxPace <= 115) {
         levelLabel = "Expert";
@@ -1639,6 +1643,7 @@ export class RaceManager {
       scheduledStartTime: scheduledDate,
       timezone: targetTz,
       botCount,
+      botMinPace,
       botMaxPace,
       botStartMode: (isBotDuel || isSolo) && options.botStartMode === "first_stroke"
         ? "first_stroke"
@@ -1683,24 +1688,45 @@ export class RaceManager {
     });
 
     if (botCount > 0) {
-      this.ensureSalonBots(raceId, botCount, botMaxPace, targetDistance, botCustomName).catch(() => {});
+      this.ensureSalonBots(raceId, botCount, botMaxPace, targetDistance, botCustomName, botMinPace).catch(() => {});
     }
 
     return privateRace;
   }
 
-  private async ensureSalonBots(raceId: string, botCount: number, botMaxPace: number, targetDistance: number, customName?: string): Promise<void> {
-    const names = ["Bot Challenger", "Bot Pacer", "Bot Tempo", "Bot Shadow", "Bot Swift", "Bot Titan", "Bot Veloce"];
+  private async ensureSalonBots(
+    raceId: string,
+    botCount: number,
+    botMaxPace: number,
+    targetDistance: number,
+    customName?: string,
+    botMinPace?: number
+  ): Promise<void> {
+    const names = [
+      "Bot Challenger", "Bot Pacer", "Bot Tempo", "Bot Shadow",
+      "Bot Swift", "Bot Titan", "Bot Veloce", "Bot Atlas", "Bot Orion", "Bot Phoenix",
+      "Bot Lynx", "Bot Neptune", "Bot Zephyr", "Bot Sirius", "Bot Pulsar"
+    ];
     const race = this.getRaceById(raceId) || this.findPrivateRace(raceId);
     if (race && !race.participants) {
       race.participants = new Map();
     }
 
+    const minP = Math.min(Number(botMinPace) || 165, Number(botMaxPace) || 105);
+    const maxP = Math.max(Number(botMinPace) || 165, Number(botMaxPace) || 105);
+
     for (let i = 0; i < botCount; i++) {
       const botId = `bot_salon_${i + 1}`;
       const compositeId = `${raceId}_${botId}`;
-      const name = customName || names[i % names.length];
-      const botPace = botMaxPace && botMaxPace > 0 && botCount === 1 ? Math.max(BOT_PACE_MIN, Math.min(BOT_PACE_MAX, botMaxPace)) : generateRealisticBotPace();
+      const name = customName && botCount === 1 ? customName : (customName ? `${customName} ${i + 1}` : names[i % names.length]);
+
+      let botPace: number;
+      if (race?.isBotDuel || (botCount === 1 && !botMinPace)) {
+        botPace = botMaxPace && botMaxPace > 0 ? Math.max(BOT_PACE_MIN, Math.min(BOT_PACE_MAX, botMaxPace)) : generateRealisticBotPace();
+      } else {
+        // Tirage aléatoire uniforme au sein de la plage [minP, maxP] définie par l'organisateur
+        botPace = Math.floor(minP + Math.random() * (maxP - minP + 1));
+      }
       const { power, spm, speedMs } = calculateBotPhysics(botPace);
 
       if (race && race.participants && !race.participants.has(botId)) {
@@ -1749,16 +1775,73 @@ export class RaceManager {
         elapsedTime: 0,
         avgSpeedKmh: Number((speedMs * 3.6).toFixed(1)),
       };
-      if (!userStore.findActivityById(compositeId)) {
-        userStore.recordActivity(botDefaults);
-      }
+      userStore.recordActivity(botDefaults);
       try {
-        await Activities.findOrCreate({
-          where: { id: compositeId },
-          defaults: botDefaults as any
-        });
+        await Activities.upsert(botDefaults as any);
       } catch {}
     }
+  }
+
+  /**
+   * Permet à l'organisateur de modifier le nombre et les allures des bots dans un salon privé
+   */
+  public async updateSalonBots(
+    raceId: string,
+    botCount: number,
+    botMinPace?: number,
+    botMaxPace?: number
+  ): Promise<RaceState | null> {
+    const race = this.getRaceById(raceId) || this.findPrivateRace(raceId);
+    if (!race) return null;
+
+    const clampedCount = Math.max(0, Math.min(20, Math.floor(Number(botCount) || 0)));
+    race.botCount = clampedCount;
+    race.hasBots = clampedCount > 0;
+    if (botMinPace !== undefined) race.botMinPace = botMinPace;
+    if (botMaxPace !== undefined) race.botMaxPace = botMaxPace;
+
+    // Supprimer les bots existants du salon
+    if (race.participants) {
+      for (const [pId, p] of Array.from(race.participants.entries())) {
+        if (pId.startsWith("bot_") || (p as any).isBot) {
+          race.participants.delete(pId);
+          userStore.deleteActivityById(`${race.id}_${pId}`);
+        }
+      }
+    }
+
+    try {
+      await Activities.destroy({
+        where: {
+          activityId: race.id,
+          isBot: true
+        }
+      });
+    } catch {}
+
+    if (clampedCount > 0) {
+      await this.ensureSalonBots(
+        race.id,
+        clampedCount,
+        race.botMaxPace || 120,
+        race.targetDistance || 2000,
+        undefined,
+        race.botMinPace
+      );
+    }
+
+    // Recalculer le total des participants
+    race.totalParticipants = race.participants ? race.participants.size : 1;
+
+    try {
+      await Races.update(
+        { hasBots: race.hasBots, totalParticipants: race.totalParticipants },
+        { where: { id: race.id } }
+      );
+    } catch {}
+
+    socketGateway.broadcastPrivateRoomUpdate(race.id, race);
+    return race;
   }
 
   public getRaceByPin(pin: string): { raceId: string; lane: number; race?: RaceState } | null {
@@ -2094,7 +2177,7 @@ export class RaceManager {
       assignedLane = 1;
       race.botCount = Math.max(1, race.botCount || 1);
       race.hasBots = true;
-      this.ensureSalonBots(race.id, race.botCount, race.botMaxPace || 125, race.targetDistance).catch(() => {});
+      this.ensureSalonBots(race.id, race.botCount, race.botMaxPace || 125, race.targetDistance, undefined, race.botMinPace).catch(() => {});
     } else if (alreadyApproved) {
       const existing = race.participants.get(cleanUserId);
       assignedLane = existing?.lane || 1;

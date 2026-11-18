@@ -78,8 +78,8 @@ export class RowerService {
     });
   }
 
-  toggleBots(enable: boolean, raceId?: string, userId?: string, botCount: number = 3): Observable<any> {
-    return this.http.post(`${this.apiUrl}/api/race/bots`, { enable, raceId, userId, botCount });
+  toggleBots(enable: boolean, raceId?: string, userId?: string, botCount: number = 3, botMinPace?: number, botMaxPace?: number): Observable<any> {
+    return this.http.post(`${this.apiUrl}/api/race/bots`, { enable, raceId, userId, botCount, botMinPace, botMaxPace });
   }
 
   // Salons Privés : Création, consultation, codes PIN / Web et contrôle hôte

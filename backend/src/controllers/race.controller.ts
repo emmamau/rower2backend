@@ -4,6 +4,7 @@ import db from "../models";
 import config from "../config";
 import raceManager, { RaceState, RaceManager } from "../services/race-manager.service";
 import { isEmmaAdminUser } from "../services/auth.service";
+import { SUBSCRIPTION_TIERS } from "./subscription.controller";
 import userStore from "../services/user-store.service";
 import { IpGeoService } from "../services/ip-geo.service";
 import { generateRealisticBotPace, calculateBotPhysics, getLeagueByPoints, calculateRacePoints } from "../utils/league.util";
@@ -822,7 +823,7 @@ function generateTunedBots(playerPoints: number, botCount: number = 3) {
  */
 export const toggleBots = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { enable = true, raceId, botCount = 3, userId } = req.body;
+    const { enable = true, raceId, botCount = 3, userId, botMinPace, botMaxPace } = req.body;
     const managedPrivate = raceId ? raceManager.findPrivateRace(String(raceId)) : null;
 
     if (managedPrivate && !raceManager.canManagePrivateRace(managedPrivate, userId)) {
@@ -830,52 +831,79 @@ export const toggleBots = async (req: Request, res: Response): Promise<void> => 
       return;
     }
 
-    if (managedPrivate && managedPrivate.isBotDuel) {
-      let isRegisteredUser = false;
-      if (userId) {
-        const cleanId = String(userId).trim();
-        if (cleanId && cleanId !== "anonymous" && !cleanId.startsWith("guest_")) {
-          const userObj = await userStore.findUser(cleanId);
-          if (userObj) {
-            isRegisteredUser = true;
+    if (managedPrivate) {
+      if (managedPrivate.isBotDuel) {
+        let isRegisteredUser = false;
+        if (userId) {
+          const cleanId = String(userId).trim();
+          if (cleanId && cleanId !== "anonymous" && !cleanId.startsWith("guest_")) {
+            const userObj = await userStore.findUser(cleanId);
+            if (userObj) {
+              isRegisteredUser = true;
+            }
           }
         }
+        if (!isRegisteredUser) {
+          res.status(403).json({
+            success: false,
+            message: "En mode duel 1v1 contre un bot, seul un utilisateur inscrit avec un compte peut ajouter ou retirer un bot."
+          });
+          return;
+        }
       }
-      if (!isRegisteredUser) {
-        res.status(403).json({
-          success: false,
-          message: "En mode duel 1v1 contre un bot, seul un utilisateur inscrit avec un compte peut ajouter ou retirer un bot."
+
+      if (!enable || Number(botCount) <= 0) {
+        await raceManager.updateSalonBots(managedPrivate.id, 0);
+        res.status(200).json({
+          success: true,
+          hasBots: false,
+          totalParticipants: managedPrivate.totalParticipants,
+          botCount: 0,
+          message: "Joueurs virtuels retirés."
         });
         return;
       }
+
+      const hostUser = managedPrivate.hostUserId ? await userStore.findUser(managedPrivate.hostUserId) : null;
+      const isHostEmma = managedPrivate.hostUserId ? isEmmaAdminUser(managedPrivate.hostUserId, hostUser?.name) : false;
+      const isHostAdmin = Boolean(isHostEmma || hostUser?.isAdmin);
+      let botsAllowed = isHostAdmin ? 20 : 5;
+      if (!isHostAdmin && hostUser) {
+        const rawTier = String(hostUser.subscriptionTier || (hostUser.isSubscriber ? "intermediate" : "free")).toLowerCase().trim();
+        const tierId = rawTier === "pro" || rawTier === "elite_pro" ? "premium" : (rawTier === "club" || rawTier === "standard" ? "intermediate" : rawTier);
+        const limits = SUBSCRIPTION_TIERS[tierId] || SUBSCRIPTION_TIERS.intermediate;
+        botsAllowed = limits.maxBots;
+      }
+
+      const clamped = managedPrivate.isBotDuel ? 1 : Math.min(botsAllowed, Math.max(1, Number(botCount) || 3));
+      const finalMin = Number.isFinite(Number(botMinPace)) ? Number(botMinPace) : managedPrivate.botMinPace;
+      const finalMax = Number.isFinite(Number(botMaxPace)) ? Number(botMaxPace) : managedPrivate.botMaxPace;
+
+      await raceManager.updateSalonBots(managedPrivate.id, clamped, finalMin, finalMax);
+
+      res.status(200).json({
+        success: true,
+        hasBots: clamped > 0,
+        totalParticipants: managedPrivate.totalParticipants,
+        botCount: clamped,
+        message: "Joueurs virtuels engagés dans la course !"
+      });
+      return;
     }
 
     let race: any = null;
     try {
-      race = raceId ? await Races.findByPk(managedPrivate ? managedPrivate.id : String(raceId)) : await getOrCreateCurrentRace();
-      if (!race && managedPrivate) {
-        race = await Races.create({
-          id: managedPrivate.id,
-          title: managedPrivate.title,
-          targetDistance: managedPrivate.targetDistance,
-          startTime: managedPrivate.lobbyEndsAt,
-          intervalMinutes: 0,
-          maxDurationMinutes: managedPrivate.maxDurationMinutes || 55,
-          status: managedPrivate.status === "RUNNING" ? "in_progress" : "waiting",
-          hasBots: Boolean(enable),
-          totalParticipants: managedPrivate.totalParticipants || 0,
-        });
-      }
+      race = raceId ? await Races.findByPk(String(raceId)) : await getOrCreateCurrentRace();
     } catch {
       // Tolérance DB hors-ligne (pilotage en mémoire par RaceManager)
     }
 
     const actualRaceId = race ? String(race.get("id")) : (raceId ? String(raceId) : "RACE_DEFAULT");
-    // Course pilotée par le RaceManager (publique courante ou salon privé) : source de vérité de l'état
+    // Course pilotée par le RaceManager (publique courante) : source de vérité de l'état
     const managedRace = raceManager.getRaceById(actualRaceId);
     const targetDist = managedRace?.targetDistance || (race ? (race.get("targetDistance") as number) : 10000) || 10000;
     const isRunning = managedRace ? managedRace.status === "RUNNING" : (race ? race.get("status") === "in_progress" : false);
-    const clampedBotCount = managedPrivate?.isBotDuel ? 1 : Math.min(12, Math.max(1, Number(botCount) || 3));
+    const clampedBotCount = Math.min(12, Math.max(1, Number(botCount) || 3));
 
     if (enable) {
       let playerPoints = 0;
@@ -938,7 +966,7 @@ export const toggleBots = async (req: Request, res: Response): Promise<void> => 
       }
       if (managedRace) {
         managedRace.hasBots = true;
-        managedRace.botCount = managedPrivate?.isBotDuel ? 1 : clampedBotCount;
+        managedRace.botCount = clampedBotCount;
       }
     } else {
       try {
