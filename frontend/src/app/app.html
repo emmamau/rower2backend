@@ -2326,12 +2326,38 @@
         </div>
       </section>
 
-      <!-- BANDEAU DE STATUT D'ATTENTE DE SALON PRIVÉ / DUEL / PROGRAMMÉ -->
-      <aside class="regatta-waiting-banner" *ngIf="activePrivateRoom && !isPrivateBannerCollapsed && nextRaceInfo?.status !== 'in_progress' && nextRaceInfo?.status !== 'finished'" role="status" aria-live="polite">
+      <!-- BANDEAU DE STATUT DE SALON PRIVÉ / DUEL / RÉGATE POUR PARTICIPANTS ET ORGANISATEUR -->
+      <aside
+        class="regatta-waiting-banner"
+        [class.is-running]="isRaceActive"
+        *ngIf="(activePrivateRoom || canStartOrStopRace) && (!isPrivateBannerCollapsed || canStartOrStopRace) && nextRaceInfo?.status !== 'finished' && nextRaceInfo?.race?.status !== 'COMPLETED' && (!isRaceActive || canStartOrStopRace)"
+        role="status"
+        aria-live="polite">
         <div class="rwb-content">
-          <span class="rwb-icon">⏳</span>
+          <span class="rwb-icon">{{ isRaceActive ? '🔴' : '⏳' }}</span>
           <span class="rwb-text">{{ getWaitingStatusText() }}</span>
           <span class="rwb-lane-badge" *ngIf="myAssignedLane > 0">Ligne {{ myAssignedLane }}</span>
+
+          <!-- BOUTON DÉDIÉ DÉPART / ARRÊT DANS LE BANDEAU DE LA VUE RÉGATE DE L'ORGANISATEUR -->
+          <div class="rwb-actions" *ngIf="canStartOrStopRace">
+            @if (isRaceActive) {
+              <button
+                type="button"
+                class="btn-rwb-action btn-rwb-stop"
+                (click)="stopActiveRace()"
+                title="Arrêter la course immédiatement et finaliser le classement officiel selon les positions actuelles">
+                🛑 Arrêter la course
+              </button>
+            } @else if (canStartRace) {
+              <button
+                type="button"
+                class="btn-rwb-action btn-rwb-start"
+                (click)="startActivePrivateRace()"
+                title="Démarrer la course manuellement (compte à rebours de 10s)">
+                🚀 Démarrer la course
+              </button>
+            }
+          </div>
         </div>
       </aside>
 
@@ -2416,6 +2442,29 @@
           <span class="btn-quick-icon">🏆</span>
           <span class="btn-quick-label">Classement</span>
         </button>
+
+        <!-- BOUTON DÉPART / ARRÊT DÉDIÉ ORGANISATEUR DANS LA BARRE RAPIDE RÉGATE -->
+        @if (canStartOrStopRace) {
+          @if (isRaceActive) {
+            <button
+              type="button"
+              class="btn-cockpit-quick btn-quick-stop-race"
+              (click)="stopActiveRace()"
+              title="Arrêter la course immédiatement et finaliser le classement officiel">
+              <span class="btn-quick-icon">🛑</span>
+              <span class="btn-quick-label">Arrêter</span>
+            </button>
+          } @else if (canStartRace) {
+            <button
+              type="button"
+              class="btn-cockpit-quick btn-quick-start-race"
+              (click)="startActivePrivateRace()"
+              title="Démarrer la course manuellement (compte à rebours de 10s)">
+              <span class="btn-quick-icon">🚀</span>
+              <span class="btn-quick-label">Démarrer</span>
+            </button>
+          }
+        }
 
         <!-- Contrôle direct du Zoom (x1 à x3) dans la barre rapide de régate -->
         <div class="regatta-quick-zoom-group" role="group" aria-label="Zoom lignes d'eau et données">
@@ -2669,6 +2718,41 @@
         </div>
       </section>
 
+      <!-- BANDEAU DE STATUT DE SALON PRIVÉ / DUEL / COCKPIT POUR PARTICIPANTS ET ORGANISATEUR -->
+      <aside
+        class="regatta-waiting-banner cockpit-waiting-banner"
+        [class.is-running]="isRaceActive"
+        *ngIf="(activePrivateRoom || canStartOrStopRace) && (!isPrivateBannerCollapsed || canStartOrStopRace) && nextRaceInfo?.status !== 'finished' && nextRaceInfo?.race?.status !== 'COMPLETED' && (!isRaceActive || canStartOrStopRace)"
+        role="status"
+        aria-live="polite">
+        <div class="rwb-content">
+          <span class="rwb-icon">{{ isRaceActive ? '🔴' : '⏳' }}</span>
+          <span class="rwb-text">{{ getWaitingStatusText() }}</span>
+          <span class="rwb-lane-badge" *ngIf="myAssignedLane > 0">Ligne {{ myAssignedLane }}</span>
+
+          <!-- BOUTON DÉDIÉ DÉPART / ARRÊT DANS LA VUE COCKPIT DE L'ORGANISATEUR -->
+          <div class="rwb-actions" *ngIf="canStartOrStopRace">
+            @if (isRaceActive) {
+              <button
+                type="button"
+                class="btn-rwb-action btn-rwb-stop"
+                (click)="stopActiveRace()"
+                title="Arrêter la course immédiatement et finaliser le classement officiel selon les positions actuelles">
+                🛑 Arrêter la course
+              </button>
+            } @else if (canStartRace) {
+              <button
+                type="button"
+                class="btn-rwb-action btn-rwb-start"
+                (click)="startActivePrivateRace()"
+                title="Démarrer la course manuellement (compte à rebours de 10s)">
+                🚀 Démarrer la course
+              </button>
+            }
+          </div>
+        </div>
+      </aside>
+
       <!-- SÉLECTEUR DE VUE / SUIVI DE JOUEUR DANS LE COCKPIT -->
       <div class="spectator-camera-bar cockpit-spectator-bar">
         @if (canManualSelectPublicKayak) {
@@ -2737,6 +2821,29 @@
                 <span class="btn-quick-icon">🛶</span>
                 <span class="btn-quick-label">Régate</span>
               </button>
+
+              <!-- BOUTON DÉPART / ARRÊT DÉDIÉ ORGANISATEUR DANS LE COCKPIT QUICK NAV -->
+              @if (canStartOrStopRace) {
+                @if (isRaceActive) {
+                  <button
+                    type="button"
+                    class="btn-cockpit-quick btn-quick-stop-race"
+                    (click)="stopActiveRace()"
+                    title="Arrêter la course immédiatement et finaliser le classement officiel">
+                    <span class="btn-quick-icon">🛑</span>
+                    <span class="btn-quick-label">Arrêter</span>
+                  </button>
+                } @else if (canStartRace) {
+                  <button
+                    type="button"
+                    class="btn-cockpit-quick btn-quick-start-race"
+                    (click)="startActivePrivateRace()"
+                    title="Démarrer la course manuellement (compte à rebours de 10s)">
+                    <span class="btn-quick-icon">🚀</span>
+                    <span class="btn-quick-label">Démarrer</span>
+                  </button>
+                }
+              }
             </div>
             <span class="cockpit-prog-title">
               🚣 {{ myActivity?.netDistance || 0 }}m / {{ activeTargetDistance }}m ({{ myProgressPercent }}%)

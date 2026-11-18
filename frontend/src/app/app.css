@@ -1562,6 +1562,33 @@ body.app-pseudo-fullscreen .game-container {
   border-color: #ffd700;
   box-shadow: 0 0 14px rgba(255, 215, 0, 0.5);
 }
+.btn-quick-start-race {
+  border-color: #10b981;
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.35), rgba(15, 23, 42, 0.95));
+  color: #6ee7b7;
+  font-weight: 800;
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.3);
+}
+.btn-quick-start-race:hover {
+  background: #10b981;
+  color: #ffffff;
+  box-shadow: 0 0 16px rgba(16, 185, 129, 0.7);
+  transform: translateY(-1px);
+}
+.btn-quick-stop-race {
+  border-color: #ef4444;
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.35), rgba(15, 23, 42, 0.95));
+  color: #fca5a5;
+  font-weight: 800;
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.3);
+  animation: pulseRedStop 1.8s infinite;
+}
+.btn-quick-stop-race:hover {
+  background: #ef4444;
+  color: #ffffff;
+  box-shadow: 0 0 16px rgba(239, 68, 68, 0.7);
+  transform: translateY(-1px);
+}
 .btn-quick-icon {
   font-size: 0.85rem;
   line-height: 1;
@@ -4827,6 +4854,75 @@ body.rigid-viewport {
   letter-spacing: 0.05em;
 }
 
+.regatta-waiting-banner.is-running {
+  background: linear-gradient(90deg, rgba(239, 68, 68, 0.18), rgba(6, 13, 29, 0.95), rgba(239, 68, 68, 0.18));
+  border: 1px solid rgba(239, 68, 68, 0.45);
+  animation: pulse-running-glow 2s infinite ease-in-out;
+}
+
+@keyframes pulse-running-glow {
+  0%, 100% { border-color: rgba(239, 68, 68, 0.45); box-shadow: 0 0 8px rgba(239, 68, 68, 0.2); }
+  50% { border-color: rgba(255, 68, 68, 0.7); box-shadow: 0 0 16px rgba(239, 68, 68, 0.35); }
+}
+
+.rwb-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-left: 0.5rem;
+}
+
+.btn-rwb-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0.32rem 0.85rem;
+  font-size: 0.84rem;
+  font-weight: 800;
+  border-radius: 6px;
+  cursor: pointer;
+  letter-spacing: 0.03em;
+  transition: all 0.2s ease-in-out;
+  border: 1px solid transparent;
+  text-decoration: none;
+}
+
+.btn-rwb-action:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-rwb-start {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.4), rgba(5, 150, 105, 0.85));
+  border-color: #10b981;
+  color: #ffffff;
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.4);
+}
+
+.btn-rwb-start:hover:not(:disabled) {
+  background: #10b981;
+  color: #ffffff;
+  box-shadow: 0 0 16px rgba(16, 185, 129, 0.8);
+  transform: translateY(-1px);
+}
+
+.btn-rwb-stop {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.4), rgba(185, 28, 28, 0.85));
+  border-color: #ef4444;
+  color: #ffffff;
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.4);
+  animation: pulseRedStop 1.8s infinite;
+}
+
+.btn-rwb-stop:hover:not(:disabled) {
+  background: #ef4444;
+  color: #ffffff;
+  box-shadow: 0 0 18px rgba(239, 68, 68, 0.85);
+  transform: translateY(-1px);
+}
+
 .regatta-unified-hud {
   width: 100%;
   margin-block: 0.35rem;
@@ -7086,6 +7182,12 @@ body.rigid-viewport {
   .game-container.rigid-viewport .concept2-fairness-banner,
   .game-container.rigid-viewport .regatta-fairness-banner {
     display: none !important;
+  }
+
+  .game-container.rigid-viewport .regatta-waiting-banner:has(.rwb-actions) {
+    display: block !important;
+    padding: 0.25rem 0.5rem !important;
+    margin-block: 0.15rem !important;
   }
 }
 
