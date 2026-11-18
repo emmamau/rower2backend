@@ -1064,7 +1064,7 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
       const clampedDist = this.targetDistance > 0
         ? Math.min(this.targetDistance, Math.round(r.dist || 0))
         : Math.round(r.dist || 0);
-      const isFinished = r.status === 'finished' || (this.targetDistance > 0 && clampedDist >= this.targetDistance);
+      const isFinished = r.status === 'finished' || (r.status as string) === 'completed' || (this.targetDistance > 0 && clampedDist >= this.targetDistance);
       const effectiveDist = isFinished && this.targetDistance > 0 ? this.targetDistance : clampedDist;
 
       let boat = this.boatsMap.get(r.userId);

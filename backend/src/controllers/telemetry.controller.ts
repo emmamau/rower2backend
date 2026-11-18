@@ -426,6 +426,15 @@ export class TelemetryController {
       const hasPriorActiveSample = prevExactDist > 0 || prevExactElapsed > 0 || prevTelemetryMs > 0;
 
       const c2Speed = TelemetryValidator.computeConcept2Speed(actualPower, actualSplit);
+      const validatedWatchDistance = actualDistance;
+      const prevStatus = String(
+        (activity && typeof activity.get === "function" ? activity.get("status") : activity?.status) ||
+        (memActivity && typeof memActivity.get === "function" ? memActivity.get("status") : (memActivity as any)?.status) ||
+        ""
+      );
+      const wasAlreadyFinished = prevStatus === "finished" || (targetDist > 0 && prevNetDist >= targetDist);
+      const clientReportsFinished = !falseStartDetected && (body.status === "completed" || body.status === "finished");
+
       let exactDistance = prevExactDist;
       let nextExactElapsed = prevExactElapsed;
       let effectiveDistance = prevNetDist;
@@ -437,8 +446,11 @@ export class TelemetryController {
         actualDistance = 0;
       } else if (!hasPriorActiveSample) {
         const hasExplicitElapsed = body.elapsedTime !== undefined && Number(body.elapsedTime) > 0;
-        const initDeltaSec = hasExplicitElapsed ? Math.min(10, Math.max(0.1, Number(body.elapsedTime))) : 1.0;
-        nextExactElapsed = initDeltaSec;
+        const isZeroElapsed = body.elapsedTime !== undefined && Number(body.elapsedTime) === 0;
+        const initDeltaSec = hasExplicitElapsed
+          ? Math.min(10, Math.max(0.1, Number(body.elapsedTime)))
+          : (isZeroElapsed ? 0.5 : 1.0);
+        nextExactElapsed = isZeroElapsed ? 0 : initDeltaSec;
         const c2InitDist = c2Speed > 0 ? c2Speed * initDeltaSec : 0;
         if (!hasExplicitElapsed && actualDistance > 0) {
           exactDistance = Math.max(c2InitDist, actualDistance);
@@ -475,6 +487,20 @@ export class TelemetryController {
         }
         effectiveDistance = Math.max(prevNetDist, Math.round(exactDistance));
         actualDistance = effectiveDistance;
+      }
+
+      if (!falseStartDetected && targetDist > 0 && body.status !== "abandoned") {
+        const finishSnapMargin = Math.max(15, Math.ceil(c2Speed * 3));
+        const inProgressFinishMargin = Math.max(3, Math.ceil(c2Speed));
+        if (
+          wasAlreadyFinished ||
+          (clientReportsFinished && (effectiveDistance >= targetDist - finishSnapMargin || (validatedWatchDistance >= targetDist && validation.isValid))) ||
+          (validatedWatchDistance >= targetDist && validation.isValid && effectiveDistance >= targetDist - inProgressFinishMargin)
+        ) {
+          effectiveDistance = targetDist;
+          exactDistance = targetDist;
+          actualDistance = targetDist;
+        }
       }
 
       if (targetDist > 0 && effectiveDistance >= targetDist) {
@@ -775,7 +801,7 @@ export class TelemetryController {
       socketGateway.broadcastLeaderboard(raceId, liveList);
 
       let pointsEarned: number | undefined = undefined;
-      if (isFinished && userId && userId !== "anonymous") {
+      if (isFinished && !wasAlreadyFinished && userId && userId !== "anonymous") {
         try {
           await ensureCurrentWeek();
           const humanFinishers = activeRacers.filter((a: any) => {
@@ -816,8 +842,16 @@ export class TelemetryController {
         } catch {}
       }
 
+      const top3 = activeRacers.slice(0, 3).map((item: any, idx: number) => ({
+        rank: idx + 1,
+        userId: typeof item.get === "function" ? item.get("userId") : item.userId,
+        userName: typeof item.get === "function" ? item.get("userName") : item.userName,
+        netDistance: typeof item.get === "function" ? item.get("netDistance") : item.netDistance,
+      }));
+
       res.status(200).json({
         rk: myRank,
+        finalRank: myRank,
         tot: totalRacers,
         gapM,
         leadDistM: leaderDist,
@@ -825,6 +859,8 @@ export class TelemetryController {
         distToPrev,
         distToNext,
         normDistM: effectiveDistance,
+        isFinished,
+        top3,
         normalized: true,
         fairnessNotice: "La distance est normalisée selon la formule Concept2 basée sur votre puissance en Watts pour garantir l'égalité sportive entre tous les modèles de rameurs.",
         watchModel,

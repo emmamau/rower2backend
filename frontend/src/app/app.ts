@@ -1438,10 +1438,11 @@ export class AppComponent implements OnInit, OnDestroy {
                 r.userId === this.activeUserId && this.myActivity?.activityId === r.activityId ? (this.myActivity?.netDistance || 0) : 0
               ));
 
+              const wasAlreadyFin = existingMetric?.status === 'finished' || existingRacer?.status === 'finished';
               let unifiedDist = isRaceWaitingOrCountdown && rawPollDist === 0
                 ? 0
                 : Math.max(rawPollDist, prevKnownDist);
-              if (targetDist > 0 && (unifiedDist >= targetDist || r.status === 'finished')) {
+              if (targetDist > 0 && (unifiedDist >= targetDist || r.status === 'finished' || (r.status as string) === 'completed' || wasAlreadyFin)) {
                 unifiedDist = targetDist;
               }
               const unifiedStatus = (targetDist > 0 && unifiedDist >= targetDist && r.status !== 'abandoned')
@@ -4283,10 +4284,11 @@ export class AppComponent implements OnInit, OnDestroy {
           const prevDist = (existing && existing.dist)
             ? Math.max(Math.round(existing.dist), Math.round(existingRacer?.netDistance || 0))
             : Math.round(existingRacer?.netDistance || 0);
+          const wasAlreadyFin = existing?.status === 'finished' || existingRacer?.status === 'finished';
           let safeDist = (prevDist > 0 && rawDist > 0)
             ? Math.max(prevDist, rawDist)
             : rawDist;
-          if (targetDist > 0 && (safeDist >= targetDist || m.status === 'finished')) {
+          if (targetDist > 0 && (safeDist >= targetDist || m.status === 'finished' || (m.status as string) === 'completed' || wasAlreadyFin)) {
             safeDist = targetDist;
           }
           const safeStatus = (targetDist > 0 && safeDist >= targetDist && m.status !== 'abandoned')

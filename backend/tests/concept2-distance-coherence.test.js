@@ -218,3 +218,123 @@ test('1v1 Bot Duel in COUNTDOWN starts immediately on first stroke without false
     await close();
   }
 });
+
+test('Finish line synchronization: watch reaching targetDistance in same second as 999m packet completes race at 1000m without staying stuck at 999m', async () => {
+  const { baseUrl, close } = await createTestServer();
+  try {
+    const userStore = require('../dist/services/user-store.service').default;
+    const initActivityRoutes = require('../dist/routes/activity.routes').default;
+    const racerId = `finish_sync_${Date.now()}`;
+
+    const resCreate = await fetch(`${baseUrl}/api/v1/races/private`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        isSolo: true,
+        targetDistance: 1000,
+        hostUserId: racerId,
+        hostUserName: 'FinishLineRacer',
+      }),
+    });
+    assert.equal(resCreate.status, 201);
+    const created = await resCreate.json();
+    const raceId = created.race.id;
+
+    // Seed racer at 995m at elapsed 238s
+    userStore.recordActivity({
+      id: `${raceId}_${racerId}`,
+      activityId: raceId,
+      userId: racerId,
+      userName: 'FinishLineRacer',
+      targetDistance: 1000,
+      currentDistance: 995,
+      netDistance: 995,
+      exactDistance: 995.0,
+      exactElapsedSec: 238,
+      lastTelemetryAtMs: Date.now() - 1000,
+      elapsedTime: 238,
+      status: 'in_progress',
+      isBot: false,
+    });
+
+    // 1. Tick at 239s: 203W (~4.17 m/s) -> 995 + 4.17 = 999.17m -> rounds to 999m
+    const res999 = await fetch(`${baseUrl}/api/v1/telemetry`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        raceId,
+        userId: racerId,
+        userName: 'FinishLineRacer',
+        status: 'in_progress',
+        targetDistance: 1000,
+        seq: 99,
+        elapsedTime: 239,
+        currentDistance: 999,
+        metrics: {
+          distanceM: 999,
+          splitSec: 120,
+          powerWatts: 203,
+          strokeRate: 28,
+        },
+      }),
+    });
+    assert.equal(res999.status, 200);
+    const data999 = await res999.json();
+    assert.equal(data999.normDistM, 999);
+    assert.equal(data999.isFinished, false);
+
+    // 2. A few milliseconds later (still elapsedTime: 239), watch stroke crosses 1000m and sends status: "completed"
+    const res1000 = await fetch(`${baseUrl}/api/v1/telemetry`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        raceId,
+        userId: racerId,
+        userName: 'FinishLineRacer',
+        status: 'completed',
+        targetDistance: 1000,
+        seq: 100,
+        elapsedTime: 239,
+        currentDistance: 1000,
+        metrics: {
+          distanceM: 1000,
+          splitSec: 120,
+          powerWatts: 203,
+          strokeRate: 28,
+        },
+      }),
+    });
+    assert.equal(res1000.status, 200);
+    const data1000 = await res1000.json();
+    assert.equal(data1000.normDistM, 1000, 'Server must snap normDistM to 1000m when watch completes race');
+    assert.equal(data1000.isFinished, true, 'isFinished must be true');
+
+    // 3. Even if an out-of-order in_progress packet at 999m arrives late, distance and status must stay finished at 1000m
+    const resLate = await fetch(`${baseUrl}/api/v1/telemetry`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        raceId,
+        userId: racerId,
+        userName: 'FinishLineRacer',
+        status: 'in_progress',
+        targetDistance: 1000,
+        seq: 99,
+        elapsedTime: 239,
+        currentDistance: 999,
+        metrics: {
+          distanceM: 999,
+          splitSec: 120,
+          powerWatts: 203,
+          strokeRate: 28,
+        },
+      }),
+    });
+    assert.equal(resLate.status, 200);
+    const dataLate = await resLate.json();
+    assert.equal(dataLate.normDistM, 1000, 'Late packet must not roll back finished distance to 999m');
+    assert.equal(dataLate.isFinished, true);
+  } finally {
+    await close();
+  }
+});

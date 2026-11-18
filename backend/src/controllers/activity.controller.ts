@@ -143,8 +143,15 @@ export const syncActivity = async (req: Request, res: Response): Promise<void> =
 
       const rawNetDist = Math.max(0, Math.round(currentDistNum - initialDist));
       const prevNetDist = Number(activity.get("netDistance") || 0);
+      const wasAlreadyFinished = activity.get("status") === "finished" || (targetDist > 0 && prevNetDist >= targetDist);
+      const clientReportsFinished = status === "finished" || status === "completed";
       const c2NetDist = (c2Speed > 0 && deltaSec > 0) ? Math.round(prevNetDist + c2Speed * deltaSec) : rawNetDist;
-      const effectiveRawDist = Math.max(prevNetDist, c2NetDist);
+      let effectiveRawDist = Math.max(prevNetDist, c2NetDist);
+      if (targetDist > 0 && !isAbandoned) {
+        if (wasAlreadyFinished || clientReportsFinished || (rawNetDist >= targetDist && effectiveRawDist >= targetDist - 15)) {
+          effectiveRawDist = targetDist;
+        }
+      }
       const netDist = targetDist > 0 ? Math.min(targetDist, effectiveRawDist) : effectiveRawDist;
       const progress = Math.min(100, Number(((netDist / targetDist) * 100).toFixed(1)));
 
@@ -158,11 +165,10 @@ export const syncActivity = async (req: Request, res: Response): Promise<void> =
       const computedAvgSpm = Number(((prevAvgSpm + Number(lastStrokeRate)) / 2).toFixed(1));
 
       const speedKmh = normalizedPace > 0 ? Number(((500 / normalizedPace) * 3.6).toFixed(1)) : (newTime > 0 ? Number(((netDist / newTime) * 3.6).toFixed(1)) : 0);
-      const isFinished = netDist >= targetDist || status === "finished";
+      const isFinished = netDist >= targetDist || clientReportsFinished || wasAlreadyFinished;
       const prevLastPower = (activity.get("lastPower") as number) || 0;
       const effectiveLastPower = derivedPower > 0 ? derivedPower : (isFinished ? prevLastPower : 0);
 
-      const wasAlreadyFinished = activity.get("status") === "finished";
       let finalStatus = status;
       if (isAbandoned) {
         finalStatus = "abandoned";

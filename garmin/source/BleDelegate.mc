@@ -84,6 +84,8 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
     private var _progressPercent as Float = 0.0f;
     private var _lastSentStrokeCount as Number = 0;
     private var _lastSentDistance as Number = 0;
+    private var _serverConfirmedDistance as Number = 0;
+    private var _finishWaitTicks as Number = 0;
     private var _pendingStrokeSync as Boolean = false;
     private var _lastFallbackSendSec as Number = 0;
     private var _tickCounter as Number = 0;
@@ -1445,7 +1447,23 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
             var minStrokes = (_targetDistance / 25);
             if (minStrokes < 3) { minStrokes = 3; }
             if (_model.elapsedTime >= minElapsed && _model.strokeCount >= minStrokes) {
-                _model.alignDistance(_targetDistance);
+                var isOnlineRace = (_raceMode.equals("race") && _activityId.length() > 0 && _activityId.find("solo_") == null);
+                if (isOnlineRace && _serverConfirmedDistance > 0 && _serverConfirmedDistance < (_targetDistance - 6) && _finishWaitTicks < 3) {
+                    _finishWaitTicks += 1;
+                    _model.forceDistance(_targetDistance - 1);
+                    _progressPercent = _model.totalDistance.toFloat() / _targetDistance.toFloat();
+                    view.updateRowerData(_model, _model.totalDistance, _progressPercent);
+                    _lastSentDistance = _model.totalDistance;
+                    _lastFallbackSendSec = _tickCounter;
+                    _syncManager.syncActivity(
+                        _activityId, _userId, UserManager.getDisplayPseudo(), _raceMode,
+                        _activityStatus, _targetDistance, _model,
+                        _model.deviceName, false
+                    );
+                    return false;
+                }
+                _finishWaitTicks = 0;
+                _model.forceDistance(_targetDistance);
                 _progressPercent = 1.0f;
                 view.updateRowerData(_model, _targetDistance, 1.0f);
                 vibrateVictory();
@@ -1461,7 +1479,7 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
                 if (realisticDist >= _targetDistance) {
                     realisticDist = _targetDistance - 1;
                 }
-                _model.alignDistance(realisticDist);
+                _model.forceDistance(realisticDist);
                 _progressPercent = _model.totalDistance.toFloat() / _targetDistance.toFloat();
                 view.updateRowerData(_model, _model.totalDistance, _progressPercent);
             }
@@ -1749,6 +1767,8 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
         _progressPercent = 0.0f;
         _lastSentStrokeCount = 0;
         _lastSentDistance = 0;
+        _serverConfirmedDistance = 0;
+        _finishWaitTicks = 0;
         _pendingStrokeSync = false;
         _lastFallbackSendSec = _tickCounter;
 
@@ -2096,19 +2116,29 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
                     if (_targetDistance > 0 && nd > _targetDistance) {
                         nd = _targetDistance;
                     }
-                    // Align forward with authoritative server Concept2 distance;
-                    // never roll back in-flight meters accumulated during HTTP round-trip latency
-                    if (nd > _model.totalDistance) {
-                        _model.alignDistance(nd);
-                        _lastSentDistance = nd;
-                        var pct = (_targetDistance > 0) ? (nd.toFloat() / _targetDistance.toFloat()) : 0.0f;
-                        if (pct > 1.0f) { pct = 1.0f; }
-                        (_view as RowerView).updateRowerData(_model, nd, pct);
+                    if (nd > _serverConfirmedDistance) {
+                        _serverConfirmedDistance = nd;
                     }
+                    _model.syncServerDistance(nd, _targetDistance);
+                    if (nd >= _model.totalDistance) {
+                        _lastSentDistance = _model.totalDistance;
+                    }
+                    var pct = (_targetDistance > 0) ? (_model.totalDistance.toFloat() / _targetDistance.toFloat()) : 0.0f;
+                    if (pct > 1.0f) { pct = 1.0f; }
+                    (_view as RowerView).updateRowerData(_model, _model.totalDistance, pct);
                 }
             }
 
             (_view as RowerView).setLiveRank(rank, total, dLeader, dPrev, dNext);
+
+            if ((_targetDistance > 0 && _serverConfirmedDistance >= _targetDistance) ||
+                (data.hasKey("isFinished") && data.get("isFinished") == true)) {
+                if (_targetDistance > 0) {
+                    _serverConfirmedDistance = _targetDistance;
+                    _model.forceDistance(_targetDistance);
+                    updateProgressAndCheckFinish();
+                }
+            }
         }
     }
 

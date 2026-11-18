@@ -249,6 +249,40 @@ class RowerDataModel {
         }
     }
 
+    //! Force exact distance (used when clamping premature finish to targetDistance - 1 or snapping to targetDistance)
+    public function forceDistance(dist as Number) as Void {
+        if (dist <= 0) {
+            alignDistance(0);
+            return;
+        }
+        var curRelD = (_hasHardwareDistance && _lastRawDistance >= _baselineRawDistance) ? (_lastRawDistance - _baselineRawDistance) : 0;
+        _distanceOffset = dist - curRelD;
+        totalDistance = dist;
+        _accumulatedDistanceMetersFloat = dist.toFloat();
+    }
+
+    //! Synchronize watch distance accumulator with authoritative server Concept2 distance (normDistM)
+    public function syncServerDistance(serverDist as Number, targetDist as Number) as Void {
+        if (serverDist <= 0) {
+            return;
+        }
+        if (serverDist > totalDistance) {
+            alignDistance(serverDist);
+            return;
+        }
+        // If watch is slightly ahead of server (e.g. +1m to +4m due to initial stroke offset),
+        // pull back the float accumulator toward serverDist + 1 stroke margin so watch & web converge smoothly
+        var inFlightAllowance = (instantPower > 0) ? 4.0f : 0.0f;
+        var maxFloatAllowed = serverDist.toFloat() + inFlightAllowance;
+        if (_accumulatedDistanceMetersFloat > maxFloatAllowed) {
+            _accumulatedDistanceMetersFloat = maxFloatAllowed;
+        }
+        // Prevent watch from sitting at targetDist while server has not yet reached targetDist
+        if (targetDist > 0 && totalDistance >= targetDist && serverDist < targetDist) {
+            forceDistance(targetDist - 1);
+        }
+    }
+
     //! Called by BleDelegate when BLE connection is established
     public function onBleConnected() as Void {
         _secondsSinceLastPacket = 0;

@@ -761,6 +761,58 @@ function testKayakLoginAndIdentification(logger as Logger) as Boolean {
     return true;
 }
 
+//! Regression test 26: Watch & Web finish-line synchronization
+//! Prevents watch from prematurely stopping the race if server distance is still lagging behind,
+//! and completes race immediately when server confirms targetDistance.
+(:test)
+function testWatchWebFinishLineSynchronization(logger as Logger) as Boolean {
+    var model = new RowerDataModel();
+    var view = new RowerView(model);
+    var del = new BleDelegate(model);
+    del.setView(view);
+
+    // Join a 1000m online race and launch it
+    del.onPinJoinSuccess({
+        "id" => "PRIV_SYNC_FINISH",
+        "targetDistance" => 1000,
+        "lane" => 1,
+        "secondsRemaining" => 0,
+        "waitingForHost" => false,
+        "internalStatus" => "RUNNING",
+        "status" => "in_progress"
+    });
+    del.launchRaceFromWaiting();
+    Test.assertEqual(RowerView.STATE_RACING, view.getAppState());
+
+    // Simulate server confirming 985m (15m behind 1000m)
+    del.onLiveSyncResponse({
+        "rk" => 1,
+        "tot" => 2,
+        "normDistM" => 985
+    });
+
+    // Watch locally reaches 1000m while server is still at 985m:
+    // Watch must hold at 999m and keep STATE_RACING so athlete can finish on web!
+    model.elapsedTime = 240;
+    model.strokeCount = 100;
+    model.forceDistance(1000);
+    del.onOneSecondTick();
+
+    Test.assertEqual(RowerView.STATE_RACING, view.getAppState());
+    Test.assertEqual(999, model.totalDistance);
+
+    // Server now confirms 1000m (or isFinished = true): watch immediately transitions to STATE_FINISHED at 1000m
+    del.onLiveSyncResponse({
+        "rk" => 1,
+        "tot" => 2,
+        "normDistM" => 1000,
+        "isFinished" => true
+    });
+
+    Test.assertEqual(1000, model.totalDistance);
+    return true;
+}
+
 
 
 

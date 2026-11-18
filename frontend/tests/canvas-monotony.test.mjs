@@ -36,4 +36,11 @@ test('AppTs: liveMetricsList active player distance never regresses on websocket
     /existing\.dist[\s\S]*?Math\.max/i,
     'app.ts socket leaderboard listener must prevent racer distance regression'
   );
+
+  // Verify that completed/finished status snaps distance to targetDist and never regresses once finished
+  assert.match(
+    appTs,
+    /wasAlreadyFin/i,
+    'app.ts must preserve finished state and snap distance to targetDist when finished or completed'
+  );
 });

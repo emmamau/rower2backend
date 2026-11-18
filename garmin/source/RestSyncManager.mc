@@ -7,6 +7,7 @@ class RestSyncManager {
 
     private var _isSending as Boolean = false;
     private var _hasPendingSync as Boolean = false;
+    private var _pendingIsFinal as Boolean = false;
     private var _pendingActivityId as String = "";
     private var _pendingUserId as String = "";
     private var _pendingUserName as String = "";
@@ -15,6 +16,7 @@ class RestSyncManager {
     private var _pendingTargetDist as Number = 0;
     private var _pendingModel as RowerDataModel?;
     private var _pendingDeviceName as String?;
+    private var _finalRetryCount as Number = 0;
     private var _lastSyncTime as Number = 0;
     private var _delegate as BleDelegate?;
 
@@ -238,9 +240,14 @@ class RestSyncManager {
     function syncActivity(activityId as String, userId as String, userName as String, raceMode as String,
                           status as String, targetDistance as Number, model as RowerDataModel,
                           deviceName as String?, isFinal as Boolean) as Void {
-        // Never drop final completion/abandon packet; if busy sending a live packet, queue the latest state
-        if (!isFinal && _isSending) {
+        // Never overwrite a queued final packet with an in-progress packet
+        if (_hasPendingSync && _pendingIsFinal && !isFinal) {
+            return;
+        }
+        // Serialize HTTP requests so an in-flight 999m packet never races against or drops the 1000m final packet
+        if (_isSending) {
             _hasPendingSync = true;
+            _pendingIsFinal = isFinal;
             _pendingActivityId = activityId;
             _pendingUserId = userId;
             _pendingUserName = userName;
@@ -252,15 +259,32 @@ class RestSyncManager {
             return;
         }
         _hasPendingSync = false;
+        _pendingIsFinal = false;
+        if (isFinal) {
+            _pendingActivityId = activityId;
+            _pendingUserId = userId;
+            _pendingUserName = userName;
+            _pendingRaceMode = raceMode;
+            _pendingStatus = status;
+            _pendingTargetDist = targetDistance;
+            _pendingModel = model;
+            _pendingDeviceName = deviceName;
+        } else {
+            _finalRetryCount = 0;
+        }
 
         var endpoint = getBaseUrl() + "/boost";
 
         var effPace = (model.instantPace > 0) ? model.instantPace : ((!model.isHalted && model.avgPace > 0) ? model.avgPace : 0);
         var effPower = (model.instantPower > 0) ? model.instantPower : ((!model.isHalted && model.avgPower > 0) ? model.avgPower : 0);
         var effSpm = (model.strokeRate > 0.0f) ? model.strokeRate : ((!model.isHalted && model.avgStrokeRate > 0.0f) ? model.avgStrokeRate : 0.0f);
+        var sendDist = model.totalDistance;
+        if ((status.equals("completed") || status.equals("finished")) && targetDistance > 0 && sendDist < targetDistance) {
+            sendDist = targetDistance;
+        }
 
         var metrics = {
-            "distanceM" => model.totalDistance,
+            "distanceM" => sendDist,
             "splitSec" => effPace,
             "powerWatts" => effPower,
             "strokeRate" => effSpm,
@@ -278,7 +302,7 @@ class RestSyncManager {
             "seq" => model.strokeCount,
             "timestamp" => System.getTimer(),
             "elapsedTime" => model.elapsedTime,
-            "currentDistance" => model.totalDistance,
+            "currentDistance" => sendDist,
             "instantPower" => effPower,
             "instantPace" => effPace,
             "strokeRate" => effSpm,
@@ -330,12 +354,14 @@ class RestSyncManager {
         } else if (responseCode != 200 && responseCode != 201) {
             System.println("Sync HTTP non-200: " + responseCode);
         }
-        if (_hasPendingSync && _pendingModel != null && _pendingStatus.equals("in_progress")) {
+        if (_hasPendingSync && _pendingModel != null) {
+            var nextIsFinal = _pendingIsFinal;
             _hasPendingSync = false;
+            _pendingIsFinal = false;
             syncActivity(
                 _pendingActivityId, _pendingUserId, _pendingUserName, _pendingRaceMode,
                 _pendingStatus, _pendingTargetDist, _pendingModel as RowerDataModel,
-                _pendingDeviceName, false
+                _pendingDeviceName, nextIsFinal
             );
         }
     }
@@ -343,6 +369,16 @@ class RestSyncManager {
     function onFinalSyncResponse(responseCode as Number, data as Dictionary or String or Null) as Void {
         _isSending = false;
         _lastSyncTime = System.getTimer() / 1000;
+        if (responseCode != 200 && responseCode != 201 && _finalRetryCount < 1 && _pendingModel != null && _pendingActivityId.length() > 0) {
+            _finalRetryCount += 1;
+            syncActivity(
+                _pendingActivityId, _pendingUserId, _pendingUserName, _pendingRaceMode,
+                _pendingStatus, _pendingTargetDist, _pendingModel as RowerDataModel,
+                _pendingDeviceName, true
+            );
+            return;
+        }
+        _finalRetryCount = 0;
         if (_delegate != null) {
             if (responseCode == 200 && data != null && data instanceof Dictionary) {
                 (_delegate as BleDelegate).onFinalSyncResponse(data as Dictionary);
