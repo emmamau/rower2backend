@@ -942,6 +942,40 @@ body.app-pseudo-fullscreen .game-container {
   color: #fff;
   box-shadow: 0 0 22px rgba(239, 68, 68, 0.8);
 }
+
+.btn-start-race {
+  border-color: #10b981;
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.35), rgba(15, 23, 42, 0.95));
+  color: #6ee7b7;
+  font-weight: 800;
+  box-shadow: 0 0 14px rgba(16, 185, 129, 0.4);
+  animation: pulseGreenStart 1.8s infinite;
+}
+.btn-start-race:hover {
+  background: #10b981;
+  color: #fff;
+  box-shadow: 0 0 22px rgba(16, 185, 129, 0.8);
+}
+@keyframes pulseGreenStart {
+  0%, 100% { box-shadow: 0 0 8px rgba(16, 185, 129, 0.3); }
+  50% { box-shadow: 0 0 18px rgba(16, 185, 129, 0.7); }
+}
+
+.badge-estimated {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  background: rgba(245, 158, 11, 0.2);
+  border: 1px solid rgba(245, 158, 11, 0.5);
+  color: #fbbf24;
+  font-size: 0.7rem;
+  font-weight: 700;
+  margin-left: 0.4rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
 .btn-stop-race-tool {
   background: linear-gradient(135deg, rgba(239, 68, 68, 0.3), rgba(15, 23, 42, 0.9));
   border-color: #ef4444;

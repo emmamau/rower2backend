@@ -2657,6 +2657,36 @@ export class AppComponent implements OnInit, OnDestroy {
     return this.isUserAdmin || this.isOrganizerOfActiveRoom;
   }
 
+  get canStartRace(): boolean {
+    if (this.isRaceActive) return false;
+    if (!this.activePrivateRoom) return false;
+    if (!this.isOrganizerOfActiveRoom && !this.isUserAdmin) return false;
+    const st = String(this.activePrivateRoom.status || this.activePrivateRoom.race?.status || '').toLowerCase();
+    return st === 'waiting' || st === 'countdown' || st === 'lobby';
+  }
+
+  get canStartOrStopRace(): boolean {
+    return this.canStopRace || this.canStartRace;
+  }
+
+  startActivePrivateRace(): void {
+    if (!this.canStartRace || !this.activePrivateRoom) return;
+    const identifier = this.activePrivateRoom.code || this.activePrivateRoom.race?.id || this.activePrivateRoom.raceId;
+    if (!identifier) return;
+
+    this.rowerService.startOrResetPrivateRace(identifier, {
+      hostUserId: this.activeUserId,
+      countdownSeconds: 10
+    }).subscribe({
+      next: (res) => {
+        this.cdr.markForCheck();
+      },
+      error: (err) => {
+        alert(err?.error?.message || err?.error?.error || "Erreur lors du lancement de la course.");
+      }
+    });
+  }
+
   stopActiveRace(): void {
     if (!this.canStopRace || !this.nextRaceInfo) return;
     const confirmed = window.confirm(

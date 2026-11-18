@@ -426,6 +426,7 @@ export class TelemetryController {
       const hasPriorActiveSample = prevExactDist > 0 || prevExactElapsed > 0 || prevTelemetryMs > 0;
 
       const c2Speed = TelemetryValidator.computeConcept2Speed(actualPower, actualSplit);
+      const isActivelyRowing = actualPower > 0 || actualSpm > 0 || actualDistance > prevNetDist;
       const validatedWatchDistance = actualDistance;
       const prevStatus = String(
         (activity && typeof activity.get === "function" ? activity.get("status") : activity?.status) ||
@@ -567,6 +568,7 @@ export class TelemetryController {
             country,
             exactDistance,
             lastTelemetryAtMs: nowMs,
+            lastRowedAtMs: isActivelyRowing ? nowMs : (matchedRace.startedAt ? matchedRace.startedAt.getTime() : nowMs),
             lastElapsedSec: nextExactElapsed,
             isPaired: isTelemetryPaired,
             lane: assignedLane
@@ -585,6 +587,9 @@ export class TelemetryController {
             }
             existingP.exactDistance = exactDistance;
             existingP.lastTelemetryAtMs = nowMs;
+            if (isActivelyRowing) {
+              existingP.lastRowedAtMs = nowMs;
+            }
             existingP.lastElapsedSec = nextExactElapsed;
             if (isTelemetryPaired) {
               existingP.isPaired = true;
@@ -678,6 +683,7 @@ export class TelemetryController {
           exactDistance,
           exactElapsedSec: nextExactElapsed,
           lastTelemetryAtMs: nowMs,
+          lastRowedAtMs: isActivelyRowing ? nowMs : (memActivity?.lastRowedAtMs || (matchedRace?.startedAt ? matchedRace.startedAt.getTime() : nowMs)),
           progressPercent: Math.min(100, Number(((effectiveDistance / targetDist) * 100).toFixed(1))),
           elapsedTime: Math.max(1, Math.round(nextExactElapsed)),
           lastPower: actualPower,

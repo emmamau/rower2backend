@@ -569,15 +569,25 @@
           {{ isSubscriber ? 'Mon Abonnement' : 'Abonnements' }}
         </button>
 
-        <!-- Bouton Arrêter la course (visible pour l'admin ou l'organisateur pendant une course active) -->
-        @if (canStopRace) {
-          <button
-            type="button"
-            class="btn-hud btn-stop-race"
-            (click)="stopActiveRace()"
-            title="Arrêter la course immédiatement et établir le classement officiel selon les positions réelles">
-            🛑 Arrêter la course
-          </button>
+        <!-- Bouton dédié Organisateur : Démarrer la course en attente / Arrêter la course en cours -->
+        @if (canStartOrStopRace) {
+          @if (isRaceActive) {
+            <button
+              type="button"
+              class="btn-hud btn-stop-race"
+              (click)="stopActiveRace()"
+              title="Arrêter la course immédiatement et établir le classement officiel selon les positions réelles">
+              🛑 Arrêter la course
+            </button>
+          } @else if (canStartRace) {
+            <button
+              type="button"
+              class="btn-hud btn-start-race"
+              (click)="startActivePrivateRace()"
+              title="Démarrer la course manuellement (compte à rebours de 10s)">
+              🚀 Démarrer la course
+            </button>
+          }
         }
       </div>
     </div>
@@ -2278,6 +2288,7 @@
                             <span class="user-league-badge" *ngIf="entry.league" [title]="entry.league.name">{{ entry.league.badge }}</span>
                             <span class="bot-indicator" *ngIf="entry.isBot" title="Robot / IA">🤖</span>
                             <strong class="user-name">{{ entry.userName }}</strong>
+                            <span class="badge-estimated" *ngIf="entry.isEstimated" title="Temps estimé par extrapolation d'allure">⏱️ Estimé</span>
                           </div>
                         </td>
                         <td class="col-time font-mono">{{ entry.formattedDuration || '--' }}</td>

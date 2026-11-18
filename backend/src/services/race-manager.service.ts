@@ -30,6 +30,7 @@ export interface PrivateParticipantInfo {
   deviceId?: string;
   exactDistance?: number;
   lastTelemetryAtMs?: number;
+  lastRowedAtMs?: number;
   lastElapsedSec?: number;
   isPaired?: boolean;
   kayak?: KayakCustomization;
@@ -280,11 +281,15 @@ export interface RaceRankingEntry {
   status: string;
   isBot: boolean;
   points?: number;
+  isEstimated?: boolean;
+  estimatedTime?: number;
 }
 
 export class RaceManager {
   /** A human racer who did not send any data for this long is considered gone. */
   private static readonly HUMAN_INACTIVE_MS = 5 * 60 * 1000;
+  /** Un coureur n'ayant plus ramé (inactivité / rupture) depuis 1 minute (60s) est considéré comme ayant abandonné (DNF). */
+  public static readonly INACTIVITY_ABANDON_MS = 60 * 1000;
 
   private static instance: RaceManager;
   private currentPublicRace: RaceState | null = null;
@@ -719,6 +724,98 @@ export class RaceManager {
     return advanced;
   }
 
+  /**
+   * Estime le chrono d'arrivée et positionne le statut des bots restants dès que tous les humains ont franchi la ligne.
+   * La durée totale est calculée d'après l'allure du bot (sec/500m) et garantie >= dernier humain.
+   */
+  private async estimateAndFinishRemainingBots(
+    race: RaceState,
+    botsInProgress: any[],
+    humanFinishers: any[],
+    now: Date
+  ): Promise<void> {
+    const target = race.targetDistance || 2000;
+    const startMs = race.startedAt ? race.startedAt.getTime() : now.getTime();
+    const maxHumanElapsed = Math.max(
+      1,
+      ...humanFinishers.map((h: any) => Number(h.get("elapsedTime")) || 0)
+    );
+
+    for (const bot of botsInProgress) {
+      const pace = Number(bot.get("avgPace") || bot.get("lastPace") || 120);
+      const safePace = Math.max(60, Math.min(300, pace));
+      const createdMs = bot.get("createdAt") ? new Date(bot.get("createdAt")).getTime() : startMs;
+      const isSalonBot = race.type === "PRIVATE_INVITE" || String(bot.get("userId") || "").startsWith("bot_salon_");
+      const botStartMs = (isSalonBot || createdMs <= startMs + 1000) ? startMs : createdMs;
+
+      // Durée totale théorique pour parcourir targetDistance à cette allure (en secondes)
+      let estimatedElapsed = Math.round((target * safePace) / 500);
+
+      // Le bot arrivant après le dernier humain, son temps estimé doit être >= dernier humain + 1s
+      if (estimatedElapsed <= maxHumanElapsed) {
+        estimatedElapsed = maxHumanElapsed + 1;
+      }
+
+      const estimatedFinishedAt = new Date(botStartMs + estimatedElapsed * 1000);
+
+      try {
+        await bot.update({
+          status: "finished",
+          netDistance: target,
+          currentDistance: target,
+          progressPercent: 100,
+          elapsedTime: estimatedElapsed,
+          finishedAt: estimatedFinishedAt,
+          lastPower: 0,
+          lastStrokeRate: 0,
+          lastPace: 0,
+          isEstimated: true,
+        } as any);
+      } catch {
+        if (typeof bot.setDataValue === "function") {
+          bot.setDataValue("status", "finished");
+          bot.setDataValue("netDistance", target);
+          bot.setDataValue("currentDistance", target);
+          bot.setDataValue("elapsedTime", estimatedElapsed);
+          bot.setDataValue("finishedAt", estimatedFinishedAt);
+        }
+      }
+
+      userStore.recordActivity({
+        id: bot.get("id"),
+        activityId: race.id,
+        userId: bot.get("userId"),
+        status: "finished",
+        netDistance: target,
+        currentDistance: target,
+        progressPercent: 100,
+        elapsedTime: estimatedElapsed,
+        finishedAt: estimatedFinishedAt,
+        lastPower: 0,
+        lastStrokeRate: 0,
+        lastPace: 0,
+        isEstimated: true,
+      });
+
+      try {
+        await Activities.update(
+          {
+            status: "finished",
+            netDistance: target,
+            currentDistance: target,
+            progressPercent: 100,
+            elapsedTime: estimatedElapsed,
+            finishedAt: estimatedFinishedAt,
+            lastPower: 0,
+            lastStrokeRate: 0,
+            lastPace: 0,
+          },
+          { where: { activityId: race.id, userId: bot.get("userId") } }
+        );
+      } catch {}
+    }
+  }
+
   /** Writes finalRank on every non-abandoned racer, calculates points/leagues and returns the official classification. */
   private async finalizeRanking(raceId: string): Promise<RaceRankingEntry[]> {
     await ensureCurrentWeek();
@@ -797,7 +894,9 @@ export class RaceManager {
         netDistance: (r.get("netDistance") as number) || 0,
         status: r.get("status"),
         isBot: r.get("isBot") === true,
-        points: pts
+        points: pts,
+        isEstimated: r.get("isEstimated") === true,
+        estimatedTime: r.get("isEstimated") ? ((r.get("elapsedTime") as number) || 0) : undefined
       });
     }
 
@@ -961,16 +1060,41 @@ export class RaceManager {
         try {
           const rows = await this.loadRaceActivities(race.id);
 
-          // Détection de rupture de flux post-départ (déconnexion / fermeture app Garmin) -> passage en Abandon (DNF)
+          // Détection d'inactivité post-départ (> 60s sans ramer / rupture de flux) -> passage en Abandon (DNF)
           for (const row of rows) {
             if (!row.get("isBot") && (row.get("status") === "in_progress" || row.get("status") === "paused")) {
-              const updatedAt = row.get("updatedAt");
-              if (updatedAt) {
-                const ageMs = now.getTime() - new Date(updatedAt).getTime();
-                if (ageMs > 25000) {
-                  console.log(`[RaceManager] Rupture de flux détectée pour ${row.get("userId")} (${Math.round(ageMs / 1000)}s). Marquage Abandon (DNF).`);
-                  await row.update({ status: "abandoned", speed: 0, powerWatts: 0, strokeRate: 0 } as any);
-                }
+              const uid = String(row.get("userId") || "");
+              const participant = race.participants?.get(uid);
+              const memAct = userStore.findActivityById(row.get("id"));
+              const lastRowedMs = Number(
+                participant?.lastRowedAtMs ||
+                (typeof row.get === "function" ? row.get("lastRowedAtMs") : (row as any).lastRowedAtMs) ||
+                memAct?.lastRowedAtMs ||
+                0
+              );
+              const updatedAtMs = row.get("updatedAt") ? new Date(row.get("updatedAt")).getTime() : 0;
+              const startMs = race.startedAt ? race.startedAt.getTime() : 0;
+              const baselineMs = Math.max(lastRowedMs, updatedAtMs, startMs);
+              const ageMs = now.getTime() - baselineMs;
+
+              if (ageMs > RaceManager.INACTIVITY_ABANDON_MS) {
+                console.log(`[RaceManager] Rupture de flux / inactivité détectée pour ${uid} (${Math.round(ageMs / 1000)}s > 60s). Marquage Abandon (DNF).`);
+                await row.update({ status: "abandoned", isDnf: true, speed: 0, powerWatts: 0, strokeRate: 0 } as any);
+                userStore.recordActivity({
+                  id: row.get("id"),
+                  activityId: race.id,
+                  userId: uid,
+                  status: "abandoned",
+                  isDnf: true,
+                  lastPower: 0,
+                  lastStrokeRate: 0,
+                });
+                try {
+                  await Activities.update(
+                    { status: "abandoned", isDnf: true, lastPower: 0, lastStrokeRate: 0 },
+                    { where: { activityId: race.id, userId: uid } }
+                  );
+                } catch {}
               }
             }
           }
@@ -980,11 +1104,46 @@ export class RaceManager {
           const live = RaceManager.sortRanking(rows);
           if (live.length > 0) {
             socketGateway.broadcastLeaderboard(race.id, RaceManager.toLiveMetrics(live, race));
+
+            const nonAbandoned = live.filter((act: any) => act.get("status") !== "abandoned");
+            const nonAbandonedHumans = nonAbandoned.filter((act: any) => !act.get("isBot"));
+            const botsInProgress = nonAbandoned.filter(
+              (act: any) => Boolean(act.get("isBot")) && act.get("status") !== "finished" && ((act.get("netDistance") as number) || 0) < race.targetDistance
+            );
+            const allFinished =
+              nonAbandoned.length > 0 &&
+              nonAbandoned.every(
+                (act: any) =>
+                  act.get("status") === "finished" ||
+                  ((act.get("netDistance") as number) || 0) >= race.targetDistance
+              );
+            if (allFinished) {
+              await this.finishRace(race.id, false, "completed");
+              return this.currentPublicRace!;
+            }
+
+            // Règle: Lorsque tous les humains sont arrivés et qu'il ne reste plus que des bots, la course se termine
+            // et le chrono des bots restants est estimé par rapport à leur allure.
+            const allHumansFinished =
+              nonAbandonedHumans.length > 0 &&
+              nonAbandonedHumans.every(
+                (act: any) =>
+                  act.get("status") === "finished" ||
+                  ((act.get("netDistance") as number) || 0) >= race.targetDistance
+              );
+
+            if (allHumansFinished && botsInProgress.length > 0) {
+              console.log(`[RaceManager] Tous les humains sont arrivés en course publique ${race.id}. Clôture immédiate avec extrapolation des bots.`);
+              await this.estimateAndFinishRemainingBots(race, botsInProgress, nonAbandonedHumans, now);
+              await this.finishRace(race.id, false, "all_humans_finished");
+              return this.currentPublicRace!;
+            }
           }
 
           const activeHumans = rows.filter((r: any) => this.isActiveHuman(r, now));
-          if (activeHumans.length === 0) {
-            console.log(`[RaceManager] No human racer left in race ${race.id} (only bots). Closing race.`);
+          const hasFinishedHuman = rows.some((r: any) => !r.get("isBot") && r.get("status") === "finished");
+          if (activeHumans.length === 0 && !hasFinishedHuman) {
+            console.log(`[RaceManager] No human racer left in race ${race.id} (only bots, no finisher). Closing race.`);
             await this.finishRace(race.id, false, "no_active_humans");
           }
         } catch (err) {
@@ -1087,20 +1246,41 @@ export class RaceManager {
         try {
           const rows = await this.loadRaceActivities(race.id);
 
-          // Détection de rupture de flux post-départ (déconnexion / fermeture app Garmin) -> passage en Abandon (DNF)
+          // Détection d'inactivité post-départ (> 60s sans ramer / rupture de flux) -> passage en Abandon (DNF)
           for (const row of rows) {
             if (!row.get("isBot") && (row.get("status") === "in_progress" || row.get("status") === "paused")) {
-              const updatedAt = row.get("updatedAt");
-              if (updatedAt) {
-                const baselineMs = Math.max(
-                  new Date(updatedAt).getTime(),
-                  race.startedAt ? race.startedAt.getTime() : 0
-                );
-                const ageMs = now.getTime() - baselineMs;
-                if (ageMs > 25000) {
-                  console.log(`[RaceManager] Rupture de flux détectée pour ${row.get("userId")} (${Math.round(ageMs / 1000)}s). Marquage Abandon (DNF).`);
-                  await row.update({ status: "abandoned", speed: 0, powerWatts: 0, strokeRate: 0 } as any);
-                }
+              const uid = String(row.get("userId") || "");
+              const participant = race.participants?.get(uid);
+              const memAct = userStore.findActivityById(row.get("id"));
+              const lastRowedMs = Number(
+                participant?.lastRowedAtMs ||
+                (typeof row.get === "function" ? row.get("lastRowedAtMs") : (row as any).lastRowedAtMs) ||
+                memAct?.lastRowedAtMs ||
+                0
+              );
+              const updatedAtMs = row.get("updatedAt") ? new Date(row.get("updatedAt")).getTime() : 0;
+              const startMs = race.startedAt ? race.startedAt.getTime() : 0;
+              const baselineMs = Math.max(lastRowedMs, updatedAtMs, startMs);
+              const ageMs = now.getTime() - baselineMs;
+
+              if (ageMs > RaceManager.INACTIVITY_ABANDON_MS) {
+                console.log(`[RaceManager] Rupture de flux / inactivité détectée pour ${uid} (${Math.round(ageMs / 1000)}s > 60s). Marquage Abandon (DNF).`);
+                await row.update({ status: "abandoned", isDnf: true, speed: 0, powerWatts: 0, strokeRate: 0 } as any);
+                userStore.recordActivity({
+                  id: row.get("id"),
+                  activityId: race.id,
+                  userId: uid,
+                  status: "abandoned",
+                  isDnf: true,
+                  lastPower: 0,
+                  lastStrokeRate: 0,
+                });
+                try {
+                  await Activities.update(
+                    { status: "abandoned", isDnf: true, lastPower: 0, lastStrokeRate: 0 },
+                    { where: { activityId: race.id, userId: uid } }
+                  );
+                } catch {}
               }
             }
           }
@@ -1113,26 +1293,45 @@ export class RaceManager {
 
             const nonAbandoned = live.filter((act: any) => act.get("status") !== "abandoned");
             const nonAbandonedHumans = nonAbandoned.filter((act: any) => !act.get("isBot"));
+            const botsInProgress = nonAbandoned.filter(
+              (act: any) => Boolean(act.get("isBot")) && act.get("status") !== "finished" && ((act.get("netDistance") as number) || 0) < race.targetDistance
+            );
             const allFinished =
               nonAbandoned.length > 0 &&
-              (nonAbandoned.every(
-                (act: any) => act.get("status") === "finished" || ((act.get("netDistance") as number) || 0) >= race.targetDistance
-              ) ||
-                (nonAbandonedHumans.length > 0 &&
-                  nonAbandonedHumans.every(
-                    (act: any) => act.get("status") === "finished" || ((act.get("netDistance") as number) || 0) >= race.targetDistance
-                  )));
+              nonAbandoned.every(
+                (act: any) =>
+                  act.get("status") === "finished" ||
+                  ((act.get("netDistance") as number) || 0) >= race.targetDistance
+              );
             if (allFinished) {
               await this.finishPrivateRace(race, "completed");
+              continue;
+            }
+
+            // Règle: Lorsque tous les humains sont arrivés et qu'il ne reste plus que des bots, la course se termine
+            // et le chrono des bots restants est estimé par rapport à leur allure.
+            const allHumansFinished =
+              nonAbandonedHumans.length > 0 &&
+              nonAbandonedHumans.every(
+                (act: any) =>
+                  act.get("status") === "finished" ||
+                  ((act.get("netDistance") as number) || 0) >= race.targetDistance
+              );
+
+            if (allHumansFinished && botsInProgress.length > 0) {
+              console.log(`[RaceManager] Tous les humains sont arrivés dans le salon ${race.id}. Clôture immédiate avec extrapolation des bots.`);
+              await this.estimateAndFinishRemainingBots(race, botsInProgress, nonAbandonedHumans, now);
+              await this.finishPrivateRace(race, "all_humans_finished");
               continue;
             }
           }
 
           const activeHumans = rows.filter((r: any) => this.isActiveHuman(r, now));
           const hasMemoryHumans = Boolean(race.participants && race.participants.size > 0);
+          const hasFinishedHuman = rows.some((r: any) => !r.get("isBot") && r.get("status") === "finished");
           const justStarted = race.startedAt ? (now.getTime() - race.startedAt.getTime() < 10000) : true;
-          if (activeHumans.length === 0 && !hasMemoryHumans && !justStarted) {
-            console.log(`[RaceManager] No active human racer left in private race ${race.id} (only bots). Closing race.`);
+          if (activeHumans.length === 0 && !hasFinishedHuman && !hasMemoryHumans && !justStarted) {
+            console.log(`[RaceManager] No active human racer left in private race ${race.id} (only bots, no finisher). Closing race.`);
             await this.finishPrivateRace(race, "no_active_humans");
           }
         } catch (err) {

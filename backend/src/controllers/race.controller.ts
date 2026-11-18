@@ -703,6 +703,7 @@ export const getRaceLeaderboard = async (req: Request, res: Response): Promise<v
           userName,
           lane: assignedLane,
           isBot,
+          isEstimated: Boolean(getVal("isEstimated")),
           isPaired,
           status,
           chrono,
