@@ -89,6 +89,7 @@ export class AppComponent implements OnInit, OnDestroy {
   formattedGameRemaining = '55m 00s';
   is3sCountdown = false;
   isPreStartCountdown = false;
+  isPrestartTimerDismissed = false;
   threeSecondsCount = 3;
 
   // Live race gap metrics
@@ -1283,6 +1284,7 @@ export class AppComponent implements OnInit, OnDestroy {
             this.cockpitLeaderboardPos = { x: pLbX, y: pLbY };
           }
         }
+        this.isPrestartTimerDismissed = localStorage.getItem('rower_prestart_timer_dismissed') === 'true';
       }
     } catch {}
     if (typeof window !== 'undefined') {
@@ -3096,6 +3098,34 @@ export class AppComponent implements OnInit, OnDestroy {
       try {
         localStorage.removeItem('rower_timer_pos_x');
         localStorage.removeItem('rower_timer_pos_y');
+      } catch {}
+    }
+    this.cdr.markForCheck();
+  }
+
+  dismissPrestartTimerPermanently(event?: Event): void {
+    if (event) {
+      event.stopPropagation();
+      event.preventDefault();
+    }
+    this.isPrestartTimerDismissed = true;
+    if (typeof localStorage !== 'undefined') {
+      try {
+        localStorage.setItem('rower_prestart_timer_dismissed', 'true');
+      } catch {}
+    }
+    this.cdr.markForCheck();
+  }
+
+  togglePrestartTimerPreference(enabled: boolean): void {
+    this.isPrestartTimerDismissed = !enabled;
+    if (typeof localStorage !== 'undefined') {
+      try {
+        if (this.isPrestartTimerDismissed) {
+          localStorage.setItem('rower_prestart_timer_dismissed', 'true');
+        } else {
+          localStorage.removeItem('rower_prestart_timer_dismissed');
+        }
       } catch {}
     }
     this.cdr.markForCheck();

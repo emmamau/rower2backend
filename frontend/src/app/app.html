@@ -75,7 +75,7 @@
   </div>
 
   <!-- RACE PRE-START COUNTDOWN TIMER (15s..4s) - DRAGGABLE -->
-  <div class="prestart-countdown-overlay" [class.has-custom-pos]="!!timerPosition" *ngIf="isPreStartCountdown && !is3sCountdown">
+  <div class="prestart-countdown-overlay" [class.has-custom-pos]="!!timerPosition" *ngIf="isPreStartCountdown && !is3sCountdown && !isPrestartTimerDismissed">
     <div
       class="prestart-countdown-box"
       [class.is-custom-pos]="!!timerPosition"
@@ -89,14 +89,24 @@
       title="Glissez pour déplacer le compte à rebours où vous le souhaitez">
       <div class="prestart-drag-bar">
         <span class="prestart-drag-handle">⋮⋮ Glisser</span>
-        <button
-          *ngIf="timerPosition"
-          type="button"
-          class="btn-reset-timer-pos"
-          (click)="resetTimerPosition($event)"
-          title="Recentrer le compte à rebours">
-          ↺ Recentrer
-        </button>
+        <div class="prestart-drag-actions">
+          <button
+            *ngIf="timerPosition"
+            type="button"
+            class="btn-reset-timer-pos"
+            (click)="resetTimerPosition($event)"
+            title="Recentrer le compte à rebours">
+            ↺ Recentrer
+          </button>
+          <button
+            type="button"
+            class="btn-close-timer-popup"
+            (click)="dismissPrestartTimerPermanently($event)"
+            title="Fermer définitivement ce compte à rebours flottant"
+            aria-label="Fermer définitivement">
+            ✕
+          </button>
+        </div>
       </div>
       <div class="prestart-countdown-badge">⏱️ DÉPART DANS</div>
       <div class="prestart-countdown-number">{{ formattedPreRaceCountdown }}</div>
@@ -1501,6 +1511,25 @@
                     </div>
                   </div>
                 }
+              </div>
+            </div>
+
+            <!-- 3. Option du Compte à Rebours Flottant avant la course -->
+            <div class="customizer-section timer-pref-section">
+              <label class="customizer-section-title">
+                <span>⏱️ Compte à Rebours Flottant avant le Départ</span>
+              </label>
+              <div class="timer-pref-box">
+                <label class="pref-toggle-label">
+                  <input
+                    type="checkbox"
+                    [checked]="!isPrestartTimerDismissed"
+                    (change)="togglePrestartTimerPreference($any($event.target).checked)" />
+                  <span class="pref-toggle-text">Afficher le popup flottant lors du compte à rebours avant le départ</span>
+                </label>
+                <span class="field-hint">
+                  Si vous aviez fermé ce popup avec la croix ✕, vous pouvez le réactiver ici à tout moment sur ce terminal.
+                </span>
               </div>
             </div>
 
