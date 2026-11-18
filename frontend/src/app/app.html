@@ -2202,6 +2202,15 @@
     </div>
   }
 
+  <!-- MODALE BACK-OFFICE ADMINISTRATION PLATEFORME -->
+  @if (isUserAdmin && isAdminDashboardOpen) {
+    <div class="modal-overlay modal-admin-overlay" (click)="onAdminBackdropClick($event)">
+      <div class="modal-card modal-admin-card" (click)="$event.stopPropagation()">
+        <app-admin-dashboard (close)="closeAdminDashboard()"></app-admin-dashboard>
+      </div>
+    </div>
+  }
+
   <!-- MAIN RACING ARENA (2D KAYAK RACE VISUALIZATION) -->
   <main class="race-arena">
     <!-- Private Salons Banner & Modal (Totalement masqué sur smartphone plein écran conformément à la spécification, sauf si la modale est ouverte) -->
@@ -3061,11 +3070,6 @@
             </div>
           </div>
         }
-      </section>
-
-      <!-- CONSOLE D'ADMINISTRATION INTÉGRÉE DIRECTEMENT SOUS LE BLOC D'ACCUEIL -->
-      <section class="home-admin-console-section" *ngIf="isUserAdmin && isAdminDashboardOpen">
-        <app-admin-dashboard (close)="closeAdminDashboard()"></app-admin-dashboard>
       </section>
 
       <!-- BANNIÈRE RAPIDE COURSE EN COURS DEPUIS L'ACCUEIL -->

@@ -8713,6 +8713,41 @@ body.rigid-viewport {
   color: #e9d5ff;
   font-weight: 700;
   box-shadow: 0 0 12px rgba(168, 85, 247, 0.25);
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  cursor: pointer;
+}
+
+.btn-hud.btn-admin-backoffice * {
+  pointer-events: none;
+}
+
+.modal-admin-overlay {
+  z-index: 220;
+}
+
+.modal-admin-card {
+  max-width: 1200px;
+  width: 96%;
+  max-height: 90vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 0;
+  background: rgba(13, 19, 33, 0.98);
+  border: 2px solid rgba(168, 85, 247, 0.6);
+  border-radius: 16px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.8), 0 0 25px rgba(168, 85, 247, 0.35);
+}
+
+@media (max-width: 768px) {
+  .modal-admin-card {
+    width: 100%;
+    max-width: 100%;
+    max-height: 94dvh;
+    border-radius: 20px 20px 0 0;
+    border-inline: none;
+    border-bottom: none;
+  }
 }
 
 .btn-hud.btn-admin-backoffice:hover {

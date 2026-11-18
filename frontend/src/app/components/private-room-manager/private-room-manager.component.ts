@@ -38,6 +38,8 @@ const SAVED_SALONS_STORAGE_KEY = 'rower_saved_private_salons';
 export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy {
   @ViewChild('dialogEl') dialogRef?: ElementRef<HTMLElement>;
 
+  private openedTimestamp = 0;
+
   @Input() isOpen = false;
   @Input() initialTab: PrivateModalTab = 'create';
   @Input() activeRoom: PrivateRacePayload | null = null;
@@ -358,6 +360,7 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
 
     if (changes['isOpen']) {
       if (this.isOpen) {
+        this.openedTimestamp = Date.now();
         this.activeTab = this.resolveTab(this.initialTab);
         this.actionError = '';
         if (this.externalError) {
@@ -437,7 +440,13 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
     }
   }
 
-  onBackdropClick(_event?: MouseEvent): void {
+  onBackdropClick(event?: MouseEvent): void {
+    if (event && event.target !== event.currentTarget) {
+      return;
+    }
+    if (Date.now() - this.openedTimestamp < 400) {
+      return;
+    }
     this.closeModal();
   }
 

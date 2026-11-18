@@ -2981,22 +2981,23 @@ export class AppComponent implements OnInit, OnDestroy {
     this.isWatchGuidanceModalOpen = false;
   }
 
+  adminDashboardOpenedAt = 0;
+
   openAdminDashboard(): void {
     if (!this.isUserAdmin) return;
     this.closeAllOverlayModals();
+    this.adminDashboardOpenedAt = Date.now();
     this.isAdminDashboardOpen = true;
     if (typeof window !== 'undefined' && window.location.pathname !== '/admin') {
       try { window.history.pushState({}, '', '/admin'); } catch {}
     }
     this.cdr.markForCheck();
-    setTimeout(() => {
-      if (typeof document !== 'undefined') {
-        const adminSection = document.querySelector('.home-admin-console-section');
-        if (adminSection) {
-          adminSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
-      }
-    }, 50);
+  }
+
+  onAdminBackdropClick(event?: MouseEvent): void {
+    if (event && event.target !== event.currentTarget) return;
+    if (Date.now() - this.adminDashboardOpenedAt < 400) return;
+    this.closeAdminDashboard();
   }
 
   closeAdminDashboard(): void {
