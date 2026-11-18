@@ -1662,13 +1662,6 @@
 
         <!-- Actions en bas de modale de classement -->
         <div class="modal-footer-actions">
-          <button
-            type="button"
-            class="btn-finish-home"
-            (click)="returnToHomeAfterRace()"
-            title="Quitter la course et revenir à la page d'accueil">
-            🏠 {{ i18n.t('BTN_RETURN_HOME') || "Retourner à l'accueil" }}
-          </button>
           @if (activePrivateRoom) {
             <button
               type="button"
