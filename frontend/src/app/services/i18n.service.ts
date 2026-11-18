@@ -111,6 +111,7 @@ export class I18nService {
       
       'MODAL_LEGAL_TITLE': 'Conditions Générales d\'Utilisation & RGPD',
       'BTN_CLOSE': 'Fermer',
+      'BTN_RETURN_HOME': 'Quitter',
       'FOOTER_RGPD': 'Conformité RGPD & Confidentialité : Zéro pistage, aucune donnée médicale stockée, pseudonymisation intégrale.',
       'SELECT_LANGUAGE': 'Langue'
     },
@@ -205,6 +206,7 @@ export class I18nService {
       
       'MODAL_LEGAL_TITLE': 'Terms of Service & GDPR Compliance',
       'BTN_CLOSE': 'Close',
+      'BTN_RETURN_HOME': 'Quit',
       'FOOTER_RGPD': 'GDPR Compliance & Privacy: Zero tracking, no medical data collected, total pseudonymization.',
       'SELECT_LANGUAGE': 'Language'
     },
@@ -299,6 +301,7 @@ export class I18nService {
       
       'MODAL_LEGAL_TITLE': 'Nutzungsbedingungen & DSGVO',
       'BTN_CLOSE': 'Schließen',
+      'BTN_RETURN_HOME': 'Verlassen',
       'FOOTER_RGPD': 'DSGVO & Datenschutz: Kein Tracking, keine Gesundheitsdaten, vollständige Pseudonymisierung.',
       'SELECT_LANGUAGE': 'Sprache'
     },
@@ -393,6 +396,7 @@ export class I18nService {
       
       'MODAL_LEGAL_TITLE': 'Términos de Uso y RGPD',
       'BTN_CLOSE': 'Cerrar',
+      'BTN_RETURN_HOME': 'Salir',
       'FOOTER_RGPD': 'RGPD y Privacidad: Cero rastreo, sin datos de salud almacenados, pseudonimización completa.',
       'SELECT_LANGUAGE': 'Idioma'
     },
@@ -487,6 +491,7 @@ export class I18nService {
       
       'MODAL_LEGAL_TITLE': 'Termini di Servizio & GDPR',
       'BTN_CLOSE': 'Chiudi',
+      'BTN_RETURN_HOME': 'Esci',
       'FOOTER_RGPD': 'GDPR & Privacy: Nessun tracciamento, nessun dato medico archiviato, pseudonimizzazione totale.',
       'SELECT_LANGUAGE': 'Lingua'
     },
@@ -581,6 +586,7 @@ export class I18nService {
       
       'MODAL_LEGAL_TITLE': 'Termos de Utilização & RGPD',
       'BTN_CLOSE': 'Fechar',
+      'BTN_RETURN_HOME': 'Sair',
       'FOOTER_RGPD': 'RGPD & Privacidade: Zero rastreio, nenhum dado de saúde gravado, pseudonimização integral.',
       'SELECT_LANGUAGE': 'Idioma'
     }

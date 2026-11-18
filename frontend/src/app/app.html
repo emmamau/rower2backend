@@ -2360,7 +2360,7 @@
               class="btn-finish-home"
               (click)="returnToHomeAfterRace()"
               title="Quitter la course et revenir à la page d'accueil">
-              🏠 Retourner à l'accueil
+              {{ i18n.t('BTN_RETURN_HOME') }}
             </button>
             <button
               *ngIf="nextRaceInfo?.race?.id"
@@ -2795,7 +2795,7 @@
               class="btn-finish-home"
               (click)="returnToHomeAfterRace()"
               title="Quitter la course et revenir à la page d'accueil">
-              🏠 Retourner à l'accueil
+              {{ i18n.t('BTN_RETURN_HOME') }}
             </button>
             <button
               *ngIf="nextRaceInfo?.race?.id"
