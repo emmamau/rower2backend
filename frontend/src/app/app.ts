@@ -4879,7 +4879,8 @@ export class AppComponent implements OnInit, OnDestroy {
 
       if (this.activePrivateRoom && (update.raceId === this.activePrivateRoom.race?.id || update.raceId === this.activePrivateRoom.code)) {
         if (Boolean((update as any)?.roomClosed) || update?.['type'] === 'ROOM_CLOSED') {
-          if (this.isPostRaceDisplayActive || this.isPrivateRoomCompleted || update.status === 'COMPLETED' || update.status === 'STOPPED') {
+          const updateStatus = (update as any)?.status;
+          if (this.isPostRaceDisplayActive || this.isPrivateRoomCompleted || updateStatus === 'COMPLETED' || updateStatus === 'STOPPED') {
             this.isPrivateRoomCompleted = true;
             this.isPostRaceRankingActive = true;
             const targetRaceId = update.raceId || this.activePrivateRoom.race?.id;
