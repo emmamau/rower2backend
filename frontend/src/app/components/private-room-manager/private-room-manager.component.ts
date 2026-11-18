@@ -157,11 +157,12 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
   botMaxPaceError = '';
 
   get maxBotsAllowed(): number {
-    if (this.isUserAdmin) return 20;
     if (this.quotaInfo?.maxBots !== undefined) return this.quotaInfo.maxBots;
     const rawTier = String(this.userSubscriptionTier || (this.isSubscriber ? 'intermediate' : 'free')).toLowerCase().trim();
     if (rawTier === 'pro' || rawTier === 'elite_pro' || rawTier === 'premium') return 5;
     if (rawTier === 'club' || rawTier === 'standard' || rawTier === 'intermediate') return 3;
+    if (rawTier === 'free') return 1;
+    if (this.isUserAdmin) return 20;
     return this.isSubscriber ? 3 : 1;
   }
 
@@ -1275,6 +1276,31 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
           this.cdr.markForCheck();
         }
       });
+  }
+
+  stopActiveRace(): void {
+    if (!this.activeRoom || this.isActionBusy) return;
+    const raceId = this.activeRoom.race?.id;
+    if (!raceId) return;
+    const promptMsg = this.i18n.t('CONFIRM_STOP_RACE') || "Voulez-vous vraiment arrêter la course ? Le classement officiel sera immédiatement établi selon les positions actuelles.";
+    if (!confirm(promptMsg)) {
+      return;
+    }
+    this.isActionBusy = true;
+    this.actionError = '';
+    this.rowerService.stopRace(raceId, this.activeUserId).subscribe({
+      next: (res) => {
+        this.isActionBusy = false;
+        this.showFeedback(res.message || 'Course arrêtée.');
+        this.refreshActiveRoom();
+        this.cdr.markForCheck();
+      },
+      error: (err) => {
+        this.isActionBusy = false;
+        this.actionError = err?.error?.message || err?.error?.error || "Erreur lors de l'arrêt de la course.";
+        this.cdr.markForCheck();
+      }
+    });
   }
 
   triggerResetRoom(): void {

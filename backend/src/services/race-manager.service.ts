@@ -1729,23 +1729,27 @@ export class RaceManager {
       }
       const { power, spm, speedMs } = calculateBotPhysics(botPace);
 
-      if (race && race.participants && !race.participants.has(botId)) {
-        let botLane = i + 2;
-        const usedLanes = new Set<number>();
-        for (const p of race.participants.values()) {
-          if (p.lane) usedLanes.add(p.lane);
+      let assignedBotLane = 1;
+      if (race && race.participants) {
+        if (race.participants.has(botId)) {
+          assignedBotLane = race.participants.get(botId)!.lane || 1;
+        } else {
+          const usedLanes = new Set<number>();
+          for (const p of race.participants.values()) {
+            if (p.lane && p.lane > 0) usedLanes.add(p.lane);
+          }
+          while (usedLanes.has(assignedBotLane)) {
+            assignedBotLane++;
+          }
+          race.participants.set(botId, {
+            userId: botId,
+            userName: name,
+            joinedAt: new Date(),
+            lane: assignedBotLane,
+            ready: true,
+            connectionState: "READY"
+          });
         }
-        while (usedLanes.has(botLane)) {
-          botLane++;
-        }
-        race.participants.set(botId, {
-          userId: botId,
-          userName: name,
-          joinedAt: new Date(),
-          lane: botLane,
-          ready: true,
-          connectionState: "READY"
-        });
       }
 
       const botDefaults = {
@@ -1753,6 +1757,7 @@ export class RaceManager {
         activityId: raceId,
         userId: botId,
         userName: name,
+        lane: assignedBotLane,
         isBot: true,
         raceMode: "race",
         targetDistance,

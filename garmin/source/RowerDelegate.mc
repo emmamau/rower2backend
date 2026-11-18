@@ -94,7 +94,10 @@ class RowerDelegate extends WatchUi.BehaviorDelegate {
                         _view.showWarning(I18n.getText("PROFILE_SYNCED_WEB"), 2);
                     }
                 } else if (menuIdx == 3) {
-                    // 4. Historique local (G9)
+                    // 4. Configuration des écrans de données
+                    openDataScreenConfig();
+                } else if (menuIdx == 4) {
+                    // 5. Historique local (G9)
                     _view.setAppState(RowerView.STATE_HISTORY);
                 }
             } else {
@@ -107,7 +110,10 @@ class RowerDelegate extends WatchUi.BehaviorDelegate {
                     _view.resetPseudoDigits();
                     _view.setAppState(RowerView.STATE_PSEUDO_INPUT);
                 } else if (menuIdx == 2) {
-                    // 3. Historique local (G9)
+                    // 3. Configuration des écrans de données
+                    openDataScreenConfig();
+                } else if (menuIdx == 3) {
+                    // 4. Historique local (G9)
                     _view.setAppState(RowerView.STATE_HISTORY);
                 }
             }
@@ -168,10 +174,12 @@ class RowerDelegate extends WatchUi.BehaviorDelegate {
             if (pIdx == 0) {
                 _bleDelegate.resumeSession();
             } else if (pIdx == 1) {
-                _bleDelegate.reconnectBle();
+                openDataScreenConfig();
             } else if (pIdx == 2) {
-                _bleDelegate.saveAndExitSession();
+                _bleDelegate.reconnectBle();
             } else if (pIdx == 3) {
+                _bleDelegate.saveAndExitSession();
+            } else if (pIdx == 4) {
                 _bleDelegate.discardSession();
             }
             return true;
@@ -333,5 +341,11 @@ class RowerDelegate extends WatchUi.BehaviorDelegate {
         }
 
         return false;
+    }
+
+    private function openDataScreenConfig() as Void {
+        var cfgView = new DataScreenConfigView(_bleDelegate.getModel());
+        var cfgDelegate = new DataScreenConfigDelegate(cfgView);
+        WatchUi.pushView(cfgView, cfgDelegate, WatchUi.SLIDE_LEFT);
     }
 }

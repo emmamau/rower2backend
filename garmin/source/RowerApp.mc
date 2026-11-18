@@ -19,6 +19,9 @@ class RowerApp extends Application.AppBase {
     }
 
     public function onStart(state as Dictionary?) as Void {
+        // Initialize dynamic race data fields configuration
+        RaceDataFieldManager.initConfig();
+
         // Generate or load persistent 6-char player ID
         UserManager.getUserId();
 
@@ -87,6 +90,7 @@ class RowerApp extends Application.AppBase {
     }
 
     public function onSettingsChanged() as Void {
+        RaceDataFieldManager.reloadConfig();
         WatchUi.requestUpdate();
     }
 }

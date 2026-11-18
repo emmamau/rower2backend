@@ -205,13 +205,14 @@
                 (click)="triggerStart(3)">
                 {{ i18n.t('BTN_START_3S') }}
               </button>
-            } @else {
+            } @else if (activeRoom.status === 'in_progress' || activeRoom.status === 'running') {
               <button
                 type="button"
-                class="priv-btn priv-btn-yellow"
+                class="priv-btn priv-btn-danger"
                 [disabled]="isActionBusy"
-                (click)="triggerResetRoom()">
-                {{ i18n.t('BTN_RESET_ROOM') }}
+                title="Arrêter la course immédiatement"
+                (click)="stopActiveRace()">
+                🛑 Arrêter la course
               </button>
             }
           } @else if (isSoloRoom && !isFirstStrokeMode && (activeRoom.status === 'countdown' || activeRoom.status === 'waiting')) {
@@ -230,13 +231,14 @@
               (click)="triggerStart(3)">
               {{ i18n.t('BTN_START_3S') }}
             </button>
-          } @else if (activeRoom.status === 'in_progress' || activeRoom.status === 'finished') {
+          } @else if (activeRoom.status === 'in_progress' || activeRoom.status === 'running') {
             <button
               type="button"
-              class="priv-btn priv-btn-yellow"
+              class="priv-btn priv-btn-danger"
               [disabled]="isActionBusy"
-              (click)="triggerResetRoom()">
-              {{ i18n.t('BTN_RESET_ROOM') }}
+              title="Arrêter la course immédiatement"
+              (click)="stopActiveRace()">
+              🛑 Arrêter la course
             </button>
           }
         }
@@ -603,16 +605,18 @@
                     Max {{ maxBotsAllowed }} bot{{ maxBotsAllowed > 1 ? 's' : '' }} ({{ quotaInfo?.tierName || 'Forfait' }})
                   </span>
                 </div>
-                <div class="priv-preset-row">
-                  @for (countOpt of multiBotCountOptions; track countOpt) {
-                    <button
-                      type="button"
-                      class="priv-preset-chip"
-                      [class.active]="multiBotCount === countOpt"
-                      (click)="multiBotCount = countOpt">
-                      {{ countOpt === 0 ? 'Aucun bot' : countOpt + ' bot' + (countOpt > 1 ? 's' : '') }}
-                    </button>
-                  }
+                <div class="priv-field">
+                  <select
+                    id="multiBotCountSelect"
+                    class="priv-select"
+                    [(ngModel)]="multiBotCount"
+                    name="multiBotCount">
+                    @for (countOpt of multiBotCountOptions; track countOpt) {
+                      <option [ngValue]="countOpt">
+                        {{ countOpt === 0 ? 'Aucun bot' : countOpt + ' bot' + (countOpt > 1 ? 's' : '') }}
+                      </option>
+                    }
+                  </select>
                 </div>
 
                 @if (multiBotCount > 0) {
@@ -1052,13 +1056,14 @@
                     {{ activeRoomBotCount === 0 ? '🤖 + Ajouter des bots' : '🤖 Retirer les ' + activeRoomBotCount + ' bot(s)' }}
                   </button>
                 }
-              } @else {
+              } @else if (activeRoom.status === 'in_progress' || activeRoom.status === 'running') {
                 <button
                   type="button"
-                  class="priv-btn priv-btn-yellow"
+                  class="priv-btn priv-btn-danger"
                   [disabled]="isActionBusy"
-                  (click)="triggerResetRoom()">
-                  {{ i18n.t('BTN_RESET_ROOM') }}
+                  title="Arrêter la course immédiatement"
+                  (click)="stopActiveRace()">
+                  🛑 Arrêter la course
                 </button>
               }
 

@@ -1,11 +1,339 @@
 <resources>
     <properties>
         <property id="userLogin" type="string"></property>
+
+        <!-- Page 1 Grid Slots & Footer -->
+        <property id="dataField_p1_tl" type="number">0</property>
+        <property id="dataField_p1_tr" type="number">5</property>
+        <property id="dataField_p1_bl" type="number">16</property>
+        <property id="dataField_p1_br" type="number">26</property>
+        <property id="dataField_p1_foot" type="number">0</property>
+
+        <!-- Page 2 Grid Slots & Footer -->
+        <property id="dataField_p2_tl" type="number">27</property>
+        <property id="dataField_p2_tr" type="number">28</property>
+        <property id="dataField_p2_bl" type="number">1</property>
+        <property id="dataField_p2_br" type="number">17</property>
+        <property id="dataField_p2_foot" type="number">0</property>
     </properties>
 
     <settings>
         <setting propertyKey="@Properties.userLogin" title="@Strings.UserLoginTitle" prompt="@Strings.UserLoginPrompt">
             <settingConfig type="alphaNumeric" maxLength="32" />
+        </setting>
+
+        <!-- ================= PAGE 1 ================= -->
+        <setting propertyKey="@Properties.dataField_p1_tl" title="@Strings.P1TLTitle" prompt="@Strings.P1TLPrompt">
+            <settingConfig type="list">
+                <listEntry value="0">@Strings.OptPaceInstant</listEntry>
+                <listEntry value="1">@Strings.OptPaceAvg</listEntry>
+                <listEntry value="2">@Strings.OptSpeedInstant</listEntry>
+                <listEntry value="3">@Strings.OptSpeedAvg</listEntry>
+                <listEntry value="4">@Strings.OptDPS</listEntry>
+                <listEntry value="5">@Strings.OptPowerInstant</listEntry>
+                <listEntry value="6">@Strings.OptPowerAvg</listEntry>
+                <listEntry value="7">@Strings.OptPowerMax</listEntry>
+                <listEntry value="8">@Strings.OptCalories</listEntry>
+                <listEntry value="9">@Strings.OptCalPerHour</listEntry>
+                <listEntry value="10">@Strings.OptSPMInstant</listEntry>
+                <listEntry value="11">@Strings.OptSPMAvg</listEntry>
+                <listEntry value="12">@Strings.OptStrokeCount</listEntry>
+                <listEntry value="13">@Strings.OptPeakForce</listEntry>
+                <listEntry value="14">@Strings.OptAvgForce</listEntry>
+                <listEntry value="15">@Strings.OptStrokeWork</listEntry>
+                <listEntry value="16">@Strings.OptDistance</listEntry>
+                <listEntry value="17">@Strings.OptRemDistance</listEntry>
+                <listEntry value="18">@Strings.OptElapsedTime</listEntry>
+                <listEntry value="19">@Strings.OptRemTimeEst</listEntry>
+                <listEntry value="20">@Strings.OptProjectedTime</listEntry>
+                <listEntry value="21">@Strings.OptTimeOfDay</listEntry>
+                <listEntry value="22">@Strings.OptHRInstant</listEntry>
+                <listEntry value="23">@Strings.OptHRAvg</listEntry>
+                <listEntry value="24">@Strings.OptHRMax</listEntry>
+                <listEntry value="25">@Strings.OptHRZone</listEntry>
+                <listEntry value="26">@Strings.OptRank</listEntry>
+                <listEntry value="27">@Strings.OptGapPrev</listEntry>
+                <listEntry value="28">@Strings.OptGapNext</listEntry>
+                <listEntry value="29">@Strings.OptGapLeader</listEntry>
+                <listEntry value="30">@Strings.OptProgressPct</listEntry>
+            </settingConfig>
+        </setting>
+
+        <setting propertyKey="@Properties.dataField_p1_tr" title="@Strings.P1TRTitle" prompt="@Strings.P1TRPrompt">
+            <settingConfig type="list">
+                <listEntry value="0">@Strings.OptPaceInstant</listEntry>
+                <listEntry value="1">@Strings.OptPaceAvg</listEntry>
+                <listEntry value="2">@Strings.OptSpeedInstant</listEntry>
+                <listEntry value="3">@Strings.OptSpeedAvg</listEntry>
+                <listEntry value="4">@Strings.OptDPS</listEntry>
+                <listEntry value="5">@Strings.OptPowerInstant</listEntry>
+                <listEntry value="6">@Strings.OptPowerAvg</listEntry>
+                <listEntry value="7">@Strings.OptPowerMax</listEntry>
+                <listEntry value="8">@Strings.OptCalories</listEntry>
+                <listEntry value="9">@Strings.OptCalPerHour</listEntry>
+                <listEntry value="10">@Strings.OptSPMInstant</listEntry>
+                <listEntry value="11">@Strings.OptSPMAvg</listEntry>
+                <listEntry value="12">@Strings.OptStrokeCount</listEntry>
+                <listEntry value="13">@Strings.OptPeakForce</listEntry>
+                <listEntry value="14">@Strings.OptAvgForce</listEntry>
+                <listEntry value="15">@Strings.OptStrokeWork</listEntry>
+                <listEntry value="16">@Strings.OptDistance</listEntry>
+                <listEntry value="17">@Strings.OptRemDistance</listEntry>
+                <listEntry value="18">@Strings.OptElapsedTime</listEntry>
+                <listEntry value="19">@Strings.OptRemTimeEst</listEntry>
+                <listEntry value="20">@Strings.OptProjectedTime</listEntry>
+                <listEntry value="21">@Strings.OptTimeOfDay</listEntry>
+                <listEntry value="22">@Strings.OptHRInstant</listEntry>
+                <listEntry value="23">@Strings.OptHRAvg</listEntry>
+                <listEntry value="24">@Strings.OptHRMax</listEntry>
+                <listEntry value="25">@Strings.OptHRZone</listEntry>
+                <listEntry value="26">@Strings.OptRank</listEntry>
+                <listEntry value="27">@Strings.OptGapPrev</listEntry>
+                <listEntry value="28">@Strings.OptGapNext</listEntry>
+                <listEntry value="29">@Strings.OptGapLeader</listEntry>
+                <listEntry value="30">@Strings.OptProgressPct</listEntry>
+            </settingConfig>
+        </setting>
+
+        <setting propertyKey="@Properties.dataField_p1_bl" title="@Strings.P1BLTitle" prompt="@Strings.P1BLPrompt">
+            <settingConfig type="list">
+                <listEntry value="0">@Strings.OptPaceInstant</listEntry>
+                <listEntry value="1">@Strings.OptPaceAvg</listEntry>
+                <listEntry value="2">@Strings.OptSpeedInstant</listEntry>
+                <listEntry value="3">@Strings.OptSpeedAvg</listEntry>
+                <listEntry value="4">@Strings.OptDPS</listEntry>
+                <listEntry value="5">@Strings.OptPowerInstant</listEntry>
+                <listEntry value="6">@Strings.OptPowerAvg</listEntry>
+                <listEntry value="7">@Strings.OptPowerMax</listEntry>
+                <listEntry value="8">@Strings.OptCalories</listEntry>
+                <listEntry value="9">@Strings.OptCalPerHour</listEntry>
+                <listEntry value="10">@Strings.OptSPMInstant</listEntry>
+                <listEntry value="11">@Strings.OptSPMAvg</listEntry>
+                <listEntry value="12">@Strings.OptStrokeCount</listEntry>
+                <listEntry value="13">@Strings.OptPeakForce</listEntry>
+                <listEntry value="14">@Strings.OptAvgForce</listEntry>
+                <listEntry value="15">@Strings.OptStrokeWork</listEntry>
+                <listEntry value="16">@Strings.OptDistance</listEntry>
+                <listEntry value="17">@Strings.OptRemDistance</listEntry>
+                <listEntry value="18">@Strings.OptElapsedTime</listEntry>
+                <listEntry value="19">@Strings.OptRemTimeEst</listEntry>
+                <listEntry value="20">@Strings.OptProjectedTime</listEntry>
+                <listEntry value="21">@Strings.OptTimeOfDay</listEntry>
+                <listEntry value="22">@Strings.OptHRInstant</listEntry>
+                <listEntry value="23">@Strings.OptHRAvg</listEntry>
+                <listEntry value="24">@Strings.OptHRMax</listEntry>
+                <listEntry value="25">@Strings.OptHRZone</listEntry>
+                <listEntry value="26">@Strings.OptRank</listEntry>
+                <listEntry value="27">@Strings.OptGapPrev</listEntry>
+                <listEntry value="28">@Strings.OptGapNext</listEntry>
+                <listEntry value="29">@Strings.OptGapLeader</listEntry>
+                <listEntry value="30">@Strings.OptProgressPct</listEntry>
+            </settingConfig>
+        </setting>
+
+        <setting propertyKey="@Properties.dataField_p1_br" title="@Strings.P1BRTitle" prompt="@Strings.P1BRPrompt">
+            <settingConfig type="list">
+                <listEntry value="0">@Strings.OptPaceInstant</listEntry>
+                <listEntry value="1">@Strings.OptPaceAvg</listEntry>
+                <listEntry value="2">@Strings.OptSpeedInstant</listEntry>
+                <listEntry value="3">@Strings.OptSpeedAvg</listEntry>
+                <listEntry value="4">@Strings.OptDPS</listEntry>
+                <listEntry value="5">@Strings.OptPowerInstant</listEntry>
+                <listEntry value="6">@Strings.OptPowerAvg</listEntry>
+                <listEntry value="7">@Strings.OptPowerMax</listEntry>
+                <listEntry value="8">@Strings.OptCalories</listEntry>
+                <listEntry value="9">@Strings.OptCalPerHour</listEntry>
+                <listEntry value="10">@Strings.OptSPMInstant</listEntry>
+                <listEntry value="11">@Strings.OptSPMAvg</listEntry>
+                <listEntry value="12">@Strings.OptStrokeCount</listEntry>
+                <listEntry value="13">@Strings.OptPeakForce</listEntry>
+                <listEntry value="14">@Strings.OptAvgForce</listEntry>
+                <listEntry value="15">@Strings.OptStrokeWork</listEntry>
+                <listEntry value="16">@Strings.OptDistance</listEntry>
+                <listEntry value="17">@Strings.OptRemDistance</listEntry>
+                <listEntry value="18">@Strings.OptElapsedTime</listEntry>
+                <listEntry value="19">@Strings.OptRemTimeEst</listEntry>
+                <listEntry value="20">@Strings.OptProjectedTime</listEntry>
+                <listEntry value="21">@Strings.OptTimeOfDay</listEntry>
+                <listEntry value="22">@Strings.OptHRInstant</listEntry>
+                <listEntry value="23">@Strings.OptHRAvg</listEntry>
+                <listEntry value="24">@Strings.OptHRMax</listEntry>
+                <listEntry value="25">@Strings.OptHRZone</listEntry>
+                <listEntry value="26">@Strings.OptRank</listEntry>
+                <listEntry value="27">@Strings.OptGapPrev</listEntry>
+                <listEntry value="28">@Strings.OptGapNext</listEntry>
+                <listEntry value="29">@Strings.OptGapLeader</listEntry>
+                <listEntry value="30">@Strings.OptProgressPct</listEntry>
+            </settingConfig>
+        </setting>
+
+        <setting propertyKey="@Properties.dataField_p1_foot" title="@Strings.P1FootTitle" prompt="@Strings.P1FootPrompt">
+            <settingConfig type="list">
+                <listEntry value="0">@Strings.OptFootDefault</listEntry>
+                <listEntry value="1">@Strings.OptFootSPMHR</listEntry>
+                <listEntry value="2">@Strings.OptFootKayakStrokes</listEntry>
+                <listEntry value="3">@Strings.OptFootTimeSpeed</listEntry>
+                <listEntry value="4">@Strings.OptFootCaloriesWork</listEntry>
+                <listEntry value="5">@Strings.OptFootSplitProjection</listEntry>
+                <listEntry value="6">@Strings.OptFootPowerHR</listEntry>
+            </settingConfig>
+        </setting>
+
+        <!-- ================= PAGE 2 ================= -->
+        <setting propertyKey="@Properties.dataField_p2_tl" title="@Strings.P2TLTitle" prompt="@Strings.P2TLPrompt">
+            <settingConfig type="list">
+                <listEntry value="0">@Strings.OptPaceInstant</listEntry>
+                <listEntry value="1">@Strings.OptPaceAvg</listEntry>
+                <listEntry value="2">@Strings.OptSpeedInstant</listEntry>
+                <listEntry value="3">@Strings.OptSpeedAvg</listEntry>
+                <listEntry value="4">@Strings.OptDPS</listEntry>
+                <listEntry value="5">@Strings.OptPowerInstant</listEntry>
+                <listEntry value="6">@Strings.OptPowerAvg</listEntry>
+                <listEntry value="7">@Strings.OptPowerMax</listEntry>
+                <listEntry value="8">@Strings.OptCalories</listEntry>
+                <listEntry value="9">@Strings.OptCalPerHour</listEntry>
+                <listEntry value="10">@Strings.OptSPMInstant</listEntry>
+                <listEntry value="11">@Strings.OptSPMAvg</listEntry>
+                <listEntry value="12">@Strings.OptStrokeCount</listEntry>
+                <listEntry value="13">@Strings.OptPeakForce</listEntry>
+                <listEntry value="14">@Strings.OptAvgForce</listEntry>
+                <listEntry value="15">@Strings.OptStrokeWork</listEntry>
+                <listEntry value="16">@Strings.OptDistance</listEntry>
+                <listEntry value="17">@Strings.OptRemDistance</listEntry>
+                <listEntry value="18">@Strings.OptElapsedTime</listEntry>
+                <listEntry value="19">@Strings.OptRemTimeEst</listEntry>
+                <listEntry value="20">@Strings.OptProjectedTime</listEntry>
+                <listEntry value="21">@Strings.OptTimeOfDay</listEntry>
+                <listEntry value="22">@Strings.OptHRInstant</listEntry>
+                <listEntry value="23">@Strings.OptHRAvg</listEntry>
+                <listEntry value="24">@Strings.OptHRMax</listEntry>
+                <listEntry value="25">@Strings.OptHRZone</listEntry>
+                <listEntry value="26">@Strings.OptRank</listEntry>
+                <listEntry value="27">@Strings.OptGapPrev</listEntry>
+                <listEntry value="28">@Strings.OptGapNext</listEntry>
+                <listEntry value="29">@Strings.OptGapLeader</listEntry>
+                <listEntry value="30">@Strings.OptProgressPct</listEntry>
+            </settingConfig>
+        </setting>
+
+        <setting propertyKey="@Properties.dataField_p2_tr" title="@Strings.P2TRTitle" prompt="@Strings.P2TRPrompt">
+            <settingConfig type="list">
+                <listEntry value="0">@Strings.OptPaceInstant</listEntry>
+                <listEntry value="1">@Strings.OptPaceAvg</listEntry>
+                <listEntry value="2">@Strings.OptSpeedInstant</listEntry>
+                <listEntry value="3">@Strings.OptSpeedAvg</listEntry>
+                <listEntry value="4">@Strings.OptDPS</listEntry>
+                <listEntry value="5">@Strings.OptPowerInstant</listEntry>
+                <listEntry value="6">@Strings.OptPowerAvg</listEntry>
+                <listEntry value="7">@Strings.OptPowerMax</listEntry>
+                <listEntry value="8">@Strings.OptCalories</listEntry>
+                <listEntry value="9">@Strings.OptCalPerHour</listEntry>
+                <listEntry value="10">@Strings.OptSPMInstant</listEntry>
+                <listEntry value="11">@Strings.OptSPMAvg</listEntry>
+                <listEntry value="12">@Strings.OptStrokeCount</listEntry>
+                <listEntry value="13">@Strings.OptPeakForce</listEntry>
+                <listEntry value="14">@Strings.OptAvgForce</listEntry>
+                <listEntry value="15">@Strings.OptStrokeWork</listEntry>
+                <listEntry value="16">@Strings.OptDistance</listEntry>
+                <listEntry value="17">@Strings.OptRemDistance</listEntry>
+                <listEntry value="18">@Strings.OptElapsedTime</listEntry>
+                <listEntry value="19">@Strings.OptRemTimeEst</listEntry>
+                <listEntry value="20">@Strings.OptProjectedTime</listEntry>
+                <listEntry value="21">@Strings.OptTimeOfDay</listEntry>
+                <listEntry value="22">@Strings.OptHRInstant</listEntry>
+                <listEntry value="23">@Strings.OptHRAvg</listEntry>
+                <listEntry value="24">@Strings.OptHRMax</listEntry>
+                <listEntry value="25">@Strings.OptHRZone</listEntry>
+                <listEntry value="26">@Strings.OptRank</listEntry>
+                <listEntry value="27">@Strings.OptGapPrev</listEntry>
+                <listEntry value="28">@Strings.OptGapNext</listEntry>
+                <listEntry value="29">@Strings.OptGapLeader</listEntry>
+                <listEntry value="30">@Strings.OptProgressPct</listEntry>
+            </settingConfig>
+        </setting>
+
+        <setting propertyKey="@Properties.dataField_p2_bl" title="@Strings.P2BLTitle" prompt="@Strings.P2BLPrompt">
+            <settingConfig type="list">
+                <listEntry value="0">@Strings.OptPaceInstant</listEntry>
+                <listEntry value="1">@Strings.OptPaceAvg</listEntry>
+                <listEntry value="2">@Strings.OptSpeedInstant</listEntry>
+                <listEntry value="3">@Strings.OptSpeedAvg</listEntry>
+                <listEntry value="4">@Strings.OptDPS</listEntry>
+                <listEntry value="5">@Strings.OptPowerInstant</listEntry>
+                <listEntry value="6">@Strings.OptPowerAvg</listEntry>
+                <listEntry value="7">@Strings.OptPowerMax</listEntry>
+                <listEntry value="8">@Strings.OptCalories</listEntry>
+                <listEntry value="9">@Strings.OptCalPerHour</listEntry>
+                <listEntry value="10">@Strings.OptSPMInstant</listEntry>
+                <listEntry value="11">@Strings.OptSPMAvg</listEntry>
+                <listEntry value="12">@Strings.OptStrokeCount</listEntry>
+                <listEntry value="13">@Strings.OptPeakForce</listEntry>
+                <listEntry value="14">@Strings.OptAvgForce</listEntry>
+                <listEntry value="15">@Strings.OptStrokeWork</listEntry>
+                <listEntry value="16">@Strings.OptDistance</listEntry>
+                <listEntry value="17">@Strings.OptRemDistance</listEntry>
+                <listEntry value="18">@Strings.OptElapsedTime</listEntry>
+                <listEntry value="19">@Strings.OptRemTimeEst</listEntry>
+                <listEntry value="20">@Strings.OptProjectedTime</listEntry>
+                <listEntry value="21">@Strings.OptTimeOfDay</listEntry>
+                <listEntry value="22">@Strings.OptHRInstant</listEntry>
+                <listEntry value="23">@Strings.OptHRAvg</listEntry>
+                <listEntry value="24">@Strings.OptHRMax</listEntry>
+                <listEntry value="25">@Strings.OptHRZone</listEntry>
+                <listEntry value="26">@Strings.OptRank</listEntry>
+                <listEntry value="27">@Strings.OptGapPrev</listEntry>
+                <listEntry value="28">@Strings.OptGapNext</listEntry>
+                <listEntry value="29">@Strings.OptGapLeader</listEntry>
+                <listEntry value="30">@Strings.OptProgressPct</listEntry>
+            </settingConfig>
+        </setting>
+
+        <setting propertyKey="@Properties.dataField_p2_br" title="@Strings.P2BRTitle" prompt="@Strings.P2BRPrompt">
+            <settingConfig type="list">
+                <listEntry value="0">@Strings.OptPaceInstant</listEntry>
+                <listEntry value="1">@Strings.OptPaceAvg</listEntry>
+                <listEntry value="2">@Strings.OptSpeedInstant</listEntry>
+                <listEntry value="3">@Strings.OptSpeedAvg</listEntry>
+                <listEntry value="4">@Strings.OptDPS</listEntry>
+                <listEntry value="5">@Strings.OptPowerInstant</listEntry>
+                <listEntry value="6">@Strings.OptPowerAvg</listEntry>
+                <listEntry value="7">@Strings.OptPowerMax</listEntry>
+                <listEntry value="8">@Strings.OptCalories</listEntry>
+                <listEntry value="9">@Strings.OptCalPerHour</listEntry>
+                <listEntry value="10">@Strings.OptSPMInstant</listEntry>
+                <listEntry value="11">@Strings.OptSPMAvg</listEntry>
+                <listEntry value="12">@Strings.OptStrokeCount</listEntry>
+                <listEntry value="13">@Strings.OptPeakForce</listEntry>
+                <listEntry value="14">@Strings.OptAvgForce</listEntry>
+                <listEntry value="15">@Strings.OptStrokeWork</listEntry>
+                <listEntry value="16">@Strings.OptDistance</listEntry>
+                <listEntry value="17">@Strings.OptRemDistance</listEntry>
+                <listEntry value="18">@Strings.OptElapsedTime</listEntry>
+                <listEntry value="19">@Strings.OptRemTimeEst</listEntry>
+                <listEntry value="20">@Strings.OptProjectedTime</listEntry>
+                <listEntry value="21">@Strings.OptTimeOfDay</listEntry>
+                <listEntry value="22">@Strings.OptHRInstant</listEntry>
+                <listEntry value="23">@Strings.OptHRAvg</listEntry>
+                <listEntry value="24">@Strings.OptHRMax</listEntry>
+                <listEntry value="25">@Strings.OptHRZone</listEntry>
+                <listEntry value="26">@Strings.OptRank</listEntry>
+                <listEntry value="27">@Strings.OptGapPrev</listEntry>
+                <listEntry value="28">@Strings.OptGapNext</listEntry>
+                <listEntry value="29">@Strings.OptGapLeader</listEntry>
+                <listEntry value="30">@Strings.OptProgressPct</listEntry>
+            </settingConfig>
+        </setting>
+
+        <setting propertyKey="@Properties.dataField_p2_foot" title="@Strings.P2FootTitle" prompt="@Strings.P2FootPrompt">
+            <settingConfig type="list">
+                <listEntry value="0">@Strings.OptFootDefault</listEntry>
+                <listEntry value="1">@Strings.OptFootSPMHR</listEntry>
+                <listEntry value="2">@Strings.OptFootKayakStrokes</listEntry>
+                <listEntry value="3">@Strings.OptFootTimeSpeed</listEntry>
+                <listEntry value="4">@Strings.OptFootCaloriesWork</listEntry>
+                <listEntry value="5">@Strings.OptFootSplitProjection</listEntry>
+                <listEntry value="6">@Strings.OptFootPowerHR</listEntry>
+            </settingConfig>
         </setting>
     </settings>
 </resources>

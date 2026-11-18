@@ -254,6 +254,53 @@ class RowerView extends WatchUi.View {
         return "--";
     }
 
+    public function getNetDistance() as Number {
+        return _netDistance;
+    }
+
+    public function getTotalRacers() as Number {
+        return _totalRacers;
+    }
+
+    public function getDistToPrev() as Number {
+        return _distToPrev;
+    }
+
+    public function getDistToNext() as Number {
+        return _distToNext;
+    }
+
+    public function getDistToLeader() as Number {
+        return _distToLeader;
+    }
+
+    public function getTargetDistance() as Number {
+        return _targetDistance;
+    }
+
+    public function getProgressPercent() as Float {
+        return _progressPercent;
+    }
+
+    public function getRaceMode() as String {
+        return _raceMode;
+    }
+
+    public function isSolo() as Boolean {
+        return _raceMode.equals("solo");
+    }
+
+    public function getRankValueColor() as Number {
+        if (!_raceMode.equals("solo") && _currentRank > 0) {
+            if (_currentRank == 1) {
+                return COL_GOOD;
+            } else if (_currentRank <= 3) {
+                return COL_ACCENT;
+            }
+        }
+        return COL_PRIMARY;
+    }
+
     public function setLobbyInfo(countdown as Number, players as Number, targetDist as Number) as Void {
         _nextRaceCountdown = countdown;
         _connectedPlayers = players;
@@ -346,9 +393,9 @@ class RowerView extends WatchUi.View {
 
     public function getMainMenuItemCount() as Number {
         if (UserManager.isPaired()) {
-            return 4; // 0: Course Publique, 1: Entrer un code pin, 2: Pseudo/Compte, 3: Historique
+            return 5; // 0: Course Publique, 1: Entrer un code pin, 2: Pseudo/Compte, 3: Ecrans donnees, 4: Historique
         }
-        return 3; // 0: Entrer un code, 1: Pseudo, 2: Historique
+        return 4; // 0: Entrer un code, 1: Pseudo, 2: Ecrans donnees, 3: Historique
     }
 
     // Menu navigation helpers (options dynamiques selon l'appairage)
@@ -369,12 +416,12 @@ class RowerView extends WatchUi.View {
     }
 
     public function nextPauseMenu() as Void {
-        _pauseMenuIndex = (_pauseMenuIndex + 1) % 4;
+        _pauseMenuIndex = (_pauseMenuIndex + 1) % 5;
         WatchUi.requestUpdate();
     }
 
     public function prevPauseMenu() as Void {
-        _pauseMenuIndex = (_pauseMenuIndex + 3) % 4;
+        _pauseMenuIndex = (_pauseMenuIndex + 4) % 5;
         WatchUi.requestUpdate();
     }
 
@@ -575,10 +622,12 @@ class RowerView extends WatchUi.View {
                 menuItems.add(I18n.getText("MENU_PUBLIC"));
                 menuItems.add(I18n.getText("MENU_PRIVATE"));
                 menuItems.add(pseudoLabel);
+                menuItems.add(I18n.getText("MENU_DATA_SCREENS"));
                 menuItems.add(I18n.getText("MENU_HISTORY"));
             } else {
                 menuItems.add(I18n.getText("MENU_ENTER_CODE"));
                 menuItems.add(pseudoLabel);
+                menuItems.add(I18n.getText("MENU_DATA_SCREENS"));
                 menuItems.add(I18n.getText("MENU_HISTORY"));
             }
             if (_mainMenuIndex >= menuItems.size()) {
@@ -623,6 +672,7 @@ class RowerView extends WatchUi.View {
         } else if (_currentState == STATE_PAUSED) {
             var pauseItems = [
                 I18n.getText("MENU_RESUME"),
+                I18n.getText("MENU_DATA_SCREENS"),
                 I18n.getText("MENU_RECONNECT_BLE"),
                 I18n.getText("MENU_SAVE_EXIT"),
                 I18n.getText("MENU_ABANDON")
@@ -1457,71 +1507,18 @@ class RowerView extends WatchUi.View {
         dc.drawLine((w * 15) / 100, divTopY, w - ((w * 15) / 100), divTopY);
 
         // 3. Central 2x2 Garmin Data Grid (18..82% h)
-        if (_racePage == 0) {
-            // PAGE 1: Primary Race Grid [PACE | POWER] / [DISTANCE | RANK or REMAINING]
-            var dispPace = (_model.instantPace > 0) ? _model.instantPace : _model.avgPace;
-            var paceStr = _model.formatPace(dispPace);
-            var dispPower = (_model.instantPower > 0) ? _model.instantPower : ((!_model.isHalted && _model.avgPower > 0) ? _model.avgPower : 0);
-            var powerStr = dispPower.format("%d");
-            var distStr = _netDistance.format("%d");
+        var tlData = RaceDataFieldManager.getSlotRenderData(RaceDataFieldManager.getFieldId(_racePage, RaceDataFieldManager.SLOT_TOP_LEFT), _model, self);
+        var trData = RaceDataFieldManager.getSlotRenderData(RaceDataFieldManager.getFieldId(_racePage, RaceDataFieldManager.SLOT_TOP_RIGHT), _model, self);
+        var blData = RaceDataFieldManager.getSlotRenderData(RaceDataFieldManager.getFieldId(_racePage, RaceDataFieldManager.SLOT_BOTTOM_LEFT), _model, self);
+        var brData = RaceDataFieldManager.getSlotRenderData(RaceDataFieldManager.getFieldId(_racePage, RaceDataFieldManager.SLOT_BOTTOM_RIGHT), _model, self);
 
-            var brLabel = getPage1BottomRightLabel();
-            var brVal = getPage1BottomRightValue();
-            var brValCol = COL_PRIMARY;
-
-            if (!_raceMode.equals("solo") && _currentRank > 0) {
-                if (_currentRank == 1) {
-                    brValCol = COL_GOOD;
-                } else if (_currentRank <= 3) {
-                    brValCol = COL_ACCENT;
-                }
-            }
-
-            drawGarminGrid2x2(
-                dc, divTopY, divBotY,
-                [I18n.getText("GRID_PACE"), I18n.getText("GRID_POWER"), I18n.getText("GRID_DIST"), brLabel] as Array<String>,
-                [paceStr, powerStr, distStr, brVal] as Array<String>,
-                [COL_ACCENT, COL_GOOD, COL_CYAN, COL_ACCENT] as Array<Number>,
-                [COL_PRIMARY, COL_PRIMARY, COL_PRIMARY, brValCol] as Array<Number>
-            );
-        } else {
-            // PAGE 2: Tactical Gaps / Biomechanics & Session Averages Grid
-            var tlLbl = I18n.getText("GRID_PREV");
-            var tlVal = "--";
-            var trLbl = I18n.getText("GRID_NEXT");
-            var trVal = "--";
-
-            if (_raceMode.equals("solo")) {
-                tlLbl = I18n.getText("GRID_WORK");
-                tlVal = _model.work.format("%.0f");
-                trLbl = I18n.getText("GRID_FORCE");
-                trVal = _model.force.format("%d");
-            } else {
-                if (_currentRank > 1) {
-                    tlVal = "-" + _distToPrev.format("%d");
-                } else {
-                    tlVal = "LEAD";
-                }
-                if (_currentRank < _totalRacers) {
-                    trVal = "+" + _distToNext.format("%d");
-                } else {
-                    trVal = "DERN";
-                }
-            }
-
-            var avgPaceVal = _model.formatPace(_model.getEffectiveAvgPace(_model.elapsedTime));
-            var remDist = _targetDistance - _netDistance;
-            if (remDist < 0) { remDist = 0; }
-            var remVal = remDist.format("%d");
-
-            drawGarminGrid2x2(
-                dc, divTopY, divBotY,
-                [tlLbl, trLbl, I18n.getText("GRID_AVG_PACE"), I18n.getText("GRID_REM")] as Array<String>,
-                [tlVal, trVal, avgPaceVal, remVal] as Array<String>,
-                [COL_WARN, COL_GOOD, COL_ACCENT, COL_CYAN] as Array<Number>,
-                [COL_PRIMARY, COL_PRIMARY, COL_PRIMARY, COL_PRIMARY] as Array<Number>
-            );
-        }
+        drawGarminGrid2x2(
+            dc, divTopY, divBotY,
+            [tlData[0] as String, trData[0] as String, blData[0] as String, brData[0] as String] as Array<String>,
+            [tlData[1] as String, trData[1] as String, blData[1] as String, brData[1] as String] as Array<String>,
+            [tlData[2] as Number, trData[2] as Number, blData[2] as Number, brData[2] as Number] as Array<Number>,
+            [tlData[3] as Number, trData[3] as Number, blData[3] as Number, brData[3] as Number] as Array<Number>
+        );
 
         // 4. Bottom Compact Telemetry Pill (82..94% h)
         dc.setColor(COL_GRID, Graphics.COLOR_TRANSPARENT);
@@ -1530,17 +1527,7 @@ class RowerView extends WatchUi.View {
         var footTop = (h * 83) / 100;
         var footBot = (h * 94) / 100;
         var footMaxW = getSafeWidthAtY(w, h, footTop, footBot) - 6;
-        var footStr = "";
-        if (_racePage == 0) {
-            var spmVal = (_model.strokeRate > 0.0f) ? _model.strokeRate.format("%.0f") : "0";
-            var hrVal = (_model.heartRate > 0) ? (_model.heartRate.format("%d") + " bpm") : "-- bpm";
-            footStr = spmVal + " spm  |  " + hrVal;
-        } else {
-            var kTag = (_assignedLane > 0)
-                ? ("Kayak L." + _assignedLane + " (" + UserManager.getDisplayPseudo() + ")")
-                : ("Kayak : " + UserManager.getDisplayPseudo());
-            footStr = kTag + "  |  " + _model.strokeCount.format("%d") + " " + I18n.getText("FOOT_STROKES");
-        }
+        var footStr = RaceDataFieldManager.getFooterString(_racePage, _model, self);
         dc.setColor(COL_MUTED, Graphics.COLOR_TRANSPARENT);
         dc.drawText(cx, footTop + ((footBot - footTop) / 2), Graphics.FONT_XTINY, truncateToWidth(dc, footStr, Graphics.FONT_XTINY, footMaxW), Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
 

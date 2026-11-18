@@ -1323,6 +1323,70 @@ class RowerDataModel {
         return mins.format("%d") + ":" + rem.format("%02d");
     }
 
+    public function getSpeedKmh() as Float {
+        if (speedCmS > 0) {
+            return (speedCmS.toFloat() * 36.0f) / 1000.0f;
+        }
+        var pace = (instantPace > 0) ? instantPace : avgPace;
+        if (pace > 0 && pace < 3600) {
+            return 1800.0f / pace.toFloat();
+        }
+        return 0.0f;
+    }
+
+    public function getAvgSpeedKmh(sessionElapsedSec as Number) as Float {
+        var activeSec = (sessionElapsedSec > 0) ? sessionElapsedSec : elapsedTime;
+        if (totalDistance > 0 && activeSec > 0) {
+            return (totalDistance.toFloat() * 3.6f) / activeSec.toFloat();
+        }
+        var effPace = getEffectiveAvgPace(activeSec);
+        if (effPace > 0 && effPace < 3600) {
+            return 1800.0f / effPace.toFloat();
+        }
+        return 0.0f;
+    }
+
+    public function getDistancePerStroke() as Float {
+        if (strokeCount > 0 && totalDistance > 0) {
+            return totalDistance.toFloat() / strokeCount.toFloat();
+        }
+        return 0.0f;
+    }
+
+    public function getHeartRateZone() as Number {
+        if (heartRate <= 0) {
+            return 0;
+        }
+        // Zones basées sur FC Max standard ou zones Garmin
+        // Z1: 50-60% (100-119), Z2: 60-70% (120-139), Z3: 70-80% (140-159), Z4: 80-90% (160-179), Z5: >90% (180+)
+        if (heartRate < 115) {
+            return 1;
+        } else if (heartRate < 135) {
+            return 2;
+        } else if (heartRate < 155) {
+            return 3;
+        } else if (heartRate < 175) {
+            return 4;
+        }
+        return 5;
+    }
+
+    public function getRemainingTimeEst(targetDist as Number, currentNetDist as Number) as Number {
+        var remMeters = targetDist - currentNetDist;
+        if (remMeters <= 0) {
+            return 0;
+        }
+        var pace = (instantPace > 0) ? instantPace : avgPace;
+        if (pace > 0 && pace < 3600) {
+            return ((remMeters.toFloat() * pace.toFloat()) / 500.0f).toNumber();
+        }
+        return 0;
+    }
+
+    public function getProjectedTime(targetDist as Number, currentNetDist as Number) as Number {
+        return elapsedTime + getRemainingTimeEst(targetDist, currentNetDist);
+    }
+
     public function formatTime(sec as Number) as String {
         if (sec < 0) {
             sec = 0;

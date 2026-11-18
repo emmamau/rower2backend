@@ -1055,16 +1055,16 @@ export class TelemetryController {
 
       let maxAllowed = isSolo ? 1 : (isBotDuel || isDuel1v1) ? 2 : 30;
       let distAllowed = (isSolo || isBotDuel || isDuel1v1) ? 10000 : 100000;
-      let botsAllowed = isSolo ? 0 : isBotDuel ? 1 : 5;
+      let botsAllowed = isSolo ? 0 : isBotDuel ? 1 : (isUserAdmin ? 20 : 3);
 
-      if (!isSolo && !isBotDuel && user && !isEmma && !user.isAdmin && user.subscriptionTier) {
+      if (!isSolo && !isBotDuel && user && user.subscriptionTier) {
         const rawTier = String(user.subscriptionTier).toLowerCase().trim();
         const tierId = rawTier === "pro" || rawTier === "elite_pro" ? "premium" : (rawTier === "club" || rawTier === "standard" ? "intermediate" : rawTier);
         const limits = SUBSCRIPTION_TIERS[tierId] || SUBSCRIPTION_TIERS.intermediate;
         maxAllowed = limits.maxParticipants;
         distAllowed = limits.maxDistance;
         botsAllowed = limits.maxBots;
-      } else if ((isSolo || isBotDuel || isDuel1v1) && user && !isEmma && !user.isAdmin && user.subscriptionTier) {
+      } else if ((isSolo || isBotDuel || isDuel1v1) && user && user.subscriptionTier) {
         const rawTier = String(user.subscriptionTier).toLowerCase().trim();
         const tierId = rawTier === "pro" || rawTier === "elite_pro" ? "premium" : (rawTier === "club" || rawTier === "standard" ? "intermediate" : rawTier);
         const limits = SUBSCRIPTION_TIERS[tierId] || SUBSCRIPTION_TIERS.intermediate;
@@ -1242,9 +1242,9 @@ export class TelemetryController {
         success: true,
         isWatchConnected: hasPairedWatch || isUserAdmin,
         isUserAdmin,
-        tier: isUserAdmin ? "admin" : tierId,
-        tierName: isUserAdmin ? "Administrateur" : tierConfig.name,
-        maxBots: isUserAdmin ? 20 : (tierConfig.maxBots || (tierId === "premium" ? 5 : 3)),
+        tier: (isUserAdmin && !user?.subscriptionTier) ? "admin" : tierId,
+        tierName: (isUserAdmin && !user?.subscriptionTier) ? "Administrateur" : tierConfig.name,
+        maxBots: (isUserAdmin && !user?.subscriptionTier) ? 20 : (tierConfig.maxBots || (tierId === "premium" ? 5 : (tierId === "intermediate" ? 3 : 1))),
         concurrent: {
           current: activeCount,
           max: maxConcurrent,

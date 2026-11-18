@@ -2442,49 +2442,6 @@
         </button>
       </aside>
 
-      <!-- PANNEAU CLASSEMENT EN DIRECT POSITIONNÉ AU-DESSUS DU CANVAS -->
-      <div
-        class="regatta-top-leaderboard-panel"
-        *ngIf="isRegattaLeaderboardOpen"
-        role="region"
-        aria-label="Classement en direct de la régate">
-        <div class="regatta-lead-header">
-          <span class="regatta-lead-title">
-            🏆 {{ i18n.t('LEADERBOARD') || 'Classement en direct' }} ({{ sortedLiveMetrics.length }})
-          </span>
-          <button
-            type="button"
-            class="btn-close-lead"
-            (click)="isRegattaLeaderboardOpen = false"
-            title="Fermer le classement"
-            aria-label="Fermer">✕</button>
-        </div>
-        <div class="regatta-lead-body" *ngIf="sortedLiveMetrics.length > 0">
-          <div
-            *ngFor="let racer of sortedLiveMetrics; let rank = index"
-            class="mini-lead-row"
-            [class.active-player]="racer.userId === activeUserId"
-            [class.focused-racer]="racer.userId === selectedSpectatorUserId"
-            (click)="onSpectatorSelect(racer.userId); isRegattaLeaderboardOpen = false;"
-            title="Cliquer pour centrer la caméra sur ce concurrent">
-            <span class="mini-lead-rank">{{ rank + 1 }}</span>
-            <span
-              class="ble-state-dot"
-              [class.is-ready]="racer.ready !== false && racer.connectionState !== 'CONNECTED'"
-              [class.is-waiting]="racer.ready === false || racer.connectionState === 'CONNECTED'"
-              [title]="(racer.ready === false || racer.connectionState === 'CONNECTED') ? 'En attente du rameur' : 'Rameur prêt'"></span>
-            <span class="mini-lead-name">{{ racer.name }}</span>
-            <span class="mini-lead-dist">{{ Math.round(racer.dist) }}m</span>
-            <span class="mini-lead-gap" [class.leader]="rank === 0">
-              {{ formatRacerGap(racer, sortedLiveMetrics[0]) }}
-            </span>
-          </div>
-        </div>
-        <div class="regatta-lead-empty" *ngIf="sortedLiveMetrics.length === 0">
-          En attente des rameurs...
-        </div>
-      </div>
-
       <!-- Vue Régate Canvas 2D (Tableau de la Régate avec Zoom x1..x3) -->
       <section class="regatta-canvas-section">
         <div class="canvas-display-card">
@@ -2501,6 +2458,58 @@
             (racerSelected)="onSpectatorSelect($event)"
             (kayakClaimed)="onKayakClaimed($event)">
           </app-regatta-canvas>
+
+          <!-- PANNEAU CLASSEMENT EN DIRECT FLOTTANT INTÉGRÉ AU PLAN D'EAU (DÉPLAÇABLE SANS DÉCALAGE DE L'IHM) -->
+          <div
+            class="regatta-floating-leaderboard-panel"
+            *ngIf="isRegattaLeaderboardOpen"
+            [style.left.px]="regattaLeaderboardPos.x"
+            [style.top.px]="regattaLeaderboardPos.y"
+            (pointermove)="onRegattaLeaderboardPointerMove($event)"
+            (pointerup)="onRegattaLeaderboardPointerUp($event)"
+            (pointercancel)="onRegattaLeaderboardPointerUp($event)"
+            role="region"
+            aria-label="Classement en direct de la régate">
+            <div
+              class="regatta-lead-header draggable-handle"
+              (pointerdown)="onRegattaLeaderboardPointerDown($event)"
+              title="Glisser pour déplacer le classement">
+              <span class="regatta-lead-title">
+                🏆 {{ i18n.t('LEADERBOARD') || 'Classement en direct' }} ({{ sortedLiveMetrics.length }})
+              </span>
+              <button
+                type="button"
+                class="btn-close-lead"
+                (pointerdown)="$event.stopPropagation()"
+                (click)="isRegattaLeaderboardOpen = false; $event.stopPropagation()"
+                title="Fermer le classement"
+                aria-label="Fermer">✕</button>
+            </div>
+            <div class="regatta-lead-body" *ngIf="sortedLiveMetrics.length > 0">
+              <div
+                *ngFor="let racer of sortedLiveMetrics; let rank = index"
+                class="mini-lead-row"
+                [class.active-player]="racer.userId === activeUserId"
+                [class.focused-racer]="racer.userId === selectedSpectatorUserId"
+                (click)="onSpectatorSelect(racer.userId)"
+                title="Cliquer pour centrer la caméra sur ce concurrent">
+                <span class="mini-lead-rank">{{ rank + 1 }}</span>
+                <span
+                  class="ble-state-dot"
+                  [class.is-ready]="racer.ready !== false && racer.connectionState !== 'CONNECTED'"
+                  [class.is-waiting]="racer.ready === false || racer.connectionState === 'CONNECTED'"
+                  [title]="(racer.ready === false || racer.connectionState === 'CONNECTED') ? 'En attente du rameur' : 'Rameur prêt'"></span>
+                <span class="mini-lead-name">{{ racer.name }}</span>
+                <span class="mini-lead-dist">{{ Math.round(racer.dist) }}m</span>
+                <span class="mini-lead-gap" [class.leader]="rank === 0">
+                  {{ formatRacerGap(racer, sortedLiveMetrics[0]) }}
+                </span>
+              </div>
+            </div>
+            <div class="regatta-lead-empty" *ngIf="sortedLiveMetrics.length === 0">
+              En attente des rameurs...
+            </div>
+          </div>
         </div>
       </section>
 

@@ -538,6 +538,223 @@ module I18n {
             if (_currentLang == LANG_PT) { return "FORCA N"; }
             return "FORCE N";
         }
+        if (key.equals("GRID_AVG_FORCE")) {
+            if (_currentLang == LANG_FR) { return "FORC. MOY N"; }
+            if (_currentLang == LANG_DE) { return "KRAFT SCHN"; }
+            if (_currentLang == LANG_ES) { return "FUERZ. MED"; }
+            if (_currentLang == LANG_IT) { return "FORZA MED"; }
+            if (_currentLang == LANG_PT) { return "FORCA MED"; }
+            return "AVG FORCE";
+        }
+        if (key.equals("GRID_SPEED")) {
+            if (_currentLang == LANG_FR) { return "VITESSE km/h"; }
+            if (_currentLang == LANG_DE) { return "GESCHW. km/h"; }
+            if (_currentLang == LANG_ES) { return "VELOC. km/h"; }
+            if (_currentLang == LANG_IT) { return "VELOC. km/h"; }
+            if (_currentLang == LANG_PT) { return "VELOC. km/h"; }
+            return "SPEED km/h";
+        }
+        if (key.equals("GRID_AVG_SPEED")) {
+            if (_currentLang == LANG_FR) { return "VIT. MOY km/h"; }
+            if (_currentLang == LANG_DE) { return "SCHN. km/h"; }
+            if (_currentLang == LANG_ES) { return "VEL. MED km/h"; }
+            if (_currentLang == LANG_IT) { return "VEL. MED km/h"; }
+            if (_currentLang == LANG_PT) { return "VEL. MED km/h"; }
+            return "AVG SPEED";
+        }
+        if (key.equals("GRID_DPS")) {
+            if (_currentLang == LANG_FR) { return "DIST/COUP m"; }
+            if (_currentLang == LANG_DE) { return "DIST/SCHL m"; }
+            if (_currentLang == LANG_ES) { return "DIST/PAL m"; }
+            if (_currentLang == LANG_IT) { return "DIST/COLP m"; }
+            if (_currentLang == LANG_PT) { return "DIST/REM m"; }
+            return "DPS m";
+        }
+        if (key.equals("GRID_MAX_POWER")) {
+            if (_currentLang == LANG_FR) { return "MAX W"; }
+            if (_currentLang == LANG_DE) { return "MAX W"; }
+            if (_currentLang == LANG_ES) { return "MAX W"; }
+            if (_currentLang == LANG_IT) { return "MAX W"; }
+            if (_currentLang == LANG_PT) { return "MAX W"; }
+            return "MAX W";
+        }
+        if (key.equals("GRID_CALORIES")) {
+            return "KCAL";
+        }
+        if (key.equals("GRID_CAL_HR")) {
+            return "KCAL/H";
+        }
+        if (key.equals("GRID_SPM")) {
+            if (_currentLang == LANG_FR) { return "CADENCE"; }
+            if (_currentLang == LANG_DE) { return "SCHL/MIN"; }
+            if (_currentLang == LANG_ES) { return "CADENCIA"; }
+            if (_currentLang == LANG_IT) { return "CADENZA"; }
+            if (_currentLang == LANG_PT) { return "CADENCIA"; }
+            return "SPM";
+        }
+        if (key.equals("GRID_AVG_SPM")) {
+            if (_currentLang == LANG_FR) { return "CAD. MOY"; }
+            if (_currentLang == LANG_DE) { return "SCHL SCHN"; }
+            if (_currentLang == LANG_ES) { return "CAD. MED"; }
+            if (_currentLang == LANG_IT) { return "CAD. MED"; }
+            if (_currentLang == LANG_PT) { return "CAD. MED"; }
+            return "AVG SPM";
+        }
+        if (key.equals("GRID_STROKES")) {
+            if (_currentLang == LANG_FR) { return "COUPS"; }
+            if (_currentLang == LANG_DE) { return "SCHLAGE"; }
+            if (_currentLang == LANG_ES) { return "PALADAS"; }
+            if (_currentLang == LANG_IT) { return "COLPI"; }
+            if (_currentLang == LANG_PT) { return "REMADAS"; }
+            return "STROKES";
+        }
+        if (key.equals("GRID_ELAPSED")) {
+            if (_currentLang == LANG_FR) { return "TEMPS"; }
+            if (_currentLang == LANG_DE) { return "ZEIT"; }
+            if (_currentLang == LANG_ES) { return "TIEMPO"; }
+            if (_currentLang == LANG_IT) { return "TEMPO"; }
+            if (_currentLang == LANG_PT) { return "TEMPO"; }
+            return "TIME";
+        }
+        if (key.equals("GRID_REM_TIME")) {
+            if (_currentLang == LANG_FR) { return "TPS REST."; }
+            if (_currentLang == LANG_DE) { return "RESTZEIT"; }
+            if (_currentLang == LANG_ES) { return "TPO REST."; }
+            if (_currentLang == LANG_IT) { return "TEMPO RES."; }
+            if (_currentLang == LANG_PT) { return "TEMPO RES."; }
+            return "REM TIME";
+        }
+        if (key.equals("GRID_PROJECTED")) {
+            if (_currentLang == LANG_FR) { return "PROJECTION"; }
+            if (_currentLang == LANG_DE) { return "PROGNOSE"; }
+            if (_currentLang == LANG_ES) { return "ESTIMACION"; }
+            if (_currentLang == LANG_IT) { return "PREVISIONE"; }
+            if (_currentLang == LANG_PT) { return "PROJECAO"; }
+            return "EST. FINISH";
+        }
+        if (key.equals("GRID_CLOCK")) {
+            if (_currentLang == LANG_FR) { return "HEURE"; }
+            if (_currentLang == LANG_DE) { return "UHRZEIT"; }
+            if (_currentLang == LANG_ES) { return "HORA"; }
+            if (_currentLang == LANG_IT) { return "ORA"; }
+            if (_currentLang == LANG_PT) { return "HORA"; }
+            return "CLOCK";
+        }
+        if (key.equals("GRID_HR")) {
+            return "FC bpm";
+        }
+        if (key.equals("GRID_AVG_HR")) {
+            if (_currentLang == LANG_FR) { return "FC MOY"; }
+            if (_currentLang == LANG_DE) { return "HF SCHN"; }
+            if (_currentLang == LANG_ES) { return "FC MED"; }
+            if (_currentLang == LANG_IT) { return "FC MED"; }
+            if (_currentLang == LANG_PT) { return "FC MED"; }
+            return "AVG HR";
+        }
+        if (key.equals("GRID_MAX_HR")) {
+            if (_currentLang == LANG_FR) { return "FC MAX"; }
+            if (_currentLang == LANG_DE) { return "HF MAX"; }
+            if (_currentLang == LANG_ES) { return "FC MAX"; }
+            if (_currentLang == LANG_IT) { return "FC MAX"; }
+            if (_currentLang == LANG_PT) { return "FC MAX"; }
+            return "MAX HR";
+        }
+        if (key.equals("GRID_HR_ZONE")) {
+            if (_currentLang == LANG_FR) { return "ZONE FC"; }
+            if (_currentLang == LANG_DE) { return "HF ZONE"; }
+            if (_currentLang == LANG_ES) { return "ZONA FC"; }
+            if (_currentLang == LANG_IT) { return "ZONA FC"; }
+            if (_currentLang == LANG_PT) { return "ZONA FC"; }
+            return "HR ZONE";
+        }
+        if (key.equals("GRID_LEADER")) {
+            if (_currentLang == LANG_FR) { return "LEADER m"; }
+            if (_currentLang == LANG_DE) { return "LEADER m"; }
+            if (_currentLang == LANG_ES) { return "LIDER m"; }
+            if (_currentLang == LANG_IT) { return "LEADER m"; }
+            if (_currentLang == LANG_PT) { return "LIDER m"; }
+            return "LEADER m";
+        }
+        if (key.equals("GRID_PROGRESS")) {
+            if (_currentLang == LANG_FR) { return "PROG. %"; }
+            if (_currentLang == LANG_DE) { return "FORTSCHR. %"; }
+            if (_currentLang == LANG_ES) { return "PROG. %"; }
+            if (_currentLang == LANG_IT) { return "PROG. %"; }
+            if (_currentLang == LANG_PT) { return "PROG. %"; }
+            return "PROGRESS %";
+        }
+        if (key.equals("MENU_DATA_SCREENS")) {
+            if (_currentLang == LANG_FR) { return "Ecrans de donnees"; }
+            if (_currentLang == LANG_DE) { return "Datenfelder"; }
+            if (_currentLang == LANG_ES) { return "Pantallas datos"; }
+            if (_currentLang == LANG_IT) { return "Schermate dati"; }
+            if (_currentLang == LANG_PT) { return "Telas de dados"; }
+            return "Data Screens";
+        }
+        if (key.equals("CONFIG_PAGE1")) {
+            if (_currentLang == LANG_FR) { return "Page 1 (Course)"; }
+            if (_currentLang == LANG_DE) { return "Seite 1 (Rennen)"; }
+            if (_currentLang == LANG_ES) { return "Pagina 1 (Carrera)"; }
+            if (_currentLang == LANG_IT) { return "Pagina 1 (Gara)"; }
+            if (_currentLang == LANG_PT) { return "Pagina 1 (Corrida)"; }
+            return "Page 1 (Race)";
+        }
+        if (key.equals("CONFIG_PAGE2")) {
+            if (_currentLang == LANG_FR) { return "Page 2 (Tactique)"; }
+            if (_currentLang == LANG_DE) { return "Seite 2 (Taktik)"; }
+            if (_currentLang == LANG_ES) { return "Pagina 2 (Tactica)"; }
+            if (_currentLang == LANG_IT) { return "Pagina 2 (Tattica)"; }
+            if (_currentLang == LANG_PT) { return "Pagina 2 (Tatica)"; }
+            return "Page 2 (Tactical)";
+        }
+        if (key.equals("CONFIG_SLOT_TL")) {
+            if (_currentLang == LANG_FR) { return "Haut Gauche"; }
+            if (_currentLang == LANG_DE) { return "Oben Links"; }
+            if (_currentLang == LANG_ES) { return "Arriba Izq"; }
+            if (_currentLang == LANG_IT) { return "Alto Sinistra"; }
+            if (_currentLang == LANG_PT) { return "Superior Esq"; }
+            return "Top Left";
+        }
+        if (key.equals("CONFIG_SLOT_TR")) {
+            if (_currentLang == LANG_FR) { return "Haut Droite"; }
+            if (_currentLang == LANG_DE) { return "Oben Rechts"; }
+            if (_currentLang == LANG_ES) { return "Arriba Der"; }
+            if (_currentLang == LANG_IT) { return "Alto Destra"; }
+            if (_currentLang == LANG_PT) { return "Superior Dir"; }
+            return "Top Right";
+        }
+        if (key.equals("CONFIG_SLOT_BL")) {
+            if (_currentLang == LANG_FR) { return "Bas Gauche"; }
+            if (_currentLang == LANG_DE) { return "Unten Links"; }
+            if (_currentLang == LANG_ES) { return "Abajo Izq"; }
+            if (_currentLang == LANG_IT) { return "Basso Sinistra"; }
+            if (_currentLang == LANG_PT) { return "Inferior Esq"; }
+            return "Bottom Left";
+        }
+        if (key.equals("CONFIG_SLOT_BR")) {
+            if (_currentLang == LANG_FR) { return "Bas Droite"; }
+            if (_currentLang == LANG_DE) { return "Unten Rechts"; }
+            if (_currentLang == LANG_ES) { return "Abajo Der"; }
+            if (_currentLang == LANG_IT) { return "Basso Destra"; }
+            if (_currentLang == LANG_PT) { return "Inferior Dir"; }
+            return "Bottom Right";
+        }
+        if (key.equals("CONFIG_SLOT_FOOT")) {
+            if (_currentLang == LANG_FR) { return "Pied de page"; }
+            if (_currentLang == LANG_DE) { return "Fusszeile"; }
+            if (_currentLang == LANG_ES) { return "Pie de pagina"; }
+            if (_currentLang == LANG_IT) { return "Pie di pagina"; }
+            if (_currentLang == LANG_PT) { return "Rodape"; }
+            return "Footer";
+        }
+        if (key.equals("CONFIG_RESET")) {
+            if (_currentLang == LANG_FR) { return "Retablir par defaut"; }
+            if (_currentLang == LANG_DE) { return "Standard wiederherst."; }
+            if (_currentLang == LANG_ES) { return "Restablecer"; }
+            if (_currentLang == LANG_IT) { return "Ripristina predef."; }
+            if (_currentLang == LANG_PT) { return "Restaurar padrao"; }
+            return "Reset to Default";
+        }
         if (key.equals("HUD_LEADER")) {
             if (_currentLang == LANG_FR) { return "1er"; }
             if (_currentLang == LANG_DE) { return "1."; }

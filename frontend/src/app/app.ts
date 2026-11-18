@@ -990,8 +990,13 @@ export class AppComponent implements OnInit, OnDestroy {
   private dragStartCockpitPos = { x: 0, y: 0 };
   private hasMovedCockpitLeaderboard = false;
 
-  // Popup de classement en mode régate au-dessus du plan d'eau
+  // Popup / Panneau de classement en direct flottant et déplaçable dans le plan d'eau (mode régate)
   isRegattaLeaderboardOpen = false;
+  regattaLeaderboardPos: { x: number; y: number } = { x: 16, y: 16 };
+  isDraggingRegattaLeaderboard = false;
+  private dragStartRegattaPointer = { x: 0, y: 0 };
+  private dragStartRegattaPos = { x: 0, y: 0 };
+  private hasMovedRegattaLeaderboard = false;
 
   // Espace Statistiques & Analyses de courses (abonnés = illimité, comptes gratuits = 10 jours)
   isStatisticsModalOpen = false;
@@ -3029,6 +3034,72 @@ export class AppComponent implements OnInit, OnDestroy {
 
   toggleRegattaLeaderboard(): void {
     this.isRegattaLeaderboardOpen = !this.isRegattaLeaderboardOpen;
+    this.cdr.markForCheck();
+  }
+
+  onRegattaLeaderboardPointerDown(event: PointerEvent): void {
+    if (event.button !== 0 && event.pointerType === 'mouse') return;
+    const target = event.target as HTMLElement;
+    if (target?.closest('.btn-close-lead')) return;
+
+    this.isDraggingRegattaLeaderboard = true;
+    this.hasMovedRegattaLeaderboard = false;
+    this.dragStartRegattaPointer = { x: event.clientX, y: event.clientY };
+    this.dragStartRegattaPos = { ...this.regattaLeaderboardPos };
+
+    const handle = event.currentTarget as HTMLElement;
+    try {
+      handle.setPointerCapture(event.pointerId);
+    } catch {}
+  }
+
+  onRegattaLeaderboardPointerMove(event: PointerEvent): void {
+    if (!this.isDraggingRegattaLeaderboard) return;
+    const dx = event.clientX - this.dragStartRegattaPointer.x;
+    const dy = event.clientY - this.dragStartRegattaPointer.y;
+    if (Math.hypot(dx, dy) > 4) {
+      this.hasMovedRegattaLeaderboard = true;
+    }
+    if (!this.hasMovedRegattaLeaderboard) return;
+
+    if (event.cancelable) {
+      event.preventDefault();
+    }
+
+    let containerWidth = 800;
+    let containerHeight = 500;
+    const handle = event.currentTarget as HTMLElement;
+    const panel = handle?.closest('.regatta-floating-leaderboard-panel') as HTMLElement;
+    const container = panel?.parentElement;
+    if (container) {
+      containerWidth = container.clientWidth;
+      containerHeight = container.clientHeight;
+    }
+
+    const panelWidth = panel ? panel.offsetWidth : 320;
+    const panelHeight = panel ? panel.offsetHeight : 200;
+
+    const minX = 4;
+    const minY = 4;
+    const maxX = Math.max(minX, containerWidth - panelWidth - 4);
+    const maxY = Math.max(minY, containerHeight - panelHeight - 4);
+
+    const newX = Math.min(Math.max(minX, this.dragStartRegattaPos.x + dx), maxX);
+    const newY = Math.min(Math.max(minY, this.dragStartRegattaPos.y + dy), maxY);
+
+    this.regattaLeaderboardPos = { x: Math.round(newX), y: Math.round(newY) };
+    this.cdr.markForCheck();
+  }
+
+  onRegattaLeaderboardPointerUp(event: PointerEvent): void {
+    if (!this.isDraggingRegattaLeaderboard) return;
+    this.isDraggingRegattaLeaderboard = false;
+    const handle = event.currentTarget as HTMLElement;
+    try {
+      if (handle.hasPointerCapture(event.pointerId)) {
+        handle.releasePointerCapture(event.pointerId);
+      }
+    } catch {}
     this.cdr.markForCheck();
   }
 

@@ -633,7 +633,8 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
     const canvas = this.canvasRef?.nativeElement;
     if (!canvas) return;
 
-    const boatCount = Math.max(1, this.boatsMap.size);
+    const maxAssigned = Array.from(this.boatsMap.values()).reduce((max, b) => Math.max(max, b.assignedLane || b.lane || 1), this.boatsMap.size);
+    const boatCount = Math.max(1, Math.max(this.boatsMap.size, maxAssigned));
     const isSmallLandscape = typeof window !== 'undefined' && window.innerHeight <= 500 && window.innerWidth > window.innerHeight;
     if (wrapper) {
       if (isSmallLandscape) {
@@ -886,7 +887,8 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
     ctx.fillRect(0, 0, w, h);
 
     const { visibleBoats, startIndex } = this.getVisibleBoatsWindow();
-    const boatCount = Math.max(1, visibleBoats.length);
+    const maxAssigned = visibleBoats.reduce((max, b) => Math.max(max, b.assignedLane || b.lane || 1), visibleBoats.length);
+    const boatCount = Math.max(1, Math.max(visibleBoats.length, maxAssigned));
 
     const isSmallLandscape = (typeof window !== 'undefined' && window.innerHeight <= 500) || h <= 320;
     const baseMarginX = isCompact ? 36 : 64;
@@ -1018,10 +1020,10 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
     for (let l = 0; l < boatCount; l++) {
       const laneY = topOffset + (l + 0.5) * laneH - this.scrollY;
       if (laneY < topOffset - laneH || laneY > h + laneH) continue;
-      const boatInLane = visibleBoats[l];
+      const boatInLane = this.dynamicLaneMode ? visibleBoats[l] : visibleBoats.find(b => (b.assignedLane || b.lane || 1) === (l + 1));
       const displayLaneNum = (zoom > 1 || this.dynamicLaneMode)
         ? (startIndex + l + 1)
-        : (boatInLane?.assignedLane || boatInLane?.lane || (l + 1));
+        : (l + 1);
       const laneLabel = isCompact ? `L${displayLaneNum}` : `Ligne ${displayLaneNum}`;
       ctx.font = `bold ${Math.max(9, laneFontPx)}px monospace`;
       ctx.fillStyle = boatInLane?.userId === this.activeUserId ? '#00f0ff' : 'rgba(0, 240, 255, 0.72)';
@@ -1044,7 +1046,9 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
       // Si zoom actif (> 1), positionner chaque kayak visible dans son couloir zoomé (0..visibleCount-1)
       const effectiveLaneIdx = zoom > 1
         ? visibleIdx
-        : (boat.currentLaneIndex !== undefined ? Math.min(boatCount - 1, Math.max(0, boat.currentLaneIndex)) : visibleIdx);
+        : (this.dynamicLaneMode
+            ? (boat.currentLaneIndex !== undefined ? Math.min(boatCount - 1, Math.max(0, boat.currentLaneIndex)) : visibleIdx)
+            : Math.max(0, (boat.assignedLane || boat.lane || 1) - 1));
       const y = topOffset + (effectiveLaneIdx + 0.5) * laneH - this.scrollY;
       if (y < topOffset - laneH * 1.5 || y > h + laneH * 1.5) return;
       const progress = Math.min(1.0, Math.max(0, boat.currentDisplayDist / (this.targetDistance || 2000)));

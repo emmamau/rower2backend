@@ -867,15 +867,16 @@ export const toggleBots = async (req: Request, res: Response): Promise<void> => 
       const hostUser = managedPrivate.hostUserId ? await userStore.findUser(managedPrivate.hostUserId) : null;
       const isHostEmma = managedPrivate.hostUserId ? isEmmaAdminUser(managedPrivate.hostUserId, hostUser?.name) : false;
       const isHostAdmin = Boolean(isHostEmma || hostUser?.isAdmin);
-      let botsAllowed = isHostAdmin ? 20 : 5;
-      if (!isHostAdmin && hostUser) {
-        const rawTier = String(hostUser.subscriptionTier || (hostUser.isSubscriber ? "intermediate" : "free")).toLowerCase().trim();
+      let botsAllowed = isHostAdmin && !hostUser?.subscriptionTier ? 20 : 3;
+      if (hostUser?.subscriptionTier) {
+        const rawTier = String(hostUser.subscriptionTier).toLowerCase().trim();
         const tierId = rawTier === "pro" || rawTier === "elite_pro" ? "premium" : (rawTier === "club" || rawTier === "standard" ? "intermediate" : rawTier);
         const limits = SUBSCRIPTION_TIERS[tierId] || SUBSCRIPTION_TIERS.intermediate;
         botsAllowed = limits.maxBots;
       }
 
-      const clamped = managedPrivate.isBotDuel ? 1 : Math.min(botsAllowed, Math.max(1, Number(botCount) || 3));
+      const requestedBots = Math.max(1, Number(botCount) || 1);
+      const clamped = managedPrivate.isBotDuel ? 1 : Math.min(botsAllowed, requestedBots);
       const finalMin = Number.isFinite(Number(botMinPace)) ? Number(botMinPace) : managedPrivate.botMinPace;
       const finalMax = Number.isFinite(Number(botMaxPace)) ? Number(botMaxPace) : managedPrivate.botMaxPace;
 
