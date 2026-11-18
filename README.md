@@ -1,18 +1,41 @@
-# Solution Complète : Suivi Rameur FTMS (Garmin Connect IQ + Backend Node.js/PostgreSQL + Dashboard Web Angular)
+# Solution Complète : Suivi Rameur FTMS (Backend Express + Frontend Angular + Application Garmin Connect IQ)
 
-Cette solution permet de suivre en temps réel et d'archiver les séances d'entraînement sur rameur compatible Bluetooth FTMS.
+Cette solution monorepo permet de suivre en temps réel et d'archiver les séances d'entraînement et les régates sur rameur compatible Bluetooth FTMS.
 
-Elle se compose de 3 couches interconnectées :
-1. **L'application montre Garmin Connect IQ** (`garmin/`) : collecte les trames BLE FTMS (0x2AD1), affiche la télémétrie sur la montre et l'envoie par requête HTTP REST vers le backend.
-2. **Le backend Node.js / TypeScript** (`backend/`) : API REST Express avec ORM Sequelize stockant les métriques dans PostgreSQL.
-3. **Le Dashboard Web Angular** (`frontend/`) : application web moderne affichant les données en direct (polling réactif, cadence SPM, puissance en Watts, allure /500m, cardio, historique).
-4. **Déploiement Blueprint Render** (`render.yaml`) : déploiement automatisé « zéro config » de la base PostgreSQL managée, du service web API et du frontend statique.
+L'architecture du dépôt est rigoureusement structurée autour de **3 applications interconnectées** :
+
+```
+rower2backend/
+├── backend/                       # 1. API REST Node.js / Express / TypeScript / PostgreSQL
+│   ├── src/                       # Contrôleurs, middleware, routes, services temps réel
+│   ├── tests/                     # 24 suites de tests automatisés (sécurité, régate, télémétrie)
+│   ├── package.json
+│   └── tsconfig.json
+│
+├── frontend/                      # 2. Application Web Dashboard & Régate Angular 21
+│   ├── src/                       # Composants (Cockpit, Régate Canvas, Salons, Administration)
+│   ├── public/                    # Assets statiques et manifestes
+│   ├── scripts/set-env.js         # Injection dynamique de l'URL API pour Render
+│   └── package.json
+│
+├── garmin/                        # 3. Application Montre Connectée Garmin Connect IQ (Monkey C)
+│   ├── source/                    # Code Monkey C (BLE FTMS, UI, Télémétrie REST, I18n)
+│   ├── resources/                 # XML drawables, strings, settings, fit_contributions
+│   ├── tools/                     # Outils de génération des assets promotionnels du store
+│   ├── manifest.xml               # Permissions et montres Garmin supportées
+│   ├── monkey.jungle              # Définitions de compilation Connect IQ
+│   └── test_fenix7-settings.json  # Paramètres simulateur montre
+│
+├── docs/                          # Documentation technique, spécifications et captures d'écran
+├── render.yaml                    # Blueprint d'orchestration Render (BDD Postgres, API, Frontend)
+└── .gitignore                     # Protection globale contre les artefacts de build et clés
+```
 
 ---
 
 ## 🏗️ Déploiement Blueprint sur Render (`render.yaml`)
 
-Le fichier [`render.yaml`](file:///c:/Users/Emma/repos/connectiq/rowerRace/render.yaml) orchestre automatiquement la chaîne complète :
+Le fichier [`render.yaml`](./render.yaml) orchestre automatiquement la chaîne complète :
 
 ```yaml
 databases:
@@ -56,20 +79,11 @@ services:
           property: host
 ```
 
-### Comment l'URL de l'API est transmise au frontend avant compilation :
+### Transmission de l'URL API au frontend :
 1. Dans `render.yaml`, la variable `API_URL` est fournie dynamiquement au frontend à partir de la propriété `host` du service backend `rower-api-service`.
-2. Lors du build Render (`npm run build`), le script [`frontend/scripts/set-env.js`](file:///c:/Users/Emma/repos/connectiq/rowerRace/frontend/scripts/set-env.js) s'exécute automatiquement **avant** `ng build`.
+2. Lors du build Render (`npm run build`), le script [`frontend/scripts/set-env.js`](./frontend/scripts/set-env.js) s'exécute automatiquement **avant** `ng build`.
 3. Il lit la variable d'environnement `API_URL`, formate le protocole HTTPS si nécessaire, et génère le fichier `src/environments/environment.prod.ts`.
 4. Angular compile ensuite l'application en intégrant directement l'URL d'API de Render dans les bundles de production.
-
----
-
-## 🛠️ Résolution du bogue TypeScript de déploiement Render
-L'erreur :
-```text
-src/index.ts(2,18): error TS7016: Could not find a declaration file for module 'cors'.
-```
-survenait car Render installe les dépendances avec `NODE_ENV=production`, ce qui exclut par défaut les `devDependencies`. Les paquets typés `@types/cors`, `@types/express`, `@types/node` et `typescript` ont été déplacés dans les `dependencies` de `backend/package.json`. Le build `npm run build` (`tsc`) passe désormais sans aucune erreur.
 
 ---
 
@@ -82,7 +96,7 @@ npm install
 npm run build
 npm start
 ```
-*Le serveur tourne sur `http://localhost:3000`.*
+*Le serveur écoute sur `http://localhost:3000`.*
 
 ### 2. Démarrer le Frontend Angular
 ```bash
@@ -93,6 +107,7 @@ npm start
 *Accessible sur `http://localhost:4200`.*
 
 ### 3. Application Garmin
-- Fichier binaire pour test direct (USB) : [`garmin/bin/RowerApp_fenix7.prg`](file:///c:/Users/Emma/repos/connectiq/rowerRace/garmin/bin/RowerApp_fenix7.prg).
-- Fichier de déploiement pour le store : [`garmin/bin/RowerApp.iq`](file:///c:/Users/Emma/repos/connectiq/rowerRace/garmin/bin/RowerApp.iq).
+- Fichier binaire pour test direct (USB) : `garmin/bin/RowerApp_fenix7.prg`.
+- Fichier de déploiement pour le store : `garmin/bin/RowerApp.iq`.
+- Outil de génération des bannières du store : `garmin/tools/generate_store_assets/generate_all.ps1`.
 - Configuration de l'URL : modifiable à tout moment dans les réglages de l'application via Garmin Connect Mobile.

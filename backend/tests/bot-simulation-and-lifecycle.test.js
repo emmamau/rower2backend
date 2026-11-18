@@ -115,6 +115,6 @@ test.describe("Bot Simulation, 55m Timeout, Ranking by Distance, and Sole-Bots A
     assert.ok(current.lobbyEndsAt.getTime() > Date.now(), "Lobby countdown must be in the future");
     const timing = raceManager.getRaceTiming(current);
     assert.ok(timing.secondsUntilStart > 0, "Countdown timer before start must be active");
-    assert.equal(timing.maxDurationSeconds, 55 * 60, "Max duration of game must be 55 minutes");
+    assert.equal(timing.maxDurationSeconds, (current.maxDurationMinutes || 10) * 60, "Max duration of game must match race configuration");
   });
 });

@@ -177,6 +177,7 @@ test('1v1 Bot Duel in COUNTDOWN starts immediately on first stroke without false
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         isBotDuel: true,
+        botStartMode: 'first_stroke',
         targetDistance: 2000,
         hostUserId: guestId,
         hostUserName: 'BotDuelRacer',

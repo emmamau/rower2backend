@@ -99,7 +99,16 @@ export class UserStoreService {
       createdAt: activity.createdAt ? new Date(activity.createdAt) : new Date(),
       updatedAt: activity.updatedAt ? new Date(activity.updatedAt) : new Date(),
     };
-    act.get = (field: string) => act[field];
+    act.get = (field?: any) => {
+      if (!field || typeof field === "object") {
+        const copy: Record<string, any> = {};
+        for (const [k, v] of Object.entries(act)) {
+          if (typeof v !== "function") copy[k] = v;
+        }
+        return copy;
+      }
+      return act[field];
+    };
     act.setDataValue = (field: string, value: any) => {
       act[field] = value;
     };

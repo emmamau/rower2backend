@@ -1980,9 +1980,7 @@ export class RaceManager {
         avgSpeedKmh: Number((speedMs * 3.6).toFixed(1)),
       };
       userStore.recordActivity(botDefaults);
-      try {
-        await Activities.upsert(botDefaults as any);
-      } catch {}
+      Activities.upsert(botDefaults as any).catch(() => {});
     }
   }
 

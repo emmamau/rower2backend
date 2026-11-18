@@ -7,7 +7,7 @@ if (-not (Test-Path $chromePath)) {
 }
 
 $toolsDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-$repoRoot = (Resolve-Path "$toolsDir\..\..").Path
+$repoRoot = (Resolve-Path "$toolsDir\..\..\..").Path
 $storeDir = Join-Path $repoRoot "garmin\resources\store"
 $drawablesDir = Join-Path $repoRoot "garmin\resources\drawables\images"
 $frontendPublicDir = Join-Path $repoRoot "frontend\public"

@@ -452,7 +452,17 @@ export const getRaceLeaderboard = async (req: Request, res: Response): Promise<v
         const userObj = !isBot && uid ? (userStore.findUserSync(uid) || (await userStore.findUser(uid))) : null;
         const kayak = userObj?.kayakCustomization || participantInfo?.kayak;
 
-        const base = typeof act.toJSON === "function" ? act.toJSON() : (typeof act.get === "function" ? act.get({ plain: true }) : { ...act });
+        const toPlain = (a: any) => {
+          if (!a) return {};
+          if (typeof a.toJSON === "function") return a.toJSON();
+          if (a.dataValues) return typeof a.get === "function" ? a.get({ plain: true }) : { ...a.dataValues };
+          const plain: Record<string, any> = {};
+          for (const [k, v] of Object.entries(a)) {
+            if (typeof v !== "function") plain[k] = v;
+          }
+          return plain;
+        };
+        const base = toPlain(act);
         return {
           ...base,
           kayak,

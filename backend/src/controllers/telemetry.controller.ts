@@ -367,7 +367,7 @@ export class TelemetryController {
         matchedRace &&
         (
           (matchedRace.type === "PRIVATE_INVITE" &&
-            (matchedRace.isSolo || matchedRace.isBotDuel) &&
+            (matchedRace.isSolo || (matchedRace.isBotDuel && matchedRace.botStartMode === "first_stroke")) &&
             (matchedRace.status === "LOBBY" || matchedRace.status === "COUNTDOWN")) ||
           isCountdownAlmostOver
         )
