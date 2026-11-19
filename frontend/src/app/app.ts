@@ -120,7 +120,6 @@ export class AppComponent implements OnInit, OnDestroy {
 
   // UI Modals
   isLoginModalOpen = false;
-  isLogoutConfirmModalOpen = false;
 
   // Identification directe & Nouveau protocole d'appairage Garmin sécurisé (Code Web -> Montre)
   isWatchConfirmed = false;
@@ -2582,25 +2581,10 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   promptLogout(): void {
-    if (this.isPaired || this.isWatchConfirmed || this.deviceToken) {
-      this.isLogoutConfirmModalOpen = true;
-      this.cdr.markForCheck();
-    } else {
-      this.logoutUser(false);
-    }
+    this.logoutUser();
   }
 
-  cancelLogout(): void {
-    this.isLogoutConfirmModalOpen = false;
-    this.cdr.markForCheck();
-  }
-
-  confirmLogout(keepPairing: boolean): void {
-    this.isLogoutConfirmModalOpen = false;
-    this.logoutUser(keepPairing);
-  }
-
-  logoutUser(keepPairing: boolean = false): void {
+  logoutUser(): void {
     try {
       localStorage.removeItem('rower_user_id');
       localStorage.removeItem('rower_user_login');
@@ -2611,16 +2595,13 @@ export class AppComponent implements OnInit, OnDestroy {
       localStorage.removeItem('rower_auth_token');
       localStorage.removeItem('rower_kayak_customization');
       localStorage.removeItem('rower_claimed_kayak_id');
-      if (!keepPairing) {
-        localStorage.removeItem('rower_is_paired');
-        localStorage.removeItem('rower_watch_confirmed');
-        localStorage.removeItem('rower_device_token');
-      }
+      localStorage.removeItem('rower_is_paired');
+      localStorage.removeItem('rower_watch_confirmed');
+      localStorage.removeItem('rower_device_token');
     } catch {}
 
     this.isAdminDashboardOpen = false;
     this.isAccountModalOpen = false;
-    this.isLogoutConfirmModalOpen = false;
     this.isLoginModalOpen = false;
     this.isWatchGuidanceModalOpen = false;
     this.activePrivateRoom = null;
@@ -2629,25 +2610,20 @@ export class AppComponent implements OnInit, OnDestroy {
     this.claimedRacerUserId = '';
     this.selectedCockpitPlayerId = '';
 
-    if (!keepPairing) {
-      this.isPaired = false;
-      this.isWatchConfirmed = false;
-      this.deviceToken = '';
-      this.pairingCode = '';
-      this.pairingSuccessMessage = '';
-      this.pairingErrorMessage = '';
-      if (this.pairingTimerSub) {
-        this.pairingTimerSub.unsubscribe();
-        this.pairingTimerSub = undefined;
-      }
-      if (this.pairingStatusPollSub) {
-        this.pairingStatusPollSub.unsubscribe();
-        this.pairingStatusPollSub = undefined;
-      }
-    } else {
-      // Conserver l'appairage montre pour un mode invité anonyme
-      this.isPaired = true;
-      this.isWatchConfirmed = true;
+    // Désactivation automatique de l'appairage sur ce navigateur
+    this.isPaired = false;
+    this.isWatchConfirmed = false;
+    this.deviceToken = '';
+    this.pairingCode = '';
+    this.pairingSuccessMessage = '';
+    this.pairingErrorMessage = '';
+    if (this.pairingTimerSub) {
+      this.pairingTimerSub.unsubscribe();
+      this.pairingTimerSub = undefined;
+    }
+    if (this.pairingStatusPollSub) {
+      this.pairingStatusPollSub.unsubscribe();
+      this.pairingStatusPollSub = undefined;
     }
 
     this.myAssignedLane = 1;
@@ -2684,9 +2660,7 @@ export class AppComponent implements OnInit, OnDestroy {
     this.regEmail = '';
     this.regPassword = '';
     this.accountAuthError = '';
-    this.accountAuthSuccess = keepPairing
-      ? 'Déconnecté du compte. Montre conservée active en mode invité.'
-      : 'Vous avez été déconnecté.';
+    this.accountAuthSuccess = 'Vous avez été déconnecté.';
 
     this.setSiteView('home');
     this.userExplicitlyNavigatedHome = true;
