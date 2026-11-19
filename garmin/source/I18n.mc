@@ -139,12 +139,27 @@ module I18n {
             return "Enter a PIN code";
         }
         if (key.equals("MENU_SOLO")) {
-            if (_currentLang == LANG_FR) { return "Ramer en Solo"; }
-            if (_currentLang == LANG_DE) { return "Solo Rudern"; }
-            if (_currentLang == LANG_ES) { return "Remar en Solo"; }
-            if (_currentLang == LANG_IT) { return "Voga in Solitaria"; }
-            if (_currentLang == LANG_PT) { return "Remar Solo"; }
-            return "Row Solo";
+            if (_currentLang == LANG_FR) { return "Seul"; }
+            return "Solo";
+        }
+        if (key.equals("MENU_MORE")) {
+            if (_currentLang == LANG_FR) { return "Autres choix"; }
+            if (_currentLang == LANG_DE) { return "Weitere Optionen"; }
+            if (_currentLang == LANG_ES) { return "Otras opciones"; }
+            if (_currentLang == LANG_IT) { return "Altre opzioni"; }
+            if (_currentLang == LANG_PT) { return "Outras opcoes"; }
+            return "More Options";
+        }
+        if (key.equals("SUBMENU_MORE_TITLE")) {
+            if (_currentLang == LANG_FR) { return "AUTRES CHOIX"; }
+            if (_currentLang == LANG_DE) { return "WEITERE OPTIONEN"; }
+            if (_currentLang == LANG_ES) { return "OTRAS OPCIONES"; }
+            if (_currentLang == LANG_IT) { return "ALTRE OPZIONI"; }
+            if (_currentLang == LANG_PT) { return "OUTRAS OPCOES"; }
+            return "MORE OPTIONS";
+        }
+        if (key.equals("SUBMENU_KAYAK")) {
+            return "Kayak";
         }
         if (key.equals("MENU_PAIR")) {
             if (_currentLang == LANG_FR) { return "Appairer la montre"; }
