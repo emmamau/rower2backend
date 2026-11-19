@@ -178,10 +178,6 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
     }
 
     public function startScan() as Void {
-        // Appairage obligatoire avant toute détection/connexion BLE au rameur
-        if (!UserManager.isPaired()) {
-            return;
-        }
         _isManualDisconnect = false;
         _bleWriteBusy = false;
         _bleBusyTicks = 0;
@@ -547,14 +543,15 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
             if (_view != null) {
                 var v = _view as RowerView;
                 if (v.getAppState() == RowerView.STATE_SCANNING) {
-                    if (!UserManager.isPaired()) {
-                        v.showWarning("Rameur connecte !\nEntrez un code", 2);
-                        v.resetPairingDigits();
-                        v.setAppState(RowerView.STATE_PAIRING_INPUT);
+                    if (_raceMode.equals("solo")) {
+                        v.showWarning("Rameur connecte !", 2);
+                        launchSessionNow();
                     } else {
                         v.showWarning("Rameur connecte !", 2);
                         v.setAppState(RowerView.STATE_MENU);
                     }
+                } else {
+                    v.showWarning("Rameur connecte !", 2);
                 }
             }
         } else {
@@ -1753,7 +1750,16 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
             _targetDistance = 2000;
         }
         if (_view != null) {
-            (_view as RowerView).setIsLateJoiner(false);
+            var v = _view as RowerView;
+            v.setIsLateJoiner(false);
+            v.setRaceMode("solo");
+        }
+        if (!_model.isConnected()) {
+            startScan();
+            if (_view != null) {
+                (_view as RowerView).setAppState(RowerView.STATE_SCANNING);
+            }
+            return;
         }
         launchSessionNow();
     }
