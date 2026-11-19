@@ -26,6 +26,7 @@ class RowerView extends WatchUi.View {
     public static const STATE_PAIRING_STATUS   = 15; // Mon Profil & Identifiant (statut, edition pseudo invite, reinitialisation)
     public static const STATE_PAIRING_RESULT   = 16; // Confirmation succes / erreur
     public static const STATE_PSEUDO_INPUT     = 17; // Saisie pseudo invite local (UnifiedCodePickerView)
+    public static const STATE_SUBMENU_MORE     = 18; // G10 : Sous-menu Autres choix
 
     // Garmin Pro Dark Carbon Palette (64-color MIP & AMOLED compatible)
     private static const COL_BG        = Graphics.COLOR_BLACK;
@@ -40,10 +41,11 @@ class RowerView extends WatchUi.View {
     private static const COL_PILL_BG   = Graphics.COLOR_DK_BLUE;
 
     private var _model as RowerDataModel;
-    private var _currentState as Number = STATE_SCANNING;
+    private var _currentState as Number = STATE_MENU;
 
     // Navigation & Page indices
-    private var _mainMenuIndex as Number = 0;   // 0..4
+    private var _mainMenuIndex as Number = 0;   // 0..3
+    private var _subMenuIndex as Number = 0;    // 0..2
     private var _pauseMenuIndex as Number = 0;  // 0..2
     private var _choiceMenuIndex as Number = 0; // 0..1 (Late choice & Bots prompt)
     private var _racePage as Number = 0;        // 0 = Main 2x2 Race Grid, 1 = Gaps & Averages 2x2 Grid
@@ -111,8 +113,8 @@ class RowerView extends WatchUi.View {
         _pairingPicker = new UnifiedCodePickerView(5, "ENTRER UN CODE", method(:onPairingCodeCompleted));
         _roomPinPicker = new UnifiedCodePickerView(5, "ENTRER UN CODE", method(:onRoomPinCompleted));
         _pseudoPicker = new UnifiedCodePickerView(6, "MON PSEUDO", method(:onPseudoCompleted));
-        // Lancement direct sur l'écran de détection/connexion du rameur (G1)
-        _currentState = STATE_SCANNING;
+        // Lancement direct sur le menu principal (G2)
+        _currentState = STATE_MENU;
     }
 
     public function setPairingCompletedCallback(cb as Method?) as Void {
@@ -165,6 +167,9 @@ class RowerView extends WatchUi.View {
         _currentState = state;
         if (state == STATE_MENU) {
             resetLobbyState();
+            _mainMenuIndex = 0;
+        } else if (state == STATE_SUBMENU_MORE) {
+            _subMenuIndex = 0;
         } else if (state == STATE_PAUSED) {
             _pauseMenuIndex = 0;
         } else if (state == STATE_LATE_CHOICE || state == STATE_BOTS_PROMPT) {
@@ -392,13 +397,10 @@ class RowerView extends WatchUi.View {
     }
 
     public function getMainMenuItemCount() as Number {
-        if (UserManager.isPaired()) {
-            return 5; // 0: Course Publique, 1: Entrer un code pin, 2: Pseudo/Compte, 3: Ecrans donnees, 4: Historique
-        }
-        return 4; // 0: Entrer un code, 1: Pseudo, 2: Ecrans donnees, 3: Historique
+        return 4; // 0: Entrer un code pin, 1: Course publique, 2: Seul, 3: Autres choix
     }
 
-    // Menu navigation helpers (options dynamiques selon l'appairage)
+    // Menu navigation helpers
     public function nextMainMenu() as Void {
         var count = getMainMenuItemCount();
         _mainMenuIndex = (_mainMenuIndex + 1) % count;
@@ -413,6 +415,26 @@ class RowerView extends WatchUi.View {
 
     public function getMainMenuIndex() as Number {
         return _mainMenuIndex;
+    }
+
+    public function nextSubMenu() as Void {
+        var count = getSubMenuItemCount();
+        _subMenuIndex = (_subMenuIndex + 1) % count;
+        WatchUi.requestUpdate();
+    }
+
+    public function prevSubMenu() as Void {
+        var count = getSubMenuItemCount();
+        _subMenuIndex = (_subMenuIndex + count - 1) % count;
+        WatchUi.requestUpdate();
+    }
+
+    public function getSubMenuIndex() as Number {
+        return _subMenuIndex;
+    }
+
+    public function getSubMenuItemCount() as Number {
+        return 3;
     }
 
     public function nextPauseMenu() as Void {
@@ -610,26 +632,11 @@ class RowerView extends WatchUi.View {
         if (_currentState == STATE_SCANNING) {
             drawG1ConnectionScreen(dc, w, h);
         } else if (_currentState == STATE_MENU) {
-            var pseudoLabel = "";
-            if (UserManager.isGuestSession()) {
-                pseudoLabel = "Kayak : " + UserManager.getDisplayPseudo() + " (Modif)";
-            } else {
-                pseudoLabel = "Kayak : " + UserManager.getDisplayPseudo() + " (Web)";
-            }
-
             var menuItems = [] as Array<String>;
-            if (UserManager.isPaired()) {
-                menuItems.add(I18n.getText("MENU_PUBLIC"));
-                menuItems.add(I18n.getText("MENU_PRIVATE"));
-                menuItems.add(pseudoLabel);
-                menuItems.add(I18n.getText("MENU_DATA_SCREENS"));
-                menuItems.add(I18n.getText("MENU_HISTORY"));
-            } else {
-                menuItems.add(I18n.getText("MENU_ENTER_CODE"));
-                menuItems.add(pseudoLabel);
-                menuItems.add(I18n.getText("MENU_DATA_SCREENS"));
-                menuItems.add(I18n.getText("MENU_HISTORY"));
-            }
+            menuItems.add(I18n.getText("MENU_PRIVATE"));
+            menuItems.add(I18n.getText("MENU_PUBLIC"));
+            menuItems.add(I18n.getText("MENU_SOLO"));
+            menuItems.add(I18n.getText("MENU_MORE"));
             if (_mainMenuIndex >= menuItems.size()) {
                 _mainMenuIndex = 0;
             }
@@ -645,6 +652,24 @@ class RowerView extends WatchUi.View {
                 menuSub,
                 menuItems,
                 _mainMenuIndex,
+                I18n.getText("MENU_FOOTER")
+            );
+        } else if (_currentState == STATE_SUBMENU_MORE) {
+            var subItems = [] as Array<String>;
+            subItems.add("Kayak : " + UserManager.getDisplayPseudo());
+            subItems.add(I18n.getText("MENU_DATA_SCREENS"));
+            subItems.add(I18n.getText("MENU_HISTORY"));
+            if (_subMenuIndex >= subItems.size()) {
+                _subMenuIndex = 0;
+            }
+            var subTitle = I18n.getText("SUBMENU_MORE_TITLE");
+            drawGarminMenuScreen(
+                dc,
+                subTitle,
+                COL_ACCENT,
+                "",
+                subItems,
+                _subMenuIndex,
                 I18n.getText("MENU_FOOTER")
             );
         } else if (_currentState == STATE_PIN_INPUT) {
