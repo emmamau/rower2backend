@@ -551,39 +551,66 @@ function testLobbyWaitingForReadyDoesNotSelfStartRace(logger as Logger) as Boole
     return true;
 }
 
-//! Regression test 19: Dynamic main menu items and navigation based on pairing state
+//! Regression test 19: Main menu (4 items), sub-menu (3 items), and navigation
 (:test)
 function testDynamicMainMenuItems(logger as Logger) as Boolean {
     var model = new RowerDataModel();
     var view = new RowerView(model);
 
-    // 1. Unpaired state
+    // 1. Unpaired state: 4 items (Entrer un code pin, Course publique, Seul, Autres choix)
     UserManager.clearPairing();
     Test.assertEqual(false, UserManager.isPaired());
-    Test.assertEqual(3, view.getMainMenuItemCount());
+    Test.assertEqual(4, view.getMainMenuItemCount());
 
-    // Navigation cycle on 3 items
-    view.nextMainMenu(); // 0 -> 1
-    Test.assertEqual(1, view.getMainMenuIndex());
-    view.nextMainMenu(); // 1 -> 2
-    Test.assertEqual(2, view.getMainMenuIndex());
-    view.nextMainMenu(); // 2 -> 0
-    Test.assertEqual(0, view.getMainMenuIndex());
-    view.prevMainMenu(); // 0 -> 2
-    Test.assertEqual(2, view.getMainMenuIndex());
-
-    // 2. Paired state
+    // 2. Paired state: 4 items maintained
     UserManager.setDeviceToken("test-paired-device-token");
     Test.assertEqual(true, UserManager.isPaired());
     Test.assertEqual(4, view.getMainMenuItemCount());
 
-    // Navigation cycle on 4 items
+    // 3. Cyclical navigation of nextMainMenu() and prevMainMenu() over all 4 items
+    view.setAppState(RowerView.STATE_MENU);
+    Test.assertEqual(0, view.getMainMenuIndex());
+    view.nextMainMenu(); // 0 -> 1
+    Test.assertEqual(1, view.getMainMenuIndex());
+    view.nextMainMenu(); // 1 -> 2
+    Test.assertEqual(2, view.getMainMenuIndex());
     view.nextMainMenu(); // 2 -> 3
     Test.assertEqual(3, view.getMainMenuIndex());
     view.nextMainMenu(); // 3 -> 0
     Test.assertEqual(0, view.getMainMenuIndex());
+
     view.prevMainMenu(); // 0 -> 3
     Test.assertEqual(3, view.getMainMenuIndex());
+    view.prevMainMenu(); // 3 -> 2
+    Test.assertEqual(2, view.getMainMenuIndex());
+    view.prevMainMenu(); // 2 -> 1
+    Test.assertEqual(1, view.getMainMenuIndex());
+    view.prevMainMenu(); // 1 -> 0
+    Test.assertEqual(0, view.getMainMenuIndex());
+
+    // 4. Sub-menu: 3 items (Kayak, Ecrans de donnees, Historique)
+    Test.assertEqual(3, view.getSubMenuItemCount());
+    view.setAppState(RowerView.STATE_SUBMENU_MORE);
+    Test.assertEqual(0, view.getSubMenuIndex());
+
+    // Cyclical navigation of nextSubMenu() and prevSubMenu() over all 3 items
+    view.nextSubMenu(); // 0 -> 1
+    Test.assertEqual(1, view.getSubMenuIndex());
+    view.nextSubMenu(); // 1 -> 2
+    Test.assertEqual(2, view.getSubMenuIndex());
+    view.nextSubMenu(); // 2 -> 0
+    Test.assertEqual(0, view.getSubMenuIndex());
+
+    view.prevSubMenu(); // 0 -> 2
+    Test.assertEqual(2, view.getSubMenuIndex());
+    view.prevSubMenu(); // 2 -> 1
+    Test.assertEqual(1, view.getSubMenuIndex());
+    view.prevSubMenu(); // 1 -> 0
+    Test.assertEqual(0, view.getSubMenuIndex());
+
+    // 5. Solo mode verification
+    view.setRaceMode("solo");
+    Test.assertEqual(true, view.isSolo());
 
     // Clean up
     UserManager.clearPairing();
@@ -730,6 +757,7 @@ function testPage1BottomRightDisplaysRankInRaceMode(logger as Logger) as Boolean
 
     // Switch to solo mode
     view.setRaceMode("solo");
+    Test.assertEqual(true, view.isSolo());
     Test.assertEqual(I18n.getText("GRID_REM"), view.getPage1BottomRightLabel());
     view.setLobbyInfo(0, 1, 2000);
     view.updateRowerData(model, 350, 17.5f);
