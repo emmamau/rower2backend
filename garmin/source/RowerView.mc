@@ -507,6 +507,10 @@ class RowerView extends WatchUi.View {
         _roomPinPicker.reset();
     }
 
+    public function resetRoomPinDigits() as Void {
+        _roomPinPicker.reset();
+    }
+
     public function getFormattedPin() as String {
         return _roomPinPicker.getFormattedCode();
     }

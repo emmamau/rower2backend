@@ -36,11 +36,11 @@ class RowerDelegate extends WatchUi.BehaviorDelegate {
     public function onPseudoCompleted(pseudo as String) as Void {
         UserManager.setGuestPseudo(pseudo);
         _view.showWarning("Pseudo : " + pseudo, 2);
-        _view.setAppState(RowerView.STATE_MENU);
+        _view.setAppState(RowerView.STATE_SUBMENU_MORE);
     }
 
     public function onPseudoPickerCancelled() as Void {
-        _view.setAppState(RowerView.STATE_MENU);
+        _view.setAppState(RowerView.STATE_SUBMENU_MORE);
     }
 
     public function onPickerCancelled() as Void {
@@ -75,47 +75,43 @@ class RowerDelegate extends WatchUi.BehaviorDelegate {
             return true;
         } else if (state == RowerView.STATE_MENU) {
             var menuIdx = _view.getMainMenuIndex();
-            var isPaired = UserManager.isPaired();
-            if (isPaired) {
-                if (menuIdx == 0) {
-                    // 1. Course Publique -> Rejoint directement la file d'attente / lobby
-                    _view.setRaceMode("race");
+            if (menuIdx == 0) {
+                // 1. Entrer un code pin (code unique à 5 caractères)
+                _view.resetRoomPinDigits();
+                _view.setAppState(RowerView.STATE_PIN_INPUT);
+            } else if (menuIdx == 1) {
+                // 2. Course Publique -> Rejoint directement la file d'attente / lobby si appairé, sinon saisie code appairage
+                _view.setRaceMode("race");
+                if (UserManager.isPaired()) {
                     _bleDelegate.joinNextRaceWaiting();
-                } else if (menuIdx == 1) {
-                    // 2. Entrer un code pin (code unique à 5 caractères)
+                } else {
                     _view.resetPairingDigits();
                     _view.setAppState(RowerView.STATE_PAIRING_INPUT);
-                } else if (menuIdx == 2) {
-                    // 3. Gestion pseudo / profil
-                    if (UserManager.isGuestSession()) {
-                        _view.resetPseudoDigits();
-                        _view.setAppState(RowerView.STATE_PSEUDO_INPUT);
-                    } else {
-                        _view.showWarning(I18n.getText("PROFILE_SYNCED_WEB"), 2);
-                    }
-                } else if (menuIdx == 3) {
-                    // 4. Configuration des écrans de données
-                    openDataScreenConfig();
-                } else if (menuIdx == 4) {
-                    // 5. Historique local (G9)
-                    _view.setAppState(RowerView.STATE_HISTORY);
                 }
-            } else {
-                if (menuIdx == 0) {
-                    // 1. Entrer un code d'appairage montre
-                    _view.resetPairingDigits();
-                    _view.setAppState(RowerView.STATE_PAIRING_INPUT);
-                } else if (menuIdx == 1) {
-                    // 2. Gestion pseudo
+            } else if (menuIdx == 2) {
+                // 3. Seul -> Rameur uniquement, sans connexion à la plateforme
+                _bleDelegate.startSoloSession();
+            } else if (menuIdx == 3) {
+                // 4. Autres choix -> Sous-menu (Kayak, Ecrans de données, Historique)
+                _view.setAppState(RowerView.STATE_SUBMENU_MORE);
+            }
+            return true;
+        } else if (state == RowerView.STATE_SUBMENU_MORE) {
+            var subIdx = _view.getSubMenuIndex();
+            if (subIdx == 0) {
+                // 1. Kayak / Pseudo
+                if (UserManager.isGuestSession()) {
                     _view.resetPseudoDigits();
                     _view.setAppState(RowerView.STATE_PSEUDO_INPUT);
-                } else if (menuIdx == 2) {
-                    // 3. Configuration des écrans de données
-                    openDataScreenConfig();
-                } else if (menuIdx == 3) {
-                    // 4. Historique local (G9)
-                    _view.setAppState(RowerView.STATE_HISTORY);
+                } else {
+                    _view.showWarning(I18n.getText("PROFILE_SYNCED_WEB"), 2);
                 }
+            } else if (subIdx == 1) {
+                // 2. Configuration des écrans de données
+                openDataScreenConfig();
+            } else if (subIdx == 2) {
+                // 3. Historique local (G9)
+                _view.setAppState(RowerView.STATE_HISTORY);
             }
             return true;
         } else if (state == RowerView.STATE_PAIRING_INPUT) {
@@ -183,8 +179,11 @@ class RowerDelegate extends WatchUi.BehaviorDelegate {
                 _bleDelegate.discardSession();
             }
             return true;
-        } else if (state == RowerView.STATE_FINISHED || state == RowerView.STATE_HISTORY) {
+        } else if (state == RowerView.STATE_FINISHED) {
             _view.setAppState(RowerView.STATE_MENU);
+            return true;
+        } else if (state == RowerView.STATE_HISTORY) {
+            _view.setAppState(RowerView.STATE_SUBMENU_MORE);
             return true;
         }
 
@@ -201,6 +200,9 @@ class RowerDelegate extends WatchUi.BehaviorDelegate {
             return true;
         } else if (state == RowerView.STATE_MENU) {
             _view.nextMainMenu();
+            return true;
+        } else if (state == RowerView.STATE_SUBMENU_MORE) {
+            _view.nextSubMenu();
             return true;
         } else if (state == RowerView.STATE_PAIRING_INPUT) {
             return _pairingPickerDelegate.onNextPage();
@@ -234,6 +236,9 @@ class RowerDelegate extends WatchUi.BehaviorDelegate {
 
         if (state == RowerView.STATE_MENU) {
             _view.prevMainMenu();
+            return true;
+        } else if (state == RowerView.STATE_SUBMENU_MORE) {
+            _view.prevSubMenu();
             return true;
         } else if (state == RowerView.STATE_PAIRING_INPUT) {
             return _pairingPickerDelegate.onPreviousPage();
@@ -298,7 +303,10 @@ class RowerDelegate extends WatchUi.BehaviorDelegate {
             _bleDelegate.disconnect();
             return false; // Standard Garmin watch-app exit
         } else if (state == RowerView.STATE_MENU) {
-            _view.setAppState(RowerView.STATE_SCANNING);
+            _bleDelegate.disconnect();
+            return false; // Quitte l'application Garmin proprement
+        } else if (state == RowerView.STATE_SUBMENU_MORE) {
+            _view.setAppState(RowerView.STATE_MENU);
             return true;
         } else if (state == RowerView.STATE_PAIRING_INPUT) {
             return _pairingPickerDelegate.onBack();
@@ -309,12 +317,8 @@ class RowerDelegate extends WatchUi.BehaviorDelegate {
             return true;
         } else if (state == RowerView.STATE_PAIRING_RESULT) {
             if (UserManager.isPaired()) {
-                if (_bleDelegate.getModel().isConnected()) {
-                    _view.setAppState(RowerView.STATE_MENU);
-                } else {
-                    _view.setAppState(RowerView.STATE_SCANNING);
-                    _bleDelegate.startScan();
-                }
+                _view.setRaceMode("race");
+                _bleDelegate.joinNextRaceWaiting();
             } else {
                 _view.resetPairingDigits();
                 _view.setAppState(RowerView.STATE_PAIRING_INPUT);
@@ -326,7 +330,10 @@ class RowerDelegate extends WatchUi.BehaviorDelegate {
                    state == RowerView.STATE_WAITING_START || state == RowerView.STATE_PENDING_APPROVAL) {
             _bleDelegate.leaveCurrentRaceOrSalon();
             return true;
-        } else if (state == RowerView.STATE_HISTORY || state == RowerView.STATE_FINISHED) {
+        } else if (state == RowerView.STATE_HISTORY) {
+            _view.setAppState(RowerView.STATE_SUBMENU_MORE);
+            return true;
+        } else if (state == RowerView.STATE_FINISHED) {
             _view.setAppState(RowerView.STATE_MENU);
             return true;
         } else if (state == RowerView.STATE_COUNTDOWN_5S) {
