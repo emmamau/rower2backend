@@ -557,10 +557,11 @@ function testDynamicMainMenuItems(logger as Logger) as Boolean {
     var model = new RowerDataModel();
     var view = new RowerView(model);
 
-    // 1. Unpaired state: 4 items (Entrer un code pin, Course publique, Seul, Autres choix)
+    // 1. Unpaired state: 4 items (Entrer un code pin, Course publique, Ramer off-line, Autres choix)
     UserManager.clearPairing();
     Test.assertEqual(false, UserManager.isPaired());
     Test.assertEqual(4, view.getMainMenuItemCount());
+    Test.assertEqual("Ramer off-line", I18n.getText("MENU_SOLO"));
 
     // 2. Paired state: 4 items maintained
     UserManager.setDeviceToken("test-paired-device-token");

@@ -139,8 +139,12 @@ module I18n {
             return "Enter a PIN code";
         }
         if (key.equals("MENU_SOLO")) {
-            if (_currentLang == LANG_FR) { return "Seul"; }
-            return "Solo";
+            if (_currentLang == LANG_FR) { return "Ramer off-line"; }
+            if (_currentLang == LANG_DE) { return "Offline Rudern"; }
+            if (_currentLang == LANG_ES) { return "Remar offline"; }
+            if (_currentLang == LANG_IT) { return "Voga offline"; }
+            if (_currentLang == LANG_PT) { return "Remar offline"; }
+            return "Row Offline";
         }
         if (key.equals("MENU_MORE")) {
             if (_currentLang == LANG_FR) { return "Autres choix"; }

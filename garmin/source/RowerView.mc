@@ -397,7 +397,7 @@ class RowerView extends WatchUi.View {
     }
 
     public function getMainMenuItemCount() as Number {
-        return 4; // 0: Entrer un code pin, 1: Course publique, 2: Seul, 3: Autres choix
+        return 4; // 0: Entrer un code pin, 1: Course publique, 2: Ramer off-line, 3: Autres choix
     }
 
     // Menu navigation helpers

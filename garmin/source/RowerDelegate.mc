@@ -89,7 +89,7 @@ class RowerDelegate extends WatchUi.BehaviorDelegate {
                     _view.setAppState(RowerView.STATE_PAIRING_INPUT);
                 }
             } else if (menuIdx == 2) {
-                // 3. Seul -> Rameur uniquement, sans connexion à la plateforme
+                // 3. Ramer off-line -> Rameur uniquement, sans connexion à la plateforme
                 _bleDelegate.startSoloSession();
             } else if (menuIdx == 3) {
                 // 4. Autres choix -> Sous-menu (Kayak, Ecrans de données, Historique)

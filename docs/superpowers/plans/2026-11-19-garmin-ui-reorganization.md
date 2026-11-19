@@ -32,7 +32,7 @@
 
 - [ ] **Step 1: Add new translation keys in `garmin/source/I18n.mc`**
   - Add `MENU_MORE` returning "Autres choix" (FR), "More Options" (EN), "Weitere Optionen" (DE), "Otras opciones" (ES), "Altre opzioni" (IT), "Outras opcoes" (PT).
-  - Update `MENU_SOLO` returning "Seul" (FR), "Solo" (EN/DE/ES/IT/PT).
+  - Update `MENU_SOLO` returning "Ramer off-line" (FR), "Row Offline" (EN), "Offline Rudern" (DE), "Remar offline" (ES/PT), "Voga offline" (IT).
   - Add `SUBMENU_MORE_TITLE` returning "AUTRES CHOIX" (FR), "MORE OPTIONS" (EN).
   - Add `SUBMENU_KAYAK` returning "Kayak" (FR/EN).
 
