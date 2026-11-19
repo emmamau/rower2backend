@@ -15,6 +15,7 @@ import { extractRoomFromLocation } from './utils/room-link.util';
 import {
   UserProfile,
   UserHistoryItem,
+  UserLastRaceSummary,
   KayakCustomization,
   KayakPattern,
   sanitizeKayakCustomization,
@@ -4047,6 +4048,46 @@ export class AppComponent implements OnInit, OnDestroy {
       return getLeagueByTier(this.currentUser.currentLeague);
     }
     return getLeagueByPoints(this.currentUser?.points || 0);
+  }
+
+  get lastRaceSummary(): UserLastRaceSummary {
+    if (this.userHistory && this.userHistory.length > 0) {
+      const last = this.userHistory[0];
+      const r = Number(last.finalRank || this.currentUser?.lastRank || 0);
+      const rankDisplay = r === 1 ? '🥇 1ᵉʳ' : r === 2 ? '🥈 2ᵉ' : r === 3 ? '🥉 3ᵉ' : r > 0 ? `#${r}` : 'Terminée';
+      const dist = Number(last.targetDistance || last.netDistance || 0);
+      const time = last.elapsedTime ? this.formatTime(last.elapsedTime) : '';
+      return {
+        hasRaced: true,
+        rank: r,
+        rankDisplay,
+        distance: dist > 0 ? dist : undefined,
+        timeFormatted: time || undefined,
+        date: last.createdAt,
+      };
+    }
+
+    const totalRaces = Number(this.currentUser?.totalRaces || 0);
+    const lastRank = Number(this.currentUser?.lastRank || 0);
+    if (totalRaces > 0 || lastRank > 0) {
+      const rankDisplay = lastRank === 1 ? '🥇 1ᵉʳ' : lastRank === 2 ? '🥈 2ᵉ' : lastRank === 3 ? '🥉 3ᵉ' : lastRank > 0 ? `#${lastRank}` : 'Terminée';
+      return {
+        hasRaced: true,
+        rank: lastRank,
+        rankDisplay,
+      };
+    }
+
+    return { hasRaced: false };
+  }
+
+  scrollToNextRace(): void {
+    if (typeof document !== 'undefined') {
+      const el = document.querySelector('.hero-schedule-cluster') || document.querySelector('.regatta-card-timer') || document.querySelector('.home-action-tunnel');
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }
   }
 
   openSubscriptionModal(): void {

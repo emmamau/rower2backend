@@ -252,6 +252,15 @@ export interface UserHistoryItem {
   createdAt?: string;
 }
 
+export interface UserLastRaceSummary {
+  hasRaced: boolean;
+  rank?: number;
+  rankDisplay?: string;
+  distance?: number;
+  timeFormatted?: string;
+  date?: string | Date;
+}
+
 export interface UserProfileResponse {
   user: UserProfile;
   isGarminPaired?: boolean;

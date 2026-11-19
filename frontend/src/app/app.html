@@ -3142,22 +3142,57 @@
       <section class="home-welcome-banner" *ngIf="!isMobileFullscreenOnly" aria-label="Accueil et statut matériel">
         @if (isRegisteredUser || isSubscriber || isUserAdmin) {
           <div class="welcome-banner-card is-connected">
-            <div class="welcome-left">
+            <!-- Médaille & Salutation -->
+            <div class="welcome-inline-user">
               <span class="welcome-league-badge" [title]="currentUserLeague.name">{{ currentUserLeague.badge }}</span>
-              <div class="welcome-texts">
-                <h2 class="welcome-title">Ravi de vous revoir, {{ currentUser.name }}</h2>
-                <span class="welcome-sub">Ligue {{ currentUserLeague.name }} · {{ currentUser.points || 0 }} pts</span>
-              </div>
+              <span class="welcome-greeting-text">
+                Ravi de vous revoir, <strong class="welcome-user-name">{{ currentUser.name }}</strong>
+              </span>
             </div>
-            <div class="welcome-right">
+
+            <span class="welcome-inline-divider" aria-hidden="true">|</span>
+
+            <!-- Ligue & Points -->
+            <div class="welcome-inline-league">
+              <span class="welcome-league-tag">Ligue {{ currentUserLeague.name }}</span>
+              <span class="welcome-points-tag">({{ currentUser.points || 0 }} pts)</span>
+            </div>
+
+            <span class="welcome-inline-divider" aria-hidden="true">|</span>
+
+            <!-- Résultat dernière course OU Invitation -->
+            <div class="welcome-inline-race">
+              @if (lastRaceSummary.hasRaced) {
+                <div class="welcome-race-pill is-completed" [title]="lastRaceSummary.date ? ('Course du ' + (lastRaceSummary.date | date:'short')) : 'Dernier résultat enregistré'">
+                  <span class="pill-icon">🏁</span>
+                  <span class="pill-label">Dernière course :</span>
+                  <strong class="pill-rank">{{ lastRaceSummary.rankDisplay }}</strong>
+                  <span class="pill-details" *ngIf="lastRaceSummary.distance || lastRaceSummary.timeFormatted">
+                    ({{ lastRaceSummary.distance ? lastRaceSummary.distance + 'm' : '' }}{{ lastRaceSummary.distance && lastRaceSummary.timeFormatted ? ' · ' : '' }}{{ lastRaceSummary.timeFormatted || '' }})
+                  </span>
+                </div>
+              } @else {
+                <div
+                  class="welcome-race-pill is-invite is-clickable"
+                  (click)="scrollToNextRace()"
+                  title="Vous n'avez pas encore couru — Cliquez pour rejoindre le prochain départ !">
+                  <span class="pill-icon">🚣</span>
+                  <span class="pill-label">Aucune course effectuée · <em>Prenez votre 1ᵉʳ départ !</em></span>
+                  <span class="pill-action-tag">Participer &rarr;</span>
+                </div>
+              }
+            </div>
+
+            <!-- Statut Montre Garmin -->
+            <div class="welcome-inline-hardware">
               @if (isPaired || isWatchConfirmed) {
-                <div class="hardware-status-pill is-linked">
+                <div class="hardware-status-pill is-linked compact">
                   <span class="hw-status-dot dot-green"></span>
                   <span class="hw-status-label">Montre Garmin liée</span>
                 </div>
               } @else {
                 <div
-                  class="hardware-status-pill is-unlinked"
+                  class="hardware-status-pill is-unlinked compact"
                   (click)="scrollToGarminPairing()"
                   title="Montre non liée — Saisissez un code PIN d'appairage ci-dessous">
                   <span class="hw-status-dot dot-amber"></span>

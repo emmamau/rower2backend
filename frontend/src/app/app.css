@@ -3696,6 +3696,34 @@ select:autofill:focus {
     padding: 0.75rem 0.9rem;
     gap: 0.65rem;
   }
+  .welcome-banner-card.is-connected {
+    flex-wrap: wrap;
+    gap: 0.65rem;
+    padding: 0.75rem 0.9rem;
+    min-height: unset;
+  }
+  .welcome-banner-card .welcome-inline-divider {
+    display: none;
+  }
+  .welcome-banner-card .welcome-inline-user,
+  .welcome-banner-card .welcome-inline-league,
+  .welcome-banner-card .welcome-inline-race,
+  .welcome-banner-card .welcome-inline-hardware {
+    flex-wrap: wrap;
+    white-space: normal;
+  }
+  .welcome-banner-card .welcome-inline-hardware {
+    width: 100%;
+    margin-left: 0;
+    justify-content: stretch;
+  }
+  .welcome-banner-card .welcome-inline-hardware .hardware-status-pill {
+    width: 100%;
+    justify-content: center;
+    padding: 0.48rem 0.85rem;
+    font-size: 0.82rem;
+    min-height: 38px;
+  }
   .welcome-banner-card .welcome-left {
     gap: 0.65rem;
   }
@@ -7276,6 +7304,186 @@ body.rigid-viewport {
   border-radius: 14px;
   padding: 0.9rem 1.2rem;
   box-shadow: 0 8px 28px rgba(0, 0, 0, 0.55), 0 0 18px rgba(0, 240, 255, 0.15);
+}
+
+/* Vue Desktop : Bandeau utilisateur connecté compact sur une seule ligne */
+@media (min-width: 901px) {
+  .welcome-banner-card.is-connected {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: nowrap;
+    padding: 0.38rem 1.1rem;
+    min-height: 44px;
+    gap: 0.85rem;
+    overflow: hidden;
+  }
+}
+
+.welcome-inline-user {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.welcome-inline-user .welcome-league-badge {
+  font-size: 1.35rem;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  filter: drop-shadow(0 0 6px rgba(255, 230, 0, 0.45));
+}
+
+.welcome-inline-user .welcome-greeting-text {
+  font-size: 0.88rem;
+  color: #f1f5f9;
+  font-weight: 500;
+  letter-spacing: 0.2px;
+}
+
+.welcome-inline-user .welcome-user-name {
+  color: #00f0ff;
+  font-weight: 800;
+  text-shadow: 0 0 10px rgba(0, 240, 255, 0.35);
+}
+
+.welcome-inline-divider {
+  color: rgba(0, 240, 255, 0.25);
+  font-size: 0.85rem;
+  font-weight: 300;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.welcome-inline-league {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.welcome-inline-league .welcome-league-tag {
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: #ffe600;
+  background: rgba(255, 230, 0, 0.12);
+  border: 1px solid rgba(255, 230, 0, 0.45);
+  border-radius: 9999px;
+  padding: 0.12rem 0.55rem;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+
+.welcome-inline-league .welcome-points-tag {
+  font-size: 0.8rem;
+  color: #94a3b8;
+  font-weight: 600;
+}
+
+.welcome-inline-race {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+  flex-shrink: 1;
+  min-width: 0;
+}
+
+.welcome-race-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.42rem;
+  padding: 0.22rem 0.7rem;
+  border-radius: 9999px;
+  font-size: 0.82rem;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+.welcome-race-pill.is-completed {
+  background: rgba(14, 165, 233, 0.12);
+  border: 1px solid rgba(14, 165, 233, 0.4);
+  color: #e0f2fe;
+  box-shadow: 0 0 10px rgba(14, 165, 233, 0.15);
+}
+
+.welcome-race-pill.is-completed .pill-icon {
+  font-size: 0.85rem;
+}
+
+.welcome-race-pill.is-completed .pill-label {
+  color: #94a3b8;
+  font-weight: 600;
+  font-size: 0.78rem;
+}
+
+.welcome-race-pill.is-completed .pill-rank {
+  color: #38bdf8;
+  font-weight: 800;
+  font-size: 0.84rem;
+}
+
+.welcome-race-pill.is-completed .pill-details {
+  color: #cbd5e1;
+  font-size: 0.78rem;
+  font-weight: 500;
+}
+
+.welcome-race-pill.is-invite {
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.48);
+  color: #fef3c7;
+  cursor: pointer;
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.15);
+  transition: all 0.2s ease;
+}
+
+.welcome-race-pill.is-invite:hover {
+  background: rgba(245, 158, 11, 0.22);
+  border-color: #f59e0b;
+  box-shadow: 0 0 14px rgba(245, 158, 11, 0.35);
+  transform: translateY(-1px);
+}
+
+.welcome-race-pill.is-invite .pill-icon {
+  font-size: 0.88rem;
+}
+
+.welcome-race-pill.is-invite .pill-label {
+  font-size: 0.8rem;
+  color: #fde68a;
+}
+
+.welcome-race-pill.is-invite .pill-label em {
+  font-style: normal;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.welcome-race-pill.is-invite .pill-action-tag {
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: #ffe600;
+  text-decoration: underline;
+  margin-left: 0.25rem;
+}
+
+.welcome-inline-hardware {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.hardware-status-pill.compact {
+  padding: 0.28rem 0.75rem;
+  font-size: 0.8rem;
+  min-height: unset;
+  line-height: 1.2;
 }
 
 .welcome-banner-card.is-guest {

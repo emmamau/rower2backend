@@ -1,0 +1,50 @@
+name: Build RowerRace Android APK
+
+on:
+  push:
+    branches: [ version1, main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build Release APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.x'
+          channel: 'stable'
+          cache: true
+
+      - name: Install dependencies
+        run: |
+          cd mobile_flutter
+          flutter pub get
+
+      - name: Run unit tests
+        run: |
+          cd mobile_flutter
+          flutter test
+
+      - name: Build Android Release APK
+        run: |
+          cd mobile_flutter
+          flutter build apk --release --dart-define=API_URL=https://rower-api-service.onrender.com
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: RowerRace-Mobile-APK
+          path: mobile_flutter/build/app/outputs/flutter-apk/app-release.apk
+          retention-days: 14
