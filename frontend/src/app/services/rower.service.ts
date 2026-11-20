@@ -10,7 +10,9 @@ import {
   PastRaceResult,
   CreatePrivateRaceRequest,
   PrivateRacePayload,
-  RoomCreationQuotaInfo
+  RoomCreationQuotaInfo,
+  RoomInviteRequest,
+  RoomInviteResponse
 } from '../models/rower-data.model';
 import {
   UserProfileResponse,
@@ -96,6 +98,23 @@ export class RowerService {
 
   createPrivateRace(payload: CreatePrivateRaceRequest): Observable<PrivateRacePayload> {
     return this.http.post<PrivateRacePayload>(`${this.apiUrl}/api/v1/races/private`, payload);
+  }
+
+  sendRoomInvitations(
+    identifier: string,
+    hostUserId: string,
+    emails: string[],
+    includeCalendarInvite: boolean = true
+  ): Observable<RoomInviteResponse> {
+    const payload: RoomInviteRequest = {
+      hostUserId,
+      emails,
+      includeCalendarInvite
+    };
+    return this.http.post<RoomInviteResponse>(
+      `${this.apiUrl}/api/rooms/${encodeURIComponent(identifier)}/invite`,
+      payload
+    );
   }
 
   joinRoom(code: string, userId?: string, userName?: string, deviceToken?: string): Observable<any> {

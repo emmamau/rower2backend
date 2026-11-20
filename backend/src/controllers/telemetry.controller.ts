@@ -1251,6 +1251,7 @@ export class TelemetryController {
         tier: (isUserAdmin && !user?.subscriptionTier) ? "admin" : tierId,
         tierName: (isUserAdmin && !user?.subscriptionTier) ? "Administrateur" : tierConfig.name,
         maxBots: (isUserAdmin && !user?.subscriptionTier) ? 20 : (tierConfig.maxBots || (tierId === "premium" ? 5 : (tierId === "intermediate" ? 3 : 1))),
+        maxParticipants: (isUserAdmin && !user?.subscriptionTier) ? 30 : (tierConfig.maxParticipants || (tierId === "premium" ? 10 : (tierId === "intermediate" ? 5 : 2))),
         concurrent: {
           current: activeCount,
           max: maxConcurrent,

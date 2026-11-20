@@ -3,11 +3,34 @@
  * Intégration directe de l'API REST Resend (HTTPS) avec modèles Cyber/Sport responsive
  * et repli sécurisé en mode simulation pour le développement et les tests.
  */
+export interface EmailAttachment {
+  filename: string;
+  content: string; // Base64 ou contenu texte
+  type?: string;
+}
+
 export interface EmailPayload {
   to: string;
   subject: string;
   text: string;
   html?: string;
+  attachments?: EmailAttachment[];
+}
+
+export interface RoomInvitationEmailParams {
+  to: string;
+  organizerName: string;
+  roomTitle: string;
+  targetDistance: number;
+  roomCode: string;
+  roomPin: string;
+  joinUrl: string;
+  isDuel: boolean;
+  scheduledStartTime?: string;
+  timezone?: string;
+  icsCalendarContent?: string;
+  googleCalendarUrl?: string;
+  outlookCalendarUrl?: string;
 }
 
 export interface EmailConfig {
@@ -124,19 +147,27 @@ export class EmailService {
 
     if (config.resendApiKey && process.env.NODE_ENV !== "test") {
       try {
+        const reqBody: Record<string, any> = {
+          from: config.fromEmail,
+          to: payload.to,
+          subject: payload.subject,
+          text: payload.text,
+          html: payload.html || payload.text.replace(/\n/g, "<br>"),
+        };
+        if (payload.attachments && payload.attachments.length > 0) {
+          reqBody.attachments = payload.attachments.map((att) => ({
+            filename: att.filename,
+            content: att.content,
+          }));
+        }
+
         const response = await fetch("https://api.resend.com/emails", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${config.resendApiKey}`,
           },
-          body: JSON.stringify({
-            from: config.fromEmail,
-            to: payload.to,
-            subject: payload.subject,
-            text: payload.text,
-            html: payload.html || payload.text.replace(/\n/g, "<br>"),
-          }),
+          body: JSON.stringify(reqBody),
         });
 
         if (response.ok) {
@@ -271,6 +302,143 @@ export class EmailService {
     const text = `Bonjour,\n\nUne demande de réinitialisation de mot de passe a été formulée pour le compte ${login}.\nPour définir un nouveau mot de passe, veuillez utiliser le lien sécurisé suivant (valable 1 heure) :\n${resetUrl}\n\nSi vous n'êtes pas à l'origine de cette demande, vous pouvez ignorer cet e-mail en toute sécurité.\n\nSportivement,\nL'équipe Rower Race`;
 
     const res = await this.sendEmail({ to, subject, text, html });
+    return res.success;
+  }
+
+  /**
+   * Envoi d'une invitation à une régate ou un duel 1v1 avec codes, lien direct
+   * et rendez-vous d'agenda iCalendar (.ics) si planifié.
+   */
+  public async sendRoomInvitationEmail(params: RoomInvitationEmailParams): Promise<boolean> {
+    const orgName = (params.organizerName || "Un rameur").trim();
+    const modeBadge = params.isDuel ? "⚔️ Duel 1 vs 1" : "🚣 Régate Multijoueurs";
+    const subject = params.isDuel
+      ? `⚔️ Rower Race - Invitation au Duel 1v1 de ${orgName}`
+      : `🚣 Rower Race - Invitation à la régate "${params.roomTitle}" par ${orgName}`;
+
+    let scheduleSectionHtml = "";
+    let scheduleSectionText = "";
+    if (params.scheduledStartTime) {
+      const d = new Date(params.scheduledStartTime);
+      const tz = params.timezone || "Europe/Paris";
+      let formattedDate = params.scheduledStartTime;
+      try {
+        const dtf = new Intl.DateTimeFormat("fr-FR", {
+          weekday: "long",
+          day: "numeric",
+          month: "long",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+          timeZone: tz,
+        });
+        formattedDate = `${dtf.format(d)} (${tz})`;
+      } catch {}
+
+      const calButtonsHtml = (params.googleCalendarUrl || params.outlookCalendarUrl) ? `
+        <div style="margin-top: 14px; display: flex; flex-wrap: wrap; gap: 10px;">
+          ${params.googleCalendarUrl ? `<a href="${params.googleCalendarUrl}" style="background-color: #1e293b; color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.4); text-decoration: none; padding: 8px 14px; border-radius: 6px; font-size: 13px; font-weight: 600; display: inline-block;">📅 Google Agenda</a>` : ''}
+          ${params.outlookCalendarUrl ? `<a href="${params.outlookCalendarUrl}" style="background-color: #1e293b; color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.4); text-decoration: none; padding: 8px 14px; border-radius: 6px; font-size: 13px; font-weight: 600; display: inline-block;">📅 Outlook / Office 365</a>` : ''}
+        </div>
+      ` : '';
+
+      scheduleSectionHtml = `
+        <div style="background-color: #0b1329; border-left: 3px solid #f59e0b; padding: 14px 18px; border-radius: 6px; margin: 18px 0;">
+          <div style="font-size: 12px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; color: #f59e0b; margin-bottom: 4px;">
+            ⏰ Démarrage Planifié
+          </div>
+          <div style="font-size: 16px; font-weight: bold; color: #ffffff;">
+            ${formattedDate}
+          </div>
+          ${calButtonsHtml}
+          ${params.icsCalendarContent ? `<div style="font-size: 12px; color: #94a3b8; margin-top: 8px;">📎 Un fichier rendez-vous <strong>.ics</strong> est joint à ce courriel pour intégrer directement votre calendrier.</div>` : ''}
+        </div>
+      `;
+      scheduleSectionText = `\n⏰ Démarrage planifié : ${formattedDate}\n`;
+    }
+
+    const bodyContentHtml = `
+      <div style="display: inline-block; background-color: rgba(0, 229, 255, 0.12); border: 1px solid #00e5ff; color: #00e5ff; font-size: 12px; font-weight: bold; text-transform: uppercase; padding: 4px 12px; border-radius: 20px; margin-bottom: 16px; letter-spacing: 1px;">
+        ${modeBadge}
+      </div>
+      <h2 style="color: #ffffff; font-size: 22px; margin-top: 0; margin-bottom: 14px; line-height: 1.3;">
+        Bonjour,<br>
+        <span style="color: #00e5ff;">${orgName}</span> vous invite à ramer !
+      </h2>
+      <p style="margin-bottom: 18px; color: #cbd5e1; font-size: 15px;">
+        ${params.isDuel
+          ? `Vous avez été défié(e) en duel direct 1 contre 1 sur <strong>Rower Race</strong>.`
+          : `Vous êtes convié(e) à prendre le départ d'une régate privée multijoueur sur <strong>Rower Race</strong>.`
+        }
+      </p>
+
+      <div style="background-color: #0d1527; border: 1px solid rgba(0, 229, 255, 0.25); border-radius: 8px; padding: 18px; margin: 20px 0;">
+        <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+          <tr>
+            <td style="padding-bottom: 10px;">
+              <span style="font-size: 12px; text-transform: uppercase; color: #94a3b8; letter-spacing: 0.5px;">Nom de la course :</span>
+              <div style="font-size: 17px; font-weight: bold; color: #ffffff; margin-top: 2px;">${params.roomTitle}</div>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding-bottom: 12px;">
+              <span style="font-size: 12px; text-transform: uppercase; color: #94a3b8; letter-spacing: 0.5px;">Distance officielle :</span>
+              <div style="font-size: 16px; font-weight: bold; color: #00e5ff; margin-top: 2px;">${params.targetDistance} mètres</div>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding-top: 10px; border-top: 1px solid rgba(255, 255, 255, 0.08);">
+              <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+                <tr>
+                  <td width="50%" style="vertical-align: top;">
+                    <div style="font-size: 11px; text-transform: uppercase; color: #94a3b8;">Code Salon Web</div>
+                    <div style="font-size: 18px; font-weight: bold; color: #00e5ff; font-family: monospace; letter-spacing: 1px;">${params.roomCode}</div>
+                  </td>
+                  <td width="50%" style="vertical-align: top;">
+                    <div style="font-size: 11px; text-transform: uppercase; color: #94a3b8;">Code Montre Garmin</div>
+                    <div style="font-size: 18px; font-weight: bold; color: #fbbf24; font-family: monospace; letter-spacing: 2px;">${params.roomPin}</div>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </div>
+
+      ${scheduleSectionHtml}
+
+      <p style="margin-top: 20px; margin-bottom: 8px; color: #94a3b8; font-size: 13px;">
+        💡 <strong>Comment participer ?</strong> Cliquez sur le bouton ci-dessous pour ouvrir directement la ligne de départ, ou saisissez le code sur votre montre Garmin Connect IQ.
+      </p>
+    `;
+
+    const html = renderCyberEmailHtml({
+      title: subject,
+      preheader: `${orgName} vous invite à la course ${params.roomTitle} (${params.targetDistance}m)`,
+      bodyContentHtml,
+      ctaText: "Rejoindre la Régate",
+      ctaUrl: params.joinUrl,
+      securityNote: `Ce salon est privé et sécurisé. Votre lien de connexion : ${params.joinUrl}`,
+    });
+
+    const text = `Bonjour,\n\n${orgName} vous invite à une course connectée Rower Race !\n\nCourse : ${params.roomTitle}\nDistance : ${params.targetDistance}m\n${scheduleSectionText}\nLien direct pour rejoindre : ${params.joinUrl}\nCode Salon Web : ${params.roomCode}\nCode Montre Garmin : ${params.roomPin}\n\nSportivement,\nL'équipe Rower Race`;
+
+    const attachments: EmailAttachment[] = [];
+    if (params.icsCalendarContent) {
+      attachments.push({
+        filename: `invitation-regate-${params.roomCode}.ics`,
+        content: Buffer.from(params.icsCalendarContent, "utf-8").toString("base64"),
+        type: "text/calendar",
+      });
+    }
+
+    const res = await this.sendEmail({
+      to: params.to,
+      subject,
+      text,
+      html,
+      attachments: attachments.length > 0 ? attachments : undefined,
+    });
     return res.success;
   }
 

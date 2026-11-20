@@ -143,6 +143,22 @@ export interface CreatePrivateRaceRequest {
   mode?: string;
 }
 
+export interface RoomInviteRequest {
+  hostUserId: string;
+  emails: string[];
+  includeCalendarInvite?: boolean;
+}
+
+export interface RoomInviteResponse {
+  success: boolean;
+  count: number;
+  recipients: string[];
+  maxAllowed?: number;
+  hasCalendarInvite?: boolean;
+  error?: string;
+  code?: string;
+}
+
 export interface PrivateRacePayload extends NextRaceInfo {
   success?: boolean;
   id?: string;
@@ -174,6 +190,7 @@ export interface RoomCreationQuotaInfo {
   tier: string;
   tierName?: string;
   maxBots?: number;
+  maxParticipants?: number;
   concurrent: {
     current: number;
     max: number;

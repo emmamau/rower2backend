@@ -288,6 +288,16 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
   actionError = '';
   isActionBusy = false;
   canNativeShare = false;
+  isMobileDevice = false;
+
+  // Invitations e-mail & Calendrier
+  duelInviteEmail = '';
+  multiInviteEmails: string[] = [];
+  multiEmailInput = '';
+  includeCalendarInvite = true;
+  isSendingInvites = false;
+  inviteSuccessMessage = '';
+  inviteErrorMessage = '';
 
   // Quotas & Montre connectée
   quotaInfo: RoomCreationQuotaInfo | null = null;
@@ -311,6 +321,11 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
 
   ngOnInit(): void {
     this.canNativeShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function';
+    this.isMobileDevice = typeof window !== 'undefined' && (
+      window.innerWidth <= 768 ||
+      /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || '') ||
+      (typeof navigator !== 'undefined' && (navigator.maxTouchPoints || 0) > 0)
+    );
     this.loadSavedSalonsFromStorage();
     if (!this.roomTitle) {
       this.roomTitle = this.defaultRoomTitle();
@@ -1453,6 +1468,156 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
     } catch {
       // User dismissed native share dialog
     }
+  }
+
+  get isDuelRoom(): boolean {
+    return Boolean(
+      (this.activeRoom?.race as any)?.isDuel1v1 ||
+      (this.activeRoom as any)?.isDuel1v1 ||
+      this.selectedGameMode === 'duel_1v1'
+    );
+  }
+
+  get maxAllowedInvitations(): number {
+    if (this.isDuelRoom) return 1;
+    let maxParticipants = 2;
+    if (this.quotaInfo?.maxParticipants !== undefined) {
+      maxParticipants = this.quotaInfo.maxParticipants;
+    } else {
+      const rawTier = String(this.userSubscriptionTier || (this.isSubscriber ? 'intermediate' : 'free')).toLowerCase().trim();
+      if (rawTier === 'pro' || rawTier === 'elite_pro' || rawTier === 'premium') maxParticipants = 10;
+      else if (rawTier === 'club' || rawTier === 'standard' || rawTier === 'intermediate') maxParticipants = 5;
+      else if (this.isUserAdmin) maxParticipants = 30;
+      else maxParticipants = this.isSubscriber ? 5 : 2;
+    }
+    const bots = this.activeRoom?.race?.botCount || (this.activeRoom as any)?.botCount || 0;
+    return Math.max(1, maxParticipants - 1 - bots);
+  }
+
+  get remainingInvitationsCount(): number {
+    return Math.max(0, this.maxAllowedInvitations - this.multiInviteEmails.length);
+  }
+
+  addMultiEmail(): void {
+    const raw = this.multiEmailInput.trim().toLowerCase();
+    if (!raw) return;
+    this.inviteErrorMessage = '';
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const parts = raw.split(/[\s,;]+/).map((p) => p.trim()).filter(Boolean);
+    for (const email of parts) {
+      if (!emailRegex.test(email)) {
+        this.inviteErrorMessage = `Adresse e-mail invalide : ${email}`;
+        continue;
+      }
+      if (this.multiInviteEmails.includes(email)) {
+        continue;
+      }
+      if (this.multiInviteEmails.length >= this.maxAllowedInvitations) {
+        this.inviteErrorMessage = this.i18n.t('INVITE_QUOTA_EXCEEDED_WARNING');
+        break;
+      }
+      this.multiInviteEmails.push(email);
+    }
+    this.multiEmailInput = '';
+    this.cdr.markForCheck();
+  }
+
+  removeMultiEmail(index: number): void {
+    if (index >= 0 && index < this.multiInviteEmails.length) {
+      this.multiInviteEmails.splice(index, 1);
+      this.inviteErrorMessage = '';
+      this.cdr.markForCheck();
+    }
+  }
+
+  onMultiEmailKeyDown(event: KeyboardEvent): void {
+    if (event.key === 'Enter' || event.key === ',' || event.key === ';') {
+      event.preventDefault();
+      this.addMultiEmail();
+    }
+  }
+
+  sendDuelInvite(): void {
+    const email = this.duelInviteEmail.trim().toLowerCase();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      this.inviteErrorMessage = 'Veuillez saisir une adresse e-mail valide.';
+      return;
+    }
+    this.sendInvitationsInternal([email]);
+  }
+
+  sendMultiInvites(): void {
+    if (this.multiEmailInput.trim()) {
+      this.addMultiEmail();
+    }
+    if (this.multiInviteEmails.length === 0) {
+      this.inviteErrorMessage = 'Veuillez ajouter au moins une adresse e-mail.';
+      return;
+    }
+    if (this.multiInviteEmails.length > this.maxAllowedInvitations) {
+      this.inviteErrorMessage = this.i18n.t('INVITE_QUOTA_EXCEEDED_WARNING');
+      return;
+    }
+    this.sendInvitationsInternal(this.multiInviteEmails);
+  }
+
+  private sendInvitationsInternal(emails: string[]): void {
+    if (!this.activeRoom) return;
+    const identifier = this.activeRoomCode || this.activeRoom.race?.id || this.activeRoom.id;
+    if (!identifier) return;
+
+    this.isSendingInvites = true;
+    this.inviteErrorMessage = '';
+    this.inviteSuccessMessage = '';
+
+    const isScheduled = (this.activeRoom.race?.startMode === 'scheduled' || (this.activeRoom as any).startMode === 'scheduled');
+    const includeCal = isScheduled && this.includeCalendarInvite;
+
+    this.rowerService.sendRoomInvitations(
+      identifier,
+      this.activeUserId,
+      emails,
+      includeCal
+    ).subscribe({
+      next: (res) => {
+        this.isSendingInvites = false;
+        if (res.success) {
+          this.inviteSuccessMessage = `${this.i18n.t('INVITE_SUCCESS_MSG')} (${res.count} envoyée(s))`;
+          if (this.isDuelRoom) {
+            this.duelInviteEmail = '';
+          } else {
+            this.multiInviteEmails = [];
+            this.multiEmailInput = '';
+          }
+          this.showFeedback(this.inviteSuccessMessage);
+        } else {
+          this.inviteErrorMessage = res.error || 'Erreur lors de l\'envoi des invitations.';
+        }
+        this.cdr.markForCheck();
+      },
+      error: (err) => {
+        this.isSendingInvites = false;
+        this.inviteErrorMessage = err?.error?.error || err?.error?.message || 'Erreur lors de l\'envoi des invitations.';
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  get whatsappShareUrl(): string {
+    const text = encodeURIComponent(this.fullInviteMessage);
+    return `https://api.whatsapp.com/send?text=${text}`;
+  }
+
+  get smsShareUrl(): string {
+    const text = encodeURIComponent(this.fullInviteMessage);
+    return `sms:?body=${text}`;
+  }
+
+  get mailtoShareUrl(): string {
+    const subject = encodeURIComponent(`Invitation Régate Rower Race : ${this.activeRoom?.race?.title || 'Course'}`);
+    const body = encodeURIComponent(this.fullInviteMessage);
+    return `mailto:?subject=${subject}&body=${body}`;
   }
 
   selectInputText(event: Event): void {

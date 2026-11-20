@@ -50,6 +50,9 @@ export default (app: Application): void => {
   // GET /api/v1/races/private/:identifier/participant-status (Participant status polling)
   router.get("/races/private/:identifier/participant-status", TelemetryController.getParticipantStatus);
 
+  // POST /api/v1/races/private/:identifier/invite (Send room invitations by email with calendar)
+  router.post("/races/private/:identifier/invite", RoomController.inviteToRoom);
+
   // DELETE /api/v1/races/private/:identifier (Close private salon & revoke codes)
   router.delete("/races/private/:identifier", TelemetryController.closePrivateRace);
 

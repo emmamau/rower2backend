@@ -9,6 +9,13 @@ import { isEmmaAdminUser } from "../services/auth.service";
 import { getLeagueByPoints } from "../utils/league.util";
 import { SUBSCRIPTION_TIERS } from "./subscription.controller";
 import subscriptionPlanService from "../services/subscription-plan.service";
+import emailService, { getEmailConfig } from "../services/email.service";
+import {
+  CalendarEventParams,
+  generateIcsCalendar,
+  generateGoogleCalendarUrl,
+  generateOutlookCalendarUrl,
+} from "../utils/calendar.util";
 
 const Activities = db.activities;
 const raceManager = RaceManager.getInstance();
@@ -602,6 +609,163 @@ export class RoomController {
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       res.status(500).json({ success: false, error: message, message });
+    }
+  }
+
+  /**
+   * POST /api/rooms/:identifier/invite
+   * Envoi d'invitations par e-mail (duel 1v1 ou régate multijoueur)
+   * avec respect strict des quotas d'abonnement et option rendez-vous d'agenda iCalendar.
+   */
+  public static async inviteToRoom(req: Request, res: Response): Promise<void> {
+    try {
+      const identifier = String(req.params.identifier || req.body?.identifier || req.body?.code || "").trim();
+      const body = req.body || {};
+      const hostUserId = String(body.hostUserId || req.query.hostUserId || "").trim();
+      const rawEmails = body.emails || (body.email ? [body.email] : []);
+      const includeCalendarInvite = body.includeCalendarInvite !== undefined ? Boolean(body.includeCalendarInvite) : true;
+
+      if (!identifier) {
+        res.status(400).json({ success: false, error: "Identifiant ou code de salon requis." });
+        return;
+      }
+
+      const race = raceManager.findPrivateRace(identifier);
+      if (!race) {
+        res.status(404).json({ success: false, error: "Salon privé introuvable ou expiré." });
+        return;
+      }
+
+      if (race.status === "COMPLETED" || race.status === "ABANDONED" || race.status === "STOPPED") {
+        res.status(410).json({ success: false, error: "Ce salon est déjà clôturé." });
+        return;
+      }
+
+      // Vérification des droits : seul l'organisateur (ou admin Emma) peut inviter
+      const hostUser = race.hostUserId ? await userStore.findUser(race.hostUserId) : null;
+      const isEmma = isEmmaAdminUser(hostUserId, hostUser?.name);
+      const isHost = Boolean(
+        isEmma ||
+        (race.hostUserId && hostUserId && race.hostUserId === hostUserId) ||
+        (race.originalHostUserId && hostUserId && race.originalHostUserId === hostUserId)
+      );
+
+      if (!isHost) {
+        res.status(403).json({ success: false, error: "Seul l'organisateur du salon peut envoyer des invitations." });
+        return;
+      }
+
+      // Nettoyage et validation des adresses e-mail
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      const cleanEmails: string[] = Array.isArray(rawEmails)
+        ? Array.from(new Set(rawEmails.map((e: any) => String(e).trim().toLowerCase()).filter((e: string) => emailRegex.test(e))))
+        : [];
+
+      if (cleanEmails.length === 0) {
+        res.status(400).json({ success: false, error: "Aucune adresse e-mail valide fournie." });
+        return;
+      }
+
+      // Vérification des règles selon le mode de jeu (Duel vs Multi-joueurs)
+      const isDuel = Boolean(race.isDuel1v1 || (race as any).gameMode === "duel_1v1" || (race as any).gameMode === "duel");
+
+      let maxAllowedInvitations = 1;
+      let planName = "Gratuite";
+
+      if (isDuel) {
+        if (cleanEmails.length > 1) {
+          res.status(400).json({
+            success: false,
+            error: "En mode Duel 1 vs 1, une seule adresse e-mail peut être invitée à la fois.",
+            maxAllowed: 1
+          });
+          return;
+        }
+      } else {
+        // Multi-joueurs : quota selon l'abonnement de l'organisateur
+        const limits = await subscriptionPlanService.getLimitsForTier(hostUser || "free");
+        planName = limits.name;
+        // Capacité max de participants autorisée pour l'offre, moins l'hôte (1), moins les bots prévus
+        const botCount = race.botCount || 0;
+        maxAllowedInvitations = Math.max(1, (limits.maxParticipants || 2) - 1 - botCount);
+
+        if (cleanEmails.length > maxAllowedInvitations) {
+          res.status(403).json({
+            success: false,
+            error: `Votre forfait (${planName}) autorise au maximum ${limits.maxParticipants} participants (${maxAllowedInvitations} invitation(s) restante(s)). Veuillez réduire le nombre de destinataires ou surclasser votre abonnement.`,
+            maxAllowed: maxAllowedInvitations,
+            submittedCount: cleanEmails.length,
+            code: "INVITE_QUOTA_EXCEEDED"
+          });
+          return;
+        }
+      }
+
+      // Préparation du rendez-vous d'agenda iCalendar si planifié
+      let icsContent: string | undefined;
+      let googleCalUrl: string | undefined;
+      let outlookCalUrl: string | undefined;
+
+      const emailConfig = getEmailConfig();
+      const origin = emailConfig.frontendUrl;
+      const joinUrl = `${origin}/?room=${encodeURIComponent(race.code || identifier)}`;
+
+      if (includeCalendarInvite && race.startMode === "scheduled" && race.scheduledStartTime) {
+        const calParams: CalendarEventParams = {
+          eventId: race.id,
+          title: `Régate Rower Race : ${race.title}`,
+          description: `Régate connectée Rower Race (${race.targetDistance}m).\nOrganisée par ${race.hostUserName || hostUser?.name || "Rower Race"}.\nCode salon : ${race.code}\nCode Garmin : ${race.pinCode}`,
+          url: joinUrl,
+          startTime: race.scheduledStartTime,
+          durationMinutes: 45,
+          organizerName: race.hostUserName || hostUser?.name || "Rower Race",
+          organizerEmail: hostUser?.email || "contact@rowerrace.com"
+        };
+
+        icsContent = generateIcsCalendar(calParams);
+        googleCalUrl = generateGoogleCalendarUrl(calParams);
+        outlookCalUrl = generateOutlookCalendarUrl(calParams);
+      }
+
+      // Envoi asynchrone des e-mails
+      const organizerDisplayName = race.hostUserName || hostUser?.name || hostUserId || "L'organisateur";
+      const sentRecipients: string[] = [];
+
+      for (const email of cleanEmails) {
+        try {
+          await emailService.sendRoomInvitationEmail({
+            to: email,
+            organizerName: organizerDisplayName,
+            roomTitle: race.title,
+            targetDistance: race.targetDistance,
+            roomCode: race.code || identifier,
+            roomPin: race.pinCode || "",
+            joinUrl,
+            isDuel,
+            scheduledStartTime: (race.startMode === "scheduled" && race.scheduledStartTime)
+              ? (race.scheduledStartTime instanceof Date ? race.scheduledStartTime.toISOString() : String(race.scheduledStartTime))
+              : undefined,
+            timezone: race.timezone,
+            icsCalendarContent: icsContent,
+            googleCalendarUrl: googleCalUrl,
+            outlookCalendarUrl: outlookCalUrl
+          });
+          sentRecipients.push(email);
+        } catch (err) {
+          console.error(`[RoomController] Erreur envoi invitation vers ${email}:`, err);
+        }
+      }
+
+      res.status(200).json({
+        success: true,
+        count: sentRecipients.length,
+        recipients: sentRecipients,
+        maxAllowed: maxAllowedInvitations,
+        hasCalendarInvite: Boolean(icsContent)
+      });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      res.status(500).json({ success: false, error: "Erreur envoi invitations: " + message });
     }
   }
 }

@@ -896,7 +896,168 @@
           </div>
         </div>
 
-        <!-- 2. Garmin Watch Alphanumeric PIN + Web Salon Code -->
+        <!-- 2. Smartphone & Quick App Sharing -->
+        <div class="priv-share-card priv-mobile-card">
+          <div class="priv-share-card-header">
+            <span class="priv-label">{{ i18n.t('SHARE_MOBILE_CARD_TITLE') }}</span>
+            <span class="priv-badge-pulse">⚡ Direct</span>
+          </div>
+          <p class="priv-hint">{{ i18n.t('SHARE_MOBILE_CARD_HINT') }}</p>
+          <div class="priv-mobile-btn-grid">
+            @if (canNativeShare) {
+              <button
+                type="button"
+                class="priv-btn priv-btn-cyan priv-mobile-main-btn"
+                (click)="shareRoomNative()">
+                {{ i18n.t('BTN_SHARE_MOBILE_NATIVE') }}
+              </button>
+            }
+            <a
+              [href]="whatsappShareUrl"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="priv-btn priv-btn-whatsapp">
+              {{ i18n.t('BTN_SHARE_WHATSAPP') }}
+            </a>
+            <a
+              [href]="smsShareUrl"
+              class="priv-btn priv-btn-sms">
+              {{ i18n.t('BTN_SHARE_SMS') }}
+            </a>
+            <a
+              [href]="mailtoShareUrl"
+              class="priv-btn priv-btn-mail">
+              {{ i18n.t('BTN_SHARE_MAILTO') }}
+            </a>
+          </div>
+        </div>
+
+        <!-- 3. Email Invitations & Calendar Appointment Card -->
+        <div class="priv-share-card priv-invite-card">
+          <div class="priv-share-card-header">
+            <span class="priv-label">{{ i18n.t('INVITE_CARD_TITLE') }}</span>
+            <span class="priv-salon-title-tag">{{ isDuelRoom ? '⚔️ Mode Duel' : '🚣 Multi-joueurs' }}</span>
+          </div>
+          <p class="priv-hint">
+            {{ isDuelRoom ? i18n.t('INVITE_DUEL_SUBTITLE') : i18n.t('INVITE_MULTI_SUBTITLE') }}
+          </p>
+
+          <!-- Duel 1v1 Single Email Invite -->
+          @if (isDuelRoom) {
+            <div class="priv-invite-input-row">
+              <input
+                type="email"
+                class="priv-input"
+                [placeholder]="i18n.t('INVITE_EMAIL_PLACEHOLDER')"
+                [(ngModel)]="duelInviteEmail"
+                (keydown.enter)="sendDuelInvite()"
+                [disabled]="isSendingInvites" />
+              <button
+                type="button"
+                class="priv-btn priv-btn-cyan"
+                [disabled]="isSendingInvites || !duelInviteEmail"
+                (click)="sendDuelInvite()">
+                {{ isSendingInvites ? i18n.t('INVITE_SENDING') : i18n.t('BTN_SEND_INVITE_SINGLE') }}
+              </button>
+            </div>
+          } @else {
+            <!-- Multi-players Email List with Quota Gauge -->
+            <div class="priv-quota-gauge-box">
+              <div class="priv-quota-text-row">
+                <span class="priv-quota-label">
+                  👥 {{ multiInviteEmails.length }} / {{ maxAllowedInvitations }} {{ i18n.t('INVITE_QUOTA_REMAINING') }} ({{ quotaInfo?.tierName || 'Forfait' }})
+                </span>
+                <span class="priv-quota-count" [class.quota-full]="remainingInvitationsCount === 0">
+                  {{ remainingInvitationsCount }} restante(s)
+                </span>
+              </div>
+              <div class="priv-gauge-bar-track">
+                <div
+                  class="priv-gauge-bar-fill"
+                  [style.width.%]="(multiInviteEmails.length / maxAllowedInvitations) * 100"
+                  [class.gauge-full]="remainingInvitationsCount === 0">
+                </div>
+              </div>
+            </div>
+
+            <!-- Email Chips List -->
+            @if (multiInviteEmails.length > 0) {
+              <div class="priv-email-chips-container">
+                @for (email of multiInviteEmails; track $index) {
+                  <span class="priv-email-chip">
+                    <span class="priv-chip-text">{{ email }}</span>
+                    <button
+                      type="button"
+                      class="priv-chip-remove"
+                      (click)="removeMultiEmail($index)"
+                      title="Supprimer">
+                      &times;
+                    </button>
+                  </span>
+                }
+              </div>
+            }
+
+            <div class="priv-invite-input-row">
+              <input
+                type="text"
+                class="priv-input"
+                [placeholder]="i18n.t('INVITE_EMAIL_INPUT_LABEL') + ' (séparés par virgules ou Entrée)'"
+                [(ngModel)]="multiEmailInput"
+                (keydown)="onMultiEmailKeyDown($event)"
+                [disabled]="isSendingInvites || remainingInvitationsCount === 0" />
+              <button
+                type="button"
+                class="priv-btn priv-btn-outline"
+                [disabled]="isSendingInvites || !multiEmailInput.trim() || remainingInvitationsCount === 0"
+                (click)="addMultiEmail()">
+                {{ i18n.t('BTN_ADD_EMAIL') }}
+              </button>
+            </div>
+
+            <!-- Calendar Appointment Checkbox for Scheduled Races -->
+            @if (activeRoom.race.startMode === 'scheduled' || activeRoom.startMode === 'scheduled') {
+              <div class="priv-calendar-toggle-box">
+                <label class="priv-checkbox-label">
+                  <input
+                    type="checkbox"
+                    [(ngModel)]="includeCalendarInvite"
+                    [disabled]="isSendingInvites" />
+                  <span class="priv-toggle-text">
+                    {{ i18n.t('INVITE_CALENDAR_CHECKBOX') }}
+                  </span>
+                </label>
+                <div class="priv-calendar-subtext">
+                  {{ i18n.t('INVITE_CALENDAR_HINT') }}
+                </div>
+              </div>
+            }
+
+            <div class="priv-invite-actions-row">
+              <button
+                type="button"
+                class="priv-btn priv-btn-cyan"
+                [disabled]="isSendingInvites || (multiInviteEmails.length === 0 && !multiEmailInput.trim())"
+                (click)="sendMultiInvites()">
+                {{ isSendingInvites ? i18n.t('INVITE_SENDING') : i18n.t('BTN_SEND_INVITE_MULTI') }} ({{ multiInviteEmails.length + (multiEmailInput.trim() ? 1 : 0) }})
+              </button>
+            </div>
+          }
+
+          <!-- Status feedback messages -->
+          @if (inviteSuccessMessage) {
+            <div class="priv-invite-feedback priv-feedback-success">
+              {{ inviteSuccessMessage }}
+            </div>
+          }
+          @if (inviteErrorMessage) {
+            <div class="priv-invite-feedback priv-feedback-error">
+              {{ inviteErrorMessage }}
+            </div>
+          }
+        </div>
+
+        <!-- 4. Garmin Watch Alphanumeric PIN + Web Salon Code -->
         <div class="priv-codes-grid">
           <!-- Garmin PIN Card -->
           <div class="priv-share-card priv-pin-card">

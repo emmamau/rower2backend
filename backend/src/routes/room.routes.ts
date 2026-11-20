@@ -27,6 +27,9 @@ export default (app: Application): void => {
   // POST /api/rooms/:identifier/start (Host starts countdown or resets private salon)
   router.post("/:identifier/start", TelemetryController.startPrivateRace);
 
+  // POST /api/rooms/:identifier/invite (Envoi d'invitations e-mail duel / multi avec respect des quotas et agenda)
+  router.post("/:identifier/invite", RoomController.inviteToRoom);
+
   app.use("/api/rooms", router);
   app.use("/api/v1/rooms", router);
 };
