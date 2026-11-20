@@ -11,10 +11,6 @@ subprojects {
 }
 
 subprojects {
-    project.evaluationDependsOn(":app")
-}
-
-subprojects {
     afterEvaluate { project ->
         if (project.hasProperty("android")) {
             project.android {
