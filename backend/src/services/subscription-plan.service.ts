@@ -212,7 +212,35 @@ export class SubscriptionPlanService {
     if (dbPlan) {
       return dbPlan.isActive !== undefined ? Boolean(dbPlan.isActive) : (dbPlan.is_active !== undefined ? Boolean(dbPlan.is_active) : true);
     }
-    return true;
+
+    const fallbackKey = lookupCode === "STANDARD" ? "intermediate" : (lookupCode === "PREMIUM" ? "premium" : clean);
+    const fb = DEFAULT_FALLBACK_LIMITS[fallbackKey];
+    return fb && fb.isActive !== undefined ? Boolean(fb.isActive) : true;
+  }
+
+  public async setPlanActive(code: string, targetActive?: boolean): Promise<boolean> {
+    let lookupCode = (code || "").trim().toUpperCase();
+    if (lookupCode === "INTERMEDIATE" || lookupCode === "CLUB") lookupCode = "STANDARD";
+    if (lookupCode === "PRO" || lookupCode === "ELITE_PRO") lookupCode = "PREMIUM";
+
+    await this.loadAllPlans();
+    const existing = this.cachedPlans.get(lookupCode);
+    const currentActive = existing ? (existing.isActive !== false && existing.is_active !== false) : true;
+    const newActive = targetActive !== undefined ? Boolean(targetActive) : !currentActive;
+
+    if (existing) {
+      existing.isActive = newActive;
+      existing.is_active = newActive;
+      this.cachedPlans.set(lookupCode, existing);
+    }
+
+    for (const key of Object.keys(DEFAULT_FALLBACK_LIMITS)) {
+      if (DEFAULT_FALLBACK_LIMITS[key].code?.toUpperCase() === lookupCode) {
+        DEFAULT_FALLBACK_LIMITS[key].isActive = newActive;
+      }
+    }
+
+    return newActive;
   }
 }
 

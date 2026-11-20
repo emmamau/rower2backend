@@ -2,10 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../auth/controllers/auth_controller.dart';
+import '../../auth/models/user_profile.dart';
 import '../../auth/widgets/login_modal.dart';
 import '../../auth/widgets/claim_code_modal.dart';
+import '../../ble/models/rowing_metrics.dart';
 import '../../ble/services/ble_ftms_service.dart';
 import '../../ble/widgets/ble_scanner_sheet.dart';
+import '../../race/controllers/race_controller.dart';
 import '../../race/screens/race_screen.dart';
 
 /// Écran d'accueil mobile épuré offrant 3 accès directs et l'état en direct du rameur BLE.
@@ -13,26 +16,30 @@ class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
   void _showBleScanner(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => const BleScannerSheet(),
-    );
+    BleScannerSheet.show(context);
   }
 
   void _showLogin(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => const LoginModal(),
-    );
+    LoginModal.show(context);
   }
 
-  void _showClaimCode(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => const ClaimCodeModal(),
-    );
+  void _showClaimCode(BuildContext context, WidgetRef ref) async {
+    final result = await ClaimCodeModal.show(context);
+    if (result != null && context.mounted) {
+      ref.read(raceControllerProvider.notifier).setupFromPrivateRoom(result);
+      final roomId = result['raceId']?.toString() ?? result['id']?.toString() ?? 'salon';
+      final target = result['targetDistance'] is num
+          ? (result['targetDistance'] as num).toDouble()
+          : 2000.0;
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => RaceScreen(
+            roomId: roomId,
+            targetDistance: target,
+          ),
+        ),
+      );
+    }
   }
 
   void _joinQuickRace(BuildContext context) {
@@ -60,10 +67,10 @@ class HomeScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authControllerProvider);
-    final bleStatus = ref.watch(bleConnectionStatusProvider);
+    final bleStatusAsync = ref.watch(bleConnectionStatusProvider);
     final bleDeviceName = ref.watch(connectedDeviceNameProvider);
 
-    final isBleConnected = bleStatus == BleConnectionStatus.connected;
+    final isBleConnected = bleStatusAsync.valueOrNull == BleConnectionStatus.connected;
 
     return Scaffold(
       backgroundColor: const Color(0xFF0F141E),
@@ -136,7 +143,7 @@ class HomeScreen extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               // Bannière Utilisateur & Ligue
-              _buildUserBanner(context, authState),
+              _buildUserBanner(context, ref, authState),
               const SizedBox(height: 24),
 
               // Avertissement BLE si non connecté
@@ -160,7 +167,9 @@ class HomeScreen extends ConsumerWidget {
                       ),
                       TextButton(
                         onPressed: () => _showBleScanner(context),
-                        child: const Text('SCANNER', style: TextStyle(color: Colors.cyanAccent, fontWeight: FontWeight.bold)),
+                        child: const Text('SCANNER',
+                            style: TextStyle(
+                                color: Colors.cyanAccent, fontWeight: FontWeight.bold)),
                       ),
                     ],
                   ),
@@ -182,7 +191,8 @@ class HomeScreen extends ConsumerWidget {
               // Carte 1 : Course Rapide / Salon Public
               _ActionCard(
                 title: 'COURSE RAPIDE (500m)',
-                subtitle: 'Rejoignez immédiatement une régate publique multijoueur avec d\'autres rameurs et des bots.',
+                subtitle:
+                    'Rejoignez immédiatement une régate publique multijoueur avec d\'autres rameurs et des bots.',
                 icon: Icons.flash_on,
                 accentColor: Colors.cyanAccent,
                 onTap: () => _joinQuickRace(context),
@@ -192,17 +202,19 @@ class HomeScreen extends ConsumerWidget {
               // Carte 2 : Rejoindre un Salon Privé (Code 5 Caractères)
               _ActionCard(
                 title: 'REJOINDRE UN SALON PRIVÉ',
-                subtitle: 'Entrez un code unique à 5 caractères pour affronter vos amis ou lier votre session.',
+                subtitle:
+                    'Entrez un code unique à 5 caractères pour affronter vos amis ou lier votre session.',
                 icon: Icons.vpn_key,
                 accentColor: Colors.purpleAccent,
-                onTap: () => _showClaimCode(context),
+                onTap: () => _showClaimCode(context, ref),
               ),
               const SizedBox(height: 14),
 
               // Carte 3 : Cockpit / Entraînement Libre
               _ActionCard(
                 title: 'COCKPIT & ENTRAÎNEMENT LIBRE',
-                subtitle: 'Session solo avec affichage haute lisibilité : Watts, SPM, Allure /500m et distance libre.',
+                subtitle:
+                    'Session solo avec affichage haute lisibilité : Watts, SPM, Allure /500m et distance libre.',
                 icon: Icons.speed,
                 accentColor: Colors.amberAccent,
                 onTap: () => _joinSoloTraining(context),
@@ -214,11 +226,19 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildUserBanner(BuildContext context, AuthState authState) {
+  Widget _buildUserBanner(
+      BuildContext context, WidgetRef ref, AsyncValue<UserProfile?> authAsync) {
+    final user = authAsync.valueOrNull;
+    final isGuest = user == null;
+    final displayName = user?.displayPseudo ?? 'Rameur Invité';
+    final league = user?.league ?? LeagueTier.bronze;
+    final points = user?.leaguePoints ?? 0;
+
     Color leagueColor = Colors.grey;
-    if (authState.league == 'Or') leagueColor = Colors.amber;
-    if (authState.league == 'Argent') leagueColor = const Color(0xFFC0C0C0);
-    if (authState.league == 'Bronze') leagueColor = const Color(0xFFCD7F32);
+    if (league == LeagueTier.gold) leagueColor = Colors.amber;
+    if (league == LeagueTier.silver) leagueColor = const Color(0xFFC0C0C0);
+    if (league == LeagueTier.bronze) leagueColor = const Color(0xFFCD7F32);
+    if (league == LeagueTier.diamond) leagueColor = Colors.cyanAccent;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -240,7 +260,7 @@ class HomeScreen extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  authState.effectiveDisplayName,
+                  displayName,
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 17,
@@ -258,7 +278,7 @@ class HomeScreen extends ConsumerWidget {
                         border: Border.all(color: leagueColor, width: 0.8),
                       ),
                       child: Text(
-                        'Ligue ${authState.league}',
+                        'Ligue ${league.displayName}',
                         style: TextStyle(
                           color: leagueColor,
                           fontSize: 11,
@@ -268,7 +288,7 @@ class HomeScreen extends ConsumerWidget {
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      '${authState.weeklyPoints} pts hebdo',
+                      '$points pts hebdo',
                       style: const TextStyle(
                         color: Colors.white70,
                         fontSize: 12,
@@ -280,7 +300,7 @@ class HomeScreen extends ConsumerWidget {
               ],
             ),
           ),
-          if (authState.isGuest)
+          if (isGuest)
             OutlinedButton(
               onPressed: () => _showLogin(context),
               style: OutlinedButton.styleFrom(
@@ -289,7 +309,8 @@ class HomeScreen extends ConsumerWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               ),
-              child: const Text('CONNEXION', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+              child: const Text('CONNEXION',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
             ),
         ],
       ),
@@ -368,7 +389,7 @@ class _ActionCard extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
-            Icon(Icons.arrow_forward_ios, color: Colors.white38, size: 16),
+            const Icon(Icons.arrow_forward_ios, color: Colors.white38, size: 16),
           ],
         ),
       ),

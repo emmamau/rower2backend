@@ -3,6 +3,8 @@ name: Build RowerRace Android APK
 on:
   push:
     branches: [ version1, main, master ]
+  pull_request:
+    branches: [ version1, main, master ]
   workflow_dispatch:
 
 jobs:
@@ -35,7 +37,10 @@ jobs:
       - name: Run unit tests
         run: |
           cd mobile_flutter
-          flutter test
+          flutter test --no-pub
+
+      - name: Ensure Gradle wrapper executable
+        run: chmod +x mobile_flutter/android/gradlew
 
       - name: Build Android Release APK
         run: |
@@ -46,5 +51,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: RowerRace-Mobile-APK
-          path: mobile_flutter/build/app/outputs/flutter-apk/app-release.apk
+          path: mobile_flutter/build/app/outputs/flutter-apk/*.apk
           retention-days: 14

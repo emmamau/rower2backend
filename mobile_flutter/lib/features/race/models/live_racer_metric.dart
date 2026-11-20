@@ -35,6 +35,13 @@ class LiveRacerMetric {
     this.kayak,
   });
 
+  // Getters de compatibilité
+  bool get isFinished => status == 'completed' || status == 'finished';
+  int get distance => dist;
+  String get displayName => name;
+  bool get isMe => isPaired;
+  int? get finishTimeSeconds => elapsedTime;
+
   factory LiveRacerMetric.fromMap(Map<String, dynamic> map) {
     return LiveRacerMetric(
       lane: map['lane'] is num ? (map['lane'] as num).toInt() : 1,

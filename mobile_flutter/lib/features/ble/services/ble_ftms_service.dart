@@ -12,38 +12,27 @@ final bleFtmsServiceProvider = Provider<BleFtmsService>((ref) {
   return service;
 });
 
-class BleFtmsService {
-  final SecureStorageService _storage;
+final bleConnectionStatusProvider = StreamProvider<BleConnectionStatus>((ref) {
+  final service = ref.watch(bleFtmsServiceProvider);
+  return service.statusStream;
+});
 
-  // UUIDs Bluetooth SIG FTMS standard
-  static final Guid ftmsServiceUuid = Guid('00001826-0000-1000-8000-00805f9b34fb');
-  static final Guid rowerDataCharUuid = Guid('00002ad1-0000-1000-8000-00805f9b34fb');
-  static final Guid controlPointCharUuid = Guid('00002ad9-0000-1000-8000-00805f9b34fb');
+final connectedDeviceNameProvider = Provider<String?>((ref) {
+  final service = ref.watch(bleFtmsServiceProvider);
+  ref.watch(bleConnectionStatusProvider);
+  return service.deviceName;
+});
 
-  BluetoothDevice? _connectedDevice;
-  StreamSubscription? _adapterStateSub;
-  StreamSubscription? _scanResultsSub;
-  StreamSubscription? _connectionStateSub;
-  StreamSubscription? _charNotificationsSub;
+final rowingMetricsStreamProvider = StreamProvider<RowingMetrics>((ref) {
+  final service = ref.watch(bleFtmsServiceProvider);
+  return service.metricsStream;
+});
 
-  final _statusController = StreamController<BleConnectionStatus>.broadcast();
-  final _metricsController = StreamController<RowingMetrics>.broadcast();
-  final _scanResultsController = StreamController<List<ScanResult>>.broadcast();
+/// Décodeur binaire pur et autonome pour la caractéristique Rower Data FTMS (0x2AD1).
+/// Totalement découplé des API Bluetooth, ce qui permet des tests unitaires rapides et fiables.
+class BleFtmsDecoder {
+  String? deviceName;
 
-  Stream<BleConnectionStatus> get statusStream => _statusController.stream;
-  Stream<RowingMetrics> get metricsStream => _metricsController.stream;
-  Stream<List<ScanResult>> get scanResultsStream => _scanResultsController.stream;
-
-  BleConnectionStatus _currentStatus = BleConnectionStatus.disconnected;
-  BleConnectionStatus get currentStatus => _currentStatus;
-
-  String? _deviceName;
-  String? get deviceName => _deviceName;
-
-  RowingMetrics _currentMetrics = const RowingMetrics();
-  RowingMetrics get currentMetrics => _currentMetrics;
-
-  // Variables de tare matérielle et de détection décimétrique (alignement Garmin RowerDataModel.mc)
   int _baselineRawDistance = 0;
   int _baselineRawStrokes = 0;
   int _lastRawDistance = 0;
@@ -53,201 +42,52 @@ class BleFtmsService {
   bool _isDecimeterDistance = false;
   bool _isFirstPacket = true;
 
-  // Cumul moyenne puissance et cadence
   int _wattsSum = 0;
   int _wattsCount = 0;
   double _spmSum = 0.0;
   int _spmCount = 0;
 
-  BleFtmsService(this._storage) {
-    _statusController.add(BleConnectionStatus.disconnected);
+  bool get isDecimeterDistance => _isDecimeterDistance;
+  int get baselineRawDistance => _baselineRawDistance;
+  int get lastRawDistance => _lastRawDistance;
+
+  BleFtmsDecoder({this.deviceName});
+
+  void reset() {
+    _baselineRawDistance = 0;
+    _baselineRawStrokes = 0;
+    _lastRawDistance = 0;
+    _lastRawStrokes = 0;
+    _distanceOffset = 0;
+    _strokesOffset = 0;
+    _isDecimeterDistance = false;
+    _isFirstPacket = true;
+    _wattsSum = 0;
+    _wattsCount = 0;
+    _spmSum = 0.0;
+    _spmCount = 0;
   }
 
-  /// Lance le scan BLE pour découvrir les rameurs compatibles FTMS
-  Future<void> startScan() async {
-    if (_currentStatus == BleConnectionStatus.scanning) return;
-
-    _setStatus(BleConnectionStatus.scanning);
-
-    try {
-      if (await FlutterBluePlus.adapterState.first != BluetoothAdapterState.on) {
-        _setStatus(BleConnectionStatus.disconnected);
-        return;
-      }
-
-      _scanResultsSub?.cancel();
-      _scanResultsSub = FlutterBluePlus.scanResults.listen((results) {
-        // Filtrer les périphériques exposant FTMS ou ayant un nom évocateur de rameur
-        final filtered = results.where((r) {
-          final name = r.device.platformName.toUpperCase();
-          final hasFtms = r.advertisementData.serviceUuids.any(
-            (u) => u.toString().toLowerCase().contains('1826'),
-          );
-          final matchesRowerName = name.contains('ROW') ||
-              name.contains('ERG') ||
-              name.contains('PM5') ||
-              name.contains('CONCEPT') ||
-              name.contains('WATER') ||
-              name.contains('MERACH') ||
-              name.contains('DOMYOS') ||
-              name.contains('SKILLROW') ||
-              name.contains('SMART') ||
-              name.contains('FTMS');
-          return hasFtms || matchesRowerName;
-        }).toList();
-
-        _scanResultsController.add(filtered);
-      });
-
-      await FlutterBluePlus.startScan(
-        timeout: const Duration(seconds: 15),
-      );
-    } catch (_) {
-      _setStatus(BleConnectionStatus.disconnected);
-    }
-  }
-
-  /// Arrête le scan BLE
-  Future<void> stopScan() async {
-    try {
-      await FlutterBluePlus.stopScan();
-    } catch (_) {}
-    if (_currentStatus == BleConnectionStatus.scanning) {
-      _setStatus(BleConnectionStatus.disconnected);
-    }
-  }
-
-  /// Tente une reconnexion immédiate en 1 tap au dernier rameur enregistré
-  Future<bool> reconnectLastDevice() async {
-    final remoteId = await _storage.getLastBleRemoteId();
-    final savedName = await _storage.getLastBleDeviceName();
-    if (remoteId == null || remoteId.isEmpty) return false;
-
-    final device = BluetoothDevice.fromId(remoteId);
-    return connectToDevice(device, knownName: savedName);
-  }
-
-  /// Connexion et abonnement aux notifications FTMS d'un rameur
-  Future<bool> connectToDevice(BluetoothDevice device, {String? knownName}) async {
-    await stopScan();
-    _setStatus(BleConnectionStatus.connecting);
-
-    try {
-      await device.connect(autoConnect: false, timeout: const Duration(seconds: 12));
-      _connectedDevice = device;
-      _deviceName = device.platformName.isNotEmpty ? device.platformName : (knownName ?? 'Rameur BLE');
-
-      // Sauvegarde pour reconnexion 1-tap ultérieure
-      await _storage.saveLastBleDevice(device.remoteId.str, _deviceName!);
-
-      _connectionStateSub?.cancel();
-      _connectionStateSub = device.connectionState.listen((state) {
-        if (state == BluetoothConnectionState.disconnected) {
-          _handleDisconnection();
-        }
-      });
-
-      // Découverte des services GATT
-      final services = await device.discoverServices();
-      BluetoothCharacteristic? rowerDataChar;
-      BluetoothCharacteristic? controlPointChar;
-
-      for (final s in services) {
-        if (s.uuid.toString().toLowerCase().contains('1826')) {
-          for (final c in s.characteristics) {
-            final cu = c.uuid.toString().toLowerCase();
-            if (cu.contains('2ad1')) {
-              rowerDataChar = c;
-            } else if (cu.contains('2ad9')) {
-              controlPointChar = c;
-            }
-          }
-        }
-      }
-
-      if (rowerDataChar == null) {
-        await device.disconnect();
-        _setStatus(BleConnectionStatus.disconnected);
-        return false;
-      }
-
-      // Initialisation du contrôle de flux si présent
-      if (controlPointChar != null) {
-        try {
-          await controlPointChar.write([0x01], withoutResponse: false);
-        } catch (_) {}
-      }
-
-      // Abonnement aux notifications de la caractéristique Rower Data
-      await rowerDataChar.setNotifyValue(true);
-      _charNotificationsSub?.cancel();
-      _charNotificationsSub = rowerDataChar.onValueReceived.listen((value) {
-        _parseFtmsRowerData(value);
-      });
-
-      _isFirstPacket = true;
-      _setStatus(BleConnectionStatus.connected);
-      return true;
-    } catch (_) {
-      _setStatus(BleConnectionStatus.disconnected);
-      return false;
-    }
-  }
-
-  /// Déconnexion manuelle
-  Future<void> disconnect() async {
-    _charNotificationsSub?.cancel();
-    _connectionStateSub?.cancel();
-    try {
-      await _connectedDevice?.disconnect();
-    } catch (_) {}
-    _connectedDevice = null;
-    _setStatus(BleConnectionStatus.disconnected);
-  }
-
-  void _handleDisconnection() {
-    _charNotificationsSub?.cancel();
-    _connectedDevice = null;
-    _setStatus(BleConnectionStatus.disconnected);
-  }
-
-  void _setStatus(BleConnectionStatus s) {
-    _currentStatus = s;
-    _statusController.add(s);
-  }
-
-  /// Réinitialise la tare matérielle à zéro (au départ de course T=0 ou après alerte faux départ)
   void reTareToZero() {
     _baselineRawDistance = _lastRawDistance;
     _baselineRawStrokes = _lastRawStrokes;
     _distanceOffset = 0;
     _strokesOffset = 0;
-    _currentMetrics = _currentMetrics.copyWith(
-      totalDistance: 0,
-      strokeCount: 0,
-      elapsedTime: 0,
-    );
-    _metricsController.add(_currentMetrics);
   }
 
-  /// Aligne la distance avec une valeur officielle renvoyée par le serveur
-  void alignDistance(int authoritativeDistance) {
+  void alignDistance(int authoritativeDistance, int currentDistance) {
     if (authoritativeDistance <= 0) {
       reTareToZero();
       return;
     }
-    if (authoritativeDistance > _currentMetrics.totalDistance) {
+    if (authoritativeDistance > currentDistance) {
       _distanceOffset = authoritativeDistance - (_lastRawDistance - _baselineRawDistance);
-      _currentMetrics = _currentMetrics.copyWith(totalDistance: authoritativeDistance);
-      _metricsController.add(_currentMetrics);
     }
   }
 
-  // =========================================================================
-  // DÉCODEUR BINAIRE FTMS ROWER DATA (0x2AD1) - Porté de RowerDataModel.mc
-  // =========================================================================
-  void _parseFtmsRowerData(List<int> bytes) {
-    if (bytes.length < 2) return;
+  /// Décode une trame binaire reçue selon la spécification Bluetooth SIG FTMS §4.14 (0x2AD1)
+  RowingMetrics decode(List<int> bytes, [RowingMetrics current = const RowingMetrics()]) {
+    if (bytes.length < 2) return current;
 
     final int flags = (bytes[0] & 0xFF) | ((bytes[1] & 0xFF) << 8);
     int offset = 2;
@@ -257,8 +97,8 @@ class BleFtmsService {
     double packetSpm = 0.0;
     int packetPace = 0;
     int packetWatts = 0;
-    int calories = _currentMetrics.calories;
-    int heartRate = _currentMetrics.heartRate;
+    int calories = current.calories;
+    int heartRate = current.heartRate;
 
     bool hasPacketSpm = false;
     bool hasPacketPace = false;
@@ -342,9 +182,9 @@ class BleFtmsService {
       if (!_isDecimeterDistance) {
         final dDist = rawDistance > _lastRawDistance ? rawDistance - _lastRawDistance : 0;
         final dStrokes = rawStrokes > _lastRawStrokes ? rawStrokes - _lastRawStrokes : 0;
-        final isMerach = (_deviceName ?? '').toUpperCase().contains('MERACH') ||
-            (_deviceName ?? '').toUpperCase().contains('MRK');
-        if (dStrokes > 0 && (dDist / dStrokes) >= (isMerach ? 20.0 : 35.0)) {
+        final isMerach = (deviceName ?? '').toUpperCase().contains('MERACH') ||
+            (deviceName ?? '').toUpperCase().contains('MRK');
+        if (dDist > 1000 || (dStrokes > 0 && (dDist / dStrokes) >= (isMerach ? 20.0 : 35.0))) {
           _isDecimeterDistance = true;
           _baselineRawDistance = (_baselineRawDistance + 5) ~/ 10;
         }
@@ -362,7 +202,6 @@ class BleFtmsService {
       _lastRawStrokes = rawStrokes;
       _distanceOffset = 0;
       _strokesOffset = 0;
-      return;
     }
 
     // Dérivation Allure <-> Puissance Concept2 : P = 2.80 * (500 / Pace)^3
@@ -387,8 +226,8 @@ class BleFtmsService {
     int totalStr = _strokesOffset + curRelS;
 
     // Protection anti-recul local
-    if (totalDist < _currentMetrics.totalDistance) {
-      totalDist = _currentMetrics.totalDistance;
+    if (totalDist < current.totalDistance) {
+      totalDist = current.totalDistance;
     }
 
     _lastRawDistance = rawDistance;
@@ -408,22 +247,231 @@ class BleFtmsService {
 
     final isMoving = packetWatts > 10 || packetSpm > 8.0 || (hasPacketPace && packetPace > 0);
 
-    _currentMetrics = RowingMetrics(
-      instantPower: hasPacketWatts ? packetWatts : _currentMetrics.instantPower,
-      avgPower: avgW,
-      instantPace: hasPacketPace ? packetPace : _currentMetrics.instantPace,
-      avgPace: _currentMetrics.avgPace,
-      strokeRate: hasPacketSpm ? packetSpm : _currentMetrics.strokeRate,
-      avgStrokeRate: avgS,
+    return RowingMetrics(
+      instantPower: hasPacketWatts ? packetWatts : (packetWatts > 0 ? packetWatts : current.instantPower),
+      avgPower: avgW > 0 ? avgW : current.avgPower,
+      instantPace: hasPacketPace ? packetPace : (packetPace > 0 ? packetPace : current.instantPace),
+      avgPace: current.avgPace,
+      strokeRate: hasPacketSpm ? packetSpm : current.strokeRate,
+      avgStrokeRate: avgS > 0 ? avgS : current.avgStrokeRate,
       totalDistance: totalDist,
       strokeCount: totalStr,
-      elapsedTime: _currentMetrics.elapsedTime,
+      elapsedTime: current.elapsedTime,
       calories: calories,
       heartRate: heartRate,
       isMoving: isMoving,
     );
+  }
+}
 
+class BleFtmsService {
+  final SecureStorageService _storage;
+  final BleFtmsDecoder _decoder = BleFtmsDecoder();
+
+  // UUIDs Bluetooth SIG FTMS standard
+  static final Guid ftmsServiceUuid = Guid('00001826-0000-1000-8000-00805f9b34fb');
+  static final Guid rowerDataCharUuid = Guid('00002ad1-0000-1000-8000-00805f9b34fb');
+  static final Guid controlPointCharUuid = Guid('00002ad9-0000-1000-8000-00805f9b34fb');
+
+  BluetoothDevice? _connectedDevice;
+  StreamSubscription? _adapterStateSub;
+  StreamSubscription? _scanResultsSub;
+  StreamSubscription? _connectionStateSub;
+  StreamSubscription? _charNotificationsSub;
+
+  final _statusController = StreamController<BleConnectionStatus>.broadcast();
+  final _metricsController = StreamController<RowingMetrics>.broadcast();
+  final _scanResultsController = StreamController<List<ScanResult>>.broadcast();
+
+  Stream<BleConnectionStatus> get statusStream => _statusController.stream;
+  Stream<RowingMetrics> get metricsStream => _metricsController.stream;
+  Stream<List<ScanResult>> get scanResultsStream => _scanResultsController.stream;
+
+  BleConnectionStatus _currentStatus = BleConnectionStatus.disconnected;
+  BleConnectionStatus get currentStatus => _currentStatus;
+
+  String? _deviceName;
+  String? get deviceName => _deviceName;
+
+  RowingMetrics _currentMetrics = const RowingMetrics();
+  RowingMetrics get currentMetrics => _currentMetrics;
+
+  BleFtmsService(this._storage) {
+    _statusController.add(BleConnectionStatus.disconnected);
+  }
+
+  /// Lance le scan BLE pour découvrir les rameurs compatibles FTMS
+  Future<void> startScan() async {
+    if (_currentStatus == BleConnectionStatus.scanning) return;
+
+    _setStatus(BleConnectionStatus.scanning);
+
+    try {
+      if (await FlutterBluePlus.adapterState.first != BluetoothAdapterState.on) {
+        _setStatus(BleConnectionStatus.disconnected);
+        return;
+      }
+
+      _scanResultsSub?.cancel();
+      _scanResultsSub = FlutterBluePlus.scanResults.listen((results) {
+        final filtered = results.where((r) {
+          final name = r.device.platformName.toUpperCase();
+          final hasFtms = r.advertisementData.serviceUuids.any(
+            (u) => u.toString().toLowerCase().contains('1826'),
+          );
+          final matchesRowerName = name.contains('ROW') ||
+              name.contains('ERG') ||
+              name.contains('PM5') ||
+              name.contains('CONCEPT') ||
+              name.contains('WATER') ||
+              name.contains('MERACH') ||
+              name.contains('DOMYOS') ||
+              name.contains('SKILLROW') ||
+              name.contains('SMART') ||
+              name.contains('FTMS');
+          return hasFtms || matchesRowerName;
+        }).toList();
+
+        _scanResultsController.add(filtered);
+      });
+
+      await FlutterBluePlus.startScan(
+        timeout: const Duration(seconds: 15),
+      );
+    } catch (_) {
+      _setStatus(BleConnectionStatus.disconnected);
+    }
+  }
+
+  /// Arrête le scan BLE
+  Future<void> stopScan() async {
+    try {
+      await FlutterBluePlus.stopScan();
+    } catch (_) {}
+    if (_currentStatus == BleConnectionStatus.scanning) {
+      _setStatus(BleConnectionStatus.disconnected);
+    }
+  }
+
+  /// Tente une reconnexion immédiate en 1 tap au dernier rameur enregistré
+  Future<bool> reconnectLastDevice() async {
+    final remoteId = await _storage.getLastBleRemoteId();
+    final savedName = await _storage.getLastBleDeviceName();
+    if (remoteId == null || remoteId.isEmpty) return false;
+
+    final device = BluetoothDevice.fromId(remoteId);
+    return connectToDevice(device, knownName: savedName);
+  }
+
+  /// Connexion et abonnement aux notifications FTMS d'un rameur
+  Future<bool> connectToDevice(BluetoothDevice device, {String? knownName}) async {
+    await stopScan();
+    _setStatus(BleConnectionStatus.connecting);
+
+    try {
+      await device.connect(autoConnect: false, timeout: const Duration(seconds: 12));
+      _connectedDevice = device;
+      _deviceName = device.platformName.isNotEmpty ? device.platformName : (knownName ?? 'Rameur BLE');
+      _decoder.deviceName = _deviceName;
+      _decoder.reset();
+
+      // Sauvegarde pour reconnexion 1-tap ultérieure
+      await _storage.saveLastBleDevice(device.remoteId.str, _deviceName!);
+
+      _connectionStateSub?.cancel();
+      _connectionStateSub = device.connectionState.listen((state) {
+        if (state == BluetoothConnectionState.disconnected) {
+          _handleDisconnection();
+        }
+      });
+
+      // Découverte des services GATT
+      final services = await device.discoverServices();
+      BluetoothCharacteristic? rowerDataChar;
+      BluetoothCharacteristic? controlPointChar;
+
+      for (final s in services) {
+        if (s.uuid.toString().toLowerCase().contains('1826')) {
+          for (final c in s.characteristics) {
+            final cu = c.uuid.toString().toLowerCase();
+            if (cu.contains('2ad1')) {
+              rowerDataChar = c;
+            } else if (cu.contains('2ad9')) {
+              controlPointChar = c;
+            }
+          }
+        }
+      }
+
+      if (rowerDataChar == null) {
+        await device.disconnect();
+        _setStatus(BleConnectionStatus.disconnected);
+        return false;
+      }
+
+      // Initialisation du contrôle de flux si présent
+      if (controlPointChar != null) {
+        try {
+          await controlPointChar.write([0x01], withoutResponse: false);
+        } catch (_) {}
+      }
+
+      // Abonnement aux notifications de la caractéristique Rower Data
+      await rowerDataChar.setNotifyValue(true);
+      _charNotificationsSub?.cancel();
+      _charNotificationsSub = rowerDataChar.onValueReceived.listen((value) {
+        _currentMetrics = _decoder.decode(value, _currentMetrics);
+        _metricsController.add(_currentMetrics);
+      });
+
+      _setStatus(BleConnectionStatus.connected);
+      return true;
+    } catch (_) {
+      _setStatus(BleConnectionStatus.disconnected);
+      return false;
+    }
+  }
+
+  /// Déconnexion manuelle
+  Future<void> disconnect() async {
+    _charNotificationsSub?.cancel();
+    _connectionStateSub?.cancel();
+    try {
+      await _connectedDevice?.disconnect();
+    } catch (_) {}
+    _connectedDevice = null;
+    _setStatus(BleConnectionStatus.disconnected);
+  }
+
+  void _handleDisconnection() {
+    _charNotificationsSub?.cancel();
+    _connectedDevice = null;
+    _setStatus(BleConnectionStatus.disconnected);
+  }
+
+  void _setStatus(BleConnectionStatus s) {
+    _currentStatus = s;
+    _statusController.add(s);
+  }
+
+  /// Réinitialise la tare matérielle à zéro (au départ de course T=0 ou après alerte faux départ)
+  void reTareToZero() {
+    _decoder.reTareToZero();
+    _currentMetrics = _currentMetrics.copyWith(
+      totalDistance: 0,
+      strokeCount: 0,
+      elapsedTime: 0,
+    );
     _metricsController.add(_currentMetrics);
+  }
+
+  /// Aligne la distance avec une valeur officielle renvoyée par le serveur
+  void alignDistance(int authoritativeDistance) {
+    _decoder.alignDistance(authoritativeDistance, _currentMetrics.totalDistance);
+    if (authoritativeDistance > _currentMetrics.totalDistance) {
+      _currentMetrics = _currentMetrics.copyWith(totalDistance: authoritativeDistance);
+      _metricsController.add(_currentMetrics);
+    }
   }
 
   void dispose() {

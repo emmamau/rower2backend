@@ -3,6 +3,8 @@ import crypto from "crypto";
 import userStore from "../services/user-store.service";
 import { isEmmaAdminUser } from "../services/auth.service";
 import stripeService from "../services/stripe.service";
+import emailService from "../services/email.service";
+import subscriptionPlanService from "../services/subscription-plan.service";
 
 export interface SubscriptionTierConfig {
   id: "free" | "intermediate" | "premium";
@@ -100,13 +102,38 @@ SUBSCRIPTION_TIERS.standard = SUBSCRIPTION_TIERS.intermediate;
 
 /**
  * GET /api/v1/subscriptions/tiers
- * Retourne les 3 offres d'abonnement officielles et leurs caractéristiques
+ * Retourne les 3 offres d'abonnement officielles et leurs caractéristiques,
+ * enrichies avec leur statut d'activation (isActive) configuré par l'administrateur.
  */
-export const getSubscriptionTiers = (_req: Request, res: Response): void => {
-  res.status(200).json({
-    success: true,
-    tiers: [SUBSCRIPTION_TIERS.free, SUBSCRIPTION_TIERS.intermediate, SUBSCRIPTION_TIERS.premium],
-  });
+export const getSubscriptionTiers = async (_req: Request, res: Response): Promise<void> => {
+  try {
+    const plans = await subscriptionPlanService.loadAllPlans();
+    const standardDb = plans.find((p: any) => String(p.code || "").toUpperCase() === "STANDARD");
+    const premiumDb = plans.find((p: any) => String(p.code || "").toUpperCase() === "PREMIUM");
+    const freeDb = plans.find((p: any) => String(p.code || "").toUpperCase() === "FREE");
+
+    const isStandardActive = standardDb ? Boolean(standardDb.isActive ?? standardDb.is_active ?? true) : true;
+    const isPremiumActive = premiumDb ? Boolean(premiumDb.isActive ?? premiumDb.is_active ?? true) : true;
+    const isFreeActive = freeDb ? Boolean(freeDb.isActive ?? freeDb.is_active ?? true) : true;
+
+    res.status(200).json({
+      success: true,
+      tiers: [
+        { ...SUBSCRIPTION_TIERS.free, isActive: isFreeActive },
+        { ...SUBSCRIPTION_TIERS.intermediate, isActive: isStandardActive },
+        { ...SUBSCRIPTION_TIERS.premium, isActive: isPremiumActive },
+      ],
+    });
+  } catch {
+    res.status(200).json({
+      success: true,
+      tiers: [
+        { ...SUBSCRIPTION_TIERS.free, isActive: true },
+        { ...SUBSCRIPTION_TIERS.intermediate, isActive: true },
+        { ...SUBSCRIPTION_TIERS.premium, isActive: true },
+      ],
+    });
+  }
 };
 
 /**
@@ -193,6 +220,15 @@ export const createCheckoutSession = async (req: Request, res: Response): Promis
         success: true,
         message: "Passage au plan gratuit effectué.",
         tier: "free",
+      });
+      return;
+    }
+
+    const isTierActive = await subscriptionPlanService.isTierActive(cleanTier);
+    if (!isTierActive) {
+      res.status(403).json({
+        success: false,
+        message: "Cette offre d'abonnement est actuellement désactivée par l'administrateur.",
       });
       return;
     }
@@ -321,12 +357,22 @@ export const simulateCheckout = async (req: Request, res: Response): Promise<voi
     const cleanTier = String(tier || "intermediate");
 
     if (cleanUserId) {
-      await userStore.updateUser(cleanUserId, {
+      const updated = await userStore.updateUser(cleanUserId, {
         subscriptionTier: cleanTier,
         subscriptionStatus: "active",
         isSubscriber: true,
         lemonSubscriptionId: `sub_sim_${Date.now()}`,
       });
+
+      if (updated && updated.email && cleanTier !== "free") {
+        const planConfig = SUBSCRIPTION_TIERS[cleanTier] || SUBSCRIPTION_TIERS.intermediate;
+        await emailService.sendSubscriptionConfirmationEmail(
+          updated.email,
+          updated.name || updated.login,
+          planConfig.name,
+          planConfig.priceFormatted
+        );
+      }
     }
 
     if (redirect) {
@@ -432,6 +478,15 @@ export const createStripeCheckoutSession = async (req: Request, res: Response): 
         success: true,
         message: "Passage au plan gratuit effectué.",
         tier: "free",
+      });
+      return;
+    }
+
+    const isTierActive = await subscriptionPlanService.isTierActive(cleanTier);
+    if (!isTierActive) {
+      res.status(403).json({
+        success: false,
+        message: "Cette offre d'abonnement est actuellement désactivée par l'administrateur.",
       });
       return;
     }
@@ -565,13 +620,24 @@ export const handleStripeWebhook = async (req: Request, res: Response): Promise<
           typeof session.subscription === "string" ? session.subscription : session.subscription?.id;
 
         if (userId) {
-          await userStore.updateUser(userId, {
+          const updatedUser = await userStore.updateUser(userId, {
             subscriptionTier: tier,
             subscriptionStatus: "active",
             isSubscriber: true,
             stripeCustomerId: customerId || undefined,
             stripeSubscriptionId: subscriptionId || undefined,
           });
+
+          const recipientEmail = updatedUser?.email || session.customer_details?.email || session.customer_email;
+          if (recipientEmail) {
+            const planConfig = SUBSCRIPTION_TIERS[tier] || SUBSCRIPTION_TIERS.intermediate;
+            await emailService.sendSubscriptionConfirmationEmail(
+              recipientEmail,
+              updatedUser?.name || updatedUser?.login || "Rameur",
+              planConfig.name,
+              planConfig.priceFormatted
+            );
+          }
         }
         break;
       }
@@ -601,6 +667,14 @@ export const handleStripeWebhook = async (req: Request, res: Response): Promise<
               subscriptionStatus: "canceled",
               isSubscriber: false,
             });
+            if (targetUser.email) {
+              const planConfig = SUBSCRIPTION_TIERS[tier] || SUBSCRIPTION_TIERS.intermediate;
+              await emailService.sendSubscriptionCancellationEmail(
+                targetUser.email,
+                targetUser.name || targetUser.login || "Rameur",
+                planConfig.name
+              );
+            }
           } else if (sub.status === "past_due" || sub.status === "unpaid") {
             await userStore.updateUser(targetUser.id, {
               subscriptionStatus: "past_due",
@@ -618,11 +692,20 @@ export const handleStripeWebhook = async (req: Request, res: Response): Promise<
           : (customerId ? await userStore.findUserByStripeCustomerId(customerId) : null);
 
         if (targetUser) {
+          const oldTier = targetUser.subscriptionTier || "intermediate";
           await userStore.updateUser(targetUser.id, {
             subscriptionTier: "free",
             subscriptionStatus: "canceled",
             isSubscriber: false,
           });
+          if (targetUser.email) {
+            const planConfig = SUBSCRIPTION_TIERS[oldTier] || SUBSCRIPTION_TIERS.intermediate;
+            await emailService.sendSubscriptionCancellationEmail(
+              targetUser.email,
+              targetUser.name || targetUser.login || "Rameur",
+              planConfig.name
+            );
+          }
         }
         break;
       }

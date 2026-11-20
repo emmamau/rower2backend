@@ -765,32 +765,45 @@ export class AdminController {
     try {
       const { id } = req.params;
       const { isActive } = req.body || {};
+      const cleanCode = (id || "").trim().toUpperCase();
 
-      let plan = null;
-      if (/^\d+$/.test(id)) {
-        plan = await SubscriptionPlans.findByPk(Number(id));
+      let plan: any = null;
+      try {
+        if (/^\d+$/.test(id)) {
+          plan = await SubscriptionPlans.findByPk(Number(id));
+        }
+        if (!plan) {
+          plan = await SubscriptionPlans.findOne({
+            where: { code: cleanCode }
+          });
+        }
+      } catch {
+        // Fallback en mémoire si la base SQL n'est pas connectée (mode test/CI)
       }
-      if (!plan) {
-        plan = await SubscriptionPlans.findOne({
-          where: { code: id.trim().toUpperCase() }
-        });
+
+      let newActive = false;
+      let planName = cleanCode;
+      let planJson: any = null;
+
+      if (plan) {
+        const currentActive = Boolean(plan.get("isActive") ?? plan.get("is_active") ?? true);
+        newActive = isActive !== undefined ? Boolean(isActive) : !currentActive;
+        await plan.update({ isActive: newActive });
+        planName = plan.get("name") || cleanCode;
+        planJson = typeof plan.toJSON === "function" ? plan.toJSON() : plan;
+        await subscriptionPlanService.setPlanActive(cleanCode, newActive);
+      } else {
+        newActive = await subscriptionPlanService.setPlanActive(cleanCode, isActive);
+        planName = cleanCode === "STANDARD" ? "Offre Club" : (cleanCode === "PREMIUM" ? "Offre Élite Pro" : cleanCode);
+        planJson = { code: cleanCode, name: planName, isActive: newActive };
       }
 
-      if (!plan) {
-        res.status(404).json({ success: false, message: "Offre introuvable." });
-        return;
-      }
-
-      const currentActive = Boolean(plan.get("isActive") ?? plan.get("is_active") ?? true);
-      const newActive = isActive !== undefined ? Boolean(isActive) : !currentActive;
-
-      await plan.update({ isActive: newActive });
       subscriptionPlanService.invalidateCache();
 
       res.status(200).json({
         success: true,
-        message: `Offre '${plan.get("name")}' ${newActive ? "activée" : "désactivée"} avec succès.`,
-        plan: typeof plan.toJSON === "function" ? plan.toJSON() : plan,
+        message: `Offre '${planName}' ${newActive ? "activée" : "désactivée"} avec succès.`,
+        plan: planJson,
       });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);

@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
+import '../../auth/controllers/auth_controller.dart';
 import '../controllers/race_controller.dart';
 import '../models/race_session_state.dart';
 import '../widgets/regatta_water_painter.dart';
@@ -57,7 +58,10 @@ class _RaceScreenState extends ConsumerState<RaceScreen> {
 
   Future<bool> _onWillPop() async {
     final state = ref.read(raceControllerProvider);
-    if (state.phase == RacePhase.completed || state.phase == RacePhase.lobby) {
+    if (state.phase == RacePhase.finished ||
+        state.phase == RacePhase.abandoned ||
+        state.phase == RacePhase.lobbyWaiting ||
+        state.phase == RacePhase.idle) {
       return true;
     }
 
@@ -90,7 +94,7 @@ class _RaceScreenState extends ConsumerState<RaceScreen> {
               foregroundColor: Colors.white,
             ),
             onPressed: () {
-              ref.read(raceControllerProvider.notifier).forfeitRace();
+              ref.read(raceControllerProvider.notifier).abandonRace();
               Navigator.of(context).pop(true);
             },
             child: const Text('CONFIRMER ABANDON'),
@@ -105,6 +109,8 @@ class _RaceScreenState extends ConsumerState<RaceScreen> {
   @override
   Widget build(BuildContext context) {
     final sessionState = ref.watch(raceControllerProvider);
+    final authState = ref.watch(authControllerProvider);
+    final myUserId = authState.value?.id ?? 'usr_me';
 
     // Détection de fin de course pour ouvrir automatiquement le podium
     if ((sessionState.isFinished || sessionState.isDnf) && !_showPodiumModal) {
@@ -135,20 +141,19 @@ class _RaceScreenState extends ConsumerState<RaceScreen> {
                 // Zone centrale : Eau 2D ou Cockpit
                 Expanded(
                   child: _isCockpitView
-                      ? FullscreenCockpit(
+                      ? FullscreenCockpitView(
                           metrics: sessionState.myMetrics,
-                          currentDistance: sessionState.myDistance,
-                          targetDistance: sessionState.targetDistance,
-                          elapsedSeconds: sessionState.elapsedTimeSeconds,
-                          myRank: sessionState.myRank,
-                          totalRacers: sessionState.totalRacers,
+                          raceState: sessionState,
+                          onToggleRegatta: () {
+                            setState(() => _isCockpitView = false);
+                          },
                         )
                       : Container(
                           color: const Color(0xFF0B1422),
-                          child: RegattaWaterPainter(
-                            racers: sessionState.leaderboard,
+                          child: RegattaWaterView(
+                            racers: sessionState.racers,
                             targetDistance: sessionState.targetDistance,
-                            racePhase: sessionState.phase,
+                            myUserId: myUserId,
                           ),
                         ),
                 ),
@@ -156,13 +161,7 @@ class _RaceScreenState extends ConsumerState<RaceScreen> {
                 // Bandeau HUD Basse Visibilité & Zéro Scroll
                 TelemetryHudBar(
                   metrics: sessionState.myMetrics,
-                  currentDistance: sessionState.myDistance,
-                  targetDistance: sessionState.targetDistance,
-                  elapsedSeconds: sessionState.elapsedTimeSeconds,
-                  myRank: sessionState.myRank,
-                  totalRacers: sessionState.totalRacers,
-                  gapAheadSeconds: sessionState.gapAheadSeconds,
-                  gapBehindSeconds: sessionState.gapBehindSeconds,
+                  raceState: sessionState,
                   onToggleCockpit: () {
                     setState(() {
                       _isCockpitView = !_isCockpitView;
@@ -174,8 +173,8 @@ class _RaceScreenState extends ConsumerState<RaceScreen> {
 
             // Alerte Anti-triche (Faux départ / Arrêt complet requis)
             FalseStartOverlay(
-              isCountingDownWarning: sessionState.isCountingDownWarning,
-              isStartBlockedWarning: sessionState.isStartBlockedWarning,
+              isCountingDownWarning: sessionState.isFalseStartWarningActive,
+              isStartBlockedWarning: sessionState.isFalseStartPenaltyLocked,
               countdownSeconds: sessionState.countdownSeconds,
             ),
 
@@ -199,25 +198,27 @@ class _RaceScreenState extends ConsumerState<RaceScreen> {
     Color statusColor = Colors.orangeAccent;
 
     switch (state.phase) {
-      case RacePhase.lobby:
-        statusLabel = 'EN ATTENTE D\'UN COUP DE RAME';
-        statusColor = Colors.orangeAccent;
+      case RacePhase.idle:
+      case RacePhase.lobbyWaiting:
+        statusLabel = state.isBleRowerReady ? 'PRÊT (READY)' : 'EN ATTENTE D\'UN COUP DE RAME';
+        statusColor = state.isBleRowerReady ? Colors.greenAccent : Colors.orangeAccent;
         break;
-      case RacePhase.ready:
-        statusLabel = 'PRÊT (READY)';
-        statusColor = Colors.greenAccent;
-        break;
-      case RacePhase.countdown:
+      case RacePhase.countdown15s:
         statusLabel = 'DÉPART DANS ${state.countdownSeconds}s';
         statusColor = Colors.redAccent;
         break;
       case RacePhase.racing:
+      case RacePhase.solo:
         statusLabel = 'EN COURSE';
         statusColor = Colors.cyanAccent;
         break;
-      case RacePhase.completed:
+      case RacePhase.finished:
         statusLabel = 'TERMINÉ';
         statusColor = Colors.amberAccent;
+        break;
+      case RacePhase.abandoned:
+        statusLabel = 'ABANDONNÉ';
+        statusColor = Colors.redAccent;
         break;
     }
 

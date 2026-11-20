@@ -34,12 +34,20 @@ class RowingMetrics {
     this.isMoving = false,
   });
 
+  // Getters de commodité & compatibilité
+  int get powerWatts => instantPower;
+  double get cadenceSpm => strokeRate;
+  double get distanceMeters => totalDistance.toDouble();
+  int get instantPaceSeconds => instantPace;
+  int get totalStrokes => strokeCount;
+  int get caloriesKcal => calories;
+
   /// Formate l'allure en mm:ss/500m
   String get formattedPace {
     if (instantPace <= 0 || instantPace >= 1800) return '--:--';
     final m = instantPace ~/ 60;
     final s = instantPace % 60;
-    return '$m:${s.toString().padLeft(2, '0')}';
+    return '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}/500m';
   }
 
   /// Formate l'allure moyenne en mm:ss/500m
@@ -47,7 +55,7 @@ class RowingMetrics {
     if (avgPace <= 0 || avgPace >= 1800) return '--:--';
     final m = avgPace ~/ 60;
     final s = avgPace % 60;
-    return '$m:${s.toString().padLeft(2, '0')}';
+    return '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}/500m';
   }
 
   /// Vitesse en km/h calculée sur l'allure

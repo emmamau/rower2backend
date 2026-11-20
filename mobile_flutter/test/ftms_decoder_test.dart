@@ -1,12 +1,11 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mobile_flutter/features/ble/services/ble_ftms_service.dart';
+import 'package:rower_race_mobile/features/ble/services/ble_ftms_service.dart';
 
 void main() {
   group('BleFtmsDecoder Tests', () {
     test('Décodage trame standard FTMS 0x2AD1 avec Stroke, Distance, Pace et Power', () {
       final decoder = BleFtmsDecoder();
 
-      // Construction d'une trame FTMS synthétique :
       // Flags (16-bit LE):
       // bit 0 = 0 (More Data = 0 -> Stroke rate and stroke count PRESENT)
       // bit 1 = 0 (Average Stroke rate NOT present)
@@ -34,10 +33,15 @@ void main() {
 
       final metrics = decoder.decode(packet);
 
-      expect(metrics.cadenceSpm, equals(28));
+      expect(metrics.strokeRate, equals(28.0));
+      expect(metrics.cadenceSpm, equals(28.0));
+      expect(metrics.strokeCount, equals(42));
       expect(metrics.totalStrokes, equals(42));
+      expect(metrics.totalDistance, equals(250));
       expect(metrics.distanceMeters, equals(250.0));
+      expect(metrics.instantPace, equals(120));
       expect(metrics.instantPaceSeconds, equals(120));
+      expect(metrics.instantPower, equals(200));
       expect(metrics.powerWatts, equals(200));
       expect(metrics.formattedPace, equals('02:00/500m'));
     });
@@ -55,61 +59,78 @@ void main() {
 
       final metrics = decoder.decode(packet);
 
-      expect(metrics.powerWatts, equals(250));
+      expect(metrics.instantPower, equals(250));
       // pace = (2.80 / 250)^(1/3) * 500 = (0.0112)^0.33333 * 500 =~ 0.22373 * 500 = 111.8s =~ 112s (1:52/500m)
-      expect(metrics.instantPaceSeconds, inInclusiveRange(110, 114));
+      expect(metrics.instantPace, inInclusiveRange(110, 114));
       expect(metrics.formattedPace, contains('/500m'));
     });
 
     test('Détection automatique et normalisation des décimètres (rameurs Merach / Domyos)', () {
-      final decoder = BleFtmsDecoder();
+      final decoder = BleFtmsDecoder(deviceName: 'MERACH MR-600');
 
-      // Première trame : distance = 200 (dm ou m ?)
-      // Deuxième trame : distance = 1500 (1500 dm = 150m en 1 seconde)
+      // Première trame : initialisation
       final packet1 = <int>[
-        0x25, 0x00, // flags: distance présente
-        0xC8, 0x00, 0x00, // 200
+        0x25, 0x00, // flags: bit 0=0 (stroke present), bit 2=1 (distance)
+        0x01, 0x00, // strokes = 1
+        0x30, // stroke rate = 48 (24 SPM)
+        0xC8, 0x00, 0x00, // 200 dm
       ];
-
       decoder.decode(packet1);
 
+      // Deuxième trame : distance grimpe de 1300 en 1 coup (1300 dm = 130m)
       final packet2 = <int>[
         0x25, 0x00,
-        0xDC, 0x05, 0x00, // 1500
+        0x02, 0x00, // strokes = 2
+        0x30,
+        0xDC, 0x05, 0x00, // 1500 dm
       ];
 
       final metrics2 = decoder.decode(packet2);
-      // Avec un delta de 1300 en 1 coup, le décodeur détecte les décimètres et divise par 10
-      expect(metrics2.distanceMeters, equals(150.0));
+      expect(decoder.isDecimeterDistance, isTrue);
+      // Distance normalisée en mètres (1500 dm -> 150 m)
+      expect(metrics2.totalDistance, equals(130));
     });
 
     test('Tare matérielle (reTareToZero)', () {
       final decoder = BleFtmsDecoder();
 
-      // Trame simulant une séance précédente ou un compteur non remis à zéro : 350m
+      // Trame simulant une séance précédente ou compteur non remis à zéro : 350m
       final packet1 = <int>[
-        0x25, 0x00,
+        0x24, 0x00, // bit 0 = 0 (stroke), bit 2 = 1 (distance)
+        0x05, 0x00, // 5 strokes
+        0x30, // 24 spm
         0x5E, 0x01, 0x00, // 350m
       ];
 
       final m1 = decoder.decode(packet1);
-      expect(m1.distanceMeters, equals(350.0));
+      expect(m1.totalDistance, equals(0)); // Premier paquet = baseline
 
-      // Remise à zéro pour la course
+      // Rameur avance de 100m (compteur brut = 450m)
+      final packet2 = <int>[
+        0x24, 0x00,
+        0x10, 0x00, // 16 strokes
+        0x30,
+        0xC2, 0x01, 0x00, // 450m
+      ];
+      final m2 = decoder.decode(packet2);
+      expect(m2.totalDistance, equals(100));
+
+      // Remise à zéro pour le départ de course T=0
       decoder.reTareToZero();
 
-      // Même trame reçue : la distance tarée doit être à 0
-      final m2 = decoder.decode(packet1);
-      expect(m2.distanceMeters, equals(0.0));
-
-      // Rameur avance de 10m (compteur brut = 360m)
-      final packet2 = <int>[
-        0x25, 0x00,
-        0x68, 0x01, 0x00, // 360m
-      ];
-
+      // Même trame reçue : distance tarée doit être à 0
       final m3 = decoder.decode(packet2);
-      expect(m3.distanceMeters, equals(10.0));
+      expect(m3.totalDistance, equals(0));
+
+      // Rameur avance de 10m de plus (460m)
+      final packet3 = <int>[
+        0x24, 0x00,
+        0x12, 0x00,
+        0x30,
+        0xCC, 0x01, 0x00, // 460m
+      ];
+      final m4 = decoder.decode(packet3);
+      expect(m4.totalDistance, equals(10));
     });
   });
 }

@@ -5,6 +5,7 @@ import { KayakCustomization, RegattaPreferences, RegattaMetricKey } from "../mod
 import { hashPassword, verifyPassword, isEmmaAdminUser, generateSecureToken } from "../services/auth.service";
 import JwtService from "../services/jwt.service";
 import emailService from "../services/email.service";
+import stripeService from "../services/stripe.service";
 import userStore from "../services/user-store.service";
 import raceManager from "../services/race-manager.service";
 import pairingService from "../services/pairing.service";
@@ -881,11 +882,36 @@ export const unsubscribeUser = async (req: Request, res: Response): Promise<void
     }
 
     const isEmma = isEmmaAdminUser(user.id, user.name);
+    const oldTier = String(user.subscriptionTier || "intermediate").toLowerCase();
+
+    // Résiliation Stripe si abonnement Stripe actif
+    if (!isEmma && user.stripeSubscriptionId) {
+      try {
+        await stripeService.cancelSubscription(user.stripeSubscriptionId, false);
+      } catch (e) {
+        console.warn("[unsubscribeUser] Erreur annulation Stripe:", e);
+      }
+    }
+
     const updated = await userStore.updateUser(user.id, {
       isSubscriber: isEmma ? true : false,
       subscriptionTier: isEmma ? "premium" : "free",
       subscriptionStatus: isEmma ? "active" : "canceled",
     });
+
+    // Envoi du courriel transactionnel de confirmation de résiliation
+    if (!isEmma && user.email) {
+      const planName = oldTier === "premium" ? "Offre Élite Pro" : "Offre Club";
+      try {
+        await emailService.sendSubscriptionCancellationEmail(
+          user.email,
+          user.name || user.login,
+          planName
+        );
+      } catch (err) {
+        console.warn("[unsubscribeUser] Erreur envoi email résiliation:", err);
+      }
+    }
 
     res.status(200).json({
       success: true,
@@ -926,6 +952,28 @@ export const deleteUserAccount = async (req: Request, res: Response): Promise<vo
     if (isEmmaAdminUser(user.id, user.name)) {
       res.status(403).json({ success: false, message: "Le compte administratrice EmmaRacer ne peut pas être supprimé." });
       return;
+    }
+
+    const userEmail = user.email;
+    const userDisplayName = user.name || user.login;
+    const stripeSubId = user.stripeSubscriptionId;
+
+    // Résiliation immédiate de l'abonnement Stripe en cours sans frais résiduels
+    if (stripeSubId) {
+      try {
+        await stripeService.cancelSubscription(stripeSubId, true);
+      } catch (e) {
+        console.warn("[deleteUserAccount] Erreur annulation immédiate Stripe:", e);
+      }
+    }
+
+    // Envoi de l'email de confirmation de fermeture de compte
+    if (userEmail) {
+      try {
+        await emailService.sendAccountClosureEmail(userEmail, userDisplayName);
+      } catch (err) {
+        console.warn("[deleteUserAccount] Erreur envoi email suppression compte:", err);
+      }
     }
 
     // Purge de l'historique d'activités associé

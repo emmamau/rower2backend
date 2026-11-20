@@ -170,7 +170,24 @@ class RaceController extends StateNotifier<RaceSessionState> {
   // MACHINE À ÉTATS BLE & ANTI-TRICHE
   // ==========================================
 
+  void startSession({required String roomId, double targetDistance = 2000.0}) {
+    if (roomId.contains('solo')) {
+      startSoloSession(targetDistance: targetDistance.toInt());
+    } else {
+      joinPublicRace();
+    }
+  }
+
+  void forfeitRace() {
+    abandonRace();
+  }
+
+  void reset() {
+    state = const RaceSessionState();
+  }
+
   void _onBleMetricsReceived(RowingMetrics metrics) {
+    state = state.copyWith(myMetrics: metrics);
     final isRowingAwake = metrics.instantPower > 0 || metrics.strokeRate > 0.0 || metrics.isMoving;
 
     // 1. Passage automatique CONNECTED -> READY au premier coup de rame

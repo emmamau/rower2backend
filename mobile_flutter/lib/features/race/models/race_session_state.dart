@@ -1,4 +1,5 @@
 import 'live_racer_metric.dart';
+import '../../ble/models/rowing_metrics.dart';
 
 enum RacePhase {
   idle,
@@ -7,7 +8,13 @@ enum RacePhase {
   racing,
   finished,
   abandoned,
-  solo,
+  solo;
+
+  // Alias de compatibilité
+  static const RacePhase lobby = RacePhase.lobbyWaiting;
+  static const RacePhase ready = RacePhase.lobbyWaiting;
+  static const RacePhase countdown = RacePhase.countdown15s;
+  static const RacePhase completed = RacePhase.finished;
 }
 
 class RaceSessionState {
@@ -33,6 +40,7 @@ class RaceSessionState {
   final List<Map<String, dynamic>> podiumTop3;
   final int pointsEarned;
   final bool isAbandoned;
+  final RowingMetrics myMetrics;
 
   const RaceSessionState({
     this.phase = RacePhase.idle,
@@ -57,7 +65,29 @@ class RaceSessionState {
     this.podiumTop3 = const [],
     this.pointsEarned = 0,
     this.isAbandoned = false,
+    this.myMetrics = const RowingMetrics(),
   });
+
+  // Getters de compatibilité
+  bool get isFinished => phase == RacePhase.finished;
+  bool get isDnf => isAbandoned || phase == RacePhase.abandoned;
+  bool get isRacing => phase == RacePhase.racing || phase == RacePhase.solo;
+  bool get isCountingDownWarning => isFalseStartWarningActive;
+  bool get isStartBlockedWarning => isFalseStartPenaltyLocked;
+  List<LiveRacerMetric> get leaderboard => racers;
+  int get elapsedTimeSeconds => 3300 - gameRemainingSeconds;
+  double get myDistance => myMetrics.distanceMeters;
+
+  // Gaps calculés
+  int get gapAheadSeconds {
+    final pace = myMetrics.instantPace > 0 ? myMetrics.instantPace : 120;
+    return ((distToPrev / 500.0) * pace).round();
+  }
+
+  int get gapBehindSeconds {
+    final pace = myMetrics.instantPace > 0 ? myMetrics.instantPace : 120;
+    return ((distToNext / 500.0) * pace).round();
+  }
 
   RaceSessionState copyWith({
     RacePhase? phase,
@@ -82,6 +112,7 @@ class RaceSessionState {
     List<Map<String, dynamic>>? podiumTop3,
     int? pointsEarned,
     bool? isAbandoned,
+    RowingMetrics? myMetrics,
   }) {
     return RaceSessionState(
       phase: phase ?? this.phase,
@@ -106,6 +137,7 @@ class RaceSessionState {
       podiumTop3: podiumTop3 ?? this.podiumTop3,
       pointsEarned: pointsEarned ?? this.pointsEarned,
       isAbandoned: isAbandoned ?? this.isAbandoned,
+      myMetrics: myMetrics ?? this.myMetrics,
     );
   }
 }
