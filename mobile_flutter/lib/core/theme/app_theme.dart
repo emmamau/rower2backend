@@ -61,11 +61,11 @@ class AppTheme {
           ),
         ),
       ),
-      cardTheme: CardTheme(
+      cardTheme: const CardThemeData(
         color: AppColors.surface,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(14),
-          side: const BorderSide(color: AppColors.cardBorder, width: 1),
+          borderRadius: BorderRadius.all(Radius.circular(14)),
+          side: BorderSide(color: AppColors.cardBorder, width: 1),
         ),
         elevation: 4,
       ),
