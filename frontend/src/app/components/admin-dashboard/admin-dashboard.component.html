@@ -370,17 +370,34 @@
             </li>
             <li class="quota-item">
               <span>Statut de l'offre :</span>
-              <strong>{{ p.isActive ? 'Active' : 'Inféodée/Désactivée' }}</strong>
+              <strong [style.color]="p.isActive ? '#10b981' : '#ef4444'">
+                {{ p.isActive ? '🟢 Active' : '🔴 Désactivée' }}
+              </strong>
             </li>
           </ul>
 
-          <button
-            class="btn-action btn-action-pwd"
-            style="width: 100%; padding: 10px; margin-top: 8px;"
-            (click)="openEditPlanModal(p)"
-          >
-            ✏️ Modifier l'offre & Quotas
-          </button>
+          <div style="display: flex; gap: 8px; margin-top: 10px;">
+            <button
+              type="button"
+              class="btn-action"
+              [style.background-color]="p.isActive ? 'rgba(239, 68, 68, 0.2)' : 'rgba(16, 185, 129, 0.2)'"
+              [style.color]="p.isActive ? '#ef4444' : '#10b981'"
+              [style.border]="p.isActive ? '1px solid #ef4444' : '1px solid #10b981'"
+              style="flex: 1; padding: 10px; font-weight: bold; border-radius: 6px; cursor: pointer;"
+              (click)="togglePlanStatus(p)"
+              [title]="p.isActive ? 'Désactiver cette offre (bloquera les nouveaux abonnements)' : 'Activer cette offre'"
+            >
+              {{ p.isActive ? '🔴 Désactiver' : '🟢 Activer' }}
+            </button>
+            <button
+              type="button"
+              class="btn-action btn-action-pwd"
+              style="flex: 1; padding: 10px; border-radius: 6px; cursor: pointer;"
+              (click)="openEditPlanModal(p)"
+            >
+              ✏️ Quotas
+            </button>
+          </div>
         </div>
       </div>
     </section>

@@ -333,28 +333,39 @@ test('Pseudo-fullscreen fallback behavior when native DOM fullscreen is unavaila
   assert.equal(iosDevice.isPseudoFullscreen, false);
 });
 
-test('Subscription paid buttons disabled and protected against activation', () => {
+test('Subscription paid buttons wired to Stripe checkout and protected against deactivated tiers', () => {
   const html = fs.readFileSync(path.join(__dirname, '../src/app/app.html'), 'utf8');
 
-  // Verify that club tier and pro tier buttons have [disabled]="true"
-  assert.match(html, /btn-pricing btn-club[^>]*\[disabled\]="true"/);
-  assert.match(html, /btn-pricing btn-pro[^>]*\[disabled\]="true"/);
-  assert.match(html, /Bientôt disponible \(5,99 €\/mois\)/);
-  assert.match(html, /Bientôt disponible \(8,99 €\/mois\)/);
+  // Verify that club tier and pro tier buttons trigger subscribeToTier
+  assert.match(html, /btn-pricing btn-club[^>]*\(click\)="subscribeToTier\('intermediate'\)"/);
+  assert.match(html, /btn-pricing btn-pro[^>]*\(click\)="subscribeToTier\('premium'\)"/);
+  assert.match(html, /Choisir l\\'?Offre Club \(5,99 €\/m\)/);
+  assert.match(html, /Choisir Élite Pro \(8,99 €\/m\)/);
 
-  // Verify subscribeToTier logic
+  // Verify subscribeToTier logic with admin isTierActive check
   let subscriptionError = '';
-  function subscribeToTier(tierId) {
-    if (tierId !== 'free') {
-      subscriptionError = 'Les abonnements payants ne sont pas encore activables.';
+  const tiersStatus = { intermediate: true, premium: false };
+  function isTierActive(tierId) {
+    return tiersStatus[tierId] !== false;
+  }
+  function subscribeToTier(tierId, activeUserId = 'usr_test') {
+    if (!activeUserId) {
+      subscriptionError = 'Veuillez vous connecter pour souscrire un abonnement.';
+      return false;
+    }
+    if (!isTierActive(tierId)) {
+      subscriptionError = "Cette offre d'abonnement est actuellement désactivée par l'administrateur.";
       return false;
     }
     return true;
   }
 
-  assert.equal(subscribeToTier('intermediate'), false);
-  assert.equal(subscriptionError, 'Les abonnements payants ne sont pas encore activables.');
+  // Active tier succeeds
+  assert.equal(subscribeToTier('intermediate'), true);
+  // Deactivated tier blocked
   assert.equal(subscribeToTier('premium'), false);
+  assert.equal(subscriptionError, "Cette offre d'abonnement est actuellement désactivée par l'administrateur.");
+  // Free tier succeeds
   assert.equal(subscribeToTier('free'), true);
 });
 

@@ -2276,17 +2276,39 @@
             <strong>Contact officiel & Support :</strong> Pour toute question relative à l'utilisation du service, aux abonnements ou à vos données personnelles, vous pouvez contacter l'équipe à l'adresse officielle : <a href="mailto:contact@rowerrace.com" class="legal-link">contact@rowerrace.com</a>.
           </p>
 
-          <h4>2. Comptes Utilisateurs, Niveaux d'Accès & Abonnements</h4>
+          <h4>2. Comptes Utilisateurs, Niveaux d'Accès, Abonnements & Paiements Stripe</h4>
           <p>
             Rower Race propose plusieurs niveaux d'accès adaptés à la pratique sportive individuelle et en club :
           </p>
           <ul>
-            <li><strong>Compte Invité / Gratuit :</strong> Accès aux courses publiques programmées, au mode entraînement solo avec départ au premier coup de rame, au mode duel 1v1 contre un bot, et création de salons privés jusqu'à 2 coureurs et 2 000 m. L'historique et les statistiques d'analyses de courses sont conservés pendant <strong>10 jours</strong>.</li>
-            <li><strong>Abonnement Club (5,99 € / mois) :</strong> Salons privés jusqu'à 5 coureurs et 5 000 m, jusqu'à 3 bots configurables, personnalisation avancée du kayak de course et <strong>historique et analyses statistiques illimités</strong>.</li>
-            <li><strong>Abonnement Élite Pro (8,99 € / mois) :</strong> Salons privés jusqu'à 10 coureurs et 10 000 m, jusqu'à 5 bots avec régulation de cadence/puissance, personnalisation intégrale, historique illimité et support prioritaire.</li>
+            <li><strong>Compte Invité / Gratuit (0 €) :</strong> Accès aux courses publiques programmées, au mode entraînement solo avec départ au premier coup de rame, au mode duel 1v1 contre un bot, et création de salons privés jusqu'à 2 coureurs et 2 000 m. L'historique et les statistiques d'analyses de courses sont conservés pendant <strong>10 jours</strong>.</li>
+            <li><strong>Abonnement Club (5,99 € TTC / mois) :</strong> Salons privés jusqu'à 5 coureurs et 5 000 m, jusqu'à 3 bots configurables, personnalisation avancée du kayak de course et <strong>historique et analyses statistiques illimités</strong>.</li>
+            <li><strong>Abonnement Élite Pro (8,99 € TTC / mois) :</strong> Salons privés jusqu'à 10 coureurs et 10 000 m, jusqu'à 5 bots avec régulation de cadence/puissance, personnalisation intégrale, historique illimité et support prioritaire.</li>
           </ul>
+
+          <h5 style="color: #00e5ff; margin-top: 14px; margin-bottom: 6px;">Paiements Sécurisés en Ligne (Stripe)</h5>
           <p>
-            Les abonnements sont souscrits <strong>sans engagement de durée</strong>. Vous pouvez résilier votre abonnement à tout moment d'un simple clic dans votre profil utilisateur ou en écrivant à <a href="mailto:contact@rowerrace.com" class="legal-link">contact@rowerrace.com</a>. La résiliation prend effet à l'issue de la période mensuelle en cours sans frais supplémentaires, et votre compte redevient un compte gratuit.
+            Les transactions financières et abonnements en ligne sont opérés par la société <strong>Stripe Payments Europe, Ltd.</strong>, établissement de paiement agréé et certifié conforme au standard de sécurité bancaire <strong>PCI-DSS Niveau 1</strong>. Les données de carte bancaire sont transmises via un protocole chiffré TLS de bout en bout et ne transitent ni ne sont conservées sur les serveurs de Rower Race.
+          </p>
+
+          <h5 style="color: #00e5ff; margin-top: 14px; margin-bottom: 6px;">Facturation Récurrente, Renouvellement & Droit de Rétractation</h5>
+          <p>
+            Les abonnements payants sont conclus sans engagement de durée avec reconduction tacite mensuelle à date anniversaire. Conformément à l'article <strong>L221-28 13° du Code de la consommation</strong>, l'utilisateur bénéficie d'un accès immédiat aux fonctionnalités numériques dès confirmation du paiement. L'utilisateur peut résilier son abonnement à tout moment sans motif ni pénalité.
+          </p>
+
+          <h5 style="color: #00e5ff; margin-top: 14px; margin-bottom: 6px;">Modalités de Résiliation & Clôture d'Abonnement</h5>
+          <p>
+            La résiliation s'effectue en 1 clic directement dans l'interface « Mon Compte » (ou via le portail client Stripe accessible en libre-service), ou par email à <a href="mailto:contact@rowerrace.com" class="legal-link">contact@rowerrace.com</a>. La résiliation prend effet à l'échéance de la période mensuelle entamée. Le compte bascule alors automatiquement sur la formule Gratuite sans perte des identifiants ni de l'appairage montre Garmin, et un courriel de confirmation de clôture d'abonnement est automatiquement adressé.
+          </p>
+
+          <h5 style="color: #00e5ff; margin-top: 14px; margin-bottom: 6px;">Fermeture Définitive de Compte & RGPD Art. 17</h5>
+          <p>
+            En cas de suppression de compte par l'utilisateur, tout abonnement Stripe récurrent en cours est immédiatement résilié sans aucun prélèvement futur, l'ensemble des données personnelles et historiques sportifs sont définitivement purgés, et un courriel de confirmation de suppression est expédié.
+          </p>
+
+          <h5 style="color: #00e5ff; margin-top: 14px; margin-bottom: 6px;">Disponibilité & Activation des Offres par l'Administration</h5>
+          <p>
+            L'administration de Rower Race se réserve le droit d'activer, désactiver ou suspendre temporairement la souscription à tout ou partie des offres payantes pour des raisons opérationnelles ou de maintenance, sans préjudice des abonnements en cours préalablement souscrits.
           </p>
 
           <h4>3. Modes de Course, Salons Privés & Rôle de l'Organisateur</h4>
@@ -4088,9 +4110,10 @@
           <button
             type="button"
             class="btn-pricing btn-club"
-            [disabled]="true"
-            title="Abonnement payant non activable pour le moment">
-            Bientôt disponible (5,99 €/mois)
+            (click)="subscribeToTier('intermediate')"
+            [disabled]="subscriptionLoading || subscriptionStatus?.tier === 'intermediate' || !isTierActive('intermediate')"
+            [title]="!isTierActive('intermediate') ? 'Offre temporairement désactivée par l\'administrateur' : (subscriptionStatus?.tier === 'intermediate' ? 'Votre forfait actuel' : 'Souscrire à l\'Offre Club via Stripe')">
+            {{ subscriptionStatus?.tier === 'intermediate' ? 'Forfait actuel' : (!isTierActive('intermediate') ? '⚠️ Offre désactivée' : 'Choisir l\'Offre Club (5,99 €/m)') }}
           </button>
         </div>
 
@@ -4113,9 +4136,10 @@
           <button
             type="button"
             class="btn-pricing btn-pro"
-            [disabled]="true"
-            title="Abonnement payant non activable pour le moment">
-            Bientôt disponible (8,99 €/mois)
+            (click)="subscribeToTier('premium')"
+            [disabled]="subscriptionLoading || subscriptionStatus?.tier === 'premium' || !isTierActive('premium')"
+            [title]="!isTierActive('premium') ? 'Offre temporairement désactivée par l\'administrateur' : (subscriptionStatus?.tier === 'premium' ? 'Votre forfait actuel' : 'Souscrire à l\'Offre Élite Pro via Stripe')">
+            {{ subscriptionStatus?.tier === 'premium' ? 'Forfait actuel' : (!isTierActive('premium') ? '⚠️ Offre désactivée' : 'Choisir Élite Pro (8,99 €/m)') }}
           </button>
         </div>
       </div>

@@ -189,6 +189,14 @@ export class AdminService {
     );
   }
 
+  togglePlan(planId: number | string, isActive?: boolean): Observable<{ success: boolean; message: string; plan: SubscriptionPlanItem }> {
+    return this.http.patch<{ success: boolean; message: string; plan: SubscriptionPlanItem }>(
+      `${this.apiUrl}/api/admin/plans/${planId}/toggle`,
+      { isActive },
+      { headers: this.getAuthHeaders() }
+    );
+  }
+
   deletePlan(planId: number | string): Observable<{ success: boolean; message: string }> {
     return this.http.delete<{ success: boolean; message: string }>(
       `${this.apiUrl}/api/admin/plans/${planId}`,

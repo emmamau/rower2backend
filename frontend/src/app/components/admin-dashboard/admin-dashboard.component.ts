@@ -532,4 +532,23 @@ export class AdminDashboardComponent implements OnInit {
       });
     }
   }
+
+  togglePlanStatus(plan: SubscriptionPlanItem, targetState?: boolean): void {
+    if (!plan || (!plan.id && !plan.code)) return;
+    const planIdentifier = plan.id || plan.code;
+    const currentActive = Boolean(plan.isActive);
+    const newActive = targetState !== undefined ? targetState : !currentActive;
+
+    this.adminService.togglePlan(planIdentifier, newActive).subscribe({
+      next: (res) => {
+        this.feedbackMessage = res.message;
+        plan.isActive = newActive;
+        this.cdr.markForCheck();
+      },
+      error: (err) => {
+        this.errorMessage = err.error?.message || "Erreur lors de la bascule de l'offre.";
+        this.cdr.markForCheck();
+      }
+    });
+  }
 }

@@ -1257,6 +1257,22 @@ export class AppComponent implements OnInit, OnDestroy {
           const cleanUrl = window.location.pathname + (window.location.hash || '');
           window.history.replaceState({}, '', cleanUrl || '/');
         }
+
+        const subscriptionParam = urlParams.get('subscription');
+        if (subscriptionParam === 'success') {
+          const rawTier = (urlParams.get('tier') || 'Club').toLowerCase();
+          const tierLabel = rawTier === 'premium' ? 'Élite Pro' : 'Club';
+          this.subscriptionSuccessMessage = `Félicitations ! Votre abonnement ${tierLabel} est désormais actif. Profitez de vos nouveaux avantages !`;
+          this.isSubscriptionModalOpen = true;
+          this.loadUserProfile();
+          const cleanUrl = window.location.pathname + (window.location.hash || '');
+          window.history.replaceState({}, '', cleanUrl || '/');
+        } else if (subscriptionParam === 'canceled') {
+          this.subscriptionError = "Le paiement de votre abonnement Stripe a été interrompu.";
+          this.isSubscriptionModalOpen = true;
+          const cleanUrl = window.location.pathname + (window.location.hash || '');
+          window.history.replaceState({}, '', cleanUrl || '/');
+        }
       } catch (err) {
         console.warn('[Init] Erreur analyse paramètre resetToken URL:', err);
       }
@@ -4115,13 +4131,30 @@ export class AppComponent implements OnInit, OnDestroy {
     this.cdr.markForCheck();
   }
 
+  isTierActive(tierId: string): boolean {
+    if (tierId === 'free') return true;
+    const clean = String(tierId || '').toLowerCase().trim();
+    const tier = (this.subscriptionTiers || []).find((t: any) => {
+      const code = String(t.code || t.id || '').toLowerCase().trim();
+      return code === clean || (clean === 'intermediate' && code === 'standard') || (clean === 'premium' && code === 'elite_pro');
+    });
+    if (!tier) return true;
+    return tier.isActive !== false;
+  }
+
   subscribeToTier(tierId: string): void {
-    if (!this.activeUserId) return;
-    if (tierId !== 'free') {
-      this.subscriptionError = "Les abonnements payants ne sont pas encore activables.";
+    if (!this.activeUserId) {
+      this.subscriptionError = "Veuillez vous connecter pour souscrire un abonnement.";
       this.cdr.markForCheck();
       return;
     }
+
+    if (!this.isTierActive(tierId)) {
+      this.subscriptionError = "Cette offre d'abonnement est actuellement désactivée par l'administrateur.";
+      this.cdr.markForCheck();
+      return;
+    }
+
     this.subscriptionLoading = true;
     this.subscriptionError = '';
     this.rowerService.createSubscriptionCheckout(this.activeUserId, tierId).subscribe({
