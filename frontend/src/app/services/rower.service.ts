@@ -425,10 +425,22 @@ export class RowerService {
     return this.http.get<any>(`${this.apiUrl}/api/v1/subscriptions/status/${encodeURIComponent(userId)}`);
   }
 
-  createSubscriptionCheckout(userId: string, tier: string, returnUrl?: string): Observable<{ success: boolean; checkoutUrl?: string; mode?: string; message?: string }> {
+  createSubscriptionCheckout(
+    userId: string,
+    tier: string,
+    returnUrl?: string,
+    cancelUrl?: string
+  ): Observable<{ success: boolean; checkoutUrl?: string; mode?: string; message?: string }> {
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const cleanTier = String(tier || 'intermediate').toLowerCase().trim();
+    const resolvedReturnUrl =
+      returnUrl || (origin ? `${origin}/?subscription=success&tier=${encodeURIComponent(cleanTier)}&session_id={CHECKOUT_SESSION_ID}` : undefined);
+    const resolvedCancelUrl =
+      cancelUrl || (origin ? `${origin}/?subscription=canceled` : undefined);
+
     return this.http.post<{ success: boolean; checkoutUrl?: string; mode?: string; message?: string }>(
       `${this.apiUrl}/api/v1/subscriptions/checkout`,
-      { userId, tier, returnUrl }
+      { userId, tier: cleanTier, returnUrl: resolvedReturnUrl, cancelUrl: resolvedCancelUrl }
     );
   }
 

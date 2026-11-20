@@ -13,6 +13,7 @@ import {
   registerRateLimiter,
   garminBoostRateLimiter,
 } from "./middleware/rate-limit.middleware";
+import { getFrontendBaseUrl } from "./controllers/subscription.controller";
 
 const app: Application = express();
 const server = http.createServer(app);
@@ -62,8 +63,13 @@ app.use(
 );
 app.use("/api/", apiGlobalLimiter);
 
-// Health checks
-app.get("/", (_req: Request, res: Response) => {
+// Health checks et redirection fluide vers le frontend pour les retours de souscription/reset
+app.get("/", (req: Request, res: Response) => {
+  if (req.query.subscription || req.query.resetToken || req.query.token) {
+    const frontendBase = getFrontendBaseUrl(req);
+    const queryString = new URLSearchParams(req.query as Record<string, string>).toString();
+    return res.redirect(302, `${frontendBase}/?${queryString}`);
+  }
   res.json({ message: "Welcome to Rower Race Multiplayer Real-Time API." });
 });
 

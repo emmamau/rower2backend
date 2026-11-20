@@ -54,10 +54,23 @@ jobs:
         run: |
           cd mobile_flutter
           cp android/app/src/main/AndroidManifest.xml ../AndroidManifest.backup.xml
+          mkdir -p ../res_backup
+          cp -r android/app/src/main/res/mipmap-* ../res_backup/
           rm -rf android
           flutter create --org com.connectiq --project-name rower_race_mobile . --platforms=android
           cp ../AndroidManifest.backup.xml android/app/src/main/AndroidManifest.xml
+          cp -r ../res_backup/mipmap-* android/app/src/main/res/
           chmod +x android/gradlew
+          # Verification de securite : s'assurer que MainActivity existe bien dans le projet genere
+          if ! find android/app/src/main -name "MainActivity.*" | grep -q .; then
+            echo "::error::MainActivity introuvable dans le projet Android généré !"
+            exit 1
+          fi
+          # Verification de securite : s'assurer que les icones personnalisees sont bien presentes
+          if ! find android/app/src/main/res -name "ic_launcher.png" | grep -q .; then
+            echo "::error::ic_launcher.png introuvable dans les ressources !"
+            exit 1
+          fi
 
       - name: Build Android Release APK
         run: |

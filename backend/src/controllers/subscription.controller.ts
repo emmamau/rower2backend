@@ -101,6 +101,39 @@ SUBSCRIPTION_TIERS.club = SUBSCRIPTION_TIERS.intermediate;
 SUBSCRIPTION_TIERS.standard = SUBSCRIPTION_TIERS.intermediate;
 
 /**
+ * Détermine l'URL de base du frontend client.
+ * Priorité :
+ * 1. En-tête HTTP 'Origin' (ex. https://rower-dashboard-frontend.onrender.com ou http://localhost:4200)
+ * 2. En-tête HTTP 'Referer'
+ * 3. Variable d'environnement FRONTEND_URL
+ * 4. Fallback officiel de production
+ */
+export const getFrontendBaseUrl = (req: Request): string => {
+  const origin = req.get("origin");
+  if (origin && !origin.includes("rower-api-service")) {
+    return origin.trim().replace(/\/+$/, "");
+  }
+
+  const referer = req.get("referer");
+  if (referer) {
+    try {
+      const parsed = new URL(referer);
+      if (!parsed.hostname.includes("rower-api-service")) {
+        return parsed.origin.trim().replace(/\/+$/, "");
+      }
+    } catch {}
+  }
+
+  if (process.env.FRONTEND_URL) {
+    return process.env.FRONTEND_URL.trim().replace(/\/+$/, "");
+  }
+
+  return process.env.NODE_ENV === "production"
+    ? "https://rower-dashboard-frontend.onrender.com"
+    : "http://localhost:4200";
+};
+
+/**
  * GET /api/v1/subscriptions/tiers
  * Retourne les 3 offres d'abonnement officielles et leurs caractéristiques,
  * enrichies avec leur statut d'activation (isActive) configuré par l'administrateur.
@@ -187,7 +220,7 @@ export const getUserSubscriptionStatus = async (req: Request, res: Response): Pr
  */
 export const createCheckoutSession = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { userId, tier, returnUrl } = req.body || {};
+    const { userId, tier, returnUrl, cancelUrl } = req.body || {};
     const cleanUserId = String(userId || "").trim();
     let cleanTier = String(tier || "").toLowerCase().trim();
     if (cleanTier === "pro" || cleanTier === "elite_pro") cleanTier = "premium";
@@ -233,8 +266,11 @@ export const createCheckoutSession = async (req: Request, res: Response): Promis
       return;
     }
 
+    const frontendBase = getFrontendBaseUrl(req);
     const successRedirectUrl =
-      returnUrl || `${req.protocol}://${req.get("host")}/?subscription=success&tier=${cleanTier}&session_id={CHECKOUT_SESSION_ID}`;
+      returnUrl || `${frontendBase}/?subscription=success&tier=${cleanTier}&session_id={CHECKOUT_SESSION_ID}`;
+    const cancelRedirectUrl =
+      cancelUrl || `${frontendBase}/?subscription=canceled`;
 
     // Si Stripe est configuré (priorité officielle Stripe)
     if (stripeService.isConfigured()) {
@@ -245,7 +281,7 @@ export const createCheckoutSession = async (req: Request, res: Response): Promis
           customerEmail: user.email,
           customerName: user.name || user.login,
           successUrl: successRedirectUrl,
-          cancelUrl: `${req.protocol}://${req.get("host")}/?subscription=canceled`,
+          cancelUrl: cancelRedirectUrl,
         });
 
         res.status(200).json({
@@ -328,11 +364,15 @@ export const createCheckoutSession = async (req: Request, res: Response): Promis
     }
 
     // Mode simulation / fallback direct pour le développement et la démo
+    const simulatedSuccessUrl = successRedirectUrl.replace(
+      "{CHECKOUT_SESSION_ID}",
+      `sim_session_${Date.now()}`
+    );
     const mockCheckoutUrl = `${req.protocol}://${req.get(
       "host"
     )}/api/v1/subscriptions/simulate-checkout?userId=${encodeURIComponent(
       user.id
-    )}&tier=${cleanTier}&redirect=${encodeURIComponent(successRedirectUrl)}`;
+    )}&tier=${cleanTier}&redirect=${encodeURIComponent(simulatedSuccessUrl)}`;
 
     res.status(200).json({
       success: true,
@@ -491,13 +531,12 @@ export const createStripeCheckoutSession = async (req: Request, res: Response): 
       return;
     }
 
-    const host = req.get("host") || "www.rowerrace.com";
-    const protocol = req.protocol || "https";
+    const frontendBase = getFrontendBaseUrl(req);
     const defaultSuccessUrl =
       successUrl ||
       returnUrl ||
-      `${protocol}://${host}/?subscription=success&tier=${cleanTier}&session_id={CHECKOUT_SESSION_ID}`;
-    const defaultCancelUrl = cancelUrl || `${protocol}://${host}/?subscription=canceled`;
+      `${frontendBase}/?subscription=success&tier=${cleanTier}&session_id={CHECKOUT_SESSION_ID}`;
+    const defaultCancelUrl = cancelUrl || `${frontendBase}/?subscription=canceled`;
 
     if (stripeService.isConfigured()) {
       const session = await stripeService.createCheckoutSession({
@@ -519,7 +558,9 @@ export const createStripeCheckoutSession = async (req: Request, res: Response): 
     }
 
     // Mode simulation si clés Stripe non encore renseignées
-    const mockCheckoutUrl = `${protocol}://${host}/api/v1/subscriptions/simulate-checkout?userId=${encodeURIComponent(
+    const mockCheckoutUrl = `${req.protocol}://${req.get(
+      "host"
+    )}/api/v1/subscriptions/simulate-checkout?userId=${encodeURIComponent(
       user.id
     )}&tier=${cleanTier}&redirect=${encodeURIComponent(defaultSuccessUrl.replace("{CHECKOUT_SESSION_ID}", "sim_stripe_123"))}`;
 
@@ -557,9 +598,8 @@ export const createStripePortalSession = async (req: Request, res: Response): Pr
       return;
     }
 
-    const host = req.get("host") || "www.rowerrace.com";
-    const protocol = req.protocol || "https";
-    const redirectUrl = returnUrl || `${protocol}://${host}/`;
+    const frontendBase = getFrontendBaseUrl(req);
+    const redirectUrl = returnUrl || `${frontendBase}/`;
 
     if (stripeService.isConfigured()) {
       const portal = await stripeService.createPortalSession(resolvedCustomerId, redirectUrl);
@@ -768,6 +808,7 @@ export const handleStripeWebhook = async (req: Request, res: Response): Promise<
 
 export default {
   SUBSCRIPTION_TIERS,
+  getFrontendBaseUrl,
   getSubscriptionTiers,
   getUserSubscriptionStatus,
   createCheckoutSession,
