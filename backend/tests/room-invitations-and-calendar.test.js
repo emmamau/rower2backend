@@ -94,6 +94,7 @@ test('2. Duel 1v1 : Envoi d\'invitation par email et rejet si plus d\'un destina
       email: `${hostUserId}@test.com`,
       subscriptionTier: 'free',
       isSubscriber: false,
+      country: 'France',
     });
 
     // Création d'un duel 1v1
@@ -241,6 +242,7 @@ test('4. Multi-joueurs planifié : Envoi avec rendez-vous d\'agenda (.ics et lie
       email: `${hostUserId}@pro.com`,
       subscriptionTier: 'pro',
       isSubscriber: true,
+      country: 'France',
     });
 
     const scheduledTime = new Date(Date.now() + 3600000 * 24).toISOString();
@@ -318,3 +320,127 @@ test('5. Sécurité : Rejet si l\'utilisateur n\'est pas l\'organisateur ou si s
     await ctx.close();
   }
 });
+
+test('6. Format d\'URL canonique (/r/:code) et explications Garmin Connect IQ Store', async () => {
+  const ctx = await createTestServer();
+  try {
+    emailService.clearLog();
+    const hostUserId = `host_url_check_${Date.now()}`;
+    await userStore.createUser({
+      id: hostUserId,
+      login: hostUserId,
+      name: 'Jean Rameur',
+      email: `${hostUserId}@test.com`,
+      subscriptionTier: 'pro',
+      isSubscriber: true,
+      country: 'France',
+    });
+
+    const createRes = await fetch(`${ctx.baseUrl}/api/v1/races/private`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-enforce-watch-pairing': 'false',
+      },
+      body: JSON.stringify({
+        title: 'Vérification URLs et Store Garmin',
+        targetDistance: 2000,
+        hostUserId,
+        mode: 'multi',
+      }),
+    });
+    assert.equal(createRes.status, 201);
+    const room = await createRes.json();
+    const roomCode = room.code;
+    const pinCode = room.pinCode;
+
+    const inviteRes = await fetch(`${ctx.baseUrl}/api/rooms/${roomCode}/invite`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        hostUserId,
+        emails: ['guest_check@example.com'],
+        lang: 'fr',
+      }),
+    });
+    assert.equal(inviteRes.status, 200);
+
+    const sent = emailService.getSentEmails();
+    const mail = sent.find((e) => e.to === 'guest_check@example.com');
+    assert.ok(mail, 'Le mail doit être présent');
+
+    // 1. Format URL canonique : /r/:code (et non ?room=)
+    assert.ok(mail.html.includes(`/r/${roomCode}`), 'Le HTML doit contenir le lien canonique /r/:code');
+    assert.ok(!mail.html.includes(`/?room=`), 'Le HTML ne doit plus contenir le format obsolète /?room=');
+    assert.ok(mail.text.includes(`/r/${roomCode}`), 'Le texte brut doit contenir le lien canonique /r/:code');
+    assert.ok(!mail.text.includes(`/?room=`), 'Le texte brut ne doit plus contenir /?room=');
+
+    // 2. Instructions Garmin Connect IQ Store
+    assert.ok(mail.html.includes('Garmin Connect IQ'), 'Le HTML doit mentionner Garmin Connect IQ');
+    assert.ok(mail.html.includes('apps.garmin.com'), 'Le HTML doit mentionner le store apps.garmin.com');
+    assert.ok(mail.html.includes('Rower Race'), 'Le HTML doit mentionner le nom de l\'application Rower Race');
+    assert.ok(mail.html.includes(pinCode), 'Le HTML doit contenir le code PIN montre');
+    assert.ok(mail.text.includes('apps.garmin.com'), 'Le texte brut doit mentionner apps.garmin.com');
+  } finally {
+    await ctx.close();
+  }
+});
+
+test('7. Internationalisation : Envoi par défaut en anglais si organisateur non francophone', async () => {
+  const ctx = await createTestServer();
+  try {
+    emailService.clearLog();
+    const hostUserId = `host_en_${Date.now()}`;
+    await userStore.createUser({
+      id: hostUserId,
+      login: hostUserId,
+      name: 'John English',
+      email: `${hostUserId}@usa.com`,
+      subscriptionTier: 'free',
+      isSubscriber: false,
+      country: 'United States',
+    });
+
+    const createRes = await fetch(`${ctx.baseUrl}/api/v1/races/private`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-enforce-watch-pairing': 'false',
+      },
+      body: JSON.stringify({
+        title: 'Morning Regatta 1000m',
+        targetDistance: 1000,
+        hostUserId,
+        isDuel1v1: true,
+      }),
+    });
+    assert.equal(createRes.status, 201);
+    const room = await createRes.json();
+    const roomCode = room.code;
+
+    const inviteRes = await fetch(`${ctx.baseUrl}/api/rooms/${roomCode}/invite`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        hostUserId,
+        emails: ['opponent_en@example.com'],
+      }),
+    });
+    assert.equal(inviteRes.status, 200);
+
+    const sent = emailService.getSentEmails();
+    const mail = sent.find((e) => e.to === 'opponent_en@example.com');
+    assert.ok(mail);
+
+    // Vérifier la version anglaise par défaut
+    assert.ok(mail.subject.includes('1v1 Duel Invitation from John English'), 'Le sujet doit être en anglais');
+    assert.ok(mail.html.includes('Join the Regatta'), 'Le CTA doit être en anglais');
+    assert.ok(mail.html.includes('How to join with your Garmin watch?'), 'Le titre du guide montre doit être en anglais');
+    assert.ok(mail.html.includes('apps.garmin.com'), 'Le lien vers le store apps.garmin.com doit être présent');
+    assert.ok(mail.html.includes(`/r/${roomCode}`), 'L\'URL canonique doit être /r/:code');
+    assert.ok(mail.text.includes('HOW TO JOIN WITH YOUR GARMIN WATCH:'), 'Le texte brut doit être en anglais');
+  } finally {
+    await ctx.close();
+  }
+});
+

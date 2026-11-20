@@ -10,6 +10,7 @@ import { getLeagueByPoints } from "../utils/league.util";
 import { SUBSCRIPTION_TIERS } from "./subscription.controller";
 import subscriptionPlanService from "../services/subscription-plan.service";
 import emailService, { getEmailConfig } from "../services/email.service";
+import { buildShareableRoomUrl } from "../utils/room-link.util";
 import {
   CalendarEventParams,
   generateIcsCalendar,
@@ -701,20 +702,50 @@ export class RoomController {
         }
       }
 
+      // Préparation de l'URL canonique (/r/:code) et de la langue de l'organisateur
+      const emailConfig = getEmailConfig();
+      const origin = emailConfig.frontendUrl;
+      const codeOrIdent = race.code || identifier;
+      const joinUrl = buildShareableRoomUrl(origin, codeOrIdent);
+
+      // Détection de la langue de l'organisateur (défaut en anglais si non francophone)
+      const requestedLang = (req.body.lang || req.body.language || "").toString().toLowerCase().trim();
+      let organizerLang = "en"; // Repli par défaut en anglais
+
+      if (requestedLang) {
+        organizerLang = requestedLang.startsWith("fr") ? "fr" : "en";
+      } else if (hostUser) {
+        const userLang = ((hostUser as any).language || (hostUser as any).preferredLanguage || "").toString().toLowerCase().trim();
+        const userCountry = ((hostUser as any).country || (hostUser as any).pays || "").toString().toLowerCase().trim();
+        const isFrenchCountry = ["france", "fr", "belgique", "belgium", "suisse", "switzerland", "canada", "luxembourg"].some(c => userCountry.includes(c));
+        if (userLang.startsWith("fr") || isFrenchCountry) {
+          organizerLang = "fr";
+        }
+      } else {
+        const acceptLang = (req.headers["accept-language"] || "").toString().toLowerCase();
+        if (acceptLang.startsWith("fr")) {
+          organizerLang = "fr";
+        }
+      }
+
       // Préparation du rendez-vous d'agenda iCalendar si planifié
       let icsContent: string | undefined;
       let googleCalUrl: string | undefined;
       let outlookCalUrl: string | undefined;
 
-      const emailConfig = getEmailConfig();
-      const origin = emailConfig.frontendUrl;
-      const joinUrl = `${origin}/?room=${encodeURIComponent(race.code || identifier)}`;
-
       if (includeCalendarInvite && race.startMode === "scheduled" && race.scheduledStartTime) {
+        const isFr = organizerLang.startsWith("fr");
+        const calTitle = isFr
+          ? `Régate Rower Race : ${race.title}`
+          : `Rower Race Regatta: ${race.title}`;
+        const calDesc = isFr
+          ? `Régate connectée Rower Race (${race.targetDistance}m).\nOrganisée par ${race.hostUserName || hostUser?.name || "Rower Race"}.\nLien direct : ${joinUrl}\nCode salon : ${race.code || identifier}\nCode Garmin : ${race.pinCode}`
+          : `Connected Rower Race Regatta (${race.targetDistance}m).\nHosted by ${race.hostUserName || hostUser?.name || "Rower Race"}.\nDirect link: ${joinUrl}\nWeb room code: ${race.code || identifier}\nGarmin watch code: ${race.pinCode}`;
+
         const calParams: CalendarEventParams = {
           eventId: race.id,
-          title: `Régate Rower Race : ${race.title}`,
-          description: `Régate connectée Rower Race (${race.targetDistance}m).\nOrganisée par ${race.hostUserName || hostUser?.name || "Rower Race"}.\nCode salon : ${race.code}\nCode Garmin : ${race.pinCode}`,
+          title: calTitle,
+          description: calDesc,
           url: joinUrl,
           startTime: race.scheduledStartTime,
           durationMinutes: 45,
@@ -728,7 +759,7 @@ export class RoomController {
       }
 
       // Envoi asynchrone des e-mails
-      const organizerDisplayName = race.hostUserName || hostUser?.name || hostUserId || "L'organisateur";
+      const organizerDisplayName = race.hostUserName || hostUser?.name || hostUserId || (organizerLang.startsWith("fr") ? "L'organisateur" : "The Organizer");
       const sentRecipients: string[] = [];
 
       for (const email of cleanEmails) {
@@ -748,7 +779,8 @@ export class RoomController {
             timezone: race.timezone,
             icsCalendarContent: icsContent,
             googleCalendarUrl: googleCalUrl,
-            outlookCalendarUrl: outlookCalUrl
+            outlookCalendarUrl: outlookCalUrl,
+            lang: organizerLang
           });
           sentRecipients.push(email);
         } catch (err) {

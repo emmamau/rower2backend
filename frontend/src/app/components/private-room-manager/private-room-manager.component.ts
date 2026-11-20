@@ -1578,7 +1578,8 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
       identifier,
       this.activeUserId,
       emails,
-      includeCal
+      includeCal,
+      this.i18n.getCurrentLang()
     ).subscribe({
       next: (res) => {
         this.isSendingInvites = false;

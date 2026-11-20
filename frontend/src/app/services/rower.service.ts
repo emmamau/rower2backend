@@ -104,12 +104,14 @@ export class RowerService {
     identifier: string,
     hostUserId: string,
     emails: string[],
-    includeCalendarInvite: boolean = true
+    includeCalendarInvite: boolean = true,
+    lang?: string
   ): Observable<RoomInviteResponse> {
     const payload: RoomInviteRequest = {
       hostUserId,
       emails,
-      includeCalendarInvite
+      includeCalendarInvite,
+      lang
     };
     return this.http.post<RoomInviteResponse>(
       `${this.apiUrl}/api/rooms/${encodeURIComponent(identifier)}/invite`,

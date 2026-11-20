@@ -147,6 +147,7 @@ export interface RoomInviteRequest {
   hostUserId: string;
   emails: string[];
   includeCalendarInvite?: boolean;
+  lang?: string;
 }
 
 export interface RoomInviteResponse {
