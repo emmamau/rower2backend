@@ -168,101 +168,6 @@ export function renderCyberEmailHtml(params: {
 </html>`;
 }
 
-/**
- * Procédure officielle de participation à une régate privée (4 étapes), aux couleurs du logo.
- * 1. Installer l'application Rower Race sur la montre Garmin (pas sur le smartphone).
- * 2. Ouvrir l'application et ajouter le rameur WaterRower SmartRow.
- * 3. Cliquer sur « Rejoindre la régate » (lien du courriel → mode régate plein écran paysage).
- * 4. Prendre le départ.
- */
-export function renderInvitationStepsHtml(lang: string, joinUrl: string): string {
-  const isFr = (lang || "").toLowerCase().startsWith("fr");
-  const C = BRAND_COLORS;
-  const link = (href: string, label: string) =>
-    `<a href="${href}" style="color: ${C.cyan}; text-decoration: underline; font-weight: 600;">${label}</a>`;
-
-  const steps = isFr
-    ? [
-        {
-          color: C.cyan,
-          html: `<strong style="color: #ffffff;">Installez l'application Rower Race sur votre montre Garmin</strong> depuis le store Garmin Connect IQ (${link("https://apps.garmin.com", "apps.garmin.com")}).
-            <div style="margin-top: 8px; background-color: rgba(255, 0, 85, 0.12); border: 1px solid ${C.pink}; border-radius: 6px; padding: 8px 12px; color: #ffffff; font-size: 13px;">
-              ⚠️ <strong style="color: ${C.pink};">Attention : pas sur votre smartphone.</strong> L'application smartphone n'est pas encore disponible.
-            </div>`,
-        },
-        {
-          color: C.pink,
-          html: `<strong style="color: #ffffff;">Ouvrez l'application</strong> sur votre montre et <strong style="color: #ffffff;">ajoutez également votre rameur WaterRower SmartRow</strong>.`,
-        },
-        {
-          color: C.orange,
-          html: `<strong style="color: #ffffff;">Cliquez sur ${link(joinUrl, "« Rejoindre la régate »")}</strong> (lien dans ce courriel) : le site Rower Race s'ouvre en mode régate, en plein écran et en paysage.`,
-        },
-        {
-          color: C.yellow,
-          html: `<strong style="color: #ffffff;">Prenez votre départ !</strong> 🚣`,
-        },
-      ]
-    : [
-        {
-          color: C.cyan,
-          html: `<strong style="color: #ffffff;">Install the Rower Race app on your Garmin watch</strong> from the Garmin Connect IQ Store (${link("https://apps.garmin.com", "apps.garmin.com")}).
-            <div style="margin-top: 8px; background-color: rgba(255, 0, 85, 0.12); border: 1px solid ${C.pink}; border-radius: 6px; padding: 8px 12px; color: #ffffff; font-size: 13px;">
-              ⚠️ <strong style="color: ${C.pink};">Warning: not on your smartphone.</strong> The smartphone app is not available yet.
-            </div>`,
-        },
-        {
-          color: C.pink,
-          html: `<strong style="color: #ffffff;">Open the app</strong> on your watch and <strong style="color: #ffffff;">also add your WaterRower SmartRow rower</strong>.`,
-        },
-        {
-          color: C.orange,
-          html: `<strong style="color: #ffffff;">Click ${link(joinUrl, "\"Join the Regatta\"")}</strong> (link in this email): the Rower Race website opens in regatta mode, fullscreen and landscape.`,
-        },
-        {
-          color: C.yellow,
-          html: `<strong style="color: #ffffff;">Take your start!</strong> 🚣`,
-        },
-      ];
-
-  const title = isFr ? "Comment participer avec votre montre Garmin ?" : "How to join with your Garmin watch?";
-
-  const rows = steps
-    .map(
-      (s, i) => `
-          <tr>
-            <td width="40" style="vertical-align: top; padding: 0 12px 16px 0;">
-              <div style="width: 30px; height: 30px; line-height: 30px; border-radius: 15px; background-color: ${s.color}; color: ${C.bg}; font-weight: 900; font-size: 15px; text-align: center;">${i + 1}</div>
-            </td>
-            <td style="vertical-align: top; padding: 4px 0 16px 0; color: ${C.text}; font-size: 14px; line-height: 1.6;">
-              ${s.html}
-            </td>
-          </tr>`
-    )
-    .join("");
-
-  return `
-        <!-- PROCÉDURE DE PARTICIPATION (4 ÉTAPES) -->
-        <div style="background-color: #0b1528; border: 1px solid rgba(0, 240, 255, 0.35); border-radius: 10px; padding: 20px 18px 6px 18px; margin: 24px 0;">
-          <div style="font-size: 15px; font-weight: 900; text-transform: uppercase; letter-spacing: 1.2px; color: ${C.cyan}; margin-bottom: 16px;">
-            ⌚ ${title}
-          </div>
-          <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">${rows}
-          </table>
-        </div>
-  `;
-}
-
-/**
- * Version texte brut de la procédure de participation (4 étapes).
- */
-export function renderInvitationStepsText(lang: string, joinUrl: string): string {
-  const isFr = (lang || "").toLowerCase().startsWith("fr");
-  return isFr
-    ? `COMMENT PARTICIPER AVEC VOTRE MONTRE GARMIN :\n1. Installez l'application Rower Race sur votre montre Garmin (Garmin Connect IQ Store : apps.garmin.com). Attention : pas sur votre smartphone. L'application smartphone n'est pas encore disponible.\n2. Ouvrez l'application et ajoutez également votre rameur WaterRower SmartRow.\n3. Cliquez sur « Rejoindre la régate » (lien dans ce courriel) : ${joinUrl}\n4. Prenez votre départ !`
-    : `HOW TO JOIN WITH YOUR GARMIN WATCH:\n1. Install the Rower Race app on your Garmin watch (Garmin Connect IQ Store: apps.garmin.com). Warning: not on your smartphone. The smartphone app is not available yet.\n2. Open the app and also add your WaterRower SmartRow rower.\n3. Click "Join the Regatta" (link in this email): ${joinUrl}\n4. Take your start!`;
-}
-
 export class EmailService {
   private static instance: EmailService;
   private sentEmailsLog: EmailPayload[] = [];
@@ -359,7 +264,7 @@ export class EmailService {
             ⌚ Appairage Montre Garmin Connect IQ
           </div>
           <p style="margin: 0 0 8px 0; font-size: 13px; color: #cbd5e1; line-height: 1.5;">
-            Installez l'application <strong>Rower Race</strong> <strong>sur votre montre Garmin</strong> depuis le store <strong>Garmin Connect IQ</strong> (<a href="https://apps.garmin.com" style="color: #00f0ff; text-decoration: underline;">apps.garmin.com</a>). <strong style="color: #ff0055;">Attention : pas sur votre smartphone.</strong> L'application smartphone n'est pas encore disponible.
+            Installez l'application <strong>Rower Race</strong> sur votre montre Garmin depuis l'application Garmin (Garmin Connect IQ) ou sur <a href="https://apps.garmin.com" style="color: #00f0ff; text-decoration: underline;">apps.garmin.com</a>.
           </p>
           <p style="margin: 0; font-size: 13px; color: #94a3b8; line-height: 1.5;">
             Saisissez votre identifiant unique <strong>${login}</strong> ou utilisez la liaison par code PIN pour synchroniser votre télémétrie en temps réel (Watts, cadence, allure /500m, FC).
@@ -386,7 +291,7 @@ export class EmailService {
         lang: "fr",
       });
 
-      const text = `Bonjour ${displayName},\n\nMerci pour votre inscription ! Votre compte abonné Rower Race est prêt.\nVotre login unique : ${login}\n\nAppairage montre Garmin : Installez l'application Rower Race sur votre montre Garmin depuis le Garmin Connect IQ Store (apps.garmin.com) - attention, pas sur votre smartphone : l'application smartphone n'est pas encore disponible - et saisissez votre identifiant pour synchroniser vos métriques.\n\nAccédez à la plateforme : ${config.frontendUrl}\n\nSportivement,\nL'équipe Rower Race`;
+      const text = `Bonjour ${displayName},\n\nMerci pour votre inscription ! Votre compte abonné Rower Race est prêt.\nVotre login unique : ${login}\n\nAppairage montre Garmin : Installez l'application Rower Race sur votre montre Garmin depuis l'application Garmin (Garmin Connect IQ ou apps.garmin.com) et saisissez votre identifiant pour synchroniser vos métriques.\n\nAccédez à la plateforme : ${config.frontendUrl}\n\nSportivement,\nL'équipe Rower Race`;
 
       const res = await this.sendEmail({ to, subject, text, html });
       return res.success;
@@ -415,7 +320,7 @@ export class EmailService {
             ⌚ Garmin Connect IQ Watch Pairing
           </div>
           <p style="margin: 0 0 8px 0; font-size: 13px; color: #cbd5e1; line-height: 1.5;">
-            Install the <strong>Rower Race</strong> app <strong>on your Garmin watch</strong> from the <strong>Garmin Connect IQ Store</strong> (<a href="https://apps.garmin.com" style="color: #00f0ff; text-decoration: underline;">apps.garmin.com</a>). <strong style="color: #ff0055;">Warning: not on your smartphone.</strong> The smartphone app is not available yet.
+            Install the <strong>Rower Race</strong> app on your Garmin watch from the Garmin app (Garmin Connect IQ) or at <a href="https://apps.garmin.com" style="color: #00f0ff; text-decoration: underline;">apps.garmin.com</a>.
           </p>
           <p style="margin: 0; font-size: 13px; color: #94a3b8; line-height: 1.5;">
             Enter your unique login ID <strong>${login}</strong> or use web PIN pairing to stream your real-time telemetry (Watts, cadence, 500m split, HR).
@@ -442,7 +347,7 @@ export class EmailService {
         lang: "en",
       });
 
-      const text = `Hello ${displayName},\n\nThank you for signing up! Your Rower Race subscriber account is ready.\nYour unique login: ${login}\n\nGarmin watch pairing: Install the Rower Race app on your Garmin watch from the Garmin Connect IQ Store (apps.garmin.com) - not on your smartphone: the smartphone app is not available yet - and use your login to sync your metrics.\n\nAccess the platform: ${config.frontendUrl}\n\nBest regards,\nThe Rower Race Team`;
+      const text = `Hello ${displayName},\n\nThank you for signing up! Your Rower Race subscriber account is ready.\nYour unique login: ${login}\n\nGarmin watch pairing: Install the Rower Race app on your Garmin watch from the Garmin app (Garmin Connect IQ or apps.garmin.com) and use your login to sync your metrics.\n\nAccess the platform: ${config.frontendUrl}\n\nBest regards,\nThe Rower Race Team`;
 
       const res = await this.sendEmail({ to, subject, text, html });
       return res.success;
@@ -722,10 +627,37 @@ export class EmailService {
 
         ${scheduleSectionHtml}
 
-        ${renderInvitationStepsHtml("fr", canonicalJoinUrl)}
+        <!-- GUIDE ET INSTRUCTIONS APPAIRAGE MONTRE GARMIN (CONNECT IQ STORE) -->
+        <div style="background-color: #0b1528; border: 1px solid rgba(0, 240, 255, 0.35); border-radius: 8px; padding: 18px; margin: 24px 0;">
+          <div style="display: flex; align-items: center; margin-bottom: 12px;">
+            <span style="font-size: 20px; margin-right: 8px;">⌚</span>
+            <span style="font-size: 14px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; color: #00f0ff;">
+              Comment participer avec votre montre Garmin ?
+            </span>
+          </div>
+          <ol style="margin: 0; padding-left: 20px; color: #cbd5e1; font-size: 14px; line-height: 1.6;">
+            <li style="margin-bottom: 10px;">
+              <strong>Installez l'application Rower Race</strong> : Depuis l'application Garmin (application Garmin Connect IQ) ou depuis le web sur <a href="https://apps.garmin.com" style="color: #00f0ff; text-decoration: underline;">apps.garmin.com</a>, recherchez et installez l'application <strong>« Rower Race »</strong> sur votre montre connectée Garmin.
+            </li>
+            <li style="margin-bottom: 10px;">
+              <strong>Ouvrez l'application</strong> sur votre montre Garmin à proximité de votre rameur (Concept2 PM5, WaterRower, SmartRow ou ergomètre FTMS).
+            </li>
+            <li style="margin-bottom: 10px;">
+              <strong>Rejoignez la course</strong> : Dans le menu principal de la montre, sélectionnez <strong>« Rejoindre un salon »</strong> (ou « Code Salon ») et saisissez le code montre : <span style="background-color: #131c31; border: 1px solid #ffe600; color: #ffe600; font-family: monospace; font-weight: bold; padding: 2px 8px; border-radius: 4px; font-size: 15px; letter-spacing: 1px;">${params.roomPin}</span>.
+            </li>
+            <li style="margin-bottom: 4px;">
+              <strong>Prenez le départ !</strong> Vos capteurs (cadence, puissance en Watts, allure au 500m et fréquence cardiaque) se synchronisent automatiquement en direct sur le plan d'eau virtuel.
+            </li>
+          </ol>
+        </div>
+
+        <!-- OPTION NAVIGATION WEB -->
+        <div style="background-color: rgba(255, 255, 255, 0.03); border-left: 3px solid #00f0ff; padding: 12px 16px; margin: 18px 0; border-radius: 4px; font-size: 13px; color: #cbd5e1; line-height: 1.5;">
+          💻 <strong>Participer depuis votre ordinateur ou tablette :</strong> Cliquez sur le bouton ci-dessous pour entrer directement sur la ligne de départ, ou ouvrez l'adresse <a href="${canonicalJoinUrl}" style="color: #00f0ff; text-decoration: underline;">${canonicalJoinUrl}</a>.
+        </div>
       `;
 
-      text = `Bonjour,\n\n${orgName} vous invite à une course connectée Rower Race !\n\nCourse : ${params.roomTitle}\nDistance : ${params.targetDistance}m\n${scheduleSectionText}\nRejoindre la régate : ${canonicalJoinUrl}\nCode Salon Web : ${params.roomCode}\nCode Montre Garmin : ${params.roomPin}\n\n${renderInvitationStepsText("fr", canonicalJoinUrl)}\n\nSportivement,\nL'équipe Rower Race`;
+      text = `Bonjour,\n\n${orgName} vous invite à une course connectée Rower Race !\n\nCourse : ${params.roomTitle}\nDistance : ${params.targetDistance}m\n${scheduleSectionText}\nLien direct canonique : ${canonicalJoinUrl}\nCode Salon Web : ${params.roomCode}\nCode Montre Garmin : ${params.roomPin}\n\nCOMMENT PARTICIPER AVEC VOTRE MONTRE GARMIN :\n1. Installez l'application 'Rower Race' depuis l'application Garmin (Garmin Connect IQ ou apps.garmin.com).\n2. Ouvrez l'application sur votre montre Garmin à proximité de votre rameur (Concept2 PM5, WaterRower, SmartRow ou ergomètre FTMS).\n3. Dans le menu, sélectionnez 'Rejoindre un salon' et saisissez le code montre : ${params.roomPin}\n4. Vos métriques (Watts, cadence, allure /500m, FC) seront transmises en direct.\n\nSportivement,\nL'équipe Rower Race`;
     } else {
       // VERSION ANGLAISE (PAR DÉFAUT SI NON FRANCOPHONE)
       const modeBadge = params.isDuel ? "⚔️ 1 vs 1 Duel" : "🚣 Multiplayer Regatta";
@@ -787,10 +719,37 @@ export class EmailService {
 
         ${scheduleSectionHtml}
 
-        ${renderInvitationStepsHtml("en", canonicalJoinUrl)}
+        <!-- HOW TO JOIN WITH GARMIN WATCH (CONNECT IQ STORE INSTRUCTIONS) -->
+        <div style="background-color: #0b1528; border: 1px solid rgba(0, 240, 255, 0.35); border-radius: 8px; padding: 18px; margin: 24px 0;">
+          <div style="display: flex; align-items: center; margin-bottom: 12px;">
+            <span style="font-size: 20px; margin-right: 8px;">⌚</span>
+            <span style="font-size: 14px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; color: #00f0ff;">
+              How to join with your Garmin watch?
+            </span>
+          </div>
+          <ol style="margin: 0; padding-left: 20px; color: #cbd5e1; font-size: 14px; line-height: 1.6;">
+            <li style="margin-bottom: 10px;">
+              <strong>Install the Rower Race app</strong>: From the Garmin app (Garmin Connect IQ app) or via the web at <a href="https://apps.garmin.com" style="color: #00f0ff; text-decoration: underline;">apps.garmin.com</a>, search for and install <strong>"Rower Race"</strong> on your Garmin watch.
+            </li>
+            <li style="margin-bottom: 10px;">
+              <strong>Open the app</strong> on your Garmin watch near your rowing machine (Concept2 PM5, WaterRower, SmartRow, or FTMS ergometer).
+            </li>
+            <li style="margin-bottom: 10px;">
+              <strong>Join the room</strong>: In the watch menu, select <strong>"Join Room"</strong> (or "Room Code") and enter your watch code: <span style="background-color: #131c31; border: 1px solid #ffe600; color: #ffe600; font-family: monospace; font-weight: bold; padding: 2px 8px; border-radius: 4px; font-size: 15px; letter-spacing: 1px;">${params.roomPin}</span>.
+            </li>
+            <li style="margin-bottom: 4px;">
+              <strong>Ready to row!</strong> Your sensors (stroke rate, power in Watts, 500m split pace, and heart rate) will broadcast in real-time to the live regatta track.
+            </li>
+          </ol>
+        </div>
+
+        <!-- WEB BROWSER OPTION -->
+        <div style="background-color: rgba(255, 255, 255, 0.03); border-left: 3px solid #00f0ff; padding: 12px 16px; margin: 18px 0; border-radius: 4px; font-size: 13px; color: #cbd5e1; line-height: 1.5;">
+          💻 <strong>Join via Web Browser:</strong> Click the button below to open the starting line directly, or navigate to <a href="${canonicalJoinUrl}" style="color: #00f0ff; text-decoration: underline;">${canonicalJoinUrl}</a>.
+        </div>
       `;
 
-      text = `Hello,\n\n${orgName} invites you to a connected race on Rower Race!\n\nRace: ${params.roomTitle}\nDistance: ${params.targetDistance}m\n${scheduleSectionText}\nJoin the Regatta: ${canonicalJoinUrl}\nWeb Room Code: ${params.roomCode}\nGarmin Watch Code: ${params.roomPin}\n\n${renderInvitationStepsText("en", canonicalJoinUrl)}\n\nBest regards,\nThe Rower Race Team`;
+      text = `Hello,\n\n${orgName} invites you to a connected race on Rower Race!\n\nRace: ${params.roomTitle}\nDistance: ${params.targetDistance}m\n${scheduleSectionText}\nDirect room link: ${canonicalJoinUrl}\nWeb Room Code: ${params.roomCode}\nGarmin Watch Code: ${params.roomPin}\n\nHOW TO JOIN WITH YOUR GARMIN WATCH:\n1. Install the 'Rower Race' app from the Garmin app (Garmin Connect IQ or apps.garmin.com).\n2. Open the app on your Garmin watch near your rowing machine (Concept2 PM5, WaterRower, SmartRow, or FTMS ergometer).\n3. In the menu, select 'Join Room' and enter your watch code: ${params.roomPin}\n4. Your metrics (Watts, stroke rate, 500m pace, HR) will stream live to the race.\n\nBest regards,\nThe Rower Race Team`;
     }
 
     const html = renderCyberEmailHtml({

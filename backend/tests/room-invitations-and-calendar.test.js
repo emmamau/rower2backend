@@ -387,17 +387,19 @@ test('6. Format d\'URL canonique (/r/:code) et explications Garmin Connect IQ St
     assert.ok(mail.html.includes('#ff0055'), 'Le HTML doit intégrer la couleur rose fuchsia (#ff0055) du logo');
     assert.ok(mail.html.includes('#00f0ff'), 'Le HTML doit intégrer le cyan néon (#00f0ff) du logo');
 
-    // 4. Procédure d'installation en 4 étapes précises
-    assert.ok(mail.html.includes('Installez l\'application Rower Race sur votre montre Garmin'), 'Étape 1: installer sur montre Garmin');
-    assert.ok(mail.html.includes('pas sur votre smartphone'), 'Étape 1: mise en garde smartphone');
-    assert.ok(mail.html.includes('WaterRower SmartRow'), 'Étape 2: WaterRower SmartRow');
-    assert.ok(mail.html.includes('Rejoindre la régate'), 'Étape 3: lien Rejoindre la régate');
-    assert.ok(mail.html.includes('mode=regatta'), 'Étape 3: lien avec ?mode=regatta');
-    assert.ok(mail.html.includes('Prenez votre départ'), 'Étape 4: départ');
+    // 4. Instructions d'installation mises à jour (remplacement smartphone par garmin et ajout WaterRower)
+    assert.ok(mail.html.includes('application Garmin'), 'Étape 1: application Garmin au lieu d\'application smartphone');
+    assert.ok(!mail.html.includes('sur votre smartphone'), 'Ne doit plus mentionner sur votre smartphone');
+    assert.ok(mail.html.includes('WaterRower'), 'Étape 2: WaterRower dans la liste des rameurs compatibles');
+    assert.ok(mail.html.includes('Concept2 PM5'), 'Étape 2: Concept2 PM5');
+    assert.ok(mail.html.includes('SmartRow'), 'Étape 2: SmartRow');
+    assert.ok(mail.html.includes('FTMS'), 'Étape 2: FTMS');
+    assert.ok(mail.html.includes('Rejoindre un salon'), 'Étape 3: Rejoindre un salon');
+    assert.ok(mail.html.includes('Prenez le départ'), 'Étape 4: Prenez le départ');
 
-    assert.ok(mail.text.includes('pas sur votre smartphone'), 'Le texte brut doit contenir la mise en garde smartphone');
-    assert.ok(mail.text.includes('WaterRower SmartRow'), 'Le texte brut doit mentionner WaterRower SmartRow');
-    assert.ok(mail.text.includes('mode=regatta'), 'Le texte brut doit comporter ?mode=regatta');
+    assert.ok(mail.text.includes('application Garmin'), 'Le texte brut doit mentionner application Garmin');
+    assert.ok(!mail.text.includes('smartphone'), 'Le texte brut ne doit plus mentionner smartphone');
+    assert.ok(mail.text.includes('WaterRower'), 'Le texte brut doit mentionner WaterRower');
   } finally {
     await ctx.close();
   }
@@ -459,16 +461,19 @@ test('7. Internationalisation : Envoi par défaut en anglais si organisateur non
     assert.ok(mail.html.includes('rowerrace-logo.png'), 'Le HTML anglais doit intégrer rowerrace-logo.png');
     assert.ok(mail.html.includes('#ff0055'), 'Le HTML anglais doit intégrer #ff0055');
 
-    // 4 étapes en anglais
-    assert.ok(mail.html.includes('Install the Rower Race app on your Garmin watch'), 'Step 1: Garmin watch');
-    assert.ok(mail.html.includes('not on your smartphone'), 'Step 1: smartphone warning');
-    assert.ok(mail.html.includes('WaterRower SmartRow'), 'Step 2: WaterRower SmartRow');
-    assert.ok(mail.html.includes('Take your start'), 'Step 4: Take your start');
+    // Instructions d'installation en anglais
+    assert.ok(mail.html.includes('Garmin app'), 'Step 1: Garmin app instead of smartphone app');
+    assert.ok(!mail.html.includes('on your smartphone'), 'Should not mention on your smartphone');
+    assert.ok(mail.html.includes('WaterRower'), 'Step 2: WaterRower in compatible rowing machines');
+    assert.ok(mail.html.includes('Concept2 PM5'), 'Step 2: Concept2 PM5');
+    assert.ok(mail.html.includes('SmartRow'), 'Step 2: SmartRow');
+    assert.ok(mail.html.includes('Join Room'), 'Step 3: Join Room');
+    assert.ok(mail.html.includes('Ready to row'), 'Step 4: Ready to row');
 
     assert.ok(mail.text.includes('HOW TO JOIN WITH YOUR GARMIN WATCH:'), 'Le texte brut doit être en anglais');
-    assert.ok(mail.text.includes('not on your smartphone'), 'Le texte brut anglais doit contenir la mise en garde smartphone');
-    assert.ok(mail.text.includes('WaterRower SmartRow'), 'Le texte brut anglais doit mentionner WaterRower SmartRow');
-    assert.ok(mail.text.includes('mode=regatta'), 'Le texte brut anglais doit contenir ?mode=regatta');
+    assert.ok(mail.text.includes('Garmin app'), 'Le texte brut anglais doit mentionner Garmin app');
+    assert.ok(!mail.text.includes('smartphone'), 'Le texte brut anglais ne doit plus mentionner smartphone');
+    assert.ok(mail.text.includes('WaterRower'), 'Le texte brut anglais doit mentionner WaterRower');
   } finally {
     await ctx.close();
   }
