@@ -24,9 +24,8 @@ if (flutterVersionName == null) {
 
 android {
     namespace = "com.connectiq.rowerrace"
-    compileSdkVersion 34
-    compileSdk = 34
-    ndkVersion = flutter.ndkVersion
+    compileSdk = 36
+    ndkVersion = "27.0.12077973"
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -39,9 +38,7 @@ android {
 
     defaultConfig {
         applicationId = "com.connectiq.rowerrace"
-        minSdkVersion 23
         minSdk = 23
-        targetSdkVersion 34
         targetSdk = 34
         versionCode = flutterVersionCode.toInteger()
         versionName = flutterVersionName
