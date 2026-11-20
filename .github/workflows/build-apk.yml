@@ -37,15 +37,18 @@ jobs:
       - name: Run unit tests
         run: |
           cd mobile_flutter
-          flutter test --reporter expanded > ../test_results.txt 2>&1 || true
+          set +e
+          flutter test --reporter expanded > ../test_results.txt 2>&1
+          TEST_EXIT_CODE=$?
+          set -e
           cat ../test_results.txt
           echo "### Flutter Test Results" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
           cat ../test_results.txt >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
-          if grep -q "Some tests failed" ../test_results.txt || grep -q "Error:" ../test_results.txt; then
-            echo "::error::Unit tests failed!"
-            exit 1
+          if [ $TEST_EXIT_CODE -ne 0 ]; then
+            echo "::error::Unit tests failed with exit code $TEST_EXIT_CODE!"
+            exit $TEST_EXIT_CODE
           fi
 
       - name: Ensure Gradle wrapper executable

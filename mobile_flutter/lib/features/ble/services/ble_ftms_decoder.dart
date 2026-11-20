@@ -152,7 +152,7 @@ class BleFtmsDecoder {
 
     // Détection et correction décimètres (Merach / NovaRow : envoi de 0.1m)
     if (rawDistance > 0) {
-      if (!_isDecimeterDistance) {
+      if (!_isDecimeterDistance && _lastRawDistance > 0) {
         final dDist = rawDistance > _lastRawDistance ? rawDistance - _lastRawDistance : 0;
         final dStrokes = rawStrokes > _lastRawStrokes ? rawStrokes - _lastRawStrokes : 0;
         final isMerach = (deviceName ?? '').toUpperCase().contains('MERACH') ||
@@ -160,6 +160,7 @@ class BleFtmsDecoder {
         if (dDist > 1000 || (dStrokes > 0 && (dDist / dStrokes) >= (isMerach ? 20.0 : 35.0))) {
           _isDecimeterDistance = true;
           _baselineRawDistance = (_baselineRawDistance + 5) ~/ 10;
+          _lastRawDistance = (_lastRawDistance + 5) ~/ 10;
         }
       }
       if (_isDecimeterDistance) {
