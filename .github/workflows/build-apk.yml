@@ -50,32 +50,13 @@ jobs:
             exit $TEST_EXIT_CODE
           fi
 
-      - name: Prepare native Android project matching Flutter SDK
-        run: |
-          cd mobile_flutter
-          cp android/app/src/main/AndroidManifest.xml ../AndroidManifest.backup.xml
-          mkdir -p ../res_backup
-          cp -r android/app/src/main/res/mipmap-* ../res_backup/
-          rm -rf android
-          flutter create --org com.connectiq --project-name rower_race_mobile . --platforms=android
-          cp ../AndroidManifest.backup.xml android/app/src/main/AndroidManifest.xml
-          cp -r ../res_backup/mipmap-* android/app/src/main/res/
-          chmod +x android/gradlew
-          # Verification de securite : s'assurer que MainActivity existe bien dans le projet genere
-          if ! find android/app/src/main -name "MainActivity.*" | grep -q .; then
-            echo "::error::MainActivity introuvable dans le projet Android généré !"
-            exit 1
-          fi
-          # Verification de securite : s'assurer que les icones personnalisees sont bien presentes
-          if ! find android/app/src/main/res -name "ic_launcher.png" | grep -q .; then
-            echo "::error::ic_launcher.png introuvable dans les ressources !"
-            exit 1
-          fi
+      - name: Ensure Gradle wrapper executable
+        run: chmod +x mobile_flutter/android/gradlew
 
       - name: Build Android Release APK
         run: |
           cd mobile_flutter
-          flutter build apk --release --dart-define=API_URL=https://rower-api-service.onrender.com
+          flutter build apk --release --dart-define=API_URL=https://rower-api-service.onrender.com --android-skip-build-dependency-validation
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4

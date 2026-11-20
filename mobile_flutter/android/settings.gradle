@@ -1,4 +1,10 @@
 pluginManagement {
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+
     def flutterSdkPath = {
         def properties = new Properties()
         def localPropertiesFile = file("local.properties")
@@ -16,12 +22,6 @@ pluginManagement {
     settings.ext.flutterSdkPath = flutterSdkPath
 
     includeBuild("${settings.ext.flutterSdkPath}/packages/flutter_tools/gradle")
-
-    repositories {
-        google()
-        mavenCentral()
-        gradlePluginPortal()
-    }
 }
 
 plugins {
