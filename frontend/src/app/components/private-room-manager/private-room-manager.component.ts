@@ -455,14 +455,9 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
     }
   }
 
-  onBackdropClick(event?: MouseEvent): void {
-    if (event && event.target !== event.currentTarget) {
-      return;
-    }
-    if (Date.now() - this.openedTimestamp < 400) {
-      return;
-    }
-    this.closeModal();
+  onBackdropClick(_event?: MouseEvent): void {
+    // La fermeture au clic sur le fond est désactivée selon les exigences IHM.
+    // La modale se ferme uniquement via la croix ou les boutons explicites.
   }
 
   closeModal(): void {
@@ -535,6 +530,10 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
 
   get isDuel1v1Room(): boolean {
     return Boolean(this.activeRoom?.race?.isDuel1v1 || (this.activeRoom as any)?.isDuel1v1);
+  }
+
+  get canShareOrInvite(): boolean {
+    return !this.isSoloRoom && !this.isBotDuelRoom;
   }
 
   selectGameMode(mode: 'solo' | 'bot_duel' | 'duel_1v1' | 'multi'): void {

@@ -57,6 +57,40 @@ label {
   touch-action: manipulation;
 }
 
+/* Homogénéisation des interactions au survol (mouseover / hover) sur tous les boutons cliquables */
+button,
+[role="button"],
+.btn,
+.btn-primary,
+.btn-secondary,
+.btn-close,
+.btn-pure-nav,
+.view-mode-btn,
+.mode-btn,
+.priv-btn,
+.priv-btn-mini {
+  cursor: pointer;
+  transition: transform 0.16s ease, filter 0.16s ease, box-shadow 0.16s ease, background-color 0.16s ease, border-color 0.16s ease;
+}
+
+button:hover:not(:disabled),
+[role="button"]:hover:not([aria-disabled="true"]),
+.btn:hover:not(:disabled),
+.btn-primary:hover:not(:disabled),
+.btn-secondary:hover:not(:disabled),
+.btn-pure-nav:hover:not(:disabled),
+.view-mode-btn:hover:not(:disabled),
+.mode-btn:hover:not(:disabled) {
+  cursor: pointer;
+  filter: brightness(1.12);
+}
+
+.btn-close:hover {
+  cursor: pointer;
+  transform: scale(1.15);
+  filter: brightness(1.25);
+}
+
 input,
 textarea {
   user-select: text;

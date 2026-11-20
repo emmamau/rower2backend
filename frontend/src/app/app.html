@@ -644,7 +644,7 @@
   <!-- Modals -->
   <!-- 1. USER ACCOUNT & SUBSCRIBER MANAGEMENT MODAL -->
   @if (isAccountModalOpen || isLoginModalOpen) {
-    <div class="modal-overlay" (click)="closeAccountModal(); isLoginModalOpen = false">
+    <div class="modal-overlay">
       <div class="modal-card modal-account" (click)="$event.stopPropagation()">
         <div class="modal-header-row">
           <div class="modal-title-with-badge">
@@ -1659,7 +1659,7 @@
 
   <!-- 2. Race Results History Modal -->
   @if (isHistoryOpen) {
-    <div class="modal-overlay" (click)="isHistoryOpen = false">
+    <div class="modal-overlay">
       <div class="modal-card modal-large" (click)="$event.stopPropagation()">
         <div class="modal-header-row">
           <h3>{{ i18n.t('MODAL_HISTORY_TITLE') }}</h3>
@@ -1707,7 +1707,7 @@
 
   <!-- MODAL CLASSEMENT COMPLET ET DÉTAILLÉ DE LA COURSE PASSÉE -->
   @if (isRaceLeaderboardModalOpen) {
-    <div class="modal-overlay" (click)="closeRaceLeaderboardModal()">
+    <div class="modal-overlay">
       <div class="modal-card modal-large modal-race-leaderboard" (click)="$event.stopPropagation()">
         <div class="modal-header-row">
           <div class="modal-title-cluster">
@@ -1807,7 +1807,7 @@
 
   <!-- 3. UNIFIED RACE CONFIGURATION & ADMIN MODAL (Adaptatif : Admin, Abonné, Invité) -->
   @if (isUnifiedConfigOpen || isConfigRaceOpen || isAdminConfigOpen) {
-    <div class="modal-overlay" (click)="closeUnifiedConfigModal()">
+    <div class="modal-overlay">
       <div class="modal-card modal-admin-cfg" (click)="$event.stopPropagation()">
         <div class="modal-header-row">
           <div class="modal-title-with-badge">
@@ -2026,7 +2026,7 @@
 
   <!-- 4. General Standings Leaderboard Modal -->
   @if (isStandingsOpen) {
-    <div class="modal-overlay" (click)="isStandingsOpen = false">
+    <div class="modal-overlay">
       <div class="modal-card modal-large" (click)="$event.stopPropagation()">
         <div class="modal-header-row">
           <h3 id="standings-modal-title">🏆 Classements & Ligues Rower Race</h3>
@@ -2256,7 +2256,7 @@
 
   <!-- 5. Legal Terms, Conditions of Use & GDPR Modal -->
   @if (isLegalTermsOpen) {
-    <div class="modal-overlay" (click)="isLegalTermsOpen = false">
+    <div class="modal-overlay">
       <div class="modal-card modal-large" (click)="$event.stopPropagation()">
         <div class="modal-header-row">
           <h3>{{ i18n.t('MODAL_LEGAL_TITLE') }}</h3>
@@ -2362,7 +2362,7 @@
 
   <!-- MODALE BACK-OFFICE ADMINISTRATION PLATEFORME -->
   @if (isUserAdmin && isAdminDashboardOpen) {
-    <div class="modal-overlay modal-admin-overlay" (click)="onAdminBackdropClick($event)">
+    <div class="modal-overlay modal-admin-overlay">
       <div class="modal-card modal-admin-card" (click)="$event.stopPropagation()">
         <app-admin-dashboard (close)="closeAdminDashboard()"></app-admin-dashboard>
       </div>
@@ -3985,7 +3985,7 @@
   </nav>
 
   <!-- MODALE DUEL 1V1 CONTRE UN BOT (SANS COMPTE REQUIS) -->
-  <div class="modal-overlay" *ngIf="isBotDuelModalOpen" (click)="closeBotDuelModal()">
+  <div class="modal-overlay" *ngIf="isBotDuelModalOpen">
     <div class="modal-card modal-bot-duel" (click)="$event.stopPropagation()">
       <div class="modal-header-row">
         <div class="modal-title-with-badge">
@@ -4051,7 +4051,7 @@
   </div>
 
   <!-- MODALE ABONNEMENTS & TARIFS -->
-  <div class="modal-overlay" *ngIf="isSubscriptionModalOpen" (click)="closeSubscriptionModal()">
+  <div class="modal-overlay" *ngIf="isSubscriptionModalOpen">
     <div class="modal-card modal-pricing" (click)="$event.stopPropagation()">
       <div class="modal-header-row">
         <div class="modal-title-with-badge">
@@ -4152,7 +4152,7 @@
   </div>
 
   <!-- MODALE ESPACE STATISTIQUES & ANALYSES DE COURSES (Abonnés = Illimité, Gratuit = 10j) -->
-  <div class="modal-overlay" *ngIf="isStatisticsModalOpen" (click)="closeStatisticsModal()">
+  <div class="modal-overlay" *ngIf="isStatisticsModalOpen">
     <div class="modal-card modal-large modal-statistics" (click)="$event.stopPropagation()">
       <div class="modal-header-row">
         <div class="modal-title-with-badge">
@@ -4302,7 +4302,7 @@
       </div>
 
       <!-- 2.3 MODALE DE GUIDAGE PAS-À-PAS EN 3 ÉTAPES ILLUSTRÉES (SI MONTRE NON LIÉE) -->
-      <div class="modal-overlay" *ngIf="isWatchGuidanceModalOpen" (click)="closeWatchGuidanceModal()">
+      <div class="modal-overlay" *ngIf="isWatchGuidanceModalOpen">
         <div class="modal-content modal-watch-guidance" (click)="$event.stopPropagation()">
           <div class="modal-header-row">
             <h3>⌚ Lier votre montre Garmin en 3 étapes</h3>
@@ -4356,7 +4356,7 @@
 
       <!-- MODALE BILAN HEBDOMADAIRE (RÉCAPITULATIF DU LUNDI & PROMOTIONS/RELÉGATIONS) -->
       @if (isWeeklySummaryModalOpen && unseenWeeklySummary) {
-        <div class="modal-overlay weekly-summary-overlay" (click)="closeWeeklySummaryModal()">
+        <div class="modal-overlay weekly-summary-overlay">
           <div class="modal-card modal-weekly-summary" (click)="$event.stopPropagation()">
             @let details = getWeeklySummaryDetails(unseenWeeklySummary);
             <div class="weekly-summary-header" [ngClass]="details.cls">

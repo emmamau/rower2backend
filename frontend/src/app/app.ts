@@ -2949,6 +2949,11 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   setSiteView(view: 'home' | 'regatta' | 'cockpit'): void {
+    if (view === 'home' && this.activePrivateRoom) {
+      // Revenir sur la page d'accueil public lors d'un clic sur l'icône / bouton Accueil
+      this.exitPrivateRoomToPublic(true);
+      this.initGameLoop();
+    }
     this.siteView = view;
     if (view === 'home') {
       this.homeRefresh$.next();
@@ -3047,10 +3052,9 @@ export class AppComponent implements OnInit, OnDestroy {
     this.cdr.markForCheck();
   }
 
-  onAdminBackdropClick(event?: MouseEvent): void {
-    if (event && event.target !== event.currentTarget) return;
-    if (Date.now() - this.adminDashboardOpenedAt < 400) return;
-    this.closeAdminDashboard();
+  onAdminBackdropClick(_event?: MouseEvent): void {
+    // La fermeture au clic sur le fond extérieur est désactivée.
+    // La fenêtre se ferme uniquement via les boutons explicites.
   }
 
   closeAdminDashboard(): void {

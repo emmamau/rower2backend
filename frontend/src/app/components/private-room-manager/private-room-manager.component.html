@@ -154,19 +154,21 @@
             (click)="copyText(shareUrl)">
             {{ i18n.t('BTN_COPY_URL') }}
           </button>
-          <button
-            type="button"
-            class="priv-btn-mini"
-            (click)="copyText(fullInviteMessage)">
-            {{ i18n.t('BTN_COPY_INVITE') }}
-          </button>
-          @if (canNativeShare) {
+          @if (canShareOrInvite) {
             <button
               type="button"
               class="priv-btn-mini"
-              (click)="shareRoomNative()">
-              {{ i18n.t('BTN_NATIVE_SHARE') }}
+              (click)="copyText(fullInviteMessage)">
+              {{ i18n.t('BTN_COPY_INVITE') }}
             </button>
+            @if (canNativeShare) {
+              <button
+                type="button"
+                class="priv-btn-mini"
+                (click)="shareRoomNative()">
+                {{ i18n.t('BTN_NATIVE_SHARE') }}
+              </button>
+            }
           }
         </div>
       </div>
@@ -276,7 +278,7 @@
 
 <!-- MODAL OVERLAY FOR PRIVATE SALONS (OPTIMISÉ MOBILE & IPHONE) -->
 @if (isOpen) {
-  <div class="priv-dialog-overlay" (click)="onBackdropClick($event)" role="presentation">
+  <div class="priv-dialog-overlay" role="presentation">
     <div
       #dialogEl
       class="priv-dialog"
@@ -870,19 +872,21 @@
           </div>
 
           <div class="priv-share-btn-row">
-            <button
-              type="button"
-              class="priv-btn priv-btn-outline"
-              (click)="copyText(fullInviteMessage)">
-              {{ i18n.t('BTN_COPY_INVITE') }}
-            </button>
-            @if (canNativeShare) {
+            @if (canShareOrInvite) {
               <button
                 type="button"
                 class="priv-btn priv-btn-outline"
-                (click)="shareRoomNative()">
-                {{ i18n.t('BTN_NATIVE_SHARE') }}
+                (click)="copyText(fullInviteMessage)">
+                {{ i18n.t('BTN_COPY_INVITE') }}
               </button>
+              @if (canNativeShare) {
+                <button
+                  type="button"
+                  class="priv-btn priv-btn-outline"
+                  (click)="shareRoomNative()">
+                  {{ i18n.t('BTN_NATIVE_SHARE') }}
+                </button>
+              }
             }
             @if (canManageActiveRoom) {
               <button
@@ -896,8 +900,9 @@
           </div>
         </div>
 
-        <!-- 2. Smartphone & Quick App Sharing -->
-        <div class="priv-share-card priv-mobile-card">
+        <!-- 2. Smartphone & Quick App Sharing & Email Invitations (Duel ami / Multi-joueurs uniquement) -->
+        @if (canShareOrInvite) {
+          <div class="priv-share-card priv-mobile-card">
           <div class="priv-share-card-header">
             <span class="priv-label">{{ i18n.t('SHARE_MOBILE_CARD_TITLE') }}</span>
             <span class="priv-badge-pulse">⚡ Direct</span>
@@ -1050,12 +1055,24 @@
               {{ inviteSuccessMessage }}
             </div>
           }
-          @if (inviteErrorMessage) {
-            <div class="priv-invite-feedback priv-feedback-error">
-              {{ inviteErrorMessage }}
-            </div>
-          }
-        </div>
+            @if (inviteErrorMessage) {
+              <div class="priv-invite-feedback priv-feedback-error">
+                {{ inviteErrorMessage }}
+              </div>
+            }
+          </div>
+        } @else {
+          <!-- Notice Salon Solo / Duel Bot -->
+          <div class="priv-share-card priv-solo-notice-card">
+            <div class="priv-label">🚣 {{ isSoloRoom ? 'Entraînement Solo' : 'Duel contre un Bot' }}</div>
+            <p class="priv-hint">
+              Ce salon est configuré pour une session individuelle ou contre un bot. Le partage sur smartphone, réseaux sociaux et les invitations par email ne sont pas nécessaires pour ce mode.
+            </p>
+            <p class="priv-hint">
+              Pour connecter votre montre, utilisez le <strong>PIN Garmin</strong> ci-dessous.
+            </p>
+          </div>
+        }
 
         <!-- 4. Garmin Watch Alphanumeric PIN + Web Salon Code -->
         <div class="priv-codes-grid">
@@ -1162,20 +1179,22 @@
           </div>
         }
 
-        <!-- Ready-to-paste Invite Message Preview -->
-        <div class="priv-field">
-          <label for="priv-invite-preview" class="priv-label">
-            ✉️ {{ i18n.t('INVITE_MSG_HEADER') }}
-          </label>
-          <textarea
-            id="priv-invite-preview"
-            name="invitePreview"
-            rows="4"
-            readonly
-            class="priv-textarea"
-            [value]="fullInviteMessage"
-            (click)="selectInputText($event)"></textarea>
-        </div>
+        <!-- Ready-to-paste Invite Message Preview (Duel ami / Multi-joueurs uniquement) -->
+        @if (canShareOrInvite) {
+          <div class="priv-field">
+            <label for="priv-invite-preview" class="priv-label">
+              ✉️ {{ i18n.t('INVITE_MSG_HEADER') }}
+            </label>
+            <textarea
+              id="priv-invite-preview"
+              name="invitePreview"
+              rows="4"
+              readonly
+              class="priv-textarea"
+              [value]="fullInviteMessage"
+              (click)="selectInputText($event)"></textarea>
+          </div>
+        }
 
         <!-- 3. Host & Participant Controls -->
         <div class="priv-host-box">
