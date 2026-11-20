@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:rower_race_mobile/features/ble/services/ble_ftms_service.dart';
+import 'package:rower_race_mobile/features/ble/services/ble_ftms_decoder.dart';
 
 void main() {
   group('BleFtmsDecoder Tests', () {

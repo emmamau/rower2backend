@@ -37,7 +37,16 @@ jobs:
       - name: Run unit tests
         run: |
           cd mobile_flutter
-          flutter test --no-pub
+          flutter test --reporter expanded > ../test_results.txt 2>&1 || true
+          cat ../test_results.txt
+          echo "### Flutter Test Results" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cat ../test_results.txt >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          if grep -q "Some tests failed" ../test_results.txt || grep -q "Error:" ../test_results.txt; then
+            echo "::error::Unit tests failed!"
+            exit 1
+          fi
 
       - name: Ensure Gradle wrapper executable
         run: chmod +x mobile_flutter/android/gradlew
