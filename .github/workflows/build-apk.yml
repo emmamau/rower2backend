@@ -50,13 +50,19 @@ jobs:
             exit $TEST_EXIT_CODE
           fi
 
-      - name: Ensure Gradle wrapper executable
-        run: chmod +x mobile_flutter/android/gradlew
+      - name: Prepare native Android project matching Flutter SDK
+        run: |
+          cd mobile_flutter
+          cp android/app/src/main/AndroidManifest.xml ../AndroidManifest.backup.xml
+          rm -rf android
+          flutter create --org com.connectiq --project-name rower_race_mobile . --platforms=android
+          cp ../AndroidManifest.backup.xml android/app/src/main/AndroidManifest.xml
+          chmod +x android/gradlew
 
       - name: Build Android Release APK
         run: |
           cd mobile_flutter
-          flutter build apk --release --dart-define=API_URL=https://rower-api-service.onrender.com --android-skip-build-dependency-validation
+          flutter build apk --release --dart-define=API_URL=https://rower-api-service.onrender.com
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
