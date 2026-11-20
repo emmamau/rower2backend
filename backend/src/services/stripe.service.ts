@@ -146,6 +146,35 @@ export class StripeService {
     }
     return stripe.webhooks.constructEvent(payload, signature, webhookSecret);
   }
+
+  /**
+   * Résiliation d'un abonnement Stripe récurrent
+   * @param subscriptionId ID de l'abonnement Stripe (sub_xxx)
+   * @param immediately Si true, annule immédiatement (fermeture de compte). Si false, annule à l'échéance de période (résiliation utilisateur).
+   */
+  public async cancelSubscription(
+    subscriptionId: string,
+    immediately: boolean = false
+  ): Promise<Stripe.Subscription | null> {
+    const stripe = getStripeClient();
+    if (!stripe || !subscriptionId || subscriptionId.startsWith("sub_sim_")) {
+      return null;
+    }
+
+    try {
+      if (immediately) {
+        return await stripe.subscriptions.cancel(subscriptionId);
+      } else {
+        return await stripe.subscriptions.update(subscriptionId, {
+          cancel_at_period_end: true,
+        });
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.warn(`[StripeService] Erreur lors de l'annulation de l'abonnement ${subscriptionId}: ${msg}`);
+      return null;
+    }
+  }
 }
 
 export default StripeService.getInstance();

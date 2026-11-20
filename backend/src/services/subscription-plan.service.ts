@@ -14,6 +14,7 @@ export interface PlanLimits {
   canScheduleRaces: boolean;
   priceMonthly: number;
   priceYearly: number;
+  isActive?: boolean;
 }
 
 const DEFAULT_FALLBACK_LIMITS: Record<string, PlanLimits> = {
@@ -29,6 +30,7 @@ const DEFAULT_FALLBACK_LIMITS: Record<string, PlanLimits> = {
     canScheduleRaces: false,
     priceMonthly: 0,
     priceYearly: 0,
+    isActive: true,
   },
   intermediate: {
     code: "STANDARD",
@@ -42,6 +44,7 @@ const DEFAULT_FALLBACK_LIMITS: Record<string, PlanLimits> = {
     canScheduleRaces: true,
     priceMonthly: 5.99,
     priceYearly: 59.99,
+    isActive: true,
   },
   standard: {
     code: "STANDARD",
@@ -55,6 +58,7 @@ const DEFAULT_FALLBACK_LIMITS: Record<string, PlanLimits> = {
     canScheduleRaces: true,
     priceMonthly: 5.99,
     priceYearly: 59.99,
+    isActive: true,
   },
   club: {
     code: "STANDARD",
@@ -68,6 +72,7 @@ const DEFAULT_FALLBACK_LIMITS: Record<string, PlanLimits> = {
     canScheduleRaces: true,
     priceMonthly: 5.99,
     priceYearly: 59.99,
+    isActive: true,
   },
   premium: {
     code: "PREMIUM",
@@ -81,6 +86,7 @@ const DEFAULT_FALLBACK_LIMITS: Record<string, PlanLimits> = {
     canScheduleRaces: true,
     priceMonthly: 8.99,
     priceYearly: 89.99,
+    isActive: true,
   },
   pro: {
     code: "PREMIUM",
@@ -94,6 +100,7 @@ const DEFAULT_FALLBACK_LIMITS: Record<string, PlanLimits> = {
     canScheduleRaces: true,
     priceMonthly: 8.99,
     priceYearly: 89.99,
+    isActive: true,
   },
   elite_pro: {
     code: "PREMIUM",
@@ -107,6 +114,7 @@ const DEFAULT_FALLBACK_LIMITS: Record<string, PlanLimits> = {
     canScheduleRaces: true,
     priceMonthly: 8.99,
     priceYearly: 89.99,
+    isActive: true,
   },
 };
 
@@ -183,10 +191,28 @@ export class SubscriptionPlanService {
         canScheduleRaces: Boolean(dbPlan.canScheduleRaces ?? dbPlan.can_schedule_races ?? false),
         priceMonthly: Number(dbPlan.priceMonthly || dbPlan.price_monthly || 0),
         priceYearly: Number(dbPlan.priceYearly || dbPlan.price_yearly || 0),
+        isActive: dbPlan.isActive !== undefined ? Boolean(dbPlan.isActive) : (dbPlan.is_active !== undefined ? Boolean(dbPlan.is_active) : true),
       };
     }
 
     return DEFAULT_FALLBACK_LIMITS[tierCode] || DEFAULT_FALLBACK_LIMITS.free;
+  }
+
+  public async isTierActive(tierCode: string): Promise<boolean> {
+    const clean = (tierCode || "free").trim().toLowerCase();
+    if (clean === "free") return true;
+
+    await this.loadAllPlans();
+
+    let lookupCode = clean.toUpperCase();
+    if (lookupCode === "INTERMEDIATE" || lookupCode === "CLUB") lookupCode = "STANDARD";
+    if (lookupCode === "PRO" || lookupCode === "ELITE_PRO") lookupCode = "PREMIUM";
+
+    const dbPlan = this.cachedPlans.get(lookupCode);
+    if (dbPlan) {
+      return dbPlan.isActive !== undefined ? Boolean(dbPlan.isActive) : (dbPlan.is_active !== undefined ? Boolean(dbPlan.is_active) : true);
+    }
+    return true;
   }
 }
 

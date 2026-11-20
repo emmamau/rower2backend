@@ -760,6 +760,43 @@ export class AdminController {
       res.status(500).json({ success: false, message: `Erreur suppression offre: ${message}` });
     }
   }
+
+  public static async togglePlan(req: Request, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+      const { isActive } = req.body || {};
+
+      let plan = null;
+      if (/^\d+$/.test(id)) {
+        plan = await SubscriptionPlans.findByPk(Number(id));
+      }
+      if (!plan) {
+        plan = await SubscriptionPlans.findOne({
+          where: { code: id.trim().toUpperCase() }
+        });
+      }
+
+      if (!plan) {
+        res.status(404).json({ success: false, message: "Offre introuvable." });
+        return;
+      }
+
+      const currentActive = Boolean(plan.get("isActive") ?? plan.get("is_active") ?? true);
+      const newActive = isActive !== undefined ? Boolean(isActive) : !currentActive;
+
+      await plan.update({ isActive: newActive });
+      subscriptionPlanService.invalidateCache();
+
+      res.status(200).json({
+        success: true,
+        message: `Offre '${plan.get("name")}' ${newActive ? "activée" : "désactivée"} avec succès.`,
+        plan: typeof plan.toJSON === "function" ? plan.toJSON() : plan,
+      });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      res.status(500).json({ success: false, message: `Erreur bascule offre: ${message}` });
+    }
+  }
 }
 
 export default AdminController;

@@ -25,6 +25,7 @@ export default (app: Application): void => {
   router.get("/plans", AdminController.getPlans);
   router.post("/plans", AdminController.createPlan);
   router.put("/plans/:id", AdminController.updatePlan);
+  router.patch("/plans/:id/toggle", AdminController.togglePlan);
   router.delete("/plans/:id", AdminController.deletePlan);
 
   app.use("/api/admin", router);

@@ -442,6 +442,181 @@ export class EmailService {
     return res.success;
   }
 
+  /**
+   * Envoi d'un courriel de confirmation de souscription à un abonnement payant (Club ou Élite Pro)
+   */
+  public async sendSubscriptionConfirmationEmail(
+    to: string,
+    userName: string,
+    planName: string,
+    priceFormatted: string,
+    nextBillingDate?: string
+  ): Promise<boolean> {
+    const config = getEmailConfig();
+    const displayName = (userName || "Rameur").trim();
+    const subject = `🚣 Rower Race - Confirmation de votre abonnement ${planName}`;
+
+    const isPro = planName.toLowerCase().includes("élite") || planName.toLowerCase().includes("pro");
+    const perksHtml = isPro
+      ? `
+        <li style="margin-bottom: 8px;"><strong>Salons privés jusqu'à 10 coureurs</strong> et <strong>10 000 m (10 km)</strong>.</li>
+        <li style="margin-bottom: 8px;"><strong>Jusqu'à 5 bots virtuels</strong> avec régulation d'allure avancée.</li>
+        <li style="margin-bottom: 8px;"><strong>Historique et analyses statistiques illimités</strong> avec export de données.</li>
+        <li style="margin-bottom: 8px;"><strong>Planification de courses à l'heure</strong> et accès prioritaire aux nouveautés.</li>
+      `
+      : `
+        <li style="margin-bottom: 8px;"><strong>Salons privés jusqu'à 5 coureurs</strong> et <strong>5 000 m (5 km)</strong>.</li>
+        <li style="margin-bottom: 8px;"><strong>Jusqu'à 3 bots virtuels</strong> d'entraînement configurables.</li>
+        <li style="margin-bottom: 8px;"><strong>Historique et analyses statistiques illimités</strong> de vos courses.</li>
+        <li style="margin-bottom: 8px;"><strong>Départ instantané ou programmé à l'heure</strong>.</li>
+      `;
+
+    const billingInfo = nextBillingDate
+      ? `<p style="margin-top: 16px; font-size: 13px; color: #94a3b8;">Votre prochain renouvellement mensuel interviendra le <strong>${nextBillingDate}</strong>.</p>`
+      : `<p style="margin-top: 16px; font-size: 13px; color: #94a3b8;">Abonnement mensuel renouvelable automatiquement sans engagement de durée.</p>`;
+
+    const bodyContentHtml = `
+      <div style="display: inline-block; background-color: rgba(16, 185, 129, 0.15); border: 1px solid #10b981; color: #10b981; font-size: 12px; font-weight: bold; text-transform: uppercase; padding: 4px 12px; border-radius: 20px; margin-bottom: 16px; letter-spacing: 1px;">
+        ✓ Abonnement Activé
+      </div>
+      <h2 style="color: #ffffff; font-size: 22px; margin-top: 0; margin-bottom: 14px;">
+        Félicitations <span style="color: #00e5ff;">${displayName}</span> !
+      </h2>
+      <p style="margin-bottom: 16px; color: #cbd5e1; font-size: 15px;">
+        Nous vous confirmons l'activation immédiate de votre abonnement <strong>${planName}</strong> (${priceFormatted}).
+      </p>
+
+      <div style="background-color: #0d1527; border: 1px solid rgba(0, 229, 255, 0.3); border-radius: 8px; padding: 18px; margin: 20px 0;">
+        <div style="font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: #00e5ff; font-weight: bold; margin-bottom: 10px;">
+          Vos avantages débloqués :
+        </div>
+        <ul style="padding-left: 20px; margin: 0; color: #cbd5e1; font-size: 14px; line-height: 1.6;">
+          ${perksHtml}
+        </ul>
+      </div>
+
+      ${billingInfo}
+      <p style="margin-bottom: 12px; font-size: 13px; color: #94a3b8;">
+        Vous pouvez gérer vos coordonnées de paiement ou résilier à tout moment en un simple clic depuis votre espace « Mon Compte » ou sur votre portail client sécurisé Stripe.
+      </p>
+    `;
+
+    const html = renderCyberEmailHtml({
+      title: subject,
+      preheader: `Votre abonnement ${planName} est activé sur Rower Race !`,
+      bodyContentHtml,
+      ctaText: "Accéder à la plateforme",
+      ctaUrl: config.frontendUrl,
+      securityNote: "Votre paiement a été traité de manière sécurisée par Stripe Payments (certifié PCI-DSS Niveau 1). Aucun numéro de carte n'est stocké sur nos serveurs.",
+    });
+
+    const text = `Bonjour ${displayName},\n\nNous vous confirmons l'activation de votre abonnement ${planName} (${priceFormatted}) sur Rower Race !\n\nVos nouveaux avantages sont immédiatement accessibles sur la plateforme : ${config.frontendUrl}\n\nVous pouvez gérer votre abonnement à tout moment depuis votre profil.\n\nSportivement,\nL'équipe Rower Race`;
+
+    const res = await this.sendEmail({ to, subject, text, html });
+    return res.success;
+  }
+
+  /**
+   * Envoi d'un courriel de confirmation de clôture / résiliation d'un abonnement
+   */
+  public async sendSubscriptionCancellationEmail(
+    to: string,
+    userName: string,
+    planName: string,
+    effectiveDate?: string
+  ): Promise<boolean> {
+    const config = getEmailConfig();
+    const displayName = (userName || "Rameur").trim();
+    const subject = `Rower Race - Confirmation de résiliation de votre abonnement`;
+
+    const dateNote = effectiveDate
+      ? `<p style="margin-bottom: 16px;">Votre résiliation prendra effet le <strong>${effectiveDate}</strong>, à l'issue de votre période mensuelle déjà réglée.</p>`
+      : `<p style="margin-bottom: 16px;">Votre résiliation a bien été prise en compte et aucun prélèvement ultérieur ne sera effectué.</p>`;
+
+    const bodyContentHtml = `
+      <div style="display: inline-block; background-color: rgba(245, 158, 11, 0.15); border: 1px solid #f59e0b; color: #f59e0b; font-size: 12px; font-weight: bold; text-transform: uppercase; padding: 4px 12px; border-radius: 20px; margin-bottom: 16px; letter-spacing: 1px;">
+        ℹ️ Clôture d'Abonnement
+      </div>
+      <h2 style="color: #ffffff; font-size: 22px; margin-top: 0; margin-bottom: 14px;">
+        Bonjour <span style="color: #00e5ff;">${displayName}</span>,
+      </h2>
+      <p style="margin-bottom: 16px; color: #cbd5e1; font-size: 15px;">
+        Nous vous confirmons la résiliation de votre abonnement <strong>${planName}</strong> sur Rower Race.
+      </p>
+
+      ${dateNote}
+
+      <div style="background-color: #0d1527; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; padding: 18px; margin: 20px 0;">
+        <div style="font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: #94a3b8; font-weight: bold; margin-bottom: 8px;">
+          Ce qui change pour votre compte :
+        </div>
+        <ul style="padding-left: 20px; margin: 0; color: #cbd5e1; font-size: 14px; line-height: 1.6;">
+          <li style="margin-bottom: 6px;"><strong>Vous conservez votre compte :</strong> vos identifiants et votre appairage Garmin restent actifs.</li>
+          <li style="margin-bottom: 6px;"><strong>Passage automatique en Offre Gratuite :</strong> vous continuez d'accéder aux courses et à vos 10 derniers jours de statistiques.</li>
+          <li style="margin-bottom: 6px;"><strong>Aucun engagement :</strong> vous pouvez vous réabonner à tout moment pour retrouver vos quotas illimités.</li>
+        </ul>
+      </div>
+    `;
+
+    const html = renderCyberEmailHtml({
+      title: subject,
+      preheader: `Votre résiliation d'abonnement ${planName} a bien été enregistrée.`,
+      bodyContentHtml,
+      ctaText: "Accéder à mon compte",
+      ctaUrl: config.frontendUrl,
+      securityNote: "Votre abonnement récurrent auprès de Stripe a été clôturé. Aucun prélèvement futur ne sera effectué.",
+    });
+
+    const text = `Bonjour ${displayName},\n\nNous vous confirmons la résiliation de votre abonnement ${planName}.\nVotre compte reste actif sous la formule gratuite, et aucun prélèvement ultérieur ne sera effectué.\n\nAccéder à votre compte : ${config.frontendUrl}\n\nSportivement,\nL'équipe Rower Race`;
+
+    const res = await this.sendEmail({ to, subject, text, html });
+    return res.success;
+  }
+
+  /**
+   * Envoi d'un courriel de confirmation de fermeture et suppression définitive d'un compte (RGPD Art. 17)
+   */
+  public async sendAccountClosureEmail(to: string, userName: string): Promise<boolean> {
+    const config = getEmailConfig();
+    const displayName = (userName || "Rameur").trim();
+    const subject = `Rower Race - Confirmation de fermeture définitive de votre compte`;
+
+    const bodyContentHtml = `
+      <div style="display: inline-block; background-color: rgba(239, 68, 68, 0.15); border: 1px solid #ef4444; color: #ef4444; font-size: 12px; font-weight: bold; text-transform: uppercase; padding: 4px 12px; border-radius: 20px; margin-bottom: 16px; letter-spacing: 1px;">
+        ✕ Compte Fermé
+      </div>
+      <h2 style="color: #ffffff; font-size: 22px; margin-top: 0; margin-bottom: 14px;">
+        Au revoir <span style="color: #00e5ff;">${displayName}</span>,
+      </h2>
+      <p style="margin-bottom: 16px; color: #cbd5e1; font-size: 15px;">
+        Nous vous confirmons la suppression définitive de votre compte utilisateur <strong>Rower Race</strong> ainsi que la purge complète de l'ensemble de vos données associées, conformément à l'article 17 du RGPD (Droit à l'effacement).
+      </p>
+
+      <div style="background-color: #0d1527; border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 8px; padding: 18px; margin: 20px 0;">
+        <ul style="padding-left: 20px; margin: 0; color: #cbd5e1; font-size: 14px; line-height: 1.6;">
+          <li style="margin-bottom: 8px;"><strong>Abonnements clôturés :</strong> tout abonnement récurrent en cours a été immédiatement résilié et ne fera l'objet d'aucun prélèvement ultérieur.</li>
+          <li style="margin-bottom: 8px;"><strong>Purge des données :</strong> votre historique de courses, données télémétriques, appairages de montres Garmin et identifiants ont été effacés de manière irréversible.</li>
+        </ul>
+      </div>
+
+      <p style="margin-bottom: 12px; color: #94a3b8; font-size: 14px;">
+        Nous vous remercions sincèrement pour l'ensemble des courses et coups de rame partagés au sein de la communauté. Si vous souhaitez reprendre les régates à l'avenir, vous pourrez créer un nouveau compte à tout moment.
+      </p>
+    `;
+
+    const html = renderCyberEmailHtml({
+      title: subject,
+      preheader: `Votre compte Rower Race et vos données ont été définitivement supprimés.`,
+      bodyContentHtml,
+      securityNote: "Conformité RGPD Art. 17 respectée. Cette action est irréversible et vos données ont été purgées de nos serveurs.",
+    });
+
+    const text = `Bonjour ${displayName},\n\nNous vous confirmons la fermeture définitive de votre compte Rower Race et la suppression irréversible de l'ensemble de vos données sportives et personnelles (RGPD Art. 17).\nTous vos abonnements ont été immédiatement résiliés sans prélèvement ultérieur.\n\nMerci pour votre parcours sportif à nos côtés,\nL'équipe Rower Race`;
+
+    const res = await this.sendEmail({ to, subject, text, html });
+    return res.success;
+  }
+
   public getSentEmails(): EmailPayload[] {
     return [...this.sentEmailsLog];
   }
