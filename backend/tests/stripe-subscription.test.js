@@ -124,6 +124,33 @@ test('Stripe Checkout Session: input validation and fallback simulation', async 
     const checkoutData = await checkoutRes.json();
     assert.equal(checkoutData.success, true);
     assert.ok(checkoutData.checkoutUrl.includes('simulate-checkout'));
+
+    // 6. GET /simulate-checkout renders HTML simulation warning page in dev when unconfirmed
+    const simPageRes = await fetch(`${ctx.baseUrl}/api/v1/subscriptions/simulate-checkout?userId=${testUserId}&tier=intermediate`);
+    assert.equal(simPageRes.status, 200);
+    const simPageHtml = await simPageRes.text();
+    assert.ok(simPageHtml.includes('Simulation Paiement Stripe'));
+    assert.ok(simPageHtml.includes('STRIPE_SECRET_KEY'));
+
+    // 7. Production protection: blocks simulation with 503 and 403 when Stripe is not configured
+    const oldNodeEnv = process.env.NODE_ENV;
+    try {
+      process.env.NODE_ENV = 'production';
+      const prodCheckoutRes = await fetch(`${ctx.baseUrl}/api/v1/subscriptions/stripe/checkout`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: testUserId, tier: 'intermediate' }),
+      });
+      assert.equal(prodCheckoutRes.status, 503);
+      const prodData = await prodCheckoutRes.json();
+      assert.equal(prodData.success, false);
+      assert.ok(prodData.message.includes('Stripe'));
+
+      const prodSimRes = await fetch(`${ctx.baseUrl}/api/v1/subscriptions/simulate-checkout?userId=${testUserId}&tier=intermediate&confirm=1`);
+      assert.equal(prodSimRes.status, 403);
+    } finally {
+      process.env.NODE_ENV = oldNodeEnv;
+    }
   } finally {
     await ctx.close();
   }

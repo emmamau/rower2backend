@@ -8,6 +8,7 @@ export default (app: Application): void => {
   router.get("/status/:userId", subscriptionController.getUserSubscriptionStatus);
   router.post("/checkout", subscriptionController.createCheckoutSession);
   router.get("/simulate-checkout", subscriptionController.simulateCheckout);
+  router.post("/simulate-checkout", subscriptionController.simulateCheckout);
   router.post("/webhook", subscriptionController.handleLemonSqueezyWebhook);
 
   // Routes officielles Stripe

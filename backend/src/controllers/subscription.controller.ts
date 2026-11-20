@@ -216,203 +216,115 @@ export const getUserSubscriptionStatus = async (req: Request, res: Response): Pr
 
 /**
  * POST /api/v1/subscriptions/checkout
- * Initialise une session de paiement Lemon Squeezy pour une mise à niveau d'abonnement
+ * Initialise une session de paiement officielle Stripe pour une mise à niveau d'abonnement
  */
 export const createCheckoutSession = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { userId, tier, returnUrl, cancelUrl } = req.body || {};
-    const cleanUserId = String(userId || "").trim();
-    let cleanTier = String(tier || "").toLowerCase().trim();
-    if (cleanTier === "pro" || cleanTier === "elite_pro") cleanTier = "premium";
-    if (cleanTier === "club" || cleanTier === "standard") cleanTier = "intermediate";
+  return createStripeCheckoutSession(req, res);
+};
 
-    if (!cleanUserId) {
-      res.status(400).json({ success: false, message: "L'identifiant utilisateur est obligatoire." });
+/**
+ * GET /api/v1/subscriptions/simulate-checkout
+ * POST /api/v1/subscriptions/simulate-checkout
+ * Permet de tester le flux complet de souscription sans carte bancaire réelle en dev
+ */
+export const simulateCheckout = async (req: Request, res: Response): Promise<void> => {
+  try {
+    if (process.env.NODE_ENV === "production") {
+      res.status(403).send("La simulation de paiement est strictement désactivée en production.");
       return;
     }
 
-    if (!["intermediate", "premium", "free"].includes(cleanTier)) {
-      res.status(400).json({ success: false, message: "Offre invalide (free, intermediate ou premium)." });
+    const isPost = req.method === "POST";
+    const userId = isPost ? req.body?.userId : req.query?.userId;
+    const tier = isPost ? req.body?.tier : req.query?.tier;
+    const redirect = isPost ? req.body?.redirect : req.query?.redirect;
+    const confirm = req.query?.confirm === "true" || req.query?.confirm === "1" || req.query?.auto === "true";
+
+    const cleanUserId = String(userId || "").trim();
+    const cleanTier = String(tier || "intermediate").trim();
+
+    if (!cleanUserId) {
+      res.status(400).send("Identifiant utilisateur manquant.");
       return;
     }
 
     const user = await userStore.findUser(cleanUserId);
     if (!user) {
-      res.status(404).json({ success: false, message: "Utilisateur non trouvé." });
+      res.status(404).send("Utilisateur non trouvé.");
       return;
     }
 
-    // Si sélection de l'offre gratuite
-    if (cleanTier === "free") {
-      await userStore.updateUser(user.id, {
-        subscriptionTier: "free",
-        subscriptionStatus: "active",
-        isSubscriber: false,
-      });
-      res.status(200).json({
-        success: true,
-        message: "Passage au plan gratuit effectué.",
-        tier: "free",
-      });
+    // En environnement de test / dev : si l'utilisateur accède à la simulation sans confirmation préalable,
+    // on affiche une page explicative indiquant qu'aucune carte bancaire n'a été demandée car les clés Stripe sont absentes.
+    if (!isPost && !confirm) {
+      const tierLabel = cleanTier === "premium" ? "Élite Pro (8,99 €/m)" : "Offre Club (5,99 €/m)";
+      const cancelUrl = redirect ? String(redirect).replace("subscription=success", "subscription=canceled") : "/";
+      const html = `<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Simulation Paiement Stripe - Rower Race</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0b1329; color: #f8fafc; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 1rem; box-sizing: border-box; }
+    .card { background: #16203c; border: 1px solid #2d3e66; border-radius: 14px; padding: 2rem; max-width: 520px; width: 100%; box-shadow: 0 15px 35px rgba(0,0,0,0.6); text-align: center; }
+    .badge { display: inline-block; background: #f59e0b; color: #0b1329; font-weight: 800; font-size: 0.75rem; padding: 0.35rem 0.8rem; border-radius: 9999px; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 1.25rem; }
+    h2 { margin: 0 0 0.5rem 0; color: #00e5ff; font-size: 1.6rem; }
+    p { color: #94a3b8; font-size: 0.95rem; line-height: 1.5; margin: 0.75rem 0; }
+    .warning-box { background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 8px; padding: 0.85rem; margin: 1.25rem 0; font-size: 0.88rem; color: #fbbf24; text-align: left; }
+    .info-box { background: #0d162d; border-radius: 8px; padding: 1rem; margin: 1.25rem 0; text-align: left; font-size: 0.9rem; border: 1px solid #243356; }
+    .info-row { display: flex; justify-content: space-between; margin-bottom: 0.5rem; }
+    .info-row:last-child { margin-bottom: 0; }
+    .btn { display: block; width: 100%; padding: 0.85rem 1rem; border-radius: 8px; font-weight: 700; font-size: 1rem; cursor: pointer; text-decoration: none; border: none; box-sizing: border-box; transition: all 0.2s; }
+    .btn-confirm { background: #00e5ff; color: #0b1329; margin-bottom: 0.75rem; }
+    .btn-confirm:hover { background: #38bdf8; transform: translateY(-1px); }
+    .btn-cancel { background: transparent; color: #94a3b8; border: 1px solid #334155; }
+    .btn-cancel:hover { background: #1e293b; color: #fff; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="badge">Environnement Développeur / Test</div>
+    <h2>Simulation Paiement Stripe</h2>
+    <p>Aucune clé <code>STRIPE_SECRET_KEY</code> n'est configurée sur ce serveur.</p>
+    <div class="warning-box">
+      ℹ️ <strong>Pourquoi aucun numéro de carte n'a été demandé ?</strong><br>
+      En production ou dès que votre clé Stripe secrète est configurée dans le fichier <code>.env</code>, vous êtes automatiquement redirigé vers <strong>Stripe Checkout</strong> pour saisir votre carte bancaire en toute sécurité.
+    </div>
+    <div class="info-box">
+      <div class="info-row"><span style="color:#64748b;">Offre sélectionnée :</span> <strong>${tierLabel}</strong></div>
+      <div class="info-row"><span style="color:#64748b;">Joueur :</span> <strong>${user.name || user.login}</strong></div>
+    </div>
+    <form method="POST" action="/api/v1/subscriptions/simulate-checkout">
+      <input type="hidden" name="userId" value="${cleanUserId}">
+      <input type="hidden" name="tier" value="${cleanTier}">
+      <input type="hidden" name="redirect" value="${redirect || ''}">
+      <button type="submit" class="btn btn-confirm">Valider la souscription simulée</button>
+    </form>
+    <a href="${cancelUrl}" class="btn btn-cancel">Annuler</a>
+  </div>
+</body>
+</html>`;
+      res.setHeader("Content-Type", "text/html; charset=utf-8");
+      res.send(html);
       return;
     }
 
-    const isTierActive = await subscriptionPlanService.isTierActive(cleanTier);
-    if (!isTierActive) {
-      res.status(403).json({
-        success: false,
-        message: "Cette offre d'abonnement est actuellement désactivée par l'administrateur.",
-      });
-      return;
-    }
-
-    const frontendBase = getFrontendBaseUrl(req);
-    const successRedirectUrl =
-      returnUrl || `${frontendBase}/?subscription=success&tier=${cleanTier}&session_id={CHECKOUT_SESSION_ID}`;
-    const cancelRedirectUrl =
-      cancelUrl || `${frontendBase}/?subscription=canceled`;
-
-    // Si Stripe est configuré (priorité officielle Stripe)
-    if (stripeService.isConfigured()) {
-      try {
-        const session = await stripeService.createCheckoutSession({
-          userId: user.id,
-          tier: cleanTier as "intermediate" | "premium",
-          customerEmail: user.email,
-          customerName: user.name || user.login,
-          successUrl: successRedirectUrl,
-          cancelUrl: cancelRedirectUrl,
-        });
-
-        res.status(200).json({
-          success: true,
-          checkoutUrl: session.url,
-          sessionId: session.sessionId,
-          mode: "live",
-        });
-        return;
-      } catch (stripeErr) {
-        console.warn("Stripe Checkout Session fallback:", stripeErr);
-      }
-    }
-
-    const apiKey = process.env.LEMON_SQUEEZY_API_KEY;
-    const storeId = process.env.LEMON_SQUEEZY_STORE_ID;
-    const variantId =
-      cleanTier === "premium"
-        ? process.env.LEMON_SQUEEZY_VARIANT_PREMIUM
-        : process.env.LEMON_SQUEEZY_VARIANT_INTERMEDIATE;
-
-    // Si les clés d'API Lemon Squeezy sont configurées en production
-    if (apiKey && storeId && variantId) {
-      try {
-        const response = await fetch("https://api.lemonsqueezy.com/v1/checkouts", {
-          method: "POST",
-          headers: {
-            Accept: "application/vnd.api+json",
-            "Content-Type": "application/vnd.api+json",
-            Authorization: `Bearer ${apiKey}`,
-          },
-          body: JSON.stringify({
-            data: {
-              type: "checkouts",
-              attributes: {
-                checkout_data: {
-                  email: user.email || undefined,
-                  name: user.name || user.login,
-                  custom: {
-                    user_id: user.id,
-                    tier: cleanTier,
-                  },
-                },
-                product_options: {
-                  redirect_url: successRedirectUrl,
-                },
-              },
-              relationships: {
-                store: {
-                  data: {
-                    type: "stores",
-                    id: String(storeId),
-                  },
-                },
-                variant: {
-                  data: {
-                    type: "variants",
-                    id: String(variantId),
-                  },
-                },
-              },
-            },
-          }),
-        });
-
-        const data: any = await response.json();
-        const checkoutUrl = data?.data?.attributes?.url;
-
-        if (checkoutUrl) {
-          res.status(200).json({
-            success: true,
-            checkoutUrl,
-            mode: "live",
-          });
-          return;
-        }
-      } catch (lemonErr) {
-        console.warn("Lemon Squeezy API call fallback:", lemonErr);
-      }
-    }
-
-    // Mode simulation / fallback direct pour le développement et la démo
-    const simulatedSuccessUrl = successRedirectUrl.replace(
-      "{CHECKOUT_SESSION_ID}",
-      `sim_session_${Date.now()}`
-    );
-    const mockCheckoutUrl = `${req.protocol}://${req.get(
-      "host"
-    )}/api/v1/subscriptions/simulate-checkout?userId=${encodeURIComponent(
-      user.id
-    )}&tier=${cleanTier}&redirect=${encodeURIComponent(simulatedSuccessUrl)}`;
-
-    res.status(200).json({
-      success: true,
-      checkoutUrl: mockCheckoutUrl,
-      mode: "simulation",
-      message: "Session de paiement sécurisée générée.",
+    const updated = await userStore.updateUser(cleanUserId, {
+      subscriptionTier: cleanTier,
+      subscriptionStatus: "active",
+      isSubscriber: true,
+      lemonSubscriptionId: `sub_sim_${Date.now()}`,
     });
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err);
-    res.status(500).json({ success: false, message: "Erreur checkout: " + message });
-  }
-};
 
-/**
- * GET /api/v1/subscriptions/simulate-checkout
- * Permet de tester le flux complet de souscription sans carte bancaire réelle en dev
- */
-export const simulateCheckout = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { userId, tier, redirect } = req.query;
-    const cleanUserId = String(userId || "");
-    const cleanTier = String(tier || "intermediate");
-
-    if (cleanUserId) {
-      const updated = await userStore.updateUser(cleanUserId, {
-        subscriptionTier: cleanTier,
-        subscriptionStatus: "active",
-        isSubscriber: true,
-        lemonSubscriptionId: `sub_sim_${Date.now()}`,
-      });
-
-      if (updated && updated.email && cleanTier !== "free") {
-        const planConfig = SUBSCRIPTION_TIERS[cleanTier] || SUBSCRIPTION_TIERS.intermediate;
-        await emailService.sendSubscriptionConfirmationEmail(
-          updated.email,
-          updated.name || updated.login,
-          planConfig.name,
-          planConfig.priceFormatted
-        );
-      }
+    if (updated && updated.email && cleanTier !== "free") {
+      const planConfig = SUBSCRIPTION_TIERS[cleanTier] || SUBSCRIPTION_TIERS.intermediate;
+      await emailService.sendSubscriptionConfirmationEmail(
+        updated.email,
+        updated.name || updated.login,
+        planConfig.name,
+        planConfig.priceFormatted
+      );
     }
 
     if (redirect) {
@@ -539,30 +451,51 @@ export const createStripeCheckoutSession = async (req: Request, res: Response): 
     const defaultCancelUrl = cancelUrl || `${frontendBase}/?subscription=canceled`;
 
     if (stripeService.isConfigured()) {
-      const session = await stripeService.createCheckoutSession({
-        userId: user.id,
-        tier: cleanTier as "intermediate" | "premium",
-        customerEmail: user.email,
-        customerName: user.name || user.login,
-        successUrl: defaultSuccessUrl,
-        cancelUrl: defaultCancelUrl,
-      });
+      try {
+        const session = await stripeService.createCheckoutSession({
+          userId: user.id,
+          tier: cleanTier as "intermediate" | "premium",
+          customerEmail: user.email,
+          customerName: user.name || user.login,
+          successUrl: defaultSuccessUrl,
+          cancelUrl: defaultCancelUrl,
+        });
 
-      res.status(200).json({
-        success: true,
-        checkoutUrl: session.url,
-        sessionId: session.sessionId,
-        mode: "live",
+        res.status(200).json({
+          success: true,
+          checkoutUrl: session.url,
+          sessionId: session.sessionId,
+          mode: "live",
+        });
+        return;
+      } catch (stripeErr: unknown) {
+        const message = stripeErr instanceof Error ? stripeErr.message : String(stripeErr);
+        console.error("Erreur création session Stripe Checkout:", message);
+        res.status(500).json({
+          success: false,
+          message: "Erreur lors de l'accès au paiement sécurisé Stripe : " + message,
+        });
+        return;
+      }
+    }
+
+    // Protection stricte en production : aucun paiement simulé gratuit
+    const isProduction = process.env.NODE_ENV === "production";
+    if (isProduction) {
+      res.status(503).json({
+        success: false,
+        message: "La passerelle de paiement sécurisée Stripe n'est pas encore configurée. Veuillez contacter l'administrateur.",
       });
       return;
     }
 
-    // Mode simulation si clés Stripe non encore renseignées
+    // Mode simulation UNIQUEMENT en développement / tests locaux (si clés Stripe non encore renseignées)
+    const simulatedSessionId = `sim_session_${Date.now()}`;
     const mockCheckoutUrl = `${req.protocol}://${req.get(
       "host"
     )}/api/v1/subscriptions/simulate-checkout?userId=${encodeURIComponent(
       user.id
-    )}&tier=${cleanTier}&redirect=${encodeURIComponent(defaultSuccessUrl.replace("{CHECKOUT_SESSION_ID}", "sim_stripe_123"))}`;
+    )}&tier=${cleanTier}&redirect=${encodeURIComponent(defaultSuccessUrl.replace("{CHECKOUT_SESSION_ID}", simulatedSessionId))}`;
 
     res.status(200).json({
       success: true,
