@@ -506,6 +506,15 @@ export class RowerService {
     );
   }
 
+  // Mise à jour de la langue préférée de l'utilisateur
+  updateUserLanguage(language: string): Observable<{ success: boolean; message: string; language?: string }> {
+    return this.http.put<{ success: boolean; message: string; language?: string }>(
+      `${this.apiUrl}/api/user/language`,
+      { language },
+      { headers: this.getAuthHeaders() }
+    );
+  }
+
   // Système de Ligues Hebdomadaires & Mode Repos
   getLeagueStandings(tier: LeagueTier = 'BRONZE'): Observable<LeagueStandingsResponse> {
     return this.http.get<LeagueStandingsResponse>(`${this.apiUrl}/api/leagues/standings`, {

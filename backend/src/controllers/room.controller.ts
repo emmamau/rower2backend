@@ -728,42 +728,65 @@ export class RoomController {
         }
       }
 
-      // Préparation du rendez-vous d'agenda iCalendar si planifié
-      let icsContent: string | undefined;
-      let googleCalUrl: string | undefined;
-      let outlookCalUrl: string | undefined;
-
-      if (includeCalendarInvite && race.startMode === "scheduled" && race.scheduledStartTime) {
-        const isFr = organizerLang.startsWith("fr");
-        const calTitle = isFr
-          ? `Régate Rower Race : ${race.title}`
-          : `Rower Race Regatta: ${race.title}`;
-        const calDesc = isFr
-          ? `Régate connectée Rower Race (${race.targetDistance}m).\nOrganisée par ${race.hostUserName || hostUser?.name || "Rower Race"}.\nLien direct : ${joinUrl}\nCode salon : ${race.code || identifier}\nCode Garmin : ${race.pinCode}`
-          : `Connected Rower Race Regatta (${race.targetDistance}m).\nHosted by ${race.hostUserName || hostUser?.name || "Rower Race"}.\nDirect link: ${joinUrl}\nWeb room code: ${race.code || identifier}\nGarmin watch code: ${race.pinCode}`;
-
-        const calParams: CalendarEventParams = {
-          eventId: race.id,
-          title: calTitle,
-          description: calDesc,
-          url: joinUrl,
-          startTime: race.scheduledStartTime,
-          durationMinutes: 45,
-          organizerName: race.hostUserName || hostUser?.name || "Rower Race",
-          organizerEmail: hostUser?.email || "contact@rowerrace.com"
-        };
-
-        icsContent = generateIcsCalendar(calParams);
-        googleCalUrl = generateGoogleCalendarUrl(calParams);
-        outlookCalUrl = generateOutlookCalendarUrl(calParams);
-      }
-
-      // Envoi asynchrone des e-mails
+      // Envoi asynchrone des e-mails avec détection de la langue de chaque joueur ou de l'organisateur
       const organizerDisplayName = race.hostUserName || hostUser?.name || hostUserId || (organizerLang.startsWith("fr") ? "L'organisateur" : "The Organizer");
       const sentRecipients: string[] = [];
 
+      // Pré-génération des invitations calendrier pour FR et EN si planifié
+      let frCalIcs: string | undefined;
+      let frGoogleCalUrl: string | undefined;
+      let frOutlookCalUrl: string | undefined;
+      let enCalIcs: string | undefined;
+      let enGoogleCalUrl: string | undefined;
+      let enOutlookCalUrl: string | undefined;
+
+      if (includeCalendarInvite && race.startMode === "scheduled" && race.scheduledStartTime) {
+        const calParamsFr: CalendarEventParams = {
+          eventId: race.id,
+          title: `Régate Rower Race : ${race.title}`,
+          description: `Régate connectée Rower Race (${race.targetDistance}m).\nOrganisée par ${organizerDisplayName}.\nLien direct : ${joinUrl}\nCode salon : ${codeOrIdent}\nCode Garmin : ${race.pinCode}`,
+          url: joinUrl,
+          startTime: race.scheduledStartTime,
+          durationMinutes: 45,
+          organizerName: organizerDisplayName,
+          organizerEmail: hostUser?.email || "contact@rowerrace.com",
+        };
+        frCalIcs = generateIcsCalendar(calParamsFr);
+        frGoogleCalUrl = generateGoogleCalendarUrl(calParamsFr);
+        frOutlookCalUrl = generateOutlookCalendarUrl(calParamsFr);
+
+        const calParamsEn: CalendarEventParams = {
+          eventId: race.id,
+          title: `Rower Race Regatta: ${race.title}`,
+          description: `Connected Rower Race Regatta (${race.targetDistance}m).\nHosted by ${organizerDisplayName}.\nDirect link: ${joinUrl}\nWeb room code: ${codeOrIdent}\nGarmin watch code: ${race.pinCode}`,
+          url: joinUrl,
+          startTime: race.scheduledStartTime,
+          durationMinutes: 45,
+          organizerName: organizerDisplayName,
+          organizerEmail: hostUser?.email || "contact@rowerrace.com",
+        };
+        enCalIcs = generateIcsCalendar(calParamsEn);
+        enGoogleCalUrl = generateGoogleCalendarUrl(calParamsEn);
+        enOutlookCalUrl = generateOutlookCalendarUrl(calParamsEn);
+      }
+
       for (const email of cleanEmails) {
         try {
+          // Détection individuelle : joueur enregistré avec langue préférée ou langue de l'organisateur
+          let recipientLang = organizerLang;
+          const targetPlayer = await userStore.findUserByEmail(email);
+          if (targetPlayer) {
+            const playerLang = (targetPlayer.language || (targetPlayer as any).preferredLanguage || "").toString().toLowerCase().trim();
+            if (playerLang) {
+              recipientLang = playerLang.startsWith("fr") ? "fr" : "en";
+            }
+          }
+
+          const isRecipientFr = recipientLang.startsWith("fr");
+          const icsContent = isRecipientFr ? frCalIcs : enCalIcs;
+          const googleCalUrl = isRecipientFr ? frGoogleCalUrl : enGoogleCalUrl;
+          const outlookCalUrl = isRecipientFr ? frOutlookCalUrl : enOutlookCalUrl;
+
           await emailService.sendRoomInvitationEmail({
             to: email,
             organizerName: organizerDisplayName,
@@ -780,7 +803,7 @@ export class RoomController {
             icsCalendarContent: icsContent,
             googleCalendarUrl: googleCalUrl,
             outlookCalendarUrl: outlookCalUrl,
-            lang: organizerLang
+            lang: recipientLang,
           });
           sentRecipients.push(email);
         } catch (err) {
@@ -793,7 +816,7 @@ export class RoomController {
         count: sentRecipients.length,
         recipients: sentRecipients,
         maxAllowed: maxAllowedInvitations,
-        hasCalendarInvite: Boolean(icsContent)
+        hasCalendarInvite: Boolean(frCalIcs || enCalIcs)
       });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);

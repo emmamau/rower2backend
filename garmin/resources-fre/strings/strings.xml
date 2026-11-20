@@ -1,0 +1,109 @@
+<resources>
+    <string id="AppName">Rower Race</string>
+    <string id="UserLoginTitle">Login / Pseudo</string>
+    <string id="UserLoginPrompt">Pseudo ou login invite</string>
+    <string id="StatusDisconnected">BLE : Deconnecte</string>
+    <string id="StatusScanning">BLE : Recherche...</string>
+    <string id="StatusConnected">BLE : Connecte</string>
+
+    <!-- FIT Contributions (Session Summary) -->
+    <string id="FitRaceRankLabel">Rang Course</string>
+    <string id="FitRaceRankUnits">pos</string>
+    <string id="FitRacePointsLabel">Points Ligue</string>
+    <string id="FitRacePointsUnits">pts</string>
+    <string id="FitOfficialDistLabel">Distance Course</string>
+    <string id="FitOfficialDistUnits">m</string>
+    <string id="FitAvgPaceLabel">Allure Moy /500m</string>
+    <string id="FitAvgPaceUnits"></string>
+    <string id="FitAvgPowerLabel">Puissance Moy</string>
+    <string id="FitAvgPowerUnits">W</string>
+    <string id="FitMaxPowerLabel">Puissance Max</string>
+    <string id="FitMaxPowerUnits">W</string>
+    <string id="FitAvgCadenceLabel">Cadence Moy</string>
+    <string id="FitAvgCadenceUnits">spm</string>
+    <string id="FitMaxCadenceLabel">Cadence Max</string>
+    <string id="FitMaxCadenceUnits">spm</string>
+
+    <!-- FIT Contributions (Record Charts - IDs 8-15) -->
+    <string id="FitRecPowerLabel">Puissance</string>
+    <string id="FitRecPowerUnits">W</string>
+    <string id="FitRecCadenceLabel">Cadence</string>
+    <string id="FitRecCadenceUnits">spm</string>
+    <string id="FitRecPaceLabel">Allure /500m</string>
+    <string id="FitRecPaceUnits">s</string>
+    <string id="FitRecDistLabel">Distance</string>
+    <string id="FitRecDistUnits">m</string>
+    <string id="FitRecStrokesLabel">Coups</string>
+    <string id="FitRecStrokesUnits">str</string>
+    <string id="FitRecForceLabel">Force Max</string>
+    <string id="FitRecForceUnits">N</string>
+    <string id="FitRecWorkLabel">Travail Coup</string>
+    <string id="FitRecWorkUnits">J</string>
+    <string id="FitRecHandleLabel">Longueur Tirage</string>
+    <string id="FitRecHandleUnits">cm</string>
+
+    <!-- Data Screens Settings -->
+    <string id="P1TLTitle">Page 1 - Haut Gauche</string>
+    <string id="P1TLPrompt">Donnee affichee en haut a gauche sur la page 1</string>
+    <string id="P1TRTitle">Page 1 - Haut Droite</string>
+    <string id="P1TRPrompt">Donnee affichee en haut a droite sur la page 1</string>
+    <string id="P1BLTitle">Page 1 - Bas Gauche</string>
+    <string id="P1BLPrompt">Donnee affichee en bas a gauche sur la page 1</string>
+    <string id="P1BRTitle">Page 1 - Bas Droite</string>
+    <string id="P1BRPrompt">Donnee affichee en bas a droite sur la page 1</string>
+    <string id="P1FootTitle">Page 1 - Pied de page</string>
+    <string id="P1FootPrompt">Bandeau inferieur sur la page 1</string>
+
+    <string id="P2TLTitle">Page 2 - Haut Gauche</string>
+    <string id="P2TLPrompt">Donnee affichee en haut a gauche sur la page 2</string>
+    <string id="P2TRTitle">Page 2 - Haut Droite</string>
+    <string id="P2TRPrompt">Donnee affichee en haut a droite sur la page 2</string>
+    <string id="P2BLTitle">Page 2 - Bas Gauche</string>
+    <string id="P2BLPrompt">Donnee affichee en bas a gauche sur la page 2</string>
+    <string id="P2BRTitle">Page 2 - Bas Droite</string>
+    <string id="P2BRPrompt">Donnee affichee en bas a droite sur la page 2</string>
+    <string id="P2FootTitle">Page 2 - Pied de page</string>
+    <string id="P2FootPrompt">Bandeau inferieur sur la page 2</string>
+
+    <!-- Field Options -->
+    <string id="OptPaceInstant">Allure instantanee (/500m)</string>
+    <string id="OptPaceAvg">Allure moyenne (/500m)</string>
+    <string id="OptSpeedInstant">Vitesse instantanee (km/h)</string>
+    <string id="OptSpeedAvg">Vitesse moyenne (km/h)</string>
+    <string id="OptDPS">Distance par coup (m/coup)</string>
+    <string id="OptPowerInstant">Puissance instantanee (W)</string>
+    <string id="OptPowerAvg">Puissance moyenne (W)</string>
+    <string id="OptPowerMax">Puissance maximale (W)</string>
+    <string id="OptCalories">Calories totales (kcal)</string>
+    <string id="OptCalPerHour">Depense horaire (kcal/h)</string>
+    <string id="OptSPMInstant">Cadence instantanee (SPM)</string>
+    <string id="OptSPMAvg">Cadence moyenne (SPM)</string>
+    <string id="OptStrokeCount">Nombre total de coups</string>
+    <string id="OptPeakForce">Force maximale (N)</string>
+    <string id="OptAvgForce">Force moyenne (N)</string>
+    <string id="OptStrokeWork">Travail par coup (J)</string>
+    <string id="OptDistance">Distance parcourue (m)</string>
+    <string id="OptRemDistance">Distance restante (m)</string>
+    <string id="OptElapsedTime">Temps ecoule (mm:ss)</string>
+    <string id="OptRemTimeEst">Temps restant estime (mm:ss)</string>
+    <string id="OptProjectedTime">Temps final projete (mm:ss)</string>
+    <string id="OptTimeOfDay">Heure de la montre (hh:mm)</string>
+    <string id="OptHRInstant">Frequence cardiaque (bpm)</string>
+    <string id="OptHRAvg">FC moyenne (bpm)</string>
+    <string id="OptHRMax">FC maximale (bpm)</string>
+    <string id="OptHRZone">Zone cardio (Z1-Z5)</string>
+    <string id="OptRank">Classement (Course) / Reste (Solo)</string>
+    <string id="OptGapPrev">Ecart au precedent (m)</string>
+    <string id="OptGapNext">Ecart au suivant (m)</string>
+    <string id="OptGapLeader">Ecart au leader (m)</string>
+    <string id="OptProgressPct">Progression (%)</string>
+
+    <!-- Footer Options -->
+    <string id="OptFootDefault">Par defaut</string>
+    <string id="OptFootSPMHR">Cadence &amp; Cardio</string>
+    <string id="OptFootKayakStrokes">Couloir &amp; Coups</string>
+    <string id="OptFootTimeSpeed">Chrono &amp; Vitesse</string>
+    <string id="OptFootCaloriesWork">Calories &amp; Travail</string>
+    <string id="OptFootSplitProjection">Reste &amp; Arrivee estimee</string>
+    <string id="OptFootPowerHR">Puissance &amp; Cardio</string>
+</resources>

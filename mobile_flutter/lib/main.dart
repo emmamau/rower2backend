@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/theme/app_theme.dart';
+import 'core/localization/i18n_service.dart';
 import 'features/home/screens/home_screen.dart';
 
 void main() async {
@@ -33,14 +34,17 @@ void main() async {
   );
 }
 
-class RowerRaceApp extends StatelessWidget {
+class RowerRaceApp extends ConsumerWidget {
   const RowerRaceApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final lang = ref.watch(i18nProvider);
+
     return MaterialApp(
       title: 'RowerRace Mobile',
       debugShowCheckedModeBanner: false,
+      locale: Locale(lang),
       theme: AppTheme.darkTheme,
       home: const HomeScreen(),
     );

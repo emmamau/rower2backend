@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/localization/i18n_service.dart';
 import '../models/race_session_state.dart';
 import '../models/live_racer_metric.dart';
 
 /// Modal de fin de course avec podium, statistiques sécurisées (aucun NaN)
 /// et gain de points de ligue (+XX pts).
-class PodiumFinishModal extends StatelessWidget {
+class PodiumFinishModal extends ConsumerWidget {
   final RaceSessionState sessionState;
   final VoidCallback onQuit;
 
@@ -29,7 +31,8 @@ class PodiumFinishModal extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isFr = ref.watch(i18nProvider) == 'fr';
     final racers = List<LiveRacerMetric>.from(sessionState.leaderboard);
     // Trier par rang croissant ou distance décroissante
     racers.sort((a, b) {
@@ -88,7 +91,9 @@ class PodiumFinishModal extends StatelessWidget {
                 ),
                 const SizedBox(width: 10),
                 Text(
-                  isDnf ? 'COURSE ABANDONNÉE (DNF)' : 'COURSE TERMINÉE',
+                  isDnf
+                      ? (isFr ? 'COURSE ABANDONNÉE (DNF)' : 'RACE ABANDONED (DNF)')
+                      : (isFr ? 'COURSE TERMINÉE' : 'RACE FINISHED'),
                   style: TextStyle(
                     color: isDnf ? Colors.redAccent : Colors.white,
                     fontSize: 20,
@@ -226,9 +231,9 @@ class PodiumFinishModal extends StatelessWidget {
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                child: const Text(
-                  'RETOURNER À L\'ACCUEIL',
-                  style: TextStyle(
+                child: Text(
+                  isFr ? 'RETOURNER À L\'ACCUEIL' : 'RETURN TO HOME',
+                  style: const TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w900,
                     letterSpacing: 1.0,

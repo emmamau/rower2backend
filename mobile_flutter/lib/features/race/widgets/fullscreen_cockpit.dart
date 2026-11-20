@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/localization/i18n_service.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../ble/models/rowing_metrics.dart';
 import '../models/race_session_state.dart';
 
-class FullscreenCockpitView extends StatelessWidget {
+class FullscreenCockpitView extends ConsumerWidget {
   final RowingMetrics metrics;
   final RaceSessionState raceState;
   final VoidCallback onToggleRegatta;
@@ -16,7 +18,9 @@ class FullscreenCockpitView extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isFr = ref.watch(i18nProvider) == 'fr';
+
     return Container(
       color: AppColors.background,
       padding: const EdgeInsets.all(16),
@@ -37,7 +41,9 @@ class FullscreenCockpitView extends StatelessWidget {
                         border: Border.all(color: AppColors.cyan.withOpacity(0.5)),
                       ),
                       child: Text(
-                        raceState.isPrivateSalon ? 'SALON PRIVÉ' : 'RÉGATE OFFICIELLE',
+                        raceState.isPrivateSalon
+                            ? (isFr ? 'SALON PRIVÉ' : 'PRIVATE ROOM')
+                            : (isFr ? 'RÉGATE OFFICIELLE' : 'OFFICIAL REGATTA'),
                         style: const TextStyle(
                           color: AppColors.cyan,
                           fontSize: 11,
@@ -48,7 +54,7 @@ class FullscreenCockpitView extends StatelessWidget {
                     ),
                     const SizedBox(width: 10),
                     Text(
-                      'Ligne ${raceState.myAssignedLane}',
+                      '${isFr ? "Ligne" : "Lane"} ${raceState.myAssignedLane}',
                       style: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.textMuted),
                     ),
                   ],
@@ -60,7 +66,7 @@ class FullscreenCockpitView extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   ),
                   icon: const Icon(Icons.waves, size: 18),
-                  label: const Text('Plan d’eau 2D', style: TextStyle(fontSize: 12)),
+                  label: Text(isFr ? 'Plan d’eau 2D' : '2D Course', style: const TextStyle(fontSize: 12)),
                   onPressed: onToggleRegatta,
                 ),
               ],
@@ -82,55 +88,59 @@ class FullscreenCockpitView extends StatelessWidget {
                     children: [
                       // 1. Puissance Watts
                       _buildBigMeter(
-                        label: 'PUISSANCE INSTANTANÉE',
+                        label: isFr ? 'PUISSANCE INSTANTANÉE' : 'INSTANT POWER',
                         value: '${metrics.instantPower}',
                         unit: 'WATTS',
-                        sub: 'Moyenne : ${metrics.avgPower} W',
+                        sub: '${isFr ? "Moyenne" : "Average"} : ${metrics.avgPower} W',
                         color: AppColors.cyan,
                       ),
 
                       // 2. Allure /500m
                       _buildBigMeter(
-                        label: 'ALLURE MOYENNE / 500M',
+                        label: isFr ? 'ALLURE MOYENNE / 500M' : 'AVG PACE / 500M',
                         value: metrics.formattedPace,
                         unit: '/500M',
-                        sub: 'Moyenne : ${metrics.formattedAvgPace}',
+                        sub: '${isFr ? "Moyenne" : "Average"} : ${metrics.formattedAvgPace}',
                         color: Colors.white,
                       ),
 
                       // 3. Cadence Strokes Per Minute
                       _buildBigMeter(
-                        label: 'CADENCE',
+                        label: isFr ? 'CADENCE' : 'RATE',
                         value: metrics.strokeRate.toStringAsFixed(0),
                         unit: 'SPM',
-                        sub: 'Total : ${metrics.strokeCount} coups',
+                        sub: 'Total : ${metrics.strokeCount} ${isFr ? "coups" : "strk"}',
                         color: Colors.white,
                       ),
 
                       // 4. Distance
                       _buildBigMeter(
-                        label: 'DISTANCE PARCOURUE',
+                        label: isFr ? 'DISTANCE PARCOURUE' : 'DISTANCE COVERED',
                         value: '${metrics.totalDistance}',
-                        unit: 'MÈTRES',
-                        sub: 'Objectif : ${raceState.targetDistance} m',
+                        unit: isFr ? 'MÈTRES' : 'METERS',
+                        sub: '${isFr ? "Objectif" : "Goal"} : ${raceState.targetDistance} m',
                         color: AppColors.yellow,
                       ),
 
                       // 5. Rang en direct
                       _buildBigMeter(
-                        label: 'CLASSEMENT EN DIRECT',
+                        label: isFr ? 'CLASSEMENT EN DIRECT' : 'LIVE RANKING',
                         value: '#${raceState.myRank}',
                         unit: '/ ${raceState.totalRacers}',
-                        sub: raceState.distToLeader > 0 ? '-${raceState.distToLeader}m du 1er' : 'En tête de course',
+                        sub: raceState.distToLeader > 0
+                            ? (isFr ? '-${raceState.distToLeader}m du 1er' : '-${raceState.distToLeader}m from leader')
+                            : (isFr ? 'En tête de course' : 'Leading race'),
                         color: raceState.myRank == 1 ? AppColors.green : AppColors.yellow,
                       ),
 
                       // 6. Chronomètre
                       _buildBigMeter(
-                        label: 'CHRONO DE COURSE',
+                        label: isFr ? 'CHRONO DE COURSE' : 'RACE CHRONO',
                         value: _formatChrono(metrics.elapsedTime),
-                        unit: 'TEMPS',
-                        sub: 'Restant max : ${(raceState.gameRemainingSeconds ~/ 60)} min',
+                        unit: isFr ? 'TEMPS' : 'TIME',
+                        sub: isFr
+                            ? 'Restant max : ${(raceState.gameRemainingSeconds ~/ 60)} min'
+                            : 'Max remaining : ${(raceState.gameRemainingSeconds ~/ 60)} min',
                         color: AppColors.cyan,
                       ),
                     ],

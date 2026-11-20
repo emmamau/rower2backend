@@ -32,6 +32,9 @@ const {
   parseRoomInviteInput,
   extractRoomFromLocation,
   buildShareableRoomUrl,
+  buildRegattaLaunchUrl,
+  withRegattaMode,
+  isRegattaModeRequested,
   buildRoomInviteMessage
 } = loadTranspiledRoomLinkUtil();
 
@@ -173,5 +176,34 @@ test('buildShareableRoomUrl normalizes trailing slashes and salon codes', () => 
     'https://rower.example.com/r/krm-wzx-qpl'
   );
   assert.equal(buildShareableRoomUrl('', 'abc-def-ghi'), '/r/abc-def-ghi');
+});
+
+test('buildRegattaLaunchUrl, withRegattaMode, and isRegattaModeRequested handle ?mode=regatta parameter correctly', () => {
+  // buildRegattaLaunchUrl
+  assert.equal(
+    buildRegattaLaunchUrl('https://rowerrace.com/', 'krm-wzx-qpl'),
+    'https://rowerrace.com/r/krm-wzx-qpl?mode=regatta'
+  );
+
+  // withRegattaMode
+  assert.equal(
+    withRegattaMode('https://rowerrace.com/r/krm-wzx-qpl'),
+    'https://rowerrace.com/r/krm-wzx-qpl?mode=regatta'
+  );
+  assert.equal(
+    withRegattaMode('https://rowerrace.com/r/krm-wzx-qpl?mode=regatta'),
+    'https://rowerrace.com/r/krm-wzx-qpl?mode=regatta'
+  );
+  assert.equal(
+    withRegattaMode('https://rowerrace.com/r/krm-wzx-qpl?lang=fr#top'),
+    'https://rowerrace.com/r/krm-wzx-qpl?lang=fr&mode=regatta#top'
+  );
+
+  // isRegattaModeRequested
+  assert.equal(isRegattaModeRequested('?mode=regatta'), true);
+  assert.equal(isRegattaModeRequested('?lang=fr&mode=regatta'), true);
+  assert.equal(isRegattaModeRequested('?mode=cockpit'), false);
+  assert.equal(isRegattaModeRequested(''), false);
+  assert.equal(isRegattaModeRequested(null), false);
 });
 

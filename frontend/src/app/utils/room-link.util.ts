@@ -152,6 +152,38 @@ export function buildShareableRoomUrl(origin: string, code: string): string {
 }
 
 /**
+ * Builds direct regatta launch URL with ?mode=regatta parameter.
+ */
+export function buildRegattaLaunchUrl(origin: string, code: string): string {
+  return `${buildShareableRoomUrl(origin, code)}?mode=regatta`;
+}
+
+/**
+ * Appends ?mode=regatta to a shareable room link without duplicating parameters.
+ */
+export function withRegattaMode(url: string): string {
+  if (!url) return url;
+  if (/[?&]mode=regatta(?:&|#|$)/.test(url)) return url;
+  const hashIdx = url.indexOf('#');
+  const base = hashIdx >= 0 ? url.slice(0, hashIdx) : url;
+  const hash = hashIdx >= 0 ? url.slice(hashIdx) : '';
+  return `${base}${base.includes('?') ? '&' : '?'}mode=regatta${hash}`;
+}
+
+/**
+ * Checks if ?mode=regatta is requested in the search string.
+ */
+export function isRegattaModeRequested(search: string): boolean {
+  if (!search) return false;
+  try {
+    const params = new URLSearchParams(search);
+    return params.get('mode') === 'regatta';
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Builds a ready-to-send multi-line invitation message (Web URL + Web Code + Garmin 4-digit PIN).
  */
 export function buildRoomInviteMessage(options: {

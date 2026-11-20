@@ -148,6 +148,7 @@ function sanitizeUser(user: any): Record<string, any> {
     plain.isAdmin
   );
   plain.regattaPreferences = sanitizeRegattaPreferences(plain.regattaPreferences);
+  plain.language = plain.language ? String(plain.language).toLowerCase().trim() : "fr";
   return plain;
 }
 
@@ -307,6 +308,23 @@ export const registerUser = async (req: Request, res: Response): Promise<void> =
       }
     }
 
+    // Détection de la langue préférée de l'utilisateur
+    const rawLang = String(req.body?.language || req.body?.lang || "").toLowerCase().trim();
+    const acceptLang = String(req.headers["accept-language"] || "").toLowerCase();
+    const isFrenchCountry = ["france", "fr", "belgique", "belgium", "suisse", "switzerland", "canada", "luxembourg"].some((c) =>
+      cleanCountry.toLowerCase().includes(c)
+    );
+    let userLanguage = "fr";
+    if (rawLang) {
+      userLanguage = rawLang.startsWith("fr") ? "fr" : "en";
+    } else if (isFrenchCountry) {
+      userLanguage = "fr";
+    } else if (acceptLang.startsWith("fr")) {
+      userLanguage = "fr";
+    } else if (acceptLang) {
+      userLanguage = "en";
+    }
+
     const newUser = await userStore.createUser({
       id: cleanLogin,
       name: `${cleanFirstName} ${cleanLastName}`.trim() || cleanLogin,
@@ -322,6 +340,7 @@ export const registerUser = async (req: Request, res: Response): Promise<void> =
       sexe: cleanGender,
       country: cleanCountry,
       pays: cleanCountry,
+      language: userLanguage,
       passwordHash: hash,
       passwordSalt: salt,
       isSubscriber: true, // Les inscrits sont abonnés et ont le droit de créer des salons privés
@@ -356,7 +375,7 @@ export const registerUser = async (req: Request, res: Response): Promise<void> =
 
     // Envoi du courriel de bienvenue (de manière asynchrone sans bloquer la réponse HTTP)
     if (cleanEmail) {
-      emailService.sendWelcomeEmail(cleanEmail, `${cleanFirstName} ${cleanLastName}`.trim(), cleanLogin).catch((mailErr) => {
+      emailService.sendWelcomeEmail(cleanEmail, `${cleanFirstName} ${cleanLastName}`.trim(), cleanLogin, userLanguage).catch((mailErr) => {
         console.warn("[Register] Erreur non bloquante envoi email bienvenue:", mailErr);
       });
     }
@@ -565,7 +584,21 @@ export const forgotPassword = async (req: Request, res: Response): Promise<void>
     });
 
     if (user.email) {
-      await emailService.sendPasswordResetEmail(user.email, user.login || user.id, resetToken);
+      const rawLang = String(req.body?.language || req.body?.lang || user.language || "").toLowerCase().trim();
+      const acceptLang = String(req.headers["accept-language"] || "").toLowerCase();
+      const userCountry = String(user.country || user.pays || "").toLowerCase();
+      const isFrenchCountry = ["france", "fr", "belgique", "belgium", "suisse", "switzerland", "canada", "luxembourg"].some((c) =>
+        userCountry.includes(c)
+      );
+      let userLang = "en";
+      if (rawLang) {
+        userLang = rawLang.startsWith("fr") ? "fr" : "en";
+      } else if (user.language) {
+        userLang = user.language.startsWith("fr") ? "fr" : "en";
+      } else if (isFrenchCountry || acceptLang.startsWith("fr")) {
+        userLang = "fr";
+      }
+      await emailService.sendPasswordResetEmail(user.email, user.login || user.id, resetToken, userLang);
     }
 
     res.status(200).json({
@@ -902,11 +935,14 @@ export const unsubscribeUser = async (req: Request, res: Response): Promise<void
     // Envoi du courriel transactionnel de confirmation de résiliation
     if (!isEmma && user.email) {
       const planName = oldTier === "premium" ? "Offre Élite Pro" : "Offre Club";
+      const userLang = (user.language || (req.headers["accept-language"] || "fr")).toString().toLowerCase().startsWith("fr") ? "fr" : "en";
       try {
         await emailService.sendSubscriptionCancellationEmail(
           user.email,
           user.name || user.login,
-          planName
+          planName,
+          undefined,
+          userLang
         );
       } catch (err) {
         console.warn("[unsubscribeUser] Erreur envoi email résiliation:", err);
@@ -970,7 +1006,8 @@ export const deleteUserAccount = async (req: Request, res: Response): Promise<vo
     // Envoi de l'email de confirmation de fermeture de compte
     if (userEmail) {
       try {
-        await emailService.sendAccountClosureEmail(userEmail, userDisplayName);
+        const userLang = (user.language || (req.headers["accept-language"] || "fr")).toString().toLowerCase().startsWith("fr") ? "fr" : "en";
+        await emailService.sendAccountClosureEmail(userEmail, userDisplayName, userLang);
       } catch (err) {
         console.warn("[deleteUserAccount] Erreur envoi email suppression compte:", err);
       }
@@ -1329,6 +1366,46 @@ export const getMe = async (req: Request, res: Response): Promise<void> => {
   }
 };
 
+/**
+ * PUT /api/user/language
+ * Met à jour la langue préférée de l'utilisateur ('fr', 'en', etc.).
+ */
+export const updateUserLanguage = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const rawLang = String(req.body?.language || req.body?.lang || "").toLowerCase().trim();
+    const cleanLang = rawLang.startsWith("fr") ? "fr" : "en";
+    const userId = String(
+      (req as any).user?.userId ||
+        (req as any).user?.id ||
+        (req as any).user?.login ||
+        req.body?.userId ||
+        ""
+    ).trim();
+
+    if (!userId) {
+      res.status(401).json({ success: false, message: "Authentification requise." });
+      return;
+    }
+
+    const user = await userStore.findUser(userId);
+    if (!user) {
+      res.status(404).json({ success: false, message: "Utilisateur non trouvé." });
+      return;
+    }
+
+    const updated = await userStore.updateUser(user.id, { language: cleanLang });
+    res.status(200).json({
+      success: true,
+      message: "Langue mise à jour avec succès.",
+      language: cleanLang,
+      user: sanitizeUser(updated || user),
+    });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ success: false, message: "Erreur mise à jour langue: " + message });
+  }
+};
+
 export default {
   registerUser,
   loginUser,
@@ -1343,4 +1420,5 @@ export default {
   getUserStatistics,
   updateKayakCustomization,
   updateRegattaPreferences,
+  updateUserLanguage,
 };

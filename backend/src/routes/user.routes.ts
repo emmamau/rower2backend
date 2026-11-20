@@ -18,6 +18,7 @@ export default (app: Application): void => {
   router.get("/leaderboard", userController.getGeneralLeaderboard);
   router.put("/kayak", requireAuth, userController.updateKayakCustomization);
   router.put("/regatta-preferences", requireAuth, userController.updateRegattaPreferences);
+  router.put("/language", requireAuth, userController.updateUserLanguage);
 
   // Espace Statistiques & Analyses de courses (abonnés = illimité, gratuits = 10 jours)
   router.get("/statistics", userController.getUserStatistics);

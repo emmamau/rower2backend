@@ -4,7 +4,7 @@
  * internationalisation (langue de l'organisateur avec repli par défaut en anglais)
  * et repli sécurisé en mode simulation pour le développement et les tests.
  */
-import { buildShareableRoomUrl, normalizeSalonCode } from "../utils/room-link.util";
+import { buildShareableRoomUrl, normalizeSalonCode, withRegattaMode } from "../utils/room-link.util";
 
 export interface EmailAttachment {
   filename: string;
@@ -41,15 +41,35 @@ export interface EmailConfig {
   resendApiKey: string;
   fromEmail: string;
   frontendUrl: string;
+  logoUrl: string;
 }
+
+/**
+ * Palette de l'identité visuelle Rower Race (couleurs du logo kayak néon du site).
+ */
+export const BRAND_COLORS = {
+  bg: "#060913",
+  card: "#0c1a38",
+  cyan: "#00f0ff",
+  pink: "#ff0055",
+  orange: "#ff6600",
+  yellow: "#ffe600",
+  text: "#e2e8f0",
+  dim: "#94a3b8",
+} as const;
 
 export function getEmailConfig(): EmailConfig {
   const isProd = process.env.NODE_ENV === "production";
   const defaultFrontend = isProd ? "https://rowerrace.com" : "http://localhost:4200";
+  const frontendUrl = (process.env.FRONTEND_URL || defaultFrontend).trim().replace(/\/+$/, "");
+  // Les clients mail (Gmail, Outlook) bloquent le SVG : logo PNG publié par le frontend.
+  // En local, le logo de production est utilisé (localhost n'est pas joignable depuis un client mail).
+  const logoOrigin = frontendUrl.includes("localhost") ? "https://rowerrace.com" : frontendUrl;
   return {
     resendApiKey: (process.env.RESEND_API_KEY || "").trim(),
     fromEmail: (process.env.EMAIL_FROM || "Rower Race <contact@rowerrace.com>").trim(),
-    frontendUrl: (process.env.FRONTEND_URL || defaultFrontend).trim().replace(/\/+$/, ""),
+    frontendUrl,
+    logoUrl: (process.env.EMAIL_LOGO_URL || `${logoOrigin}/email/rowerrace-logo.png`).trim(),
   };
 }
 
@@ -67,17 +87,20 @@ export function renderCyberEmailHtml(params: {
 }): string {
   const isFr = (params.lang || "fr").toLowerCase().startsWith("fr");
   const htmlLang = isFr ? "fr" : "en";
+  const emailConfig = getEmailConfig();
+  const logoUrl = emailConfig.logoUrl;
+  const logoLinkUrl = emailConfig.frontendUrl;
 
   const ctaBlock = params.ctaUrl && params.ctaText ? `
     <div style="text-align: center; margin: 32px 0 24px 0;">
-      <a href="${params.ctaUrl}" style="background-color: #00e5ff; color: #0a0f1d; font-weight: bold; text-decoration: none; padding: 14px 28px; border-radius: 6px; display: inline-block; font-size: 15px; letter-spacing: 0.5px; text-transform: uppercase; box-shadow: 0 0 15px rgba(0, 229, 255, 0.4);">
+      <a href="${params.ctaUrl}" style="background-color: ${BRAND_COLORS.pink}; background-image: linear-gradient(90deg, ${BRAND_COLORS.pink} 0%, ${BRAND_COLORS.orange} 55%, ${BRAND_COLORS.yellow} 100%); color: #ffffff; font-weight: 800; text-decoration: none; padding: 15px 30px; border-radius: 8px; display: inline-block; font-size: 15px; letter-spacing: 0.8px; text-transform: uppercase; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35); box-shadow: 0 0 18px rgba(255, 0, 85, 0.45);">
         ${params.ctaText}
       </a>
     </div>
   ` : '';
 
   const securityBlock = params.securityNote ? `
-    <div style="background-color: rgba(0, 229, 255, 0.05); border-left: 3px solid #00e5ff; padding: 12px 16px; margin-top: 24px; border-radius: 4px; font-size: 13px; color: #94a3b8; line-height: 1.5;">
+    <div style="background-color: rgba(0, 240, 255, 0.05); border-left: 3px solid #00f0ff; padding: 12px 16px; margin-top: 24px; border-radius: 4px; font-size: 13px; color: #94a3b8; line-height: 1.5;">
       ${params.securityNote}
     </div>
   ` : '';
@@ -97,24 +120,31 @@ export function renderCyberEmailHtml(params: {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${params.title}</title>
 </head>
-<body style="margin: 0; padding: 0; background-color: #0a0f1d; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #f1f5f9;">
-  <div style="display: none; font-size: 1px; color: #0a0f1d; line-height: 1px; max-height: 0px; max-width: 0px; opacity: 0; overflow: hidden;">
+<body style="margin: 0; padding: 0; background-color: #060913; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #f1f5f9;">
+  <div style="display: none; font-size: 1px; color: #060913; line-height: 1px; max-height: 0px; max-width: 0px; opacity: 0; overflow: hidden;">
     ${params.preheader}
   </div>
-  <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #0a0f1d; padding: 30px 15px;">
+  <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #060913; padding: 30px 15px;">
     <tr>
       <td align="center">
-        <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 580px; background-color: #131c31; border: 1px solid rgba(0, 229, 255, 0.25); border-radius: 12px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+        <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 580px; background-color: #0b1226; border: 1px solid rgba(0, 240, 255, 0.35); border-radius: 12px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
           <!-- Header Branding -->
           <tr>
-            <td style="padding: 24px 30px; text-align: center; border-bottom: 1px solid rgba(0, 229, 255, 0.15); background: linear-gradient(180deg, rgba(0, 229, 255, 0.08) 0%, rgba(19, 28, 49, 0) 100%);">
-              <span style="font-size: 24px; font-weight: 900; letter-spacing: 2px; color: #00e5ff; text-transform: uppercase;">
-                ROWER RACE
-              </span>
-              <div style="font-size: 12px; color: #64748b; letter-spacing: 1px; text-transform: uppercase; margin-top: 4px;">
+            <td style="padding: 26px 30px 20px 30px; text-align: center; background-color: ${BRAND_COLORS.bg}; background-image: linear-gradient(180deg, rgba(0, 240, 255, 0.10) 0%, rgba(6, 9, 19, 0) 100%);">
+              <a href="${logoLinkUrl}" style="text-decoration: none;" title="ROWER RACE">
+                <img src="${logoUrl}" width="76" height="76" alt="ROWER RACE" style="display: block; margin: 0 auto 10px auto; width: 76px; height: 76px; border: 0; outline: none;">
+              </a>
+              <div style="font-size: 26px; font-weight: 900; letter-spacing: 3px; text-transform: uppercase; line-height: 1.1;">
+                <span style="color: ${BRAND_COLORS.cyan};">ROWER</span> <span style="color: ${BRAND_COLORS.pink};">RACE</span>
+              </div>
+              <div style="font-size: 12px; color: ${BRAND_COLORS.dim}; letter-spacing: 1px; text-transform: uppercase; margin-top: 6px;">
                 ${subtitle}
               </div>
             </td>
+          </tr>
+          <!-- Barre aux couleurs de la coque du logo -->
+          <tr>
+            <td style="height: 4px; line-height: 4px; font-size: 0; background-color: ${BRAND_COLORS.orange}; background-image: linear-gradient(90deg, ${BRAND_COLORS.pink} 0%, ${BRAND_COLORS.orange} 50%, ${BRAND_COLORS.yellow} 100%);">&nbsp;</td>
           </tr>
           <!-- Content Body -->
           <tr>
@@ -136,6 +166,101 @@ export function renderCyberEmailHtml(params: {
   </table>
 </body>
 </html>`;
+}
+
+/**
+ * Procédure officielle de participation à une régate privée (4 étapes), aux couleurs du logo.
+ * 1. Installer l'application Rower Race sur la montre Garmin (pas sur le smartphone).
+ * 2. Ouvrir l'application et ajouter le rameur WaterRower SmartRow.
+ * 3. Cliquer sur « Rejoindre la régate » (lien du courriel → mode régate plein écran paysage).
+ * 4. Prendre le départ.
+ */
+export function renderInvitationStepsHtml(lang: string, joinUrl: string): string {
+  const isFr = (lang || "").toLowerCase().startsWith("fr");
+  const C = BRAND_COLORS;
+  const link = (href: string, label: string) =>
+    `<a href="${href}" style="color: ${C.cyan}; text-decoration: underline; font-weight: 600;">${label}</a>`;
+
+  const steps = isFr
+    ? [
+        {
+          color: C.cyan,
+          html: `<strong style="color: #ffffff;">Installez l'application Rower Race sur votre montre Garmin</strong> depuis le store Garmin Connect IQ (${link("https://apps.garmin.com", "apps.garmin.com")}).
+            <div style="margin-top: 8px; background-color: rgba(255, 0, 85, 0.12); border: 1px solid ${C.pink}; border-radius: 6px; padding: 8px 12px; color: #ffffff; font-size: 13px;">
+              ⚠️ <strong style="color: ${C.pink};">Attention : pas sur votre smartphone.</strong> L'application smartphone n'est pas encore disponible.
+            </div>`,
+        },
+        {
+          color: C.pink,
+          html: `<strong style="color: #ffffff;">Ouvrez l'application</strong> sur votre montre et <strong style="color: #ffffff;">ajoutez également votre rameur WaterRower SmartRow</strong>.`,
+        },
+        {
+          color: C.orange,
+          html: `<strong style="color: #ffffff;">Cliquez sur ${link(joinUrl, "« Rejoindre la régate »")}</strong> (lien dans ce courriel) : le site Rower Race s'ouvre en mode régate, en plein écran et en paysage.`,
+        },
+        {
+          color: C.yellow,
+          html: `<strong style="color: #ffffff;">Prenez votre départ !</strong> 🚣`,
+        },
+      ]
+    : [
+        {
+          color: C.cyan,
+          html: `<strong style="color: #ffffff;">Install the Rower Race app on your Garmin watch</strong> from the Garmin Connect IQ Store (${link("https://apps.garmin.com", "apps.garmin.com")}).
+            <div style="margin-top: 8px; background-color: rgba(255, 0, 85, 0.12); border: 1px solid ${C.pink}; border-radius: 6px; padding: 8px 12px; color: #ffffff; font-size: 13px;">
+              ⚠️ <strong style="color: ${C.pink};">Warning: not on your smartphone.</strong> The smartphone app is not available yet.
+            </div>`,
+        },
+        {
+          color: C.pink,
+          html: `<strong style="color: #ffffff;">Open the app</strong> on your watch and <strong style="color: #ffffff;">also add your WaterRower SmartRow rower</strong>.`,
+        },
+        {
+          color: C.orange,
+          html: `<strong style="color: #ffffff;">Click ${link(joinUrl, "\"Join the Regatta\"")}</strong> (link in this email): the Rower Race website opens in regatta mode, fullscreen and landscape.`,
+        },
+        {
+          color: C.yellow,
+          html: `<strong style="color: #ffffff;">Take your start!</strong> 🚣`,
+        },
+      ];
+
+  const title = isFr ? "Comment participer avec votre montre Garmin ?" : "How to join with your Garmin watch?";
+
+  const rows = steps
+    .map(
+      (s, i) => `
+          <tr>
+            <td width="40" style="vertical-align: top; padding: 0 12px 16px 0;">
+              <div style="width: 30px; height: 30px; line-height: 30px; border-radius: 15px; background-color: ${s.color}; color: ${C.bg}; font-weight: 900; font-size: 15px; text-align: center;">${i + 1}</div>
+            </td>
+            <td style="vertical-align: top; padding: 4px 0 16px 0; color: ${C.text}; font-size: 14px; line-height: 1.6;">
+              ${s.html}
+            </td>
+          </tr>`
+    )
+    .join("");
+
+  return `
+        <!-- PROCÉDURE DE PARTICIPATION (4 ÉTAPES) -->
+        <div style="background-color: #0b1528; border: 1px solid rgba(0, 240, 255, 0.35); border-radius: 10px; padding: 20px 18px 6px 18px; margin: 24px 0;">
+          <div style="font-size: 15px; font-weight: 900; text-transform: uppercase; letter-spacing: 1.2px; color: ${C.cyan}; margin-bottom: 16px;">
+            ⌚ ${title}
+          </div>
+          <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">${rows}
+          </table>
+        </div>
+  `;
+}
+
+/**
+ * Version texte brut de la procédure de participation (4 étapes).
+ */
+export function renderInvitationStepsText(lang: string, joinUrl: string): string {
+  const isFr = (lang || "").toLowerCase().startsWith("fr");
+  return isFr
+    ? `COMMENT PARTICIPER AVEC VOTRE MONTRE GARMIN :\n1. Installez l'application Rower Race sur votre montre Garmin (Garmin Connect IQ Store : apps.garmin.com). Attention : pas sur votre smartphone. L'application smartphone n'est pas encore disponible.\n2. Ouvrez l'application et ajoutez également votre rameur WaterRower SmartRow.\n3. Cliquez sur « Rejoindre la régate » (lien dans ce courriel) : ${joinUrl}\n4. Prenez votre départ !`
+    : `HOW TO JOIN WITH YOUR GARMIN WATCH:\n1. Install the Rower Race app on your Garmin watch (Garmin Connect IQ Store: apps.garmin.com). Warning: not on your smartphone. The smartphone app is not available yet.\n2. Open the app and also add your WaterRower SmartRow rower.\n3. Click "Join the Regatta" (link in this email): ${joinUrl}\n4. Take your start!`;
 }
 
 export class EmailService {
@@ -214,27 +339,27 @@ export class EmailService {
       const subject = "Bienvenue sur Rower Race - Votre compte abonné est créé";
       const bodyContentHtml = `
         <h2 style="color: #ffffff; font-size: 20px; margin-top: 0; margin-bottom: 16px;">
-          Bonjour <span style="color: #00e5ff;">${displayName}</span>,
+          Bonjour <span style="color: #00f0ff;">${displayName}</span>,
         </h2>
         <p style="margin-bottom: 20px;">
           Merci d'avoir rejoint <strong>Rower Race</strong> ! Votre compte abonné a été créé et activé avec succès.
         </p>
 
-        <div style="background-color: #0d1527; border: 1px solid rgba(0, 229, 255, 0.3); border-radius: 8px; padding: 18px; margin: 20px 0;">
+        <div style="background-color: #0d1527; border: 1px solid rgba(0, 240, 255, 0.3); border-radius: 8px; padding: 18px; margin: 20px 0;">
           <div style="font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: #94a3b8; margin-bottom: 6px;">
             Votre identifiant de connexion unique :
           </div>
-          <div style="font-size: 20px; font-weight: bold; color: #00e5ff; font-family: monospace;">
+          <div style="font-size: 20px; font-weight: bold; color: #00f0ff; font-family: monospace;">
             ${login}
           </div>
         </div>
 
-        <div style="background-color: rgba(0, 229, 255, 0.05); border: 1px solid rgba(0, 229, 255, 0.2); border-radius: 8px; padding: 16px; margin: 20px 0;">
-          <div style="font-size: 14px; font-weight: bold; color: #00e5ff; margin-bottom: 8px;">
+        <div style="background-color: rgba(0, 240, 255, 0.05); border: 1px solid rgba(0, 240, 255, 0.2); border-radius: 8px; padding: 16px; margin: 20px 0;">
+          <div style="font-size: 14px; font-weight: bold; color: #00f0ff; margin-bottom: 8px;">
             ⌚ Appairage Montre Garmin Connect IQ
           </div>
           <p style="margin: 0 0 8px 0; font-size: 13px; color: #cbd5e1; line-height: 1.5;">
-            Installez l'application <strong>Rower Race</strong> depuis le store <strong>Garmin Connect IQ</strong> (sur votre montre via l'application Connect IQ sur smartphone ou sur <a href="https://apps.garmin.com" style="color: #00e5ff; text-decoration: underline;">apps.garmin.com</a>).
+            Installez l'application <strong>Rower Race</strong> <strong>sur votre montre Garmin</strong> depuis le store <strong>Garmin Connect IQ</strong> (<a href="https://apps.garmin.com" style="color: #00f0ff; text-decoration: underline;">apps.garmin.com</a>). <strong style="color: #ff0055;">Attention : pas sur votre smartphone.</strong> L'application smartphone n'est pas encore disponible.
           </p>
           <p style="margin: 0; font-size: 13px; color: #94a3b8; line-height: 1.5;">
             Saisissez votre identifiant unique <strong>${login}</strong> ou utilisez la liaison par code PIN pour synchroniser votre télémétrie en temps réel (Watts, cadence, allure /500m, FC).
@@ -261,7 +386,7 @@ export class EmailService {
         lang: "fr",
       });
 
-      const text = `Bonjour ${displayName},\n\nMerci pour votre inscription ! Votre compte abonné Rower Race est prêt.\nVotre login unique : ${login}\n\nAppairage montre Garmin : Installez l'application Rower Race depuis le Garmin Connect IQ Store (apps.garmin.com) et saisissez votre identifiant pour synchroniser vos métriques.\n\nAccédez à la plateforme : ${config.frontendUrl}\n\nSportivement,\nL'équipe Rower Race`;
+      const text = `Bonjour ${displayName},\n\nMerci pour votre inscription ! Votre compte abonné Rower Race est prêt.\nVotre login unique : ${login}\n\nAppairage montre Garmin : Installez l'application Rower Race sur votre montre Garmin depuis le Garmin Connect IQ Store (apps.garmin.com) - attention, pas sur votre smartphone : l'application smartphone n'est pas encore disponible - et saisissez votre identifiant pour synchroniser vos métriques.\n\nAccédez à la plateforme : ${config.frontendUrl}\n\nSportivement,\nL'équipe Rower Race`;
 
       const res = await this.sendEmail({ to, subject, text, html });
       return res.success;
@@ -270,27 +395,27 @@ export class EmailService {
       const subject = "Welcome to Rower Race - Your subscriber account is active";
       const bodyContentHtml = `
         <h2 style="color: #ffffff; font-size: 20px; margin-top: 0; margin-bottom: 16px;">
-          Hello <span style="color: #00e5ff;">${displayName}</span>,
+          Hello <span style="color: #00f0ff;">${displayName}</span>,
         </h2>
         <p style="margin-bottom: 20px;">
           Thank you for joining <strong>Rower Race</strong>! Your subscriber account is created and fully activated.
         </p>
 
-        <div style="background-color: #0d1527; border: 1px solid rgba(0, 229, 255, 0.3); border-radius: 8px; padding: 18px; margin: 20px 0;">
+        <div style="background-color: #0d1527; border: 1px solid rgba(0, 240, 255, 0.3); border-radius: 8px; padding: 18px; margin: 20px 0;">
           <div style="font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: #94a3b8; margin-bottom: 6px;">
             Your unique login ID:
           </div>
-          <div style="font-size: 20px; font-weight: bold; color: #00e5ff; font-family: monospace;">
+          <div style="font-size: 20px; font-weight: bold; color: #00f0ff; font-family: monospace;">
             ${login}
           </div>
         </div>
 
-        <div style="background-color: rgba(0, 229, 255, 0.05); border: 1px solid rgba(0, 229, 255, 0.2); border-radius: 8px; padding: 16px; margin: 20px 0;">
-          <div style="font-size: 14px; font-weight: bold; color: #00e5ff; margin-bottom: 8px;">
+        <div style="background-color: rgba(0, 240, 255, 0.05); border: 1px solid rgba(0, 240, 255, 0.2); border-radius: 8px; padding: 16px; margin: 20px 0;">
+          <div style="font-size: 14px; font-weight: bold; color: #00f0ff; margin-bottom: 8px;">
             ⌚ Garmin Connect IQ Watch Pairing
           </div>
           <p style="margin: 0 0 8px 0; font-size: 13px; color: #cbd5e1; line-height: 1.5;">
-            Install the <strong>Rower Race</strong> app from the <strong>Garmin Connect IQ Store</strong> (search for "Rower Race" on the Connect IQ mobile app or at <a href="https://apps.garmin.com" style="color: #00e5ff; text-decoration: underline;">apps.garmin.com</a>).
+            Install the <strong>Rower Race</strong> app <strong>on your Garmin watch</strong> from the <strong>Garmin Connect IQ Store</strong> (<a href="https://apps.garmin.com" style="color: #00f0ff; text-decoration: underline;">apps.garmin.com</a>). <strong style="color: #ff0055;">Warning: not on your smartphone.</strong> The smartphone app is not available yet.
           </p>
           <p style="margin: 0; font-size: 13px; color: #94a3b8; line-height: 1.5;">
             Enter your unique login ID <strong>${login}</strong> or use web PIN pairing to stream your real-time telemetry (Watts, cadence, 500m split, HR).
@@ -317,7 +442,7 @@ export class EmailService {
         lang: "en",
       });
 
-      const text = `Hello ${displayName},\n\nThank you for signing up! Your Rower Race subscriber account is ready.\nYour unique login: ${login}\n\nGarmin watch pairing: Install the Rower Race app from Garmin Connect IQ Store (apps.garmin.com) and use your login to sync your metrics.\n\nAccess the platform: ${config.frontendUrl}\n\nBest regards,\nThe Rower Race Team`;
+      const text = `Hello ${displayName},\n\nThank you for signing up! Your Rower Race subscriber account is ready.\nYour unique login: ${login}\n\nGarmin watch pairing: Install the Rower Race app on your Garmin watch from the Garmin Connect IQ Store (apps.garmin.com) - not on your smartphone: the smartphone app is not available yet - and use your login to sync your metrics.\n\nAccess the platform: ${config.frontendUrl}\n\nBest regards,\nThe Rower Race Team`;
 
       const res = await this.sendEmail({ to, subject, text, html });
       return res.success;
@@ -335,7 +460,7 @@ export class EmailService {
       const subject = "Rower Race - Inscription confirmée par votre montre Garmin";
       const bodyContentHtml = `
         <h2 style="color: #ffffff; font-size: 20px; margin-top: 0; margin-bottom: 16px;">
-          Félicitations <span style="color: #00e5ff;">${login}</span> !
+          Félicitations <span style="color: #00f0ff;">${login}</span> !
         </h2>
         <p style="margin-bottom: 20px;">
           Votre inscription et l'appairage de votre montre Garmin Connect IQ ont bien été validés.
@@ -362,7 +487,7 @@ export class EmailService {
       const subject = "Rower Race - Registration Confirmed by your Garmin Watch";
       const bodyContentHtml = `
         <h2 style="color: #ffffff; font-size: 20px; margin-top: 0; margin-bottom: 16px;">
-          Congratulations <span style="color: #00e5ff;">${login}</span>!
+          Congratulations <span style="color: #00f0ff;">${login}</span>!
         </h2>
         <p style="margin-bottom: 20px;">
           Your registration and Garmin Connect IQ watch pairing have been verified.
@@ -403,7 +528,7 @@ export class EmailService {
           Réinitialisation de mot de passe
         </h2>
         <p style="margin-bottom: 16px;">
-          Une demande de réinitialisation de mot de passe a été formulée pour le compte <strong style="color: #00e5ff;">${login}</strong>.
+          Une demande de réinitialisation de mot de passe a été formulée pour le compte <strong style="color: #00f0ff;">${login}</strong>.
         </p>
         <p style="margin-bottom: 20px;">
           Pour choisir un nouveau mot de passe sécurisé, cliquez sur le bouton ci-dessous. Ce lien à usage unique est valable pendant <strong>1 heure</strong>.
@@ -431,7 +556,7 @@ export class EmailService {
           Password Reset
         </h2>
         <p style="margin-bottom: 16px;">
-          A password reset request was made for account <strong style="color: #00e5ff;">${login}</strong>.
+          A password reset request was made for account <strong style="color: #00f0ff;">${login}</strong>.
         </p>
         <p style="margin-bottom: 20px;">
           To choose a new secure password, click the button below. This single-use link is valid for <strong>1 hour</strong>.
@@ -466,11 +591,13 @@ export class EmailService {
     const isFr = (params.lang || "").toLowerCase().startsWith("fr");
     const lang = isFr ? "fr" : "en";
 
-    // Garantir le format canonique de l'URL pour la plateforme (/r/:code)
+    // Garantir le format canonique de l'URL pour la plateforme (/r/:code),
+    // complété par ?mode=regatta pour ouvrir directement le site en mode régate (plein écran paysage).
     const code = params.roomCode || "";
-    const canonicalJoinUrl = params.joinUrl && params.joinUrl.includes("/r/")
+    const baseJoinUrl = params.joinUrl && params.joinUrl.includes("/r/")
       ? params.joinUrl
       : buildShareableRoomUrl(config.frontendUrl, code);
+    const canonicalJoinUrl = withRegattaMode(baseJoinUrl);
 
     const orgName = (params.organizerName || (isFr ? "Un rameur" : "A rower")).trim();
 
@@ -545,12 +672,12 @@ export class EmailService {
       securityNote = `Ce salon est privé et sécurisé. Votre lien de connexion direct : ${canonicalJoinUrl}`;
 
       bodyContentHtml = `
-        <div style="display: inline-block; background-color: rgba(0, 229, 255, 0.12); border: 1px solid #00e5ff; color: #00e5ff; font-size: 12px; font-weight: bold; text-transform: uppercase; padding: 4px 12px; border-radius: 20px; margin-bottom: 16px; letter-spacing: 1px;">
+        <div style="display: inline-block; background-color: rgba(0, 240, 255, 0.12); border: 1px solid #00f0ff; color: #00f0ff; font-size: 12px; font-weight: bold; text-transform: uppercase; padding: 4px 12px; border-radius: 20px; margin-bottom: 16px; letter-spacing: 1px;">
           ${modeBadge}
         </div>
         <h2 style="color: #ffffff; font-size: 22px; margin-top: 0; margin-bottom: 14px; line-height: 1.3;">
           Bonjour,<br>
-          <span style="color: #00e5ff;">${orgName}</span> vous invite à ramer !
+          <span style="color: #00f0ff;">${orgName}</span> vous invite à ramer !
         </h2>
         <p style="margin-bottom: 18px; color: #cbd5e1; font-size: 15px;">
           ${params.isDuel
@@ -560,7 +687,7 @@ export class EmailService {
         </p>
 
         <!-- CARTE RÉCAPITULATIF COURSE & CODES -->
-        <div style="background-color: #0d1527; border: 1px solid rgba(0, 229, 255, 0.25); border-radius: 8px; padding: 18px; margin: 20px 0;">
+        <div style="background-color: #0d1527; border: 1px solid rgba(0, 240, 255, 0.25); border-radius: 8px; padding: 18px; margin: 20px 0;">
           <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
             <tr>
               <td style="padding-bottom: 10px;">
@@ -571,7 +698,7 @@ export class EmailService {
             <tr>
               <td style="padding-bottom: 12px;">
                 <span style="font-size: 12px; text-transform: uppercase; color: #94a3b8; letter-spacing: 0.5px;">Distance officielle :</span>
-                <div style="font-size: 16px; font-weight: bold; color: #00e5ff; margin-top: 2px;">${params.targetDistance} mètres</div>
+                <div style="font-size: 16px; font-weight: bold; color: #00f0ff; margin-top: 2px;">${params.targetDistance} mètres</div>
               </td>
             </tr>
             <tr>
@@ -580,11 +707,11 @@ export class EmailService {
                   <tr>
                     <td width="50%" style="vertical-align: top;">
                       <div style="font-size: 11px; text-transform: uppercase; color: #94a3b8;">Code Salon Web</div>
-                      <div style="font-size: 18px; font-weight: bold; color: #00e5ff; font-family: monospace; letter-spacing: 1px;">${params.roomCode}</div>
+                      <div style="font-size: 18px; font-weight: bold; color: #00f0ff; font-family: monospace; letter-spacing: 1px;">${params.roomCode}</div>
                     </td>
                     <td width="50%" style="vertical-align: top;">
                       <div style="font-size: 11px; text-transform: uppercase; color: #94a3b8;">Code Montre Garmin</div>
-                      <div style="font-size: 18px; font-weight: bold; color: #fbbf24; font-family: monospace; letter-spacing: 2px;">${params.roomPin}</div>
+                      <div style="font-size: 18px; font-weight: bold; color: #ffe600; font-family: monospace; letter-spacing: 2px;">${params.roomPin}</div>
                     </td>
                   </tr>
                 </table>
@@ -595,37 +722,10 @@ export class EmailService {
 
         ${scheduleSectionHtml}
 
-        <!-- GUIDE ET INSTRUCTIONS APPAIRAGE MONTRE GARMIN (CONNECT IQ STORE) -->
-        <div style="background-color: #0b1528; border: 1px solid rgba(0, 229, 255, 0.35); border-radius: 8px; padding: 18px; margin: 24px 0;">
-          <div style="display: flex; align-items: center; margin-bottom: 12px;">
-            <span style="font-size: 20px; margin-right: 8px;">⌚</span>
-            <span style="font-size: 14px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; color: #00e5ff;">
-              Comment participer avec votre montre Garmin ?
-            </span>
-          </div>
-          <ol style="margin: 0; padding-left: 20px; color: #cbd5e1; font-size: 14px; line-height: 1.6;">
-            <li style="margin-bottom: 10px;">
-              <strong>Installez l'application Rower Race</strong> : Sur votre smartphone (application Garmin Connect IQ) ou depuis le web sur <a href="https://apps.garmin.com" style="color: #00e5ff; text-decoration: underline;">apps.garmin.com</a>, recherchez et installez l'application <strong>« Rower Race »</strong> sur votre montre connectée Garmin.
-            </li>
-            <li style="margin-bottom: 10px;">
-              <strong>Ouvrez l'application</strong> sur votre montre Garmin à proximité de votre rameur (Concept2 PM5, SmartRow ou ergomètre FTMS).
-            </li>
-            <li style="margin-bottom: 10px;">
-              <strong>Rejoignez la course</strong> : Dans le menu principal de la montre, sélectionnez <strong>« Rejoindre un salon »</strong> (ou « Code Salon ») et saisissez le code montre : <span style="background-color: #131c31; border: 1px solid #fbbf24; color: #fbbf24; font-family: monospace; font-weight: bold; padding: 2px 8px; border-radius: 4px; font-size: 15px; letter-spacing: 1px;">${params.roomPin}</span>.
-            </li>
-            <li style="margin-bottom: 4px;">
-              <strong>Prenez le départ !</strong> Vos capteurs (cadence, puissance en Watts, allure au 500m et fréquence cardiaque) se synchronisent automatiquement en direct sur le plan d'eau virtuel.
-            </li>
-          </ol>
-        </div>
-
-        <!-- OPTION NAVIGATION WEB -->
-        <div style="background-color: rgba(255, 255, 255, 0.03); border-left: 3px solid #00e5ff; padding: 12px 16px; margin: 18px 0; border-radius: 4px; font-size: 13px; color: #cbd5e1; line-height: 1.5;">
-          💻 <strong>Participer depuis votre ordinateur ou tablette :</strong> Cliquez sur le bouton ci-dessous pour entrer directement sur la ligne de départ, ou ouvrez l'adresse <a href="${canonicalJoinUrl}" style="color: #00e5ff; text-decoration: underline;">${canonicalJoinUrl}</a>.
-        </div>
+        ${renderInvitationStepsHtml("fr", canonicalJoinUrl)}
       `;
 
-      text = `Bonjour,\n\n${orgName} vous invite à une course connectée Rower Race !\n\nCourse : ${params.roomTitle}\nDistance : ${params.targetDistance}m\n${scheduleSectionText}\nLien direct canonique : ${canonicalJoinUrl}\nCode Salon Web : ${params.roomCode}\nCode Montre Garmin : ${params.roomPin}\n\nCOMMENT PARTICIPER AVEC VOTRE MONTRE GARMIN :\n1. Installez l'application 'Rower Race' depuis le Garmin Connect IQ Store (apps.garmin.com ou application mobile Garmin Connect IQ).\n2. Ouvrez l'application sur votre montre Garmin.\n3. Dans le menu, sélectionnez 'Rejoindre un salon' et saisissez le code montre : ${params.roomPin}\n4. Vos métriques (Watts, cadence, allure /500m, FC) seront transmises en direct.\n\nSportivement,\nL'équipe Rower Race`;
+      text = `Bonjour,\n\n${orgName} vous invite à une course connectée Rower Race !\n\nCourse : ${params.roomTitle}\nDistance : ${params.targetDistance}m\n${scheduleSectionText}\nRejoindre la régate : ${canonicalJoinUrl}\nCode Salon Web : ${params.roomCode}\nCode Montre Garmin : ${params.roomPin}\n\n${renderInvitationStepsText("fr", canonicalJoinUrl)}\n\nSportivement,\nL'équipe Rower Race`;
     } else {
       // VERSION ANGLAISE (PAR DÉFAUT SI NON FRANCOPHONE)
       const modeBadge = params.isDuel ? "⚔️ 1 vs 1 Duel" : "🚣 Multiplayer Regatta";
@@ -637,12 +737,12 @@ export class EmailService {
       securityNote = `This room is private and secure. Your direct access link: ${canonicalJoinUrl}`;
 
       bodyContentHtml = `
-        <div style="display: inline-block; background-color: rgba(0, 229, 255, 0.12); border: 1px solid #00e5ff; color: #00e5ff; font-size: 12px; font-weight: bold; text-transform: uppercase; padding: 4px 12px; border-radius: 20px; margin-bottom: 16px; letter-spacing: 1px;">
+        <div style="display: inline-block; background-color: rgba(0, 240, 255, 0.12); border: 1px solid #00f0ff; color: #00f0ff; font-size: 12px; font-weight: bold; text-transform: uppercase; padding: 4px 12px; border-radius: 20px; margin-bottom: 16px; letter-spacing: 1px;">
           ${modeBadge}
         </div>
         <h2 style="color: #ffffff; font-size: 22px; margin-top: 0; margin-bottom: 14px; line-height: 1.3;">
           Hello,<br>
-          <span style="color: #00e5ff;">${orgName}</span> invites you to row!
+          <span style="color: #00f0ff;">${orgName}</span> invites you to row!
         </h2>
         <p style="margin-bottom: 18px; color: #cbd5e1; font-size: 15px;">
           ${params.isDuel
@@ -652,7 +752,7 @@ export class EmailService {
         </p>
 
         <!-- RACE SUMMARY & CODES CARD -->
-        <div style="background-color: #0d1527; border: 1px solid rgba(0, 229, 255, 0.25); border-radius: 8px; padding: 18px; margin: 20px 0;">
+        <div style="background-color: #0d1527; border: 1px solid rgba(0, 240, 255, 0.25); border-radius: 8px; padding: 18px; margin: 20px 0;">
           <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
             <tr>
               <td style="padding-bottom: 10px;">
@@ -663,7 +763,7 @@ export class EmailService {
             <tr>
               <td style="padding-bottom: 12px;">
                 <span style="font-size: 12px; text-transform: uppercase; color: #94a3b8; letter-spacing: 0.5px;">Official Distance:</span>
-                <div style="font-size: 16px; font-weight: bold; color: #00e5ff; margin-top: 2px;">${params.targetDistance} meters</div>
+                <div style="font-size: 16px; font-weight: bold; color: #00f0ff; margin-top: 2px;">${params.targetDistance} meters</div>
               </td>
             </tr>
             <tr>
@@ -672,11 +772,11 @@ export class EmailService {
                   <tr>
                     <td width="50%" style="vertical-align: top;">
                       <div style="font-size: 11px; text-transform: uppercase; color: #94a3b8;">Web Room Code</div>
-                      <div style="font-size: 18px; font-weight: bold; color: #00e5ff; font-family: monospace; letter-spacing: 1px;">${params.roomCode}</div>
+                      <div style="font-size: 18px; font-weight: bold; color: #00f0ff; font-family: monospace; letter-spacing: 1px;">${params.roomCode}</div>
                     </td>
                     <td width="50%" style="vertical-align: top;">
                       <div style="font-size: 11px; text-transform: uppercase; color: #94a3b8;">Garmin Watch Code</div>
-                      <div style="font-size: 18px; font-weight: bold; color: #fbbf24; font-family: monospace; letter-spacing: 2px;">${params.roomPin}</div>
+                      <div style="font-size: 18px; font-weight: bold; color: #ffe600; font-family: monospace; letter-spacing: 2px;">${params.roomPin}</div>
                     </td>
                   </tr>
                 </table>
@@ -687,37 +787,10 @@ export class EmailService {
 
         ${scheduleSectionHtml}
 
-        <!-- HOW TO JOIN WITH GARMIN WATCH (CONNECT IQ STORE INSTRUCTIONS) -->
-        <div style="background-color: #0b1528; border: 1px solid rgba(0, 229, 255, 0.35); border-radius: 8px; padding: 18px; margin: 24px 0;">
-          <div style="display: flex; align-items: center; margin-bottom: 12px;">
-            <span style="font-size: 20px; margin-right: 8px;">⌚</span>
-            <span style="font-size: 14px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; color: #00e5ff;">
-              How to join with your Garmin watch?
-            </span>
-          </div>
-          <ol style="margin: 0; padding-left: 20px; color: #cbd5e1; font-size: 14px; line-height: 1.6;">
-            <li style="margin-bottom: 10px;">
-              <strong>Install the Rower Race app</strong>: On your smartphone (Garmin Connect IQ app) or via the web at <a href="https://apps.garmin.com" style="color: #00e5ff; text-decoration: underline;">apps.garmin.com</a>, search for and install <strong>"Rower Race"</strong> on your Garmin watch.
-            </li>
-            <li style="margin-bottom: 10px;">
-              <strong>Open the app</strong> on your Garmin watch near your rowing machine (Concept2 PM5, SmartRow, or FTMS ergometer).
-            </li>
-            <li style="margin-bottom: 10px;">
-              <strong>Join the room</strong>: In the watch menu, select <strong>"Join Room"</strong> (or "Room Code") and enter your watch code: <span style="background-color: #131c31; border: 1px solid #fbbf24; color: #fbbf24; font-family: monospace; font-weight: bold; padding: 2px 8px; border-radius: 4px; font-size: 15px; letter-spacing: 1px;">${params.roomPin}</span>.
-            </li>
-            <li style="margin-bottom: 4px;">
-              <strong>Ready to row!</strong> Your sensors (stroke rate, power in Watts, 500m split pace, and heart rate) will broadcast in real-time to the live regatta track.
-            </li>
-          </ol>
-        </div>
-
-        <!-- WEB BROWSER OPTION -->
-        <div style="background-color: rgba(255, 255, 255, 0.03); border-left: 3px solid #00e5ff; padding: 12px 16px; margin: 18px 0; border-radius: 4px; font-size: 13px; color: #cbd5e1; line-height: 1.5;">
-          💻 <strong>Join via Web Browser:</strong> Click the button below to open the starting line directly, or navigate to <a href="${canonicalJoinUrl}" style="color: #00e5ff; text-decoration: underline;">${canonicalJoinUrl}</a>.
-        </div>
+        ${renderInvitationStepsHtml("en", canonicalJoinUrl)}
       `;
 
-      text = `Hello,\n\n${orgName} invites you to a connected race on Rower Race!\n\nRace: ${params.roomTitle}\nDistance: ${params.targetDistance}m\n${scheduleSectionText}\nDirect room link: ${canonicalJoinUrl}\nWeb Room Code: ${params.roomCode}\nGarmin Watch Code: ${params.roomPin}\n\nHOW TO JOIN WITH YOUR GARMIN WATCH:\n1. Install the 'Rower Race' app from the Garmin Connect IQ Store (apps.garmin.com or Garmin Connect IQ mobile app).\n2. Open the app on your Garmin watch.\n3. In the menu, select 'Join Room' and enter your watch code: ${params.roomPin}\n4. Your metrics (Watts, stroke rate, 500m pace, HR) will stream live to the race.\n\nBest regards,\nThe Rower Race Team`;
+      text = `Hello,\n\n${orgName} invites you to a connected race on Rower Race!\n\nRace: ${params.roomTitle}\nDistance: ${params.targetDistance}m\n${scheduleSectionText}\nJoin the Regatta: ${canonicalJoinUrl}\nWeb Room Code: ${params.roomCode}\nGarmin Watch Code: ${params.roomPin}\n\n${renderInvitationStepsText("en", canonicalJoinUrl)}\n\nBest regards,\nThe Rower Race Team`;
     }
 
     const html = renderCyberEmailHtml({
@@ -790,14 +863,14 @@ export class EmailService {
           ✓ Abonnement Activé
         </div>
         <h2 style="color: #ffffff; font-size: 22px; margin-top: 0; margin-bottom: 14px;">
-          Félicitations <span style="color: #00e5ff;">${displayName}</span> !
+          Félicitations <span style="color: #00f0ff;">${displayName}</span> !
         </h2>
         <p style="margin-bottom: 16px; color: #cbd5e1; font-size: 15px;">
           Nous vous confirmons l'activation immédiate de votre abonnement <strong>${planName}</strong> (${priceFormatted}).
         </p>
 
-        <div style="background-color: #0d1527; border: 1px solid rgba(0, 229, 255, 0.3); border-radius: 8px; padding: 18px; margin: 20px 0;">
-          <div style="font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: #00e5ff; font-weight: bold; margin-bottom: 10px;">
+        <div style="background-color: #0d1527; border: 1px solid rgba(0, 240, 255, 0.3); border-radius: 8px; padding: 18px; margin: 20px 0;">
+          <div style="font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: #00f0ff; font-weight: bold; margin-bottom: 10px;">
             Vos avantages débloqués :
           </div>
           <ul style="padding-left: 20px; margin: 0; color: #cbd5e1; font-size: 14px; line-height: 1.6;">
@@ -851,14 +924,14 @@ export class EmailService {
           ✓ Subscription Active
         </div>
         <h2 style="color: #ffffff; font-size: 22px; margin-top: 0; margin-bottom: 14px;">
-          Congratulations <span style="color: #00e5ff;">${displayName}</span>!
+          Congratulations <span style="color: #00f0ff;">${displayName}</span>!
         </h2>
         <p style="margin-bottom: 16px; color: #cbd5e1; font-size: 15px;">
           We confirm the immediate activation of your <strong>${planName}</strong> plan (${priceFormatted}).
         </p>
 
-        <div style="background-color: #0d1527; border: 1px solid rgba(0, 229, 255, 0.3); border-radius: 8px; padding: 18px; margin: 20px 0;">
-          <div style="font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: #00e5ff; font-weight: bold; margin-bottom: 10px;">
+        <div style="background-color: #0d1527; border: 1px solid rgba(0, 240, 255, 0.3); border-radius: 8px; padding: 18px; margin: 20px 0;">
+          <div style="font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: #00f0ff; font-weight: bold; margin-bottom: 10px;">
             Unlocked Benefits:
           </div>
           <ul style="padding-left: 20px; margin: 0; color: #cbd5e1; font-size: 14px; line-height: 1.6;">
@@ -914,7 +987,7 @@ export class EmailService {
           ℹ️ Clôture d'Abonnement
         </div>
         <h2 style="color: #ffffff; font-size: 22px; margin-top: 0; margin-bottom: 14px;">
-          Bonjour <span style="color: #00e5ff;">${displayName}</span>,
+          Bonjour <span style="color: #00f0ff;">${displayName}</span>,
         </h2>
         <p style="margin-bottom: 16px; color: #cbd5e1; font-size: 15px;">
           Nous vous confirmons la résiliation de votre abonnement <strong>${planName}</strong> sur Rower Race.
@@ -959,7 +1032,7 @@ export class EmailService {
           ℹ️ Subscription Cancellation
         </div>
         <h2 style="color: #ffffff; font-size: 22px; margin-top: 0; margin-bottom: 14px;">
-          Hello <span style="color: #00e5ff;">${displayName}</span>,
+          Hello <span style="color: #00f0ff;">${displayName}</span>,
         </h2>
         <p style="margin-bottom: 16px; color: #cbd5e1; font-size: 15px;">
           We confirm the cancellation of your <strong>${planName}</strong> plan on Rower Race.
@@ -1011,7 +1084,7 @@ export class EmailService {
           ✕ Compte Fermé
         </div>
         <h2 style="color: #ffffff; font-size: 22px; margin-top: 0; margin-bottom: 14px;">
-          Au revoir <span style="color: #00e5ff;">${displayName}</span>,
+          Au revoir <span style="color: #00f0ff;">${displayName}</span>,
         </h2>
         <p style="margin-bottom: 16px; color: #cbd5e1; font-size: 15px;">
           Nous vous confirmons la suppression définitive de votre compte utilisateur <strong>Rower Race</strong> ainsi que la purge complète de l'ensemble de vos données associées, conformément à l'article 17 du RGPD (Droit à l'effacement).
@@ -1048,7 +1121,7 @@ export class EmailService {
           ✕ Account Closed
         </div>
         <h2 style="color: #ffffff; font-size: 22px; margin-top: 0; margin-bottom: 14px;">
-          Farewell <span style="color: #00e5ff;">${displayName}</span>,
+          Farewell <span style="color: #00f0ff;">${displayName}</span>,
         </h2>
         <p style="margin-bottom: 16px; color: #cbd5e1; font-size: 15px;">
           We confirm the permanent deletion of your <strong>Rower Race</strong> user account and the complete erasure of all associated data, pursuant to Article 17 of GDPR (Right to erasure).

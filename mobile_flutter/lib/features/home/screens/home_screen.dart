@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/localization/i18n_service.dart';
 import '../../auth/controllers/auth_controller.dart';
 import '../../auth/models/user_profile.dart';
 import '../../auth/widgets/login_modal.dart';
@@ -69,6 +70,8 @@ class HomeScreen extends ConsumerWidget {
     final authState = ref.watch(authControllerProvider);
     final bleStatusAsync = ref.watch(bleConnectionStatusProvider);
     final bleDeviceName = ref.watch(connectedDeviceNameProvider);
+    final currentLang = ref.watch(i18nProvider);
+    final i18n = ref.read(i18nProvider.notifier);
 
     final isBleConnected = bleStatusAsync.valueOrNull == BleConnectionStatus.connected;
 
@@ -92,6 +95,29 @@ class HomeScreen extends ConsumerWidget {
           ],
         ),
         actions: [
+          // Sélecteur de langue (FR / EN)
+          IconButton(
+            tooltip: i18n.t('language'),
+            icon: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.white24),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                currentLang.toUpperCase(),
+                style: const TextStyle(
+                  color: Colors.cyanAccent,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 11,
+                ),
+              ),
+            ),
+            onPressed: () {
+              final nextLang = currentLang == 'fr' ? 'en' : 'fr';
+              ref.read(i18nProvider.notifier).setLanguage(nextLang);
+            },
+          ),
           // Bouton BLE Status
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -121,8 +147,8 @@ class HomeScreen extends ConsumerWidget {
                     const SizedBox(width: 6),
                     Text(
                       isBleConnected
-                          ? (bleDeviceName ?? 'Rameur')
-                          : 'Rameur déconnecté',
+                          ? (bleDeviceName ?? (currentLang == 'fr' ? 'Rameur' : 'Rower'))
+                          : i18n.t('ble_disconnected'),
                       style: TextStyle(
                         color: isBleConnected ? Colors.greenAccent : Colors.redAccent,
                         fontSize: 12,
@@ -161,14 +187,16 @@ class HomeScreen extends ConsumerWidget {
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(
-                          'Connectez votre rameur Bluetooth FTMS pour démarrer une régate ou un entraînement.',
+                          currentLang == 'fr'
+                              ? 'Connectez votre rameur Bluetooth FTMS pour démarrer une régate ou un entraînement.'
+                              : 'Connect your Bluetooth FTMS rower to start a regatta or workout.',
                           style: TextStyle(color: Colors.amber.shade100, fontSize: 13),
                         ),
                       ),
                       TextButton(
                         onPressed: () => _showBleScanner(context),
-                        child: const Text('SCANNER',
-                            style: TextStyle(
+                        child: Text(currentLang == 'fr' ? 'SCANNER' : 'SCAN',
+                            style: const TextStyle(
                                 color: Colors.cyanAccent, fontWeight: FontWeight.bold)),
                       ),
                     ],
@@ -177,9 +205,9 @@ class HomeScreen extends ConsumerWidget {
                 const SizedBox(height: 20),
               ],
 
-              const Text(
-                'MODES DE COURSE',
-                style: TextStyle(
+              Text(
+                currentLang == 'fr' ? 'MODES DE COURSE' : 'RACE MODES',
+                style: const TextStyle(
                   color: Colors.white54,
                   fontSize: 13,
                   fontWeight: FontWeight.w800,
@@ -190,9 +218,10 @@ class HomeScreen extends ConsumerWidget {
 
               // Carte 1 : Course Rapide / Salon Public
               _ActionCard(
-                title: 'COURSE RAPIDE (500m)',
-                subtitle:
-                    'Rejoignez immédiatement une régate publique multijoueur avec d\'autres rameurs et des bots.',
+                title: currentLang == 'fr' ? 'COURSE RAPIDE (500m)' : 'QUICK RACE (500m)',
+                subtitle: currentLang == 'fr'
+                    ? 'Rejoignez immédiatement une régate publique multijoueur avec d\'autres rameurs et des bots.'
+                    : 'Instantly join a multiplayer public regatta with other rowers and bots.',
                 icon: Icons.flash_on,
                 accentColor: Colors.cyanAccent,
                 onTap: () => _joinQuickRace(context),
@@ -201,9 +230,10 @@ class HomeScreen extends ConsumerWidget {
 
               // Carte 2 : Rejoindre un Salon Privé (Code 5 Caractères)
               _ActionCard(
-                title: 'REJOINDRE UN SALON PRIVÉ',
-                subtitle:
-                    'Entrez un code unique à 5 caractères pour affronter vos amis ou lier votre session.',
+                title: currentLang == 'fr' ? 'REJOINDRE UN SALON PRIVÉ' : 'JOIN PRIVATE ROOM',
+                subtitle: currentLang == 'fr'
+                    ? 'Entrez un code unique à 5 caractères pour affronter vos amis ou lier votre session.'
+                    : 'Enter a unique 5-character code to race friends or link your session.',
                 icon: Icons.vpn_key,
                 accentColor: Colors.purpleAccent,
                 onTap: () => _showClaimCode(context, ref),
@@ -212,9 +242,10 @@ class HomeScreen extends ConsumerWidget {
 
               // Carte 3 : Cockpit / Entraînement Libre
               _ActionCard(
-                title: 'COCKPIT & ENTRAÎNEMENT LIBRE',
-                subtitle:
-                    'Session solo avec affichage haute lisibilité : Watts, SPM, Allure /500m et distance libre.',
+                title: currentLang == 'fr' ? 'COCKPIT & ENTRAÎNEMENT LIBRE' : 'COCKPIT & FREE TRAINING',
+                subtitle: currentLang == 'fr'
+                    ? 'Session solo avec affichage haute lisibilité : Watts, SPM, Allure /500m et distance libre.'
+                    : 'Solo session with high-visibility HUD: Watts, SPM, 500m pace, and open distance.',
                 icon: Icons.speed,
                 accentColor: Colors.amberAccent,
                 onTap: () => _joinSoloTraining(context),
@@ -228,9 +259,11 @@ class HomeScreen extends ConsumerWidget {
 
   Widget _buildUserBanner(
       BuildContext context, WidgetRef ref, AsyncValue<UserProfile?> authAsync) {
+    final currentLang = ref.watch(i18nProvider);
+    final i18n = ref.read(i18nProvider.notifier);
     final user = authAsync.valueOrNull;
     final isGuest = user == null;
-    final displayName = user?.displayPseudo ?? 'Rameur Invité';
+    final displayName = user?.displayPseudo ?? i18n.t('guest_mode');
     final league = user?.league ?? LeagueTier.bronze;
     final points = user?.leaguePoints ?? 0;
 
@@ -278,7 +311,9 @@ class HomeScreen extends ConsumerWidget {
                         border: Border.all(color: leagueColor, width: 0.8),
                       ),
                       child: Text(
-                        'Ligue ${league.displayName}',
+                        currentLang == 'fr'
+                            ? 'Ligue ${league.displayName}'
+                            : '${league.displayName} League',
                         style: TextStyle(
                           color: leagueColor,
                           fontSize: 11,
@@ -288,7 +323,7 @@ class HomeScreen extends ConsumerWidget {
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      '$points pts hebdo',
+                      currentLang == 'fr' ? '$points pts hebdo' : '$points weekly pts',
                       style: const TextStyle(
                         color: Colors.white70,
                         fontSize: 12,
@@ -309,8 +344,8 @@ class HomeScreen extends ConsumerWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               ),
-              child: const Text('CONNEXION',
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+              child: Text(i18n.t('login').toUpperCase(),
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
             ),
         ],
       ),

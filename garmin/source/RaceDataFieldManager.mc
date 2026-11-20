@@ -253,21 +253,21 @@ module RaceDataFieldManager {
     function getFooterMenuName(footerId as Number) as String {
         switch (footerId) {
             case FOOTER_DEFAULT:
-                return "Par defaut";
+                return I18n.getText("FOOT_MENU_DEFAULT");
             case FOOTER_SPM_HR:
-                return "Cadence & Cardio";
+                return I18n.getText("FOOT_MENU_SPM_HR");
             case FOOTER_KAYAK_STROKES:
-                return "Couloir & Coups";
+                return I18n.getText("FOOT_MENU_LANE_STROKES");
             case FOOTER_TIME_SPEED:
-                return "Chrono & Vitesse";
+                return I18n.getText("FOOT_MENU_TIME_SPEED");
             case FOOTER_CALORIES_WORK:
-                return "Calories & Travail";
+                return I18n.getText("FOOT_MENU_CAL_WORK");
             case FOOTER_SPLIT_PROJECTION:
-                return "Reste & Arrivee";
+                return I18n.getText("FOOT_MENU_REM_PROJ");
             case FOOTER_POWER_HR:
-                return "Puissance & Cardio";
+                return I18n.getText("FOOT_MENU_POWER_HR");
             default:
-                return "Par defaut";
+                return I18n.getText("FOOT_MENU_DEFAULT");
         }
     }
 
@@ -568,7 +568,7 @@ module RaceDataFieldManager {
         } else if (footStyle == FOOTER_SPLIT_PROJECTION) {
             var rTime = model.formatTime(model.getRemainingTimeEst(view.getTargetDistance(), view.getNetDistance()));
             var pTime = model.formatTime(model.getProjectedTime(view.getTargetDistance(), view.getNetDistance()));
-            return "Rest: " + rTime + "  |  Arr: " + pTime;
+            return I18n.getText("FOOT_LBL_REST") + rTime + "  |  " + I18n.getText("FOOT_LBL_FIN") + pTime;
         } else if (footStyle == FOOTER_POWER_HR) {
             var pVal = ((model.instantPower > 0) ? model.instantPower : model.avgPower).format("%d") + " W";
             var hrVal2 = (model.heartRate > 0) ? (model.heartRate.format("%d") + " bpm") : "-- bpm";

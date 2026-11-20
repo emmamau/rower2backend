@@ -1038,6 +1038,145 @@ module I18n {
             return "No, keep human only";
         }
 
+        // --- NAVIGATION & UI FEEDBACK ---
+        if (key.equals("NAV_CANCEL")) {
+            if (_currentLang == LANG_FR) { return "BACK : Annuler"; }
+            if (_currentLang == LANG_DE) { return "BACK : Abbrechen"; }
+            if (_currentLang == LANG_ES) { return "BACK : Cancelar"; }
+            if (_currentLang == LANG_IT) { return "BACK : Annulla"; }
+            if (_currentLang == LANG_PT) { return "BACK : Cancelar"; }
+            return "BACK : Cancel";
+        }
+        if (key.equals("NAV_CHOICE_OK")) {
+            if (_currentLang == LANG_FR) { return "UP/DN: Choix | START: OK"; }
+            if (_currentLang == LANG_DE) { return "UP/DN: Wahl | START: OK"; }
+            if (_currentLang == LANG_ES) { return "UP/DN: Elegir | START: OK"; }
+            if (_currentLang == LANG_IT) { return "UP/DN: Scegli | START: OK"; }
+            if (_currentLang == LANG_PT) { return "UP/DN: Escolha | START: OK"; }
+            return "UP/DN: Choice | START: OK";
+        }
+        if (key.equals("NAV_CONTINUE")) {
+            if (_currentLang == LANG_FR) { return "START / BACK : Continuer"; }
+            if (_currentLang == LANG_DE) { return "START / BACK : Weiter"; }
+            if (_currentLang == LANG_ES) { return "START / BACK : Continuar"; }
+            if (_currentLang == LANG_IT) { return "START / BACK : Continua"; }
+            if (_currentLang == LANG_PT) { return "START / BACK : Continuar"; }
+            return "START / BACK : Continue";
+        }
+        if (key.equals("PAIR_SUCCESS")) {
+            if (_currentLang == LANG_FR) { return "APPAIRAGE REUSSI"; }
+            if (_currentLang == LANG_DE) { return "KOPPLUNG ERFOLGREICH"; }
+            if (_currentLang == LANG_ES) { return "VINCULACION EXITOSA"; }
+            if (_currentLang == LANG_IT) { return "ACCOPPIAMENTO RIUSCITO"; }
+            if (_currentLang == LANG_PT) { return "EMPARELHADO COM SUCESSO"; }
+            return "PAIRING SUCCESS";
+        }
+        if (key.equals("PAIR_ERROR")) {
+            if (_currentLang == LANG_FR) { return "ERREUR APPAIRAGE"; }
+            if (_currentLang == LANG_DE) { return "KOPPLUNGSFEHLER"; }
+            if (_currentLang == LANG_ES) { return "ERROR VINCULACION"; }
+            if (_currentLang == LANG_IT) { return "ERRORE ACCOPPIAMENTO"; }
+            if (_currentLang == LANG_PT) { return "ERRO EMPARELHAMENTO"; }
+            return "PAIRING FAILED";
+        }
+        if (key.equals("PICKER_NAV")) {
+            if (_currentLang == LANG_FR) { return "START: OK | BACK: Ret"; }
+            if (_currentLang == LANG_DE) { return "START: OK | BACK: Zuruck"; }
+            if (_currentLang == LANG_ES) { return "START: OK | BACK: Volver"; }
+            if (_currentLang == LANG_IT) { return "START: OK | BACK: Indietro"; }
+            if (_currentLang == LANG_PT) { return "START: OK | BACK: Voltar"; }
+            return "START: OK | BACK: Back";
+        }
+        if (key.equals("CONFIG_NAV_PAGE")) {
+            if (_currentLang == LANG_FR) { return "START: Choisir | BACK: Quitter"; }
+            if (_currentLang == LANG_DE) { return "START: Wahlen | BACK: Verlassen"; }
+            if (_currentLang == LANG_ES) { return "START: Elegir | BACK: Salir"; }
+            if (_currentLang == LANG_IT) { return "START: Scegli | BACK: Esci"; }
+            if (_currentLang == LANG_PT) { return "START: Escolher | BACK: Sair"; }
+            return "START: Select | BACK: Exit";
+        }
+        if (key.equals("CONFIG_NAV_SLOT")) {
+            if (_currentLang == LANG_FR) { return "START: Valider | BACK: Retour"; }
+            if (_currentLang == LANG_DE) { return "START: Bestatigen | BACK: Zuruck"; }
+            if (_currentLang == LANG_ES) { return "START: Validar | BACK: Volver"; }
+            if (_currentLang == LANG_IT) { return "START: Conferma | BACK: Indietro"; }
+            if (_currentLang == LANG_PT) { return "START: Validar | BACK: Voltar"; }
+            return "START: Save | BACK: Back";
+        }
+        // Footer menu presets in RaceDataFieldManager
+        if (key.equals("FOOT_MENU_DEFAULT")) {
+            if (_currentLang == LANG_FR) { return "Par defaut"; }
+            if (_currentLang == LANG_DE) { return "Standard"; }
+            if (_currentLang == LANG_ES) { return "Por defecto"; }
+            if (_currentLang == LANG_IT) { return "Predefinito"; }
+            if (_currentLang == LANG_PT) { return "Padrao"; }
+            return "Default";
+        }
+        if (key.equals("FOOT_MENU_SPM_HR")) {
+            if (_currentLang == LANG_FR) { return "Cadence & Cardio"; }
+            if (_currentLang == LANG_DE) { return "Schlag & Puls"; }
+            if (_currentLang == LANG_ES) { return "Cadencia & FC"; }
+            if (_currentLang == LANG_IT) { return "Cadenza & FC"; }
+            if (_currentLang == LANG_PT) { return "Cadencia & FC"; }
+            return "Cadence & HR";
+        }
+        if (key.equals("FOOT_MENU_LANE_STROKES")) {
+            if (_currentLang == LANG_FR) { return "Couloir & Coups"; }
+            if (_currentLang == LANG_DE) { return "Bahn & Schlage"; }
+            if (_currentLang == LANG_ES) { return "Carril & Golpes"; }
+            if (_currentLang == LANG_IT) { return "Corsia & Palette"; }
+            if (_currentLang == LANG_PT) { return "Raia & Remadas"; }
+            return "Lane & Strokes";
+        }
+        if (key.equals("FOOT_MENU_TIME_SPEED")) {
+            if (_currentLang == LANG_FR) { return "Chrono & Vitesse"; }
+            if (_currentLang == LANG_DE) { return "Zeit & Tempo"; }
+            if (_currentLang == LANG_ES) { return "Tiempo & Velocidad"; }
+            if (_currentLang == LANG_IT) { return "Tempo & Velocita"; }
+            if (_currentLang == LANG_PT) { return "Tempo & Velocidade"; }
+            return "Time & Speed";
+        }
+        if (key.equals("FOOT_MENU_CAL_WORK")) {
+            if (_currentLang == LANG_FR) { return "Calories & Travail"; }
+            if (_currentLang == LANG_DE) { return "Kalorien & Arbeit"; }
+            if (_currentLang == LANG_ES) { return "Calorias & Trabajo"; }
+            if (_currentLang == LANG_IT) { return "Calorie & Lavoro"; }
+            if (_currentLang == LANG_PT) { return "Calorias & Trabalho"; }
+            return "Calories & Work";
+        }
+        if (key.equals("FOOT_MENU_REM_PROJ")) {
+            if (_currentLang == LANG_FR) { return "Reste & Arrivee"; }
+            if (_currentLang == LANG_DE) { return "Rest & Zielzeit"; }
+            if (_currentLang == LANG_ES) { return "Restante & Meta"; }
+            if (_currentLang == LANG_IT) { return "Rimanente & Arrivo"; }
+            if (_currentLang == LANG_PT) { return "Restante & Chegada"; }
+            return "Rem & Finish";
+        }
+        if (key.equals("FOOT_MENU_POWER_HR")) {
+            if (_currentLang == LANG_FR) { return "Puissance & Cardio"; }
+            if (_currentLang == LANG_DE) { return "Watt & Puls"; }
+            if (_currentLang == LANG_ES) { return "Potencia & FC"; }
+            if (_currentLang == LANG_IT) { return "Potenza & FC"; }
+            if (_currentLang == LANG_PT) { return "Potencia & FC"; }
+            return "Power & HR";
+        }
+        if (key.equals("FOOT_LBL_REST")) {
+            if (_currentLang == LANG_FR) { return "Rest: "; }
+            if (_currentLang == LANG_DE) { return "Rest: "; }
+            if (_currentLang == LANG_ES) { return "Rest: "; }
+            if (_currentLang == LANG_IT) { return "Rim: "; }
+            if (_currentLang == LANG_PT) { return "Rest: "; }
+            return "Rem: ";
+        }
+        if (key.equals("FOOT_LBL_FIN")) {
+            if (_currentLang == LANG_FR) { return "Arr: "; }
+            if (_currentLang == LANG_DE) { return "Ziel: "; }
+            if (_currentLang == LANG_ES) { return "Meta: "; }
+            if (_currentLang == LANG_IT) { return "Arr: "; }
+            if (_currentLang == LANG_PT) { return "Cheg: "; }
+            return "Fin: ";
+        }
+
         return key;
     }
 }

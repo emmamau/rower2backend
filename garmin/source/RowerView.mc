@@ -1296,7 +1296,7 @@ class RowerView extends WatchUi.View {
         dc.setColor(COL_GRID, Graphics.COLOR_TRANSPARENT);
         dc.drawLine((w * 22) / 100, (h * 83) / 100, w - ((w * 22) / 100), (h * 83) / 100);
         dc.setColor(COL_MUTED, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, footY, Graphics.FONT_XTINY, "BACK : Annuler", Graphics.TEXT_JUSTIFY_CENTER);
+        dc.drawText(cx, footY, Graphics.FONT_XTINY, I18n.getText("NAV_CANCEL"), Graphics.TEXT_JUSTIFY_CENTER);
     }
 
     // =========================================================================

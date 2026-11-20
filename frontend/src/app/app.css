@@ -9621,4 +9621,141 @@ body.rigid-viewport {
   cursor: not-allowed;
 }
 
+/* ==========================================================================
+   REGATTA DIRECT LAUNCH SPLASH OVERLAY (?mode=regatta)
+   Branding aux couleurs du logo kayak néon (#00f0ff, #ff0055, #ff6600, #ffe600)
+   ========================================================================== */
+.regatta-launch-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 999999;
+  background: rgba(6, 9, 19, 0.94);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+  animation: regattaLaunchFadeIn 0.25s ease-out;
+}
+
+@keyframes regattaLaunchFadeIn {
+  from { opacity: 0; transform: scale(0.97); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.regatta-launch-card {
+  max-width: 520px;
+  width: 100%;
+  background: linear-gradient(180deg, #0b1528 0%, #060913 100%);
+  border: 2px solid #00f0ff;
+  border-radius: 18px;
+  box-shadow: 0 0 35px rgba(0, 240, 255, 0.35), 0 20px 50px rgba(0, 0, 0, 0.8);
+  padding: 2.25rem 1.75rem;
+  text-align: center;
+  position: relative;
+}
+
+.regatta-launch-logo {
+  margin-bottom: 1.1rem;
+  display: flex;
+  justify-content: center;
+}
+
+.regatta-launch-svg {
+  filter: drop-shadow(0 0 18px rgba(0, 240, 255, 0.55));
+}
+
+.regatta-launch-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.35rem 0.9rem;
+  border-radius: 999px;
+  background: rgba(0, 240, 255, 0.12);
+  border: 1px solid #00f0ff;
+  color: #00f0ff;
+  font-weight: 800;
+  font-size: 0.84rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.regatta-launch-badge .launch-dist-tag {
+  color: #ffe600;
+  font-weight: 900;
+}
+
+.regatta-launch-heading {
+  color: #ffffff;
+  font-size: 1.65rem;
+  font-weight: 900;
+  margin: 1.1rem 0 0.65rem 0;
+  line-height: 1.2;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
+}
+
+.regatta-launch-text {
+  color: #cbd5e1;
+  font-size: 0.96rem;
+  line-height: 1.55;
+  margin: 0 0 1.75rem 0;
+}
+
+.regatta-launch-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  align-items: center;
+}
+
+.btn-regatta-launch-action {
+  width: 100%;
+  max-width: 400px;
+  padding: 1.05rem 1.5rem;
+  background-color: #ff0055;
+  background-image: linear-gradient(90deg, #ff0055 0%, #ff6600 50%, #ffe600 100%);
+  color: #ffffff;
+  font-size: 1.05rem;
+  font-weight: 900;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  box-shadow: 0 0 24px rgba(255, 0, 85, 0.5);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  outline: none;
+}
+
+.btn-regatta-launch-action:hover {
+  transform: scale(1.02);
+  box-shadow: 0 0 32px rgba(255, 0, 85, 0.7);
+}
+
+.btn-regatta-launch-action:active {
+  transform: scale(0.98);
+}
+
+.btn-regatta-launch-action:focus-visible {
+  outline: 3px solid #00f0ff;
+  outline-offset: 3px;
+}
+
+.btn-regatta-launch-skip {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  font-size: 0.88rem;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 0.4rem;
+  transition: color 0.15s ease;
+}
+
+.btn-regatta-launch-skip:hover {
+  color: #00f0ff;
+}
+
+
 

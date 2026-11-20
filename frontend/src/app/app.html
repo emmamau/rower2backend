@@ -63,7 +63,68 @@
     </div>
   </aside>
 
+  <!-- REGATTA DIRECT LAUNCH SPLASH OVERLAY (INVITATION EMAIL ?mode=regatta) -->
+  <div
+    class="regatta-launch-overlay"
+    *ngIf="isRegattaLaunchSplashOpen"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="regatta-launch-title">
+    <div class="regatta-launch-card">
+      <div class="regatta-launch-logo">
+        <svg class="regatta-launch-svg" viewBox="0 0 100 100" width="88" height="88">
+          <defs>
+            <linearGradient id="splashWater" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#00f0ff"/>
+              <stop offset="100%" stop-color="#ff0055"/>
+            </linearGradient>
+            <linearGradient id="splashHull" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stop-color="#ff0055"/>
+              <stop offset="50%" stop-color="#ff6600"/>
+              <stop offset="100%" stop-color="#ffe600"/>
+            </linearGradient>
+          </defs>
+          <circle cx="50" cy="50" r="46" fill="#060913" stroke="url(#splashWater)" stroke-width="4"/>
+          <path d="M 16 64 C 34 58 66 58 84 64" fill="none" stroke="#00f0ff" stroke-width="3" stroke-linecap="round" opacity="0.8"/>
+          <path d="M 12 50 C 24 43 76 43 88 50 C 76 57 24 57 12 50 Z" fill="url(#splashHull)"/>
+          <ellipse cx="50" cy="50" rx="9" ry="3.5" fill="#060913" stroke="#ffe600" stroke-width="1.5"/>
+          <circle cx="50" cy="33" r="5" fill="#00f0ff" stroke="#ffffff" stroke-width="1.5"/>
+          <line x1="28" y1="26" x2="72" y2="74" stroke="#ffffff" stroke-width="3.5" stroke-linecap="round"/>
+          <ellipse cx="26" cy="24" rx="6" ry="3" transform="rotate(-35 26 24)" fill="#ff0055"/>
+          <ellipse cx="74" cy="76" rx="6" ry="3" transform="rotate(-35 74 76)" fill="#ff0055"/>
+          <polygon points="50,14 52,19 57,20 53,23 54,28 50,25 46,28 47,23 43,20 48,19" fill="#ffe600"/>
+        </svg>
+      </div>
 
+      <div class="regatta-launch-badge">
+        <span>🚣 {{ i18n.t('MODE_REGATTA') }}</span>
+        <span *ngIf="activePrivateRoom?.race?.targetDistance" class="launch-dist-tag">{{ activePrivateRoom?.race?.targetDistance }}m</span>
+      </div>
+
+      <h2 id="regatta-launch-title" class="regatta-launch-heading">
+        {{ activePrivateRoom?.race?.title || i18n.t('REGATTA_LAUNCH_TITLE') }}
+      </h2>
+
+      <p class="regatta-launch-text">
+        {{ i18n.t('REGATTA_LAUNCH_DESC') }}
+      </p>
+
+      <div class="regatta-launch-actions">
+        <button
+          type="button"
+          class="btn-regatta-launch-action"
+          (click)="launchRegattaFromSplash()">
+          {{ i18n.t('REGATTA_LAUNCH_BTN') }}
+        </button>
+        <button
+          type="button"
+          class="btn-regatta-launch-skip"
+          (click)="dismissRegattaLaunchSplash()">
+          {{ i18n.t('REGATTA_LAUNCH_SKIP') }}
+        </button>
+      </div>
+    </div>
+  </div>
 
   <!-- 3 SECONDS RACE COUNTDOWN OVERLAY -->
   <div class="three-sec-overlay" *ngIf="is3sCountdown">

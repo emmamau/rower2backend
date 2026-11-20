@@ -319,11 +319,14 @@ export const simulateCheckout = async (req: Request, res: Response): Promise<voi
 
     if (updated && updated.email && cleanTier !== "free") {
       const planConfig = SUBSCRIPTION_TIERS[cleanTier] || SUBSCRIPTION_TIERS.intermediate;
+      const userLang = (updated.language || ((updated as any).country || (updated as any).pays || "").toString().toLowerCase().includes("fr") ? "fr" : "en");
       await emailService.sendSubscriptionConfirmationEmail(
         updated.email,
         updated.name || updated.login,
         planConfig.name,
-        planConfig.priceFormatted
+        planConfig.priceFormatted,
+        undefined,
+        userLang
       );
     }
 
@@ -604,11 +607,14 @@ export const handleStripeWebhook = async (req: Request, res: Response): Promise<
           const recipientEmail = updatedUser?.email || session.customer_details?.email || session.customer_email;
           if (recipientEmail) {
             const planConfig = SUBSCRIPTION_TIERS[tier] || SUBSCRIPTION_TIERS.intermediate;
+            const userLang = (updatedUser?.language || (session.locale?.startsWith("fr") ? "fr" : "en"));
             await emailService.sendSubscriptionConfirmationEmail(
               recipientEmail,
-              updatedUser?.name || updatedUser?.login || "Rameur",
+              updatedUser?.name || updatedUser?.login || (userLang === "fr" ? "Rameur" : "Rower"),
               planConfig.name,
-              planConfig.priceFormatted
+              planConfig.priceFormatted,
+              undefined,
+              userLang
             );
           }
         }
@@ -642,10 +648,13 @@ export const handleStripeWebhook = async (req: Request, res: Response): Promise<
             });
             if (targetUser.email) {
               const planConfig = SUBSCRIPTION_TIERS[tier] || SUBSCRIPTION_TIERS.intermediate;
+              const userLang = (targetUser.language || "fr").startsWith("fr") ? "fr" : "en";
               await emailService.sendSubscriptionCancellationEmail(
                 targetUser.email,
-                targetUser.name || targetUser.login || "Rameur",
-                planConfig.name
+                targetUser.name || targetUser.login || (userLang === "fr" ? "Rameur" : "Rower"),
+                planConfig.name,
+                undefined,
+                userLang
               );
             }
           } else if (sub.status === "past_due" || sub.status === "unpaid") {
@@ -673,10 +682,13 @@ export const handleStripeWebhook = async (req: Request, res: Response): Promise<
           });
           if (targetUser.email) {
             const planConfig = SUBSCRIPTION_TIERS[oldTier] || SUBSCRIPTION_TIERS.intermediate;
+            const userLang = (targetUser.language || "fr").startsWith("fr") ? "fr" : "en";
             await emailService.sendSubscriptionCancellationEmail(
               targetUser.email,
-              targetUser.name || targetUser.login || "Rameur",
-              planConfig.name
+              targetUser.name || targetUser.login || (userLang === "fr" ? "Rameur" : "Rower"),
+              planConfig.name,
+              undefined,
+              userLang
             );
           }
         }

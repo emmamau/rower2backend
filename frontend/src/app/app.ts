@@ -11,7 +11,7 @@ import {
   PrivateModalTab
 } from './components/private-room-manager/private-room-manager.component';
 import { RowerData, NextRaceInfo, PastRaceResult, PrivateRacePayload } from './models/rower-data.model';
-import { extractRoomFromLocation } from './utils/room-link.util';
+import { extractRoomFromLocation, isRegattaModeRequested } from './utils/room-link.util';
 import {
   UserProfile,
   UserHistoryItem,
@@ -1013,6 +1013,10 @@ export class AppComponent implements OnInit, OnDestroy {
   // Orientation paysage & notice de rotation
   isOrientationDismissed = false;
 
+  // Écran d'accueil de lancement direct de régate (lien email ?mode=regatta)
+  isRegattaLaunchSplashOpen = false;
+  pendingRegattaLaunch = false;
+
   // Mini-leaderboard cockpit rétractable & déplaçable (Draggable Leaderboard)
   isCockpitLeaderboardCollapsed = true;
   cockpitLeaderboardPos: { x: number; y: number } | null = null;
@@ -1699,6 +1703,10 @@ export class AppComponent implements OnInit, OnDestroy {
 
         this.syncKayakCustomizationFromUser(res.user);
         this.syncRegattaPreferencesFromUser(res.user);
+        if (res.user.language) {
+          this.i18n.setLang(res.user.language as SupportedLang);
+          this.syncSeoLanguage(res.user.language);
+        }
         this.autoResolveMyPublicKayak();
         this.cdr.markForCheck();
       }
@@ -2366,6 +2374,10 @@ export class AppComponent implements OnInit, OnDestroy {
           this.userLoginInput = userLogin;
           this.syncKayakCustomizationFromUser(res.user);
           this.syncRegattaPreferencesFromUser(res.user);
+          if (res.user.language) {
+            this.i18n.setLang(res.user.language as SupportedLang);
+            this.syncSeoLanguage(res.user.language);
+          }
 
           try {
             localStorage.setItem('rower_user_id', userLogin);
@@ -2486,6 +2498,10 @@ export class AppComponent implements OnInit, OnDestroy {
           this.currentUser = res.user;
           this.userLoginInput = res.user.name || userLogin;
           this.syncRegattaPreferencesFromUser(res.user);
+          if (res.user.language) {
+            this.i18n.setLang(res.user.language as SupportedLang);
+            this.syncSeoLanguage(res.user.language);
+          }
 
           try {
             localStorage.setItem('rower_user_id', userLogin);
@@ -2885,6 +2901,13 @@ export class AppComponent implements OnInit, OnDestroy {
   changeLanguage(langCode: string): void {
     this.i18n.setLang(langCode as SupportedLang);
     this.syncSeoLanguage(langCode);
+    const hasAuthToken = typeof localStorage !== 'undefined' && Boolean(localStorage.getItem('rower_auth_token'));
+    if (this.currentUser && (this.currentUser.email || this.currentUser.login || hasAuthToken)) {
+      this.rowerService.updateUserLanguage(langCode).subscribe({
+        next: () => {},
+        error: () => {}
+      });
+    }
     this.cdr.markForCheck();
   }
 
@@ -4473,6 +4496,9 @@ export class AppComponent implements OnInit, OnDestroy {
       if (this.siteView === 'regatta' || this.siteView === 'cockpit') {
         this.startImmersionAutoFade();
       }
+      if (this.siteView === 'regatta') {
+        this.lockLandscape().catch(() => {});
+      }
       this.enableScreenWakeLock();
       this.clampCurrentCockpitPosition();
       this.syncRigidViewport();
@@ -4514,6 +4540,41 @@ export class AppComponent implements OnInit, OnDestroy {
     } else {
       await this.enterFullscreen();
     }
+  }
+
+  /**
+   * Tente de verrouiller l'orientation de l'écran en mode paysage (landscape).
+   * Pris en charge sur les navigateurs mobiles compatibles (Android Chrome / Chromium).
+   * Sur iOS Safari et les plateformes non supportées, l'erreur est absorbée silencieusement.
+   */
+  async lockLandscape(): Promise<void> {
+    if (typeof screen === 'undefined') return;
+    const orientation: any = (screen as any).orientation;
+    if (orientation && typeof orientation.lock === 'function') {
+      try {
+        await orientation.lock('landscape');
+      } catch {
+        // Ignorer silencieusement si non supporté ou bloqué par le navigateur
+      }
+    }
+  }
+
+  /**
+   * Action déclenchée par le geste utilisateur sur l'écran d'accueil de la régate :
+   * passe en mode régate, bascule en plein écran et verrouille le mode paysage.
+   */
+  async launchRegattaFromSplash(): Promise<void> {
+    this.isRegattaLaunchSplashOpen = false;
+    this.setSiteView('regatta');
+    await this.enterFullscreen();
+    await this.lockLandscape();
+    this.cdr.markForCheck();
+  }
+
+  dismissRegattaLaunchSplash(): void {
+    this.isRegattaLaunchSplashOpen = false;
+    this.setSiteView('regatta');
+    this.cdr.markForCheck();
   }
 
   openPrivateModal(tab?: PrivateModalTab): void {
@@ -5197,6 +5258,11 @@ export class AppComponent implements OnInit, OnDestroy {
     }
 
     const extracted = extractRoomFromLocation(window.location.pathname, window.location.search);
+    const isRegattaRequested = isRegattaModeRequested(window.location.search);
+    if (isRegattaRequested) {
+      this.pendingRegattaLaunch = true;
+    }
+
     if (!extracted) {
       if (this.activePrivateRoom) {
         this.activePrivateRoom = null;
@@ -5365,6 +5431,17 @@ export class AppComponent implements OnInit, OnDestroy {
 
     this.updateDocumentTitle();
     this.syncSocketRoom(room.race.id);
+
+    if (this.pendingRegattaLaunch) {
+      this.pendingRegattaLaunch = false;
+      this.setSiteView('regatta');
+      if (!this.checkIsFullscreen()) {
+        this.isRegattaLaunchSplashOpen = true;
+      }
+      this.enterFullscreen().catch(() => {});
+      this.lockLandscape().catch(() => {});
+    }
+
     this.initGameLoop();
     this.cdr.markForCheck();
   }
@@ -5391,6 +5468,8 @@ export class AppComponent implements OnInit, OnDestroy {
     }
     this.activePrivateRoom = null;
     this.isPrivateRoomCompleted = false;
+    this.isRegattaLaunchSplashOpen = false;
+    this.pendingRegattaLaunch = false;
     if (resetUrl && typeof window !== 'undefined') {
       if (window.location.pathname !== '/' || window.location.search) {
         window.history.replaceState({}, '', '/');

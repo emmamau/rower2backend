@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/localization/i18n_service.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_theme.dart';
 import '../controllers/auth_controller.dart';
@@ -50,7 +51,10 @@ class _LoginModalState extends ConsumerState<LoginModal> {
     final password = _passwordController.text;
 
     if (login.isEmpty || password.isEmpty) {
-      setState(() => _errorMessage = 'Veuillez saisir votre login et mot de passe.');
+      final isFr = ref.read(i18nProvider) == 'fr';
+      setState(() => _errorMessage = isFr
+          ? 'Veuillez saisir votre login et mot de passe.'
+          : 'Please enter your username and password.');
       return;
     }
 
@@ -78,6 +82,8 @@ class _LoginModalState extends ConsumerState<LoginModal> {
 
   @override
   Widget build(BuildContext context) {
+    final i18n = ref.read(i18nProvider.notifier);
+
     return Container(
       padding: EdgeInsets.only(
         left: 20,
@@ -97,9 +103,9 @@ class _LoginModalState extends ConsumerState<LoginModal> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
-                  'Connexion Membre',
-                  style: TextStyle(
+                Text(
+                  i18n.t('login_title'),
+                  style: const TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.w800,
                     color: AppColors.cyan,
@@ -115,9 +121,9 @@ class _LoginModalState extends ConsumerState<LoginModal> {
               ],
             ),
             const SizedBox(height: 4),
-            const Text(
-              'Accédez à votre historique, points de ligue et personnalisations.',
-              style: TextStyle(fontSize: 12, color: AppColors.textMuted),
+            Text(
+              i18n.t('login_desc'),
+              style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
             ),
             const SizedBox(height: 16),
 
@@ -138,7 +144,7 @@ class _LoginModalState extends ConsumerState<LoginModal> {
             TextField(
               controller: _loginController,
               decoration: InputDecoration(
-                labelText: 'Identifiant / Pseudo',
+                labelText: i18n.t('login_field_username'),
                 filled: true,
                 fillColor: AppColors.surfaceLight,
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
@@ -150,7 +156,7 @@ class _LoginModalState extends ConsumerState<LoginModal> {
               controller: _passwordController,
               obscureText: true,
               decoration: InputDecoration(
-                labelText: 'Mot de passe',
+                labelText: i18n.t('login_field_password'),
                 filled: true,
                 fillColor: AppColors.surfaceLight,
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
@@ -178,7 +184,7 @@ class _LoginModalState extends ConsumerState<LoginModal> {
                         height: 22,
                         child: CircularProgressIndicator(strokeWidth: 2.2, color: AppColors.background),
                       )
-                    : const Text('Se connecter'),
+                    : Text(i18n.t('login_btn_submit')),
               ),
             ),
           ],

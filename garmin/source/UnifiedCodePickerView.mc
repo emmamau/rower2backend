@@ -281,7 +281,7 @@ class UnifiedCodePickerView extends WatchUi.View {
 
         var footY = (h * 85) / 100;
         dc.setColor(COL_CYAN, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, footY, Graphics.FONT_XTINY, "START: OK | BACK: Ret", Graphics.TEXT_JUSTIFY_CENTER);
+        dc.drawText(cx, footY, Graphics.FONT_XTINY, I18n.getText("PICKER_NAV"), Graphics.TEXT_JUSTIFY_CENTER);
     }
 }
 

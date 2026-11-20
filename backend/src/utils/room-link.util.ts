@@ -23,3 +23,23 @@ export function buildShareableRoomUrl(origin: string, code: string): string {
   const normalized = normalizeSalonCode(code) || (code ? code.trim() : "");
   return `${cleanOrigin}/r/${encodeURIComponent(normalized)}`;
 }
+
+/**
+ * Construit l'URL de lancement direct en mode régate (liens des courriels d'invitation) :
+ * ${origin}/r/${code}?mode=regatta — le frontend ouvre la vue Régate et propose le plein écran paysage.
+ */
+export function buildRegattaLaunchUrl(origin: string, code: string): string {
+  return `${buildShareableRoomUrl(origin, code)}?mode=regatta`;
+}
+
+/**
+ * Ajoute le paramètre ?mode=regatta à une URL de salon existante (sans le dupliquer).
+ */
+export function withRegattaMode(url: string): string {
+  if (!url) return url;
+  if (/[?&]mode=regatta(?:&|#|$)/.test(url)) return url;
+  const hashIdx = url.indexOf("#");
+  const base = hashIdx >= 0 ? url.slice(0, hashIdx) : url;
+  const hash = hashIdx >= 0 ? url.slice(hashIdx) : "";
+  return `${base}${base.includes("?") ? "&" : "?"}mode=regatta${hash}`;
+}

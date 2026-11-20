@@ -13,6 +13,7 @@ import {
 import { CommonModule } from '@angular/common';
 import { LiveRacerMetric } from '../../services/socket.service';
 import { KayakCustomization, sanitizeKayakCustomization, hexToRgba } from '../../models/user.model';
+import { I18nService } from '../../services/i18n.service';
 
 export { sanitizeKayakCustomization };
 
@@ -58,9 +59,9 @@ interface BoatRenderState {
           type="button"
           class="lane-mode-toggle"
           (click)="toggleLaneMode()"
-          [title]="dynamicLaneMode ? 'Mode dynamique actif : les kayaks changent de ligne selon le classement (seuil 10m). Cliquer pour passer en mode fixe.' : 'Mode fixe actif : les couloirs assignés restent fixes. Cliquer pour passer en mode dynamique.'">
+          [title]="dynamicLaneMode ? (i18n.getCurrentLang() === 'fr' ? 'Mode dynamique actif : les kayaks changent de ligne selon le classement (seuil 10m). Cliquer pour passer en mode fixe.' : 'Dynamic mode active: kayaks change lanes based on ranking. Click to switch to fixed mode.') : (i18n.getCurrentLang() === 'fr' ? 'Mode fixe actif : les couloirs assignés restent fixes. Cliquer pour passer en mode dynamique.' : 'Fixed mode active: assigned lanes stay fixed. Click to switch to dynamic mode.')">
           <span class="mode-icon">{{ dynamicLaneMode ? '⚡' : '⚓' }}</span>
-          <span class="mode-label">{{ dynamicLaneMode ? 'Lignes dynamiques' : 'Lignes fixes' }}</span>
+          <span class="mode-label">{{ dynamicLaneMode ? (i18n.getCurrentLang() === 'fr' ? 'Lignes dynamiques' : 'Dynamic lanes') : (i18n.getCurrentLang() === 'fr' ? 'Lignes fixes' : 'Fixed lanes') }}</span>
         </button>
       </div>
 
@@ -70,7 +71,7 @@ interface BoatRenderState {
         *ngIf="selectedKayakForClaim"
         [style.left.px]="claimPopupPos.x"
         [style.top.px]="claimPopupPos.y">
-        <div class="popup-title">🛶 Couloir L{{ selectedKayakForClaim.lane }} : {{ selectedKayakForClaim.name }}</div>
+        <div class="popup-title">🛶 {{ i18n.t('CANVAS_LANE') }} L{{ selectedKayakForClaim.lane }} : {{ selectedKayakForClaim.name }}</div>
         <div class="popup-actions">
           <button
             type="button"
@@ -324,7 +325,7 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
   /** Mode d'attribution des lignes d'eau : true = dynamique par classement (seuil 10m), false = fixe par ligne assignée */
   dynamicLaneMode: boolean = true;
 
-  constructor() {
+  constructor(public i18n: I18nService) {
     if (typeof window !== 'undefined' && window.localStorage) {
       const saved = localStorage.getItem('regatta_lane_mode');
       if (saved === 'fixed') {
@@ -1008,7 +1009,7 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
       const emptyFontPx = Math.round((isCompact ? 12 : 14) * fontScale);
       ctx.font = `600 ${emptyFontPx}px sans-serif`;
       ctx.fillStyle = 'rgba(226, 232, 240, 0.65)';
-      const emptyMsg = '🛶 Ligne d’eau prête — en attente des rameurs...';
+      const emptyMsg = this.i18n.t('CANVAS_WAITING');
       const msgW = ctx.measureText(emptyMsg).width;
       ctx.fillText(emptyMsg, Math.max(10, (w - msgW) / 2), h / 2 + 6);
       ctx.restore();
@@ -1024,7 +1025,7 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
       const displayLaneNum = (zoom > 1 || this.dynamicLaneMode)
         ? (startIndex + l + 1)
         : (l + 1);
-      const laneLabel = isCompact ? `L${displayLaneNum}` : `Ligne ${displayLaneNum}`;
+      const laneLabel = isCompact ? `L${displayLaneNum}` : `${this.i18n.t('CANVAS_LANE')} ${displayLaneNum}`;
       ctx.font = `bold ${Math.max(9, laneFontPx)}px monospace`;
       ctx.fillStyle = boatInLane?.userId === this.activeUserId ? '#00f0ff' : 'rgba(0, 240, 255, 0.72)';
       ctx.fillText(laneLabel, Math.round(12 + 4 * boatScale), laneY + Math.round(laneFontPx * 0.35));

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/localization/i18n_service.dart';
 import '../../../core/theme/app_theme.dart';
 import '../controllers/auth_controller.dart';
 
@@ -39,7 +40,10 @@ class _ClaimCodeModalState extends ConsumerState<ClaimCodeModal> {
     final pseudo = _pseudoController.text.trim();
 
     if (code.length != 5) {
-      setState(() => _errorMessage = 'Le code doit comporter exactement 5 caractères.');
+      final isFr = ref.read(i18nProvider) == 'fr';
+      setState(() => _errorMessage = isFr
+          ? 'Le code doit comporter exactement 5 caractères.'
+          : 'Code must be exactly 5 characters.');
       return;
     }
 
@@ -66,6 +70,8 @@ class _ClaimCodeModalState extends ConsumerState<ClaimCodeModal> {
 
   @override
   Widget build(BuildContext context) {
+    final isFr = ref.watch(i18nProvider) == 'fr';
+
     return Container(
       padding: EdgeInsets.only(
         left: 20,
@@ -82,18 +88,20 @@ class _ClaimCodeModalState extends ConsumerState<ClaimCodeModal> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Rejoindre avec un Code',
-              style: TextStyle(
+            Text(
+              isFr ? 'Rejoindre avec un Code' : 'Join with Code',
+              style: const TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.w800,
                 color: AppColors.cyan,
               ),
             ),
             const SizedBox(height: 4),
-            const Text(
-              'Saisissez le code à 5 caractères du salon privé ou de votre session.',
-              style: TextStyle(fontSize: 12, color: AppColors.textMuted),
+            Text(
+              isFr
+                  ? 'Saisissez le code à 5 caractères du salon privé ou de votre session.'
+                  : 'Enter the 5-character private room code or session code.',
+              style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
             ),
             const SizedBox(height: 20),
 
@@ -133,7 +141,9 @@ class _ClaimCodeModalState extends ConsumerState<ClaimCodeModal> {
             TextField(
               controller: _pseudoController,
               decoration: InputDecoration(
-                labelText: 'Votre pseudo (facultatif si déjà connecté)',
+                labelText: isFr
+                    ? 'Votre pseudo (facultatif si déjà connecté)'
+                    : 'Your nickname (optional if logged in)',
                 filled: true,
                 fillColor: AppColors.surfaceLight,
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
@@ -161,7 +171,7 @@ class _ClaimCodeModalState extends ConsumerState<ClaimCodeModal> {
                         height: 22,
                         child: CircularProgressIndicator(strokeWidth: 2.2, color: AppColors.background),
                       )
-                    : const Text('Rejoindre le salon'),
+                    : Text(isFr ? 'Rejoindre le salon' : 'Join Room'),
               ),
             ),
           ],

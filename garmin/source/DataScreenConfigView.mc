@@ -151,7 +151,7 @@ class DataScreenConfigView extends WatchUi.View {
         // Pied de page d'indication navigation
         var footY = (h * 87) / 100;
         dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
-        var navStr = (_currentLevel == LEVEL_PAGE) ? "START: Choisir | BACK: Quitter" : "START: Valider | BACK: Retour";
+        var navStr = (_currentLevel == LEVEL_PAGE) ? I18n.getText("CONFIG_NAV_PAGE") : I18n.getText("CONFIG_NAV_SLOT");
         dc.drawText(cx, footY, Graphics.FONT_XTINY, navStr, Graphics.TEXT_JUSTIFY_CENTER);
 
         // Toast overlay si actif

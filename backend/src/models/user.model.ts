@@ -45,6 +45,7 @@ export interface UserAttributes {
   sexe?: string;            // Sexe (alias français)
   country?: string;         // Pays de résidence
   pays?: string;            // Pays de résidence (alias français)
+  language?: string;        // Langue préférée de l'utilisateur ('fr', 'en', etc.)
   passwordHash?: string;    // Hash du mot de passe
   passwordSalt?: string;    // Sel cryptographique du mot de passe
   isSubscriber?: boolean;   // Statut abonné (droit de créer des salons privés)
@@ -143,6 +144,11 @@ export default (sequelize: Sequelize, _DataTypesInstance: typeof DataTypes): Use
       pays: {
         type: DataTypes.STRING(64),
         allowNull: true,
+      },
+      language: {
+        type: DataTypes.STRING(8),
+        allowNull: true,
+        defaultValue: "fr",
       },
       passwordHash: {
         type: DataTypes.STRING(256),

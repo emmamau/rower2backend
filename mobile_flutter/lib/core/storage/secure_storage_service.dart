@@ -20,6 +20,7 @@ class SecureStorageService {
   static const String _keyLastBleRemoteId = 'last_ble_remote_id';
   static const String _keyLastBleDeviceName = 'last_ble_device_name';
   static const String _keyCustomApiUrl = 'custom_api_url';
+  static const String _keyLanguage = 'user_language';
 
   /// Récupère ou génère un UUID matériel unique pour l'appareil mobile
   Future<String> getOrCreateDeviceId() async {
@@ -58,6 +59,9 @@ class SecureStorageService {
 
   Future<String?> getCustomApiUrl() => _storage.read(key: _keyCustomApiUrl);
   Future<void> saveCustomApiUrl(String url) => _storage.write(key: _keyCustomApiUrl, value: url);
+
+  Future<String?> getLanguage() => _storage.read(key: _keyLanguage);
+  Future<void> saveLanguage(String lang) => _storage.write(key: _keyLanguage, value: lang);
 
   /// Efface la session joueur (déconnexion)
   Future<void> clearUserSession() async {

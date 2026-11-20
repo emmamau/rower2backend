@@ -159,6 +159,7 @@ export interface UserProfile {
   birthYear?: number; // Année de naissance
   gender?: string; // Sexe ('M' | 'F' | 'Autre')
   country?: string; // Pays
+  language?: string; // Langue préférée ('fr', 'en', 'de', 'es', 'it', 'pt')
   isSubscriber?: boolean; // Droit de créer des salons privés
   is_subscriber?: boolean;
   subscriptionTier?: string;

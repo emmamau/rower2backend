@@ -22,6 +22,7 @@ export interface StoredUser {
   sexe?: string;
   country?: string;
   pays?: string;
+  language?: string;
   passwordHash?: string;
   passwordSalt?: string;
   isSubscriber: boolean;
@@ -405,6 +406,11 @@ export class UserStoreService {
       sexe: gender,
       country,
       pays: country,
+      language: data.language
+        ? String(data.language).toLowerCase().trim()
+        : (country && !["france", "fr", "belgique", "belgium", "suisse", "switzerland", "canada", "luxembourg"].some(c => String(country).toLowerCase().includes(c))
+          ? "en"
+          : "fr"),
       passwordHash: data.passwordHash,
       passwordSalt: data.passwordSalt,
       isSubscriber: isEmma

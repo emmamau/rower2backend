@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/localization/i18n_service.dart';
 
 /// Alerte visuelle et haptique en cas de faux départ ou de mouvement détecté
 /// pendant la phase de décompte (T <= 15s) ou au signal de départ (T = 0).
-class FalseStartOverlay extends StatefulWidget {
+class FalseStartOverlay extends ConsumerStatefulWidget {
   final bool isCountingDownWarning;
   final bool isStartBlockedWarning;
   final int countdownSeconds;
@@ -16,10 +18,10 @@ class FalseStartOverlay extends StatefulWidget {
   });
 
   @override
-  State<FalseStartOverlay> createState() => _FalseStartOverlayState();
+  ConsumerState<FalseStartOverlay> createState() => _FalseStartOverlayState();
 }
 
-class _FalseStartOverlayState extends State<FalseStartOverlay>
+class _FalseStartOverlayState extends ConsumerState<FalseStartOverlay>
     with SingleTickerProviderStateMixin {
   late AnimationController _blinkController;
   late Animation<double> _opacityAnimation;
@@ -65,6 +67,8 @@ class _FalseStartOverlayState extends State<FalseStartOverlay>
       return const SizedBox.shrink();
     }
 
+    final isFr = ref.watch(i18nProvider) == 'fr';
+
     if (widget.isCountingDownWarning) {
       return AnimatedBuilder(
         animation: _opacityAnimation,
@@ -82,10 +86,10 @@ class _FalseStartOverlayState extends State<FalseStartOverlay>
                   size: 72,
                 ),
                 const SizedBox(height: 12),
-                const Text(
-                  'ARRÊTEZ DE RAMER !',
+                Text(
+                  isFr ? 'ARRÊTEZ DE RAMER !' : 'STOP ROWING!',
                   textAlign: TextAlign.center,
-                  style: TextStyle(
+                  style: const TextStyle(
                     color: Colors.white,
                     fontSize: 26,
                     fontWeight: FontWeight.w900,
@@ -101,7 +105,9 @@ class _FalseStartOverlayState extends State<FalseStartOverlay>
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'DÉPART ARRÊTÉ DANS ${widget.countdownSeconds}s',
+                  isFr
+                      ? 'DÉPART ARRÊTÉ DANS ${widget.countdownSeconds}s'
+                      : 'STANDING START IN ${widget.countdownSeconds}s',
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                     color: Colors.white,
@@ -111,10 +117,12 @@ class _FalseStartOverlayState extends State<FalseStartOverlay>
                   ),
                 ),
                 const SizedBox(height: 4),
-                const Text(
-                  'Tout mouvement avant le signal de départ sera sanctionné.',
+                Text(
+                  isFr
+                      ? 'Tout mouvement avant le signal de départ sera sanctionné.'
+                      : 'Any motion before the start signal will be penalized.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(
+                  style: const TextStyle(
                     color: Colors.white70,
                     fontSize: 13,
                   ),
@@ -155,10 +163,10 @@ class _FalseStartOverlayState extends State<FalseStartOverlay>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
-                  children: const [
+                  children: [
                     Text(
-                      'DÉPART RATÉ !',
-                      style: TextStyle(
+                      isFr ? 'DÉPART BLOQUÉ !' : 'START BLOCKED!',
+                      style: const TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.w900,
                         fontSize: 15,
@@ -166,8 +174,10 @@ class _FalseStartOverlayState extends State<FalseStartOverlay>
                       ),
                     ),
                     Text(
-                      'Arrêtez complètement le rameur (0 W) pour débloquer le départ.',
-                      style: TextStyle(
+                      isFr
+                          ? 'Arrêtez complètement le rameur (0 W) pour débloquer le départ.'
+                          : 'Come to a complete stop (0 W) to unlock the start.',
+                      style: const TextStyle(
                         color: Colors.white,
                         fontSize: 12,
                       ),

@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/localization/i18n_service.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../ble/models/rowing_metrics.dart';
 import '../models/race_session_state.dart';
 
-class TelemetryHudBar extends StatelessWidget {
+class TelemetryHudBar extends ConsumerWidget {
   final RowingMetrics metrics;
   final RaceSessionState raceState;
   final VoidCallback onToggleCockpit;
@@ -16,7 +18,9 @@ class TelemetryHudBar extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isFr = ref.watch(i18nProvider) == 'fr';
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
@@ -39,30 +43,30 @@ class TelemetryHudBar extends StatelessWidget {
           children: [
             // 1. Puissance Watts
             _buildMetricItem(
-              label: 'PUISSANCE',
+              label: isFr ? 'PUISSANCE' : 'POWER',
               value: '${metrics.instantPower}',
               unit: 'W',
-              sub: 'Moy: ${metrics.avgPower} W',
+              sub: '${isFr ? "Moy" : "Avg"}: ${metrics.avgPower} W',
               valueColor: AppColors.cyan,
             ),
             _buildDivider(),
 
             // 2. Allure /500m
             _buildMetricItem(
-              label: 'ALLURE',
+              label: isFr ? 'ALLURE' : 'PACE',
               value: metrics.formattedPace,
               unit: '/500m',
-              sub: 'Moy: ${metrics.formattedAvgPace}',
+              sub: '${isFr ? "Moy" : "Avg"}: ${metrics.formattedAvgPace}',
               valueColor: Colors.white,
             ),
             _buildDivider(),
 
             // 3. Cadence SPM
             _buildMetricItem(
-              label: 'CADENCE',
+              label: isFr ? 'CADENCE' : 'RATE',
               value: metrics.strokeRate.toStringAsFixed(0),
               unit: 'SPM',
-              sub: '${metrics.strokeCount} coups',
+              sub: '${metrics.strokeCount} ${isFr ? "coups" : "strk"}',
               valueColor: Colors.white,
             ),
             _buildDivider(),
@@ -72,15 +76,15 @@ class TelemetryHudBar extends StatelessWidget {
               label: 'DISTANCE',
               value: '${metrics.totalDistance}',
               unit: 'm',
-              sub: 'Obj: ${raceState.targetDistance}m',
+              sub: '${isFr ? "Obj" : "Goal"}: ${raceState.targetDistance}m',
               valueColor: AppColors.yellow,
             ),
             _buildDivider(),
 
             // 5. Rang en direct
             _buildMetricItem(
-              label: 'RANG',
-              value: '${raceState.myRank}e',
+              label: isFr ? 'RANG' : 'RANK',
+              value: '${raceState.myRank}${isFr ? "e" : ""}',
               unit: '/ ${raceState.totalRacers}',
               sub: raceState.distToLeader > 0 ? '-${raceState.distToLeader}m' : 'Leader',
               valueColor: raceState.myRank == 1 ? AppColors.green : AppColors.yellow,
@@ -89,7 +93,7 @@ class TelemetryHudBar extends StatelessWidget {
             // Bouton bascule vers Vue Cockpit
             IconButton(
               icon: const Icon(Icons.fullscreen, color: AppColors.cyan, size: 28),
-              tooltip: 'Vue Cockpit Plein Écran',
+              tooltip: isFr ? 'Vue Cockpit Plein Écran' : 'Fullscreen Cockpit View',
               onPressed: onToggleCockpit,
             ),
           ],
