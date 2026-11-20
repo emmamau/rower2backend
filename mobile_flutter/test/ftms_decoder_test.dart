@@ -7,7 +7,7 @@ void main() {
       final decoder = BleFtmsDecoder();
 
       // Flags (16-bit LE):
-      // bit 0 = 0 (More Data = 0 -> Stroke rate and stroke count PRESENT)
+      // bit 0 = 0 (More Data = 0 -> Stroke rate [uint8] and stroke count [uint16] PRESENT)
       // bit 1 = 0 (Average Stroke rate NOT present)
       // bit 2 = 1 (Total Distance PRESENT = 0x0004)
       // bit 3 = 1 (Instantaneous Pace PRESENT = 0x0008)
@@ -15,17 +15,17 @@ void main() {
       // bit 5 = 1 (Instantaneous Power PRESENT = 0x0020)
       // Total flags = 0x002C -> Little endian: [0x2C, 0x00]
       //
-      // Payload:
-      // Stroke Count (uint16): 42 -> [0x2A, 0x00]
-      // Stroke Rate (uint8, 0.5 SPM resolution): 56 (soit 28.0 SPM) -> [0x38]
-      // Total Distance (uint24): 250m -> [0xFA, 0x00, 0x00]
-      // Instantaneous Pace (uint16): 120s (soit 2:00/500m) -> [0x78, 0x00]
-      // Instantaneous Power (sint16): 200W -> [0xC8, 0x00]
+      // Payload selon Bluetooth SIG FTMS §4.14 :
+      // 1. Stroke Rate (uint8, 0.5 SPM resolution): 56 (soit 28.0 SPM) -> [0x38]
+      // 2. Stroke Count (uint16 LE): 42 -> [0x2A, 0x00]
+      // 3. Total Distance (uint24 LE): 250m -> [0xFA, 0x00, 0x00]
+      // 4. Instantaneous Pace (uint16 LE): 120s (soit 2:00/500m) -> [0x78, 0x00]
+      // 5. Instantaneous Power (sint16 LE): 200W -> [0xC8, 0x00]
 
       final packet = <int>[
         0x2C, 0x00, // flags
+        0x38, // stroke rate = 56 (28.0 SPM)
         0x2A, 0x00, // stroke count = 42
-        0x38, // stroke rate = 56 (28 SPM)
         0xFA, 0x00, 0x00, // distance = 250m
         0x78, 0x00, // pace = 120s
         0xC8, 0x00, // power = 200W
@@ -67,53 +67,54 @@ void main() {
 
     test('Détection automatique et normalisation des décimètres (rameurs Merach / Domyos)', () {
       final decoder = BleFtmsDecoder(deviceName: 'MERACH MR-600');
+      decoder.isFirstPacket = true;
 
-      // Première trame : initialisation
+      // Première trame : distance = 200 dm (20 m)
       final packet1 = <int>[
-        0x25, 0x00, // flags: bit 0=0 (stroke present), bit 2=1 (distance)
-        0x01, 0x00, // strokes = 1
+        0x24, 0x00, // flags: bit 0=0 (stroke present), bit 2=1 (distance)
         0x30, // stroke rate = 48 (24 SPM)
+        0x01, 0x00, // strokes = 1
         0xC8, 0x00, 0x00, // 200 dm
       ];
       decoder.decode(packet1);
 
-      // Deuxième trame : distance grimpe de 1300 en 1 coup (1300 dm = 130m)
+      // Deuxième trame : distance grimpe de 1300 dm en 1 coup (1500 dm = 150 m)
       final packet2 = <int>[
-        0x25, 0x00,
-        0x02, 0x00, // strokes = 2
+        0x24, 0x00,
         0x30,
+        0x02, 0x00, // strokes = 2
         0xDC, 0x05, 0x00, // 1500 dm
       ];
 
       final metrics2 = decoder.decode(packet2);
       expect(decoder.isDecimeterDistance, isTrue);
-      // Distance normalisée en mètres (1500 dm -> 150 m)
+      // Distance normalisée en mètres (150 m - baseline 20 m = 130 m)
       expect(metrics2.totalDistance, equals(130));
     });
 
     test('Tare matérielle (reTareToZero)', () {
       final decoder = BleFtmsDecoder();
 
-      // Trame simulant une séance précédente ou compteur non remis à zéro : 350m
+      // Première trame : 350m
       final packet1 = <int>[
         0x24, 0x00, // bit 0 = 0 (stroke), bit 2 = 1 (distance)
-        0x05, 0x00, // 5 strokes
         0x30, // 24 spm
+        0x05, 0x00, // 5 strokes
         0x5E, 0x01, 0x00, // 350m
       ];
 
       final m1 = decoder.decode(packet1);
-      expect(m1.totalDistance, equals(0)); // Premier paquet = baseline
+      expect(m1.totalDistance, equals(350));
 
-      // Rameur avance de 100m (compteur brut = 450m)
+      // Deuxième trame : 450m (+100m)
       final packet2 = <int>[
         0x24, 0x00,
-        0x10, 0x00, // 16 strokes
         0x30,
+        0x10, 0x00, // 16 strokes
         0xC2, 0x01, 0x00, // 450m
       ];
       final m2 = decoder.decode(packet2);
-      expect(m2.totalDistance, equals(100));
+      expect(m2.totalDistance, equals(450));
 
       // Remise à zéro pour le départ de course T=0
       decoder.reTareToZero();
@@ -125,8 +126,8 @@ void main() {
       // Rameur avance de 10m de plus (460m)
       final packet3 = <int>[
         0x24, 0x00,
-        0x12, 0x00,
         0x30,
+        0x12, 0x00,
         0xCC, 0x01, 0x00, // 460m
       ];
       final m4 = decoder.decode(packet3);

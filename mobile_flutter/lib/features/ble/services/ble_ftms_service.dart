@@ -40,7 +40,7 @@ class BleFtmsDecoder {
   int _distanceOffset = 0;
   int _strokesOffset = 0;
   bool _isDecimeterDistance = false;
-  bool _isFirstPacket = true;
+  bool isFirstPacket = false;
 
   int _wattsSum = 0;
   int _wattsCount = 0;
@@ -61,7 +61,7 @@ class BleFtmsDecoder {
     _distanceOffset = 0;
     _strokesOffset = 0;
     _isDecimeterDistance = false;
-    _isFirstPacket = true;
+    isFirstPacket = false;
     _wattsSum = 0;
     _wattsCount = 0;
     _spmSum = 0.0;
@@ -194,8 +194,8 @@ class BleFtmsDecoder {
       }
     }
 
-    if (_isFirstPacket) {
-      _isFirstPacket = false;
+    if (isFirstPacket) {
+      isFirstPacket = false;
       _baselineRawDistance = rawDistance;
       _baselineRawStrokes = rawStrokes;
       _lastRawDistance = rawDistance;
@@ -224,11 +224,6 @@ class BleFtmsDecoder {
 
     int totalDist = _distanceOffset + curRelD;
     int totalStr = _strokesOffset + curRelS;
-
-    // Protection anti-recul local
-    if (totalDist < current.totalDistance) {
-      totalDist = current.totalDistance;
-    }
 
     _lastRawDistance = rawDistance;
     _lastRawStrokes = rawStrokes;
@@ -374,6 +369,7 @@ class BleFtmsService {
       _deviceName = device.platformName.isNotEmpty ? device.platformName : (knownName ?? 'Rameur BLE');
       _decoder.deviceName = _deviceName;
       _decoder.reset();
+      _decoder.isFirstPacket = true;
 
       // Sauvegarde pour reconnexion 1-tap ultérieure
       await _storage.saveLastBleDevice(device.remoteId.str, _deviceName!);
