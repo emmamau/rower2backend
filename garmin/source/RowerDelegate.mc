@@ -99,13 +99,9 @@ class RowerDelegate extends WatchUi.BehaviorDelegate {
         } else if (state == RowerView.STATE_SUBMENU_MORE) {
             var subIdx = _view.getSubMenuIndex();
             if (subIdx == 0) {
-                // 1. Kayak / Pseudo
-                if (UserManager.isGuestSession()) {
-                    _view.resetPseudoDigits();
-                    _view.setAppState(RowerView.STATE_PSEUDO_INPUT);
-                } else {
-                    _view.showWarning(I18n.getText("PROFILE_SYNCED_WEB"), 2);
-                }
+                // 1. Mon Profil & Identifiant / Kayak (statut appairage, pseudo invite, reinitialisation)
+                _view.resetPairingStatusMenu();
+                _view.setAppState(RowerView.STATE_PAIRING_STATUS);
             } else if (subIdx == 1) {
                 // 2. Configuration des écrans de données
                 openDataScreenConfig();
@@ -137,10 +133,8 @@ class RowerDelegate extends WatchUi.BehaviorDelegate {
             return true;
         } else if (state == RowerView.STATE_PAIRING_RESULT) {
             if (UserManager.isPaired()) {
-                if (_bleDelegate.getModel().isConnected()) {
-                    _view.setAppState(RowerView.STATE_MENU);
-                } else {
-                    _view.setAppState(RowerView.STATE_SCANNING);
+                _view.setAppState(RowerView.STATE_MENU);
+                if (!_bleDelegate.getModel().isConnected()) {
                     _bleDelegate.startScan();
                 }
             } else {
@@ -317,11 +311,12 @@ class RowerDelegate extends WatchUi.BehaviorDelegate {
             return true;
         } else if (state == RowerView.STATE_PAIRING_RESULT) {
             if (UserManager.isPaired()) {
-                _view.setRaceMode("race");
-                _bleDelegate.joinNextRaceWaiting();
+                _view.setAppState(RowerView.STATE_MENU);
+                if (!_bleDelegate.getModel().isConnected()) {
+                    _bleDelegate.startScan();
+                }
             } else {
-                _view.resetPairingDigits();
-                _view.setAppState(RowerView.STATE_PAIRING_INPUT);
+                _view.setAppState(RowerView.STATE_MENU);
             }
             return true;
         } else if (state == RowerView.STATE_PIN_INPUT) {

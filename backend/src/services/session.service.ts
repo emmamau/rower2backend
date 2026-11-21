@@ -405,6 +405,20 @@ export class SessionService {
         };
       }
 
+      const pairFallback = await pairingService.pairDevice(cleanCode, cleanDeviceId);
+      if (pairFallback.success && pairFallback.deviceToken) {
+        return {
+          success: true,
+          deviceToken: pairFallback.deviceToken,
+          mode: "paired",
+          playerName: pairFallback.userId || "Rameur",
+          lane: 1,
+          userId: pairFallback.userId,
+          roomId: null,
+          message: "Montre associée avec succès !",
+        };
+      }
+
       throw new Error("Code universel invalide, déjà utilisé ou expiré (validité 10 min).");
     }
 
@@ -486,6 +500,12 @@ export class SessionService {
     context.claimedAt = new Date();
     context.deviceId = cleanDeviceId;
     context.deviceToken = deviceToken;
+
+    pairingService.markCustomCodePaired(cleanCode, {
+      userId: targetUserId || cleanDeviceId,
+      deviceId: cleanDeviceId,
+      deviceToken,
+    });
 
     // Notification WebSocket immédiate vers le front web
     try {
@@ -605,7 +625,7 @@ export class SessionService {
       isBotDuel: Boolean(attachedRace?.isBotDuel),
       isDuel1v1: Boolean(attachedRace?.isDuel1v1),
       gameMode: attachedRace?.gameMode || (attachedRace?.isSolo ? "solo" : attachedRace?.isBotDuel ? "bot_duel" : attachedRace?.isDuel1v1 ? "duel_1v1" : (mode === "room" ? "multi" : undefined)),
-      waitingStatusMessage: `Ligne ${lane} attribuée - Donnez un coup de rame pour réveiller le rameur`,
+      waitingStatusMessage: roomId ? `Ligne ${lane} attribuée - Donnez un coup de rame pour réveiller le rameur` : undefined,
       guestPairingToken: context.guestPairingToken,
       message: `Bienvenue ${finalPlayerName} ! Mode ${mode} activé (Ligne ${lane})`,
       race: attachedRace || undefined,

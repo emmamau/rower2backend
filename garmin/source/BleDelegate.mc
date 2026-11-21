@@ -1964,6 +1964,7 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
 
     public function onPairingSuccess(data as Dictionary) as Void {
         _userId = UserManager.getUserId();
+        _syncManager.fetchUserProfile(_userId);
         triggerApprovalVibe();
         // Une fois la montre appairée, activer les profils BLE et lancer la recherche du rameur
         if (!_profilesRegistered) {
@@ -2149,7 +2150,11 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
     }
 
     public function submitPinCode(pin as String) as Void {
-        _syncManager.joinRoomByCode(pin, _userId, _userId);
+        if (pin != null && pin.length() == 5) {
+            _syncManager.claimSessionCode(pin);
+        } else {
+            _syncManager.joinRoomByCode(pin, _userId, _userId);
+        }
     }
 
     public function onPinJoinSuccess(data as Dictionary) as Void {
@@ -2368,9 +2373,13 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
                     msg = "Termine";
                 } else if (errStr.find("réservé") != null || errStr.find("refusé") != null || errStr.find("requis") != null) {
                     msg = "Acces refuse";
+                } else if (responseCode == 400 || responseCode == 404) {
+                    msg = "Code invalide";
                 } else {
                     msg = "Erreur salon";
                 }
+            } else if (responseCode == 400 || responseCode == 404) {
+                msg = "Code invalide";
             }
             (_view as RowerView).showWarning(msg, 3);
         }

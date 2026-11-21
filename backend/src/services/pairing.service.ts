@@ -123,8 +123,8 @@ export class PairingService {
     const cleanCode = String(pairingCode || "").trim().toUpperCase();
     const cleanDeviceId = String(deviceId || "").trim();
 
-    if (!cleanCode || cleanCode.length !== 6) {
-      return { success: false, message: "Code d'appairage invalide (6 caractères requis)." };
+    if (!cleanCode || (cleanCode.length !== 5 && cleanCode.length !== 6)) {
+      return { success: false, message: "Code d'appairage invalide (5 ou 6 caractères requis)." };
     }
     if (!cleanDeviceId) {
       return { success: false, message: "Identifiant matériel de la montre (deviceId) requis." };
@@ -609,6 +609,63 @@ export class PairingService {
     });
 
     return record;
+  }
+
+  /**
+   * Marque un code personnalisé (ex: code universel 5 caractères) comme appairé avec le deviceToken attribué
+   * afin que le polling GET /api/garmin/pairing-status?pairingCode=... détecte immédiatement l'association.
+   */
+  public markCustomCodePaired(
+    code: string,
+    details: { userId: string; deviceId: string; deviceToken: string }
+  ): void {
+    const cleanCode = String(code || "").trim().toUpperCase();
+    if (!cleanCode) return;
+
+    const now = new Date();
+    const existingId = this.codeIndex.get(cleanCode);
+    let record = existingId ? this.inMemoryPairings.get(existingId) : undefined;
+
+    if (record) {
+      record.status = "paired";
+      record.userId = details.userId;
+      record.deviceId = details.deviceId;
+      record.deviceToken = details.deviceToken;
+      record.pairedAt = now;
+      record.updatedAt = now;
+      this.inMemoryPairings.set(record.id, record);
+      this.codeIndex.set(cleanCode, record.id);
+      this.tokenIndex.set(details.deviceToken, record.id);
+      Pairings.update(
+        {
+          userId: details.userId,
+          deviceId: details.deviceId,
+          deviceToken: details.deviceToken,
+          status: "paired",
+          pairedAt: now,
+        } as any,
+        { where: { id: record.id } }
+      ).catch(() => {});
+      return;
+    }
+
+    const id = crypto.randomUUID();
+    const newRecord: StoredPairing = {
+      id,
+      pairingCode: cleanCode,
+      userId: details.userId,
+      deviceId: details.deviceId,
+      deviceToken: details.deviceToken,
+      status: "paired",
+      expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+      pairedAt: now,
+      revokedAt: null,
+      createdAt: now,
+      updatedAt: now,
+    };
+    this.inMemoryPairings.set(id, newRecord);
+    this.codeIndex.set(cleanCode, id);
+    this.tokenIndex.set(details.deviceToken, id);
   }
 
   /**

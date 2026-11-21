@@ -1921,15 +1921,10 @@ class RowerView extends WatchUi.View {
             dc.setColor(COL_ACCENT, Graphics.COLOR_TRANSPARENT);
             dc.drawText(cx, boxY + (boxH * 70) / 100, Graphics.FONT_XTINY, truncateToWidth(dc, l2, Graphics.FONT_XTINY, boxW - 12), Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
         } else {
-            var mainTop = boxY + 4;
-            var mainH = (boxH * 52) / 100;
+            var mainH = boxH - 8;
             var mainFont = fitFontToBox(dc, text, [Graphics.FONT_SMALL, Graphics.FONT_TINY, Graphics.FONT_XTINY] as Array<Graphics.FontDefinition>, boxW - 12, mainH);
-            dc.drawText(cx, mainTop + (mainH / 2), mainFont, truncateToWidth(dc, text, mainFont, boxW - 12), Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
-
-            var subText = _falseStartLocked ? I18n.getText("WARN_ZERO_SPEED") : I18n.getText("WARN_WAIT_START");
-            var subCy = boxY + ((boxH * 76) / 100);
-            dc.setColor(COL_ACCENT, Graphics.COLOR_TRANSPARENT);
-            dc.drawText(cx, subCy, Graphics.FONT_XTINY, truncateToWidth(dc, subText, Graphics.FONT_XTINY, boxW - 12), Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+            dc.setColor(COL_PRIMARY, Graphics.COLOR_TRANSPARENT);
+            dc.drawText(cx, boxY + (boxH / 2), mainFont, truncateToWidth(dc, text, mainFont, boxW - 12), Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
         }
     }
 }

@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import pairingService from "../services/pairing.service";
+import sessionService from "../services/session.service";
 import { RaceManager, getWaitingStatusMessage } from "../services/race-manager.service";
 import userStore from "../services/user-store.service";
 import db from "../models";
@@ -196,12 +197,32 @@ export class GarminController {
       let race = ticket ? raceManager.getRaceById(ticket.roomId) : raceManager.findPrivateRace(rawPin);
 
       if (!race) {
-        res.status(404).json({
-          success: false,
-          error: "Ticket ou salon introuvable ou expiré.",
-          message: "Ticket ou salon introuvable ou expiré."
-        });
-        return;
+        try {
+          const claimed = await sessionService.claimSessionCode(
+            rawPin,
+            deviceId,
+            body.guestName || body.userName || null
+          );
+          res.status(200).json({
+            ...claimed,
+            success: true,
+            deviceToken: claimed.deviceToken,
+            userId: claimed.userId,
+            userName: claimed.playerName,
+            guestName: claimed.playerName,
+            mode: claimed.mode,
+            lane: claimed.lane,
+            message: claimed.message,
+          });
+          return;
+        } catch {
+          res.status(404).json({
+            success: false,
+            error: "Ticket ou salon introuvable ou expiré.",
+            message: "Ticket ou salon introuvable ou expiré."
+          });
+          return;
+        }
       }
 
       if (race.status === "COMPLETED" || race.status === "ABANDONED") {

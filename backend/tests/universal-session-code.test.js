@@ -148,6 +148,74 @@ test('Universal 5-character session code: Generation, claim (account, room, gues
     assert.equal(statusData.success, true);
     assert.equal(statusData.ready, true);
     assert.equal(statusData.connectionState, 'READY');
+
+    // 7. Account_link 5-char code updates GET /api/garmin/pairing-status?pairingCode=... when claimed
+    const accUserId = `acc_link_${Date.now()}`;
+    const resAccCode = await fetch(`${baseUrl}/api/session/code`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'account_link', userId: accUserId }),
+    });
+    assert.equal(resAccCode.status, 200);
+    const accCodeData = await resAccCode.json();
+    assert.equal(accCodeData.code.length, 5);
+
+    const resAccClaim = await fetch(`${baseUrl}/api/session/claim`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code: accCodeData.code, deviceId: 'garmin_hw_acc' }),
+    });
+    assert.equal(resAccClaim.status, 200);
+    const accClaimData = await resAccClaim.json();
+    assert.equal(accClaimData.mode, 'paired');
+    assert.equal(accClaimData.waitingStatusMessage, undefined);
+
+    const resPairStatus = await fetch(`${baseUrl}/api/garmin/pairing-status?pairingCode=${accCodeData.code}`);
+    assert.equal(resPairStatus.status, 200);
+    const pairStatusData = await resPairStatus.json();
+    assert.equal(pairStatusData.paired, true);
+    assert.equal(pairStatusData.status, 'paired');
+    assert.equal(pairStatusData.deviceToken, accClaimData.deviceToken);
+
+    // 8. Backward compatibility: claiming an account_link code via POST /api/garmin/claim-ticket or POST /api/rooms/join
+    const resLegacyTicketCode = await fetch(`${baseUrl}/api/session/code`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'account_link', userId: `${accUserId}_legacy1` }),
+    });
+    const legacyTicketCodeData = await resLegacyTicketCode.json();
+    const resViaClaimTicket = await fetch(`${baseUrl}/api/garmin/claim-ticket`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ticketPin: legacyTicketCodeData.code, deviceId: 'garmin_hw_legacy1' }),
+    });
+    assert.equal(resViaClaimTicket.status, 200);
+    const viaClaimTicketData = await resViaClaimTicket.json();
+    assert.equal(viaClaimTicketData.success, true);
+    assert.equal(viaClaimTicketData.mode, 'paired');
+    assert.ok(viaClaimTicketData.deviceToken);
+
+    const resLegacyRoomCode = await fetch(`${baseUrl}/api/session/code`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'account_link', userId: `${accUserId}_legacy2` }),
+    });
+    const legacyRoomCodeData = await resLegacyRoomCode.json();
+    const resViaRoomsJoin = await fetch(`${baseUrl}/api/rooms/join`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        pin: legacyRoomCodeData.code,
+        code: legacyRoomCodeData.code,
+        deviceToken: 'stale-old-device-token',
+        deviceId: 'garmin_hw_legacy2',
+      }),
+    });
+    assert.equal(resViaRoomsJoin.status, 200);
+    const viaRoomsJoinData = await resViaRoomsJoin.json();
+    assert.equal(viaRoomsJoinData.success, true);
+    assert.equal(viaRoomsJoinData.mode, 'paired');
+    assert.ok(viaRoomsJoinData.deviceToken);
   } finally {
     await close();
   }

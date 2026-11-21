@@ -842,6 +842,51 @@ function testWatchWebFinishLineSynchronization(logger as Logger) as Boolean {
     return true;
 }
 
+//! Regression test 27: onClaimSessionResponse must route pure pairing ("paired"/"cockpit" without roomId)
+//! to STATE_PAIRING_RESULT (onPairingSuccess) instead of putting the watch in a fake private salon ("SALON / Attendez le depart"),
+//! while routing "room" responses with a roomId to STATE_WAITING_START in private salon mode.
+(:test)
+function testClaimSessionResponseDistinguishesPairingAndRoom(logger as Logger) as Boolean {
+    UserManager.clearPairing();
+    var model = new RowerDataModel();
+    var view = new RowerView(model);
+    var del = new BleDelegate(model);
+    del.setView(view);
+    var syncMgr = del.getSyncManager();
+
+    // 1. Account/platform linking response (mode = "paired", no roomId)
+    syncMgr.onClaimSessionResponse(200, {
+        "deviceToken" => "tok-paired-123",
+        "mode" => "paired",
+        "userId" => "EmmaRacer",
+        "playerName" => "EmmaRacer"
+    });
+    Test.assertEqual(true, UserManager.isPaired());
+    Test.assertEqual(false, UserManager.isGuestSession());
+    Test.assertEqual(RowerView.STATE_PAIRING_RESULT, view.getAppState());
+    Test.assertEqual(false, view.isPrivateSalon());
+
+    // 2. Private room join response (mode = "room", roomId = "PRIV_123")
+    syncMgr.onClaimSessionResponse(200, {
+        "deviceToken" => "tok-room-456",
+        "mode" => "room",
+        "roomId" => "PRIV_123",
+        "id" => "PRIV_123",
+        "targetDistance" => 2000,
+        "lane" => 2,
+        "userId" => "guest_room456",
+        "playerName" => "Alex"
+    });
+    Test.assertEqual(true, UserManager.isPaired());
+    Test.assertEqual(true, UserManager.isGuestSession());
+    Test.assertEqual(RowerView.STATE_WAITING_START, view.getAppState());
+    Test.assertEqual(true, view.isPrivateSalon());
+
+    UserManager.clearPairing();
+    return true;
+}
+
+
 
 
 

@@ -424,7 +424,7 @@ class RestSyncManager {
                     UserManager.setDeviceToken(d.get("deviceToken").toString());
                 }
                 var mode = d.hasKey("mode") ? d.get("mode").toString() : "paired";
-                if (mode.equals("room")) {
+                if (mode.equals("room") || mode.equals("cockpit")) {
                     UserManager.setGuestPaired(true);
                 } else if (mode.equals("paired")) {
                     UserManager.setGuestPaired(false);
@@ -438,7 +438,13 @@ class RestSyncManager {
                 if (d.hasKey("userId") && d.get("userId") != null) {
                     UserManager.setPairedUserId(d.get("userId").toString());
                 }
-                (_delegate as BleDelegate).onPinJoinSuccess(d);
+                var isRoomJoin = mode.equals("room") ||
+                    (d.hasKey("roomId") && d.get("roomId") != null && d.get("roomId").toString().length() > 0);
+                if (isRoomJoin) {
+                    (_delegate as BleDelegate).onPinJoinSuccess(d);
+                } else {
+                    (_delegate as BleDelegate).onPairingSuccess(d);
+                }
             } else {
                 // Notifier l'échec de validation du code PIN
                 if (responseCode == 404 || responseCode == 400 || responseCode == 401) {
@@ -546,6 +552,10 @@ class RestSyncManager {
 
     // Join private room using POST /api/rooms/join with deviceToken & quota verification
     function joinRoomByCode(code as String, userId as String, userName as String) as Void {
+        if (code != null && code.length() == 5) {
+            claimSessionCode(code);
+            return;
+        }
         // Si la montre n'est pas encore liée à un compte web, tenter le Parcours 2 atomique (claim-ticket)
         if (!UserManager.isPaired() || UserManager.isGuestSession()) {
             claimGuestTicket(code);

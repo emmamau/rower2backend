@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { RaceManager, getWaitingStatusMessage } from "../services/race-manager.service";
 import pairingService from "../services/pairing.service";
+import sessionService from "../services/session.service";
 import userStore from "../services/user-store.service";
 import db from "../models";
 import socketGateway from "../websocket/socket.gateway";
@@ -50,6 +51,16 @@ export class RoomController {
       const bodyUserId = userId ? String(userId).trim() : "";
       let userName = body.userName || query.userName;
       let isDeviceAuthenticated = false;
+
+      if (sessionService.getSessionCodeContext(rawCode)) {
+        const claimed = await sessionService.claimSessionCode(
+          rawCode,
+          String(body.deviceId || "GARMIN_DEVICE"),
+          userName ? String(userName) : null
+        );
+        res.status(200).json({ ...claimed, success: true });
+        return;
+      }
 
       // 1. Si un deviceToken est fourni (depuis la montre Garmin), valider le token et récupérer l'utilisateur appairé
       if (deviceToken) {
