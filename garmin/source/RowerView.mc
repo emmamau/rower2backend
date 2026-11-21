@@ -60,6 +60,7 @@ class RowerView extends WatchUi.View {
     // Garmin Pairing Result & Status State
     private var _pairingSuccess as Boolean = false;
     private var _pairingResultMessage as String = "";
+    private var _pairingDismissTimer as Number = 0;
     private var _pairingStatusMenuIndex as Number = 0;
     private var _pairingCompletedCallback as Method? = null;
     private var _roomPinCompletedCallback as Method? = null;
@@ -113,6 +114,7 @@ class RowerView extends WatchUi.View {
         _pairingPicker = new UnifiedCodePickerView(5, "ENTRER UN CODE", method(:onPairingCodeCompleted));
         _roomPinPicker = new UnifiedCodePickerView(5, "ENTRER UN CODE", method(:onRoomPinCompleted));
         _pseudoPicker = new UnifiedCodePickerView(6, "MON PSEUDO", method(:onPseudoCompleted));
+        _pseudoPicker.setAllowSpace(true);
         // Lancement direct sur le menu principal (G2)
         _currentState = STATE_MENU;
     }
@@ -566,6 +568,11 @@ class RowerView extends WatchUi.View {
         _pairingSuccess = success;
         _pairingResultMessage = message;
         _currentState = STATE_PAIRING_RESULT;
+        if (success) {
+            _pairingDismissTimer = System.getTimer() + 2500;
+        } else {
+            _pairingDismissTimer = 0;
+        }
         WatchUi.requestUpdate();
     }
 
@@ -687,6 +694,10 @@ class RowerView extends WatchUi.View {
         } else if (_currentState == STATE_PAIRING_STATUS) {
             drawPairingStatus(dc, w, h);
         } else if (_currentState == STATE_PAIRING_RESULT) {
+            if (_pairingSuccess && _pairingDismissTimer > 0 && System.getTimer() > _pairingDismissTimer) {
+                _pairingDismissTimer = 0;
+                _currentState = STATE_MENU;
+            }
             drawPairingResult(dc, w, h);
         } else if (_currentState == STATE_LOBBY || _currentState == STATE_WAITING_START) {
             drawG4LobbyGrid(dc, w, h);
@@ -1776,10 +1787,10 @@ class RowerView extends WatchUi.View {
         dc.drawText(cx, cardTop + ((cardH * 75) / 100), Graphics.FONT_XTINY, truncateToWidth(dc, syncInfo, Graphics.FONT_XTINY, cardW - 12), Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
 
         // Menu options :
-        // 0 = Modifier pseudo (Mode Invité) ou Verrouillé (Compte Web)
+        // 0 = Modifier pseudo (avec espace)
         // 1 = Réinitialiser / Dissocier
         // 2 = Retour au menu
-        var editOpt = isGuest ? I18n.getText("PROFILE_EDIT_PSEUDO") : "Pseudo synchronise web";
+        var editOpt = I18n.getText("PROFILE_EDIT_PSEUDO");
         var optItems = [
             editOpt,
             "Reinitialiser / Dissocier",
@@ -1824,7 +1835,7 @@ class RowerView extends WatchUi.View {
 
         var titleY = (h * 12) / 100;
         dc.setColor(titleCol, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, titleY, Graphics.FONT_XTINY, _pairingSuccess ? "APPAIRAGE REUSSI" : "ERREUR APPAIRAGE", Graphics.TEXT_JUSTIFY_CENTER);
+        dc.drawText(cx, titleY, Graphics.FONT_XTINY, _pairingSuccess ? "BIENVENUE" : "ERREUR APPAIRAGE", Graphics.TEXT_JUSTIFY_CENTER);
 
         var cardTop = (h * 24) / 100;
         var cardH = (h * 44) / 100;

@@ -424,26 +424,52 @@ class RestSyncManager {
                     UserManager.setDeviceToken(d.get("deviceToken").toString());
                 }
                 var mode = d.hasKey("mode") ? d.get("mode").toString() : "paired";
-                if (mode.equals("room") || mode.equals("cockpit")) {
-                    UserManager.setGuestPaired(true);
+                var isLinkCode = false;
+                if (d.hasKey("isLinkCode") && d.get("isLinkCode") == true) {
+                    isLinkCode = true;
+                } else if (d.hasKey("type") && d.get("type").toString().equals("account_link")) {
+                    isLinkCode = true;
                 } else if (mode.equals("paired")) {
+                    isLinkCode = true;
+                }
+
+                if (isLinkCode) {
                     UserManager.setGuestPaired(false);
-                }
-                if (d.hasKey("playerName") && d.get("playerName") != null) {
-                    var pName = d.get("playerName").toString();
-                    if (pName.length() > 0 && pName.find("Rameur_") != 0) {
-                        UserManager.setGuestPseudo(pName);
+                    var userLogin = "";
+                    if (d.hasKey("login") && d.get("login") != null) {
+                        userLogin = d.get("login").toString();
+                    } else if (d.hasKey("playerName") && d.get("playerName") != null) {
+                        userLogin = d.get("playerName").toString();
+                    } else if (d.hasKey("userName") && d.get("userName") != null) {
+                        userLogin = d.get("userName").toString();
+                    } else if (d.hasKey("userId") && d.get("userId") != null) {
+                        userLogin = d.get("userId").toString();
                     }
-                }
-                if (d.hasKey("userId") && d.get("userId") != null) {
-                    UserManager.setPairedUserId(d.get("userId").toString());
-                }
-                var isRoomJoin = mode.equals("room") ||
-                    (d.hasKey("roomId") && d.get("roomId") != null && d.get("roomId").toString().length() > 0);
-                if (isRoomJoin) {
-                    (_delegate as BleDelegate).onPinJoinSuccess(d);
-                } else {
+                    if (userLogin.length() > 0) {
+                        UserManager.setGuestPseudo(userLogin);
+                        UserManager.setPairedUserId(userLogin);
+                    }
                     (_delegate as BleDelegate).onPairingSuccess(d);
+                } else {
+                    if (mode.equals("room") || mode.equals("cockpit")) {
+                        UserManager.setGuestPaired(true);
+                    }
+                    if (d.hasKey("playerName") && d.get("playerName") != null) {
+                        var pName = d.get("playerName").toString();
+                        if (pName.length() > 0 && pName.find("Rameur_") != 0) {
+                            UserManager.setGuestPseudo(pName);
+                        }
+                    }
+                    if (d.hasKey("userId") && d.get("userId") != null) {
+                        UserManager.setPairedUserId(d.get("userId").toString());
+                    }
+                    var isRoomJoin = mode.equals("room") ||
+                        (d.hasKey("roomId") && d.get("roomId") != null && d.get("roomId").toString().length() > 0);
+                    if (isRoomJoin) {
+                        (_delegate as BleDelegate).onPinJoinSuccess(d);
+                    } else {
+                        (_delegate as BleDelegate).onPairingSuccess(d);
+                    }
                 }
             } else {
                 // Notifier l'échec de validation du code PIN

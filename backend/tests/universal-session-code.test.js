@@ -168,6 +168,11 @@ test('Universal 5-character session code: Generation, claim (account, room, gues
     assert.equal(resAccClaim.status, 200);
     const accClaimData = await resAccClaim.json();
     assert.equal(accClaimData.mode, 'paired');
+    assert.equal(accClaimData.isLinkCode, true);
+    assert.equal(accClaimData.roomId, null);
+    assert.equal(accClaimData.type, 'account_link');
+    assert.ok(accClaimData.login);
+    assert.equal(accClaimData.message, `Bienvenue ${accClaimData.login} !`);
     assert.equal(accClaimData.waitingStatusMessage, undefined);
 
     const resPairStatus = await fetch(`${baseUrl}/api/garmin/pairing-status?pairingCode=${accCodeData.code}`);

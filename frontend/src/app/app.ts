@@ -4076,9 +4076,10 @@ export class AppComponent implements OnInit, OnDestroy {
     this.isGeneratingPairingCode = true;
     this.pairingErrorMessage = '';
     this.pairingSuccessMessage = '';
-    const targetUserId = this.activeUserId || this.currentUser?.id || this.guestSessionId;
+    const targetUserId = this.currentUser?.login || this.currentUser?.id || this.activeUserId || this.guestSessionId;
+    const targetPlayerName = this.currentUser?.login || this.currentUser?.name || targetUserId;
 
-    this.rowerService.requestGarminPairingCode(targetUserId).subscribe({
+    this.rowerService.requestGarminPairingCode(targetUserId, targetPlayerName).subscribe({
       next: (res) => {
         this.isGeneratingPairingCode = false;
         if (res && res.success && res.pairingCode) {

@@ -32,6 +32,8 @@ class UnifiedCodePickerView extends WatchUi.View {
     private var _cancelCallback as Method?;
     private var _charIndices as Array<Number>;
     private var _currentSlot as Number = 0;
+    private var _allowSpace as Boolean = false;
+    private var _charset as Array<String> = CHARSET;
 
     //! Constructeur de la vue générique paramétrable
     //! @param codeLength Entier (6 pour l'appairage, 5 pour le salon privé)
@@ -42,11 +44,31 @@ class UnifiedCodePickerView extends WatchUi.View {
         _codeLength = (codeLength > 0) ? codeLength : 5;
         _screenTitle = screenTitle;
         _callback = callback;
+        _allowSpace = false;
+        _charset = CHARSET;
         _charIndices = new [_codeLength] as Array<Number>;
         for (var i = 0; i < _codeLength; i++) {
             _charIndices[i] = 0;
         }
         _currentSlot = 0;
+    }
+
+    public function setAllowSpace(allow as Boolean) as Void {
+        _allowSpace = allow;
+        if (_allowSpace) {
+            _charset = [
+                "0","1","2","3","4","5","6","7","8","9",
+                "A","B","C","D","E","F","G","H","I","J",
+                "K","L","M","N","O","P","Q","R","S","T",
+                "U","V","W","X","Y","Z"," "
+            ];
+        } else {
+            _charset = CHARSET;
+        }
+    }
+
+    public function isSpaceAllowed() as Boolean {
+        return _allowSpace;
     }
 
     public function setCancelCallback(cancelCb as Method?) as Void {
@@ -70,19 +92,19 @@ class UnifiedCodePickerView extends WatchUi.View {
     }
 
     public function getCurrentChar() as String {
-        return CHARSET[_charIndices[_currentSlot]];
+        return _charset[_charIndices[_currentSlot]];
     }
 
     public function getPrevChar() as String {
-        var count = CHARSET.size();
+        var count = _charset.size();
         var prevIdx = (_charIndices[_currentSlot] - 1 + count) % count;
-        return CHARSET[prevIdx];
+        return _charset[prevIdx];
     }
 
     public function getNextChar() as String {
-        var count = CHARSET.size();
+        var count = _charset.size();
         var nextIdx = (_charIndices[_currentSlot] + 1) % count;
-        return CHARSET[nextIdx];
+        return _charset[nextIdx];
     }
 
     public function getSlotDisplayChar(slotIdx as Number) as String {
@@ -90,7 +112,7 @@ class UnifiedCodePickerView extends WatchUi.View {
             return "_";
         }
         if (slotIdx <= _currentSlot) {
-            return CHARSET[_charIndices[slotIdx]];
+            return _charset[_charIndices[slotIdx]];
         }
         return "_";
     }
@@ -106,7 +128,7 @@ class UnifiedCodePickerView extends WatchUi.View {
 
     //! Défilement circulaire continu : delta = -1 (UP / Swipe Haut -> précédent), delta = +1 (DOWN / Swipe Bas -> suivant)
     public function cycleChar(delta as Number) as Void {
-        var count = CHARSET.size();
+        var count = _charset.size();
         _charIndices[_currentSlot] = (_charIndices[_currentSlot] + delta + count) % count;
         WatchUi.requestUpdate();
     }
@@ -146,9 +168,16 @@ class UnifiedCodePickerView extends WatchUi.View {
     public function getFormattedCode() as String {
         var res = "";
         for (var i = 0; i < _codeLength; i++) {
-            res += CHARSET[_charIndices[i]];
+            res += _charset[_charIndices[i]];
         }
         return res;
+    }
+
+    private function formatCharForDisplay(ch as String) as String {
+        if (ch != null && ch.equals(" ")) {
+            return "[ ]";
+        }
+        return ch;
     }
 
     //! Calcule la largeur horizontale sécurisée dans le cadran circulaire Garmin
@@ -221,17 +250,19 @@ class UnifiedCodePickerView extends WatchUi.View {
                 dc.drawRoundedRectangle(bx, boxTop, boxW, boxH, 5);
                 dc.setPenWidth(1);
 
-                var curChar = CHARSET[_charIndices[i]];
+                var curChar = _charset[_charIndices[i]];
+                var dispCurChar = curChar.equals(" ") ? " " : curChar;
                 dc.setColor(COL_ACCENT, Graphics.COLOR_TRANSPARENT);
-                dc.drawText(bx + (boxW / 2), boxTop + (boxH / 2), Graphics.FONT_SMALL, curChar, Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+                dc.drawText(bx + (boxW / 2), boxTop + (boxH / 2), Graphics.FONT_SMALL, dispCurChar, Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
             } else if (isEntered) {
                 // Caractères déjà saisis affichés en blanc/surbrillance
                 dc.setColor(COL_GRID, Graphics.COLOR_TRANSPARENT);
                 dc.drawRoundedRectangle(bx, boxTop, boxW, boxH, 5);
 
-                var enteredChar = CHARSET[_charIndices[i]];
+                var enteredChar = _charset[_charIndices[i]];
+                var dispEnteredChar = enteredChar.equals(" ") ? " " : enteredChar;
                 dc.setColor(COL_PRIMARY, Graphics.COLOR_TRANSPARENT);
-                dc.drawText(bx + (boxW / 2), boxTop + (boxH / 2), Graphics.FONT_SMALL, enteredChar, Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+                dc.drawText(bx + (boxW / 2), boxTop + (boxH / 2), Graphics.FONT_SMALL, dispEnteredChar, Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
             } else {
                 // Emplacements restants indiqués par un tiret '_'
                 dc.setColor(COL_GRID, Graphics.COLOR_TRANSPARENT);
@@ -246,9 +277,9 @@ class UnifiedCodePickerView extends WatchUi.View {
         //    - Rappel discret du caractère précédent au-dessus
         //    - Caractère sélectionné affiché en grand au centre
         //    - Rappel discret du caractère suivant en dessous
-        var prevChar = getPrevChar();
-        var activeChar = getCurrentChar();
-        var nextChar = getNextChar();
+        var prevChar = formatCharForDisplay(getPrevChar());
+        var activeChar = formatCharForDisplay(getCurrentChar());
+        var nextChar = formatCharForDisplay(getNextChar());
 
         var prevY = (h * 45) / 100;
         var activeY = (h * 59) / 100;

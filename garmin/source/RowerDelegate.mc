@@ -33,9 +33,24 @@ class RowerDelegate extends WatchUi.BehaviorDelegate {
         _bleDelegate.submitPinCode(pin);
     }
 
+    private function trimTrailingSpaces(s as String) as String {
+        var len = s.length();
+        while (len > 0 && s.substring(len - 1, len).equals(" ")) {
+            len--;
+        }
+        if (len == 0) {
+            return "Rameur";
+        }
+        return s.substring(0, len);
+    }
+
     public function onPseudoCompleted(pseudo as String) as Void {
-        UserManager.setGuestPseudo(pseudo);
-        _view.showWarning("Pseudo : " + pseudo, 2);
+        var trimmed = trimTrailingSpaces(pseudo);
+        UserManager.setGuestPseudo(trimmed);
+        if (UserManager.isPaired()) {
+            UserManager.setPairedUserId(trimmed);
+        }
+        _view.showWarning("Pseudo : " + trimmed, 2);
         _view.setAppState(RowerView.STATE_SUBMENU_MORE);
     }
 
@@ -117,13 +132,9 @@ class RowerDelegate extends WatchUi.BehaviorDelegate {
         } else if (state == RowerView.STATE_PAIRING_STATUS) {
             var pStatusIdx = _view.getPairingStatusMenuIndex();
             if (pStatusIdx == 0) {
-                // Modifier le pseudo (uniquement en mode Invité ; verrouillé en mode Compte Lié)
-                if (UserManager.isGuestSession()) {
-                    _view.resetPseudoDigits();
-                    _view.setAppState(RowerView.STATE_PSEUDO_INPUT);
-                } else {
-                    _view.showWarning(I18n.getText("PROFILE_SYNCED_WEB"), 3);
-                }
+                // Modifier le pseudo sur la montre (espace proposé)
+                _view.resetPseudoDigits();
+                _view.setAppState(RowerView.STATE_PSEUDO_INPUT);
             } else if (pStatusIdx == 1) {
                 // Réinitialiser / Dissocier
                 _bleDelegate.requestResetPairing();

@@ -304,10 +304,11 @@ export class RowerService {
   }
 
   // --- NOUVEAU PROTOCOLE D'APPAIRAGE GARMIN <-> WEB ---
-  requestGarminPairingCode(userId: string): Observable<{ success: boolean; pairingCode: string; expiresAt: string; expiresInSeconds: number; userId: string }> {
+  requestGarminPairingCode(userId: string, playerName?: string): Observable<{ success: boolean; pairingCode: string; expiresAt: string; expiresInSeconds: number; userId: string; playerName?: string }> {
     return this.http.post<any>(`${this.apiUrl}/api/session/code`, {
       type: 'account_link',
       userId,
+      playerName,
     }).pipe(
       // Mappage transparent pour renvoyer le code 5 car. dans pairingCode
       // pour compatibilité descendante avec l'affichage
@@ -317,6 +318,7 @@ export class RowerService {
         expiresAt: res.expiresAt,
         expiresInSeconds: res.expiresInSeconds || 600,
         userId: res.userId || userId,
+        playerName: res.playerName || playerName,
       }))
     );
   }

@@ -117,7 +117,12 @@ export class PairingService {
     success: boolean;
     deviceToken?: string;
     userId?: string;
+    login?: string;
+    userName?: string;
+    playerName?: string;
     deviceId?: string;
+    isLinkCode?: boolean;
+    mode?: string;
     message?: string;
   }> {
     const cleanCode = String(pairingCode || "").trim().toUpperCase();
@@ -226,7 +231,13 @@ export class PairingService {
       success: true,
       deviceToken,
       userId: canonicalUserId,
+      login: canonicalUserId,
+      userName: canonicalUserName,
+      playerName: canonicalUserName,
       deviceId: cleanDeviceId,
+      isLinkCode: true,
+      mode: "paired",
+      message: `Bienvenue ${canonicalUserName} !`,
     };
   }
 
@@ -678,7 +689,13 @@ export class PairingService {
     success: boolean;
     deviceToken: string;
     userId: string;
+    login?: string;
+    userName?: string;
+    playerName?: string;
     deviceId: string;
+    isLinkCode?: boolean;
+    mode?: string;
+    message?: string;
   }> {
     const cleanUserId = String(userId || "").trim();
     const cleanDeviceId = String(deviceId || "").trim();
@@ -749,7 +766,13 @@ export class PairingService {
       success: true,
       deviceToken,
       userId: canonicalUserId,
+      login: canonicalUserId,
+      userName: canonicalUserName,
+      playerName: canonicalUserName,
       deviceId: cleanDeviceId,
+      isLinkCode: true,
+      mode: "paired",
+      message: `Bienvenue ${canonicalUserName} !`,
     };
   }
 

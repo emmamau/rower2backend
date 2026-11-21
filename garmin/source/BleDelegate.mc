@@ -1972,8 +1972,19 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
         } else if (_model.connectionState == RowerDataModel.STATE_DISCONNECTED && !_isManualDisconnect) {
             startScan();
         }
+        var welcomeMsg = "Bienvenue !";
+        if (data != null && data.hasKey("message") && data.get("message") != null) {
+            welcomeMsg = data.get("message").toString();
+        } else {
+            var pseudo = UserManager.getDisplayPseudo();
+            if (pseudo.length() > 0) {
+                welcomeMsg = "Bienvenue " + pseudo + " !";
+            }
+        }
         if (_view != null) {
-            (_view as RowerView).onPairingDone(true, I18n.getText("PAIR_SUCCESS_TITLE"));
+            var view = _view as RowerView;
+            view.setPrivateSalonMode(false, "");
+            view.onPairingDone(true, welcomeMsg);
         }
     }
 

@@ -854,15 +854,20 @@ function testClaimSessionResponseDistinguishesPairingAndRoom(logger as Logger) a
     del.setView(view);
     var syncMgr = del.getSyncManager();
 
-    // 1. Account/platform linking response (mode = "paired", no roomId)
+    // 1. Account/platform linking response (mode = "paired", isLinkCode = true)
     syncMgr.onClaimSessionResponse(200, {
         "deviceToken" => "tok-paired-123",
         "mode" => "paired",
-        "userId" => "EmmaRacer",
-        "playerName" => "EmmaRacer"
+        "isLinkCode" => true,
+        "type" => "account_link",
+        "login" => "EmmaRacer",
+        "userId" => "usr_hidden_123",
+        "playerName" => "EmmaRacer",
+        "message" => "Bienvenue EmmaRacer !"
     });
     Test.assertEqual(true, UserManager.isPaired());
     Test.assertEqual(false, UserManager.isGuestSession());
+    Test.assertEqual("EmmaRacer", UserManager.getDisplayPseudo());
     Test.assertEqual(RowerView.STATE_PAIRING_RESULT, view.getAppState());
     Test.assertEqual(false, view.isPrivateSalon());
 
@@ -883,6 +888,28 @@ function testClaimSessionResponseDistinguishesPairingAndRoom(logger as Logger) a
     Test.assertEqual(true, view.isPrivateSalon());
 
     UserManager.clearPairing();
+    return true;
+}
+
+//! Regression test 28: UnifiedCodePickerView with space character support
+(:test)
+function testUnifiedCodePickerWithSpace(logger as Logger) as Boolean {
+    var picker = new UnifiedCodePickerView(6, "MON PSEUDO", null);
+    Test.assertEqual(false, picker.isSpaceAllowed());
+
+    picker.setAllowSpace(true);
+    Test.assertEqual(true, picker.isSpaceAllowed());
+
+    // Cycle backward from '0' to reach the last character ' '
+    picker.cycleChar(-1);
+    Test.assertEqual(" ", picker.getCurrentChar());
+    Test.assertEqual(" ", picker.getSlotDisplayChar(0));
+
+    // Confirm space and advance to slot 1
+    var finished = picker.confirmCurrentChar();
+    Test.assertEqual(false, finished);
+    Test.assertEqual(1, picker.getCurrentSlot());
+
     return true;
 }
 

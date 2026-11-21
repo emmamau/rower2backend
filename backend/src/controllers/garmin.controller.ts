@@ -77,8 +77,13 @@ export class GarminController {
         success: true,
         deviceToken: result.deviceToken,
         userId: result.userId,
+        login: (result as any).login || result.userId,
+        userName: (result as any).userName || result.userId,
+        playerName: (result as any).playerName || result.userId,
         deviceId: result.deviceId,
-        message: "Montre associée avec succès !",
+        isLinkCode: true,
+        mode: "paired",
+        message: (result as any).message || `Bienvenue ${result.userId} !`,
       });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);

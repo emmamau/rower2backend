@@ -82,7 +82,12 @@ export class SessionService {
     let cleanPlayerName = options.playerName ? String(options.playerName).trim() : "";
 
     if (!cleanPlayerName) {
-      cleanPlayerName = cleanUserId ? cleanUserId : `Rameur_${code.slice(0, 3)}`;
+      if (cleanUserId) {
+        const matched = userStore.findUserSync(cleanUserId);
+        cleanPlayerName = matched?.login || matched?.name || cleanUserId;
+      } else {
+        cleanPlayerName = `Rameur_${code.slice(0, 3)}`;
+      }
     }
 
     let assignedLane = options.assignedLane;
@@ -157,6 +162,10 @@ export class SessionService {
     success: boolean;
     deviceToken?: string;
     mode: "room" | "cockpit" | "paired";
+    type?: string;
+    isLinkCode?: boolean;
+    login?: string;
+    userName?: string;
     playerName: string;
     lane: number;
     userId?: string;
@@ -407,15 +416,21 @@ export class SessionService {
 
       const pairFallback = await pairingService.pairDevice(cleanCode, cleanDeviceId);
       if (pairFallback.success && pairFallback.deviceToken) {
+        const matchedUser = pairFallback.userId ? await userStore.findUser(pairFallback.userId) : null;
+        const userLogin = matchedUser?.login || matchedUser?.name || pairFallback.userId || "Rameur";
         return {
           success: true,
           deviceToken: pairFallback.deviceToken,
           mode: "paired",
-          playerName: pairFallback.userId || "Rameur",
+          type: "account_link",
+          isLinkCode: true,
+          login: userLogin,
+          userName: userLogin,
+          playerName: userLogin,
           lane: 1,
-          userId: pairFallback.userId,
+          userId: userLogin,
           roomId: null,
-          message: "Montre associée avec succès !",
+          message: `Bienvenue ${userLogin} !`,
         };
       }
 
@@ -433,18 +448,23 @@ export class SessionService {
       finalPlayerName = String(customGuestPseudo).trim();
     }
 
-    // Cas 1 : Compte Authentifié (userId présent)
-    if (context.userId) {
-      targetUserId = context.userId;
+    // Cas 1 : Compte Authentifié ou Liaison de compte (type == "account_link" ou userId présent)
+    if (type === "account_link" || context.userId) {
+      const matchedUser = context.userId ? await userStore.findUser(context.userId) : null;
+      const canonicalLogin = matchedUser?.login || matchedUser?.name || context.playerName || context.userId || "Rameur";
+      targetUserId = canonicalLogin;
+      finalPlayerName = canonicalLogin;
+
       const pairRes = await pairingService.pairDeviceDirectly(targetUserId, cleanDeviceId);
       deviceToken = pairRes.deviceToken;
-      mode = roomId ? "room" : "paired";
+      // Pour une liaison de compte (account_link), interdiction formelle d'entrer dans un salon
+      mode = (type !== "account_link" && roomId) ? "room" : "paired";
 
-      // Si salon présent, inscrire / confirmer le joueur sur sa ligne d'eau
-      if (roomId) {
+      // Si salon présent et NON liaison de compte, inscrire / confirmer le joueur sur sa ligne d'eau
+      if (mode === "room" && roomId) {
         const race = raceManager.getRaceById(roomId);
         if (race) {
-          raceManager.joinPrivateRace(race.id, targetUserId, playerName, undefined, {
+          raceManager.joinPrivateRace(race.id, targetUserId, finalPlayerName, undefined, {
             isDeviceAuthenticated: true,
             viaPin: true,
             ready: false,
@@ -600,35 +620,42 @@ export class SessionService {
       }
     }
 
+    const isLinkCode = (type === "account_link" || mode === "paired");
+    const effectiveRoomId = isLinkCode ? null : roomId;
+
     return {
       success: true,
       deviceToken,
       mode,
+      type,
+      isLinkCode,
+      login: finalPlayerName,
+      userName: finalPlayerName,
       playerName: finalPlayerName,
       lane,
       botLane: attachedRace?.isBotDuel ? 2 : undefined,
       userId: targetUserId,
-      roomId,
-      id: roomId || undefined,
-      raceId: roomId || undefined,
-      code: attachedRace?.code,
-      pinCode: attachedRace?.pinCode,
-      targetDistance: attachedRace?.targetDistance,
-      status: attachedRace ? (attachedRace.status === "RUNNING" ? "in_progress" : "waiting") : undefined,
-      internalStatus: attachedRace?.status,
-      secondsRemaining: attachedRace ? secondsRemaining : undefined,
-      countdownSeconds: attachedRace ? secondsRemaining : undefined,
-      waitingForHost: attachedRace ? waitingForHost : undefined,
-      hasBots: attachedRace ? Boolean(attachedRace.hasBots || attachedRace.isBotDuel) : undefined,
-      totalParticipants: roomTotalParticipants,
-      isSolo: Boolean(attachedRace?.isSolo),
-      isBotDuel: Boolean(attachedRace?.isBotDuel),
-      isDuel1v1: Boolean(attachedRace?.isDuel1v1),
-      gameMode: attachedRace?.gameMode || (attachedRace?.isSolo ? "solo" : attachedRace?.isBotDuel ? "bot_duel" : attachedRace?.isDuel1v1 ? "duel_1v1" : (mode === "room" ? "multi" : undefined)),
-      waitingStatusMessage: roomId ? `Ligne ${lane} attribuée - Donnez un coup de rame pour réveiller le rameur` : undefined,
+      roomId: effectiveRoomId,
+      id: effectiveRoomId || undefined,
+      raceId: effectiveRoomId || undefined,
+      code: isLinkCode ? undefined : attachedRace?.code,
+      pinCode: isLinkCode ? undefined : attachedRace?.pinCode,
+      targetDistance: isLinkCode ? undefined : attachedRace?.targetDistance,
+      status: isLinkCode ? undefined : (attachedRace ? (attachedRace.status === "RUNNING" ? "in_progress" : "waiting") : undefined),
+      internalStatus: isLinkCode ? undefined : attachedRace?.status,
+      secondsRemaining: isLinkCode ? undefined : (attachedRace ? secondsRemaining : undefined),
+      countdownSeconds: isLinkCode ? undefined : (attachedRace ? secondsRemaining : undefined),
+      waitingForHost: isLinkCode ? undefined : (attachedRace ? waitingForHost : undefined),
+      hasBots: isLinkCode ? undefined : (attachedRace ? Boolean(attachedRace.hasBots || attachedRace.isBotDuel) : undefined),
+      totalParticipants: isLinkCode ? undefined : roomTotalParticipants,
+      isSolo: isLinkCode ? undefined : Boolean(attachedRace?.isSolo),
+      isBotDuel: isLinkCode ? undefined : Boolean(attachedRace?.isBotDuel),
+      isDuel1v1: isLinkCode ? undefined : Boolean(attachedRace?.isDuel1v1),
+      gameMode: isLinkCode ? undefined : (attachedRace?.gameMode || (attachedRace?.isSolo ? "solo" : attachedRace?.isBotDuel ? "bot_duel" : attachedRace?.isDuel1v1 ? "duel_1v1" : (mode === "room" ? "multi" : undefined))),
+      waitingStatusMessage: effectiveRoomId ? `Ligne ${lane} attribuée - Donnez un coup de rame pour réveiller le rameur` : undefined,
       guestPairingToken: context.guestPairingToken,
-      message: `Bienvenue ${finalPlayerName} ! Mode ${mode} activé (Ligne ${lane})`,
-      race: attachedRace || undefined,
+      message: isLinkCode ? `Bienvenue ${finalPlayerName} !` : `Bienvenue ${finalPlayerName} ! Mode ${mode} activé (Ligne ${lane})`,
+      race: isLinkCode ? undefined : (attachedRace || undefined),
     };
   }
 
