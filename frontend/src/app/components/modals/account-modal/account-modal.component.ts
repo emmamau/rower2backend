@@ -1,4 +1,4 @@
-import { Component, Input, Output, EventEmitter, ViewChild, ElementRef, OnDestroy, ViewEncapsulation } from '@angular/core';
+import { Component, Input, Output, EventEmitter, ViewChild, ElementRef, OnDestroy, OnChanges, SimpleChanges, ViewEncapsulation } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { I18nService } from '../../../services/i18n.service';
@@ -23,7 +23,7 @@ export type AccountModalTabType = 'login' | 'register' | 'profile' | 'forgot' | 
   templateUrl: './account-modal.component.html',
   encapsulation: ViewEncapsulation.None
 })
-export class AccountModalComponent implements OnDestroy {
+export class AccountModalComponent implements OnChanges, OnDestroy {
   @Input() isAccountModalOpen = false;
   @Input() isLoginModalOpen = false;
   @Input() accountModalTab: AccountModalTabType = 'login';
@@ -99,6 +99,8 @@ export class AccountModalComponent implements OnDestroy {
   @Input() isSavingDuelPreferences = false;
   @Input() duelPreferencesFeedback = '';
   @Input() duelPreferencesError = '';
+  @Input() pendingDuelInviteToken = '';
+  @Input() pendingRegistrationEmail = '';
 
   @Output() accountModalTabChange = new EventEmitter<AccountModalTabType>();
   @Output() loginAccountInputChange = new EventEmitter<string>();
@@ -212,6 +214,17 @@ export class AccountModalComponent implements OnDestroy {
   }
 
   constructor(public i18n: I18nService) {}
+
+  ngOnChanges(changes: SimpleChanges): void {
+    if (
+      (changes['pendingRegistrationEmail'] || changes['accountModalTab'] || changes['isAccountModalOpen']) &&
+      this.pendingRegistrationEmail &&
+      !this.regEmail
+    ) {
+      this.regEmail = this.pendingRegistrationEmail;
+      this.regEmailChange.emit(this.regEmail);
+    }
+  }
 
   ngOnDestroy(): void {
     this.stopKayakPreviewAnimation();

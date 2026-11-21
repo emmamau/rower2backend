@@ -2049,6 +2049,18 @@
   flex-wrap: wrap;
 }
 
+.priv-chip-pending-reg {
+  background: rgba(255, 102, 0, 0.16);
+  border-color: rgba(255, 102, 0, 0.65);
+  color: #ffb366;
+}
+
+.priv-btn-xs {
+  min-height: 30px;
+  padding: 0.25rem 0.65rem;
+  font-size: 0.75rem;
+}
+
 
 
 

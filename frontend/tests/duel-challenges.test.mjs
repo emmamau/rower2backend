@@ -114,3 +114,44 @@ test('AccountModal CSS: widens .modal-account to 720px and keeps duel absence & 
     '.duel-window-row and .duel-days-row must enforce single-line layout (flex-wrap: nowrap; white-space: nowrap;)'
   );
 });
+
+test('Duel Email Invitations: models, service, private-room-manager resend UI and account-modal onboarding', () => {
+  const userModelTs = fs.readFileSync(path.join(frontendAppDir, 'models/user.model.ts'), 'utf8');
+  const rowerServiceTs = fs.readFileSync(path.join(frontendAppDir, 'services/rower.service.ts'), 'utf8');
+  const privHtml = fs.readFileSync(
+    path.join(frontendAppDir, 'components/private-room-manager/private-room-manager.component.html'),
+    'utf8'
+  );
+  const privTs = fs.readFileSync(
+    path.join(frontendAppDir, 'components/private-room-manager/private-room-manager.component.ts'),
+    'utf8'
+  );
+  const appHtml = readAppHtmlBundle();
+  const appTs = readAppTsBundle();
+
+  assert.match(userModelTs, /challengedEmail\?:\s*string/);
+  assert.match(userModelTs, /inviteToken\?:\s*string/);
+  assert.match(userModelTs, /referredBy\?:\s*string/);
+  assert.match(userModelTs, /duelInviteToken\?:\s*string/);
+
+  assert.match(rowerServiceTs, /resendDuelInvite\(/);
+  assert.match(rowerServiceTs, /\/api\/duels\/\$\{encodeURIComponent\(challengeId\)\}\/resend-invite/);
+  assert.match(rowerServiceTs, /getDuelInviteInfo\(/);
+  assert.match(rowerServiceTs, /\/api\/duels\/invite-info\?token=/);
+
+  assert.match(privHtml, /Login RowerRace ou E-mail d'un ami/);
+  assert.match(privHtml, /ami@email\.com/);
+  assert.match(privHtml, /priv-chip-pending-reg/);
+  assert.match(privHtml, /En attente d'inscription/);
+  assert.match(privHtml, /resendDuelInvite\(d\)/);
+  assert.match(privTs, /resendingDuelInviteId\s*=\s*''/);
+  assert.match(privTs, /resendDuelInvite\(challenge:\s*DuelChallenge\):\s*void/);
+
+  assert.match(appTs, /pendingDuelInviteToken\s*=\s*''/);
+  assert.match(appTs, /pendingRegistrationEmail\s*=\s*''/);
+  assert.match(appTs, /urlParams\.get\('duelInviteToken'\)\s*\|\|\s*urlParams\.get\('inviteToken'\)/);
+  assert.match(appTs, /duelInviteToken:\s*this\.pendingDuelInviteToken\s*\|\|\s*undefined/);
+  assert.match(appHtml, /account-duel-banner/);
+  assert.match(appHtml, /\[pendingDuelInviteToken\]="pendingDuelInviteToken"/);
+  assert.match(appHtml, /\[pendingRegistrationEmail\]="pendingRegistrationEmail"/);
+});

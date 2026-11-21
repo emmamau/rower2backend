@@ -200,6 +200,7 @@ export interface UserProfile {
   duelPoints?: number;
   duelPreferences?: DuelPreferences;
   acceptsDuels?: boolean;
+  referredBy?: string;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -236,6 +237,8 @@ export interface DuelChallenge {
   challengedUserId: string;
   challengedLogin: string;
   challengedName: string;
+  challengedEmail?: string;
+  inviteToken?: string;
   slotStart: string;
   slotEnd: string;
   timezone: string;
@@ -318,6 +321,7 @@ export interface RegisterUserDto {
   guestPairingToken?: string;
   guestToken?: string;
   guestUserId?: string;
+  duelInviteToken?: string;
   duelPreferences?: DuelPreferences;
   website_url?: string;
   bot_trap?: string;

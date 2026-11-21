@@ -702,17 +702,17 @@
                   <span class="priv-meta-chip">Expiration 72h • +10 pts victoire</span>
                 </div>
                 <p class="priv-hint">
-                  Saisissez le login d'un abonné ou recherchez un joueur disponible sur votre créneau. Un e-mail lui sera envoyé et le créneau sera bloqué dès acceptation.
+                  Saisissez le login d'un abonné, l'adresse e-mail d'un ami à inviter, ou recherchez un joueur disponible sur votre créneau. Un e-mail lui sera envoyé et le créneau sera bloqué dès acceptation.
                 </p>
 
                 <div class="priv-field">
-                  <label for="priv-duel-login" class="priv-label">Login de l'abonné à défier *</label>
+                  <label for="priv-duel-login" class="priv-label">Adversaire : Login RowerRace ou E-mail d'un ami *</label>
                   <input
                     id="priv-duel-login"
                     name="duelTargetLogin"
                     type="text"
                     class="priv-input"
-                    placeholder="ex: EmmaRacer"
+                    placeholder="ex: EmmaRacer ou ami@email.com"
                     [(ngModel)]="duelTargetLogin"
                     (input)="duelChallengeError = ''" />
                 </div>
@@ -1728,7 +1728,12 @@
                     <div class="priv-saved-info">
                       <div class="priv-saved-top">
                         <span class="priv-role-chip">{{ getDuelStatusLabel(d.status) }}</span>
-                        <strong>Contre {{ d.challengedName }} (&#64;{{ d.challengedLogin }})</strong>
+                        @if (d.challengedEmail && !d.challengedUserId) {
+                          <strong>Invité : {{ d.challengedEmail }}</strong>
+                          <span class="priv-meta-chip priv-chip-pending-reg">📩 En attente d'inscription</span>
+                        } @else {
+                          <strong>Contre {{ d.challengedName }} (&#64;{{ d.challengedLogin }})</strong>
+                        }
                         <span class="priv-meta-chip">{{ d.targetDistance }}m</span>
                       </div>
                       <div class="priv-saved-codes">
@@ -1739,6 +1744,15 @@
                       </div>
                     </div>
                     <div class="priv-saved-actions">
+                      @if (d.challengedEmail && !d.challengedUserId && d.status === 'PENDING') {
+                        <button
+                          type="button"
+                          class="priv-btn priv-btn-xs priv-btn-outline"
+                          [disabled]="resendingDuelInviteId === d.id"
+                          (click)="resendDuelInvite(d)">
+                          {{ resendingDuelInviteId === d.id ? 'Envoi...' : '🔄 Relancer l\'invitation' }}
+                        </button>
+                      }
                       @if (d.status === 'ACCEPTED') {
                         <button
                           type="button"

@@ -671,6 +671,24 @@ export class RowerService {
     );
   }
 
+  resendDuelInvite(
+    challengeId: string,
+    userId: string
+  ): Observable<{ success: boolean; message: string }> {
+    return this.http.post<{ success: boolean; message: string }>(
+      `${this.apiUrl}/api/duels/${encodeURIComponent(challengeId)}/resend-invite`,
+      { userId }
+    );
+  }
+
+  getDuelInviteInfo(
+    token: string
+  ): Observable<{ success: boolean; challenge?: any; message?: string }> {
+    return this.http.get<any>(
+      `${this.apiUrl}/api/duels/invite-info?token=${encodeURIComponent(token)}`
+    );
+  }
+
   resolveDuelChallenge(
     challengeId: string,
     payload: { winnerUserId?: string; isDraw?: boolean; forfeitUserId?: string }

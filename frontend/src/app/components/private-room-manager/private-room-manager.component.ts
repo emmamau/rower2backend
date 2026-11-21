@@ -357,6 +357,7 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
   blockedDuelSlots: DuelChallenge[] = [];
   isLoadingDuelChallenges = false;
   duelActionBusyId = '';
+  resendingDuelInviteId = '';
   duelManageMessage = '';
   duelManageError = '';
 
@@ -1082,7 +1083,7 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
         return "Compte gratuit requis pour défier un abonné en duel.";
       }
       if (!this.duelTargetLogin.trim()) {
-        return "Veuillez renseigner le login de l'abonné à défier.";
+        return "Veuillez renseigner le login ou l'e-mail de l'adversaire à défier.";
       }
       if (!this.computeDuelSlotIsoRange()) {
         return "Veuillez choisir un créneau horaire valide dans le futur.";
@@ -2044,7 +2045,7 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
     }
     const targetLogin = this.duelTargetLogin.trim();
     if (!targetLogin) {
-      this.duelChallengeError = 'Veuillez saisir le login de l\'abonné à défier.';
+      this.duelChallengeError = 'Veuillez saisir le login ou l\'e-mail de l\'adversaire à défier.';
       this.cdr.markForCheck();
       return;
     }
@@ -2184,6 +2185,31 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
       error: (err) => {
         this.duelActionBusyId = '';
         this.duelManageError = err?.error?.message || err?.error?.error || 'Impossible de supprimer ce duel.';
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  resendDuelInvite(challenge: DuelChallenge): void {
+    if (!challenge?.id || !this.activeUserId || this.resendingDuelInviteId) return;
+    this.resendingDuelInviteId = challenge.id;
+    this.duelManageError = '';
+    this.duelManageMessage = '';
+
+    this.rowerService.resendDuelInvite(challenge.id, this.activeUserId).subscribe({
+      next: (res) => {
+        this.resendingDuelInviteId = '';
+        if (res?.success) {
+          this.showFeedback('✅ Invitation renvoyée !');
+          this.duelManageMessage = res.message || 'Invitation renvoyée !';
+        } else {
+          this.duelManageError = res?.message || 'Impossible de relancer l\'invitation.';
+        }
+        this.cdr.markForCheck();
+      },
+      error: (err) => {
+        this.resendingDuelInviteId = '';
+        this.duelManageError = err?.error?.message || err?.error?.error || 'Impossible de relancer l\'invitation.';
         this.cdr.markForCheck();
       }
     });

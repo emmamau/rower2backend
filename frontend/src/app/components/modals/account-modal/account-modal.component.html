@@ -136,6 +136,12 @@
       <!-- TAB 2: REGISTER -->
       @if (accountModalTab === 'register') {
         <form class="modal-form modal-form-scrollable" (ngSubmit)="submitAccountRegisterRequest.emit()" novalidate>
+          @if (pendingDuelInviteToken) {
+            <div class="account-duel-banner">
+              ⚔️ <strong>Vous êtes invité(e) à un duel 1v1 !</strong> Créez votre compte gratuit pour relever le défi.
+            </div>
+          }
+
           <div class="subscriber-perks-box">
             <strong>⭐ Avantages Compte Abonné :</strong>
             <span>Droit exclusif de créer et configurer des salons de course privés avec codes d'invitation et code PIN Garmin.</span>

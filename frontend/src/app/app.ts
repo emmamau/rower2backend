@@ -209,6 +209,8 @@ export class AppComponent implements OnInit, OnDestroy {
   duelExactAgeFilter = '';
   prefilledDuelLogin = '';
   prefilledDuelChallengeMode = false;
+  pendingDuelInviteToken = '';
+  pendingRegistrationEmail = '';
 
   regAcceptsDuels = true;
   regDuelStartTime = '08:00';
@@ -1080,6 +1082,19 @@ export class AppComponent implements OnInit, OnDestroy {
             },
             error: () => {}
           });
+        }
+
+        const duelInviteToken = urlParams.get('duelInviteToken') || urlParams.get('inviteToken');
+        const inviteEmail = urlParams.get('email');
+        if (duelInviteToken) {
+          this.pendingDuelInviteToken = duelInviteToken.trim();
+          if (inviteEmail) {
+            this.pendingRegistrationEmail = inviteEmail.trim();
+            this.regEmail = this.pendingRegistrationEmail;
+          }
+          this.setSiteView('home');
+          this.userExplicitlyNavigatedHome = true;
+          this.openAccountModal('register');
         }
       } catch (err) {
         console.warn('[Init] Erreur analyse paramètre resetToken URL:', err);
@@ -2315,6 +2330,7 @@ export class AppComponent implements OnInit, OnDestroy {
       guestPairingToken: existingGuestToken || undefined,
       guestToken: existingGuestToken || undefined,
       guestUserId: this.activeUserId || undefined,
+      duelInviteToken: this.pendingDuelInviteToken || undefined,
       duelPreferences: {
         acceptsDuels: Boolean(this.regAcceptsDuels),
         isAbsent: false,
@@ -2379,6 +2395,17 @@ export class AppComponent implements OnInit, OnDestroy {
           }
           this.loadUserProfile();
           this.loadGeneralLeaderboard();
+          if (this.pendingDuelInviteToken) {
+            this.pendingDuelInviteToken = '';
+            this.pendingRegistrationEmail = '';
+            this.refreshPendingPrivateAndDuels();
+            if (typeof window !== 'undefined') {
+              try {
+                const cleanUrl = window.location.pathname + (window.location.hash || '');
+                window.history.replaceState({}, '', cleanUrl || '/');
+              } catch {}
+            }
+          }
           this.isPostRegisterOnboarding = true;
           setTimeout(() => {
             this.accountModalTab = 'kayak-customizer';
