@@ -9,10 +9,11 @@ export default (app: Application): void => {
   router.get("/available-players", DuelController.findAvailablePlayers);
   router.post("/challenge", DuelController.createChallenge);
   router.get("/my-challenges", DuelController.getMyChallenges);
+  router.get("/leaderboard", DuelController.getDuelLeaderboard);
+  router.get("/:id", DuelController.getChallenge);
   router.post("/:id/respond", DuelController.respondToChallenge);
   router.post("/:id/cancel", DuelController.cancelChallenge);
   router.post("/:id/resolve", DuelController.resolveChallenge);
-  router.get("/leaderboard", DuelController.getDuelLeaderboard);
 
   app.use("/api/duels", router);
   app.use("/api/v1/duels", router);

@@ -6,6 +6,7 @@ const express = require('express');
 const initUserRoutes = require('../dist/routes/user.routes').default;
 const initDuelRoutes = require('../dist/routes/duel.routes').default;
 const initRoomRoutes = require('../dist/routes/room.routes').default;
+const initTelemetryRoutes = require('../dist/routes/telemetry.routes').default;
 const db = require('../dist/models').default;
 const emailService = require('../dist/services/email.service').default;
 const duelService = require('../dist/services/duel.service').default;
@@ -23,6 +24,7 @@ function createTestServer() {
   initUserRoutes(app);
   initDuelRoutes(app);
   initRoomRoutes(app);
+  initTelemetryRoutes(app);
   const server = http.createServer(app);
   return new Promise((resolve) => {
     server.listen(0, '127.0.0.1', () => {
@@ -224,10 +226,36 @@ test('Duel 1v1: preferences at registration, availability filtering, email, acce
     assert.ok(challenge.roomCode, 'Challenge must have a 1v1 room code');
 
     const emailsAfterSend = emailService.getSentEmails();
+    const defenderMail = emailsAfterSend.find((e) => e.to === p2.email);
+    assert.ok(defenderMail, 'Defender must receive notification email');
     assert.ok(
-      emailsAfterSend.some((e) => e.to === p2.email && /Défi|Duel/i.test(e.subject)),
-      'Challenged player must receive an email notification'
+      /pris en duel/i.test(defenderMail.subject) || /pris en duel/i.test(defenderMail.html || defenderMail.text),
+      'Email must state player is taken in a duel'
     );
+    assert.ok(
+      /72\s*(heures|h)/i.test(defenderMail.html || defenderMail.text),
+      'Email must state 72h response delay'
+    );
+    assert.ok(
+      (defenderMail.html || defenderMail.text).includes(`/r/${challenge.roomCode}`),
+      'Email must contain link to the duel salon /r/:roomCode'
+    );
+
+    // 4b. GET /api/duels/:id endpoint
+    const getChRes = await fetch(`${ctx.baseUrl}/api/duels/${challenge.id}`);
+    assert.equal(getChRes.status, 200);
+    const getChData = await getChRes.json();
+    assert.equal(getChData.success, true);
+    assert.equal(getChData.challenge.id, challenge.id);
+
+    // 4c. Salon privé /api/v1/races/private/:code exposes duelChallenge
+    const roomPayloadRes = await fetch(`${ctx.baseUrl}/api/v1/races/private/${challenge.roomCode}`);
+    assert.equal(roomPayloadRes.status, 200);
+    const roomPayloadData = await roomPayloadRes.json();
+    assert.equal(roomPayloadData.isDuel1v1, true);
+    assert.ok(roomPayloadData.duelChallenge, 'Private race payload must include duelChallenge');
+    assert.equal(roomPayloadData.duelChallenge.id, challenge.id);
+    assert.equal(roomPayloadData.duelChallenge.status, 'PENDING');
 
     // 5. p2 consulte ses défis dans ses salons privés
     const myRes = await fetch(`${ctx.baseUrl}/api/duels/my-challenges?userId=${encodeURIComponent(p2.id)}`);

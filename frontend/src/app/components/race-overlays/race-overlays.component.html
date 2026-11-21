@@ -178,3 +178,28 @@
     </div>
   </div>
 </aside>
+
+<!-- SMARTPHONE FULLSCREEN PIN OVERLAY (AFFICHE LE CODE PIN EN GROS AU MILIEU DE L'ÉCRAN TANT QUE NON CONNECTÉ À UNE LIGNE D'EAU) -->
+<aside
+  class="smartphone-fullscreen-pin-overlay"
+  *ngIf="shouldShowSmartphonePinOverlay && activeFullscreenPinCode"
+  role="dialog"
+  aria-modal="true"
+  aria-label="Code PIN de connexion">
+  <div class="smartphone-fullscreen-pin-card">
+    <div class="sf-pin-badge">
+      <span class="sf-pin-icon">⌚</span>
+      <span class="sf-pin-label">CODE PIN MONTRE GARMIN</span>
+    </div>
+    <div class="sf-pin-digits" aria-live="polite">
+      {{ activeFullscreenPinCode }}
+    </div>
+    <p class="sf-pin-instruction">
+      Entrez ce code sur votre montre pour rejoindre votre ligne d'eau.
+    </p>
+    <div class="sf-pin-subinfo">
+      <span>⏱️ Disparaît dès connexion ou départ de la course</span>
+      <span *ngIf="formattedPairingCountdown && formattedPairingCountdown !== '00:00'"> · {{ formattedPairingCountdown }}</span>
+    </div>
+  </div>
+</aside>

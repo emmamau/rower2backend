@@ -1,4 +1,4 @@
-import { KayakCustomization } from './user.model';
+import { KayakCustomization, DuelChallenge } from './user.model';
 
 export interface RowerData {
   id: string;
@@ -90,6 +90,7 @@ export interface NextRaceInfo {
     hasBots?: boolean;
     isBotDuel?: boolean;
     isDuel1v1?: boolean;
+    duelChallenge?: DuelChallenge;
     isSolo?: boolean;
     gameMode?: 'solo' | 'bot_duel' | 'duel_1v1' | 'multi';
     waitingStatusMessage?: string;
@@ -103,6 +104,7 @@ export interface NextRaceInfo {
   };
   code?: string;
   pinCode?: string;
+  duelChallenge?: DuelChallenge;
   inviteUrl?: string;
   secondsRemaining: number;
   remainingSeconds?: number;

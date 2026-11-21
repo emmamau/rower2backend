@@ -212,6 +212,29 @@ export class DuelService {
     return null;
   }
 
+  public async getChallengeByRoom(roomIdentifier: string): Promise<StoredDuelChallenge | null> {
+    if (!roomIdentifier) return null;
+    const clean = roomIdentifier.trim().toLowerCase();
+    for (const c of this.inMemoryChallenges.values()) {
+      if (
+        (c.roomId && c.roomId.toLowerCase() === clean) ||
+        (c.roomCode && c.roomCode.toLowerCase() === clean)
+      ) {
+        return c;
+      }
+    }
+    try {
+      const all = await this.listAllChallenges();
+      const found = all.find(
+        (c) =>
+          (c.roomId && c.roomId.toLowerCase() === clean) ||
+          (c.roomCode && c.roomCode.toLowerCase() === clean)
+      );
+      if (found) return found;
+    } catch {}
+    return null;
+  }
+
   public async listAllChallenges(): Promise<StoredDuelChallenge[]> {
     const merged = new Map<string, StoredDuelChallenge>();
     for (const c of this.inMemoryChallenges.values()) {

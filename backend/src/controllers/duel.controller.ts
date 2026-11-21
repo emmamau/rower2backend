@@ -204,6 +204,28 @@ export class DuelController {
   }
 
   /**
+   * GET /api/duels/:id
+   */
+  public static async getChallenge(req: Request, res: Response): Promise<void> {
+    try {
+      const challengeId = String(req.params.id || "").trim();
+      if (!challengeId) {
+        res.status(400).json({ success: false, message: "Identifiant du défi requis." });
+        return;
+      }
+      const challenge = await duelService.getChallengeById(challengeId);
+      if (!challenge) {
+        res.status(404).json({ success: false, message: "Défi introuvable ou expiré." });
+        return;
+      }
+      res.status(200).json({ success: true, challenge });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      res.status(500).json({ success: false, message });
+    }
+  }
+
+  /**
    * POST /api/duels/:id/respond
    */
   public static async respondToChallenge(req: Request, res: Response): Promise<void> {

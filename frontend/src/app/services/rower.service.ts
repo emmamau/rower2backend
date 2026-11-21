@@ -620,6 +620,12 @@ export class RowerService {
     });
   }
 
+  getDuelChallengeById(challengeId: string): Observable<{ success: boolean; challenge: DuelChallenge }> {
+    return this.http.get<{ success: boolean; challenge: DuelChallenge }>(
+      `${this.apiUrl}/api/duels/${encodeURIComponent(challengeId)}`
+    );
+  }
+
   respondToDuelChallenge(
     challengeId: string,
     userId: string,

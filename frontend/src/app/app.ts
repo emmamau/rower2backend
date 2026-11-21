@@ -1057,6 +1057,22 @@ export class AppComponent implements OnInit, OnDestroy {
           const cleanUrl = window.location.pathname + (window.location.hash || '');
           window.history.replaceState({}, '', cleanUrl || '/');
         }
+
+        const duelChallengeParam = urlParams.get('duelChallenge');
+        if (duelChallengeParam && !window.location.pathname.startsWith('/r/')) {
+          this.rowerService.getDuelChallengeById(duelChallengeParam.trim()).subscribe({
+            next: (res) => {
+              if (res?.challenge?.roomCode) {
+                const targetUrl = `/r/${encodeURIComponent(res.challenge.roomCode)}?duelChallenge=${encodeURIComponent(res.challenge.id)}`;
+                try {
+                  window.history.replaceState({ roomCode: res.challenge.roomCode }, '', targetUrl);
+                } catch {}
+                this.resolveRoomFromCurrentUrl();
+              }
+            },
+            error: () => {}
+          });
+        }
       } catch (err) {
         console.warn('[Init] Erreur analyse paramètre resetToken URL:', err);
       }
@@ -3427,6 +3443,59 @@ export class AppComponent implements OnInit, OnDestroy {
 
   get isMobileFullscreenOnly(): boolean {
     return Boolean(this.siteView !== 'home' && (this.isFullscreen || this.isPseudoFullscreen) && this.isMobileOrTablet);
+  }
+
+  get activeFullscreenPinCode(): string {
+    const roomPin = this.activePrivateRoom?.pinCode || this.activePrivateRoom?.race?.pinCode || '';
+    if (roomPin) return String(roomPin);
+    if (this.pairingCode) return String(this.pairingCode);
+    return '';
+  }
+
+  get hasPlayerJoinedWaterLane(): boolean {
+    if (this.isPaired || this.isWatchConfirmed) return true;
+    if (this.claimedRacerUserId && this.claimedRacerUserId === this.activeUserId) return true;
+    if (this.activePrivateRoom?.race?.participants) {
+      const p = this.activePrivateRoom.race.participants.find((item: any) =>
+        (item.userId && item.userId === this.activeUserId) ||
+        (this.currentUser?.login && item.login === this.currentUser.login)
+      );
+      if (p && (p.connectionState === 'CONNECTED' || p.ready === true || Boolean((p as any).deviceToken))) {
+        return true;
+      }
+    }
+    const inRacersActive = this.racers.some(r => r.userId === this.activeUserId && r.status !== 'abandoned' && (r.currentDistance > 0 || (r as any).connected));
+    return Boolean(inRacersActive);
+  }
+
+  get isRaceOrCountdownActive(): boolean {
+    const status = this.nextRaceInfo?.status || this.activePrivateRoom?.race?.status;
+    return Boolean(
+      this.isRaceActive ||
+      this.isPreStartCountdown ||
+      this.is3sCountdown ||
+      status === 'in_progress' ||
+      status === 'RUNNING' ||
+      status === 'countdown'
+    );
+  }
+
+  get shouldShowSmartphonePinOverlay(): boolean {
+    if (!this.isSmartphone) return false;
+    if (this.siteView !== 'regatta' && this.siteView !== 'cockpit') return false;
+    const isAnyFullscreen = Boolean(this.isFullscreen || this.isPseudoFullscreen || this.isMobileFullscreenOnly);
+    if (!isAnyFullscreen) return false;
+    if (this.isRaceOrCountdownActive) return false;
+    if (this.hasPlayerJoinedWaterLane) return false;
+
+    const pin = this.activeFullscreenPinCode;
+    if (!pin) {
+      if (!this.isGeneratingPairingCode && !this.activePrivateRoom) {
+        this.generateGarminPairingCode();
+      }
+      return false;
+    }
+    return true;
   }
 
   get canAccessCockpit(): boolean {

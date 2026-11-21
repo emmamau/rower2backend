@@ -583,6 +583,45 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
     return Boolean(this.activeRoom?.race?.isDuel1v1 || (this.activeRoom as any)?.isDuel1v1);
   }
 
+  get activeDuelChallenge(): DuelChallenge | null {
+    const roomChallenge = this.activeRoom?.duelChallenge || (this.activeRoom?.race as any)?.duelChallenge;
+    if (roomChallenge) return roomChallenge;
+    const code = this.activeRoom?.code || this.activeRoom?.race?.code;
+    const raceId = this.activeRoom?.id || this.activeRoom?.race?.id;
+    if (!code && !raceId) return null;
+    const all = [...this.receivedDuelChallenges, ...this.sentDuelChallenges];
+    return all.find(d => (d.roomCode && code && d.roomCode.toLowerCase() === code.toLowerCase()) ||
+                         (d.roomId && raceId && d.roomId === raceId)) || null;
+  }
+
+  get isChallengedPlayer(): boolean {
+    const ch = this.activeDuelChallenge;
+    if (!ch || !this.activeUserId) return false;
+    const uid = this.activeUserId.trim().toLowerCase();
+    return (Boolean(ch.challengedUserId) && ch.challengedUserId.toLowerCase() === uid) ||
+           (Boolean(ch.challengedLogin) && ch.challengedLogin.toLowerCase() === uid);
+  }
+
+  get isChallengerPlayer(): boolean {
+    const ch = this.activeDuelChallenge;
+    if (!ch || !this.activeUserId) return false;
+    const uid = this.activeUserId.trim().toLowerCase();
+    return (Boolean(ch.challengerUserId) && ch.challengerUserId.toLowerCase() === uid) ||
+           (Boolean(ch.challengerLogin) && ch.challengerLogin.toLowerCase() === uid);
+  }
+
+  acceptActiveDuel(): void {
+    const ch = this.activeDuelChallenge;
+    if (!ch) return;
+    this.respondToDuel(ch, 'accept');
+  }
+
+  refuseActiveDuel(): void {
+    const ch = this.activeDuelChallenge;
+    if (!ch) return;
+    this.respondToDuel(ch, 'refuse');
+  }
+
   get canShareOrInvite(): boolean {
     return !this.isSoloRoom && !this.isBotDuelRoom;
   }
@@ -1961,8 +2000,21 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
       next: (res) => {
         this.duelActionBusyId = '';
         this.duelManageMessage = res?.message || (action === 'accept' ? 'Défi accepté !' : 'Défi refusé.');
+        if (this.activeRoom) {
+          if (this.activeRoom.duelChallenge && this.activeRoom.duelChallenge.id === challenge.id) {
+            this.activeRoom.duelChallenge.status = res.challenge?.status || (action === 'accept' ? 'ACCEPTED' : 'REFUSED');
+          }
+          if ((this.activeRoom.race as any)?.duelChallenge && (this.activeRoom.race as any).duelChallenge.id === challenge.id) {
+            (this.activeRoom.race as any).duelChallenge.status = res.challenge?.status || (action === 'accept' ? 'ACCEPTED' : 'REFUSED');
+          }
+        }
         this.refreshMyDuels();
         this.refreshMyRooms();
+        if (action === 'refuse' && this.activeRoom) {
+          setTimeout(() => {
+            this.leaveToPublicRace();
+          }, 1500);
+        }
         this.cdr.markForCheck();
       },
       error: (err) => {

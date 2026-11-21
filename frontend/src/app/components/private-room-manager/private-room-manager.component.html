@@ -109,6 +109,83 @@
         </div>
       </div>
 
+      @if (activeDuelChallenge) {
+        <div class="priv-duel-salon-card" [class.is-pending]="activeDuelChallenge.status === 'PENDING'" [class.is-accepted]="activeDuelChallenge.status === 'ACCEPTED'">
+          <div class="priv-duel-salon-top">
+            <span class="priv-duel-salon-tag">⚔️ Duel 1v1</span>
+            <span class="priv-duel-salon-status">{{ getDuelStatusLabel(activeDuelChallenge.status) }}</span>
+            <span class="priv-duel-salon-dist">🏁 {{ activeDuelChallenge.targetDistance }}m</span>
+          </div>
+
+          @if (activeDuelChallenge.status === 'PENDING') {
+            @if (isChallengedPlayer) {
+              <div class="priv-duel-salon-content">
+                <div class="priv-duel-salon-msg">
+                  <strong class="priv-duel-salon-headline">⚔️ Vous avez été pris en duel par {{ activeDuelChallenge.challengerName }} (&#64;{{ activeDuelChallenge.challengerLogin }}) !</strong>
+                  <p class="priv-duel-salon-sub">
+                    ⏱️ <strong>Délai de réponse : 72 heures</strong> (expire le {{ activeDuelChallenge.expiresAt | date:'short' }}). Acceptez pour valider le défi et verrouiller le créneau horaire.
+                  </p>
+                </div>
+                <div class="priv-duel-salon-btn-row">
+                  <button
+                    type="button"
+                    class="priv-btn priv-btn-launch"
+                    [disabled]="duelActionBusyId === activeDuelChallenge.id"
+                    (click)="acceptActiveDuel()">
+                    {{ duelActionBusyId === activeDuelChallenge.id ? 'Traitement...' : '✅ Accepter le duel' }}
+                  </button>
+                  <button
+                    type="button"
+                    class="priv-btn priv-btn-danger"
+                    [disabled]="duelActionBusyId === activeDuelChallenge.id"
+                    (click)="refuseActiveDuel()">
+                    {{ duelActionBusyId === activeDuelChallenge.id ? 'Traitement...' : '❌ Refuser le duel' }}
+                  </button>
+                </div>
+              </div>
+            } @else if (isChallengerPlayer) {
+              <div class="priv-duel-salon-content">
+                <p class="priv-duel-salon-sub">
+                  ⏳ Votre défi a été envoyé à <strong>{{ activeDuelChallenge.challengedName }}</strong> (&#64;{{ activeDuelChallenge.challengedLogin }}). En attente de sa confirmation sous <strong>72 heures</strong>.
+                </p>
+              </div>
+            } @else if (!activeUserId) {
+              <div class="priv-duel-salon-content">
+                <p class="priv-duel-salon-sub">
+                  ⚔️ Ce duel 1v1 est adressé à <strong>&#64;{{ activeDuelChallenge.challengedLogin }}</strong>. Connectez-vous avec ce compte pour accepter ou refuser le défi.
+                </p>
+                <div class="priv-duel-salon-btn-row">
+                  <button
+                    type="button"
+                    class="priv-btn priv-btn-cyan"
+                    (click)="requestAccountModal.emit('login')">
+                    🔑 Se connecter
+                  </button>
+                </div>
+              </div>
+            }
+          } @else if (activeDuelChallenge.status === 'ACCEPTED') {
+            <div class="priv-duel-salon-content">
+              <p class="priv-duel-salon-sub is-accepted-text">
+                🔒 <strong>Duel confirmé !</strong> Le créneau est verrouillé pour {{ activeDuelChallenge.challengerName }} et {{ activeDuelChallenge.challengedName }}. Donnez votre premier coup de rame ou connectez votre montre Garmin pour démarrer.
+              </p>
+            </div>
+          } @else if (activeDuelChallenge.status === 'REFUSED') {
+            <div class="priv-duel-salon-content">
+              <p class="priv-duel-salon-sub is-refused-text">
+                ❌ <strong>Ce défi a été refusé.</strong> Le créneau a été libéré.
+              </p>
+            </div>
+          } @else if (activeDuelChallenge.status === 'EXPIRED') {
+            <div class="priv-duel-salon-content">
+              <p class="priv-duel-salon-sub is-refused-text">
+                ⌛ <strong>Ce défi a expiré après 72h sans réponse.</strong> Le salon est clôturé.
+              </p>
+            </div>
+          }
+        </div>
+      }
+
       @if (isRoomCompleted) {
         <div class="priv-banner-completed-box">
           <div class="priv-completed-text-cluster">

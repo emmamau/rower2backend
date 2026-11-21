@@ -29,6 +29,9 @@ export class RaceOverlaysComponent {
   @Input() timerPosition: { x: number; y: number } | null = null;
   @Input() isDraggingTimer = false;
   @Input() pendingApprovalPlayers: any[] = [];
+  @Input() shouldShowSmartphonePinOverlay = false;
+  @Input() activeFullscreenPinCode = '';
+  @Input() formattedPairingCountdown = '';
 
   @Output() dismissOrientation = new EventEmitter<void>();
   @Output() launchRegattaSplash = new EventEmitter<void>();

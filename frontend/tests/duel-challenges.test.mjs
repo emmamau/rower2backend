@@ -73,6 +73,13 @@ test('PrivateRoomManager, StandingsModal & HomeDashboard: 1v1 challenge creation
   assert.match(privHtml, /searchAvailableDuelPlayers\(\)/);
   assert.match(privHtml, /Mes Défis en Duel 1v1/);
   assert.match(privHtml, /isDuelWithin24h\(d\.slotStart\)/);
+  assert.match(privHtml, /priv-duel-salon-card/);
+  assert.match(privHtml, /acceptActiveDuel\(\)/);
+  assert.match(privHtml, /refuseActiveDuel\(\)/);
+  assert.match(privHtml, /72 heures/);
+  assert.match(privTs, /activeDuelChallenge/);
+  assert.match(privTs, /acceptActiveDuel\(\)/);
+  assert.match(privTs, /refuseActiveDuel\(\)/);
 
   assert.match(appHtml, /standingsActiveTab\s*=\s*'duels'/);
   assert.match(appHtml, /id="filter-duel-league"/);

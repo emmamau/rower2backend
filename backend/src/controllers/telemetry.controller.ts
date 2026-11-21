@@ -12,6 +12,7 @@ import { IpGeoService } from "../services/ip-geo.service";
 import pairingService from "../services/pairing.service";
 import { calculateRacePointsEarned } from "../utils/league.util";
 import { ensureCurrentWeek, getTodayRewardedBotRaces } from "../services/league-db.service";
+import duelService from "../services/duel.service";
 
 const Activities = db.activities;
 const Races = db.races;
@@ -138,6 +139,33 @@ async function buildPrivateRacePayload(race: RaceState) {
     ? Array.from(race.pendingParticipants.values())
     : [];
 
+  let duelChallengeInfo: any = null;
+  if (race.isDuel1v1) {
+    try {
+      const challenge = await duelService.getChallengeByRoom(race.id || race.code || "");
+      if (challenge) {
+        duelChallengeInfo = {
+          id: challenge.id,
+          status: challenge.status,
+          challengerUserId: challenge.challengerUserId,
+          challengerLogin: challenge.challengerLogin,
+          challengerName: challenge.challengerName,
+          challengedUserId: challenge.challengedUserId,
+          challengedLogin: challenge.challengedLogin,
+          challengedName: challenge.challengedName,
+          slotStart: challenge.slotStart,
+          slotEnd: challenge.slotEnd,
+          timezone: challenge.timezone,
+          targetDistance: challenge.targetDistance,
+          expiresAt: challenge.expiresAt,
+          roomId: challenge.roomId,
+          roomCode: challenge.roomCode,
+          roomPin: challenge.roomPin,
+        };
+      }
+    } catch {}
+  }
+
   const serializedRace = {
     id: race.id,
     code: race.code,
@@ -162,6 +190,7 @@ async function buildPrivateRacePayload(race: RaceState) {
     hasBots: Boolean(race.hasBots),
     isBotDuel: Boolean(race.isBotDuel),
     isDuel1v1: Boolean(race.isDuel1v1),
+    duelChallenge: duelChallengeInfo,
     isSolo: Boolean(race.isSolo),
     gameMode: race.gameMode || (race.isSolo ? "solo" : race.isBotDuel ? "bot_duel" : race.isDuel1v1 ? "duel_1v1" : "multi"),
     waitingStatusMessage: getWaitingStatusMessage(race, new Date(nowMs)),
@@ -184,6 +213,7 @@ async function buildPrivateRacePayload(race: RaceState) {
     botLane: race.isBotDuel ? 2 : undefined,
     isBotDuel: Boolean(race.isBotDuel),
     isDuel1v1: Boolean(race.isDuel1v1),
+    duelChallenge: duelChallengeInfo,
     isSolo: Boolean(race.isSolo),
     gameMode: race.gameMode || (race.isSolo ? "solo" : race.isBotDuel ? "bot_duel" : race.isDuel1v1 ? "duel_1v1" : "multi"),
     startMode: race.startMode || "manual",

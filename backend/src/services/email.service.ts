@@ -1155,10 +1155,11 @@ export class EmailService {
       slotFormatted = `${dateStr} • ${startHour} - ${endHour} (${tz})`;
     } catch {}
 
-    const targetUrl = `${config.frontendUrl}/?duelChallenge=${encodeURIComponent(params.challengeId)}`;
+    const roomPath = params.roomCode ? buildShareableRoomUrl(config.frontendUrl, params.roomCode) : config.frontendUrl;
+    const targetUrl = `${roomPath}?duelChallenge=${encodeURIComponent(params.challengeId)}`;
     const subject = isFr
-      ? `⚔️ Rower Race - Défi en duel 1v1 lancé par ${params.challengerName}`
-      : `⚔️ Rower Race - 1v1 Duel Challenge from ${params.challengerName}`;
+      ? `⚔️ Rower Race - Vous avez été pris en duel par ${params.challengerName} !`
+      : `⚔️ Rower Race - You have been challenged to a 1v1 duel by ${params.challengerName}!`;
 
     const bodyContentHtml = isFr
       ? `
@@ -1168,16 +1169,20 @@ export class EmailService {
         <h2 style="color: #ffffff; font-size: 21px; margin-top: 0; margin-bottom: 14px;">
           Bonjour <span style="color: #00f0ff;">${params.challengedName}</span>,
         </h2>
-        <p style="margin-bottom: 16px; color: #cbd5e1;">
-          <strong>${params.challengerName}</strong> (<code style="color:#00f0ff;">${params.challengerLogin}</code>) vous défie en duel 1 contre 1 sur <strong>Rower Race</strong> !
+        <p style="margin-bottom: 16px; color: #cbd5e1; font-size: 16px;">
+          Vous avez été <strong>pris en duel 1 contre 1</strong> par <strong>${params.challengerName}</strong> (<code style="color:#00f0ff;">@${params.challengerLogin}</code>) sur <strong>Rower Race</strong> !
         </p>
         <div style="background-color: #0d1527; border: 1px solid rgba(0, 240, 255, 0.3); border-radius: 8px; padding: 16px; margin: 18px 0;">
           <div style="margin-bottom: 8px;"><span style="color:#94a3b8;">Créneau proposé :</span> <strong style="color:#ffe600;">${slotFormatted}</strong></div>
           <div style="margin-bottom: 8px;"><span style="color:#94a3b8;">Distance :</span> <strong style="color:#00f0ff;">${params.targetDistance} m</strong></div>
+          ${params.roomCode ? `<div style="margin-bottom: 8px;"><span style="color:#94a3b8;">Salon du duel :</span> <strong style="color:#00f0ff;">${params.roomCode}</strong></div>` : ""}
           ${params.roomPin ? `<div><span style="color:#94a3b8;">Code Montre Garmin :</span> <strong style="color:#ffffff;">${params.roomPin}</strong></div>` : ""}
         </div>
-        <p style="margin-bottom: 12px; color: #94a3b8; font-size: 13px;">
-          Vous pouvez consulter ce défi et l'<strong>accepter</strong> ou le <strong>refuser</strong> directement depuis vos <strong>Salons Privés</strong>. Sans réponse sous <strong>72 heures</strong>, le défi sera automatiquement annulé.
+        <div style="background-color: rgba(255, 102, 0, 0.12); border-left: 4px solid #ff6600; padding: 12px 16px; border-radius: 4px; margin: 18px 0; color: #f8fafc;">
+          ⏱️ <strong>Délai de réponse : vous avez 72 heures</strong> pour répondre (accepter ou refuser ce duel). Passé ce délai, le défi sera automatiquement expiré et le créneau libéré.
+        </div>
+        <p style="margin-bottom: 12px; color: #94a3b8; font-size: 14px;">
+          Rendez-vous directement sur le salon du duel ci-dessous pour accepter ou refuser le défi :
         </p>
       `
       : `
@@ -1187,16 +1192,20 @@ export class EmailService {
         <h2 style="color: #ffffff; font-size: 21px; margin-top: 0; margin-bottom: 14px;">
           Hello <span style="color: #00f0ff;">${params.challengedName}</span>,
         </h2>
-        <p style="margin-bottom: 16px; color: #cbd5e1;">
-          <strong>${params.challengerName}</strong> (<code style="color:#00f0ff;">${params.challengerLogin}</code>) challenged you to a 1v1 duel on <strong>Rower Race</strong>!
+        <p style="margin-bottom: 16px; color: #cbd5e1; font-size: 16px;">
+          You have been <strong>challenged to a 1v1 duel</strong> by <strong>${params.challengerName}</strong> (<code style="color:#00f0ff;">@${params.challengerLogin}</code>) on <strong>Rower Race</strong>!
         </p>
         <div style="background-color: #0d1527; border: 1px solid rgba(0, 240, 255, 0.3); border-radius: 8px; padding: 16px; margin: 18px 0;">
           <div style="margin-bottom: 8px;"><span style="color:#94a3b8;">Proposed slot:</span> <strong style="color:#ffe600;">${slotFormatted}</strong></div>
           <div style="margin-bottom: 8px;"><span style="color:#94a3b8;">Distance:</span> <strong style="color:#00f0ff;">${params.targetDistance} m</strong></div>
+          ${params.roomCode ? `<div style="margin-bottom: 8px;"><span style="color:#94a3b8;">Duel room:</span> <strong style="color:#00f0ff;">${params.roomCode}</strong></div>` : ""}
           ${params.roomPin ? `<div><span style="color:#94a3b8;">Garmin Watch PIN:</span> <strong style="color:#ffffff;">${params.roomPin}</strong></div>` : ""}
         </div>
-        <p style="margin-bottom: 12px; color: #94a3b8; font-size: 13px;">
-          Open your <strong>Private Rooms</strong> to accept or decline this challenge. Unanswered challenges expire automatically after <strong>72 hours</strong>.
+        <div style="background-color: rgba(255, 102, 0, 0.12); border-left: 4px solid #ff6600; padding: 12px 16px; border-radius: 4px; margin: 18px 0; color: #f8fafc;">
+          ⏱️ <strong>Response deadline: you have 72 hours</strong> to accept or decline this duel. After that, the challenge will expire automatically.
+        </div>
+        <p style="margin-bottom: 12px; color: #94a3b8; font-size: 14px;">
+          Go directly to the duel room below to accept or decline the challenge:
         </p>
       `;
 
@@ -1204,14 +1213,14 @@ export class EmailService {
       title: subject,
       preheader: subject,
       bodyContentHtml,
-      ctaText: isFr ? "Répondre dans Salons Privés" : "Respond in Private Rooms",
+      ctaText: isFr ? "Accéder au salon du duel (Accepter / Refuser)" : "Join Duel Room (Accept / Decline)",
       ctaUrl: targetUrl,
       lang: isFr ? "fr" : "en",
     });
 
     const text = isFr
-      ? `Bonjour ${params.challengedName},\n\n${params.challengerName} (${params.challengerLogin}) vous défie en duel 1v1 sur Rower Race !\nCréneau : ${slotFormatted}\nDistance : ${params.targetDistance}m\n\nAcceptez ou refusez ce défi dans vos Salons Privés : ${targetUrl}\n(Expiration automatique après 72h sans réponse).`
-      : `Hello ${params.challengedName},\n\n${params.challengerName} (${params.challengerLogin}) challenged you to a 1v1 duel on Rower Race!\nSlot: ${slotFormatted}\nDistance: ${params.targetDistance}m\n\nAccept or decline in Private Rooms: ${targetUrl}\n(Expires automatically after 72h).`;
+      ? `Bonjour ${params.challengedName},\n\nVous avez été pris en duel 1v1 par ${params.challengerName} (@${params.challengerLogin}) sur Rower Race !\n\nCréneau proposé : ${slotFormatted}\nDistance : ${params.targetDistance} m\n${params.roomCode ? `Salon : ${params.roomCode}\n` : ""}\n⏱️ DÉLAI DE RÉPONSE : Vous avez 72 heures pour répondre (accepter ou refuser). Passé ce délai, le défi sera automatiquement expiré.\n\nAccédez au salon du duel pour accepter ou refuser :\n${targetUrl}`
+      : `Hello ${params.challengedName},\n\nYou have been challenged to a 1v1 duel by ${params.challengerName} (@${params.challengerLogin}) on Rower Race!\n\nProposed slot: ${slotFormatted}\nDistance: ${params.targetDistance} m\n${params.roomCode ? `Room: ${params.roomCode}\n` : ""}\n⏱️ RESPONSE DEADLINE: You have 72 hours to respond (accept or decline). After that, the challenge expires automatically.\n\nJoin the duel room to accept or decline:\n${targetUrl}`;
 
     const res = await this.sendEmail({ to: params.to, subject, text, html });
     return res.success;
