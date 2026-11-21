@@ -1337,6 +1337,42 @@ export class TelemetryController {
   }
 
   /**
+   * GET /api/v1/races/my-active
+   * Renvoie le salon privé ou duel actif pour un utilisateur ou une montre (deviceToken).
+   */
+  public static async getMyActiveRace(req: Request, res: Response): Promise<void> {
+    try {
+      const query = req.query || {};
+      let userId = String(query.userId || query.guestSessionId || "").trim();
+      let deviceToken = String(query.deviceToken || req.headers["x-device-token"] || "").trim();
+      if (!deviceToken && req.headers.authorization?.startsWith("Bearer ")) {
+        deviceToken = req.headers.authorization.slice(7).trim();
+      }
+
+      if (!userId && deviceToken) {
+        try {
+          const check = await pairingService.validateDeviceToken(deviceToken);
+          if (check.valid && check.pairing?.userId) {
+            userId = check.pairing.userId;
+          }
+        } catch {}
+      }
+
+      const race = raceManager.findActiveRaceForUser(userId, deviceToken);
+      if (!race) {
+        res.status(200).json({ activeRoom: null });
+        return;
+      }
+
+      const payload = await buildPrivateRacePayload(race);
+      res.status(200).json({ activeRoom: payload });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      res.status(500).json({ error: "Erreur recherche course active: " + message });
+    }
+  }
+
+  /**
    * GET /api/v1/races/private/:identifier
    * Retrieve private salon state by Meet code (krm-wzx-qpl), raceId (PRIV_...), or 4-digit PIN
    */

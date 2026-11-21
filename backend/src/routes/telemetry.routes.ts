@@ -20,6 +20,10 @@ export default (app: Application): void => {
   // GET /api/v1/races/private (List private salons for host or known codes)
   router.get("/races/private", TelemetryController.listPrivateRaces);
 
+  // GET /api/v1/races/my-active (Lookup active private salon or duel for user / watch)
+  router.get("/races/my-active", TelemetryController.getMyActiveRace);
+  router.get("/races/private/active/me", TelemetryController.getMyActiveRace);
+
   // GET /api/v1/races/private/:identifier (Lookup private salon by Meet code, raceId, or 4-digit PIN)
   router.get("/races/private/:identifier", TelemetryController.getPrivateRace);
 

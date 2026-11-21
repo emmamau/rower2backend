@@ -152,6 +152,20 @@ export class RowerService {
     );
   }
 
+  getMyActiveRace(userId?: string, deviceToken?: string): Observable<{ activeRoom: PrivateRacePayload | null }> {
+    let params = new HttpParams();
+    if (userId && userId.trim()) {
+      params = params.set('userId', userId.trim());
+    }
+    if (deviceToken && deviceToken.trim()) {
+      params = params.set('deviceToken', deviceToken.trim());
+    }
+    return this.http.get<{ activeRoom: PrivateRacePayload | null }>(
+      `${this.apiUrl}/api/v1/races/my-active`,
+      { params }
+    );
+  }
+
   listPrivateRaces(hostUserId?: string, codes?: string[]): Observable<{ success: boolean; races: PrivateRacePayload[] }> {
     let params = new HttpParams();
     if (hostUserId && hostUserId.trim()) {

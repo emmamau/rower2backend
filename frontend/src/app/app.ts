@@ -4270,6 +4270,27 @@ export class AppComponent implements OnInit, OnDestroy {
 
     this.autoResolveMyPublicKayak();
     this.loadUserProfile();
+
+    if (!this.activePrivateRoom) {
+      this.rowerService.getMyActiveRace(this.activeUserId, deviceToken).pipe(
+        catchError(() => of({ activeRoom: null }))
+      ).subscribe((res) => {
+        const active = res?.activeRoom;
+        if (
+          active &&
+          active.race?.id &&
+          active.status !== 'COMPLETED' &&
+          active.status !== 'finished' &&
+          active.status !== 'STOPPED' &&
+          active.status !== 'CANCELLED' &&
+          active.status !== 'ABANDONED'
+        ) {
+          this.activatePrivateRoom(active, false);
+          this.cdr.markForCheck();
+        }
+      });
+    }
+
     this.cdr.markForCheck();
   }
 
@@ -5272,6 +5293,42 @@ export class AppComponent implements OnInit, OnDestroy {
     }
 
     if (!extracted) {
+      const storedRoomId = typeof localStorage !== 'undefined' ? localStorage.getItem('rower_active_private_room_id') : null;
+      const lookupTarget = storedRoomId || this.activeUserId || this.deviceToken;
+
+      if (lookupTarget) {
+        this.rowerService.getMyActiveRace(this.activeUserId, this.deviceToken).pipe(
+          catchError(() => of({ activeRoom: null }))
+        ).subscribe((res) => {
+          const active = res?.activeRoom;
+          if (
+            active &&
+            active.race?.id &&
+            active.status !== 'COMPLETED' &&
+            active.status !== 'finished' &&
+            active.status !== 'STOPPED' &&
+            active.status !== 'CANCELLED' &&
+            active.status !== 'ABANDONED'
+          ) {
+            this.activatePrivateRoom(active, false);
+            this.cdr.markForCheck();
+          } else {
+            if (this.activePrivateRoom) {
+              this.activePrivateRoom = null;
+              this.updateDocumentTitle();
+            }
+            try {
+              if (typeof localStorage !== 'undefined') {
+                localStorage.removeItem('rower_active_private_room_id');
+                localStorage.removeItem('rower_active_private_room_code');
+              }
+            } catch {}
+            this.initGameLoop();
+          }
+        });
+        return;
+      }
+
       if (this.activePrivateRoom) {
         this.activePrivateRoom = null;
         this.updateDocumentTitle();
@@ -5461,6 +5518,15 @@ export class AppComponent implements OnInit, OnDestroy {
         .subscribe();
     }
 
+    try {
+      if (typeof localStorage !== 'undefined' && room?.race?.id) {
+        localStorage.setItem('rower_active_private_room_id', room.race.id);
+        if (room.code || room.race?.code) {
+          localStorage.setItem('rower_active_private_room_code', room.code || room.race.code);
+        }
+      }
+    } catch {}
+
     this.updateDocumentTitle();
     this.syncSocketRoom(room.race.id);
 
@@ -5502,6 +5568,12 @@ export class AppComponent implements OnInit, OnDestroy {
     this.isPrivateRoomCompleted = false;
     this.isRegattaLaunchSplashOpen = false;
     this.pendingRegattaLaunch = false;
+    try {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.removeItem('rower_active_private_room_id');
+        localStorage.removeItem('rower_active_private_room_code');
+      }
+    } catch {}
     if (resetUrl && typeof window !== 'undefined') {
       if (window.location.pathname !== '/' || window.location.search) {
         window.history.replaceState({}, '', '/');

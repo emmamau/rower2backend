@@ -2191,6 +2191,59 @@ export class RaceManager {
   }
 
   /**
+   * Trouve la course privée ou le duel actif pour un utilisateur ou sa montre (deviceToken).
+   * Renvoie uniquement les courses non terminées (statut non COMPLETED, STOPPED, CANCELLED, ABANDONED)
+   * et où le participant n'a pas abandonné.
+   */
+  public findActiveRaceForUser(userId?: string, deviceToken?: string): RaceState | null {
+    const cleanUserId = userId ? String(userId).trim() : "";
+    const cleanToken = deviceToken ? String(deviceToken).trim() : "";
+    if (!cleanUserId && !cleanToken) return null;
+
+    const races = Array.from(this.privateRacesById.values());
+    for (let i = races.length - 1; i >= 0; i--) {
+      const race = races[i];
+      if (
+        race.status === "COMPLETED" ||
+        race.status === "STOPPED" ||
+        race.status === "CANCELLED" ||
+        race.status === "ABANDONED"
+      ) {
+        continue;
+      }
+
+      // 1. Recherche parmi les participants inscrits ou en attente
+      if (race.participants) {
+        for (const [pUserId, p] of race.participants.entries()) {
+          if (cleanUserId && (pUserId === cleanUserId || p.userId === cleanUserId)) {
+            return race;
+          }
+          if (cleanToken && p.deviceToken === cleanToken) {
+            return race;
+          }
+        }
+      }
+
+      if (race.pendingParticipants) {
+        for (const [pUserId, p] of race.pendingParticipants.entries()) {
+          if (cleanUserId && (pUserId === cleanUserId || p.userId === cleanUserId)) {
+            return race;
+          }
+          if (cleanToken && p.deviceToken === cleanToken) {
+            return race;
+          }
+        }
+      }
+
+      // 2. Recherche si l'utilisateur est l'hôte créateur du salon
+      if (cleanUserId && (race.hostUserId === cleanUserId || race.originalHostUserId === cleanUserId)) {
+        return race;
+      }
+    }
+    return null;
+  }
+
+  /**
    * Compte le nombre de salons privés actifs (en attente ou en cours) ouverts par un hôte
    */
   public getActiveRoomsCount(hostUserId: string): number {
