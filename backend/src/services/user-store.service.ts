@@ -266,8 +266,8 @@ export class UserStoreService {
 
     for (const u of this.inMemoryUsers.values()) {
       if (
-        u.id.toLowerCase() === clean ||
-        u.login.toLowerCase() === clean ||
+        (u.id && u.id.toLowerCase() === clean) ||
+        (u.login && u.login.toLowerCase() === clean) ||
         (u.watchUserId && u.watchUserId.toLowerCase() === clean)
       ) {
         return u;
@@ -318,8 +318,8 @@ export class UserStoreService {
 
     for (const u of this.inMemoryUsers.values()) {
       if (
-        u.id.toLowerCase() === clean ||
-        u.login.toLowerCase() === clean ||
+        (u.id && u.id.toLowerCase() === clean) ||
+        (u.login && u.login.toLowerCase() === clean) ||
         (u.watchUserId && u.watchUserId.toLowerCase() === clean)
       ) {
         return u;
@@ -575,10 +575,10 @@ export class UserStoreService {
     if (isEmmaAdminUser(existing.id, existing.name)) {
       throw new Error("Le compte administratrice EmmaRacer ne peut pas être supprimé.");
     }
-    const cleanId = existing.id.toLowerCase();
-    const cleanLogin = existing.login.toLowerCase();
-    this.inMemoryUsers.delete(cleanId);
-    this.inMemoryUsers.delete(cleanLogin);
+    const cleanId = existing.id ? existing.id.toLowerCase() : "";
+    const cleanLogin = existing.login ? existing.login.toLowerCase() : "";
+    if (cleanId) this.inMemoryUsers.delete(cleanId);
+    if (cleanLogin) this.inMemoryUsers.delete(cleanLogin);
     if (existing.email) {
       this.inMemoryUsers.delete(existing.email.toLowerCase());
     }
