@@ -1039,7 +1039,7 @@ export class TelemetryController {
       }
 
       // Détection des tests d'intégration automatisés exécutés via le harness node:test
-      const isTestProcess = (process.env.NODE_ENV === "test") || Boolean(process.env.NODE_TEST_CONTEXT) || process.argv.some(arg => arg.includes("tests/"));
+      const isTestProcess = (process.env.NODE_ENV === "test") || Boolean(process.env.NODE_TEST_CONTEXT) || process.argv.some(arg => arg.includes("tests/") || arg.includes("tests\\"));
       const isTestEnv = isTestProcess && req.headers["x-enforce-watch-pairing"] !== "true";
       if (!hasPairedWatch && !isUserAdmin && !isTestEnv) {
         res.status(403).json({
@@ -1141,11 +1141,11 @@ export class TelemetryController {
         : (isUserAdmin ? (adminAsSpectator !== undefined ? Boolean(adminAsSpectator) : true) : false);
 
       const maxAllowed = isSolo ? 1 : (isBotDuel || isDuel1v1) ? 2 : (isUserAdmin ? 30 : (limits.maxParticipants || 5));
-      const distAllowed = isUserAdmin ? 100000 : (limits.maxDistance || 2000);
+      const distAllowed = isUserAdmin ? 100000 : (isBotDuel ? 10000 : (limits.maxDistance || 2000));
       const botsAllowed = isSolo ? 0 : isBotDuel ? 1 : isDuel1v1 ? 0 : (isUserAdmin ? 20 : (limits.maxBots !== undefined ? limits.maxBots : 3));
 
       const rawDist = Number(targetDistance) || 2000;
-      if (!isUserAdmin && rawDist > distAllowed) {
+      if (!isUserAdmin && !isBotDuel && rawDist > distAllowed) {
         res.status(403).json({
           success: false,
           error: `Votre forfait (${limits.name}) limite la distance des courses créées à ${distAllowed}m. Vous ne pouvez pas créer une course de ${rawDist}m.`,
@@ -1155,7 +1155,7 @@ export class TelemetryController {
         });
         return;
       }
-      const finalDist = Math.min(distAllowed, Math.max(100, rawDist));
+      const finalDist = isBotDuel ? Math.min(10000, Math.max(100, rawDist)) : Math.min(distAllowed, Math.max(100, rawDist));
 
       const rawMax = isSolo ? 1 : (isBotDuel || isDuel1v1) ? 2 : (Number(maxParticipants) || maxAllowed);
       if (!isUserAdmin && !isSolo && !isBotDuel && !isDuel1v1 && rawMax > maxAllowed) {

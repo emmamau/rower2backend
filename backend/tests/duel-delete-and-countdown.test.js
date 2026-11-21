@@ -60,8 +60,8 @@ test("3. duelService.deleteChallenge allows deleting REFUSED, CANCELLED and EXPI
   const uid2 = `user_del_2_${Date.now()}`;
   const stranger = `stranger_${Date.now()}`;
 
-  await userStore.createUser({ id: uid1, login: uid1, name: "Challenger Del", email: `${uid1}@test.com` });
-  await userStore.createUser({ id: uid2, login: uid2, name: "Challenged Del", email: `${uid2}@test.com` });
+  await userStore.createUser({ id: uid1, login: uid1, name: "Challenger Del", email: `${uid1}@test.com`, isSubscriber: true, subscriptionTier: "premium", duelPreferences: { acceptsDuels: true, isAbsent: false, refusedDays: [], availableWindows: [{ startTime: "00:00", endTime: "23:59" }], timezone: "Europe/Paris" } });
+  await userStore.createUser({ id: uid2, login: uid2, name: "Challenged Del", email: `${uid2}@test.com`, duelPreferences: { acceptsDuels: true, isAbsent: false, refusedDays: [], availableWindows: [{ startTime: "00:00", endTime: "23:59" }], timezone: "Europe/Paris" } });
   await userStore.createUser({ id: stranger, login: stranger, name: "Stranger", email: `${stranger}@test.com` });
 
   // Create challenge
