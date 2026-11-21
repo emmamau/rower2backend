@@ -1087,14 +1087,51 @@ export class AppComponent implements OnInit, OnDestroy {
         const duelInviteToken = urlParams.get('duelInviteToken') || urlParams.get('inviteToken');
         const inviteEmail = urlParams.get('email');
         if (duelInviteToken) {
-          this.pendingDuelInviteToken = duelInviteToken.trim();
-          if (inviteEmail) {
-            this.pendingRegistrationEmail = inviteEmail.trim();
-            this.regEmail = this.pendingRegistrationEmail;
-          }
-          this.setSiteView('home');
-          this.userExplicitlyNavigatedHome = true;
-          this.openAccountModal('register');
+          const cleanInviteToken = duelInviteToken.trim();
+          this.rowerService.getDuelInviteInfo(cleanInviteToken).subscribe({
+            next: (res) => {
+              if (res?.success && res.challenge) {
+                const challengerLabel = res.challenge.challengerName || res.challenge.challengerLogin || 'un rameur';
+                if (this.isIdentified) {
+                  this.refreshPendingPrivateAndDuels();
+                  this.triggerFinishToast(`⚔️ Défi 1v1 de ${challengerLabel} (${res.challenge.targetDistance || 2000}m). Consultez vos duels.`);
+                  this.openPrivateModal('duels');
+                } else {
+                  this.pendingDuelInviteToken = cleanInviteToken;
+                  const resolvedEmail = (inviteEmail || res.challenge.challengedEmail || '').trim();
+                  if (resolvedEmail) {
+                    this.pendingRegistrationEmail = resolvedEmail;
+                    this.regEmail = resolvedEmail;
+                  }
+                  this.setSiteView('home');
+                  this.userExplicitlyNavigatedHome = true;
+                  this.openAccountModal('register');
+                  this.accountAuthSuccess = `⚔️ Défi 1v1 de ${challengerLabel} (${res.challenge.targetDistance || 2000}m) ! Créez votre compte gratuit pour le relever.`;
+                }
+              } else {
+                this.pendingDuelInviteToken = '';
+                this.triggerFinishToast('⚠️ Invitation expirée ou introuvable');
+                if (!this.isIdentified) {
+                  this.setSiteView('home');
+                  this.userExplicitlyNavigatedHome = true;
+                  this.openAccountModal('register');
+                  this.accountAuthError = 'Invitation expirée ou introuvable';
+                }
+              }
+              this.cdr.markForCheck();
+            },
+            error: () => {
+              this.pendingDuelInviteToken = '';
+              this.triggerFinishToast('⚠️ Invitation expirée ou introuvable');
+              if (!this.isIdentified) {
+                this.setSiteView('home');
+                this.userExplicitlyNavigatedHome = true;
+                this.openAccountModal('register');
+                this.accountAuthError = 'Invitation expirée ou introuvable';
+              }
+              this.cdr.markForCheck();
+            }
+          });
         }
       } catch (err) {
         console.warn('[Init] Erreur analyse paramètre resetToken URL:', err);

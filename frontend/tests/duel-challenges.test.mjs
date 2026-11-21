@@ -150,8 +150,12 @@ test('Duel Email Invitations: models, service, private-room-manager resend UI an
   assert.match(appTs, /pendingDuelInviteToken\s*=\s*''/);
   assert.match(appTs, /pendingRegistrationEmail\s*=\s*''/);
   assert.match(appTs, /urlParams\.get\('duelInviteToken'\)\s*\|\|\s*urlParams\.get\('inviteToken'\)/);
+  assert.match(appTs, /getDuelInviteInfo\(/);
+  assert.match(appTs, /if\s*\(this\.isIdentified\)/);
+  assert.match(appTs, /Invitation expirée ou introuvable/);
   assert.match(appTs, /duelInviteToken:\s*this\.pendingDuelInviteToken\s*\|\|\s*undefined/);
   assert.match(appHtml, /account-duel-banner/);
   assert.match(appHtml, /\[pendingDuelInviteToken\]="pendingDuelInviteToken"/);
   assert.match(appHtml, /\[pendingRegistrationEmail\]="pendingRegistrationEmail"/);
+  assert.match(privHtml, /Invité\s*:\s*\{\{\s*activeDuelChallenge\.challengedEmail\s*\}\}/);
 });

@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import db from "../models";
 import { DuelPreferences, DuelTimeWindow } from "../models/user.model";
 import { DuelChallengeAttributes, DuelChallengeStatus } from "../models/duel-challenge.model";
@@ -173,12 +174,17 @@ function sameUserIdentifier(a: string, b: string): boolean {
 }
 
 function isEmailString(val: string): boolean {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/i.test(String(val || "").trim());
+  const clean = String(val || "").trim();
+  if (!clean || clean.length > 254) return false;
+  if (/[\s<>'"]/.test(clean)) return false;
+  return /^[^\s@<>'"]+@[^\s@<>'"]+\.[^\s@<>'"]+$/.test(clean);
 }
 
 export class DuelService {
   private static instance: DuelService;
+  private static readonly RESEND_COOLDOWN_MS = 60 * 1000;
   private inMemoryChallenges: Map<string, StoredDuelChallenge> = new Map();
+  private resendCooldowns: Map<string, number> = new Map();
 
   private constructor() {}
 
@@ -191,6 +197,7 @@ export class DuelService {
 
   public clearInMemoryChallenges(): void {
     this.inMemoryChallenges.clear();
+    this.resendCooldowns.clear();
   }
 
   public async persistChallenge(challenge: StoredDuelChallenge): Promise<void> {
@@ -263,13 +270,22 @@ export class DuelService {
     email?: string,
     inviteToken?: string
   ): Promise<StoredDuelChallenge[]> {
+    const now = new Date();
+    await this.expireOverdueChallenges(now);
+
+    const isPendingActiveGuest = (c: StoredDuelChallenge): boolean =>
+      c.status === "PENDING" &&
+      !c.challengedUserId &&
+      new Date(c.expiresAt) > now &&
+      new Date(c.slotStart) > now;
+
     const matchedById = new Map<string, StoredDuelChallenge>();
     const cleanToken = String(inviteToken || "").trim();
     const cleanEmail = String(email || "").trim().toLowerCase();
 
     if (cleanToken) {
       const byToken = await this.findChallengeByInviteToken(cleanToken);
-      if (byToken && byToken.status === "PENDING" && !byToken.challengedUserId) {
+      if (byToken && isPendingActiveGuest(byToken)) {
         matchedById.set(byToken.id, byToken);
       }
     }
@@ -278,8 +294,7 @@ export class DuelService {
       const all = await this.listAllChallenges();
       for (const c of all) {
         if (
-          c.status === "PENDING" &&
-          !c.challengedUserId &&
+          isPendingActiveGuest(c) &&
           c.challengedEmail &&
           c.challengedEmail.trim().toLowerCase() === cleanEmail &&
           !matchedById.has(c.id)
@@ -317,19 +332,60 @@ export class DuelService {
   public async resendInvitation(
     challengeId: string,
     challengerUserId: string
-  ): Promise<{ success: boolean; message: string }> {
+  ): Promise<{ success: boolean; message: string; statusCode?: number }> {
+    const now = new Date();
+    await this.expireOverdueChallenges(now);
+
     const challenge = await this.getChallengeById(challengeId);
-    if (!challenge || challenge.challengerUserId !== challengerUserId) {
-      return { success: false, message: "Défi introuvable." };
+    if (!challenge) {
+      return { success: false, statusCode: 404, message: "Défi introuvable." };
     }
+
+    const actor = await userStore.findUser(challengerUserId);
+    const isChallenger =
+      sameUserIdentifier(challenge.challengerUserId, challengerUserId) ||
+      sameUserIdentifier(challenge.challengerLogin, challengerUserId) ||
+      userMatchesId(actor, challenge.challengerUserId) ||
+      userMatchesId(actor, challenge.challengerLogin);
+
+    if (!isChallenger) {
+      return { success: false, statusCode: 403, message: "Seul l'initiateur du défi peut relancer l'invitation." };
+    }
+
+    if (challenge.challengedUserId) {
+      return {
+        success: false,
+        statusCode: 400,
+        message: "Ce joueur a déjà créé son compte. Le défi est en attente de sa réponse sur la plateforme.",
+      };
+    }
+
+    if (
+      challenge.status === "EXPIRED" ||
+      new Date(challenge.expiresAt) <= now ||
+      new Date(challenge.slotStart) <= now
+    ) {
+      return { success: false, statusCode: 400, message: "Cette invitation a expiré." };
+    }
+
     if (challenge.status !== "PENDING" || !challenge.challengedEmail) {
-      return { success: false, message: "Ce défi ne peut plus être renvoyé." };
+      return { success: false, statusCode: 400, message: "Ce défi ne peut plus être renvoyé." };
+    }
+
+    const lastSentAt = this.resendCooldowns.get(challenge.id);
+    if (lastSentAt !== undefined && Date.now() - lastSentAt < DuelService.RESEND_COOLDOWN_MS) {
+      return {
+        success: false,
+        statusCode: 400,
+        message: "Veuillez patienter 60 secondes avant de relancer l'invitation.",
+      };
     }
 
     const challenger = await userStore.findUser(challenge.challengerUserId);
     await this.dispatchGuestInvitationEmail(challenge, challenger?.language || "fr");
+    this.resendCooldowns.set(challenge.id, Date.now());
 
-    return { success: true, message: "Invitation renvoyée avec succès !" };
+    return { success: true, statusCode: 200, message: "Invitation renvoyée avec succès !" };
   }
 
   public async getChallengeByRoom(roomIdentifier: string): Promise<StoredDuelChallenge | null> {
@@ -748,7 +804,7 @@ export class DuelService {
     const id = `duel_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
     const expiresAt = new Date(now.getTime() + DUEL_PENDING_EXPIRY_MS);
     const inviteToken = !challenged
-      ? "inv_" + Math.random().toString(36).substring(2, 10) + Date.now().toString(36)
+      ? "inv_" + crypto.randomBytes(24).toString("hex")
       : undefined;
 
     const challenge: StoredDuelChallenge = {

@@ -94,6 +94,18 @@ export function getEmailConfig(): EmailConfig {
 }
 
 /**
+ * Échappe les caractères HTML spéciaux pour prévenir l'injection HTML dans les courriels.
+ */
+export function escapeHtml(str: string): string {
+  return String(str ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+/**
  * Générateur de gabarit HTML responsive aux couleurs Cyber / Sport de Rower Race.
  */
 export function renderCyberEmailHtml(params: {
@@ -110,6 +122,8 @@ export function renderCyberEmailHtml(params: {
   const emailConfig = getEmailConfig();
   const logoUrl = emailConfig.logoUrl;
   const logoLinkUrl = emailConfig.frontendUrl;
+  const safeTitle = escapeHtml(params.title);
+  const safePreheader = escapeHtml(params.preheader);
 
   const ctaBlock = params.ctaUrl && params.ctaText ? `
     <div style="text-align: center; margin: 32px 0 24px 0;">
@@ -138,11 +152,11 @@ export function renderCyberEmailHtml(params: {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${params.title}</title>
+  <title>${safeTitle}</title>
 </head>
 <body style="margin: 0; padding: 0; background-color: #060913; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #f1f5f9;">
   <div style="display: none; font-size: 1px; color: #060913; line-height: 1px; max-height: 0px; max-width: 0px; opacity: 0; overflow: hidden;">
-    ${params.preheader}
+    ${safePreheader}
   </div>
   <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #060913; padding: 30px 15px;">
     <tr>
@@ -1177,6 +1191,12 @@ export class EmailService {
 
     const roomPath = params.roomCode ? buildShareableRoomUrl(config.frontendUrl, params.roomCode) : config.frontendUrl;
     const targetUrl = `${roomPath}?duelChallenge=${encodeURIComponent(params.challengeId)}`;
+    const safeChallengerName = escapeHtml(params.challengerName);
+    const safeChallengerLogin = escapeHtml(params.challengerLogin);
+    const safeChallengedName = escapeHtml(params.challengedName);
+    const safeRoomCode = escapeHtml(params.roomCode || "");
+    const safeRoomPin = escapeHtml(params.roomPin || "");
+    const safeSlotFormatted = escapeHtml(slotFormatted);
     const subject = isFr
       ? `⚔️ Rower Race - Vous avez été pris en duel par ${params.challengerName} !`
       : `⚔️ Rower Race - You have been challenged to a 1v1 duel by ${params.challengerName}!`;
@@ -1187,16 +1207,16 @@ export class EmailService {
           ⚔️ Nouveau Défi 1 contre 1
         </div>
         <h2 style="color: #ffffff; font-size: 21px; margin-top: 0; margin-bottom: 14px;">
-          Bonjour <span style="color: #00f0ff;">${params.challengedName}</span>,
+          Bonjour <span style="color: #00f0ff;">${safeChallengedName}</span>,
         </h2>
         <p style="margin-bottom: 16px; color: #cbd5e1; font-size: 16px;">
-          Vous avez été <strong>pris en duel 1 contre 1</strong> par <strong>${params.challengerName}</strong> (<code style="color:#00f0ff;">@${params.challengerLogin}</code>) sur <strong>Rower Race</strong> !
+          Vous avez été <strong>pris en duel 1 contre 1</strong> par <strong>${safeChallengerName}</strong> (<code style="color:#00f0ff;">@${safeChallengerLogin}</code>) sur <strong>Rower Race</strong> !
         </p>
         <div style="background-color: #0d1527; border: 1px solid rgba(0, 240, 255, 0.3); border-radius: 8px; padding: 16px; margin: 18px 0;">
-          <div style="margin-bottom: 8px;"><span style="color:#94a3b8;">Créneau proposé :</span> <strong style="color:#ffe600;">${slotFormatted}</strong></div>
+          <div style="margin-bottom: 8px;"><span style="color:#94a3b8;">Créneau proposé :</span> <strong style="color:#ffe600;">${safeSlotFormatted}</strong></div>
           <div style="margin-bottom: 8px;"><span style="color:#94a3b8;">Distance :</span> <strong style="color:#00f0ff;">${params.targetDistance} m</strong></div>
-          ${params.roomCode ? `<div style="margin-bottom: 8px;"><span style="color:#94a3b8;">Salon du duel :</span> <strong style="color:#00f0ff;">${params.roomCode}</strong></div>` : ""}
-          ${params.roomPin ? `<div><span style="color:#94a3b8;">Code Montre Garmin :</span> <strong style="color:#ffffff;">${params.roomPin}</strong></div>` : ""}
+          ${safeRoomCode ? `<div style="margin-bottom: 8px;"><span style="color:#94a3b8;">Salon du duel :</span> <strong style="color:#00f0ff;">${safeRoomCode}</strong></div>` : ""}
+          ${safeRoomPin ? `<div><span style="color:#94a3b8;">Code Montre Garmin :</span> <strong style="color:#ffffff;">${safeRoomPin}</strong></div>` : ""}
         </div>
         <div style="background-color: rgba(255, 102, 0, 0.12); border-left: 4px solid #ff6600; padding: 12px 16px; border-radius: 4px; margin: 18px 0; color: #f8fafc;">
           ⏱️ <strong>Délai de réponse : vous avez 72 heures</strong> pour répondre (accepter ou refuser ce duel). Passé ce délai, le défi sera automatiquement expiré et le créneau libéré.
@@ -1210,16 +1230,16 @@ export class EmailService {
           ⚔️ New 1v1 Duel Challenge
         </div>
         <h2 style="color: #ffffff; font-size: 21px; margin-top: 0; margin-bottom: 14px;">
-          Hello <span style="color: #00f0ff;">${params.challengedName}</span>,
+          Hello <span style="color: #00f0ff;">${safeChallengedName}</span>,
         </h2>
         <p style="margin-bottom: 16px; color: #cbd5e1; font-size: 16px;">
-          You have been <strong>challenged to a 1v1 duel</strong> by <strong>${params.challengerName}</strong> (<code style="color:#00f0ff;">@${params.challengerLogin}</code>) on <strong>Rower Race</strong>!
+          You have been <strong>challenged to a 1v1 duel</strong> by <strong>${safeChallengerName}</strong> (<code style="color:#00f0ff;">@${safeChallengerLogin}</code>) on <strong>Rower Race</strong>!
         </p>
         <div style="background-color: #0d1527; border: 1px solid rgba(0, 240, 255, 0.3); border-radius: 8px; padding: 16px; margin: 18px 0;">
-          <div style="margin-bottom: 8px;"><span style="color:#94a3b8;">Proposed slot:</span> <strong style="color:#ffe600;">${slotFormatted}</strong></div>
+          <div style="margin-bottom: 8px;"><span style="color:#94a3b8;">Proposed slot:</span> <strong style="color:#ffe600;">${safeSlotFormatted}</strong></div>
           <div style="margin-bottom: 8px;"><span style="color:#94a3b8;">Distance:</span> <strong style="color:#00f0ff;">${params.targetDistance} m</strong></div>
-          ${params.roomCode ? `<div style="margin-bottom: 8px;"><span style="color:#94a3b8;">Duel room:</span> <strong style="color:#00f0ff;">${params.roomCode}</strong></div>` : ""}
-          ${params.roomPin ? `<div><span style="color:#94a3b8;">Garmin Watch PIN:</span> <strong style="color:#ffffff;">${params.roomPin}</strong></div>` : ""}
+          ${safeRoomCode ? `<div style="margin-bottom: 8px;"><span style="color:#94a3b8;">Duel room:</span> <strong style="color:#00f0ff;">${safeRoomCode}</strong></div>` : ""}
+          ${safeRoomPin ? `<div><span style="color:#94a3b8;">Garmin Watch PIN:</span> <strong style="color:#ffffff;">${safeRoomPin}</strong></div>` : ""}
         </div>
         <div style="background-color: rgba(255, 102, 0, 0.12); border-left: 4px solid #ff6600; padding: 12px 16px; border-radius: 4px; margin: 18px 0; color: #f8fafc;">
           ⏱️ <strong>Response deadline: you have 72 hours</strong> to accept or decline this duel. After that, the challenge will expire automatically.
@@ -1336,16 +1356,26 @@ export class EmailService {
       </div>
     ` : "";
 
+    const safeChallengerName = escapeHtml(params.challengerName);
+    const safeChallengerLogin = escapeHtml(params.challengerLogin);
+    const safeTz = escapeHtml(tz);
+    const safeTo = escapeHtml(params.to);
+    const safeRoomCode = escapeHtml(params.roomCode || "");
+    const safeRoomPin = escapeHtml(params.roomPin || "");
+    const safeDateStr = escapeHtml(dateStr);
+    const safeSlotTimeStr = escapeHtml(slotTimeStr);
+    const safeSignupUrl = escapeHtml(signupUrl);
+
     const bodyContentHtml = isFr
       ? `
         <div style="display: inline-block; background-color: rgba(255, 0, 85, 0.15); border: 1px solid ${BRAND_COLORS.pink}; color: ${BRAND_COLORS.pink}; font-size: 12px; font-weight: bold; text-transform: uppercase; padding: 4px 12px; border-radius: 20px; margin-bottom: 16px; letter-spacing: 1px;">
           ⚔️ Défi Duel 1 contre 1
         </div>
         <h2 style="color: #ffffff; font-size: 22px; margin-top: 0; margin-bottom: 14px; line-height: 1.3;">
-          Vous êtes défié(e) par <span style="color: ${BRAND_COLORS.cyan};">${params.challengerName}</span> !
+          Vous êtes défié(e) par <span style="color: ${BRAND_COLORS.cyan};">${safeChallengerName}</span> !
         </h2>
         <p style="margin-bottom: 18px; color: #cbd5e1; font-size: 15px;">
-          Votre ami(e) <strong>${params.challengerName}</strong> (<code style="color: ${BRAND_COLORS.cyan};">${params.challengerLogin}</code>) vous invite à le rejoindre sur <strong>Rower Race</strong>, la plateforme connectée d'aviron indoor et de régates en direct !
+          Votre ami(e) <strong>${safeChallengerName}</strong> (<code style="color: ${BRAND_COLORS.cyan};">${safeChallengerLogin}</code>) vous invite à le rejoindre sur <strong>Rower Race</strong>, la plateforme connectée d'aviron indoor et de régates en direct !
         </p>
 
         <div style="background-color: #0d1527; border: 1px solid rgba(0, 240, 255, 0.3); border-radius: 8px; padding: 18px; margin: 20px 0;">
@@ -1358,14 +1388,14 @@ export class EmailService {
           </div>
           <div style="margin-bottom: 8px;">
             <span style="color: ${BRAND_COLORS.dim};">Créneau proposé :</span>
-            <strong style="color: ${BRAND_COLORS.yellow};">${dateStr} (${slotTimeStr})</strong>
+            <strong style="color: ${BRAND_COLORS.yellow};">${safeDateStr} (${safeSlotTimeStr})</strong>
           </div>
-          <div${params.roomCode || params.roomPin ? ` style="margin-bottom: 8px;"` : ""}>
+          <div${safeRoomCode || safeRoomPin ? ` style="margin-bottom: 8px;"` : ""}>
             <span style="color: ${BRAND_COLORS.dim};">Fuseau horaire :</span>
-            <strong style="color: #ffffff;">${tz}</strong>
+            <strong style="color: #ffffff;">${safeTz}</strong>
           </div>
-          ${params.roomCode ? `<div${params.roomPin ? ` style="margin-bottom: 8px;"` : ""}><span style="color: ${BRAND_COLORS.dim};">Salon du duel :</span> <strong style="color: ${BRAND_COLORS.cyan}; font-family: monospace;">${params.roomCode}</strong></div>` : ""}
-          ${params.roomPin ? `<div><span style="color: ${BRAND_COLORS.dim};">Code Montre Garmin :</span> <strong style="color: ${BRAND_COLORS.yellow}; font-family: monospace;">${params.roomPin}</strong></div>` : ""}
+          ${safeRoomCode ? `<div${safeRoomPin ? ` style="margin-bottom: 8px;"` : ""}><span style="color: ${BRAND_COLORS.dim};">Salon du duel :</span> <strong style="color: ${BRAND_COLORS.cyan}; font-family: monospace;">${safeRoomCode}</strong></div>` : ""}
+          ${safeRoomPin ? `<div><span style="color: ${BRAND_COLORS.dim};">Code Montre Garmin :</span> <strong style="color: ${BRAND_COLORS.yellow}; font-family: monospace;">${safeRoomPin}</strong></div>` : ""}
         </div>
 
         <div style="background-color: rgba(0, 240, 255, 0.05); border-left: 3px solid ${BRAND_COLORS.cyan}; padding: 12px 16px; border-radius: 4px; margin: 18px 0; color: ${BRAND_COLORS.text}; font-size: 14px;">
@@ -1379,10 +1409,10 @@ export class EmailService {
           ⚔️ 1v1 Duel Challenge
         </div>
         <h2 style="color: #ffffff; font-size: 22px; margin-top: 0; margin-bottom: 14px; line-height: 1.3;">
-          <span style="color: ${BRAND_COLORS.cyan};">${params.challengerName}</span> challenged you!
+          <span style="color: ${BRAND_COLORS.cyan};">${safeChallengerName}</span> challenged you!
         </h2>
         <p style="margin-bottom: 18px; color: #cbd5e1; font-size: 15px;">
-          Your friend <strong>${params.challengerName}</strong> (<code style="color: ${BRAND_COLORS.cyan};">${params.challengerLogin}</code>) invites you to join <strong>Rower Race</strong>, the connected indoor rowing and live regatta platform!
+          Your friend <strong>${safeChallengerName}</strong> (<code style="color: ${BRAND_COLORS.cyan};">${safeChallengerLogin}</code>) invites you to join <strong>Rower Race</strong>, the connected indoor rowing and live regatta platform!
         </p>
 
         <div style="background-color: #0d1527; border: 1px solid rgba(0, 240, 255, 0.3); border-radius: 8px; padding: 18px; margin: 20px 0;">
@@ -1395,14 +1425,14 @@ export class EmailService {
           </div>
           <div style="margin-bottom: 8px;">
             <span style="color: ${BRAND_COLORS.dim};">Proposed slot:</span>
-            <strong style="color: ${BRAND_COLORS.yellow};">${dateStr} (${slotTimeStr})</strong>
+            <strong style="color: ${BRAND_COLORS.yellow};">${safeDateStr} (${safeSlotTimeStr})</strong>
           </div>
-          <div${params.roomCode || params.roomPin ? ` style="margin-bottom: 8px;"` : ""}>
+          <div${safeRoomCode || safeRoomPin ? ` style="margin-bottom: 8px;"` : ""}>
             <span style="color: ${BRAND_COLORS.dim};">Timezone:</span>
-            <strong style="color: #ffffff;">${tz}</strong>
+            <strong style="color: #ffffff;">${safeTz}</strong>
           </div>
-          ${params.roomCode ? `<div${params.roomPin ? ` style="margin-bottom: 8px;"` : ""}><span style="color: ${BRAND_COLORS.dim};">Duel room:</span> <strong style="color: ${BRAND_COLORS.cyan}; font-family: monospace;">${params.roomCode}</strong></div>` : ""}
-          ${params.roomPin ? `<div><span style="color: ${BRAND_COLORS.dim};">Garmin Watch PIN:</span> <strong style="color: ${BRAND_COLORS.yellow}; font-family: monospace;">${params.roomPin}</strong></div>` : ""}
+          ${safeRoomCode ? `<div${safeRoomPin ? ` style="margin-bottom: 8px;"` : ""}><span style="color: ${BRAND_COLORS.dim};">Duel room:</span> <strong style="color: ${BRAND_COLORS.cyan}; font-family: monospace;">${safeRoomCode}</strong></div>` : ""}
+          ${safeRoomPin ? `<div><span style="color: ${BRAND_COLORS.dim};">Garmin Watch PIN:</span> <strong style="color: ${BRAND_COLORS.yellow}; font-family: monospace;">${safeRoomPin}</strong></div>` : ""}
         </div>
 
         <div style="background-color: rgba(0, 240, 255, 0.05); border-left: 3px solid ${BRAND_COLORS.cyan}; padding: 12px 16px; border-radius: 4px; margin: 18px 0; color: ${BRAND_COLORS.text}; font-size: 14px;">
@@ -1417,8 +1447,8 @@ export class EmailService {
       : "Create account and accept challenge";
 
     const securityNote = isFr
-      ? `Cette invitation personnelle est destinée à ${params.to}. Lien d'inscription direct : ${signupUrl}`
-      : `This personal invitation is intended for ${params.to}. Direct signup link: ${signupUrl}`;
+      ? `Cette invitation personnelle est destinée à ${safeTo}. Lien d'inscription direct : ${safeSignupUrl}`
+      : `This personal invitation is intended for ${safeTo}. Direct signup link: ${safeSignupUrl}`;
 
     const html = renderCyberEmailHtml({
       title: subject,

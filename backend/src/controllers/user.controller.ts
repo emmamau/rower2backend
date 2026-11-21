@@ -356,10 +356,23 @@ export const registerUser = async (req: Request, res: Response): Promise<void> =
       cleanEmail,
       rawDuelInviteToken || undefined
     );
-    const explicitReferredBy = referredBy ? String(referredBy).trim() : null;
-    const resolvedReferredBy =
-      explicitReferredBy ||
-      (pendingGuestChallenges.length > 0 ? pendingGuestChallenges[0].challengerUserId : null);
+    const explicitReferredBy = referredBy ? String(referredBy).trim().slice(0, 64) : null;
+    let resolvedReferredBy: string | null = null;
+    if (explicitReferredBy) {
+      const explicitReferrer = await userStore.findUser(explicitReferredBy);
+      if (explicitReferrer) {
+        resolvedReferredBy = explicitReferrer.id.slice(0, 64);
+      }
+    }
+    if (!resolvedReferredBy && pendingGuestChallenges.length > 0) {
+      const challengeReferrerId = String(pendingGuestChallenges[0].challengerUserId || "").trim().slice(0, 64);
+      if (challengeReferrerId) {
+        const challengeReferrer = await userStore.findUser(challengeReferrerId);
+        if (challengeReferrer) {
+          resolvedReferredBy = challengeReferrer.id.slice(0, 64);
+        }
+      }
+    }
 
     const newUser = await userStore.createUser({
       id: cleanLogin,

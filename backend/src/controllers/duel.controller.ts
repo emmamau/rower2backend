@@ -12,6 +12,12 @@ function resolveRequestUserId(req: Request): string {
   return String(fromBody || fromQuery || fromParams || fromAuth || fromHeader || "").trim();
 }
 
+function sanitizeChallengePublic<T extends { inviteToken?: string | null }>(challenge: T): Omit<T, "inviteToken"> {
+  const sanitized = { ...challenge };
+  delete sanitized.inviteToken;
+  return sanitized;
+}
+
 export class DuelController {
   /**
    * GET /api/duels/preferences/:userId
@@ -173,7 +179,7 @@ export class DuelController {
       res.status(201).json({
         success: true,
         message: "Défi envoyé avec succès ! Un e-mail a été transmis à votre adversaire.",
-        challenge: outcome.challenge,
+        challenge: sanitizeChallengePublic(outcome.challenge),
       });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
@@ -218,7 +224,7 @@ export class DuelController {
         res.status(404).json({ success: false, message: "Défi introuvable ou expiré." });
         return;
       }
-      res.status(200).json({ success: true, challenge });
+      res.status(200).json({ success: true, challenge: sanitizeChallengePublic(challenge) });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       res.status(500).json({ success: false, message });
@@ -440,8 +446,15 @@ export class DuelController {
         res.status(400).json({ success: false, message: "Jeton d'invitation requis." });
         return;
       }
+      await duelService.expireOverdueChallenges();
       const challenge = await duelService.findChallengeByInviteToken(token);
-      if (!challenge) {
+      if (
+        !challenge ||
+        challenge.status !== "PENDING" ||
+        challenge.challengedUserId ||
+        new Date(challenge.expiresAt) <= new Date() ||
+        new Date(challenge.slotStart) <= new Date()
+      ) {
         res.status(404).json({ success: false, message: "Invitation introuvable ou expirée." });
         return;
       }
@@ -477,7 +490,8 @@ export class DuelController {
         return;
       }
       const outcome = await duelService.resendInvitation(challengeId, userId);
-      res.status(outcome.success ? 200 : 400).json(outcome);
+      const status = outcome.statusCode || (outcome.success ? 200 : 400);
+      res.status(status).json({ success: outcome.success, message: outcome.message });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       res.status(500).json({ success: false, message });

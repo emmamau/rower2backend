@@ -390,12 +390,19 @@ test('POST /api/duels/:id/resend-invite dispatches email for challenger and reje
     });
     assert.equal(noUserRes.status, 400);
 
+    const missingChallengeRes = await fetch(`${ctx.baseUrl}/api/duels/nonexistent_duel_id/resend-invite`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: challenger.id }),
+    });
+    assert.equal(missingChallengeRes.status, 404);
+
     const unauthRes = await fetch(`${ctx.baseUrl}/api/duels/${outcome.challenge.id}/resend-invite`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ userId: otherUser.id }),
     });
-    assert.equal(unauthRes.status, 400);
+    assert.equal(unauthRes.status, 403);
     const unauthData = await unauthRes.json();
     assert.equal(unauthData.success, false);
     assert.equal(emailService.getSentEmails().length, countBefore);
@@ -525,4 +532,274 @@ test('POST /api/user/register without token links pending duel by matching email
   } finally {
     await ctx.close();
   }
+});
+
+test('Email > 64 chars creation/persistence and strict isEmailString validation', async () => {
+  duelService.clearInMemoryChallenges();
+  emailService.clearLog();
+
+  const suffix = `${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+  const challenger = await userStore.createUser({
+    id: `longmail_ch_${suffix}`,
+    login: `longmail_ch_${suffix}`,
+    name: 'Long Mail Challenger',
+    email: `longmail_ch_${suffix}@example.com`,
+  });
+
+  const longLocal = 'very.long.guest.email.address.exceeding.sixty.four.characters.easily';
+  const longEmail = `${longLocal}_${suffix}@subdomain.example.com`;
+  assert.ok(longEmail.length > 64 && longEmail.length <= 254);
+
+  const outcome = await duelService.createChallenge({
+    challengerId: challenger.id,
+    challengedLoginOrId: longEmail,
+    slotStart: futureUtcDaytimeSlot(4, 14),
+    targetDistance: 2000,
+  });
+  assert.ok('challenge' in outcome, `Long email challenge failed: ${outcome.error}`);
+  assert.equal(outcome.challenge.challengedLogin, longEmail);
+  assert.equal(outcome.challenge.challengedEmail, longEmail);
+  assert.match(outcome.challenge.inviteToken, /^inv_[0-9a-f]{48}$/, 'inviteToken must use 24-byte CSPRNG hex');
+
+  const DuelChallenges = db.duelChallenges;
+  const built = DuelChallenges.build({
+    id: `long_model_${suffix}`,
+    challengerUserId: challenger.id,
+    challengerLogin: challenger.login,
+    challengerName: challenger.name,
+    challengedUserId: null,
+    challengedLogin: longEmail,
+    challengedName: longEmail,
+    challengedEmail: longEmail,
+    inviteToken: outcome.challenge.inviteToken,
+    slotStart: futureUtcDaytimeSlot(4, 14),
+    slotEnd: futureUtcDaytimeSlot(4, 15),
+    timezone: 'Europe/Paris',
+    targetDistance: 2000,
+    status: 'PENDING',
+    expiresAt: futureUtcDaytimeSlot(7, 14),
+  });
+  await built.validate();
+
+  // Rejects angle brackets / quotes / >254 chars as email
+  const xssOutcome = await duelService.createChallenge({
+    challengerId: challenger.id,
+    challengedLoginOrId: 'bad<script>@example.com',
+    slotStart: futureUtcDaytimeSlot(4, 14),
+    targetDistance: 2000,
+  });
+  assert.ok('error' in xssOutcome);
+  assert.equal(xssOutcome.statusCode, 404);
+
+  const tooLongEmail = `${'a'.repeat(245)}@example.com`;
+  assert.ok(tooLongEmail.length > 254);
+  const tooLongOutcome = await duelService.createChallenge({
+    challengerId: challenger.id,
+    challengedLoginOrId: tooLongEmail,
+    slotStart: futureUtcDaytimeSlot(4, 14),
+    targetDistance: 2000,
+  });
+  assert.ok('error' in tooLongOutcome);
+  assert.equal(tooLongOutcome.statusCode, 404);
+});
+
+test('Resend cooldown enforcement and rejection after guest registers', async () => {
+  duelService.clearInMemoryChallenges();
+  emailService.clearLog();
+  const ctx = await createTestServer();
+
+  try {
+    const suffix = `${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+    const challenger = await userStore.createUser({
+      id: `cd_ch_${suffix}`,
+      login: `cd_ch_${suffix}`,
+      name: 'Cooldown Challenger',
+      email: `cd_ch_${suffix}@example.com`,
+    });
+
+    const guestEmail = `cd_guest_${suffix}@test.com`;
+    const outcome = await duelService.createChallenge({
+      challengerId: challenger.id,
+      challengedLoginOrId: guestEmail,
+      slotStart: futureUtcDaytimeSlot(5, 14),
+      targetDistance: 2000,
+    });
+    assert.ok('challenge' in outcome, `Creation failed: ${outcome.error}`);
+
+    const countAfterCreate = emailService.getSentEmails().length;
+
+    // First resend succeeds (using challengerLogin to verify identifier flexibility)
+    const firstResend = await fetch(`${ctx.baseUrl}/api/duels/${outcome.challenge.id}/resend-invite`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: challenger.login.toUpperCase() }),
+    });
+    assert.equal(firstResend.status, 200);
+    assert.equal(emailService.getSentEmails().length, countAfterCreate + 1);
+
+    // Immediate second resend is blocked by 60s cooldown
+    const secondResend = await fetch(`${ctx.baseUrl}/api/duels/${outcome.challenge.id}/resend-invite`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: challenger.id }),
+    });
+    assert.equal(secondResend.status, 400);
+    const secondData = await secondResend.json();
+    assert.equal(secondData.success, false);
+    assert.ok(secondData.message.includes('60 secondes'));
+    assert.equal(emailService.getSentEmails().length, countAfterCreate + 1);
+
+    // Register the guest -> resend must now report already registered
+    const guestUser = await userStore.createUser({
+      id: `cd_reg_${suffix}`,
+      login: `cd_reg_${suffix}`,
+      name: 'Registered Guest',
+      email: guestEmail,
+    });
+    await duelService.linkGuestToRegisteredUser(guestUser, outcome.challenge.inviteToken);
+
+    const afterRegResend = await fetch(`${ctx.baseUrl}/api/duels/${outcome.challenge.id}/resend-invite`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: challenger.id }),
+    });
+    assert.equal(afterRegResend.status, 400);
+    const afterRegData = await afterRegResend.json();
+    assert.equal(afterRegData.success, false);
+    assert.ok(afterRegData.message.includes('déjà créé son compte'));
+  } finally {
+    await ctx.close();
+  }
+});
+
+test('Expired invitation is rejected in invite-info and registration linking, and referredBy is sanitized', async () => {
+  duelService.clearInMemoryChallenges();
+  emailService.clearLog();
+  const ctx = await createTestServer();
+
+  try {
+    const suffix = `${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+    const challenger = await userStore.createUser({
+      id: `exp_ch_${suffix}`,
+      login: `exp_ch_${suffix}`,
+      name: 'Expired Challenger',
+      email: `exp_ch_${suffix}@example.com`,
+    });
+
+    const guestEmail = `exp_guest_${suffix}@test.com`;
+    const outcome = await duelService.createChallenge({
+      challengerId: challenger.id,
+      challengedLoginOrId: guestEmail,
+      slotStart: futureUtcDaytimeSlot(4, 14),
+      targetDistance: 2000,
+    });
+    assert.ok('challenge' in outcome, `Creation failed: ${outcome.error}`);
+
+    // Force challenge expiration
+    outcome.challenge.expiresAt = new Date(Date.now() - 60 * 1000);
+    await duelService.persistChallenge(outcome.challenge);
+
+    const infoRes = await fetch(
+      `${ctx.baseUrl}/api/duels/invite-info?token=${encodeURIComponent(outcome.challenge.inviteToken)}`
+    );
+    assert.equal(infoRes.status, 404);
+    const infoData = await infoRes.json();
+    assert.equal(infoData.success, false);
+
+    // Registering with expired token & bogus referredBy must NOT link challenge or persist bogus referredBy
+    const regRes = await fetch(`${ctx.baseUrl}/api/user/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        nom: 'Expired',
+        prenom: 'Guest',
+        anneeNaissance: 1993,
+        sexe: 'M',
+        pays: 'France',
+        login: `exp_user_${suffix}`,
+        email: guestEmail,
+        password: 'StrongPassword123!',
+        duelInviteToken: outcome.challenge.inviteToken,
+        referredBy: 'nonexistent_referrer_' + 'x'.repeat(80),
+      }),
+    });
+    assert.equal(regRes.status, 201);
+    const regData = await regRes.json();
+    assert.equal(regData.user.referredBy, null);
+
+    const refreshed = await duelService.getChallengeById(outcome.challenge.id);
+    assert.equal(refreshed.status, 'EXPIRED');
+    assert.equal(refreshed.challengedUserId, '');
+  } finally {
+    await ctx.close();
+  }
+});
+
+test('POST /api/duels/challenge and GET /api/duels/:id do not leak inviteToken', async () => {
+  duelService.clearInMemoryChallenges();
+  emailService.clearLog();
+  const ctx = await createTestServer();
+
+  try {
+    const suffix = `${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+    const challenger = await userStore.createUser({
+      id: `leak_ch_${suffix}`,
+      login: `leak_ch_${suffix}`,
+      name: 'Leak Guard',
+      email: `leak_ch_${suffix}@example.com`,
+    });
+
+    const createRes = await fetch(`${ctx.baseUrl}/api/duels/challenge`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        challengerId: challenger.id,
+        challengedLogin: `leak_guest_${suffix}@test.com`,
+        slotStart: futureUtcDaytimeSlot(6, 14).toISOString(),
+        targetDistance: 2000,
+      }),
+    });
+    assert.equal(createRes.status, 201);
+    const createData = await createRes.json();
+    assert.equal(createData.success, true);
+    assert.equal(createData.challenge.inviteToken, undefined, 'createChallenge HTTP response must not expose inviteToken');
+    assert.ok(!('inviteToken' in createData.challenge));
+
+    const getRes = await fetch(`${ctx.baseUrl}/api/duels/${createData.challenge.id}`);
+    assert.equal(getRes.status, 200);
+    const getData = await getRes.json();
+    assert.equal(getData.success, true);
+    assert.equal(getData.challenge.inviteToken, undefined, 'GET /api/duels/:id must not expose inviteToken');
+    assert.ok(!('inviteToken' in getData.challenge));
+  } finally {
+    await ctx.close();
+  }
+});
+
+test('sendDuelInvitationNewUserEmail escapes HTML special characters in user-supplied fields', async () => {
+  emailService.clearLog();
+
+  const result = await emailService.sendDuelInvitationNewUserEmail({
+    to: 'safe+tag@test.com',
+    challengerName: 'Evil <script>alert(1)</script> & "Co"',
+    challengerLogin: "bad'login<>",
+    slotStart: new Date('2026-12-15T18:00:00.000Z').toISOString(),
+    slotEnd: new Date('2026-12-15T18:30:00.000Z').toISOString(),
+    timezone: 'Europe/Paris<img src=x>',
+    targetDistance: 2000,
+    roomCode: 'RR-1234',
+    roomPin: '5678',
+    inviteToken: 'tok_xss_test',
+    lang: 'fr',
+  });
+
+  assert.equal(result, true);
+  const sent = emailService.getSentEmails();
+  const lastMail = sent[sent.length - 1];
+  assert.ok(lastMail);
+  assert.ok(!lastMail.html.includes('<script>'), 'HTML must not contain raw <script> tag');
+  assert.ok(!lastMail.html.includes('<img src=x>'), 'HTML must not contain raw injected <img> tag');
+  assert.ok(lastMail.html.includes('&lt;script&gt;alert(1)&lt;/script&gt; &amp; &quot;Co&quot;'));
+  assert.ok(lastMail.html.includes('bad&#39;login&lt;&gt;'));
+  assert.ok(lastMail.html.includes('Europe/Paris&lt;img src=x&gt;'));
 });

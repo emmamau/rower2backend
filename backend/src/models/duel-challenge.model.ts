@@ -69,7 +69,7 @@ export default (sequelize: Sequelize, _DataTypesInstance: typeof DataTypes): Due
         defaultValue: "",
       },
       challengedLogin: {
-        type: DataTypes.STRING(64),
+        type: DataTypes.STRING(255),
         allowNull: true,
         defaultValue: "",
       },
@@ -167,6 +167,8 @@ export default (sequelize: Sequelize, _DataTypesInstance: typeof DataTypes): Due
         { fields: ["status"] },
         { fields: ["slotStart"] },
         { fields: ["roomId"] },
+        { fields: ["inviteToken"] },
+        { fields: ["challengedEmail"] },
       ],
     }
   );

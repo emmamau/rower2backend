@@ -166,6 +166,7 @@ async function buildPrivateRacePayload(race: RaceState) {
           challengedUserId: challenge.challengedUserId,
           challengedLogin: challenge.challengedLogin,
           challengedName: challenge.challengedName,
+          challengedEmail: challenge.challengedEmail,
           slotStart: challenge.slotStart,
           slotEnd: challenge.slotEnd,
           timezone: challenge.timezone,
