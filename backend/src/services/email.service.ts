@@ -5,6 +5,12 @@
  * et repli sécurisé en mode simulation pour le développement et les tests.
  */
 import { buildShareableRoomUrl, normalizeSalonCode, withRegattaMode } from "../utils/room-link.util";
+import {
+  CalendarEventParams,
+  generateGoogleCalendarUrl,
+  generateIcsCalendar,
+  generateOutlookCalendarUrl,
+} from "../utils/calendar.util";
 
 export interface EmailAttachment {
   filename: string;
@@ -1246,32 +1252,204 @@ export class EmailService {
   public async sendDuelInvitationNewUserEmail(params: DuelInvitationNewUserParams): Promise<boolean> {
     const config = getEmailConfig();
     const isFr = (params.lang || "fr").toLowerCase().startsWith("fr");
+    const lang = isFr ? "fr" : "en";
+    const tz = params.timezone || "Europe/Paris";
     const signupUrl = `${config.frontendUrl}/?duelInviteToken=${encodeURIComponent(params.inviteToken)}&email=${encodeURIComponent(params.to)}&mode=register`;
+
+    let dateStr = params.slotStart;
+    let slotTimeStr = `${params.slotStart} - ${params.slotEnd}`;
+    let durationMinutes = 30;
+    try {
+      const startD = new Date(params.slotStart);
+      const endD = new Date(params.slotEnd);
+      if (!isNaN(startD.getTime()) && !isNaN(endD.getTime())) {
+        const locale = isFr ? "fr-FR" : "en-US";
+        dateStr = new Intl.DateTimeFormat(locale, {
+          weekday: "long",
+          day: "numeric",
+          month: "long",
+          year: "numeric",
+          timeZone: tz,
+        }).format(startD);
+        const startHour = new Intl.DateTimeFormat(locale, {
+          hour: "2-digit",
+          minute: "2-digit",
+          timeZone: tz,
+        }).format(startD);
+        const endHour = new Intl.DateTimeFormat(locale, {
+          hour: "2-digit",
+          minute: "2-digit",
+          timeZone: tz,
+        }).format(endD);
+        slotTimeStr = `${startHour} - ${endHour}`;
+        const diffMins = Math.round((endD.getTime() - startD.getTime()) / 60000);
+        if (Number.isFinite(diffMins) && diffMins > 0) {
+          durationMinutes = diffMins;
+        }
+      }
+    } catch {}
+
+    let icsContent = "";
+    let googleCalendarUrl = "";
+    let outlookCalendarUrl = "";
+    try {
+      const calParams: CalendarEventParams = {
+        eventId: `duel-${params.inviteToken || params.roomCode || Date.now()}`,
+        title: isFr
+          ? `⚔️ Duel Rower Race : ${params.challengerName} (${params.targetDistance}m)`
+          : `⚔️ Rower Race Duel: ${params.challengerName} (${params.targetDistance}m)`,
+        description: isFr
+          ? `Défi duel 1v1 sur Rower Race (${params.targetDistance}m) lancé par ${params.challengerName} (@${params.challengerLogin}).${params.roomCode ? `\nSalon : ${params.roomCode}` : ""}${params.roomPin ? ` | Code Garmin : ${params.roomPin}` : ""}\nCréer votre compte et relever le défi : ${signupUrl}`
+          : `1v1 duel challenge on Rower Race (${params.targetDistance}m) from ${params.challengerName} (@${params.challengerLogin}).${params.roomCode ? `\nRoom: ${params.roomCode}` : ""}${params.roomPin ? ` | Garmin PIN: ${params.roomPin}` : ""}\nCreate your account & accept challenge: ${signupUrl}`,
+        url: signupUrl,
+        startTime: params.slotStart,
+        durationMinutes,
+        organizerName: params.challengerName,
+      };
+      icsContent = generateIcsCalendar(calParams);
+      googleCalendarUrl = generateGoogleCalendarUrl(calParams);
+      outlookCalendarUrl = generateOutlookCalendarUrl(calParams);
+    } catch {}
 
     const subject = isFr
       ? `⚔️ ${params.challengerName} vous défie en duel sur Rower Race !`
-      : `⚔️ ${params.challengerName} challenged you to a 1v1 duel on Rower Race!`;
+      : `⚔️ ${params.challengerName} challenged you to a duel on Rower Race!`;
+
+    const preheader = isFr
+      ? `Relevez le défi de ${params.challengerName} sur ${params.targetDistance}m !`
+      : `Take up ${params.challengerName}'s challenge on ${params.targetDistance}m!`;
+
+    const calButtonsHtml = (googleCalendarUrl || outlookCalendarUrl) ? `
+      <div style="margin-top: 12px; display: flex; flex-wrap: wrap; gap: 10px;">
+        ${googleCalendarUrl ? `<a href="${googleCalendarUrl}" style="background-color: #1e293b; color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.4); text-decoration: none; padding: 8px 14px; border-radius: 6px; font-size: 13px; font-weight: 600; display: inline-block;">${isFr ? "📅 Google Agenda" : "📅 Google Calendar"}</a>` : ""}
+        ${outlookCalendarUrl ? `<a href="${outlookCalendarUrl}" style="background-color: #1e293b; color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.4); text-decoration: none; padding: 8px 14px; border-radius: 6px; font-size: 13px; font-weight: 600; display: inline-block;">📅 Outlook / Office 365</a>` : ""}
+      </div>
+    ` : "";
+
+    const calendarBlockHtml = (calButtonsHtml || icsContent) ? `
+      <div style="background-color: #0b1329; border-left: 3px solid ${BRAND_COLORS.orange}; padding: 14px 18px; border-radius: 6px; margin: 18px 0;">
+        <div style="font-size: 12px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; color: ${BRAND_COLORS.orange}; margin-bottom: 4px;">
+          ${isFr ? "📅 Ajouter à votre calendrier" : "📅 Add to your calendar"}
+        </div>
+        ${calButtonsHtml}
+        ${icsContent ? `<div style="font-size: 12px; color: ${BRAND_COLORS.dim}; margin-top: 10px;">${isFr ? "📎 Un fichier rendez-vous <strong>.ics</strong> est joint à ce courriel pour intégrer directement votre agenda." : "📎 An <strong>.ics</strong> appointment file is attached to this email to add this duel directly to your calendar."}</div>` : ""}
+      </div>
+    ` : "";
 
     const bodyContentHtml = isFr
-      ? `<p><strong>${params.challengerName}</strong> (@${params.challengerLogin}) vous défie en duel 1v1 sur ${params.targetDistance}m.</p>`
-      : `<p><strong>${params.challengerName}</strong> (@${params.challengerLogin}) challenged you to a 1v1 duel over ${params.targetDistance}m.</p>`;
+      ? `
+        <div style="display: inline-block; background-color: rgba(255, 0, 85, 0.15); border: 1px solid ${BRAND_COLORS.pink}; color: ${BRAND_COLORS.pink}; font-size: 12px; font-weight: bold; text-transform: uppercase; padding: 4px 12px; border-radius: 20px; margin-bottom: 16px; letter-spacing: 1px;">
+          ⚔️ Défi Duel 1 contre 1
+        </div>
+        <h2 style="color: #ffffff; font-size: 22px; margin-top: 0; margin-bottom: 14px; line-height: 1.3;">
+          Vous êtes défié(e) par <span style="color: ${BRAND_COLORS.cyan};">${params.challengerName}</span> !
+        </h2>
+        <p style="margin-bottom: 18px; color: #cbd5e1; font-size: 15px;">
+          Votre ami(e) <strong>${params.challengerName}</strong> (<code style="color: ${BRAND_COLORS.cyan};">${params.challengerLogin}</code>) vous invite à le rejoindre sur <strong>Rower Race</strong>, la plateforme connectée d'aviron indoor et de régates en direct !
+        </p>
+
+        <div style="background-color: #0d1527; border: 1px solid rgba(0, 240, 255, 0.3); border-radius: 8px; padding: 18px; margin: 20px 0;">
+          <div style="font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: ${BRAND_COLORS.cyan}; font-weight: bold; margin-bottom: 12px;">
+            Détails du duel proposé
+          </div>
+          <div style="margin-bottom: 8px;">
+            <span style="color: ${BRAND_COLORS.dim};">Distance :</span>
+            <strong style="color: ${BRAND_COLORS.cyan};">${params.targetDistance} m</strong>
+          </div>
+          <div style="margin-bottom: 8px;">
+            <span style="color: ${BRAND_COLORS.dim};">Créneau proposé :</span>
+            <strong style="color: ${BRAND_COLORS.yellow};">${dateStr} (${slotTimeStr})</strong>
+          </div>
+          <div${params.roomCode || params.roomPin ? ` style="margin-bottom: 8px;"` : ""}>
+            <span style="color: ${BRAND_COLORS.dim};">Fuseau horaire :</span>
+            <strong style="color: #ffffff;">${tz}</strong>
+          </div>
+          ${params.roomCode ? `<div${params.roomPin ? ` style="margin-bottom: 8px;"` : ""}><span style="color: ${BRAND_COLORS.dim};">Salon du duel :</span> <strong style="color: ${BRAND_COLORS.cyan}; font-family: monospace;">${params.roomCode}</strong></div>` : ""}
+          ${params.roomPin ? `<div><span style="color: ${BRAND_COLORS.dim};">Code Montre Garmin :</span> <strong style="color: ${BRAND_COLORS.yellow}; font-family: monospace;">${params.roomPin}</strong></div>` : ""}
+        </div>
+
+        <div style="background-color: rgba(0, 240, 255, 0.05); border-left: 3px solid ${BRAND_COLORS.cyan}; padding: 12px 16px; border-radius: 4px; margin: 18px 0; color: ${BRAND_COLORS.text}; font-size: 14px;">
+          🚀 Créez votre compte gratuit en 1 clic pour bloquer votre place et défier votre ami en direct sur l'eau.
+        </div>
+
+        ${calendarBlockHtml}
+      `
+      : `
+        <div style="display: inline-block; background-color: rgba(255, 0, 85, 0.15); border: 1px solid ${BRAND_COLORS.pink}; color: ${BRAND_COLORS.pink}; font-size: 12px; font-weight: bold; text-transform: uppercase; padding: 4px 12px; border-radius: 20px; margin-bottom: 16px; letter-spacing: 1px;">
+          ⚔️ 1v1 Duel Challenge
+        </div>
+        <h2 style="color: #ffffff; font-size: 22px; margin-top: 0; margin-bottom: 14px; line-height: 1.3;">
+          <span style="color: ${BRAND_COLORS.cyan};">${params.challengerName}</span> challenged you!
+        </h2>
+        <p style="margin-bottom: 18px; color: #cbd5e1; font-size: 15px;">
+          Your friend <strong>${params.challengerName}</strong> (<code style="color: ${BRAND_COLORS.cyan};">${params.challengerLogin}</code>) invites you to join <strong>Rower Race</strong>, the connected indoor rowing and live regatta platform!
+        </p>
+
+        <div style="background-color: #0d1527; border: 1px solid rgba(0, 240, 255, 0.3); border-radius: 8px; padding: 18px; margin: 20px 0;">
+          <div style="font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: ${BRAND_COLORS.cyan}; font-weight: bold; margin-bottom: 12px;">
+            Proposed Duel Details
+          </div>
+          <div style="margin-bottom: 8px;">
+            <span style="color: ${BRAND_COLORS.dim};">Distance:</span>
+            <strong style="color: ${BRAND_COLORS.cyan};">${params.targetDistance} m</strong>
+          </div>
+          <div style="margin-bottom: 8px;">
+            <span style="color: ${BRAND_COLORS.dim};">Proposed slot:</span>
+            <strong style="color: ${BRAND_COLORS.yellow};">${dateStr} (${slotTimeStr})</strong>
+          </div>
+          <div${params.roomCode || params.roomPin ? ` style="margin-bottom: 8px;"` : ""}>
+            <span style="color: ${BRAND_COLORS.dim};">Timezone:</span>
+            <strong style="color: #ffffff;">${tz}</strong>
+          </div>
+          ${params.roomCode ? `<div${params.roomPin ? ` style="margin-bottom: 8px;"` : ""}><span style="color: ${BRAND_COLORS.dim};">Duel room:</span> <strong style="color: ${BRAND_COLORS.cyan}; font-family: monospace;">${params.roomCode}</strong></div>` : ""}
+          ${params.roomPin ? `<div><span style="color: ${BRAND_COLORS.dim};">Garmin Watch PIN:</span> <strong style="color: ${BRAND_COLORS.yellow}; font-family: monospace;">${params.roomPin}</strong></div>` : ""}
+        </div>
+
+        <div style="background-color: rgba(0, 240, 255, 0.05); border-left: 3px solid ${BRAND_COLORS.cyan}; padding: 12px 16px; border-radius: 4px; margin: 18px 0; color: ${BRAND_COLORS.text}; font-size: 14px;">
+          🚀 Create your free account in 1 click to lock in your spot and race your friend live on the water.
+        </div>
+
+        ${calendarBlockHtml}
+      `;
+
+    const ctaText = isFr
+      ? "Créer mon compte et relever le défi"
+      : "Create account and accept challenge";
+
+    const securityNote = isFr
+      ? `Cette invitation personnelle est destinée à ${params.to}. Lien d'inscription direct : ${signupUrl}`
+      : `This personal invitation is intended for ${params.to}. Direct signup link: ${signupUrl}`;
 
     const html = renderCyberEmailHtml({
       title: subject,
-      preheader: isFr
-        ? `Relevez le défi de ${params.challengerName} sur ${params.targetDistance}m !`
-        : `Accept ${params.challengerName}'s ${params.targetDistance}m duel challenge!`,
+      preheader,
       bodyContentHtml,
-      ctaText: isFr ? "Créer mon compte et relever le défi" : "Create Account & Accept Duel",
+      ctaText,
       ctaUrl: signupUrl,
-      lang: isFr ? "fr" : "en",
+      securityNote,
+      lang,
     });
 
     const text = isFr
-      ? `${params.challengerName} (@${params.challengerLogin}) vous défie en duel 1v1 sur ${params.targetDistance}m.\nCréer votre compte : ${signupUrl}`
-      : `${params.challengerName} (@${params.challengerLogin}) challenged you to a 1v1 duel over ${params.targetDistance}m.\nCreate your account: ${signupUrl}`;
+      ? `Bonjour,\n\nVotre ami(e) ${params.challengerName} (${params.challengerLogin}) vous invite à le rejoindre sur Rower Race, la plateforme connectée d'aviron indoor et de régates en direct !\n\nDistance : ${params.targetDistance} m\nCréneau proposé : ${dateStr} (${slotTimeStr})\nFuseau horaire : ${tz}\n${params.roomCode ? `Salon : ${params.roomCode}\n` : ""}${params.roomPin ? `Code Montre Garmin : ${params.roomPin}\n` : ""}\nCréez votre compte gratuit en 1 clic pour bloquer votre place et défier votre ami en direct sur l'eau :\n${signupUrl}${googleCalendarUrl ? `\n\nGoogle Agenda : ${googleCalendarUrl}` : ""}${outlookCalendarUrl ? `\nOutlook : ${outlookCalendarUrl}` : ""}\n\nSportivement,\nL'équipe Rower Race`
+      : `Hello,\n\nYour friend ${params.challengerName} (${params.challengerLogin}) invites you to join Rower Race, the connected indoor rowing and live regatta platform!\n\nDistance: ${params.targetDistance} m\nProposed slot: ${dateStr} (${slotTimeStr})\nTimezone: ${tz}\n${params.roomCode ? `Room: ${params.roomCode}\n` : ""}${params.roomPin ? `Garmin Watch PIN: ${params.roomPin}\n` : ""}\nCreate your free account in 1 click to lock in your spot and race your friend live on the water:\n${signupUrl}${googleCalendarUrl ? `\n\nGoogle Calendar: ${googleCalendarUrl}` : ""}${outlookCalendarUrl ? `\nOutlook: ${outlookCalendarUrl}` : ""}\n\nBest regards,\nThe Rower Race Team`;
 
-    const res = await this.sendEmail({ to: params.to, subject, text, html });
+    const attachments: EmailAttachment[] = [];
+    if (icsContent) {
+      attachments.push({
+        filename: "invitation-duel-rowerrace.ics",
+        content: Buffer.from(icsContent, "utf-8").toString("base64"),
+        type: "text/calendar",
+      });
+    }
+
+    const res = await this.sendEmail({
+      to: params.to,
+      subject,
+      text,
+      html,
+      attachments: attachments.length > 0 ? attachments : undefined,
+    });
     return res.success;
   }
 

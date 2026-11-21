@@ -192,3 +192,93 @@ test('resendInvitation succeeds when called by challenger and rejects unauthoriz
   const resendRegular = await duelService.resendInvitation(regularOutcome.challenge.id, challenger.id);
   assert.equal(resendRegular.success, false);
 });
+
+test('sendDuelInvitationNewUserEmail (FR) generates cyber email with .ics attachment, calendar links, and signup URL', async () => {
+  emailService.clearLog();
+
+  const slotStart = new Date('2026-12-15T18:00:00.000Z').toISOString();
+  const slotEnd = new Date('2026-12-15T18:45:00.000Z').toISOString();
+
+  const result = await emailService.sendDuelInvitationNewUserEmail({
+    to: 'friend@test.com',
+    challengerName: 'Emma Racer',
+    challengerLogin: 'EmmaRacer',
+    slotStart,
+    slotEnd,
+    timezone: 'Europe/Paris',
+    targetDistance: 2000,
+    roomCode: 'RR-1234',
+    roomPin: '5678',
+    inviteToken: 'tok_test_123',
+    lang: 'fr',
+  });
+
+  assert.equal(result, true);
+  const sent = emailService.getSentEmails();
+  const lastMail = sent[sent.length - 1];
+  assert.ok(lastMail, 'Email should be logged');
+  assert.equal(lastMail.to, 'friend@test.com');
+  assert.ok(lastMail.subject.includes('Emma Racer'), 'Subject must include challenger name');
+  assert.ok(lastMail.subject.toLowerCase().includes('duel'), 'Subject must mention duel');
+
+  assert.ok(lastMail.html.includes('ROWER'), 'HTML must include Rower Race cyber branding');
+  assert.ok(lastMail.html.includes('tok_test_123'), 'HTML must include inviteToken');
+  assert.ok(lastMail.html.includes('2000'), 'HTML must include targetDistance');
+  assert.ok(lastMail.html.includes('duelInviteToken=tok_test_123'), 'HTML must include signupUrl with duelInviteToken');
+  assert.ok(lastMail.html.includes('mode=register'), 'HTML must include mode=register in signupUrl');
+  assert.ok(lastMail.html.includes('Europe/Paris'), 'HTML must display timezone');
+  assert.ok(lastMail.html.includes('Créer mon compte et relever le défi'), 'HTML must include French CTA');
+  assert.ok(lastMail.html.includes('calendar.google.com/calendar/render'), 'HTML must include Google Calendar link');
+  assert.ok(lastMail.html.includes('outlook.live.com/calendar'), 'HTML must include Outlook Calendar link');
+
+  assert.ok(lastMail.text.includes('tok_test_123'), 'Text fallback must include signup link with token');
+  assert.ok(lastMail.text.includes('2000'), 'Text fallback must include distance');
+
+  assert.ok(Array.isArray(lastMail.attachments) && lastMail.attachments.length === 1, 'Must include .ics attachment');
+  const icsAtt = lastMail.attachments[0];
+  assert.equal(icsAtt.filename, 'invitation-duel-rowerrace.ics');
+  assert.equal(icsAtt.type, 'text/calendar');
+  const decodedIcs = Buffer.from(icsAtt.content, 'base64').toString('utf-8');
+  assert.ok(decodedIcs.includes('BEGIN:VCALENDAR'), 'Decoded attachment must be valid iCalendar');
+  assert.ok(decodedIcs.includes('BEGIN:VEVENT'), 'Decoded attachment must contain VEVENT');
+  assert.ok(decodedIcs.includes('20261215T180000Z'), 'ICS must contain DTSTART in UTC');
+  assert.ok(decodedIcs.includes('20261215T184500Z'), 'ICS must contain DTEND in UTC');
+  assert.ok(decodedIcs.includes('Emma Racer'), 'ICS must mention challenger');
+});
+
+test('sendDuelInvitationNewUserEmail (EN) generates localized English cyber email with calendar attachment', async () => {
+  emailService.clearLog();
+
+  const slotStart = new Date('2026-12-20T15:00:00.000Z').toISOString();
+  const slotEnd = new Date('2026-12-20T15:30:00.000Z').toISOString();
+
+  const result = await emailService.sendDuelInvitationNewUserEmail({
+    to: 'english.friend@test.com',
+    challengerName: 'Alex Row',
+    challengerLogin: 'AlexRow',
+    slotStart,
+    slotEnd,
+    timezone: 'America/New_York',
+    targetDistance: 5000,
+    roomCode: 'RR-9999',
+    roomPin: '4321',
+    inviteToken: 'tok_en_456',
+    lang: 'en',
+  });
+
+  assert.equal(result, true);
+  const sent = emailService.getSentEmails();
+  const lastMail = sent[sent.length - 1];
+  assert.ok(lastMail);
+  assert.equal(lastMail.to, 'english.friend@test.com');
+  assert.ok(lastMail.subject.includes('Alex Row'));
+  assert.ok(lastMail.subject.includes('challenged you to a duel on Rower Race'));
+  assert.ok(lastMail.html.includes('<html lang="en">'), 'HTML lang attribute must be en');
+  assert.ok(lastMail.html.includes('Create account and accept challenge'), 'HTML must include English CTA');
+  assert.ok(lastMail.html.includes('tok_en_456'));
+  assert.ok(lastMail.html.includes('5000'));
+  assert.ok(lastMail.html.includes('America/New_York'));
+  assert.ok(lastMail.html.includes('Google Calendar'));
+  assert.ok(lastMail.html.includes('Outlook'));
+  assert.ok(lastMail.attachments?.some((a) => a.filename === 'invitation-duel-rowerrace.ics' && a.type === 'text/calendar'));
+});
