@@ -8,7 +8,9 @@ import {
   AfterViewInit,
   OnDestroy,
   OnChanges,
-  SimpleChanges
+  SimpleChanges,
+  ChangeDetectorRef,
+  Optional
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { LiveRacerMetric } from '../../services/socket.service';
@@ -58,6 +60,7 @@ interface BoatRenderState {
         <button
           type="button"
           class="lane-mode-toggle"
+          [class.is-collapsed]="isLaneModeCollapsed"
           (click)="toggleLaneMode()"
           [title]="dynamicLaneMode ? (i18n.getCurrentLang() === 'fr' ? 'Mode dynamique actif : les kayaks changent de ligne selon le classement (seuil 10m). Cliquer pour passer en mode fixe.' : 'Dynamic mode active: kayaks change lanes based on ranking. Click to switch to fixed mode.') : (i18n.getCurrentLang() === 'fr' ? 'Mode fixe actif : les couloirs assignés restent fixes. Cliquer pour passer en mode dynamique.' : 'Fixed mode active: assigned lanes stay fixed. Click to switch to dynamic mode.')">
           <span class="mode-icon">{{ dynamicLaneMode ? '⚡' : '⚓' }}</span>
@@ -154,6 +157,14 @@ interface BoatRenderState {
     .lane-mode-toggle .mode-icon {
       font-size: 0.82rem;
     }
+    .lane-mode-toggle.is-collapsed {
+      gap: 0;
+      padding: 4px 8px;
+      justify-content: center;
+    }
+    .lane-mode-toggle.is-collapsed .mode-label {
+      display: none;
+    }
     @media (max-width: 520px) {
       .canvas-top-left-controls {
         top: 6px;
@@ -163,6 +174,9 @@ interface BoatRenderState {
       .lane-mode-toggle {
         padding: 3px 8px;
         font-size: 0.65rem;
+      }
+      .lane-mode-toggle.is-collapsed {
+        padding: 3px 6px;
       }
     }
     canvas {
@@ -325,7 +339,15 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
   /** Mode d'attribution des lignes d'eau : true = dynamique par classement (seuil 10m), false = fixe par ligne assignée */
   dynamicLaneMode: boolean = true;
 
-  constructor(public i18n: I18nService) {
+  /** État de repli automatique du bouton Lignes dynamiques / fixes après 5s (icône seule) */
+  isLaneModeCollapsed: boolean = false;
+  readonly LANE_MODE_COLLAPSE_DELAY_MS = 5000;
+  private laneModeCollapseTimer: ReturnType<typeof setTimeout> | null = null;
+
+  constructor(
+    public i18n: I18nService,
+    @Optional() private cdr?: ChangeDetectorRef
+  ) {
     if (typeof window !== 'undefined' && window.localStorage) {
       const saved = localStorage.getItem('regatta_lane_mode');
       if (saved === 'fixed') {
@@ -334,6 +356,25 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
         this.dynamicLaneMode = true;
       }
     }
+    this.scheduleLaneModeCollapse();
+  }
+
+  scheduleLaneModeCollapse(): void {
+    this.clearLaneModeCollapseTimer();
+    this.isLaneModeCollapsed = false;
+    this.cdr?.markForCheck();
+    this.laneModeCollapseTimer = setTimeout(() => {
+      this.isLaneModeCollapsed = true;
+      this.laneModeCollapseTimer = null;
+      this.cdr?.markForCheck();
+    }, this.LANE_MODE_COLLAPSE_DELAY_MS);
+  }
+
+  clearLaneModeCollapseTimer(): void {
+    if (this.laneModeCollapseTimer !== null) {
+      clearTimeout(this.laneModeCollapseTimer);
+      this.laneModeCollapseTimer = null;
+    }
   }
 
   toggleLaneMode(): void {
@@ -341,6 +382,7 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
     if (typeof window !== 'undefined' && window.localStorage) {
       localStorage.setItem('regatta_lane_mode', this.dynamicLaneMode ? 'dynamic' : 'fixed');
     }
+    this.scheduleLaneModeCollapse();
   }
 
   protected Math = Math;
@@ -451,6 +493,7 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
   }
 
   ngOnDestroy(): void {
+    this.clearLaneModeCollapseTimer();
     if (this.animFrameId) {
       cancelAnimationFrame(this.animFrameId);
     }

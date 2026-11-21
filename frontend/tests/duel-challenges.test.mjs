@@ -83,3 +83,18 @@ test('PrivateRoomManager, StandingsModal & HomeDashboard: 1v1 challenge creation
   assert.match(appHtml, /challengePlayerRequest\.emit\(/);
   assert.match(appTs, /openDuelChallengeForPlayer\(login:\s*string\):\s*void/);
 });
+
+test('AccountModal CSS: widens .modal-account to 720px and keeps duel absence & refused days on a single line', () => {
+  const appCss = fs.readFileSync(path.join(frontendAppDir, 'app.css'), 'utf8');
+
+  assert.match(
+    appCss,
+    /\.modal-account\s*\{[^}]*inline-size:\s*min\(94dvw,\s*720px\);[^}]*max-inline-size:\s*720px;[^}]*width:\s*min\(94dvw,\s*720px\);/s,
+    '.modal-account must be widened to 720px'
+  );
+  assert.match(
+    appCss,
+    /\.duel-window-row,\s*\.duel-days-row\s*\{[^}]*flex-wrap:\s*nowrap;[^}]*white-space:\s*nowrap;/s,
+    '.duel-window-row and .duel-days-row must enforce single-line layout (flex-wrap: nowrap; white-space: nowrap;)'
+  );
+});

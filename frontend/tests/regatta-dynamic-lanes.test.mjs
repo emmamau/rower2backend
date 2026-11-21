@@ -70,6 +70,125 @@ test('RegattaCanvasComponent: dynamic lane ordering with 10m hysteresis and smoo
   );
 });
 
+test('RegattaCanvasComponent: auto-collapses lane-mode-toggle button after 5s and expands for 5s on click', () => {
+  const canvasTsPath = path.join(rootDir, 'src/app/components/regatta-canvas/regatta-canvas.component.ts');
+  const canvasContent = fs.readFileSync(canvasTsPath, 'utf-8');
+
+  assert.match(
+    canvasContent,
+    /isLaneModeCollapsed\s*:\s*boolean\s*=\s*false/,
+    'RegattaCanvasComponent must declare isLaneModeCollapsed: boolean = false'
+  );
+  assert.match(
+    canvasContent,
+    /LANE_MODE_COLLAPSE_DELAY_MS\s*=\s*5000/,
+    'RegattaCanvasComponent must define LANE_MODE_COLLAPSE_DELAY_MS = 5000'
+  );
+  assert.match(
+    canvasContent,
+    /\[class\.is-collapsed\]="isLaneModeCollapsed"/,
+    'Template must bind [class.is-collapsed]="isLaneModeCollapsed" on .lane-mode-toggle'
+  );
+  assert.match(
+    canvasContent,
+    /\.lane-mode-toggle\.is-collapsed\s+\.mode-label\s*\{\s*display:\s*none;/,
+    'Collapsed button style must hide .mode-label so only the icon remains visible'
+  );
+  assert.match(
+    canvasContent,
+    /scheduleLaneModeCollapse\s*\(\s*\)\s*:\s*void/,
+    'RegattaCanvasComponent must implement scheduleLaneModeCollapse()'
+  );
+  assert.match(
+    canvasContent,
+    /clearLaneModeCollapseTimer\s*\(\s*\)\s*:\s*void/,
+    'RegattaCanvasComponent must implement clearLaneModeCollapseTimer()'
+  );
+  assert.match(
+    canvasContent,
+    /toggleLaneMode\s*\(\s*\)\s*:\s*void\s*\{[\s\S]*?this\.scheduleLaneModeCollapse\s*\(\s*\)/,
+    'toggleLaneMode() must call scheduleLaneModeCollapse() to re-display label for 5s'
+  );
+  assert.match(
+    canvasContent,
+    /ngOnDestroy\s*\(\s*\)\s*:\s*void\s*\{[\s\S]*?this\.clearLaneModeCollapseTimer\s*\(\s*\)/,
+    'ngOnDestroy() must clean up the collapse timer'
+  );
+});
+
+test('Lane mode toggle button: collapses after 5s and expands again for 5s when activated', () => {
+  const scheduled = [];
+  const cleared = [];
+  let nextId = 1;
+
+  const fakeSetTimeout = (fn, delay) => {
+    const id = nextId++;
+    scheduled.push({ id, fn, delay, cleared: false });
+    return id;
+  };
+  const fakeClearTimeout = (id) => {
+    cleared.push(id);
+    const entry = scheduled.find((item) => item.id === id);
+    if (entry) entry.cleared = true;
+  };
+
+  class LaneToggleController {
+    constructor() {
+      this.dynamicLaneMode = true;
+      this.isLaneModeCollapsed = false;
+      this.LANE_MODE_COLLAPSE_DELAY_MS = 5000;
+      this.laneModeCollapseTimer = null;
+      this.scheduleLaneModeCollapse();
+    }
+    scheduleLaneModeCollapse() {
+      this.clearLaneModeCollapseTimer();
+      this.isLaneModeCollapsed = false;
+      this.laneModeCollapseTimer = fakeSetTimeout(() => {
+        this.isLaneModeCollapsed = true;
+        this.laneModeCollapseTimer = null;
+      }, this.LANE_MODE_COLLAPSE_DELAY_MS);
+    }
+    clearLaneModeCollapseTimer() {
+      if (this.laneModeCollapseTimer !== null) {
+        fakeClearTimeout(this.laneModeCollapseTimer);
+        this.laneModeCollapseTimer = null;
+      }
+    }
+    toggleLaneMode() {
+      this.dynamicLaneMode = !this.dynamicLaneMode;
+      this.scheduleLaneModeCollapse();
+    }
+  }
+
+  const ctrl = new LaneToggleController();
+  assert.equal(ctrl.isLaneModeCollapsed, false, 'Button must start expanded');
+  assert.equal(scheduled.length, 1);
+  assert.equal(scheduled[0].delay, 5000);
+
+  // Fire initial 5s timer -> collapses to icon-only
+  scheduled[0].fn();
+  assert.equal(ctrl.isLaneModeCollapsed, true, 'Button must collapse after 5000ms');
+
+  // User activates the button -> re-expands for another 5s
+  ctrl.toggleLaneMode();
+  assert.equal(ctrl.dynamicLaneMode, false);
+  assert.equal(ctrl.isLaneModeCollapsed, false, 'Activating the button must show the label again');
+  assert.equal(scheduled.length, 2);
+  assert.equal(scheduled[1].delay, 5000);
+
+  // User clicks again before 5s elapses -> previous timer cleared and fresh 5s scheduled
+  ctrl.toggleLaneMode();
+  assert.equal(ctrl.dynamicLaneMode, true);
+  assert.equal(ctrl.isLaneModeCollapsed, false);
+  assert.ok(cleared.includes(scheduled[1].id), 'Previous collapse timer must be cleared on reactivation');
+  assert.equal(scheduled.length, 3);
+  assert.equal(scheduled[2].delay, 5000);
+
+  // Fire latest 5s timer -> collapses again
+  scheduled[2].fn();
+  assert.equal(ctrl.isLaneModeCollapsed, true, 'Button must collapse again after 5000ms');
+});
+
 test('Dynamic Lane Overtake Simulation: 10m Hysteresis buffer prevents jitter and validates decisive passes', () => {
   // Pure behavioral simulation of the hysteresis algorithm
   const OVERTAKE_THRESHOLD = 10;

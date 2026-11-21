@@ -2473,9 +2473,9 @@ select:autofill:focus {
 }
 
 .modal-account {
-  inline-size: min(94dvw, 580px);
-  max-inline-size: 580px;
-  width: min(94dvw, 580px);
+  inline-size: min(94dvw, 720px);
+  max-inline-size: 720px;
+  width: min(94dvw, 720px);
   box-sizing: border-box;
   overflow-x: hidden;
 }
@@ -9900,11 +9900,19 @@ app-cockpit-view {
 .duel-days-row {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  white-space: nowrap;
   gap: 0.45rem;
   font-size: 0.82rem;
   color: #cbd5e1;
   margin-top: 0.35rem;
+}
+
+.duel-window-row label,
+.duel-window-row span,
+.duel-days-row span {
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .duel-window-row input[type="time"],
@@ -9931,12 +9939,22 @@ app-cockpit-view {
   font-size: 0.74rem;
   font-weight: 700;
   cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .btn-day-chip.is-refused {
   background: rgba(239, 68, 68, 0.25);
   border-color: #ef4444;
   color: #fecaca;
+}
+
+@media (max-width: 640px) {
+  .duel-window-row,
+  .duel-days-row {
+    flex-wrap: wrap;
+    white-space: normal;
+  }
 }
 
 .duel-pref-actions {
