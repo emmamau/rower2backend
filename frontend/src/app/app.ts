@@ -30,6 +30,8 @@ import {
   LeagueOutcome,
   LeagueStandingItem,
   WeeklyLeagueHistoryItem,
+  DuelPreferences,
+  DuelLeaderboardItem,
 } from './models/user.model';
 
 export { sanitizeKayakCustomization };
@@ -195,7 +197,34 @@ export class AppComponent implements OnInit, OnDestroy {
   leagueRelegateThreshold = 0;
   leagueTotalActive = 0;
   isTogglingRestingMode = false;
-  standingsActiveTab: 'leagues' | 'general' = 'leagues';
+  standingsActiveTab: 'leagues' | 'general' | 'duels' = 'leagues';
+
+  // Duels 1v1 : Classement, préférences et défi direct
+  duelLeaderboard: DuelLeaderboardItem[] = [];
+  isLoadingDuelLeaderboard = false;
+  duelLeagueFilter = 'all';
+  duelCountryFilter = 'all';
+  duelGenderFilter = 'all';
+  duelCategoryFilter = 'all';
+  duelExactAgeFilter = '';
+  prefilledDuelLogin = '';
+  prefilledDuelChallengeMode = false;
+
+  regAcceptsDuels = true;
+  regDuelStartTime = '08:00';
+  regDuelEndTime = '22:00';
+  regDuelRefusedDays: number[] = [];
+
+  duelAcceptsDuels = true;
+  duelIsAbsent = false;
+  duelAbsenceStartDate = '';
+  duelAbsenceEndDate = '';
+  duelAvailableStartTime = '08:00';
+  duelAvailableEndTime = '22:00';
+  duelRefusedDays: number[] = [];
+  isSavingDuelPreferences = false;
+  duelPreferencesFeedback = '';
+  duelPreferencesError = '';
 
   // Modale Bilan Hebdomadaire (Lundi récapitulatif)
   unseenWeeklySummary: WeeklyLeagueHistoryItem | null = null;
@@ -541,6 +570,128 @@ export class AppComponent implements OnInit, OnDestroy {
     });
   }
 
+  syncDuelPreferencesFromUser(user?: UserProfile): void {
+    const prefs = user?.duelPreferences;
+    if (!prefs) return;
+    this.duelAcceptsDuels = prefs.acceptsDuels !== undefined ? Boolean(prefs.acceptsDuels) : true;
+    this.duelIsAbsent = Boolean(prefs.isAbsent);
+    this.duelAbsenceStartDate = prefs.absenceStartDate || '';
+    this.duelAbsenceEndDate = prefs.absenceEndDate || '';
+    this.duelRefusedDays = Array.isArray(prefs.refusedDays) ? [...prefs.refusedDays] : [];
+    const firstWindow = Array.isArray(prefs.availableWindows) && prefs.availableWindows.length > 0
+      ? prefs.availableWindows[0]
+      : { startTime: '08:00', endTime: '22:00' };
+    this.duelAvailableStartTime = firstWindow.startTime || '08:00';
+    this.duelAvailableEndTime = firstWindow.endTime || '22:00';
+  }
+
+  toggleRegDuelRefusedDay(day: number): void {
+    if (this.regDuelRefusedDays.includes(day)) {
+      this.regDuelRefusedDays = this.regDuelRefusedDays.filter((d) => d !== day);
+    } else {
+      this.regDuelRefusedDays = [...this.regDuelRefusedDays, day];
+    }
+  }
+
+  toggleDuelRefusedDay(day: number): void {
+    if (this.duelRefusedDays.includes(day)) {
+      this.duelRefusedDays = this.duelRefusedDays.filter((d) => d !== day);
+    } else {
+      this.duelRefusedDays = [...this.duelRefusedDays, day];
+    }
+  }
+
+  saveDuelPreferences(): void {
+    const targetUserId = this.currentUser?.login || this.currentUser?.id || this.activeUserId;
+    if (!targetUserId || !this.isRegisteredUser) {
+      this.duelPreferencesError = 'Veuillez vous connecter avec votre compte abonné pour enregistrer vos disponibilités.';
+      return;
+    }
+
+    const startTime = this.duelAvailableStartTime || '08:00';
+    const endTime = this.duelAvailableEndTime || '22:00';
+    if (endTime <= startTime) {
+      this.duelPreferencesError = 'L\'heure de fin de plage horaire doit être postérieure à l\'heure de début.';
+      return;
+    }
+
+    const prefs: DuelPreferences = {
+      acceptsDuels: Boolean(this.duelAcceptsDuels),
+      isAbsent: Boolean(this.duelIsAbsent),
+      absenceStartDate: this.duelIsAbsent && this.duelAbsenceStartDate ? this.duelAbsenceStartDate : null,
+      absenceEndDate: this.duelIsAbsent && this.duelAbsenceEndDate ? this.duelAbsenceEndDate : null,
+      refusedDays: [...this.duelRefusedDays],
+      availableWindows: [{ startTime, endTime }],
+      timezone: typeof Intl !== 'undefined' ? (Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Paris') : 'Europe/Paris',
+    };
+
+    this.isSavingDuelPreferences = true;
+    this.duelPreferencesFeedback = '';
+    this.duelPreferencesError = '';
+
+    this.rowerService.updateDuelPreferences(targetUserId, prefs).subscribe({
+      next: (res) => {
+        this.isSavingDuelPreferences = false;
+        this.currentUser = {
+          ...this.currentUser,
+          ...(res.user || {}),
+          duelPreferences: res.duelPreferences || prefs,
+        };
+        this.duelPreferencesFeedback = res.message || 'Préférences de duel enregistrées !';
+        this.cdr.markForCheck();
+      },
+      error: (err) => {
+        this.isSavingDuelPreferences = false;
+        this.duelPreferencesError = err?.error?.message || 'Erreur lors de la sauvegarde des préférences de duel.';
+        this.cdr.markForCheck();
+      },
+    });
+  }
+
+  loadDuelLeaderboard(): void {
+    this.isLoadingDuelLeaderboard = true;
+    this.rowerService.getDuelLeaderboard({
+      league: this.duelLeagueFilter,
+      country: this.duelCountryFilter,
+      gender: this.duelGenderFilter,
+      category: this.duelCategoryFilter,
+      age: this.duelExactAgeFilter,
+      includeAll: true,
+    }).pipe(
+      catchError(() => of({ success: false, count: 0, players: [] }))
+    ).subscribe((res) => {
+      this.isLoadingDuelLeaderboard = false;
+      if (res && res.players) {
+        this.duelLeaderboard = res.players;
+      }
+      this.cdr.markForCheck();
+    });
+  }
+
+  resetDuelLeaderboardFilters(): void {
+    this.duelLeagueFilter = 'all';
+    this.duelCountryFilter = 'all';
+    this.duelGenderFilter = 'all';
+    this.duelCategoryFilter = 'all';
+    this.duelExactAgeFilter = '';
+    this.loadDuelLeaderboard();
+  }
+
+  openDuelChallengeForPlayer(login: string): void {
+    const cleanLogin = String(login || '').trim();
+    if (!cleanLogin) return;
+    this.closeAllOverlayModals();
+    this.prefilledDuelLogin = cleanLogin;
+    this.prefilledDuelChallengeMode = true;
+    this.openPrivateModal('create');
+    this.cdr.markForCheck();
+  }
+
+  onPrefilledDuelHandled(): void {
+    this.prefilledDuelLogin = '';
+    this.prefilledDuelChallengeMode = false;
+  }
+
   /**
    * Liste des données visibles sous le canevas des lignes d'eau :
    * En zoomant (de x1 à x3), réduit progressivement le nombre de données visibles jusqu'à un minimum de 3.
@@ -704,6 +855,7 @@ export class AppComponent implements OnInit, OnDestroy {
   private socketSub?: Subscription;
   private statusSub?: Subscription;
   private privateUpdateSub?: Subscription;
+  private duelEventSub?: Subscription;
   private countdownTickerSub?: Subscription;
   private joinedSocketRaceId: string | null = null;
   private readonly popstateListener = () => this.resolveRoomFromCurrentUrl();
@@ -1020,6 +1172,10 @@ export class AppComponent implements OnInit, OnDestroy {
       this.garminPairedSub.unsubscribe();
       this.garminPairedSub = undefined;
     }
+    if (this.duelEventSub) {
+      this.duelEventSub.unsubscribe();
+      this.duelEventSub = undefined;
+    }
     if (this.joinedSocketRaceId) {
       this.socketService.leaveRaceRoom(this.joinedSocketRaceId);
       this.joinedSocketRaceId = null;
@@ -1330,6 +1486,7 @@ export class AppComponent implements OnInit, OnDestroy {
 
         this.syncKayakCustomizationFromUser(res.user);
         this.syncRegattaPreferencesFromUser(res.user);
+        this.syncDuelPreferencesFromUser(res.user);
         if (res.user.language) {
           this.i18n.setLang(res.user.language as SupportedLang);
           this.syncSeoLanguage(res.user.language);
@@ -1937,7 +2094,10 @@ export class AppComponent implements OnInit, OnDestroy {
     }
     if (this.accountModalTab === 'regatta-settings' || this.accountModalTab === 'profile') {
       this.syncRegattaPreferencesFromUser(this.currentUser);
+      this.syncDuelPreferencesFromUser(this.currentUser);
     }
+    this.duelPreferencesFeedback = '';
+    this.duelPreferencesError = '';
     this.accountAuthError = '';
     this.accountAuthSuccess = '';
     this.regattaPreferencesError = '';
@@ -2001,6 +2161,7 @@ export class AppComponent implements OnInit, OnDestroy {
           this.userLoginInput = userLogin;
           this.syncKayakCustomizationFromUser(res.user);
           this.syncRegattaPreferencesFromUser(res.user);
+          this.syncDuelPreferencesFromUser(res.user);
           if (res.user.language) {
             this.i18n.setLang(res.user.language as SupportedLang);
             this.syncSeoLanguage(res.user.language);
@@ -2114,6 +2275,18 @@ export class AppComponent implements OnInit, OnDestroy {
       guestPairingToken: existingGuestToken || undefined,
       guestToken: existingGuestToken || undefined,
       guestUserId: this.activeUserId || undefined,
+      duelPreferences: {
+        acceptsDuels: Boolean(this.regAcceptsDuels),
+        isAbsent: false,
+        absenceStartDate: null,
+        absenceEndDate: null,
+        refusedDays: [...this.regDuelRefusedDays],
+        availableWindows: [{
+          startTime: this.regDuelStartTime || '08:00',
+          endTime: this.regDuelEndTime || '22:00',
+        }],
+        timezone: typeof Intl !== 'undefined' ? (Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Paris') : 'Europe/Paris',
+      },
       website_url: this.regWebsiteUrl.trim() || undefined,
     }).subscribe({
       next: (res) => {
@@ -2125,6 +2298,7 @@ export class AppComponent implements OnInit, OnDestroy {
           this.currentUser = res.user;
           this.userLoginInput = res.user.name || userLogin;
           this.syncRegattaPreferencesFromUser(res.user);
+          this.syncDuelPreferencesFromUser(res.user);
           if (res.user.language) {
             this.i18n.setLang(res.user.language as SupportedLang);
             this.syncSeoLanguage(res.user.language);
@@ -4061,6 +4235,7 @@ export class AppComponent implements OnInit, OnDestroy {
     this.closeAllOverlayModals();
     this.isStandingsOpen = true;
     this.loadGeneralLeaderboard();
+    this.loadDuelLeaderboard();
     this.cdr.markForCheck();
   }
 
@@ -4769,6 +4944,51 @@ export class AppComponent implements OnInit, OnDestroy {
           }
         }
       }
+    });
+
+    if (this.duelEventSub) {
+      this.duelEventSub.unsubscribe();
+    }
+    this.duelEventSub = this.socketService.onDuelEvent().subscribe((ev) => {
+      const myIds = new Set(
+        [this.activeUserId, this.currentUser?.id, this.currentUser?.login]
+          .filter(Boolean)
+          .map((x) => String(x).trim().toLowerCase())
+      );
+      if (myIds.size === 0) return;
+
+      const involvesChallenged = Boolean(
+        (ev.challengedUserId && myIds.has(ev.challengedUserId.toLowerCase())) ||
+        (ev.challengedLogin && myIds.has(ev.challengedLogin.toLowerCase()))
+      );
+      const involvesChallenger = Boolean(
+        (ev.challengerUserId && myIds.has(ev.challengerUserId.toLowerCase())) ||
+        (ev.challengerLogin && myIds.has(ev.challengerLogin.toLowerCase()))
+      );
+
+      if (ev.eventType === 'challenge_received' && involvesChallenged) {
+        this.triggerFinishToast(`⚔️ Nouveau défi en duel reçu de ${ev.challengerLogin || 'un abonné'} ! Consultez vos salons privés.`);
+      } else if (ev.eventType === 'challenge_responded' && involvesChallenger) {
+        if (ev.accepted) {
+          this.triggerFinishToast(`✅ ${ev.challengedLogin || 'Votre adversaire'} a accepté votre défi ! Créneau bloqué (Salon ${ev.roomCode || ''}).`);
+        } else {
+          this.triggerFinishToast(`❌ ${ev.challengedLogin || 'Votre adversaire'} a refusé votre défi en duel.`);
+        }
+      } else if (ev.eventType === 'challenge_cancelled' && (involvesChallenged || involvesChallenger)) {
+        const actorMatch = ev.cancelledByUserId && myIds.has(ev.cancelledByUserId.toLowerCase());
+        if (!actorMatch) {
+          if (ev.isForfeit) {
+            this.triggerFinishToast('🏆 Duel annulé par votre adversaire dans les 24h : victoire par forfait (+10 pts) !');
+          } else {
+            this.triggerFinishToast('🚫 Un duel programmé a été annulé par votre adversaire. Le créneau est libéré.');
+          }
+        }
+        this.loadUserProfile();
+      }
+      if (this.isStandingsOpen && this.standingsActiveTab === 'duels') {
+        this.loadDuelLeaderboard();
+      }
+      this.cdr.markForCheck();
     });
   }
 

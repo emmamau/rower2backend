@@ -25,7 +25,12 @@ import {
   UserProfile,
   LeagueTier,
   LeagueStandingsResponse,
-  UnseenSummaryResponse
+  UnseenSummaryResponse,
+  DuelPreferences,
+  DuelChallenge,
+  MyDuelChallengesResponse,
+  AvailableDuelPlayer,
+  DuelLeaderboardItem
 } from '../models/user.model';
 
 @Injectable({
@@ -537,6 +542,134 @@ export class RowerService {
 
   markLeagueSummarySeen(historyId: number): Observable<{ success: boolean; message: string }> {
     return this.http.patch<{ success: boolean; message: string }>(`${this.apiUrl}/api/leagues/history/${historyId}/seen`, {});
+  }
+
+  // --- Duels 1v1 & Disponibilités ---
+
+  getDuelPreferences(userId: string): Observable<{
+    success: boolean;
+    duelPreferences: DuelPreferences;
+    stats: { duelsWon: number; duelsLost: number; duelsDrawn: number; duelPoints: number };
+  }> {
+    return this.http.get<{
+      success: boolean;
+      duelPreferences: DuelPreferences;
+      stats: { duelsWon: number; duelsLost: number; duelsDrawn: number; duelPoints: number };
+    }>(`${this.apiUrl}/api/duels/preferences/${encodeURIComponent(userId)}`);
+  }
+
+  updateDuelPreferences(userId: string, duelPreferences: DuelPreferences): Observable<{
+    success: boolean;
+    message?: string;
+    duelPreferences: DuelPreferences;
+    user?: UserProfile;
+  }> {
+    return this.http.put<{
+      success: boolean;
+      message?: string;
+      duelPreferences: DuelPreferences;
+      user?: UserProfile;
+    }>(`${this.apiUrl}/api/duels/preferences`, { userId, duelPreferences });
+  }
+
+  getAvailableDuelPlayers(filters: {
+    slotStart: string;
+    slotEnd?: string;
+    durationMinutes?: number;
+    requesterId?: string;
+    league?: string;
+    country?: string;
+    gender?: string;
+    category?: string;
+  }): Observable<{ success: boolean; count: number; players: AvailableDuelPlayer[] }> {
+    let params = new HttpParams().set('slotStart', filters.slotStart);
+    if (filters.slotEnd) params = params.set('slotEnd', filters.slotEnd);
+    if (filters.durationMinutes) params = params.set('durationMinutes', String(filters.durationMinutes));
+    if (filters.requesterId) params = params.set('userId', filters.requesterId);
+    if (filters.league && filters.league !== 'all') params = params.set('league', filters.league);
+    if (filters.country && filters.country !== 'all') params = params.set('country', filters.country);
+    if (filters.gender && filters.gender !== 'all') params = params.set('gender', filters.gender);
+    if (filters.category && filters.category !== 'all') params = params.set('category', filters.category);
+    return this.http.get<{ success: boolean; count: number; players: AvailableDuelPlayer[] }>(
+      `${this.apiUrl}/api/duels/available-players`,
+      { params }
+    );
+  }
+
+  createDuelChallenge(payload: {
+    challengerId: string;
+    challengedLogin: string;
+    slotStart: string;
+    slotEnd?: string;
+    durationMinutes?: number;
+    targetDistance?: number;
+    timezone?: string;
+    title?: string;
+  }): Observable<{ success: boolean; message: string; challenge: DuelChallenge }> {
+    return this.http.post<{ success: boolean; message: string; challenge: DuelChallenge }>(
+      `${this.apiUrl}/api/duels/challenge`,
+      payload
+    );
+  }
+
+  getMyDuelChallenges(userId: string): Observable<MyDuelChallengesResponse> {
+    return this.http.get<MyDuelChallengesResponse>(`${this.apiUrl}/api/duels/my-challenges`, {
+      params: { userId }
+    });
+  }
+
+  respondToDuelChallenge(
+    challengeId: string,
+    userId: string,
+    action: 'accept' | 'refuse'
+  ): Observable<{ success: boolean; message: string; challenge: DuelChallenge }> {
+    return this.http.post<{ success: boolean; message: string; challenge: DuelChallenge }>(
+      `${this.apiUrl}/api/duels/${encodeURIComponent(challengeId)}/respond`,
+      { userId, action }
+    );
+  }
+
+  cancelDuelChallenge(
+    challengeId: string,
+    userId: string
+  ): Observable<{ success: boolean; isForfeit: boolean; message: string; challenge: DuelChallenge }> {
+    return this.http.post<{ success: boolean; isForfeit: boolean; message: string; challenge: DuelChallenge }>(
+      `${this.apiUrl}/api/duels/${encodeURIComponent(challengeId)}/cancel`,
+      { userId }
+    );
+  }
+
+  resolveDuelChallenge(
+    challengeId: string,
+    payload: { winnerUserId?: string; isDraw?: boolean; forfeitUserId?: string }
+  ): Observable<{ success: boolean; message: string; challenge: DuelChallenge }> {
+    return this.http.post<{ success: boolean; message: string; challenge: DuelChallenge }>(
+      `${this.apiUrl}/api/duels/${encodeURIComponent(challengeId)}/resolve`,
+      payload
+    );
+  }
+
+  getDuelLeaderboard(filters?: {
+    category?: string;
+    league?: string;
+    country?: string;
+    gender?: string;
+    age?: string | number;
+    includeAll?: boolean;
+  }): Observable<{ success: boolean; count: number; players: DuelLeaderboardItem[] }> {
+    let params = new HttpParams();
+    if (filters?.category && filters.category !== 'all') params = params.set('category', filters.category);
+    if (filters?.league && filters.league !== 'all') params = params.set('league', filters.league);
+    if (filters?.country && filters.country !== 'all') params = params.set('country', filters.country);
+    if (filters?.gender && filters.gender !== 'all') params = params.set('gender', filters.gender);
+    if (filters?.age !== undefined && filters.age !== '' && filters.age !== 'all') {
+      params = params.set('age', String(filters.age));
+    }
+    if (filters?.includeAll) params = params.set('includeAll', 'true');
+    return this.http.get<{ success: boolean; count: number; players: DuelLeaderboardItem[] }>(
+      `${this.apiUrl}/api/duels/leaderboard`,
+      { params }
+    );
   }
 
   checkHealth(): Observable<{ status: string; database: string }> {

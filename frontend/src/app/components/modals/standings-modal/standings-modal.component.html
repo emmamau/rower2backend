@@ -7,7 +7,7 @@
         <button type="button" class="btn-close" (click)="closeStandingsModalRequest.emit()" [attr.aria-label]="i18n.t('BTN_CLOSE')">✕</button>
       </div>
 
-      <!-- Onglets principaux : Ligues Hebdomadaires vs Classement Général -->
+      <!-- Onglets principaux : Ligues Hebdomadaires vs Classement Général vs Duels 1v1 -->
       <div class="standings-mode-tabs">
         <button
           type="button"
@@ -22,6 +22,13 @@
           [class.active]="standingsActiveTab === 'general'"
           (click)="standingsActiveTab = 'general'; standingsActiveTabChange.emit('general'); loadGeneralLeaderboardRequest.emit()">
           🌍 Classement Général Carrière
+        </button>
+        <button
+          type="button"
+          class="btn-standings-tab"
+          [class.active]="standingsActiveTab === 'duels'"
+          (click)="standingsActiveTab = 'duels'; standingsActiveTabChange.emit('duels'); loadDuelLeaderboardRequest.emit()">
+          ⚔️ Duels 1v1
         </button>
       </div>
 
@@ -134,6 +141,135 @@
             </table>
           }
         </div>
+      } @else if (standingsActiveTab === 'duels') {
+        <p class="modal-desc">
+          Classement des rameurs selon le nombre de duels 1v1 gagnés (+10 pts victoire, +2 pts égalité, -10 pts forfait).
+        </p>
+
+        <div class="leaderboard-filters-bar">
+          <div class="filter-group">
+            <label for="filter-duel-league">🏅 Ligue :</label>
+            <select id="filter-duel-league" [ngModel]="duelLeagueFilter" (ngModelChange)="duelLeagueFilter = $event; duelLeagueFilterChange.emit($event); onDuelFilterChanged()">
+              <option value="all">Toutes ligues</option>
+              <option value="GOLD">🥇 Ligue Or</option>
+              <option value="SILVER">🥈 Ligue Argent</option>
+              <option value="BRONZE">🥉 Ligue Bronze</option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <label for="filter-duel-cat">🎂 Catégorie :</label>
+            <select id="filter-duel-cat" [ngModel]="duelCategoryFilter" (ngModelChange)="duelCategoryFilter = $event; duelCategoryFilterChange.emit($event); onDuelFilterChanged()">
+              <option value="all">Toutes</option>
+              <option value="U19">U19 (-19 ans)</option>
+              <option value="19-29">19-29 ans (Senior)</option>
+              <option value="30-39">30-39 ans (Master A)</option>
+              <option value="40-49">40-49 ans (Master B)</option>
+              <option value="50-59">50-59 ans (Master C)</option>
+              <option value="60+">60+ ans (Master D+)</option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <label for="filter-duel-country">🌍 Pays :</label>
+            <select id="filter-duel-country" [ngModel]="duelCountryFilter" (ngModelChange)="duelCountryFilter = $event; duelCountryFilterChange.emit($event); onDuelFilterChanged()">
+              <option value="all">Tous</option>
+              <option *ngFor="let c of availableLeaderboardCountries" [value]="c">
+                {{ getCountryFlag(c) }} {{ c }}
+              </option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <label for="filter-duel-gender">⚧ Sexe :</label>
+            <select id="filter-duel-gender" [ngModel]="duelGenderFilter" (ngModelChange)="duelGenderFilter = $event; duelGenderFilterChange.emit($event); onDuelFilterChanged()">
+              <option value="all">Tous</option>
+              <option value="M">Hommes (M)</option>
+              <option value="F">Femmes (F)</option>
+              <option value="Autre">Autre</option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <label for="filter-duel-age">🎯 Âge exact :</label>
+            <input
+              id="filter-duel-age"
+              type="number"
+              min="10"
+              max="110"
+              placeholder="ex: 32"
+              class="filter-age-input"
+              [ngModel]="duelExactAgeFilter"
+              (ngModelChange)="duelExactAgeFilter = $event; duelExactAgeFilterChange.emit($event); onDuelFilterChanged()" />
+          </div>
+          <button
+            *ngIf="duelLeagueFilter !== 'all' || duelCountryFilter !== 'all' || duelGenderFilter !== 'all' || duelCategoryFilter !== 'all' || duelExactAgeFilter"
+            type="button"
+            class="btn-reset-filters"
+            (click)="resetDuelLeaderboardFiltersRequest.emit()">
+            ✕ Réinitialiser
+          </button>
+        </div>
+
+        <div tabindex="0" role="region" aria-label="Classement des duels" class="standings-table-container">
+          @if (isLoadingDuelLeaderboard) {
+            <div class="leaderboard-loading-box">
+              <span class="loading-spinner"></span>
+              <span>Chargement du classement des duels...</span>
+            </div>
+          } @else {
+            <table class="standings-table duel-standings-table">
+              <thead>
+                <tr>
+                  <th scope="col">RANG</th>
+                  <th scope="col">JOUEUR</th>
+                  <th scope="col">LIGUE</th>
+                  <th scope="col">PAYS</th>
+                  <th scope="col">SEXE / ÂGE</th>
+                  <th scope="col">GAGNÉS</th>
+                  <th scope="col">PERDUS</th>
+                  <th scope="col">ÉGALITÉS</th>
+                  <th scope="col">POINTS DUEL</th>
+                  <th scope="col">ACTION</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (p of duelLeaderboard; track p.id; let idx = $index) {
+                  <tr [class.is-current-user]="p.id === activeUserId || p.login === activeUserId">
+                    <td class="col-rank">
+                      <span class="rank-medal" *ngIf="idx === 0">🥇</span>
+                      <span class="rank-medal" *ngIf="idx === 1">🥈</span>
+                      <span class="rank-medal" *ngIf="idx === 2">🥉</span>
+                      #{{ p.rank }}
+                    </td>
+                    <th scope="row" class="col-name">{{ p.name || p.login }}</th>
+                    <td>{{ getLeagueLabelFromTier(p.currentLeague) }}</td>
+                    <td class="col-country">{{ getCountryFlag(p.country) }} {{ p.country || '--' }}</td>
+                    <td>{{ p.gender || '--' }}{{ p.age ? (' • ' + p.age + ' ans') : '' }}</td>
+                    <td class="col-pts"><strong>{{ p.duelsWon }}</strong></td>
+                    <td>{{ p.duelsLost }}</td>
+                    <td>{{ p.duelsDrawn }}</td>
+                    <td class="col-pts col-stat-pts">{{ p.duelPoints }} pts</td>
+                    <td class="col-duel-action">
+                      @if ((p.login || p.id) !== activeUserId && p.acceptsDuels !== false) {
+                        <button
+                          type="button"
+                          class="btn-challenge-player"
+                          (click)="challengePlayerRequest.emit(p.login || p.id)">
+                          ⚔️ Défier
+                        </button>
+                      } @else if ((p.login || p.id) === activeUserId) {
+                        <span class="duel-self-tag">Moi</span>
+                      } @else {
+                        <span class="duel-unavailable-tag">Indispo</span>
+                      }
+                    </td>
+                  </tr>
+                } @empty {
+                  <tr class="empty-row">
+                    <td colspan="10" class="text-center">Aucun joueur trouvé pour ces critères.</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          }
+        </div>
       } @else {
         <p class="modal-desc">
           {{ i18n.t('MODAL_STANDINGS_DESC') }}
@@ -198,6 +334,7 @@
                 <th scope="col">{{ i18n.t('COL_WINS').toUpperCase() }}</th>
                 <th scope="col">{{ i18n.t('COL_PODIUMS').toUpperCase() }}</th>
                 <th scope="col">RECORD</th>
+                <th scope="col">DUEL</th>
               </tr>
             </thead>
             <tbody>
@@ -220,10 +357,24 @@
                   <td class="col-stat-wins">{{ player.totalWins || 0 }}</td>
                   <td class="col-stat-podiums">{{ player.podiums || 0 }}</td>
                   <td class="col-stat-record">{{ player.bestRank ? ('#' + player.bestRank) : '--' }}</td>
+                  <td class="col-duel-action">
+                    @if ((player.login || player.id) !== activeUserId && player.acceptsDuels !== false) {
+                      <button
+                        type="button"
+                        class="btn-challenge-player"
+                        (click)="challengePlayerRequest.emit(player.login || player.id)">
+                        ⚔️ Défier
+                      </button>
+                    } @else if ((player.login || player.id) === activeUserId) {
+                      <span class="duel-self-tag">Moi</span>
+                    } @else {
+                      <span class="duel-unavailable-tag">Indispo</span>
+                    }
+                  </td>
                 </tr>
               } @empty {
                 <tr class="empty-row">
-                  <td colspan="9" class="text-center">Aucun coureur ne correspond aux critères sélectionnés.</td>
+                  <td colspan="10" class="text-center">Aucun coureur ne correspond aux critères sélectionnés.</td>
                 </tr>
               }
             </tbody>

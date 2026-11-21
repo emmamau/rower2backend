@@ -2,7 +2,7 @@ import { Component, Input, Output, EventEmitter, ViewEncapsulation } from '@angu
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { I18nService } from '../../../services/i18n.service';
-import { UserProfile, LeagueTier, LeagueStandingItem } from '../../../models/user.model';
+import { UserProfile, LeagueTier, LeagueStandingItem, DuelLeaderboardItem } from '../../../models/user.model';
 import { getLeagueByPoints } from '../../../utils/league.util';
 
 @Component({
@@ -14,7 +14,7 @@ import { getLeagueByPoints } from '../../../utils/league.util';
 })
 export class StandingsModalComponent {
   @Input() isStandingsOpen = false;
-  @Input() standingsActiveTab: 'leagues' | 'general' = 'leagues';
+  @Input() standingsActiveTab: 'leagues' | 'general' | 'duels' = 'leagues';
   @Input() selectedLeagueTier: LeagueTier = 'BRONZE';
   @Input() leagueTotalActive = 0;
   @Input() isLoadingLeagueStandings = false;
@@ -26,9 +26,16 @@ export class StandingsModalComponent {
   @Input() leaderboardAgeCategoryFilter = 'all';
   @Input() availableLeaderboardCountries: string[] = [];
   @Input() filteredGeneralLeaderboard: UserProfile[] = [];
+  @Input() duelLeaderboard: DuelLeaderboardItem[] = [];
+  @Input() isLoadingDuelLeaderboard = false;
+  @Input() duelLeagueFilter = 'all';
+  @Input() duelCountryFilter = 'all';
+  @Input() duelGenderFilter = 'all';
+  @Input() duelCategoryFilter = 'all';
+  @Input() duelExactAgeFilter = '';
 
   @Output() closeStandingsModalRequest = new EventEmitter<void>();
-  @Output() standingsActiveTabChange = new EventEmitter<'leagues' | 'general'>();
+  @Output() standingsActiveTabChange = new EventEmitter<'leagues' | 'general' | 'duels'>();
   @Output() loadLeagueStandingsRequest = new EventEmitter<LeagueTier>();
   @Output() loadGeneralLeaderboardRequest = new EventEmitter<void>();
   @Output() leaderboardCountryFilterChange = new EventEmitter<string>();
@@ -36,6 +43,14 @@ export class StandingsModalComponent {
   @Output() leaderboardAgeCategoryFilterChange = new EventEmitter<string>();
   @Output() applyLeaderboardFiltersRequest = new EventEmitter<void>();
   @Output() resetLeaderboardFiltersRequest = new EventEmitter<void>();
+  @Output() loadDuelLeaderboardRequest = new EventEmitter<void>();
+  @Output() duelLeagueFilterChange = new EventEmitter<string>();
+  @Output() duelCountryFilterChange = new EventEmitter<string>();
+  @Output() duelGenderFilterChange = new EventEmitter<string>();
+  @Output() duelCategoryFilterChange = new EventEmitter<string>();
+  @Output() duelExactAgeFilterChange = new EventEmitter<string>();
+  @Output() resetDuelLeaderboardFiltersRequest = new EventEmitter<void>();
+  @Output() challengePlayerRequest = new EventEmitter<string>();
 
   constructor(public i18n: I18nService) {}
 
@@ -126,5 +141,16 @@ export class StandingsModalComponent {
     this.leaderboardAgeCategoryFilter = val;
     this.leaderboardAgeCategoryFilterChange.emit(val);
     this.applyLeaderboardFiltersRequest.emit();
+  }
+
+  onDuelFilterChanged(): void {
+    this.loadDuelLeaderboardRequest.emit();
+  }
+
+  getLeagueLabelFromTier(tier?: string): string {
+    const clean = String(tier || 'BRONZE').toUpperCase();
+    if (clean === 'GOLD') return '🥇 Or';
+    if (clean === 'SILVER') return '🥈 Argent';
+    return '🥉 Bronze';
   }
 }

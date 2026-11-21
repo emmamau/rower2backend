@@ -1,6 +1,6 @@
 import { Op } from "sequelize";
 import db from "../models";
-import { KayakCustomization, RegattaPreferences } from "../models/user.model";
+import { KayakCustomization, RegattaPreferences, DuelPreferences } from "../models/user.model";
 import { isEmmaAdminUser, hashPassword } from "./auth.service";
 import { getLeagueByPoints } from "../utils/league.util";
 
@@ -58,6 +58,11 @@ export interface StoredUser {
   custom_weekly_rooms?: number | null;
   kayakCustomization?: KayakCustomization;
   regattaPreferences?: RegattaPreferences;
+  duelPreferences?: DuelPreferences;
+  duelsWon?: number;
+  duelsLost?: number;
+  duelsDrawn?: number;
+  duelPoints?: number;
   createdAt: Date;
   updatedAt: Date;
   toJSON?: () => Record<string, any>;
@@ -242,6 +247,10 @@ export class UserStoreService {
       league: "silver",
       bestRank: 1,
       lastRank: 1,
+      duelsWon: 0,
+      duelsLost: 0,
+      duelsDrawn: 0,
+      duelPoints: 0,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -443,6 +452,11 @@ export class UserStoreService {
       isRevoked: Boolean(data.isRevoked || data.is_revoked),
       kayakCustomization: data.kayakCustomization,
       regattaPreferences: data.regattaPreferences,
+      duelPreferences: data.duelPreferences,
+      duelsWon: data.duelsWon || 0,
+      duelsLost: data.duelsLost || 0,
+      duelsDrawn: data.duelsDrawn || 0,
+      duelPoints: data.duelPoints || 0,
       createdAt: now,
       updatedAt: now,
     };

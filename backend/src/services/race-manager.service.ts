@@ -1365,6 +1365,14 @@ export class RaceManager {
       await Races.update({ status: dbStatus }, { where: { id: race.id } });
     } catch { /* ignore when DB offline */ }
     race.finalRanking = ranking;
+    if (race.isDuel1v1 && ranking.length > 0) {
+      try {
+        const duelSvc = require("./duel.service").default;
+        if (duelSvc && typeof duelSvc.resolveDuelByRoomId === "function") {
+          await duelSvc.resolveDuelByRoomId(race.id, ranking);
+        }
+      } catch {}
+    }
     this.removePrivateRaceInternal(race, race.status);
     socketGateway.broadcastRaceStatus(race.id, race.status, { reason, ranking, roomClosed: true });
   }

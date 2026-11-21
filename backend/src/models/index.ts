@@ -7,6 +7,7 @@ import defineLoginRequests, { LoginRequestModel } from "./login-request.model";
 import definePairings, { PairingModel } from "./pairing.model";
 import definePublicRaceSettings, { PublicRaceSettingsModel } from "./public-race-settings.model";
 import defineSubscriptionPlans, { SubscriptionPlanModel } from "./subscription-plan.model";
+import defineDuelChallenges, { DuelChallengeModel } from "./duel-challenge.model";
 
 const connectionUrl =
   process.env.DATABASE_URL ||
@@ -44,6 +45,7 @@ export interface Database {
   pairings: PairingModel;
   publicRaceSettings: PublicRaceSettingsModel;
   subscriptionPlans: SubscriptionPlanModel;
+  duelChallenges: DuelChallengeModel;
 }
 
 export const db: Database = {
@@ -56,6 +58,7 @@ export const db: Database = {
   pairings: definePairings(sequelize, DataTypes),
   publicRaceSettings: definePublicRaceSettings(sequelize, DataTypes),
   subscriptionPlans: defineSubscriptionPlans(sequelize, DataTypes),
+  duelChallenges: defineDuelChallenges(sequelize, DataTypes),
 };
 
 export default db;

@@ -9813,5 +9813,159 @@ app-cockpit-view {
   color: #00f0ff;
 }
 
+/* --- Duels 1v1 : Profil, Inscription & Classement --- */
+.duel-pref-register-box,
+.profile-duel-card {
+  margin-top: 0.9rem;
+  padding: 0.9rem 1rem;
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.78);
+  border: 1px solid rgba(0, 240, 255, 0.28);
+}
+
+.duel-pref-header-row,
+.profile-duel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+  color: #00f0ff;
+}
+
+.profile-duel-header h5 {
+  margin: 0;
+  font-size: 0.96rem;
+}
+
+.duel-pts-badge {
+  background: rgba(0, 240, 255, 0.16);
+  border: 1px solid rgba(0, 240, 255, 0.45);
+  color: #00f0ff;
+  font-weight: 800;
+  font-size: 0.78rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+}
+
+.duel-stats-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-bottom: 0.7rem;
+}
+
+.duel-stat-pill {
+  font-size: 0.76rem;
+  font-weight: 700;
+  padding: 0.22rem 0.55rem;
+  border-radius: 6px;
+  background: rgba(30, 41, 59, 0.9);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  color: #e2e8f0;
+}
+
+.duel-stat-pill.won {
+  border-color: rgba(34, 197, 94, 0.45);
+  color: #86efac;
+}
+
+.duel-stat-pill.lost {
+  border-color: rgba(239, 68, 68, 0.45);
+  color: #fca5a5;
+}
+
+.duel-stat-pill.drawn {
+  border-color: rgba(56, 189, 248, 0.45);
+  color: #7dd3fc;
+}
+
+.duel-config-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.duel-checkbox-line {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: #e2e8f0;
+  cursor: pointer;
+}
+
+.duel-window-row,
+.duel-days-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  font-size: 0.82rem;
+  color: #cbd5e1;
+  margin-top: 0.35rem;
+}
+
+.duel-window-row input[type="time"],
+.duel-window-row input[type="date"],
+.filter-age-input {
+  background: rgba(15, 23, 42, 0.95);
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  color: #f8fafc;
+  border-radius: 6px;
+  padding: 0.28rem 0.5rem;
+  font-size: 0.8rem;
+}
+
+.filter-age-input {
+  width: 78px;
+}
+
+.btn-day-chip {
+  padding: 0.22rem 0.5rem;
+  border-radius: 6px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(30, 41, 59, 0.85);
+  color: #cbd5e1;
+  font-size: 0.74rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.btn-day-chip.is-refused {
+  background: rgba(239, 68, 68, 0.25);
+  border-color: #ef4444;
+  color: #fecaca;
+}
+
+.duel-pref-actions {
+  margin-top: 0.75rem;
+}
+
+.btn-challenge-player {
+  padding: 0.24rem 0.55rem;
+  border-radius: 6px;
+  border: 1px solid #00f0ff;
+  background: rgba(0, 240, 255, 0.14);
+  color: #00f0ff;
+  font-size: 0.74rem;
+  font-weight: 800;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.btn-challenge-player:hover {
+  background: rgba(0, 240, 255, 0.3);
+  color: #ffffff;
+}
+
+.duel-self-tag,
+.duel-unavailable-tag {
+  font-size: 0.72rem;
+  color: #64748b;
+  font-weight: 600;
+}
+
 
 

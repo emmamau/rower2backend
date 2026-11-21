@@ -38,6 +38,27 @@ export interface PrivateRoomUpdatePayload {
   [key: string]: any;
 }
 
+export interface DuelSocketEventPayload {
+  eventType: 'challenge_received' | 'challenge_responded' | 'challenge_cancelled';
+  challengeId: string;
+  challengerUserId?: string;
+  challengerLogin?: string;
+  challengedUserId?: string;
+  challengedLogin?: string;
+  status?: string;
+  accepted?: boolean;
+  isForfeit?: boolean;
+  forfeitUserId?: string;
+  winnerUserId?: string;
+  cancelledByUserId?: string;
+  slotStart?: string;
+  slotEnd?: string;
+  targetDistance?: number;
+  roomCode?: string;
+  roomPin?: string;
+  slotFreed?: boolean;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -46,6 +67,7 @@ export class SocketService {
   private leaderboardSubject = new Subject<LeaderboardUpdatePayload>();
   private statusSubject = new Subject<{ raceId: string; status: string; details?: any }>();
   private privateRoomUpdateSubject = new Subject<PrivateRoomUpdatePayload>();
+  private duelEventSubject = new Subject<DuelSocketEventPayload>();
   private garminPairedSubject = new Subject<{
     userId: string;
     deviceId?: string;
@@ -90,6 +112,18 @@ export class SocketService {
 
     this.socket.on('race:private_update', (data: PrivateRoomUpdatePayload) => {
       this.privateRoomUpdateSubject.next(data);
+    });
+
+    this.socket.on('duel:challenge_received', (data: any) => {
+      this.duelEventSubject.next({ ...(data || {}), eventType: 'challenge_received' });
+    });
+
+    this.socket.on('duel:challenge_responded', (data: any) => {
+      this.duelEventSubject.next({ ...(data || {}), eventType: 'challenge_responded' });
+    });
+
+    this.socket.on('duel:challenge_cancelled', (data: any) => {
+      this.duelEventSubject.next({ ...(data || {}), eventType: 'challenge_cancelled' });
     });
 
     this.socket.on('garmin:paired', (data: any) => {
@@ -142,6 +176,10 @@ export class SocketService {
 
   public onPrivateRoomUpdate(): Observable<PrivateRoomUpdatePayload> {
     return this.privateRoomUpdateSubject.asObservable();
+  }
+
+  public onDuelEvent(): Observable<DuelSocketEventPayload> {
+    return this.duelEventSubject.asObservable();
   }
 
   public getSocketId(): string | undefined {

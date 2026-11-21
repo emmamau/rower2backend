@@ -18,6 +18,7 @@ import { RowerService } from '../../services/rower.service';
 import { I18nService } from '../../services/i18n.service';
 import { SocketService } from '../../services/socket.service';
 import { PrivateRacePayload, SavedPrivateSalon, RoomCreationQuotaInfo } from '../../models/rower-data.model';
+import { DuelChallenge, AvailableDuelPlayer } from '../../models/user.model';
 import {
   parseRoomInviteInput,
   buildShareableRoomUrl,
@@ -54,8 +55,11 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
   @Input() activeRacersCount = 0;
   @Input() externalError = '';
   @Input() siteView: 'home' | 'regatta' | 'cockpit' = 'home';
+  @Input() prefilledDuelLogin = '';
+  @Input() prefilledDuelChallengeMode = false;
 
   @Output() modalClose = new EventEmitter<void>();
+  @Output() prefilledDuelHandled = new EventEmitter<void>();
   @Output() openModalRequest = new EventEmitter<PrivateModalTab>();
   @Output() roomSelected = new EventEmitter<{ payload: PrivateRacePayload; pushUrl: boolean }>();
   @Output() roomUpdated = new EventEmitter<PrivateRacePayload>();
@@ -308,8 +312,32 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
   liveRoomsMap: Map<string, PrivateRacePayload> = new Map();
   isLoadingRooms = false;
 
+  // Duels 1v1 : création de défi, recherche d'adversaire disponible & gestion des défis
+  duelTargetLogin = '';
+  duelSlotStartLocal = '';
+  duelSlotDurationMinutes = 60;
+  isSendingDuelChallenge = false;
+  duelChallengeSuccess = '';
+  duelChallengeError = '';
+
+  duelFindLeague = 'all';
+  duelFindCountry = '';
+  duelFindGender = 'all';
+  isSearchingAvailablePlayers = false;
+  hasSearchedAvailablePlayers = false;
+  availableDuelPlayers: AvailableDuelPlayer[] = [];
+
+  receivedDuelChallenges: DuelChallenge[] = [];
+  sentDuelChallenges: DuelChallenge[] = [];
+  blockedDuelSlots: DuelChallenge[] = [];
+  isLoadingDuelChallenges = false;
+  duelActionBusyId = '';
+  duelManageMessage = '';
+  duelManageError = '';
+
   private feedbackTimer?: ReturnType<typeof setTimeout>;
   private socketSub?: Subscription;
+  private duelSocketSub?: Subscription;
   private modalPollSub?: Subscription;
 
   constructor(
@@ -330,6 +358,9 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
     if (!this.roomTitle) {
       this.roomTitle = this.defaultRoomTitle();
     }
+    if (!this.duelSlotStartLocal) {
+      this.duelSlotStartLocal = this.getDefaultDuelSlotLocal();
+    }
     if (!this.guestTicketName) {
       this.guestTicketName = this.activeUserName || `Rameur_${Math.floor(10 + Math.random() * 89)}`;
     }
@@ -338,11 +369,19 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
         this.refreshActiveRoom();
       }
     });
+    this.duelSocketSub = this.socketService.onDuelEvent().subscribe(() => {
+      if (this.isOpen && this.activeUserId) {
+        this.refreshMyDuels();
+      }
+    });
   }
 
   ngOnDestroy(): void {
     if (this.socketSub) {
       this.socketSub.unsubscribe();
+    }
+    if (this.duelSocketSub) {
+      this.duelSocketSub.unsubscribe();
     }
     if (this.modalPollSub) {
       this.modalPollSub.unsubscribe();
@@ -373,6 +412,10 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
       this.activeTab = this.resolveTab(this.initialTab);
     }
 
+    if ((changes['prefilledDuelLogin'] || changes['prefilledDuelChallengeMode']) && (this.prefilledDuelLogin || this.prefilledDuelChallengeMode)) {
+      this.applyPrefilledDuelChallenge();
+    }
+
     if (changes['isOpen']) {
       if (this.isOpen) {
         this.openedTimestamp = Date.now();
@@ -384,8 +427,15 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
         if (!this.roomTitle.trim()) {
           this.roomTitle = this.defaultRoomTitle();
         }
+        if (!this.duelSlotStartLocal) {
+          this.duelSlotStartLocal = this.getDefaultDuelSlotLocal();
+        }
+        if (this.prefilledDuelLogin || this.prefilledDuelChallengeMode) {
+          this.applyPrefilledDuelChallenge();
+        }
         this.refreshRoomLimits();
         this.refreshMyRooms();
+        this.refreshMyDuels();
         this.refreshActiveRoom();
         this.startModalPolling();
         this.syncDialogState(true);
@@ -473,6 +523,7 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
     this.actionError = '';
     if (tab === 'join') {
       this.refreshMyRooms();
+      this.refreshMyDuels();
     } else if (tab === 'create') {
       this.refreshRoomLimits();
     }
@@ -1752,5 +1803,234 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
     } catch {
       return false;
     }
+  }
+
+  private applyPrefilledDuelChallenge(): void {
+    this.activeTab = 'create';
+    this.selectGameMode('duel_1v1');
+    if (this.prefilledDuelLogin) {
+      this.duelTargetLogin = this.prefilledDuelLogin;
+    }
+    if (!this.duelSlotStartLocal) {
+      this.duelSlotStartLocal = this.getDefaultDuelSlotLocal();
+    }
+    this.duelChallengeError = '';
+    this.duelChallengeSuccess = '';
+    this.prefilledDuelHandled.emit();
+    this.cdr.markForCheck();
+  }
+
+  getDefaultDuelSlotLocal(): string {
+    const d = new Date(Date.now() + 26 * 60 * 60 * 1000);
+    d.setMinutes(0, 0, 0);
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+
+  private computeDuelSlotIsoRange(): { slotStart: string; slotEnd: string } | null {
+    if (!this.duelSlotStartLocal) return null;
+    const startMs = new Date(this.duelSlotStartLocal).getTime();
+    if (!Number.isFinite(startMs)) return null;
+    const durMin = Math.min(240, Math.max(15, Number(this.duelSlotDurationMinutes) || 60));
+    const startIso = new Date(startMs).toISOString();
+    const endIso = new Date(startMs + durMin * 60 * 1000).toISOString();
+    return { slotStart: startIso, slotEnd: endIso };
+  }
+
+  searchAvailableDuelPlayers(): void {
+    const range = this.computeDuelSlotIsoRange();
+    if (!range) {
+      this.duelChallengeError = 'Veuillez sélectionner une date et heure de créneau valide pour rechercher un joueur.';
+      this.cdr.markForCheck();
+      return;
+    }
+    this.isSearchingAvailablePlayers = true;
+    this.duelChallengeError = '';
+    this.rowerService.getAvailableDuelPlayers({
+      slotStart: range.slotStart,
+      slotEnd: range.slotEnd,
+      durationMinutes: this.duelSlotDurationMinutes,
+      requesterId: this.activeUserId || undefined,
+      league: this.duelFindLeague,
+      country: this.duelFindCountry.trim() || undefined,
+      gender: this.duelFindGender
+    }).subscribe({
+      next: (res) => {
+        this.isSearchingAvailablePlayers = false;
+        this.hasSearchedAvailablePlayers = true;
+        this.availableDuelPlayers = res?.players || [];
+        this.cdr.markForCheck();
+      },
+      error: (err) => {
+        this.isSearchingAvailablePlayers = false;
+        this.hasSearchedAvailablePlayers = true;
+        this.duelChallengeError = err?.error?.message || 'Erreur lors de la recherche de joueurs disponibles.';
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  selectAvailableOpponent(login: string): void {
+    this.duelTargetLogin = login;
+    this.duelChallengeError = '';
+    this.cdr.markForCheck();
+  }
+
+  onSendDuelChallenge(): void {
+    if (this.isSendingDuelChallenge) return;
+    if (!this.isRegisteredUser && !this.isUserAdmin) {
+      this.duelChallengeError = 'Vous devez être connecté avec un compte abonné pour envoyer un défi en duel.';
+      this.cdr.markForCheck();
+      return;
+    }
+    const targetLogin = this.duelTargetLogin.trim();
+    if (!targetLogin) {
+      this.duelChallengeError = 'Veuillez saisir le login de l\'abonné à défier.';
+      this.cdr.markForCheck();
+      return;
+    }
+    const range = this.computeDuelSlotIsoRange();
+    if (!range) {
+      this.duelChallengeError = 'Veuillez choisir un créneau horaire valide dans le futur.';
+      this.cdr.markForCheck();
+      return;
+    }
+
+    this.isSendingDuelChallenge = true;
+    this.duelChallengeError = '';
+    this.duelChallengeSuccess = '';
+
+    this.rowerService.createDuelChallenge({
+      challengerId: this.activeUserId,
+      challengedLogin: targetLogin,
+      slotStart: range.slotStart,
+      slotEnd: range.slotEnd,
+      durationMinutes: Number(this.duelSlotDurationMinutes) || 60,
+      targetDistance: Math.min(100000, Math.max(100, Math.round(Number(this.targetDistance) || 2000))),
+      timezone: this.selectedTimezone || 'Europe/Paris',
+      title: this.roomTitle.trim() || undefined
+    }).subscribe({
+      next: (res) => {
+        this.isSendingDuelChallenge = false;
+        if (res?.success) {
+          this.duelChallengeSuccess = res.message || `Défi envoyé à ${targetLogin} ! Un e-mail a été transmis.`;
+          this.duelTargetLogin = '';
+          this.refreshMyDuels();
+          this.refreshMyRooms();
+          this.showFeedback('⚔️ Défi en duel envoyé !');
+        } else {
+          this.duelChallengeError = res?.message || 'Impossible d\'envoyer le défi.';
+        }
+        this.cdr.markForCheck();
+      },
+      error: (err) => {
+        this.isSendingDuelChallenge = false;
+        this.duelChallengeError = err?.error?.message || err?.error?.error || 'Ce joueur n\'est pas disponible sur ce créneau.';
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  refreshMyDuels(): void {
+    if (!this.activeUserId) return;
+    this.isLoadingDuelChallenges = true;
+    this.rowerService.getMyDuelChallenges(this.activeUserId).subscribe({
+      next: (res) => {
+        this.isLoadingDuelChallenges = false;
+        if (res?.success) {
+          this.receivedDuelChallenges = res.received || [];
+          this.sentDuelChallenges = res.sent || [];
+          this.blockedDuelSlots = res.blockedSlots || [];
+        }
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.isLoadingDuelChallenges = false;
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  respondToDuel(challenge: DuelChallenge, action: 'accept' | 'refuse'): void {
+    if (!challenge?.id || !this.activeUserId || this.duelActionBusyId) return;
+    this.duelActionBusyId = challenge.id;
+    this.duelManageError = '';
+    this.duelManageMessage = '';
+
+    this.rowerService.respondToDuelChallenge(challenge.id, this.activeUserId, action).subscribe({
+      next: (res) => {
+        this.duelActionBusyId = '';
+        this.duelManageMessage = res?.message || (action === 'accept' ? 'Défi accepté !' : 'Défi refusé.');
+        this.refreshMyDuels();
+        this.refreshMyRooms();
+        this.cdr.markForCheck();
+      },
+      error: (err) => {
+        this.duelActionBusyId = '';
+        this.duelManageError = err?.error?.message || err?.error?.error || 'Impossible de répondre à ce défi.';
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  cancelDuel(challenge: DuelChallenge): void {
+    if (!challenge?.id || !this.activeUserId || this.duelActionBusyId) return;
+    this.duelActionBusyId = challenge.id;
+    this.duelManageError = '';
+    this.duelManageMessage = '';
+
+    this.rowerService.cancelDuelChallenge(challenge.id, this.activeUserId).subscribe({
+      next: (res) => {
+        this.duelActionBusyId = '';
+        this.duelManageMessage = res?.message || 'Duel annulé et créneau libéré.';
+        this.refreshMyDuels();
+        this.refreshMyRooms();
+        this.cdr.markForCheck();
+      },
+      error: (err) => {
+        this.duelActionBusyId = '';
+        this.duelManageError = err?.error?.message || err?.error?.error || 'Impossible d\'annuler ce duel.';
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  isDuelWithin24h(slotStart: string): boolean {
+    const startMs = new Date(slotStart).getTime();
+    if (!Number.isFinite(startMs)) return false;
+    return startMs - Date.now() <= 24 * 60 * 60 * 1000;
+  }
+
+  getDuelStatusLabel(status: string): string {
+    switch (status) {
+      case 'PENDING': return '⏳ En attente (exp. 72h)';
+      case 'ACCEPTED': return '🔒 Accepté (créneau bloqué)';
+      case 'REFUSED': return '❌ Refusé';
+      case 'CANCELLED': return '🚫 Annulé';
+      case 'EXPIRED': return '⌛ Expiré (72h)';
+      case 'FORFEIT': return '🏳️ Forfait (-10 pts)';
+      case 'COMPLETED': return '🏁 Terminé';
+      default: return status;
+    }
+  }
+
+  openDuelSalon(challenge: DuelChallenge): void {
+    const code = challenge.roomCode || challenge.roomId;
+    if (!code) return;
+    this.isActionBusy = true;
+    this.rowerService.getPrivateRace(code).subscribe({
+      next: (room) => {
+        this.isActionBusy = false;
+        this.rememberSalon(room, challenge.challengerUserId === this.activeUserId);
+        this.roomSelected.emit({ payload: room, pushUrl: true });
+        this.activeTab = 'share';
+        this.cdr.markForCheck();
+      },
+      error: (err) => {
+        this.isActionBusy = false;
+        this.duelManageError = err?.error?.message || 'Le salon associé à ce duel est inaccessible ou fermé.';
+        this.cdr.markForCheck();
+      }
+    });
   }
 }

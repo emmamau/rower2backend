@@ -205,6 +205,36 @@
             <input id="reg-email" name="email" type="email" autocomplete="email" [ngModel]="regEmail" (ngModelChange)="regEmail = $event; regEmailChange.emit($event)" placeholder="votre.email@exemple.com" required />
           </div>
 
+          <div class="duel-pref-register-box">
+            <div class="duel-pref-header-row">
+              <strong>⚔️ Duels 1v1 — Préférences de défi</strong>
+            </div>
+            <label class="duel-checkbox-line">
+              <input type="checkbox" name="regAcceptsDuels" [ngModel]="regAcceptsDuels" (ngModelChange)="regAcceptsDuels = $event; regAcceptsDuelsChange.emit($event)" />
+              <span>J'accepte de recevoir des défis en duel 1v1</span>
+            </label>
+            @if (regAcceptsDuels) {
+              <div class="duel-window-row">
+                <label>Plage horaire dispo :</label>
+                <input type="time" name="regDuelStartTime" [ngModel]="regDuelStartTime" (ngModelChange)="regDuelStartTime = $event; regDuelStartTimeChange.emit($event)" />
+                <span>à</span>
+                <input type="time" name="regDuelEndTime" [ngModel]="regDuelEndTime" (ngModelChange)="regDuelEndTime = $event; regDuelEndTimeChange.emit($event)" />
+              </div>
+              <div class="duel-days-row">
+                <span>Jours refusés :</span>
+                @for (d of duelWeekDays; track d.id) {
+                  <button
+                    type="button"
+                    class="btn-day-chip"
+                    [class.is-refused]="regDuelRefusedDays.includes(d.id)"
+                    (click)="toggleRegDuelRefusedDayRequest.emit(d.id)">
+                    {{ d.label }}
+                  </button>
+                }
+              </div>
+            }
+          </div>
+
           <!-- Honeypot anti-robots invisible -->
           <div class="bot-trap-field" aria-hidden="true">
             <label for="reg-website">Website URL (ne pas remplir)</label>
@@ -433,6 +463,70 @@
                   <span class="toggle-label">{{ currentUser.isResting ? 'Actif' : 'Désactivé' }}</span>
                 </button>
               </div>
+            </div>
+
+            <!-- Carte Duels 1v1 : Bilan & Disponibilités -->
+            <div class="profile-duel-card">
+              <div class="profile-duel-header">
+                <h5>⚔️ Duels 1v1 — Bilan &amp; Disponibilités</h5>
+                <span class="duel-pts-badge">{{ currentUser.duelPoints || 0 }} pts duel</span>
+              </div>
+              <div class="duel-stats-strip">
+                <span class="duel-stat-pill won">🏆 {{ currentUser.duelsWon || 0 }} Gagnés (+10)</span>
+                <span class="duel-stat-pill lost">❌ {{ currentUser.duelsLost || 0 }} Perdus</span>
+                <span class="duel-stat-pill drawn">🤝 {{ currentUser.duelsDrawn || 0 }} Égalités (+2)</span>
+              </div>
+              <div class="duel-config-grid">
+                <label class="duel-checkbox-line">
+                  <input type="checkbox" [ngModel]="duelAcceptsDuels" (ngModelChange)="duelAcceptsDuels = $event; duelAcceptsDuelsChange.emit($event)" />
+                  <span>Accepter les défis en duel</span>
+                </label>
+                <label class="duel-checkbox-line">
+                  <input type="checkbox" [ngModel]="duelIsAbsent" (ngModelChange)="duelIsAbsent = $event; duelIsAbsentChange.emit($event)" />
+                  <span>Signaler une absence (refus temporaire des défis)</span>
+                </label>
+                @if (duelIsAbsent) {
+                  <div class="duel-window-row">
+                    <label>Période d'absence (optionnel) :</label>
+                    <input type="date" [ngModel]="duelAbsenceStartDate" (ngModelChange)="duelAbsenceStartDate = $event; duelAbsenceStartDateChange.emit($event)" />
+                    <span>au</span>
+                    <input type="date" [ngModel]="duelAbsenceEndDate" (ngModelChange)="duelAbsenceEndDate = $event; duelAbsenceEndDateChange.emit($event)" />
+                  </div>
+                }
+                <div class="duel-window-row">
+                  <label>Plage horaire disponible :</label>
+                  <input type="time" [ngModel]="duelAvailableStartTime" (ngModelChange)="duelAvailableStartTime = $event; duelAvailableStartTimeChange.emit($event)" />
+                  <span>à</span>
+                  <input type="time" [ngModel]="duelAvailableEndTime" (ngModelChange)="duelAvailableEndTime = $event; duelAvailableEndTimeChange.emit($event)" />
+                </div>
+                <div class="duel-days-row">
+                  <span>Jours où je refuse les duels :</span>
+                  @for (d of duelWeekDays; track d.id) {
+                    <button
+                      type="button"
+                      class="btn-day-chip"
+                      [class.is-refused]="duelRefusedDays.includes(d.id)"
+                      (click)="toggleDuelRefusedDayRequest.emit(d.id)">
+                      {{ d.label }}
+                    </button>
+                  }
+                </div>
+              </div>
+              <div class="duel-pref-actions">
+                <button
+                  type="button"
+                  class="btn-primary btn-save-duel-prefs"
+                  [disabled]="isSavingDuelPreferences"
+                  (click)="saveDuelPreferencesRequest.emit()">
+                  {{ isSavingDuelPreferences ? 'Enregistrement...' : 'Enregistrer mes disponibilités duel' }}
+                </button>
+              </div>
+              @if (duelPreferencesFeedback) {
+                <div class="account-alert success">{{ duelPreferencesFeedback }}</div>
+              }
+              @if (duelPreferencesError) {
+                <div class="account-alert error">{{ duelPreferencesError }}</div>
+              }
             </div>
 
             <!-- Carte Mon Kayak personnalisé -->

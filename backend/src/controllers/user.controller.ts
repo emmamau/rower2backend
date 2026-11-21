@@ -11,6 +11,7 @@ import raceManager from "../services/race-manager.service";
 import pairingService from "../services/pairing.service";
 import { getLeagueByPoints, WEEKLY_LEAGUES, LeagueTier } from "../utils/league.util";
 import { ensureCurrentWeek } from "../services/league-db.service";
+import { sanitizeDuelPreferences } from "../services/duel.service";
 
 const Activities = db.activities;
 
@@ -148,6 +149,11 @@ function sanitizeUser(user: any): Record<string, any> {
     plain.isAdmin
   );
   plain.regattaPreferences = sanitizeRegattaPreferences(plain.regattaPreferences);
+  plain.duelPreferences = sanitizeDuelPreferences(plain.duelPreferences);
+  plain.duelsWon = Number(plain.duelsWon || 0);
+  plain.duelsLost = Number(plain.duelsLost || 0);
+  plain.duelsDrawn = Number(plain.duelsDrawn || 0);
+  plain.duelPoints = Number(plain.duelPoints || 0);
   plain.language = plain.language ? String(plain.language).toLowerCase().trim() : "fr";
   return plain;
 }
@@ -179,6 +185,12 @@ export const registerUser = async (req: Request, res: Response): Promise<void> =
       guestToken,
       kayakCustomization,
       regattaPreferences,
+      duelPreferences,
+      acceptsDuels,
+      availableWindows,
+      refusedDays,
+      isAbsent,
+      duelTimezone,
       website_url,
       bot_trap,
     } = req.body || {};
@@ -325,6 +337,16 @@ export const registerUser = async (req: Request, res: Response): Promise<void> =
       userLanguage = "en";
     }
 
+    const resolvedDuelPreferences = sanitizeDuelPreferences(
+      duelPreferences || {
+        acceptsDuels,
+        isAbsent,
+        refusedDays,
+        availableWindows,
+        timezone: duelTimezone,
+      }
+    );
+
     const newUser = await userStore.createUser({
       id: cleanLogin,
       name: `${cleanFirstName} ${cleanLastName}`.trim() || cleanLogin,
@@ -353,8 +375,13 @@ export const registerUser = async (req: Request, res: Response): Promise<void> =
       points: 0,
       bestRank: 0,
       lastRank: 0,
+      duelsWon: 0,
+      duelsLost: 0,
+      duelsDrawn: 0,
+      duelPoints: 0,
       kayakCustomization: initialKayak,
       regattaPreferences: sanitizeRegattaPreferences(regattaPreferences),
+      duelPreferences: resolvedDuelPreferences,
     });
 
     // Migration automatique de l'appairage invité vers le nouveau compte abonné
@@ -811,10 +838,23 @@ export const getUserProfile = async (req: Request, res: Response): Promise<void>
  */
 export const getGeneralLeaderboard = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { country, gender, ageCategory } = req.query;
+    const { country, gender, ageCategory, category, league, age, minAge, maxAge, sortBy } = req.query;
     const currentYear = new Date().getFullYear();
     let all = await userStore.getAllUsersForLeaderboard();
-    all = all.filter((u) => (u.totalRaces && u.totalRaces > 0) || (u.points && u.points > 0) || (u.totalWins && u.totalWins > 0));
+    all = all.filter(
+      (u) =>
+        (u.totalRaces && u.totalRaces > 0) ||
+        (u.points && u.points > 0) ||
+        (u.totalWins && u.totalWins > 0) ||
+        (u.duelsWon && u.duelsWon > 0) ||
+        (u.duelsLost && u.duelsLost > 0) ||
+        (u.duelsDrawn && u.duelsDrawn > 0)
+    );
+
+    if (league && typeof league === "string" && league.trim().toLowerCase() !== "all") {
+      const targetLeague = league.trim().toUpperCase();
+      all = all.filter((u) => String(u.currentLeague || u.league || "BRONZE").toUpperCase() === targetLeague);
+    }
 
     if (country && typeof country === "string" && country.trim().toLowerCase() !== "all") {
       const targetCountry = country.trim().toLowerCase();
@@ -831,36 +871,85 @@ export const getGeneralLeaderboard = async (req: Request, res: Response): Promis
       });
     }
 
-    if (ageCategory && typeof ageCategory === "string" && ageCategory.trim().toLowerCase() !== "all") {
-      const cat = ageCategory.trim().toUpperCase();
+    const effectiveAgeCat = (category || ageCategory) as string | undefined;
+    if (effectiveAgeCat && typeof effectiveAgeCat === "string" && effectiveAgeCat.trim().toLowerCase() !== "all") {
+      const cat = effectiveAgeCat.trim().toUpperCase();
       all = all.filter((u) => {
         const birth = u.birthYear || u.anneeNaissance;
         if (!birth || !Number.isFinite(birth)) return false;
-        const age = currentYear - birth;
-        if (cat === "U19" || cat === "-19") return age < 19;
-        if (cat === "19-29" || cat === "SENIOR") return age >= 19 && age <= 29;
-        if (cat === "30-39" || cat === "MASTER_A") return age >= 30 && age <= 39;
-        if (cat === "40-49" || cat === "MASTER_B") return age >= 40 && age <= 49;
-        if (cat === "50-59" || cat === "MASTER_C") return age >= 50 && age <= 59;
-        if (cat === "60+" || cat === "MASTER_D") return age >= 60;
+        const playerAge = currentYear - birth;
+        if (cat === "U19" || cat === "-19") return playerAge < 19;
+        if (cat === "19-29" || cat === "SENIOR") return playerAge >= 19 && playerAge <= 29;
+        if (cat === "30-39" || cat === "MASTER_A") return playerAge >= 30 && playerAge <= 39;
+        if (cat === "40-49" || cat === "MASTER_B") return playerAge >= 40 && playerAge <= 49;
+        if (cat === "50-59" || cat === "MASTER_C") return playerAge >= 50 && playerAge <= 59;
+        if (cat === "60+" || cat === "MASTER_D") return playerAge >= 60;
         return true;
       });
     }
 
+    if (age !== undefined && age !== "" && String(age).toLowerCase() !== "all") {
+      const targetAge = Number(age);
+      if (Number.isFinite(targetAge)) {
+        all = all.filter((u) => {
+          const birth = u.birthYear || u.anneeNaissance;
+          return Boolean(birth && currentYear - birth === targetAge);
+        });
+      }
+    }
+
+    if (minAge !== undefined && minAge !== "") {
+      const minA = Number(minAge);
+      if (Number.isFinite(minA)) {
+        all = all.filter((u) => {
+          const birth = u.birthYear || u.anneeNaissance;
+          return Boolean(birth && currentYear - birth >= minA);
+        });
+      }
+    }
+
+    if (maxAge !== undefined && maxAge !== "") {
+      const maxA = Number(maxAge);
+      if (Number.isFinite(maxA)) {
+        all = all.filter((u) => {
+          const birth = u.birthYear || u.anneeNaissance;
+          return Boolean(birth && currentYear - birth <= maxA);
+        });
+      }
+    }
+
+    if (sortBy === "duels") {
+      all.sort((a, b) => {
+        const wonDiff = (b.duelsWon || 0) - (a.duelsWon || 0);
+        if (wonDiff !== 0) return wonDiff;
+        const ptsDiff = (b.duelPoints || 0) - (a.duelPoints || 0);
+        if (ptsDiff !== 0) return ptsDiff;
+        return (a.duelsLost || 0) - (b.duelsLost || 0);
+      });
+    }
+
     const players = all.slice(0, 100).map((u) => {
-      const league = getLeagueByPoints(u.points);
+      const leagueInfo = getLeagueByPoints(u.points);
+      const duelPrefs = sanitizeDuelPreferences(u.duelPreferences);
       return {
         id: u.id,
+        login: u.login || u.id,
         name: u.login || u.name,
         points: u.points,
-        league: u.league || league.id,
-        leagueName: league.name,
-        leagueBadge: league.badge,
+        league: u.league || leagueInfo.id,
+        currentLeague: String(u.currentLeague || u.league || "BRONZE").toUpperCase(),
+        leagueName: leagueInfo.name,
+        leagueBadge: leagueInfo.badge,
         totalRaces: u.totalRaces,
         totalWins: u.totalWins,
         podiums: u.podiums,
         bestRank: u.bestRank,
         lastRank: u.lastRank,
+        duelsWon: u.duelsWon || 0,
+        duelsLost: u.duelsLost || 0,
+        duelsDrawn: u.duelsDrawn || 0,
+        duelPoints: u.duelPoints || 0,
+        acceptsDuels: duelPrefs.acceptsDuels,
         isSubscriber: u.isSubscriber,
         isAdmin: u.isAdmin,
         country: u.country || u.pays || "",
@@ -1406,6 +1495,45 @@ export const updateUserLanguage = async (req: Request, res: Response): Promise<v
   }
 };
 
+/**
+ * PUT /api/user/duel-preferences
+ * Met à jour les préférences et disponibilités de duel d'un abonné.
+ */
+export const updateDuelPreferences = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { userId, duelPreferences } = req.body || {};
+    const cleanUserId = String(userId || (req as any).user?.id || (req as any).user?.login || "").trim();
+
+    if (!cleanUserId) {
+      res.status(400).json({ success: false, message: "L'identifiant utilisateur est requis." });
+      return;
+    }
+
+    if (!isAuthorizedForUser(req, cleanUserId)) {
+      res.status(403).json({ success: false, message: "Accès refusé : vous ne pouvez modifier que vos propres préférences." });
+      return;
+    }
+
+    const user = (await userStore.getUserById(cleanUserId)) || (await userStore.findUser(cleanUserId));
+    if (!user) {
+      res.status(404).json({ success: false, message: "Utilisateur introuvable." });
+      return;
+    }
+
+    const cleanPrefs = sanitizeDuelPreferences(duelPreferences || req.body);
+    const updated = await userStore.updateUser(user.id, { duelPreferences: cleanPrefs });
+    res.status(200).json({
+      success: true,
+      message: "Préférences et disponibilités de duel enregistrées avec succès.",
+      duelPreferences: cleanPrefs,
+      user: sanitizeUser(updated || user),
+    });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ success: false, message: "Erreur mise à jour préférences duel: " + message });
+  }
+};
+
 export default {
   registerUser,
   loginUser,
@@ -1420,5 +1548,6 @@ export default {
   getUserStatistics,
   updateKayakCustomization,
   updateRegattaPreferences,
+  updateDuelPreferences,
   updateUserLanguage,
 };

@@ -583,6 +583,130 @@
               </div>
             }
 
+            <!-- CONFIGURATION SPÉCIFIQUE : DUEL 1 VS 1 ENTRE ABONNÉS -->
+            @if (selectedGameMode === 'duel_1v1') {
+              <div class="priv-duel-challenge-box">
+                <div class="priv-duel-box-header">
+                  <strong>⚔️ Défier un abonné sur un créneau horaire</strong>
+                  <span class="priv-meta-chip">Expiration 72h • +10 pts victoire</span>
+                </div>
+                <p class="priv-hint">
+                  Saisissez le login d'un abonné ou recherchez un joueur disponible sur votre créneau. Un e-mail lui sera envoyé et le créneau sera bloqué dès acceptation.
+                </p>
+
+                <div class="priv-field">
+                  <label for="priv-duel-login" class="priv-label">Login de l'abonné à défier *</label>
+                  <input
+                    id="priv-duel-login"
+                    name="duelTargetLogin"
+                    type="text"
+                    class="priv-input"
+                    placeholder="ex: EmmaRacer"
+                    [(ngModel)]="duelTargetLogin"
+                    (input)="duelChallengeError = ''" />
+                </div>
+
+                <div class="priv-duel-slot-grid">
+                  <div class="priv-field">
+                    <label for="priv-duel-start" class="priv-label">Début du créneau *</label>
+                    <input
+                      id="priv-duel-start"
+                      name="duelSlotStartLocal"
+                      type="datetime-local"
+                      class="priv-input"
+                      [(ngModel)]="duelSlotStartLocal" />
+                  </div>
+                  <div class="priv-field">
+                    <label for="priv-duel-duration" class="priv-label">Durée du créneau</label>
+                    <select
+                      id="priv-duel-duration"
+                      name="duelSlotDurationMinutes"
+                      class="priv-select"
+                      [(ngModel)]="duelSlotDurationMinutes">
+                      <option [ngValue]="30">30 minutes</option>
+                      <option [ngValue]="45">45 minutes</option>
+                      <option [ngValue]="60">1 heure</option>
+                      <option [ngValue]="90">1h30</option>
+                      <option [ngValue]="120">2 heures</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div class="priv-duel-actions-row">
+                  <button
+                    type="button"
+                    class="priv-btn priv-btn-cyan"
+                    [disabled]="isSendingDuelChallenge || (!isRegisteredUser && !isUserAdmin)"
+                    (click)="onSendDuelChallenge()">
+                    {{ isSendingDuelChallenge ? 'Envoi du défi...' : '⚔️ Envoyer le défi en duel (E-mail + Salon)' }}
+                  </button>
+                  <button
+                    type="button"
+                    class="priv-btn priv-btn-outline"
+                    [disabled]="isSearchingAvailablePlayers"
+                    (click)="searchAvailableDuelPlayers()">
+                    {{ isSearchingAvailablePlayers ? 'Recherche...' : '🔍 Trouver un joueur disponible sur ce créneau' }}
+                  </button>
+                </div>
+
+                @if (duelChallengeSuccess) {
+                  <p class="priv-success-msg" role="status">✅ {{ duelChallengeSuccess }}</p>
+                }
+                @if (duelChallengeError) {
+                  <p class="priv-error-msg" role="alert">⚠️ {{ duelChallengeError }}</p>
+                }
+
+                <!-- Outil de recherche de joueurs disponibles sur le créneau -->
+                <div class="priv-duel-finder-filters">
+                  <select class="priv-select priv-select-compact" name="duelFindLeague" [(ngModel)]="duelFindLeague">
+                    <option value="all">Toutes ligues</option>
+                    <option value="GOLD">🥇 Or</option>
+                    <option value="SILVER">🥈 Argent</option>
+                    <option value="BRONZE">🥉 Bronze</option>
+                  </select>
+                  <select class="priv-select priv-select-compact" name="duelFindGender" [(ngModel)]="duelFindGender">
+                    <option value="all">Tous sexes</option>
+                    <option value="M">Hommes</option>
+                    <option value="F">Femmes</option>
+                  </select>
+                  <input
+                    type="text"
+                    name="duelFindCountry"
+                    class="priv-input priv-input-compact"
+                    placeholder="Pays (ex: France)"
+                    [(ngModel)]="duelFindCountry" />
+                </div>
+
+                @if (hasSearchedAvailablePlayers) {
+                  <div class="priv-duel-available-list">
+                    @if (availableDuelPlayers.length === 0) {
+                      <p class="priv-hint">Aucun joueur disponible trouvé sur ce créneau avec ces critères.</p>
+                    } @else {
+                      @for (p of availableDuelPlayers; track p.id) {
+                        <div class="priv-duel-player-row">
+                          <div class="priv-duel-player-meta">
+                            <strong>{{ p.name }}</strong>
+                            <span>(&#64;{{ p.login }})</span>
+                            <span class="priv-meta-chip">{{ p.currentLeague || 'BRONZE' }}</span>
+                            <span>🏆 {{ p.duelsWon }}V • {{ p.duelPoints }} pts</span>
+                            @if (p.country) {
+                              <span>• {{ p.country }}</span>
+                            }
+                          </div>
+                          <button
+                            type="button"
+                            class="priv-btn-mini priv-btn-mini-primary"
+                            (click)="selectAvailableOpponent(p.login)">
+                            ⚔️ Choisir
+                          </button>
+                        </div>
+                      }
+                    }
+                  </div>
+                }
+              </div>
+            }
+
             <!-- CONFIGURATION SPÉCIFIQUE : MULTI-JOUEURS -->
             @if (selectedGameMode === 'multi') {
               <div class="priv-field">
@@ -1318,6 +1442,128 @@
             }
           </div>
         </form>
+
+        <!-- Duels 1v1 : Défis reçus, créneaux bloqués et défis envoyés -->
+        @if (isRegisteredUser || isUserAdmin) {
+          <div class="priv-duels-section">
+            <div class="priv-saved-header">
+              <h4 class="priv-saved-title">⚔️ Mes Défis en Duel 1v1</h4>
+              <button type="button" class="priv-btn-mini" (click)="refreshMyDuels()">↻ Actualiser</button>
+            </div>
+
+            @if (duelManageMessage) {
+              <p class="priv-success-msg" role="status">✅ {{ duelManageMessage }}</p>
+            }
+            @if (duelManageError) {
+              <p class="priv-error-msg" role="alert">⚠️ {{ duelManageError }}</p>
+            }
+
+            @if (receivedDuelChallenges.length > 0) {
+              <div class="priv-duel-group">
+                <h5 class="priv-duel-subtitle">📥 Défis reçus</h5>
+                @for (d of receivedDuelChallenges; track d.id) {
+                  <div class="priv-saved-item priv-duel-item">
+                    <div class="priv-saved-info">
+                      <div class="priv-saved-top">
+                        <span class="priv-role-chip is-host">{{ getDuelStatusLabel(d.status) }}</span>
+                        <strong>Défi de {{ d.challengerName }} (&#64;{{ d.challengerLogin }})</strong>
+                        <span class="priv-meta-chip">{{ d.targetDistance }}m</span>
+                      </div>
+                      <div class="priv-saved-codes">
+                        <span>📅 {{ d.slotStart | date:'short' }} → {{ d.slotEnd | date:'shortTime' }}</span>
+                        @if (d.roomCode) {
+                          <span>Salon: <code>{{ d.roomCode }}</code></span>
+                        }
+                        @if (d.status === 'PENDING') {
+                          <span>⏳ Expire le {{ d.expiresAt | date:'short' }}</span>
+                        }
+                      </div>
+                    </div>
+                    <div class="priv-saved-actions">
+                      @if (d.status === 'PENDING') {
+                        <button
+                          type="button"
+                          class="priv-btn-mini priv-btn-mini-primary"
+                          [disabled]="duelActionBusyId === d.id"
+                          (click)="respondToDuel(d, 'accept')">
+                          ✅ Accepter
+                        </button>
+                        <button
+                          type="button"
+                          class="priv-btn-mini priv-btn-mini-danger"
+                          [disabled]="duelActionBusyId === d.id"
+                          (click)="respondToDuel(d, 'refuse')">
+                          ❌ Refuser
+                        </button>
+                      } @else if (d.status === 'ACCEPTED') {
+                        <button
+                          type="button"
+                          class="priv-btn-mini priv-btn-mini-primary"
+                          (click)="openDuelSalon(d)">
+                          🚪 Ouvrir
+                        </button>
+                        <button
+                          type="button"
+                          class="priv-btn-mini priv-btn-mini-danger"
+                          [disabled]="duelActionBusyId === d.id"
+                          [title]="isDuelWithin24h(d.slotStart) ? 'Attention : moins de 24h avant le créneau = forfait (-10 pts)' : 'Annuler et libérer le créneau'"
+                          (click)="cancelDuel(d)">
+                          {{ isDuelWithin24h(d.slotStart) ? '⚠️ Forfait (-10 pts)' : '🚫 Annuler' }}
+                        </button>
+                      }
+                    </div>
+                  </div>
+                }
+              </div>
+            }
+
+            @if (sentDuelChallenges.length > 0) {
+              <div class="priv-duel-group">
+                <h5 class="priv-duel-subtitle">📤 Défis envoyés</h5>
+                @for (d of sentDuelChallenges; track d.id) {
+                  <div class="priv-saved-item priv-duel-item">
+                    <div class="priv-saved-info">
+                      <div class="priv-saved-top">
+                        <span class="priv-role-chip">{{ getDuelStatusLabel(d.status) }}</span>
+                        <strong>Contre {{ d.challengedName }} (&#64;{{ d.challengedLogin }})</strong>
+                        <span class="priv-meta-chip">{{ d.targetDistance }}m</span>
+                      </div>
+                      <div class="priv-saved-codes">
+                        <span>📅 {{ d.slotStart | date:'short' }} → {{ d.slotEnd | date:'shortTime' }}</span>
+                        @if (d.roomCode) {
+                          <span>Code: <code>{{ d.roomCode }}</code></span>
+                        }
+                      </div>
+                    </div>
+                    <div class="priv-saved-actions">
+                      @if (d.status === 'ACCEPTED') {
+                        <button
+                          type="button"
+                          class="priv-btn-mini priv-btn-mini-primary"
+                          (click)="openDuelSalon(d)">
+                          🚪 Ouvrir
+                        </button>
+                      }
+                      @if (d.status === 'PENDING' || d.status === 'ACCEPTED') {
+                        <button
+                          type="button"
+                          class="priv-btn-mini priv-btn-mini-danger"
+                          [disabled]="duelActionBusyId === d.id"
+                          (click)="cancelDuel(d)">
+                          {{ d.status === 'ACCEPTED' && isDuelWithin24h(d.slotStart) ? '⚠️ Forfait (-10 pts)' : '🚫 Annuler' }}
+                        </button>
+                      }
+                    </div>
+                  </div>
+                }
+              </div>
+            }
+
+            @if (receivedDuelChallenges.length === 0 && sentDuelChallenges.length === 0 && !isLoadingDuelChallenges) {
+              <div class="priv-empty-rooms">Aucun défi en duel reçu ou envoyé pour le moment.</div>
+            }
+          </div>
+        }
 
         <!-- Saved & Active Private Salons List -->
         <div class="priv-saved-section">

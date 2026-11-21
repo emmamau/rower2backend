@@ -8,7 +8,8 @@ import {
   hexToRgba,
   RegattaMetricKey,
   RegattaMetricOption,
-  REGATTA_METRICS_CATALOG
+  REGATTA_METRICS_CATALOG,
+  DuelPreferences
 } from '../../../models/user.model';
 import { LeagueInfo } from '../../../utils/league.util';
 import { PrivateModalTab } from '../../private-room-manager/private-room-manager.component';
@@ -83,6 +84,22 @@ export class AccountModalComponent implements OnDestroy {
   @Input() regattaPreferencesError = '';
   @Input() isPrestartTimerDismissed = false;
 
+  // Duel 1v1 registration & profile preferences
+  @Input() regAcceptsDuels = true;
+  @Input() regDuelStartTime = '08:00';
+  @Input() regDuelEndTime = '22:00';
+  @Input() regDuelRefusedDays: number[] = [];
+  @Input() duelAcceptsDuels = true;
+  @Input() duelIsAbsent = false;
+  @Input() duelAbsenceStartDate = '';
+  @Input() duelAbsenceEndDate = '';
+  @Input() duelAvailableStartTime = '08:00';
+  @Input() duelAvailableEndTime = '22:00';
+  @Input() duelRefusedDays: number[] = [];
+  @Input() isSavingDuelPreferences = false;
+  @Input() duelPreferencesFeedback = '';
+  @Input() duelPreferencesError = '';
+
   @Output() accountModalTabChange = new EventEmitter<AccountModalTabType>();
   @Output() loginAccountInputChange = new EventEmitter<string>();
   @Output() passwordAccountInputChange = new EventEmitter<string>();
@@ -131,6 +148,29 @@ export class AccountModalComponent implements OnDestroy {
   @Output() moveRegattaMetricRequest = new EventEmitter<{ index: number; direction: -1 | 1 }>();
   @Output() togglePrestartTimerPreferenceRequest = new EventEmitter<boolean>();
   @Output() saveRegattaPreferencesRequest = new EventEmitter<void>();
+
+  @Output() regAcceptsDuelsChange = new EventEmitter<boolean>();
+  @Output() regDuelStartTimeChange = new EventEmitter<string>();
+  @Output() regDuelEndTimeChange = new EventEmitter<string>();
+  @Output() toggleRegDuelRefusedDayRequest = new EventEmitter<number>();
+  @Output() duelAcceptsDuelsChange = new EventEmitter<boolean>();
+  @Output() duelIsAbsentChange = new EventEmitter<boolean>();
+  @Output() duelAbsenceStartDateChange = new EventEmitter<string>();
+  @Output() duelAbsenceEndDateChange = new EventEmitter<string>();
+  @Output() duelAvailableStartTimeChange = new EventEmitter<string>();
+  @Output() duelAvailableEndTimeChange = new EventEmitter<string>();
+  @Output() toggleDuelRefusedDayRequest = new EventEmitter<number>();
+  @Output() saveDuelPreferencesRequest = new EventEmitter<void>();
+
+  readonly duelWeekDays: { id: number; label: string }[] = [
+    { id: 1, label: 'Lun' },
+    { id: 2, label: 'Mar' },
+    { id: 3, label: 'Mer' },
+    { id: 4, label: 'Jeu' },
+    { id: 5, label: 'Ven' },
+    { id: 6, label: 'Sam' },
+    { id: 0, label: 'Dim' }
+  ];
 
   showRegPassword = false;
   showRegPasswordConfirm = false;

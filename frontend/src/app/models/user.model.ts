@@ -194,8 +194,114 @@ export interface UserProfile {
   };
   kayakCustomization?: KayakCustomization;
   regattaPreferences?: RegattaPreferences;
+  duelsWon?: number;
+  duelsLost?: number;
+  duelsDrawn?: number;
+  duelPoints?: number;
+  duelPreferences?: DuelPreferences;
+  acceptsDuels?: boolean;
   createdAt?: string;
   updatedAt?: string;
+}
+
+export interface DuelTimeWindow {
+  startTime: string;
+  endTime: string;
+}
+
+export interface DuelPreferences {
+  acceptsDuels: boolean;
+  isAbsent: boolean;
+  absenceStartDate?: string | null;
+  absenceEndDate?: string | null;
+  refusedDays: number[]; // 0 = Dimanche ... 6 = Samedi
+  availableWindows: DuelTimeWindow[];
+  timezone?: string;
+}
+
+export type DuelChallengeStatus =
+  | 'PENDING'
+  | 'ACCEPTED'
+  | 'REFUSED'
+  | 'CANCELLED'
+  | 'EXPIRED'
+  | 'FORFEIT'
+  | 'COMPLETED';
+
+export interface DuelChallenge {
+  id: string;
+  challengerUserId: string;
+  challengerLogin: string;
+  challengerName: string;
+  challengedUserId: string;
+  challengedLogin: string;
+  challengedName: string;
+  slotStart: string;
+  slotEnd: string;
+  timezone: string;
+  targetDistance: number;
+  title: string;
+  roomId?: string;
+  roomCode?: string;
+  roomPin?: string;
+  status: DuelChallengeStatus;
+  expiresAt: string;
+  respondedAt?: string | null;
+  cancelledAt?: string | null;
+  cancelledByUserId?: string | null;
+  winnerUserId?: string | null;
+  forfeitUserId?: string | null;
+  isDraw?: boolean;
+  challengerPointsDelta: number;
+  challengedPointsDelta: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AvailableDuelPlayer {
+  id: string;
+  login: string;
+  name: string;
+  country?: string;
+  gender?: string;
+  birthYear?: number | null;
+  currentLeague?: string;
+  duelsWon: number;
+  duelsLost: number;
+  duelsDrawn: number;
+  duelPoints: number;
+  duelPreferences?: DuelPreferences;
+}
+
+export interface DuelLeaderboardItem {
+  rank: number;
+  id: string;
+  login: string;
+  name: string;
+  currentLeague: string;
+  country?: string;
+  gender?: string;
+  birthYear?: number | null;
+  age?: number | null;
+  duelsWon: number;
+  duelsLost: number;
+  duelsDrawn: number;
+  duelPoints: number;
+  totalDuels: number;
+  acceptsDuels: boolean;
+}
+
+export interface MyDuelChallengesResponse {
+  success: boolean;
+  received: DuelChallenge[];
+  sent: DuelChallenge[];
+  blockedSlots: DuelChallenge[];
+  stats: {
+    duelsWon: number;
+    duelsLost: number;
+    duelsDrawn: number;
+    duelPoints: number;
+  };
 }
 
 export interface RegisterUserDto {
@@ -212,6 +318,7 @@ export interface RegisterUserDto {
   guestPairingToken?: string;
   guestToken?: string;
   guestUserId?: string;
+  duelPreferences?: DuelPreferences;
   website_url?: string;
   bot_trap?: string;
 }

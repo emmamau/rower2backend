@@ -30,6 +30,21 @@ export interface RegattaPreferences {
   selectedMetrics: RegattaMetricKey[];
 }
 
+export interface DuelTimeWindow {
+  startTime: string; // Format "HH:mm"
+  endTime: string;   // Format "HH:mm"
+}
+
+export interface DuelPreferences {
+  acceptsDuels: boolean;
+  isAbsent: boolean;
+  absenceStartDate?: string | null;
+  absenceEndDate?: string | null;
+  refusedDays: number[]; // 0 = Dimanche .. 6 = Samedi
+  availableWindows: DuelTimeWindow[];
+  timezone: string;
+}
+
 export interface UserAttributes {
   id: string;               // Identifiant unique (login ou ID montre/généré)
   name: string;             // Nom d'affichage ou login du joueur
@@ -78,6 +93,11 @@ export interface UserAttributes {
   customWeeklyRooms?: number | null;     // Surcharge admin du nombre max de salons par semaine
   kayakCustomization?: KayakCustomization;
   regattaPreferences?: RegattaPreferences;
+  duelPreferences?: DuelPreferences;
+  duelsWon?: number;
+  duelsLost?: number;
+  duelsDrawn?: number;
+  duelPoints?: number;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -287,6 +307,26 @@ export default (sequelize: Sequelize, _DataTypesInstance: typeof DataTypes): Use
       regattaPreferences: {
         type: DataTypes.JSON,
         allowNull: true,
+      },
+      duelPreferences: {
+        type: DataTypes.JSON,
+        allowNull: true,
+      },
+      duelsWon: {
+        type: DataTypes.INTEGER,
+        defaultValue: 0,
+      },
+      duelsLost: {
+        type: DataTypes.INTEGER,
+        defaultValue: 0,
+      },
+      duelsDrawn: {
+        type: DataTypes.INTEGER,
+        defaultValue: 0,
+      },
+      duelPoints: {
+        type: DataTypes.INTEGER,
+        defaultValue: 0,
       },
     },
     {

@@ -68,6 +68,7 @@ export class HomeDashboardComponent {
   @Output() leaderboardAgeCategoryFilterChange = new EventEmitter<string>();
   @Output() applyLeaderboardFiltersRequest = new EventEmitter<void>();
   @Output() resetLeaderboardFiltersRequest = new EventEmitter<void>();
+  @Output() challengePlayerRequest = new EventEmitter<string>();
 
   constructor(public i18n: I18nService) {}
 

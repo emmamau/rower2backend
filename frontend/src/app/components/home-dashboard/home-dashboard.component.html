@@ -358,6 +358,7 @@
             <th scope="col">{{ i18n.t('COL_WINS').toUpperCase() }}</th>
             <th scope="col">{{ i18n.t('COL_PODIUMS').toUpperCase() }}</th>
             <th scope="col">RECORD</th>
+            <th scope="col">DUEL</th>
           </tr>
         </thead>
         <tbody>
@@ -380,10 +381,24 @@
               <td class="col-stat-wins">{{ player.totalWins || 0 }}</td>
               <td class="col-stat-podiums">{{ player.podiums || 0 }}</td>
               <td class="col-stat-record">{{ player.bestRank ? ('#' + player.bestRank) : '--' }}</td>
+              <td class="col-duel-action">
+                @if ((player.login || player.id) !== activeUserId && player.acceptsDuels !== false) {
+                  <button
+                    type="button"
+                    class="btn-challenge-player"
+                    (click)="challengePlayerRequest.emit(player.login || player.id)">
+                    ⚔️ Défier
+                  </button>
+                } @else if ((player.login || player.id) === activeUserId) {
+                  <span class="duel-self-tag">Moi</span>
+                } @else {
+                  <span class="duel-unavailable-tag">Indispo</span>
+                }
+              </td>
             </tr>
           } @empty {
             <tr class="empty-row">
-              <td colspan="9" class="text-center">Aucun coureur ne correspond aux critères sélectionnés.</td>
+              <td colspan="10" class="text-center">Aucun coureur ne correspond aux critères sélectionnés.</td>
             </tr>
           }
         </tbody>

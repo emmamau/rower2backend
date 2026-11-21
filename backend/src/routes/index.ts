@@ -10,6 +10,7 @@ import sessionRoutes from "./session.routes";
 import leagueRoutes from "./league.routes";
 import authRoutes from "./auth.routes";
 import adminRoutes from "./admin.routes";
+import duelRoutes from "./duel.routes";
 
 export default (app: Application): void => {
   authRoutes(app);
@@ -23,4 +24,5 @@ export default (app: Application): void => {
   userRoutes(app);
   subscriptionRoutes(app);
   leagueRoutes(app);
+  duelRoutes(app);
 };

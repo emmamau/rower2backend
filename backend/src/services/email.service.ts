@@ -1113,6 +1113,266 @@ export class EmailService {
     }
   }
 
+  public async sendDuelChallengeEmail(params: {
+    to: string;
+    challengerName: string;
+    challengerLogin: string;
+    challengedName: string;
+    challengeId: string;
+    slotStart: string;
+    slotEnd: string;
+    timezone?: string;
+    targetDistance: number;
+    roomCode?: string;
+    roomPin?: string;
+    lang?: string;
+  }): Promise<boolean> {
+    const config = getEmailConfig();
+    const isFr = (params.lang || "fr").toLowerCase().startsWith("fr");
+    const tz = params.timezone || "Europe/Paris";
+    let slotFormatted = `${params.slotStart} - ${params.slotEnd}`;
+    try {
+      const startD = new Date(params.slotStart);
+      const endD = new Date(params.slotEnd);
+      const locale = isFr ? "fr-FR" : "en-US";
+      const dateStr = new Intl.DateTimeFormat(locale, {
+        weekday: "long",
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+        timeZone: tz,
+      }).format(startD);
+      const startHour = new Intl.DateTimeFormat(locale, {
+        hour: "2-digit",
+        minute: "2-digit",
+        timeZone: tz,
+      }).format(startD);
+      const endHour = new Intl.DateTimeFormat(locale, {
+        hour: "2-digit",
+        minute: "2-digit",
+        timeZone: tz,
+      }).format(endD);
+      slotFormatted = `${dateStr} • ${startHour} - ${endHour} (${tz})`;
+    } catch {}
+
+    const targetUrl = `${config.frontendUrl}/?duelChallenge=${encodeURIComponent(params.challengeId)}`;
+    const subject = isFr
+      ? `⚔️ Rower Race - Défi en duel 1v1 lancé par ${params.challengerName}`
+      : `⚔️ Rower Race - 1v1 Duel Challenge from ${params.challengerName}`;
+
+    const bodyContentHtml = isFr
+      ? `
+        <div style="display: inline-block; background-color: rgba(255, 0, 85, 0.15); border: 1px solid #ff0055; color: #ff0055; font-size: 12px; font-weight: bold; text-transform: uppercase; padding: 4px 12px; border-radius: 20px; margin-bottom: 16px;">
+          ⚔️ Nouveau Défi 1 contre 1
+        </div>
+        <h2 style="color: #ffffff; font-size: 21px; margin-top: 0; margin-bottom: 14px;">
+          Bonjour <span style="color: #00f0ff;">${params.challengedName}</span>,
+        </h2>
+        <p style="margin-bottom: 16px; color: #cbd5e1;">
+          <strong>${params.challengerName}</strong> (<code style="color:#00f0ff;">${params.challengerLogin}</code>) vous défie en duel 1 contre 1 sur <strong>Rower Race</strong> !
+        </p>
+        <div style="background-color: #0d1527; border: 1px solid rgba(0, 240, 255, 0.3); border-radius: 8px; padding: 16px; margin: 18px 0;">
+          <div style="margin-bottom: 8px;"><span style="color:#94a3b8;">Créneau proposé :</span> <strong style="color:#ffe600;">${slotFormatted}</strong></div>
+          <div style="margin-bottom: 8px;"><span style="color:#94a3b8;">Distance :</span> <strong style="color:#00f0ff;">${params.targetDistance} m</strong></div>
+          ${params.roomPin ? `<div><span style="color:#94a3b8;">Code Montre Garmin :</span> <strong style="color:#ffffff;">${params.roomPin}</strong></div>` : ""}
+        </div>
+        <p style="margin-bottom: 12px; color: #94a3b8; font-size: 13px;">
+          Vous pouvez consulter ce défi et l'<strong>accepter</strong> ou le <strong>refuser</strong> directement depuis vos <strong>Salons Privés</strong>. Sans réponse sous <strong>72 heures</strong>, le défi sera automatiquement annulé.
+        </p>
+      `
+      : `
+        <div style="display: inline-block; background-color: rgba(255, 0, 85, 0.15); border: 1px solid #ff0055; color: #ff0055; font-size: 12px; font-weight: bold; text-transform: uppercase; padding: 4px 12px; border-radius: 20px; margin-bottom: 16px;">
+          ⚔️ New 1v1 Duel Challenge
+        </div>
+        <h2 style="color: #ffffff; font-size: 21px; margin-top: 0; margin-bottom: 14px;">
+          Hello <span style="color: #00f0ff;">${params.challengedName}</span>,
+        </h2>
+        <p style="margin-bottom: 16px; color: #cbd5e1;">
+          <strong>${params.challengerName}</strong> (<code style="color:#00f0ff;">${params.challengerLogin}</code>) challenged you to a 1v1 duel on <strong>Rower Race</strong>!
+        </p>
+        <div style="background-color: #0d1527; border: 1px solid rgba(0, 240, 255, 0.3); border-radius: 8px; padding: 16px; margin: 18px 0;">
+          <div style="margin-bottom: 8px;"><span style="color:#94a3b8;">Proposed slot:</span> <strong style="color:#ffe600;">${slotFormatted}</strong></div>
+          <div style="margin-bottom: 8px;"><span style="color:#94a3b8;">Distance:</span> <strong style="color:#00f0ff;">${params.targetDistance} m</strong></div>
+          ${params.roomPin ? `<div><span style="color:#94a3b8;">Garmin Watch PIN:</span> <strong style="color:#ffffff;">${params.roomPin}</strong></div>` : ""}
+        </div>
+        <p style="margin-bottom: 12px; color: #94a3b8; font-size: 13px;">
+          Open your <strong>Private Rooms</strong> to accept or decline this challenge. Unanswered challenges expire automatically after <strong>72 hours</strong>.
+        </p>
+      `;
+
+    const html = renderCyberEmailHtml({
+      title: subject,
+      preheader: subject,
+      bodyContentHtml,
+      ctaText: isFr ? "Répondre dans Salons Privés" : "Respond in Private Rooms",
+      ctaUrl: targetUrl,
+      lang: isFr ? "fr" : "en",
+    });
+
+    const text = isFr
+      ? `Bonjour ${params.challengedName},\n\n${params.challengerName} (${params.challengerLogin}) vous défie en duel 1v1 sur Rower Race !\nCréneau : ${slotFormatted}\nDistance : ${params.targetDistance}m\n\nAcceptez ou refusez ce défi dans vos Salons Privés : ${targetUrl}\n(Expiration automatique après 72h sans réponse).`
+      : `Hello ${params.challengedName},\n\n${params.challengerName} (${params.challengerLogin}) challenged you to a 1v1 duel on Rower Race!\nSlot: ${slotFormatted}\nDistance: ${params.targetDistance}m\n\nAccept or decline in Private Rooms: ${targetUrl}\n(Expires automatically after 72h).`;
+
+    const res = await this.sendEmail({ to: params.to, subject, text, html });
+    return res.success;
+  }
+
+  public async sendDuelResponseEmail(params: {
+    to: string;
+    challengerName: string;
+    challengedName: string;
+    challengedLogin: string;
+    challengeId: string;
+    accepted: boolean;
+    slotStart: string;
+    slotEnd: string;
+    timezone?: string;
+    targetDistance: number;
+    roomCode?: string;
+    roomPin?: string;
+    lang?: string;
+  }): Promise<boolean> {
+    const config = getEmailConfig();
+    const isFr = (params.lang || "fr").toLowerCase().startsWith("fr");
+    const tz = params.timezone || "Europe/Paris";
+    let slotFormatted = `${params.slotStart}`;
+    try {
+      slotFormatted = new Intl.DateTimeFormat(isFr ? "fr-FR" : "en-US", {
+        weekday: "long",
+        day: "numeric",
+        month: "long",
+        hour: "2-digit",
+        minute: "2-digit",
+        timeZone: tz,
+      }).format(new Date(params.slotStart));
+    } catch {}
+
+    const subject = isFr
+      ? (params.accepted
+          ? `✅ Rower Race - ${params.challengedName} a accepté votre défi en duel !`
+          : `❌ Rower Race - ${params.challengedName} a refusé votre défi en duel`)
+      : (params.accepted
+          ? `✅ Rower Race - ${params.challengedName} accepted your duel challenge!`
+          : `❌ Rower Race - ${params.challengedName} declined your duel challenge`);
+
+    const bodyContentHtml = isFr
+      ? `
+        <h2 style="color: #ffffff; font-size: 20px; margin-top: 0;">
+          Bonjour <span style="color: #00f0ff;">${params.challengerName}</span>,
+        </h2>
+        <p style="color: #cbd5e1;">
+          <strong>${params.challengedName}</strong> (<code>${params.challengedLogin}</code>) a <strong>${params.accepted ? "accepté" : "refusé"}</strong> votre défi en duel 1 contre 1 prévu le <strong>${slotFormatted}</strong> (${params.targetDistance}m).
+        </p>
+        ${params.accepted
+          ? `<p style="color: #10b981;">Le créneau est désormais bloqué pour vous deux. ${params.roomPin ? `Code PIN montre Garmin : <strong>${params.roomPin}</strong>.` : ""}</p>`
+          : `<p style="color: #94a3b8;">Le créneau reste libre. Vous pouvez défier un autre abonné depuis le classement ou les salons privés.</p>`}
+      `
+      : `
+        <h2 style="color: #ffffff; font-size: 20px; margin-top: 0;">
+          Hello <span style="color: #00f0ff;">${params.challengerName}</span>,
+        </h2>
+        <p style="color: #cbd5e1;">
+          <strong>${params.challengedName}</strong> (<code>${params.challengedLogin}</code>) has <strong>${params.accepted ? "accepted" : "declined"}</strong> your 1v1 duel challenge scheduled for <strong>${slotFormatted}</strong> (${params.targetDistance}m).
+        </p>
+        ${params.accepted
+          ? `<p style="color: #10b981;">The time slot is now blocked for both players. ${params.roomPin ? `Garmin Watch PIN: <strong>${params.roomPin}</strong>.` : ""}</p>`
+          : `<p style="color: #94a3b8;">The slot remains free. You can challenge another subscriber at any time.</p>`}
+      `;
+
+    const html = renderCyberEmailHtml({
+      title: subject,
+      preheader: subject,
+      bodyContentHtml,
+      ctaText: isFr ? "Ouvrir Rower Race" : "Open Rower Race",
+      ctaUrl: config.frontendUrl,
+      lang: isFr ? "fr" : "en",
+    });
+
+    const text = isFr
+      ? `Bonjour ${params.challengerName},\n\n${params.challengedName} (${params.challengedLogin}) a ${params.accepted ? "accepté" : "refusé"} votre défi en duel du ${slotFormatted} (${params.targetDistance}m).`
+      : `Hello ${params.challengerName},\n\n${params.challengedName} (${params.challengedLogin}) ${params.accepted ? "accepted" : "declined"} your duel challenge on ${slotFormatted} (${params.targetDistance}m).`;
+
+    const res = await this.sendEmail({ to: params.to, subject, text, html });
+    return res.success;
+  }
+
+  public async sendDuelCancelledEmail(params: {
+    to: string;
+    recipientName: string;
+    cancelledByName: string;
+    cancelledByLogin: string;
+    challengeId: string;
+    slotStart: string;
+    slotEnd: string;
+    timezone?: string;
+    isForfeit: boolean;
+    pointsAwarded?: number;
+    lang?: string;
+  }): Promise<boolean> {
+    const config = getEmailConfig();
+    const isFr = (params.lang || "fr").toLowerCase().startsWith("fr");
+    const tz = params.timezone || "Europe/Paris";
+    let slotFormatted = `${params.slotStart}`;
+    try {
+      slotFormatted = new Intl.DateTimeFormat(isFr ? "fr-FR" : "en-US", {
+        weekday: "long",
+        day: "numeric",
+        month: "long",
+        hour: "2-digit",
+        minute: "2-digit",
+        timeZone: tz,
+      }).format(new Date(params.slotStart));
+    } catch {}
+
+    const subject = isFr
+      ? (params.isForfeit
+          ? `🏆 Rower Race - Duel annulé dans les 24h (Forfait de ${params.cancelledByName})`
+          : `🚫 Rower Race - Duel annulé par ${params.cancelledByName} (Créneau libéré)`)
+      : (params.isForfeit
+          ? `🏆 Rower Race - Duel cancelled within 24h (Forfeit by ${params.cancelledByName})`
+          : `🚫 Rower Race - Duel cancelled by ${params.cancelledByName} (Slot freed)`);
+
+    const bodyContentHtml = isFr
+      ? `
+        <h2 style="color: #ffffff; font-size: 20px; margin-top: 0;">
+          Bonjour <span style="color: #00f0ff;">${params.recipientName}</span>,
+        </h2>
+        <p style="color: #cbd5e1;">
+          <strong>${params.cancelledByName}</strong> (<code>${params.cancelledByLogin}</code>) a annulé le duel prévu le <strong>${slotFormatted}</strong>.
+        </p>
+        ${params.isForfeit
+          ? `<p style="color: #10b981;">L'annulation étant intervenue à moins de 24h du duel, elle est comptabilisée comme un <strong>forfait</strong> de votre adversaire : vous remportez la victoire (+${params.pointsAwarded ?? 10} points) et votre créneau horaire est libéré.</p>`
+          : `<p style="color: #94a3b8;">Votre créneau horaire est immédiatement libéré et redevient disponible pour d'autres défis.</p>`}
+      `
+      : `
+        <h2 style="color: #ffffff; font-size: 20px; margin-top: 0;">
+          Hello <span style="color: #00f0ff;">${params.recipientName}</span>,
+        </h2>
+        <p style="color: #cbd5e1;">
+          <strong>${params.cancelledByName}</strong> (<code>${params.cancelledByLogin}</code>) cancelled the duel scheduled for <strong>${slotFormatted}</strong>.
+        </p>
+        ${params.isForfeit
+          ? `<p style="color: #10b981;">Because the cancellation occurred within 24 hours of the duel, it counts as a <strong>forfeit</strong>: you win (+${params.pointsAwarded ?? 10} points) and your time slot has been freed.</p>`
+          : `<p style="color: #94a3b8;">Your time slot has been freed and is available again.</p>`}
+      `;
+
+    const html = renderCyberEmailHtml({
+      title: subject,
+      preheader: subject,
+      bodyContentHtml,
+      ctaText: isFr ? "Accéder à Rower Race" : "Open Rower Race",
+      ctaUrl: config.frontendUrl,
+      lang: isFr ? "fr" : "en",
+    });
+
+    const text = isFr
+      ? `Bonjour ${params.recipientName},\n\n${params.cancelledByName} (${params.cancelledByLogin}) a annulé le duel du ${slotFormatted}. Votre créneau a été libéré.${params.isForfeit ? ` Forfait appliqué (+${params.pointsAwarded ?? 10} points).` : ""}`
+      : `Hello ${params.recipientName},\n\n${params.cancelledByName} (${params.cancelledByLogin}) cancelled the duel on ${slotFormatted}. Your slot has been freed.${params.isForfeit ? ` Forfeit applied (+${params.pointsAwarded ?? 10} points).` : ""}`;
+
+    const res = await this.sendEmail({ to: params.to, subject, text, html });
+    return res.success;
+  }
+
   public getSentEmails(): EmailPayload[] {
     return [...this.sentEmailsLog];
   }
