@@ -431,6 +431,24 @@
           <span class="priv-tab-count">{{ savedSalons.length }}</span>
         }
       </button>
+
+      <button
+        type="button"
+        role="tab"
+        id="priv-tab-duels"
+        aria-controls="priv-panel-duels"
+        [attr.aria-selected]="activeTab === 'duels'"
+        [attr.tabindex]="activeTab === 'duels' ? 0 : -1"
+        class="priv-tab-btn"
+        [class.active]="activeTab === 'duels'"
+        (click)="switchTab('duels')">
+        {{ i18n.t('TAB_DUELS') }}
+        @if (pendingReceivedDuelsCount > 0) {
+          <span class="priv-tab-count priv-tab-badge-urgent">{{ pendingReceivedDuelsCount }}</span>
+        } @else if (totalDuelsCount > 0) {
+          <span class="priv-tab-count">{{ totalDuelsCount }}</span>
+        }
+      </button>
     </div>
 
     <!-- Modal polite live feedback -->
@@ -710,13 +728,6 @@
                 </div>
 
                 <div class="priv-duel-actions-row">
-                  <button
-                    type="button"
-                    class="priv-btn priv-btn-cyan"
-                    [disabled]="isSendingDuelChallenge || (!isRegisteredUser && !isUserAdmin)"
-                    (click)="onSendDuelChallenge()">
-                    {{ isSendingDuelChallenge ? 'Envoi du défi...' : '⚔️ Envoyer le défi en duel (E-mail + Salon)' }}
-                  </button>
                   <button
                     type="button"
                     class="priv-btn priv-btn-outline"
@@ -1025,10 +1036,10 @@
               type="submit"
               class="priv-btn priv-btn-launch priv-btn-wide"
               [title]="createDisabledReason"
-              [disabled]="isCreating || !canCreateRoom || (selectedGameMode === 'duel_1v1' && !isRegisteredUser && !isUserAdmin) || (selectedGameMode === 'multi' && !hasSubscriberRights)">
-              {{ isCreating ? i18n.t('CREATING_ROOM') : (selectedGameMode === 'solo' || selectedGameMode === 'bot_duel' ? 'Obtenir mon code PIN montre' : 'Lancer le salon privé') }}
+              [disabled]="isSubmitDisabled">
+              {{ submitButtonLabel }}
             </button>
-            @if (createDisabledReason && !isCreating) {
+            @if (createDisabledReason && !isCreating && !isSendingDuelChallenge) {
               <p class="priv-hint-disabled">{{ createDisabledReason }}</p>
             }
           </div>
@@ -1520,8 +1531,93 @@
           </div>
         </form>
 
-        <!-- Duels 1v1 : Défis reçus, créneaux bloqués et défis envoyés -->
-        @if (isRegisteredUser || isUserAdmin) {
+        <!-- Saved & Active Private Salons List -->
+        <div class="priv-saved-section">
+          <div class="priv-saved-header">
+            <h4 class="priv-saved-title">{{ i18n.t('MY_ROOMS_TITLE') }}</h4>
+          </div>
+
+          @if (savedSalons.length > 0) {
+            <div class="priv-saved-list">
+              @for (salon of savedSalons; track salon.id) {
+                <div
+                  class="priv-saved-item"
+                  [class.is-current]="activeRoom?.race?.id === salon.id">
+                  <div class="priv-saved-info">
+                    <div class="priv-saved-top">
+                      <span class="priv-role-chip" [class.is-host]="salon.isHost">
+                        {{ salon.isHost ? i18n.t('HOST_TAG') : i18n.t('GUEST_TAG') }}
+                      </span>
+                      <strong class="priv-saved-name">{{ salon.title }}</strong>
+                      <span class="priv-meta-chip">{{ salon.targetDistance }}m</span>
+                    </div>
+                    <div class="priv-saved-codes">
+                      <span>Code: <code>{{ salon.code }}</code></span>
+                      @if (salon.pinCode) {
+                        <span>PIN Garmin: <strong>{{ salon.pinCode }}</strong></span>
+                      }
+                      @if (liveRoomsMap.get(salon.id); as live) {
+                        <span>👥 {{ live.totalParticipants }} / {{ live.race.maxParticipants || 8 }}</span>
+                      }
+                    </div>
+                  </div>
+
+                  <div class="priv-saved-actions">
+                    <button
+                      type="button"
+                      class="priv-btn-mini priv-btn-mini-primary"
+                      (click)="openSavedSalon(salon)">
+                      {{ i18n.t('BTN_OPEN_ROOM') }}
+                    </button>
+                    <button
+                      type="button"
+                      class="priv-btn-mini"
+                      (click)="copySavedSalonUrl(salon, $event)">
+                      {{ i18n.t('BTN_COPY_URL') }}
+                    </button>
+                    <button
+                      type="button"
+                      class="priv-btn-mini priv-btn-mini-danger"
+                      (click)="removeOrCloseSavedSalon(salon, $event)"
+                      [attr.aria-label]="salon.isHost ? i18n.t('BTN_CLOSE_ROOM') : i18n.t('BTN_CLOSE')">
+                      ✕
+                    </button>
+                  </div>
+                </div>
+              }
+            </div>
+          } @else {
+            <div class="priv-empty-rooms">
+              {{ i18n.t('MY_ROOMS_EMPTY') }}
+            </div>
+          }
+        </div>
+      </div>
+    }
+
+    <!-- TAB 4: DUELS 1V1 -->
+    @if (activeTab === 'duels') {
+      <div
+        id="priv-panel-duels"
+        role="tabpanel"
+        aria-labelledby="priv-tab-duels"
+        class="priv-panel">
+        @if (!isRegisteredUser && !isUserAdmin) {
+          <div class="priv-sub-alert-box priv-alert-account">
+            <div class="priv-sub-alert-title">👤 Compte gratuit requis pour le 1 vs 1</div>
+            <p class="priv-sub-alert-desc">
+              Pour défier un adversaire en face à face et suivre vos défis, vous devez être connecté avec un compte (gratuit).
+            </p>
+            <div class="priv-sub-alert-actions">
+              <button type="button" class="priv-btn priv-btn-cyan" (click)="requestAccountModal.emit('login')">
+                Se connecter
+              </button>
+              <button type="button" class="priv-btn priv-btn-outline" (click)="requestAccountModal.emit('register')">
+                Créer un compte gratuit
+              </button>
+            </div>
+          </div>
+        } @else {
           <div class="priv-duels-section">
             <div class="priv-saved-header">
               <h4 class="priv-saved-title">⚔️ Mes Défis en Duel 1v1</h4>
@@ -1637,72 +1733,19 @@
             }
 
             @if (receivedDuelChallenges.length === 0 && sentDuelChallenges.length === 0 && !isLoadingDuelChallenges) {
-              <div class="priv-empty-rooms">Aucun défi en duel reçu ou envoyé pour le moment.</div>
+              <div class="priv-empty-rooms">
+                <p>Aucun défi en duel reçu ou envoyé pour le moment.</p>
+                <button
+                  type="button"
+                  class="priv-btn priv-btn-cyan"
+                  style="margin-top: 0.75rem;"
+                  (click)="switchTab('create'); selectGameMode('duel_1v1')">
+                  ⚔️ Lancer un nouveau défi
+                </button>
+              </div>
             }
           </div>
         }
-
-        <!-- Saved & Active Private Salons List -->
-        <div class="priv-saved-section">
-          <div class="priv-saved-header">
-            <h4 class="priv-saved-title">{{ i18n.t('MY_ROOMS_TITLE') }}</h4>
-          </div>
-
-          @if (savedSalons.length > 0) {
-            <div class="priv-saved-list">
-              @for (salon of savedSalons; track salon.id) {
-                <div
-                  class="priv-saved-item"
-                  [class.is-current]="activeRoom?.race?.id === salon.id">
-                  <div class="priv-saved-info">
-                    <div class="priv-saved-top">
-                      <span class="priv-role-chip" [class.is-host]="salon.isHost">
-                        {{ salon.isHost ? i18n.t('HOST_TAG') : i18n.t('GUEST_TAG') }}
-                      </span>
-                      <strong class="priv-saved-name">{{ salon.title }}</strong>
-                      <span class="priv-meta-chip">{{ salon.targetDistance }}m</span>
-                    </div>
-                    <div class="priv-saved-codes">
-                      <span>Code: <code>{{ salon.code }}</code></span>
-                      @if (salon.pinCode) {
-                        <span>PIN Garmin: <strong>{{ salon.pinCode }}</strong></span>
-                      }
-                      @if (liveRoomsMap.get(salon.id); as live) {
-                        <span>👥 {{ live.totalParticipants }} / {{ live.race.maxParticipants || 8 }}</span>
-                      }
-                    </div>
-                  </div>
-
-                  <div class="priv-saved-actions">
-                    <button
-                      type="button"
-                      class="priv-btn-mini priv-btn-mini-primary"
-                      (click)="openSavedSalon(salon)">
-                      {{ i18n.t('BTN_OPEN_ROOM') }}
-                    </button>
-                    <button
-                      type="button"
-                      class="priv-btn-mini"
-                      (click)="copySavedSalonUrl(salon, $event)">
-                      {{ i18n.t('BTN_COPY_URL') }}
-                    </button>
-                    <button
-                      type="button"
-                      class="priv-btn-mini priv-btn-mini-danger"
-                      (click)="removeOrCloseSavedSalon(salon, $event)"
-                      [attr.aria-label]="salon.isHost ? i18n.t('BTN_CLOSE_ROOM') : i18n.t('BTN_CLOSE')">
-                      ✕
-                    </button>
-                  </div>
-                </div>
-              }
-            </div>
-          } @else {
-            <div class="priv-empty-rooms">
-              {{ i18n.t('MY_ROOMS_EMPTY') }}
-            </div>
-          }
-        </div>
       </div>
     }
   </div>

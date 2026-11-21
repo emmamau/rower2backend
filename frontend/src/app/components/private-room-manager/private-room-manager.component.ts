@@ -25,7 +25,7 @@ import {
   buildRoomInviteMessage
 } from '../../utils/room-link.util';
 
-export type PrivateModalTab = 'create' | 'share' | 'join';
+export type PrivateModalTab = 'create' | 'share' | 'join' | 'duels';
 
 const SAVED_SALONS_STORAGE_KEY = 'rower_saved_private_salons';
 
@@ -523,6 +523,7 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
     this.actionError = '';
     if (tab === 'join') {
       this.refreshMyRooms();
+    } else if (tab === 'duels') {
       this.refreshMyDuels();
     } else if (tab === 'create') {
       this.refreshRoomLimits();
@@ -532,8 +533,8 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
 
   onTabKeydown(event: KeyboardEvent): void {
     const availableTabs: PrivateModalTab[] = this.activeRoom
-      ? ['create', 'share', 'join']
-      : ['create', 'join'];
+      ? ['create', 'share', 'join', 'duels']
+      : ['create', 'join', 'duels'];
     const currentIdx = availableTabs.indexOf(this.activeTab);
     let targetTab: PrivateModalTab | null = null;
     if (event.key === 'ArrowRight') {
@@ -991,8 +992,51 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
     return false;
   }
 
+  get pendingReceivedDuelsCount(): number {
+    return (this.receivedDuelChallenges || []).filter(d => d.status === 'PENDING').length;
+  }
+
+  get totalDuelsCount(): number {
+    return (this.receivedDuelChallenges?.length || 0) + (this.sentDuelChallenges?.length || 0);
+  }
+
+  get submitButtonLabel(): string {
+    if (this.selectedGameMode === 'duel_1v1') {
+      return this.isSendingDuelChallenge ? 'Envoi du défi...' : 'Envoyer le défi en duel';
+    }
+    if (this.isCreating) {
+      return this.i18n.t('CREATING_ROOM');
+    }
+    if (this.selectedGameMode === 'solo' || this.selectedGameMode === 'bot_duel') {
+      return 'Obtenir mon code PIN montre';
+    }
+    return 'Lancer le salon privé';
+  }
+
+  get isSubmitDisabled(): boolean {
+    if (this.selectedGameMode === 'duel_1v1') {
+      return (
+        this.isSendingDuelChallenge ||
+        this.isCreating ||
+        (!this.isRegisteredUser && !this.isUserAdmin) ||
+        !this.duelTargetLogin.trim() ||
+        !this.computeDuelSlotIsoRange() ||
+        this.isConcurrentQuotaReached ||
+        this.isWeeklyQuotaReached
+      );
+    }
+    return (
+      this.isCreating ||
+      !this.canCreateRoom ||
+      (this.selectedGameMode === 'multi' && !this.hasSubscriberRights)
+    );
+  }
+
   get canCreateRoom(): boolean {
     if (this.isUserAdmin) return true;
+    if (this.selectedGameMode === 'duel_1v1') {
+      return (this.isRegisteredUser || this.isUserAdmin) && !this.isConcurrentQuotaReached && !this.isWeeklyQuotaReached;
+    }
     const hasWatch = this.isWatchConnected || (this.quotaInfo ? this.quotaInfo.isWatchConnected : false);
     if (!hasWatch) return false;
     if (this.isConcurrentQuotaReached || this.isWeeklyQuotaReached) return false;
@@ -1001,6 +1045,24 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
 
   get createDisabledReason(): string {
     if (this.isUserAdmin) return '';
+    if (this.selectedGameMode === 'duel_1v1') {
+      if (!this.isRegisteredUser && !this.isUserAdmin) {
+        return "Compte gratuit requis pour défier un abonné en duel.";
+      }
+      if (!this.duelTargetLogin.trim()) {
+        return "Veuillez renseigner le login de l'abonné à défier.";
+      }
+      if (!this.computeDuelSlotIsoRange()) {
+        return "Veuillez choisir un créneau horaire valide dans le futur.";
+      }
+      if (this.isConcurrentQuotaReached) {
+        return `Plafond atteint : vous avez déjà ${this.concurrentRoomsMax} salon(s) ouvert(s) à la fois.`;
+      }
+      if (this.isWeeklyQuotaReached) {
+        return `Quota hebdomadaire atteint (${this.weeklyRoomsMax} salons max cette semaine selon votre ${this.userOfferName}).`;
+      }
+      return '';
+    }
     const hasWatch = this.isWatchConnected || (this.quotaInfo ? this.quotaInfo.isWatchConnected : false);
     if (!hasWatch) {
       return "Appairage requis : connectez votre montre Garmin pour créer un salon.";
@@ -1015,16 +1077,15 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
   }
 
   onCreateRoomSubmit(): void {
-    if (this.isCreating) return;
+    if (this.isCreating || this.isSendingDuelChallenge) return;
 
-    if (!this.canCreateRoom && !this.isUserAdmin) {
-      this.createGeneralError = this.createDisabledReason || "Impossible de créer le salon : conditions requises non remplies.";
-      this.cdr.markForCheck();
+    if (this.selectedGameMode === 'duel_1v1') {
+      this.onSendDuelChallenge();
       return;
     }
 
-    if (this.selectedGameMode === 'duel_1v1' && !this.isRegisteredUser && !this.isUserAdmin) {
-      this.createGeneralError = "Pour défier un autre joueur en 1 vs 1, un compte utilisateur (gratuit) est requis. Connectez-vous ou inscrivez-vous en quelques secondes.";
+    if (!this.canCreateRoom && !this.isUserAdmin) {
+      this.createGeneralError = this.createDisabledReason || "Impossible de créer le salon : conditions requises non remplies.";
       this.cdr.markForCheck();
       return;
     }
@@ -1048,13 +1109,13 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
     const clampedDist = Math.min(100000, Math.max(100, Math.round(Number(this.targetDistance) || 2000)));
     const clampedMax = this.selectedGameMode === 'solo'
       ? 1
-      : this.selectedGameMode === 'bot_duel' || this.selectedGameMode === 'duel_1v1'
+      : this.selectedGameMode === 'bot_duel'
       ? 2
       : Math.min(30, Math.max(2, Math.round(Number(this.maxParticipants) || 8)));
 
     const isSolo = this.selectedGameMode === 'solo';
     const isBotDuel = this.selectedGameMode === 'bot_duel';
-    const isDuel1v1 = this.selectedGameMode === 'duel_1v1';
+    const isDuel1v1 = false;
 
     this.rowerService
       .createPrivateRace({
@@ -1956,6 +2017,7 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
           this.duelTargetLogin = '';
           this.refreshMyDuels();
           this.refreshMyRooms();
+          this.activeTab = 'duels';
           this.showFeedback('⚔️ Défi en duel envoyé !');
         } else {
           this.duelChallengeError = res?.message || 'Impossible d\'envoyer le défi.';

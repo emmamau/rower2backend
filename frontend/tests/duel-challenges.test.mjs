@@ -81,6 +81,15 @@ test('PrivateRoomManager, StandingsModal & HomeDashboard: 1v1 challenge creation
   assert.match(privTs, /acceptActiveDuel\(\)/);
   assert.match(privTs, /refuseActiveDuel\(\)/);
 
+  // Dedicated duels tab & dynamic submit button checks
+  assert.match(privTs, /export type PrivateModalTab = 'create' \| 'share' \| 'join' \| 'duels'/);
+  assert.match(privTs, /get submitButtonLabel\(\):\s*string/);
+  assert.match(privTs, /get isSubmitDisabled\(\):\s*boolean/);
+  assert.match(privHtml, /id="priv-tab-duels"/);
+  assert.match(privHtml, /id="priv-panel-duels"/);
+  assert.match(privHtml, /\{\{\s*submitButtonLabel\s*\}\}/);
+  assert.doesNotMatch(privHtml, /class="priv-duel-actions-row"[\s\S]*?onSendDuelChallenge\(\)/);
+
   assert.match(appHtml, /standingsActiveTab\s*=\s*'duels'/);
   assert.match(appHtml, /id="filter-duel-league"/);
   assert.match(appHtml, /id="filter-duel-cat"/);
