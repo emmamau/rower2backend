@@ -2592,6 +2592,9 @@ export class AppComponent implements OnInit, OnDestroy {
     const identifier = this.activePrivateRoom.code || this.activePrivateRoom.race?.id || this.activePrivateRoom.raceId;
     if (!identifier) return;
 
+    // Basculer immédiatement sur smartphone / web vers la vue régate en paysage plein écran lors du geste utilisateur
+    this.onPrivateRaceStartTriggered({ countdownSeconds: 10 });
+
     this.rowerService.startOrResetPrivateRace(identifier, {
       hostUserId: this.activeUserId,
       countdownSeconds: 10
@@ -3502,12 +3505,14 @@ export class AppComponent implements OnInit, OnDestroy {
 
   get isRaceOrCountdownActive(): boolean {
     const status = this.nextRaceInfo?.status || this.activePrivateRoom?.race?.status;
+    const statusUpper = typeof status === 'string' ? status.toUpperCase() : '';
     return Boolean(
       this.isRaceActive ||
       this.isPreStartCountdown ||
       this.is3sCountdown ||
       status === 'in_progress' ||
-      status === 'RUNNING' ||
+      statusUpper === 'RUNNING' ||
+      statusUpper === 'COUNTDOWN' ||
       status === 'countdown'
     );
   }
@@ -4517,6 +4522,18 @@ export class AppComponent implements OnInit, OnDestroy {
     this.cdr.markForCheck();
   }
 
+  /**
+   * Déclenché lors du clic sur le bouton de démarrage de course dans un salon privé (notamment sur smartphone).
+   * Bascule immédiatement l'interface sur la vue régate, ferme la modale, active le plein écran et verrouille le mode paysage.
+   */
+  onPrivateRaceStartTriggered(event?: { countdownSeconds?: number; isFirstStroke?: boolean }): void {
+    this.isPrivateModalOpen = false;
+    this.setSiteView('regatta');
+    this.enterFullscreen().catch(() => {});
+    this.lockLandscape().catch(() => {});
+    this.cdr.markForCheck();
+  }
+
   onPrivateRoomSelected(event: { payload: PrivateRacePayload; pushUrl: boolean }): void {
     this.activatePrivateRoom(event.payload, event.pushUrl);
     this.refreshPendingPrivateAndDuels();
@@ -4528,6 +4545,18 @@ export class AppComponent implements OnInit, OnDestroy {
     if (updated?.secondsRemaining && updated.secondsRemaining > 0) {
       this.countdownSeconds = updated.secondsRemaining;
       this.syncCountdownUI();
+    }
+    const updatedStatus = (updated?.status || updated?.race?.status || '').toString().toUpperCase();
+    if (
+      (updatedStatus === 'COUNTDOWN' || updatedStatus === 'RUNNING' || (updated?.secondsRemaining && updated.secondsRemaining > 0)) &&
+      (this.isSmartphone || this.isMobileOrTablet)
+    ) {
+      this.isPrivateModalOpen = false;
+      if (this.siteView !== 'regatta') {
+        this.setSiteView('regatta');
+      }
+      this.enterFullscreen().catch(() => {});
+      this.lockLandscape().catch(() => {});
     }
     this.updateDocumentTitle();
     this.initGameLoop();
@@ -4899,6 +4928,14 @@ export class AppComponent implements OnInit, OnDestroy {
         if (isPrivateTarget && this.activePrivateRoom?.race) {
           this.activePrivateRoom.race.status = 'COUNTDOWN';
           this.activePrivateRoom.status = 'COUNTDOWN';
+          if (this.isSmartphone || this.isMobileOrTablet) {
+            this.isPrivateModalOpen = false;
+            if (this.siteView !== 'regatta') {
+              this.setSiteView('regatta');
+            }
+            this.enterFullscreen().catch(() => {});
+            this.lockLandscape().catch(() => {});
+          }
         }
         if (isPublicTarget && this.nextRaceInfo?.race) {
           this.nextRaceInfo.race.status = 'COUNTDOWN';
@@ -4924,6 +4961,11 @@ export class AppComponent implements OnInit, OnDestroy {
           this.activePrivateRoom.race.status = 'RUNNING';
           this.activePrivateRoom.status = 'RUNNING';
           this.setSiteView('regatta');
+          if (this.isSmartphone || this.isMobileOrTablet) {
+            this.isPrivateModalOpen = false;
+            this.enterFullscreen().catch(() => {});
+            this.lockLandscape().catch(() => {});
+          }
         }
         if (isPublicTarget && this.nextRaceInfo) {
           this.nextRaceInfo.status = 'in_progress';

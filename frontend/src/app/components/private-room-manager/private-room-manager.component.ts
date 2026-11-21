@@ -68,6 +68,7 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
   @Output() requestAccountModal = new EventEmitter<'login' | 'register'>();
   @Output() bannerCollapsedChange = new EventEmitter<boolean>();
   @Output() viewRankingRequest = new EventEmitter<string>();
+  @Output() raceStartTriggered = new EventEmitter<{ countdownSeconds: number; isFirstStroke?: boolean }>();
 
   activeTab: PrivateModalTab = 'create';
   isBannerCollapsed = false;
@@ -1431,6 +1432,8 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
     const identifier = this.activeRoomCode || this.activeRoom.race.id;
     this.isActionBusy = true;
     this.actionError = '';
+    // Déclenchement immédiat lors du geste utilisateur pour plein écran paysage
+    this.raceStartTriggered.emit({ countdownSeconds: 0, isFirstStroke: true });
     this.rowerService
       .startOrResetPrivateRace(identifier, {
         hostUserId: this.activeUserId,
@@ -1457,6 +1460,9 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
     const identifier = this.activeRoomCode || this.activeRoom.race.id;
     this.isActionBusy = true;
     this.actionError = '';
+
+    // Déclenchement immédiat lors du geste utilisateur pour plein écran paysage
+    this.raceStartTriggered.emit({ countdownSeconds });
 
     this.rowerService
       .startOrResetPrivateRace(identifier, {

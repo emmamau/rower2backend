@@ -26,7 +26,7 @@ test('2. app.ts persists active private room in localStorage and clears it on ex
 
   // activatePrivateRoom saves room id and code
   assert.match(appTs, /localStorage\.setItem\('rower_active_private_room_id',\s*room\.race\.id\)/);
-  assert.match(appTs, /localStorage\.setItem\('rower_active_private_room_code',\s*room\.code\s*\|\|\s*room\.race(?:\.|\?\.)code\)/);
+  assert.match(appTs, /localStorage\.setItem\('rower_active_private_room_code',\s*\(?room\.code\s*\|\|\s*room\.race(?:\.|\?\.)code/);
 
   // exitPrivateRoomToPublic clears localStorage
   assert.match(appTs, /localStorage\.removeItem\('rower_active_private_room_id'\)/);
