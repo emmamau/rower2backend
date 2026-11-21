@@ -1,0 +1,180 @@
+<!-- TOAST ÉPHÉMÈRE FRANCHISSEMENT DE LIGNE D'ARRIVÉE (2 SECONDES STRICTES) -->
+<aside class="finish-line-toast" *ngIf="activeFinishToast" role="alert" aria-live="assertive">
+  <div class="finish-toast-card">
+    <span class="finish-toast-icon">🏁</span>
+    <span class="finish-toast-text">{{ activeFinishToast }}</span>
+  </div>
+</aside>
+
+<!-- OVERLAY CÉLÉBRATION LIGNE D'ARRIVÉE : FEUX D'ARTIFICE ET BRAVO (2 SECONDES) -->
+<aside
+  class="finish-celebration-fullscreen-overlay"
+  *ngIf="showFinishCelebration"
+  role="dialog"
+  aria-modal="true"
+  aria-label="Célébration d'arrivée">
+  <div class="fireworks-canvas-backdrop" aria-hidden="true">
+    <div class="firework-burst burst-1"></div>
+    <div class="firework-burst burst-2"></div>
+    <div class="firework-burst burst-3"></div>
+    <div class="firework-burst burst-4"></div>
+    <div class="firework-burst burst-5"></div>
+    <div class="firework-burst burst-6"></div>
+  </div>
+  <div class="celebration-center-content">
+    <div class="celebration-trophy-icon">🏆</div>
+    <h2 class="celebration-bravo-title">BRAVO !</h2>
+    <p class="celebration-bravo-subtitle">Ligne d'arrivée franchie</p>
+  </div>
+</aside>
+
+<!-- INVITATION VISUELLE À FAIRE PIVOTER L'APPAREIL EN MODE PAYSAGE -->
+<aside
+  class="orientation-rotate-notice"
+  *ngIf="(isMobileOrTablet || isMobileFullscreenOnly) && !isOrientationDismissed && (siteView === 'cockpit' || siteView === 'regatta' || isFullscreen || isPseudoFullscreen)"
+  role="status"
+  aria-live="polite">
+  <div class="orientation-rotate-card">
+    <div class="rotate-icon-anim" aria-hidden="true">🔄</div>
+    <div class="rotate-text-group">
+      <strong class="rotate-title">{{ i18n.t('ROTATE_DEVICE_TITLE') || 'Optimisation pour Rameur' }}</strong>
+      <p class="rotate-desc">
+        {{ i18n.t('ROTATE_DEVICE_DESC') || 'Faites pivoter votre appareil en mode paysage (horizontal) pour afficher l\'ensemble du cockpit et de la régate.' }}
+      </p>
+    </div>
+    <button
+      type="button"
+      class="btn-dismiss-rotate"
+      (click)="dismissOrientationNotice()"
+      title="Fermer l'avertissement"
+      aria-label="Fermer">✕</button>
+  </div>
+</aside>
+
+<!-- REGATTA DIRECT LAUNCH SPLASH OVERLAY (INVITATION EMAIL ?mode=regatta) -->
+<div
+  class="regatta-launch-overlay"
+  *ngIf="isRegattaLaunchSplashOpen"
+  role="dialog"
+  aria-modal="true"
+  aria-labelledby="regatta-launch-title">
+  <div class="regatta-launch-card">
+    <div class="regatta-launch-logo">
+      <svg class="regatta-launch-svg" viewBox="0 0 100 100" width="88" height="88">
+        <defs>
+          <linearGradient id="splashWater" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#00f0ff"/>
+            <stop offset="100%" stop-color="#ff0055"/>
+          </linearGradient>
+          <linearGradient id="splashHull" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="#ff0055"/>
+            <stop offset="50%" stop-color="#ff6600"/>
+            <stop offset="100%" stop-color="#ffe600"/>
+          </linearGradient>
+        </defs>
+        <circle cx="50" cy="50" r="46" fill="#060913" stroke="url(#splashWater)" stroke-width="4"/>
+        <path d="M 16 64 C 34 58 66 58 84 64" fill="none" stroke="#00f0ff" stroke-width="3" stroke-linecap="round" opacity="0.8"/>
+        <path d="M 12 50 C 24 43 76 43 88 50 C 76 57 24 57 12 50 Z" fill="url(#splashHull)"/>
+        <ellipse cx="50" cy="50" rx="9" ry="3.5" fill="#060913" stroke="#ffe600" stroke-width="1.5"/>
+        <circle cx="50" cy="33" r="5" fill="#00f0ff" stroke="#ffffff" stroke-width="1.5"/>
+        <line x1="28" y1="26" x2="72" y2="74" stroke="#ffffff" stroke-width="3.5" stroke-linecap="round"/>
+        <ellipse cx="26" cy="24" rx="6" ry="3" transform="rotate(-35 26 24)" fill="#ff0055"/>
+        <ellipse cx="74" cy="76" rx="6" ry="3" transform="rotate(-35 74 76)" fill="#ff0055"/>
+        <polygon points="50,14 52,19 57,20 53,23 54,28 50,25 46,28 47,23 43,20 48,19" fill="#ffe600"/>
+      </svg>
+    </div>
+
+    <div class="regatta-launch-badge">
+      <span>🚣 {{ i18n.t('MODE_REGATTA') }}</span>
+      <span *ngIf="activePrivateRoom?.race?.targetDistance" class="launch-dist-tag">{{ activePrivateRoom?.race?.targetDistance }}m</span>
+    </div>
+
+    <h2 id="regatta-launch-title" class="regatta-launch-heading">
+      {{ activePrivateRoom?.race?.title || i18n.t('REGATTA_LAUNCH_TITLE') }}
+    </h2>
+
+    <p class="regatta-launch-text">
+      {{ i18n.t('REGATTA_LAUNCH_DESC') }}
+    </p>
+
+    <div class="regatta-launch-actions">
+      <button
+        type="button"
+        class="btn-regatta-launch-action"
+        (click)="launchRegattaFromSplash()">
+        {{ i18n.t('REGATTA_LAUNCH_BTN') }}
+      </button>
+      <button
+        type="button"
+        class="btn-regatta-launch-skip"
+        (click)="dismissRegattaLaunchSplash()">
+        {{ i18n.t('REGATTA_LAUNCH_SKIP') }}
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- 3 SECONDS RACE COUNTDOWN OVERLAY -->
+<div class="three-sec-overlay" *ngIf="is3sCountdown">
+  <div class="three-sec-box">
+    <div class="three-sec-title">{{ i18n.t('COUNTDOWN_TITLE') }}</div>
+    <div class="three-sec-number">{{ threeSecondsCount }}</div>
+    <div class="three-sec-sub">{{ i18n.t('COUNTDOWN_SUB') }}</div>
+  </div>
+</div>
+
+<!-- RACE PRE-START COUNTDOWN TIMER (15s..4s) - DRAGGABLE -->
+<div class="prestart-countdown-overlay" [class.has-custom-pos]="!!timerPosition" *ngIf="isPreStartCountdown && !is3sCountdown && !isPrestartTimerDismissed">
+  <div
+    class="prestart-countdown-box"
+    [class.is-custom-pos]="!!timerPosition"
+    [class.is-dragging]="isDraggingTimer"
+    [style.left.px]="timerPosition ? timerPosition.x : null"
+    [style.top.px]="timerPosition ? timerPosition.y : null"
+    (pointerdown)="timerPointerDown.emit($event)"
+    (pointermove)="timerPointerMove.emit($event)"
+    (pointerup)="timerPointerUp.emit($event)"
+    (pointercancel)="timerPointerUp.emit($event)"
+    title="Glissez pour déplacer le compte à rebours où vous le souhaitez">
+    <div class="prestart-drag-bar">
+      <span class="prestart-drag-handle">⋮⋮ Glisser</span>
+      <div class="prestart-drag-actions">
+        <button
+          *ngIf="timerPosition"
+          type="button"
+          class="btn-reset-timer-pos"
+          (click)="resetTimerPos.emit($event)"
+          title="Recentrer le compte à rebours">
+          ↺ Recentrer
+        </button>
+        <button
+          type="button"
+          class="btn-close-timer-popup"
+          (click)="dismissPrestartTimer.emit($event)"
+          title="Fermer définitivement ce compte à rebours flottant"
+          aria-label="Fermer définitivement">
+          ✕
+        </button>
+      </div>
+    </div>
+    <div class="prestart-countdown-badge">⏱️ DÉPART DANS</div>
+    <div class="prestart-countdown-number">{{ formattedPreRaceCountdown }}</div>
+    <div class="prestart-countdown-sub">Tenez-vous prêts sur vos rameurs !</div>
+  </div>
+</div>
+
+<!-- ORGANIZER PENDING APPROVAL NOTIFICATION BANNER -->
+<aside class="pending-approval-banner" *ngIf="pendingApprovalPlayers.length > 0" role="alert" aria-live="assertive">
+  <div class="pending-banner-content">
+    <span class="pending-banner-icon">🔔</span>
+    <div class="pending-banner-text">
+      <strong>{{ pendingApprovalPlayers.length }} joueur(s) en attente de validation :</strong>
+      <span *ngFor="let p of pendingApprovalPlayers" class="pending-user-pill">
+        <span class="pending-pill-name">{{ p.userName || 'Rameur' }}</span>
+        <span class="pending-pill-id">[{{ p.userId }}]</span>
+        <button type="button" class="btn-banner-approve" (click)="approvePlayer.emit(p.userId)">✓ Valider</button>
+        <button type="button" class="btn-banner-reject" (click)="rejectPlayer.emit(p.userId)">✕ Refuser</button>
+      </span>
+    </div>
+  </div>
+</aside>

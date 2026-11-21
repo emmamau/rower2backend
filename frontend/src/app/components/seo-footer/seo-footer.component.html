@@ -1,0 +1,364 @@
+<!-- ESPACE DE CONTENU SEO MULTILINGUE & RÉFÉRENCEMENT INTERNATIONAL -->
+<section class="seo-hub-section" id="seo-guides" aria-label="Guide Aviron Indoor, Télémétrie et Régates Connectées" *ngIf="siteView === 'home'">
+  <div class="seo-container">
+    <!-- VERSION SMARTPHONE ET TABLETTE : LA PARTIE INFÉRIEURE ESPORT ROWING ET GUIDE CONNECTÉ EST REMPLACÉE PAR UN LIEN -->
+    <div class="seo-mobile-link-wrapper" *ngIf="isMobileOrTablet">
+      <a
+        href="javascript:void(0)"
+        class="seo-mobile-link"
+        (click)="toggleMobileSeoGuide($event)"
+        role="button"
+        [attr.aria-expanded]="isMobileSeoGuideOpen">
+        <div class="seo-mobile-link-left">
+          <span class="seo-link-icon">🌐</span>
+          <div class="seo-link-text">
+            <span class="seo-link-tag">{{ i18n.t('SEO_TAG') }}</span>
+            <strong class="seo-link-title">{{ i18n.t('SEO_GUIDE_LINK') }}</strong>
+            <span class="seo-link-desc">{{ i18n.t('SEO_GUIDE_DESC') }}</span>
+          </div>
+        </div>
+        <span class="seo-link-arrow">{{ isMobileSeoGuideOpen ? '▲' : '→' }}</span>
+      </a>
+    </div>
+
+    <!-- CONTENU DÉTAILLÉ DU GUIDE (AFFICHÉ SUR PC, OU DÉPLIÉ VIA LE LIEN SUR SMARTPHONE ET TABLETTE) -->
+    <div class="seo-guide-body" [class.mobile-collapsed]="isMobileOrTablet && !isMobileSeoGuideOpen">
+      <header class="seo-header">
+        <div class="seo-title-group">
+          <span class="seo-tag">{{ i18n.t('SEO_TAG') }}</span>
+          <h2 class="seo-title">{{ i18n.t('SEO_TITLE') }}</h2>
+          <p class="seo-lead">
+            {{ i18n.t('SEO_LEAD') }}
+          </p>
+        </div>
+        <!-- Sélecteur de langue SEO -->
+        <div class="seo-lang-tabs" role="tablist" aria-label="Langues de documentation SEO">
+          <button
+            type="button"
+            role="tab"
+            class="seo-lang-tab"
+            [class.active]="activeSeoLang === 'fr'"
+            (click)="seoLangChange.emit('fr')">
+            🇫🇷 Français
+          </button>
+          <button
+            type="button"
+            role="tab"
+            class="seo-lang-tab"
+            [class.active]="activeSeoLang === 'en'"
+            (click)="seoLangChange.emit('en')">
+            🇬🇧 English
+          </button>
+          <button
+            type="button"
+            role="tab"
+            class="seo-lang-tab"
+            [class.active]="activeSeoLang === 'de'"
+            (click)="seoLangChange.emit('de')">
+            🇩🇪 Deutsch
+          </button>
+          <button
+            type="button"
+            role="tab"
+            class="seo-lang-tab"
+            [class.active]="activeSeoLang === 'es'"
+            (click)="seoLangChange.emit('es')">
+            🇪🇸 Español
+          </button>
+          <button
+            type="button"
+            role="tab"
+            class="seo-lang-tab"
+            [class.active]="activeSeoLang === 'it'"
+            (click)="seoLangChange.emit('it')">
+            🇮🇹 Italiano
+          </button>
+          <button
+            type="button"
+            role="tab"
+            class="seo-lang-tab"
+            [class.active]="activeSeoLang === 'pt'"
+            (click)="seoLangChange.emit('pt')">
+            🇵🇹 Português
+          </button>
+        </div>
+      </header>
+
+      <!-- CONTENU FR -->
+      <article class="seo-article" *ngIf="activeSeoLang === 'fr'" lang="fr">
+        <h3>Comment connecter votre rameur Concept2, WaterRower SmartRow et votre montre Garmin ?</h3>
+        <p>
+          Rower Race est la première application sportive permettant une synchronisation totale entre les capteurs de poulie <strong>WaterRower SmartRow</strong>, les moniteurs <strong>Concept2 PM5</strong>, les rameurs Bluetooth standardisés <strong>FTMS</strong> (Fitness Machine Service) et l'application <strong>Garmin Connect IQ</strong>.
+        </p>
+        <div class="seo-features-grid">
+          <div class="seo-card">
+            <h4>🚣 Régates Virtuelles 2D en Temps Réel</h4>
+            <p>Participez à des courses sur 500m, 1 000m, 2 000m jusqu'à 10 000m. Visualisez chaque coureur sur sa ligne d'eau grâce à notre moteur physique Dead Reckoning fluide à 60 FPS.</p>
+          </div>
+          <div class="seo-card">
+            <h4>🤖 Mode Duel 1v1 contre un Bot</h4>
+            <p>Entraînez-vous à tout moment en défiant un bot virtuel de niveau aléatoire ou calibré. Les utilisateurs inscrits avec un compte peuvent ajouter ou retirer le bot à leur guise pour adapter leur séance.</p>
+          </div>
+          <div class="seo-card">
+            <h4>📊 Espace Statistiques & Analyses Détaillées</h4>
+            <p>Retrouvez vos courbes de puissance en Watts, votre allure moyenne aux 500m, votre cadence (SPM), votre fréquence cardiaque et vos calories. Accès sur 10 jours en compte gratuit, et <strong>analyses historiques illimitées</strong> pour les abonnés Club et Élite Pro.</p>
+          </div>
+          <div class="seo-card">
+            <h4>⌚ Compatibilité Garmin Connect IQ & WaterRower</h4>
+            <p>Reconnexion automatique et appairage instantané aux poulies WaterRower SmartRow (SR, WR, ComModule) et rameurs FTMS via BLE sécurisé avec identification instantanée.</p>
+          </div>
+        </div>
+
+        <div class="seo-faq-section">
+          <h4>Foire Aux Questions (FAQ)</h4>
+          <details class="seo-faq-item">
+            <summary>Quels rameurs sont compatibles avec Rower Race ?</summary>
+            <p>Tous les rameurs équipés du protocole Bluetooth FTMS, les moniteurs Concept2 PM5, ainsi que les rameurs à eau WaterRower équipés du boîtier ou de la poulie SmartRow.</p>
+          </details>
+          <details class="seo-faq-item">
+            <summary>Combien coûte l'abonnement et comment résilier ?</summary>
+            <p>L'accès de base est gratuit avec 10 jours d'historique. Les formules Club (5,99 €/mois) et Élite Pro (8,99 €/mois) offrent des salons jusqu'à 10 joueurs et un historique illimité. La résiliation s'effectue en 1 clic dans votre profil ou en écrivant à contact@rowerrace.com.</p>
+          </details>
+          <details class="seo-faq-item">
+            <summary>Comment supprimer définitivement mes données ?</summary>
+            <p>Conformément au RGPD (Art. 17), un bouton de suppression définitive de compte est disponible dans votre profil. Vous pouvez aussi envoyer votre demande à contact@rowerrace.com.</p>
+          </details>
+        </div>
+        <div class="seo-contact-box">
+          <span>Une question technique, un partenariat club ou une demande RGPD ? Écrivez-nous à :</span>
+          <a href="mailto:contact@rowerrace.com" class="seo-email-link">contact@rowerrace.com</a>
+        </div>
+      </article>
+
+      <!-- CONTENU EN -->
+      <article class="seo-article" *ngIf="activeSeoLang === 'en'" lang="en">
+        <h3>Connected Indoor Rowing & Live Multiplayer Regatta Platform</h3>
+        <p>
+          Rower Race connects your <strong>Concept2 PM5</strong>, <strong>WaterRower SmartRow pulley</strong>, and <strong>FTMS Bluetooth ergometers</strong> directly to your <strong>Garmin Connect IQ</strong> smartwatch for competitive real-time 2D racing.
+        </p>
+        <div class="seo-features-grid">
+          <div class="seo-card">
+            <h4>🚣 Real-Time Live Regatta</h4>
+            <p>Race with athletes worldwide from 500m up to 10,000m with dead-reckoning 60 FPS physics and split second ranking.</p>
+          </div>
+          <div class="seo-card">
+            <h4>🤖 1v1 Bot Duel Mode</h4>
+            <p>Race solo against AI opponents with adaptive pacing. Registered account users can freely toggle bots to customize their workouts.</p>
+          </div>
+          <div class="seo-card">
+            <h4>📊 Workout Analytics & Race History</h4>
+            <p>Analyze power in Watts, 500m split pace, stroke rate (SPM), heart rate, and calories. Free accounts enjoy 10 days of history, while Club & Elite Pro subscribers get unlimited race archives.</p>
+          </div>
+          <div class="seo-card">
+            <h4>⌚ Garmin Smartwatch & SmartRow Pulley Sync</h4>
+            <p>Seamless BLE pairing for Garmin Fenix, Forerunner, Venu, Epix with WaterRower SmartRow pulleys and PM5 consoles.</p>
+          </div>
+        </div>
+        <div class="seo-contact-box">
+          <span>Support & partnership inquiries:</span>
+          <a href="mailto:contact@rowerrace.com" class="seo-email-link">contact@rowerrace.com</a>
+        </div>
+      </article>
+
+      <!-- CONTENU DE -->
+      <article class="seo-article" *ngIf="activeSeoLang === 'de'" lang="de">
+        <h3>Vernetze Indoor-Rudern & Virtuelle Live-Regatta Plattform</h3>
+        <p>
+          Rower Race verbindet <strong>Concept2 PM5</strong>, <strong>WaterRower SmartRow</strong> und <strong>Bluetooth FTMS Rudergeräte</strong> mit Ihrer <strong>Garmin Connect IQ</strong> Smartwatch für packende Echtzeit-Wettkämpfe auf dem Wasser.
+        </p>
+        <div class="seo-features-grid">
+          <div class="seo-card">
+            <h4>🚣 2D Echtzeit-Regatta</h4>
+            <p>Treten Sie auf 500m bis 10.000m gegen andere Ruderer an. Präzise Auswertung von Leistung in Watt, 500m-Schnitt und Schlagfrequenz.</p>
+          </div>
+          <div class="seo-card">
+            <h4>🤖 1v1 Bot-Duell</h4>
+            <p>Spontane Rennen gegen virtuelle Bots. Registrierte Benutzer mit Benutzerkonto können Bots jederzeit hinzufügen oder entfernen.</p>
+          </div>
+          <div class="seo-card">
+            <h4>📊 Statistiken & Trainingsanalysen</h4>
+            <p>Kostenlose Konten erhalten Zugriff auf 10 Tage Rennstatistiken. Abonnenten profitieren von einem unbegrenzten Rennarchiv.</p>
+          </div>
+          <div class="seo-card">
+            <h4>⌚ Garmin & SmartRow Optimierung</h4>
+            <p>Schnelle und stabile Bluetooth-Verbindung für WaterRower-Riemenscheiben und Garmin-Uhren.</p>
+          </div>
+        </div>
+        <div class="seo-contact-box">
+          <span>Offizieller Kontakt & Support:</span>
+          <a href="mailto:contact@rowerrace.com" class="seo-email-link">contact@rowerrace.com</a>
+        </div>
+      </article>
+
+      <!-- CONTENU ES -->
+      <article class="seo-article" *ngIf="activeSeoLang === 'es'" lang="es">
+        <h3>Plataforma de Remo Indoor y Regatas Virtuales en Directo</h3>
+        <p>
+          Rower Race sincroniza su remo <strong>Concept2 PM5</strong>, la polea <strong>WaterRower SmartRow</strong> y remos compatibles <strong>FTMS Bluetooth</strong> con su reloj inteligente <strong>Garmin Connect IQ</strong>.
+        </p>
+        <div class="seo-features-grid">
+          <div class="seo-card">
+            <h4>🚣 Regatas Multijugador en Tiempo Real</h4>
+            <p>Compite en distancias desde 500m hasta 10.000m con telemetría en directo de vatios, ritmo cada 500m y paladas por minuto.</p>
+          </div>
+          <div class="seo-card">
+            <h4>🤖 Duelo 1v1 contra Bot</h4>
+            <p>Entrenamiento individual contra oponentes virtuales. Los usuarios registrados con una cuenta pueden añadir o quitar bots a voluntad.</p>
+          </div>
+          <div class="seo-card">
+            <h4>📊 Espacio de Estadísticas y Rendimiento</h4>
+            <p>Análisis de carreras de los últimos 10 días para cuentas gratuitas, e historial ilimitado para suscriptores Club y Elite Pro.</p>
+          </div>
+          <div class="seo-card">
+            <h4>⌚ Conexión Garmin y Polea WaterRower</h4>
+            <p>Conexión inalámbrica fiable con la polea SmartRow y las pantallas Concept2 PM5.</p>
+          </div>
+        </div>
+        <div class="seo-contact-box">
+          <span>Contacto oficial y soporte:</span>
+          <a href="mailto:contact@rowerrace.com" class="seo-email-link">contact@rowerrace.com</a>
+        </div>
+      </article>
+
+      <!-- CONTENU IT -->
+      <article class="seo-article" *ngIf="activeSeoLang === 'it'" lang="it">
+        <h3>Piattaforma di Canottaggio Indoor e Regate Connesse in Tempo Reale</h3>
+        <p>
+          Rower Race connette il tuo vogatore <strong>Concept2 PM5</strong>, la puleggia <strong>WaterRower SmartRow</strong> e i vogatori <strong>Bluetooth FTMS</strong> al tuo smartwatch <strong>Garmin Connect IQ</strong>.
+        </p>
+        <div class="seo-features-grid">
+          <div class="seo-card">
+            <h4>🚣 Regate 2D in Tempo Reale</h4>
+            <p>Gareggia da 500m a 10.000m con tracciamento istantaneo di potenza (Watt), passo sui 500m e colpi al minuto.</p>
+          </div>
+          <div class="seo-card">
+            <h4>🤖 Duello 1v1 contro Bot</h4>
+            <p>Sfide individuali contro avversari virtuali. Solo gli utenti registrati con un account possono aggiungere o rimuovere bot.</p>
+          </div>
+          <div class="seo-card">
+            <h4>📊 Spazio Statistiche e Analisi Gare</h4>
+            <p>10 giorni di statistiche per account gratuiti, storico e analisi complete senza limiti per gli abbonati Club ed Elite Pro.</p>
+          </div>
+          <div class="seo-card">
+            <h4>⌚ Sincronizzazione Garmin & SmartRow</h4>
+            <p>Connessione Bluetooth a bassa energia rapida per pulegge SmartRow WaterRower e orologi Garmin.</p>
+          </div>
+        </div>
+        <div class="seo-contact-box">
+          <span>Contatto ufficiale e assistenza:</span>
+          <a href="mailto:contact@rowerrace.com" class="seo-email-link">contact@rowerrace.com</a>
+        </div>
+      </article>
+
+      <!-- CONTENU PT -->
+      <article class="seo-article" *ngIf="activeSeoLang === 'pt'" lang="pt">
+        <h3>Como conectar o seu remo Concept2, WaterRower SmartRow e o seu relógio Garmin?</h3>
+        <p>
+          O <strong>Rower Race</strong> é o simulador multijogador de ponta para remo indoor e e-sport. Seja num Concept2 PM5 via Bluetooth FTMS, numa roldana patenteada WaterRower SmartRow ou num remo conectado compatível, sincronize o seu relógio Garmin e compita em tempo real com remadores de todo o mundo.
+        </p>
+        <div class="seo-features-grid">
+          <div class="seo-card">
+            <h4>🚣 Regatas 2D em Tempo Real</h4>
+            <p>Compita de 500m a 10.000m com telemetria instantânea de potência em Watts, split por 500m e ritmo de remadas por minuto.</p>
+          </div>
+          <div class="seo-card">
+            <h4>🤖 Duelo 1v1 contra Bots</h4>
+            <p>Desafios individuais contra adversários virtuais com ritmos ajustados. Apenas utilizadores registados podem configurar bots.</p>
+          </div>
+          <div class="seo-card">
+            <h4>📊 Espaço de Estatísticas e Análise</h4>
+            <p>10 dias de histórico para contas gratuitas, análises e retenção ilimitadas para subscritores Club e Elite Pro.</p>
+          </div>
+          <div class="seo-card">
+            <h4>⌚ Sincronização Garmin & SmartRow</h4>
+            <p>Transmissão Bluetooth Low Energy direta de alta precisão entre a sua roldana e o seu relógio desportivo.</p>
+          </div>
+        </div>
+        <div class="seo-contact-box">
+          <span>Contacto oficial e suporte:</span>
+          <a href="mailto:contact@rowerrace.com" class="seo-email-link">contact@rowerrace.com</a>
+        </div>
+      </article>
+    </div><!-- /.seo-guide-body -->
+  </div>
+</section>
+
+<!-- FOOTER PERMANENT : Conditions d'utilisation, CGU, RGPD et Mentions légales -->
+<footer class="app-footer" *ngIf="siteView === 'home' && !isMobileFullscreenOnly">
+  <div class="footer-links">
+    <button type="button" class="footer-link-btn" (click)="openPrivateModalRequest.emit(undefined)">
+      🔒 {{ i18n.t('BTN_PRIVATE_ROOMS') }}
+    </button>
+    <span class="footer-sep">•</span>
+    <button type="button" class="footer-link-btn" (click)="openSubscriptionModalRequest.emit()">
+      ⭐ Abonnements & Tarifs
+    </button>
+    <span class="footer-sep">•</span>
+    <button type="button" class="footer-link-btn" (click)="openStatisticsModalRequest.emit()">
+      📊 Espace Statistiques
+    </button>
+    <span class="footer-sep">•</span>
+    <button type="button" class="footer-link-btn" (click)="openLegalTermsRequest.emit()">
+      📜 {{ i18n.t('MODAL_LEGAL_TITLE') }}
+    </button>
+    <span class="footer-sep">•</span>
+    <a href="mailto:contact@rowerrace.com" class="footer-link-btn footer-email">
+      ✉️ contact@rowerrace.com
+    </a>
+  </div>
+  <div class="footer-copyright">
+    {{ i18n.t('FOOTER_RGPD') }} — Données sportives et télémétrie traitées selon le RGPD (Art. 17 droit à l'oubli). Contact officiel : contact@rowerrace.com.
+  </div>
+</footer>
+
+<!-- Thumb-Friendly Mobile Bottom Navigation Bar (< 768px) -->
+<nav class="mobile-bottom-nav" *ngIf="!isMobileFullscreenOnly" aria-label="Navigation rapide mobile">
+  <button
+    type="button"
+    class="mob-nav-btn"
+    [class.active]="activeViewMode === 'canvas' && !isPrivateModalOpen && !isStandingsOpen && !isHistoryOpen"
+    (click)="switchViewModeRequest.emit('canvas')">
+    <span class="mob-nav-icon" aria-hidden="true">🛶</span>
+    <span class="mob-nav-label">Régate</span>
+  </button>
+
+  <button
+    type="button"
+    class="mob-nav-btn"
+    [class.active]="activeViewMode === 'cockpit' && !isPrivateModalOpen && !isStandingsOpen && !isHistoryOpen"
+    [class.locked]="!canAccessCockpit"
+    (click)="switchViewModeRequest.emit('cockpit')">
+    <span class="mob-nav-icon" aria-hidden="true">{{ canAccessCockpit ? '📱' : '🔒' }}</span>
+    <span class="mob-nav-label">{{ canAccessCockpit ? 'Cockpit' : 'Verrouillé' }}</span>
+  </button>
+
+  <button
+    type="button"
+    class="mob-nav-btn mob-nav-private"
+    [class.active]="isPrivateModalOpen || hasActivePrivateRoom"
+    (click)="openPrivateModalRequest.emit(undefined)">
+    <span class="mob-nav-icon" aria-hidden="true">🔒</span>
+    <span class="mob-nav-label">Salons</span>
+    @if (hasActivePrivateRoom) {
+      <span class="mob-nav-dot" aria-hidden="true"></span>
+    }
+  </button>
+
+  <button
+    type="button"
+    class="mob-nav-btn"
+    [class.active]="isStandingsOpen"
+    (click)="openStandingsModalRequest.emit()">
+    <span class="mob-nav-icon" aria-hidden="true">🏅</span>
+    <span class="mob-nav-label">Saison</span>
+  </button>
+
+  <button
+    type="button"
+    class="mob-nav-btn"
+    [class.active]="isHistoryOpen"
+    (click)="openHistoryModalRequest.emit()">
+    <span class="mob-nav-icon" aria-hidden="true">🏆</span>
+    <span class="mob-nav-label">Courses</span>
+  </button>
+</nav>

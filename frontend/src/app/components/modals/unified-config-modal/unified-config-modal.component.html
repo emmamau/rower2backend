@@ -1,0 +1,319 @@
+<!-- 3. UNIFIED RACE CONFIGURATION & ADMIN MODAL (Adaptatif : Admin, Abonné, Invité) -->
+@if (isUnifiedConfigOpen || isConfigRaceOpen || isAdminConfigOpen) {
+  <div class="modal-overlay">
+    <div class="modal-card modal-admin-cfg" (click)="$event.stopPropagation()">
+      <div class="modal-header-row">
+        <div class="modal-title-with-badge">
+          <h3>⚙️ Configuration de Course</h3>
+          @if (isUserAdmin) {
+            <span class="badge-role-tag is-admin">👑 Admin EmmaRacer</span>
+          } @else if (isSubscriber) {
+            <span class="badge-role-tag is-sub">⭐ Abonné(e) {{ currentSubscriberTier.toUpperCase() }}</span>
+          } @else {
+            <span class="badge-role-tag is-guest">Rameur Invité</span>
+          }
+        </div>
+        <button type="button" class="btn-close" (click)="closeUnifiedConfigModalRequest.emit()" [attr.aria-label]="i18n.t('BTN_CLOSE')">✕</button>
+      </div>
+
+      <!-- 1. CAS ADMINISTRATEUR : Accès complet (Paramètres Régate Publique + Course Active) -->
+      @if (isUserAdmin) {
+        <div class="unified-tabs-bar">
+          <button
+            type="button"
+            class="unified-tab-btn"
+            [class.active]="unifiedConfigActiveTab === 'public'"
+            (click)="unifiedConfigActiveTab = 'public'; unifiedConfigActiveTabChange.emit('public')">
+            🌐 Régate Publique (Défauts)
+          </button>
+          <button
+            type="button"
+            class="unified-tab-btn"
+            [class.active]="unifiedConfigActiveTab === 'active'"
+            (click)="unifiedConfigActiveTab = 'active'; unifiedConfigActiveTabChange.emit('active')">
+            ⚡ Course Active Immédiate
+          </button>
+        </div>
+
+        @if (unifiedConfigActiveTab === 'public') {
+          <p class="modal-desc">
+            Paramètres globaux appliqués aux courses publiques régulières pour tous les rameurs connectés.
+          </p>
+
+          <form class="modal-form" (ngSubmit)="saveAdminConfigRequest.emit()">
+            <div class="form-row-2">
+              <div class="form-group">
+                <label for="admin-target-dist">Distance cible par défaut (mètres) :</label>
+                <input id="admin-target-dist" type="number" [(ngModel)]="adminConfig.targetDistance" name="targetDist" min="500" max="50000" step="500" />
+                <span class="field-hint">Défaut : 2000 m (2 KM)</span>
+              </div>
+              <div class="form-group">
+                <label for="admin-max-players">Nombre max de participants :</label>
+                <input id="admin-max-players" type="number" [(ngModel)]="adminConfig.maxParticipants" name="maxPart" min="2" max="50" />
+                <span class="field-hint">Défaut : 20 participants max</span>
+              </div>
+            </div>
+
+            <div class="form-row-2">
+              <div class="form-group">
+                <label for="admin-bots-count">Nombre de bots par défaut :</label>
+                <input id="admin-bots-count" type="number" [(ngModel)]="adminConfig.defaultBotsCount" name="botsCount" min="0" max="10" />
+                <span class="field-hint">Défaut : 3 bots virtuels</span>
+              </div>
+              <div class="form-group">
+                <label for="admin-bots-pace">Allure des bots (sec / 500m) :</label>
+                <input id="admin-bots-pace" type="number" [(ngModel)]="adminConfig.defaultBotsPace" name="botsPace" min="60" max="240" step="5" />
+                <span class="field-hint">Défaut : 120s (2:00 / 500m)</span>
+              </div>
+            </div>
+
+            <div class="form-row-2">
+              <div class="form-group">
+                <label for="admin-lobby-wait">Délai d'attente avant départ (minutes) :</label>
+                <input id="admin-lobby-wait" type="number" [(ngModel)]="adminConfig.lobbyWaitMinutes" name="lobbyWaitMin" min="1" max="60" />
+                <span class="field-hint">Défaut : 15 min (départ à expiration ou si max coureurs atteint)</span>
+              </div>
+              <div class="form-group">
+                <label for="admin-duration">Durée maximale de la partie (minutes) :</label>
+                <input id="admin-duration" type="number" [(ngModel)]="adminConfig.maxDurationMinutes" name="durationMin" min="10" max="180" />
+                <span class="field-hint">Défaut : 55 minutes</span>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="admin-private-duration">Durée max des salons privés (minutes) :</label>
+              <input id="admin-private-duration" type="number" [(ngModel)]="adminConfig.privateMaxDurationMinutes" name="privateDurationMin" min="5" max="180" step="5" />
+              <span class="field-hint">Défaut : 55 minutes. La course privée s'arrêtera automatiquement à expiration.</span>
+            </div>
+
+            <div class="feedback-msg ok" *ngIf="adminConfigMessage">{{ adminConfigMessage }}</div>
+            <div class="feedback-msg err" *ngIf="adminConfigError">{{ adminConfigError }}</div>
+
+            <div class="modal-buttons">
+              <button type="submit" class="btn-primary" [disabled]="isAdminConfigSubmitting">
+                {{ isAdminConfigSubmitting ? 'Sauvegarde...' : 'Enregistrer la configuration publique' }}
+              </button>
+              <button type="button" class="btn-secondary" (click)="closeUnifiedConfigModalRequest.emit()">Fermer</button>
+            </div>
+          </form>
+        }
+
+        @if (unifiedConfigActiveTab === 'active') {
+          <p class="modal-desc">
+            Ajustement en direct de la distance et de l'intervalle de départ de la session active en cours.
+          </p>
+          <div class="modal-form">
+            <div class="form-group">
+              <label for="admin-dist-input">{{ i18n.t('PARAM_DISTANCE') }}</label>
+              <input
+                id="admin-dist-input"
+                name="configDistance"
+                type="number"
+                inputmode="numeric"
+                [ngModel]="configTargetDistance"
+                (ngModelChange)="configTargetDistance = $event; configTargetDistanceChange.emit($event)"
+                step="500"
+                min="500" />
+            </div>
+            <div class="form-group">
+              <label for="admin-delay-input">{{ i18n.t('PARAM_DELAY') }}</label>
+              <input
+                id="admin-delay-input"
+                name="configDelay"
+                type="number"
+                inputmode="numeric"
+                [ngModel]="configIntervalMinutes"
+                (ngModelChange)="configIntervalMinutes = $event; configIntervalMinutesChange.emit($event)"
+                min="2"
+                max="60" />
+            </div>
+            <div class="modal-buttons">
+              <button type="button" class="btn-primary" (click)="saveRaceConfigRequest.emit(); closeUnifiedConfigModalRequest.emit()">{{ i18n.t('BTN_SAVE_CONFIG') }}</button>
+              <button type="button" class="btn-secondary" (click)="closeUnifiedConfigModalRequest.emit()">{{ i18n.t('BTN_CLOSE') }}</button>
+            </div>
+          </div>
+        }
+      }
+
+      <!-- 2. CAS ABONNÉ : Configuration de son Salon Privé ou Raccourcis Privilèges -->
+      @else if (isSubscriber) {
+        @if (activePrivateRoom && isOrganizerOfActiveRoom) {
+          <p class="modal-desc">
+            Vous êtes l'organisateur du salon <strong>{{ activePrivateRoom.race.title || activePrivateRoom.code }}</strong>. Ajustez les paramètres de votre course :
+          </p>
+          <div class="modal-form">
+            <div class="form-group">
+              <label for="sub-dist-input">Distance de votre course (mètres) :</label>
+              <input
+                id="sub-dist-input"
+                name="subDistance"
+                type="number"
+                inputmode="numeric"
+                [ngModel]="configTargetDistance"
+                (ngModelChange)="configTargetDistance = $event; configTargetDistanceChange.emit($event)"
+                step="500"
+                min="500"
+                [max]="currentSubscriberTier === 'pro' ? 10000 : 5000" />
+              <span class="field-hint">Limite de votre offre : {{ currentSubscriberTier === 'pro' ? '10 000 m (Élite Pro)' : '5 000 m (Club)' }}</span>
+            </div>
+            <div class="form-group">
+              <label for="sub-delay-input">Délai avant départ (minutes) :</label>
+              <input
+                id="sub-delay-input"
+                name="subDelay"
+                type="number"
+                inputmode="numeric"
+                [ngModel]="configIntervalMinutes"
+                (ngModelChange)="configIntervalMinutes = $event; configIntervalMinutesChange.emit($event)"
+                min="1"
+                max="60" />
+            </div>
+            <div class="modal-buttons">
+              <button type="button" class="btn-primary" (click)="saveRaceConfigRequest.emit(); closeUnifiedConfigModalRequest.emit()">Mettre à jour mon salon</button>
+              <button type="button" class="btn-secondary" (click)="closeUnifiedConfigModalRequest.emit()">Fermer</button>
+            </div>
+          </div>
+        } @else {
+          <div class="sub-config-overview">
+            <div class="sub-privileges-box">
+              <div class="privileges-title">⭐ Vos Privilèges d'Abonné(e) {{ currentSubscriberTier.toUpperCase() }}</div>
+              <ul class="privileges-list">
+                <li><strong>Courses Privées Personnalisées :</strong> Distances configurables jusqu'à {{ currentSubscriberTier === 'pro' ? '10 000 m' : '5 000 m' }}.</li>
+                <li><strong>Gestion des Bots Virtuels :</strong> Jusqu'à {{ currentSubscriberTier === 'pro' ? '5 bots' : '3 bots' }} avec niveau d'allure ajustable.</li>
+                <li><strong>Modes de Départ :</strong> Top départ manuel après validation des rameurs ou départ programmé à date/heure précise.</li>
+                <li><strong>Analyses Statistiques :</strong> Accès illimité aux métriques et analyses de courses.</li>
+                <li><strong>Historique Illimité :</strong> Toutes vos statistiques de régate conservées sans limite.</li>
+              </ul>
+            </div>
+            <p class="modal-desc">
+              Vous êtes actuellement sur la régate publique officielle (2 000 m).
+              Pour profiter de vos paramètres personnalisés, créez votre salon privé :
+            </p>
+            <div class="modal-buttons">
+              <button type="button" class="btn-primary" (click)="closeUnifiedConfigModalRequest.emit(); openPrivateModalRequest.emit('create')">
+                🔒 Créer un Salon Privé
+              </button>
+              <button type="button" class="btn-secondary" (click)="closeUnifiedConfigModalRequest.emit()">Fermer</button>
+            </div>
+          </div>
+        }
+      }
+
+      <!-- 3. CAS NON-ABONNÉ / INVITÉ : Informations & Invitation aux offres abonnées -->
+      @else {
+        <div class="guest-config-view">
+          <div class="guest-current-race-info">
+            <h4>🏁 Régate Publique Standard</h4>
+            <div class="info-grid">
+              <div class="info-item">
+                <span class="info-label">Distance officielle :</span>
+                <span class="info-val">{{ nextRaceInfo?.race?.targetDistance || 2000 }} m</span>
+              </div>
+              <div class="info-item">
+                <span class="info-label">Durée max :</span>
+                <span class="info-val">55 minutes</span>
+              </div>
+              <div class="info-item">
+                <span class="info-label">Capacité :</span>
+                <span class="info-val">20 rameurs max</span>
+              </div>
+              <div class="info-item">
+                <span class="info-label">Égalité mécanique :</span>
+                <span class="info-val">Formule Concept2 (Watts)</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="guest-unlock-promo">
+            <div class="promo-badge">⭐ ESPACE PRIVILÈGE ABONNÉS</div>
+            <h4>Prenez les commandes : organisez vos propres courses !</h4>
+            <p>
+              La personnalisation des distances (jusqu'à 10 000 m), le choix des bots virtuels,
+              les salons privés programmés et les fonctionnalités avancées sont réservés aux abonnés Club & Élite Pro.
+            </p>
+            <div class="promo-pricing-pills">
+              <span class="pill-tier">Gratuit · 1 invité · 2 km · 1 bot</span>
+              <span class="pill-tier">Club 5,99 €/m · 5 joueurs · 5 km · 3 bots</span>
+              <span class="pill-tier">Élite 8,99 €/m · 10 joueurs · 10 km · 5 bots</span>
+            </div>
+          </div>
+
+          <div class="modal-buttons">
+            <button type="button" class="btn-primary" (click)="closeUnifiedConfigModalRequest.emit(); openSubscriptionModalRequest.emit()">
+              ⭐ Découvrir les Offres d'Abonnement
+            </button>
+            <button type="button" class="btn-secondary" (click)="closeUnifiedConfigModalRequest.emit()">Fermer</button>
+          </div>
+        </div>
+      }
+    </div>
+  </div>
+}
+
+<!-- MODALE DUEL 1V1 CONTRE UN BOT (SANS COMPTE REQUIS) -->
+<div class="modal-overlay" *ngIf="isBotDuelModalOpen">
+  <div class="modal-card modal-bot-duel" (click)="$event.stopPropagation()">
+    <div class="modal-header-row">
+      <div class="modal-title-with-badge">
+        <h3>🤖 Mode Duel 1v1 contre un Bot</h3>
+        <span class="badge-role-tag is-guest">Sans compte requis</span>
+      </div>
+      <button type="button" class="btn-close" (click)="closeBotDuelModalRequest.emit()">✕</button>
+    </div>
+
+    <p class="modal-desc">
+      Affrontez un adversaire virtuel de niveau aléatoire sur la distance de votre choix jusqu'à 10 000 mètres.
+      Un salon privé exclusif est créé pour vous deux, et vous ferez la course uniquement contre votre bot !
+    </p>
+
+    <form class="modal-form" (ngSubmit)="startBotDuelRequest.emit()">
+      <div class="form-group">
+        <label for="bot-duel-name">Votre nom / pseudo :</label>
+        <input
+          id="bot-duel-name"
+          type="text"
+          [ngModel]="botDuelName"
+          (ngModelChange)="botDuelName = $event; botDuelNameChange.emit($event)"
+          name="botDuelName"
+          placeholder="ex: RameurSolo"
+          maxlength="32" />
+      </div>
+
+      <div class="form-group">
+        <label for="bot-duel-dist">Distance cible (mètres, jusqu'à 10 000m) :</label>
+        <div class="distance-preset-buttons">
+          <button type="button" class="btn-preset" [class.selected]="botDuelDistance === 500" (click)="setBotDuelPresetDistanceRequest.emit(500)">500m</button>
+          <button type="button" class="btn-preset" [class.selected]="botDuelDistance === 1000" (click)="setBotDuelPresetDistanceRequest.emit(1000)">1 000m</button>
+          <button type="button" class="btn-preset" [class.selected]="botDuelDistance === 2000" (click)="setBotDuelPresetDistanceRequest.emit(2000)">2 000m</button>
+          <button type="button" class="btn-preset" [class.selected]="botDuelDistance === 5000" (click)="setBotDuelPresetDistanceRequest.emit(5000)">5 000m</button>
+          <button type="button" class="btn-preset" [class.selected]="botDuelDistance === 6000" (click)="setBotDuelPresetDistanceRequest.emit(6000)">6 000m</button>
+          <button type="button" class="btn-preset" [class.selected]="botDuelDistance === 10000" (click)="setBotDuelPresetDistanceRequest.emit(10000)">10 000m</button>
+        </div>
+        <input
+          id="bot-duel-dist"
+          type="number"
+          min="100"
+          max="10000"
+          step="100"
+          [ngModel]="botDuelDistance"
+          (ngModelChange)="botDuelDistance = $event; botDuelDistanceChange.emit($event)"
+          name="botDuelDistance"
+          required />
+      </div>
+
+      <div class="bot-level-note">
+        <span class="note-icon">🎲</span>
+        <span>Le niveau du bot (allure et puissance) sera tiré aléatoirement au départ (de Débutant à Élite).</span>
+      </div>
+
+      <div *ngIf="botDuelError" class="modal-error-box">{{ botDuelError }}</div>
+
+      <div class="modal-buttons">
+        <button type="submit" class="btn-primary btn-launch-duel" [disabled]="isCreatingBotDuel">
+          {{ isCreatingBotDuel ? 'Création du salon en cours...' : '🚀 Lancer le Duel contre le Bot' }}
+        </button>
+        <button type="button" class="btn-secondary" (click)="closeBotDuelModalRequest.emit()">Annuler</button>
+      </div>
+    </form>
+  </div>
+</div>

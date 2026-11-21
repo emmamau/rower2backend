@@ -1,0 +1,1017 @@
+<!-- 1. USER ACCOUNT & SUBSCRIBER MANAGEMENT MODAL -->
+@if (isAccountModalOpen || isLoginModalOpen) {
+  <div class="modal-overlay">
+    <div class="modal-card modal-account" (click)="$event.stopPropagation()">
+      <div class="modal-header-row">
+        <div class="modal-title-with-badge">
+          <h3>Compte Utilisateur & Abonnés</h3>
+          @if (isUserAdmin) {
+            <span class="badge-role-tag is-admin">👑 Admin EmmaRacer</span>
+          } @else if (isSubscriber) {
+            <span class="badge-role-tag is-sub">⭐ Abonné Actif</span>
+          } @else {
+            <span class="badge-role-tag is-guest">Invité Gratuit</span>
+          }
+        </div>
+        <div class="modal-header-actions">
+          @if (isIdentified) {
+            <button
+              type="button"
+              class="btn-header-logout"
+              (click)="promptLogoutRequest.emit()"
+              title="Se déconnecter de ce compte">
+              🚪 Déconnexion
+            </button>
+          }
+          <button type="button" class="btn-close" (click)="closeAccountModalRequest.emit()" [attr.aria-label]="i18n.t('BTN_CLOSE')">✕</button>
+        </div>
+      </div>
+
+      <!-- Account Modal Tabs -->
+      <div class="modal-tabs-bar">
+        <button
+          type="button"
+          class="modal-tab-btn"
+          [class.active]="accountModalTab === 'login'"
+          (click)="switchTab('login')">
+          🔑 Connexion
+        </button>
+        <button
+          type="button"
+          class="modal-tab-btn"
+          [class.active]="accountModalTab === 'register'"
+          (click)="switchTab('register')">
+          ⭐ S'inscrire (Abonné)
+        </button>
+        @if (isSubscriber || isUserAdmin) {
+          <button
+            type="button"
+            class="modal-tab-btn"
+            [class.active]="accountModalTab === 'profile'"
+            (click)="switchTab('profile')">
+            👤 Mon Profil
+          </button>
+        }
+        @if (isRegisteredUser || isPostRegisterOnboarding) {
+          <button
+            type="button"
+            class="modal-tab-btn"
+            [class.active]="accountModalTab === 'kayak-customizer'"
+            (click)="openKayakCustomizer()">
+            🛶 Mon Kayak
+          </button>
+        }
+        <button
+          type="button"
+          class="modal-tab-btn"
+          [class.active]="accountModalTab === 'regatta-settings'"
+          (click)="openRegattaSettings()">
+          🔍 Affichage Régate
+        </button>
+        <button
+          type="button"
+          class="modal-tab-btn"
+          [class.active]="accountModalTab === 'forgot'"
+          (click)="switchTab('forgot')">
+          ❓ Mot de passe
+        </button>
+      </div>
+
+      <!-- Feedback banners -->
+      @if (accountAuthSuccess) {
+        <div class="auth-feedback-success">
+          ✅ {{ accountAuthSuccess }}
+        </div>
+      }
+      @if (accountAuthError) {
+        <div class="auth-error">
+          ⚠️ {{ accountAuthError }}
+        </div>
+      }
+
+      <!-- TAB 1: LOGIN -->
+      @if (accountModalTab === 'login') {
+        <form class="modal-form" (ngSubmit)="submitAccountLoginRequest.emit()" novalidate>
+          <p class="modal-desc">
+            Connectez-vous à votre compte abonné avec votre login et votre mot de passe pour créer et animer vos salons de course privés.
+          </p>
+          <div class="form-group">
+            <label for="acc-login-input">Login ou Email</label>
+            <input
+              id="acc-login-input"
+              name="login"
+              type="text"
+              class="form-control"
+              autocomplete="username"
+              [ngModel]="loginAccountInput"
+              (ngModelChange)="loginAccountInput = $event; loginAccountInputChange.emit($event)"
+              placeholder="ex: EmmaRacer"
+              required />
+          </div>
+          <div class="form-group">
+            <label for="acc-password-input">Mot de passe</label>
+            <input
+              id="acc-password-input"
+              name="password"
+              type="password"
+              class="form-control"
+              autocomplete="current-password"
+              [ngModel]="passwordAccountInput"
+              (ngModelChange)="passwordAccountInput = $event; passwordAccountInputChange.emit($event)"
+              placeholder="Votre mot de passe"
+              required />
+          </div>
+
+          <div class="modal-buttons">
+            <button type="submit" class="btn-primary" [disabled]="isAccountSubmitting">
+              {{ isAccountSubmitting ? 'Connexion en cours...' : 'Se connecter' }}
+            </button>
+            <button type="button" class="btn-secondary" (click)="switchTab('register')">
+              Créer un compte abonné
+            </button>
+          </div>
+        </form>
+      }
+
+      <!-- TAB 2: REGISTER -->
+      @if (accountModalTab === 'register') {
+        <form class="modal-form modal-form-scrollable" (ngSubmit)="submitAccountRegisterRequest.emit()" novalidate>
+          <div class="subscriber-perks-box">
+            <strong>⭐ Avantages Compte Abonné :</strong>
+            <span>Droit exclusif de créer et configurer des salons de course privés avec codes d'invitation et code PIN Garmin.</span>
+          </div>
+
+          <div class="form-row-2">
+            <div class="form-group">
+              <label for="reg-nom">Nom *</label>
+              <input id="reg-nom" name="nom" type="text" autocomplete="family-name" [ngModel]="regNom" (ngModelChange)="regNom = $event; regNomChange.emit($event)" placeholder="ex: Dupont" required />
+            </div>
+            <div class="form-group">
+              <label for="reg-prenom">Prénom *</label>
+              <input id="reg-prenom" name="prenom" type="text" autocomplete="given-name" [ngModel]="regPrenom" (ngModelChange)="regPrenom = $event; regPrenomChange.emit($event)" placeholder="ex: Jean" required />
+            </div>
+          </div>
+
+          <div class="form-row-3">
+            <div class="form-group">
+              <label for="reg-birth">Année de naissance *</label>
+              <input id="reg-birth" name="anneeNaissance" type="number" min="1920" max="2020" [ngModel]="regAnneeNaissance" (ngModelChange)="regAnneeNaissance = $event; regAnneeNaissanceChange.emit($event)" required />
+            </div>
+            <div class="form-group">
+              <label for="reg-sexe">Sexe *</label>
+              <select id="reg-sexe" name="sexe" [ngModel]="regSexe" (ngModelChange)="regSexe = $event; regSexeChange.emit($event)">
+                <option value="M">Homme (M)</option>
+                <option value="F">Femme (F)</option>
+                <option value="Autre">Autre</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="reg-pays">Pays *</label>
+              <select id="reg-pays" name="pays" [ngModel]="regPays" (ngModelChange)="regPays = $event; regPaysChange.emit($event)" required>
+                <option value="France">🇫🇷 France</option>
+                <option value="Suisse">🇨🇭 Suisse</option>
+                <option value="Belgique">🇧🇪 Belgique</option>
+                <option value="Canada">🇨🇦 Canada</option>
+                <option value="Royaume-Uni">🇬🇧 Royaume-Uni</option>
+                <option value="États-Unis">🇺🇸 États-Unis</option>
+                <option value="Allemagne">🇩🇪 Allemagne</option>
+                <option value="Espagne">🇪🇸 Espagne</option>
+                <option value="Italie">🇮🇹 Italie</option>
+                <option value="Pays-Bas">🇳🇱 Pays-Bas</option>
+                <option value="Portugal">🇵🇹 Portugal</option>
+                <option value="Australie">🇦🇺 Australie</option>
+                <option value="Nouvelle-Zélande">🇳🇿 Nouvelle-Zélande</option>
+                <option value="Irlande">🇮🇪 Irlande</option>
+                <option value="Autre">🌐 Autre pays</option>
+              </select>
+            </div>
+          </div>
+
+          @if (regPays === 'Autre') {
+            <div class="form-group">
+              <label for="reg-custom-pays">Nom de votre pays *</label>
+              <input id="reg-custom-pays" name="customPays" type="text" [ngModel]="regCustomPays" (ngModelChange)="regCustomPays = $event; regCustomPaysChange.emit($event)" placeholder="ex: Maroc, Brésil, Japon..." required />
+            </div>
+          }
+
+          <div class="form-group">
+            <label for="reg-login">Login unique *</label>
+            <input id="reg-login" name="login" type="text" autocomplete="username" [ngModel]="regLogin" (ngModelChange)="regLogin = $event; regLoginChange.emit($event)" placeholder="ex: RameurPro75" required />
+            <span class="field-hint">Le login est unique. Il sert à confirmer votre inscription via l'application montre Garmin.</span>
+          </div>
+
+          <div class="form-group">
+            <label for="reg-email">Email *</label>
+            <input id="reg-email" name="email" type="email" autocomplete="email" [ngModel]="regEmail" (ngModelChange)="regEmail = $event; regEmailChange.emit($event)" placeholder="votre.email@exemple.com" required />
+          </div>
+
+          <!-- Honeypot anti-robots invisible -->
+          <div class="bot-trap-field" aria-hidden="true">
+            <label for="reg-website">Website URL (ne pas remplir)</label>
+            <input id="reg-website" name="website_url" type="text" [ngModel]="regWebsiteUrl" (ngModelChange)="regWebsiteUrl = $event; regWebsiteUrlChange.emit($event)" tabindex="-1" autocomplete="off" />
+          </div>
+
+          <div class="form-group">
+            <label for="reg-password">Mot de passe *</label>
+            <div class="pwd-input-wrapper">
+              <input
+                id="reg-password"
+                name="password"
+                [type]="showRegPassword ? 'text' : 'password'"
+                autocomplete="new-password"
+                [ngModel]="regPassword"
+                (ngModelChange)="regPassword = $event; regPasswordChange.emit($event)"
+                placeholder="Min. 8 car. (Maj, min, chiffre, symbole)"
+                required />
+              <button
+                type="button"
+                class="btn-toggle-pwd"
+                (click)="showRegPassword = !showRegPassword"
+                [attr.aria-label]="showRegPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'">
+                {{ showRegPassword ? '🙈' : '👁️' }}
+              </button>
+            </div>
+
+            <!-- Jauge de robustesse du mot de passe -->
+            @if (regPassword) {
+              <div class="pwd-strength-container">
+                <div class="pwd-strength-track">
+                  <div
+                    class="pwd-strength-bar"
+                    [ngClass]="getPasswordStrength(regPassword).class"
+                    [style.width]="getPasswordStrength(regPassword).width">
+                  </div>
+                </div>
+                <span class="pwd-strength-label" [ngClass]="getPasswordStrength(regPassword).class">
+                  Robustesse : {{ getPasswordStrength(regPassword).label }}
+                </span>
+              </div>
+            }
+            <span class="field-hint">Minimum 8 caractères avec au moins une majuscule, une minuscule, un chiffre et un caractère spécial (!@#$%^&*...).</span>
+          </div>
+
+          <div class="form-group">
+            <label for="reg-password-confirm">Confirmer le mot de passe *</label>
+            <div class="pwd-input-wrapper">
+              <input
+                id="reg-password-confirm"
+                name="passwordConfirm"
+                [type]="showRegPasswordConfirm ? 'text' : 'password'"
+                autocomplete="new-password"
+                [ngModel]="regPasswordConfirm"
+                (ngModelChange)="regPasswordConfirm = $event; regPasswordConfirmChange.emit($event)"
+                placeholder="Confirmez votre mot de passe"
+                required />
+              <button
+                type="button"
+                class="btn-toggle-pwd"
+                (click)="showRegPasswordConfirm = !showRegPasswordConfirm"
+                [attr.aria-label]="showRegPasswordConfirm ? 'Masquer le mot de passe' : 'Afficher le mot de passe'">
+                {{ showRegPasswordConfirm ? '🙈' : '👁️' }}
+              </button>
+            </div>
+            @if (regPasswordConfirm && regPassword !== regPasswordConfirm) {
+              <span class="pwd-mismatch-error">⚠️ Les deux mots de passe ne correspondent pas.</span>
+            } @else if (regPasswordConfirm && regPassword === regPasswordConfirm && isPasswordPolicySatisfied(regPassword)) {
+              <span class="pwd-match-success">✓ Les mots de passe correspondent.</span>
+            }
+          </div>
+
+          <div class="modal-buttons">
+            <button type="submit" class="btn-primary" [disabled]="isAccountSubmitting">
+              {{ isAccountSubmitting ? 'Création en cours...' : 'Créer mon compte abonné' }}
+            </button>
+            <button type="button" class="btn-secondary" (click)="switchTab('login')">
+              Déjà un compte ? Se connecter
+            </button>
+          </div>
+        </form>
+      }
+
+      <!-- TAB 3: PROFILE / MON COMPTE -->
+      @if (accountModalTab === 'profile') {
+        <div class="modal-form">
+          <div class="profile-details-card">
+            <div class="profile-hero">
+              <div class="profile-avatar">{{ currentUser.name.slice(0, 2).toUpperCase() }}</div>
+              <div class="profile-main-info">
+                <h4>{{ currentUser.name }}</h4>
+                <div class="profile-sub-status">
+                  @if (isUserAdmin) {
+                    <span class="badge-role-tag is-admin">👑 Administratrice en dur</span>
+                  } @else if (isSubscriber) {
+                    <span class="badge-role-tag is-sub">⭐ Compte Abonné Actif</span>
+                  } @else {
+                    <span class="badge-role-tag is-guest">Invité non abonné</span>
+                  }
+                </div>
+              </div>
+              <button
+                type="button"
+                class="btn-profile-quick-logout"
+                (click)="promptLogoutRequest.emit()"
+                title="Se déconnecter">
+                🚪 Déconnexion
+              </button>
+            </div>
+
+            <div class="profile-fields-grid">
+              <div class="profile-field">
+                <span class="field-name">Identifiant Joueur Unifié</span>
+                <strong class="field-val font-mono highlight">{{ fullPlayerId }}</strong>
+              </div>
+              <div class="profile-field">
+                <span class="field-name">Login unique</span>
+                <strong class="field-val">{{ currentUser.login || currentUser.id }}</strong>
+              </div>
+              <div class="profile-field">
+                <span class="field-name">⌚ Montre Garmin</span>
+                <strong class="field-val">{{ currentUser.watchModel || 'Garmin ConnectIQ' }}</strong>
+              </div>
+              <div class="profile-field">
+                <span class="field-name">🚣 Rameur connecté</span>
+                <strong class="field-val">{{ currentUser.rowerModel || 'Concept2 PM5 / SmartRow / FTMS' }}</strong>
+              </div>
+              <div class="profile-field">
+                <span class="field-name">Email</span>
+                <strong class="field-val">{{ currentUser.email || 'Non renseigné' }}</strong>
+              </div>
+              <div class="profile-field">
+                <span class="field-name">Formule d'abonnement</span>
+                <strong class="field-val highlight">
+                  {{ isUserAdmin ? '👑 Admin Illimité' : (currentUser.subscriptionTier === 'premium' ? '💎 Élite Pro (8,99€)' : (currentUser.subscriptionTier === 'intermediate' || isSubscriber ? '⭐ Club (5,99€)' : 'Gratuit')) }}
+                </strong>
+              </div>
+              <div class="profile-field">
+                <span class="field-name">Création de salons privés</span>
+                <strong class="field-val is-granted">
+                  {{ (isSubscriber || isUserAdmin) ? '✅ Autorisée' : '❌ Réservée aux abonnés' }}
+                </strong>
+              </div>
+              <div class="profile-field">
+                <span class="field-name">Liaison Montre Garmin</span>
+                <strong class="field-val">
+                  {{ isPaired ? '✅ Montre connectée (/boost)' : '⏳ Montre non liée' }}
+                </strong>
+              </div>
+            </div>
+
+            <!-- Zone d'appairage Garmin sous la section compte / abonnement -->
+            <div class="profile-garmin-box" *ngIf="!isPaired">
+              <h5>⌚ Liaison Montre Garmin</h5>
+              <p class="field-hint">
+                Aucune montre n'a été liée depuis la page d'accueil. Vous pouvez lancer la procédure d'appairage par code PIN pour associer votre montre Garmin à votre compte.
+              </p>
+              <div class="profile-garmin-action-row">
+                <button
+                  type="button"
+                  class="btn-cyan btn-pair-profile"
+                  [disabled]="isGeneratingPairingCode"
+                  (click)="startPairingFromProfile()">
+                  ⚡ Lier ma montre Garmin (Code PIN)
+                </button>
+              </div>
+            </div>
+            <div class="profile-garmin-box is-paired" *ngIf="isPaired">
+              <h5>⌚ Montre Garmin Connectée</h5>
+              <div class="pairing-recovered-notice" *ngIf="watchPairingRecovered">
+                <span class="notice-icon">🎉</span>
+                <div class="notice-text">
+                  <strong>Liaison Garmin récupérée préalablement</strong>
+                  <span>Votre montre appairée depuis la page d'accueil a été automatiquement rattachée à votre compte.</span>
+                </div>
+              </div>
+              <p class="field-hint" *ngIf="!watchPairingRecovered">Votre montre est activement liée via jeton matériel sécurisé.</p>
+              <button type="button" class="btn-unsubscribe" (click)="resetGarminPairing()">
+                Réinitialiser l'appairage
+              </button>
+            </div>
+
+            <!-- Système de Ligue Hebdomadaire & Mode Repos -->
+            <div class="profile-league-card">
+              <div class="profile-league-card-top">
+                <h5>🏆 Ligue Hebdomadaire & Division</h5>
+                <span class="user-tier-pill" [attr.data-tier]="currentUser.currentLeague || 'BRONZE'">
+                  {{ currentUserLeague.badge }} Ligue {{ currentUserLeague.name }}
+                </span>
+              </div>
+              <div class="profile-league-badge-row">
+                <span class="profile-league-badge-icon">{{ currentUserLeague.badge }}</span>
+                <div class="profile-league-details">
+                  <div class="profile-league-header">
+                    <strong class="profile-league-name">Ligue {{ currentUserLeague.name }}</strong>
+                    <div class="profile-points-split">
+                      <span class="profile-league-points" title="Points accumulés cette semaine">{{ currentUser.weeklyPoints || 0 }} pts semaine</span>
+                      <span class="profile-career-points" title="Total des points de carrière">({{ currentUser.totalCareerPoints || currentUser.points || 0 }} pts carrière)</span>
+                    </div>
+                  </div>
+                  <p class="profile-league-desc">{{ currentUserLeague.description }}</p>
+                </div>
+              </div>
+
+              <!-- Mode Vacances / Repos (Gel de ligue) -->
+              <div class="profile-resting-mode-box">
+                <div class="resting-mode-info">
+                  <div class="resting-title-row">
+                    <strong>🏖️ Mode Vacances / Repos</strong>
+                    @if (currentUser.isResting) {
+                      <span class="resting-status-tag active">Ligue Gelée</span>
+                    }
+                  </div>
+                  <p>Gèle temporairement votre ligue : aucune relégation possible pendant vos vacances ou pauses.</p>
+                </div>
+                <button
+                  type="button"
+                  class="btn-toggle-resting"
+                  [class.is-active]="currentUser.isResting"
+                  [disabled]="isTogglingRestingMode"
+                  (click)="toggleRestingModeRequest.emit()"
+                  [title]="currentUser.isResting ? 'Désactiver le mode vacances' : 'Activer le mode vacances'">
+                  <span class="toggle-track">
+                    <span class="toggle-thumb"></span>
+                  </span>
+                  <span class="toggle-label">{{ currentUser.isResting ? 'Actif' : 'Désactivé' }}</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Carte Mon Kayak personnalisé -->
+            <div class="profile-kayak-card">
+              <div class="profile-kayak-header">
+                <div class="kayak-card-title">
+                  <span class="kayak-icon">🛶</span>
+                  <div>
+                    <h5>Mon Kayak de Régate</h5>
+                    <span class="kayak-pattern-tag">{{ getPatternLabel(customKayakPattern) }}</span>
+                  </div>
+                </div>
+                <button type="button" class="btn-cyan btn-sm btn-custom-kayak" (click)="openKayakCustomizer()">
+                  🎨 Personnaliser mon kayak
+                </button>
+              </div>
+
+              <div class="profile-kayak-summary-row">
+                <div class="profile-kayak-visual-pill">
+                  <svg class="mini-kayak-svg" viewBox="0 0 160 44" preserveAspectRatio="xMidYMid meet">
+                    <defs>
+                      <filter [id]="'glow-' + activeUserId" x="-30%" y="-30%" width="160%" height="160%">
+                        <feDropShadow dx="0" dy="0" stdDeviation="3" [attr.flood-color]="customKayakGlowColor" />
+                      </filter>
+                      <linearGradient [id]="'grad-hull-' + activeUserId" x1="0%" y1="0%" x2="100%" y2="0%">
+                        <stop offset="0%" [attr.stop-color]="customKayakBladeColor" />
+                        <stop offset="100%" [attr.stop-color]="customKayakHullColor" />
+                      </linearGradient>
+                      <clipPath [id]="'clip-hull-' + activeUserId">
+                        <path d="M 135 22 Q 80 12 25 22 Q 80 32 135 22 Z" />
+                      </clipPath>
+                    </defs>
+
+                    <ellipse cx="80" cy="22" rx="58" ry="13" fill="none" [attr.stroke]="customKayakGlowColor" stroke-width="2" [attr.filter]="'url(#glow-' + activeUserId + ')'" opacity="0.8" />
+                    <line x1="80" y1="4" x2="80" y2="40" stroke="#cbd5e1" stroke-width="2" stroke-linecap="round" />
+                    <ellipse cx="80" cy="5" rx="5" ry="3" [attr.fill]="customKayakBladeColor" stroke="#ffffff" stroke-width="0.8" />
+                    <ellipse cx="80" cy="39" rx="5" ry="3" [attr.fill]="customKayakBladeColor" stroke="#ffffff" stroke-width="0.8" />
+
+                    @if (customKayakPattern === 'gradient') {
+                      <path d="M 135 22 Q 80 12 25 22 Q 80 32 135 22 Z" [attr.fill]="'url(#grad-hull-' + activeUserId + ')'" stroke="rgba(255,255,255,0.4)" stroke-width="1" />
+                    } @else if (customKayakPattern === 'dual-tone') {
+                      <path d="M 135 22 Q 80 12 25 22 Q 80 32 135 22 Z" [attr.fill]="customKayakHullColor" stroke="rgba(255,255,255,0.4)" stroke-width="1" />
+                      <rect x="25" y="10" width="55" height="24" [attr.fill]="customKayakBladeColor" [attr.clip-path]="'url(#clip-hull-' + activeUserId + ')'" />
+                    } @else {
+                      <path d="M 135 22 Q 80 12 25 22 Q 80 32 135 22 Z" [attr.fill]="customKayakHullColor" stroke="rgba(255,255,255,0.4)" stroke-width="1" />
+                    }
+
+                    @if (customKayakPattern === 'racing-stripe') {
+                      <g [attr.clip-path]="'url(#clip-hull-' + activeUserId + ')'">
+                        <line x1="28" y1="20.5" x2="132" y2="20.5" stroke="rgba(255,255,255,0.9)" stroke-width="1.8" />
+                        <line x1="28" y1="23.5" x2="132" y2="23.5" stroke="rgba(255,255,255,0.9)" stroke-width="1.8" />
+                      </g>
+                    }
+
+                    <ellipse cx="78" cy="22" rx="9" ry="4" fill="#0f172a" stroke="rgba(255,255,255,0.3)" stroke-width="0.8" />
+                    <circle cx="78" cy="22" r="2.2" fill="#ffffff" />
+                  </svg>
+                </div>
+
+                <div class="profile-kayak-meta-list">
+                  <div class="meta-item">
+                    <span class="meta-label">Coque</span>
+                    <span class="meta-val-badge">
+                      <span class="color-dot" [style.backgroundColor]="customKayakHullColor"></span>
+                      {{ customKayakHullColor }}
+                    </span>
+                  </div>
+                  <div class="meta-item">
+                    <span class="meta-label">Pelles</span>
+                    <span class="meta-val-badge">
+                      <span class="color-dot" [style.backgroundColor]="customKayakBladeColor"></span>
+                      {{ customKayakBladeColor }}
+                    </span>
+                  </div>
+                  <div class="meta-item">
+                    <span class="meta-label">Halo</span>
+                    <span class="meta-val-badge">
+                      <span class="color-dot" [style.backgroundColor]="customKayakGlowColor"></span>
+                      {{ customKayakGlowColor }}
+                    </span>
+                  </div>
+                  <div class="meta-item">
+                    <span class="meta-label">Motif</span>
+                    <span class="meta-val">{{ getPatternLabel(customKayakPattern) }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Carte Préférences d'affichage en Régate (Zoom x3 & Données sous les lignes d'eau) -->
+            <div class="profile-kayak-card profile-regatta-prefs-card">
+              <div class="profile-kayak-header">
+                <div class="kayak-card-title">
+                  <span class="kayak-icon">🔍</span>
+                  <div>
+                    <h5>Confort de Lecture en Régate (Zoom & Données)</h5>
+                    <span class="kayak-pattern-tag">Zoom x{{ regattaZoomLevel }} · {{ selectedRegattaMetrics.length }} données configurées ({{ visibleRegattaMetrics.length }} visibles au zoom actuel)</span>
+                  </div>
+                </div>
+                <button type="button" class="btn-cyan btn-sm btn-custom-kayak" (click)="openRegattaSettingsRequest.emit()">
+                  ⚙️ Paramétrer Zoom & Données
+                </button>
+              </div>
+              <div class="regatta-prefs-pills-preview">
+                @for (mKey of selectedRegattaMetrics; track mKey; let idx = $index) {
+                  <span class="regatta-pref-pill" [class.is-top3]="idx < 3" [title]="idx < 3 ? 'Conservée même au zoom maximal x3' : 'Masquée progressivement en zoomant'">
+                    {{ getRegattaMetricOption(mKey).icon }} {{ getRegattaMetricOption(mKey).label }}
+                    @if (idx < 3) {
+                      <strong class="top3-star">★</strong>
+                    }
+                  </span>
+                }
+              </div>
+            </div>
+          </div>
+
+          <!-- Actions d'abonnement & Suppression de compte RGPD -->
+          <div class="profile-account-management-box">
+            <h5>⚙️ Gestion de l'abonnement & Données personnelles</h5>
+            <div class="profile-account-actions-row">
+              <button type="button" class="btn-stat-link" (click)="openStatisticsModalRequest.emit()">
+                📊 Accéder à mon Espace Statistiques
+              </button>
+              <button
+                *ngIf="isSubscriber && !isUserAdmin"
+                type="button"
+                class="btn-unsubscribe"
+                [disabled]="isUnsubscribing"
+                (click)="unsubscribeUserRequest.emit()">
+                {{ isUnsubscribing ? 'Résiliation en cours...' : 'Résilier mon abonnement' }}
+              </button>
+              <button
+                *ngIf="!isUserAdmin"
+                type="button"
+                class="btn-delete-account"
+                [disabled]="isDeletingAccount"
+                (click)="deleteUserAccountRequest.emit()">
+                {{ isDeletingAccount ? 'Suppression en cours...' : '🗑️ Supprimer mon compte (RGPD)' }}
+              </button>
+            </div>
+            <div class="account-action-feedback ok" *ngIf="unsubscribeMessage">{{ unsubscribeMessage }}</div>
+            <div class="account-action-feedback err" *ngIf="unsubscribeError">{{ unsubscribeError }}</div>
+            <div class="account-action-feedback err" *ngIf="deleteAccountError">{{ deleteAccountError }}</div>
+          </div>
+
+          <div class="modal-buttons">
+            <button type="button" class="btn-cyan" (click)="openSubscriptionModalRequest.emit()">
+              ⭐ Gérer mon abonnement
+            </button>
+            <button type="button" class="btn-primary" (click)="closeAccountModalRequest.emit(); openPrivateModalRequest.emit('create')">
+              🛶 Créer un salon privé
+            </button>
+            <button type="button" class="btn-danger-outline" (click)="promptLogoutRequest.emit()">
+              Déconnexion
+            </button>
+            <button type="button" class="btn-secondary" (click)="closeAccountModalRequest.emit()">
+              Fermer
+            </button>
+          </div>
+        </div>
+      }
+
+      <!-- TAB 4: FORGOT PASSWORD -->
+      @if (accountModalTab === 'forgot') {
+        <form class="modal-form" (ngSubmit)="showResetFields ? submitResetPasswordRequest.emit() : submitForgotPasswordRequest.emit()" novalidate>
+          <p class="modal-desc">
+            Procédure de réinitialisation sécurisée de votre mot de passe utilisateur.
+          </p>
+
+          @if (!showResetFields) {
+            <div class="form-group">
+              <label for="forgot-input">Email ou Login</label>
+              <input
+                id="forgot-input"
+                name="emailOrLogin"
+                type="text"
+                [ngModel]="forgotEmailOrLogin"
+                (ngModelChange)="forgotEmailOrLogin = $event; forgotEmailOrLoginChange.emit($event)"
+                placeholder="ex: emma@rower.fr ou EmmaRacer"
+                required />
+            </div>
+
+            <div class="modal-buttons">
+              <button type="submit" class="btn-primary" [disabled]="isAccountSubmitting">
+                {{ isAccountSubmitting ? 'Envoi...' : 'Envoyer le lien de réinitialisation' }}
+              </button>
+              <button type="button" class="btn-secondary" (click)="switchTab('login')">
+                Retour connexion
+              </button>
+            </div>
+          } @else {
+            <div class="form-group">
+              <label for="reset-token-input">Jeton de réinitialisation reçu</label>
+              <input
+                id="reset-token-input"
+                name="token"
+                type="text"
+                [ngModel]="resetToken"
+                (ngModelChange)="resetToken = $event; resetTokenChange.emit($event)"
+                placeholder="Collez votre jeton de réinitialisation"
+                required />
+            </div>
+            <div class="form-group">
+              <label for="reset-pwd-input">Nouveau mot de passe *</label>
+              <div class="pwd-input-wrapper">
+                <input
+                  id="reset-pwd-input"
+                  name="newPassword"
+                  [type]="showResetPassword ? 'text' : 'password'"
+                  autocomplete="new-password"
+                  [ngModel]="resetNewPassword"
+                  (ngModelChange)="resetNewPassword = $event; resetNewPasswordChange.emit($event)"
+                  placeholder="Min. 8 car. (Maj, min, chiffre, symbole)"
+                  required />
+                <button
+                  type="button"
+                  class="btn-toggle-pwd"
+                  (click)="showResetPassword = !showResetPassword"
+                  [attr.aria-label]="showResetPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'">
+                  {{ showResetPassword ? '🙈' : '👁️' }}
+                </button>
+              </div>
+
+              @if (resetNewPassword) {
+                <div class="pwd-strength-container">
+                  <div class="pwd-strength-track">
+                    <div
+                      class="pwd-strength-bar"
+                      [ngClass]="getPasswordStrength(resetNewPassword).class"
+                      [style.width]="getPasswordStrength(resetNewPassword).width">
+                    </div>
+                  </div>
+                  <span class="pwd-strength-label" [ngClass]="getPasswordStrength(resetNewPassword).class">
+                    Robustesse : {{ getPasswordStrength(resetNewPassword).label }}
+                  </span>
+                </div>
+              }
+              <span class="field-hint">Minimum 8 caractères avec au moins une majuscule, une minuscule, un chiffre et un caractère spécial (!@#$%^&*...).</span>
+            </div>
+
+            <div class="modal-buttons">
+              <button type="submit" class="btn-primary" [disabled]="isAccountSubmitting || !isPasswordPolicySatisfied(resetNewPassword)">
+                {{ isAccountSubmitting ? 'Mise à jour...' : 'Mettre à jour mon mot de passe' }}
+              </button>
+              <button type="button" class="btn-secondary" (click)="showResetFields = false; showResetFieldsChange.emit(false); switchTab('login')">
+                Annuler
+              </button>
+            </div>
+          }
+        </form>
+      }
+
+      <!-- TAB 5: KAYAK CUSTOMIZER -->
+      @if (accountModalTab === 'kayak-customizer') {
+        <div class="modal-form modal-form-scrollable kayak-customizer-form">
+          @if (isPostRegisterOnboarding) {
+            <div class="customizer-onboarding-banner">
+              <div class="onboarding-icon">🎉</div>
+              <div class="onboarding-text">
+                <h4>Félicitations pour votre inscription !</h4>
+                <p>Donnez du style à votre kayak pour le reconnaître instantanément en course sur le plan d'eau virtuel.</p>
+              </div>
+            </div>
+          } @else {
+            <p class="modal-desc">
+              Personnalisez les couleurs et le style visuel de votre embarcation. Votre kayak sera immédiatement reconnaissable sur l'eau pour vous et pour tous les spectateurs !
+            </p>
+          }
+
+          <!-- Live Preview Card -->
+          <div class="kayak-preview-card">
+            <div class="preview-header">
+              <span class="preview-badge">✨ Aperçu en direct HD</span>
+              <span class="preview-sub">{{ getPatternLabel(customKayakPattern) }}</span>
+            </div>
+            <div class="canvas-preview-wrapper">
+              <canvas #kayakPreviewCanvas width="480" height="150" class="kayak-preview-canvas"></canvas>
+            </div>
+          </div>
+
+          <!-- Pattern Selection -->
+          <div class="customizer-section">
+            <label class="customizer-section-title">
+              <span>🎨 Motif & Style de la Coque</span>
+            </label>
+            <div class="pattern-tiles-grid">
+              @for (pat of patternOptions; track pat.id) {
+                <button
+                  type="button"
+                  class="pattern-tile"
+                  [class.active]="customKayakPattern === pat.id"
+                  (click)="customKayakPattern = pat.id; customKayakPatternChange.emit(pat.id)">
+                  <span class="pattern-tile-icon">{{ pat.icon }}</span>
+                  <div class="pattern-tile-info">
+                    <strong class="pattern-tile-label">{{ pat.label }}</strong>
+                    <span class="pattern-tile-desc">{{ pat.desc }}</span>
+                  </div>
+                </button>
+              }
+            </div>
+          </div>
+
+          <!-- Hull Color Picker -->
+          <div class="customizer-section">
+            <div class="customizer-section-title-row">
+              <label class="customizer-section-title">
+                <span>🛶 Couleur de la Coque</span>
+              </label>
+              <div class="color-picker-input-wrap">
+                <input
+                  type="color"
+                  id="kayak-hull-color-picker"
+                  class="color-picker-native"
+                  [ngModel]="customKayakHullColor"
+                  (ngModelChange)="customKayakHullColor = $event; customKayakHullColorChange.emit($event)"
+                  title="Choisir une couleur libre" />
+                <span class="color-hex-tag font-mono">{{ customKayakHullColor }}</span>
+              </div>
+            </div>
+            <div class="color-swatches-row">
+              @for (color of presetColors; track color.hex) {
+                <button
+                  type="button"
+                  class="color-swatch-btn"
+                  [class.active]="customKayakHullColor.toLowerCase() === color.hex.toLowerCase()"
+                  [style.backgroundColor]="color.hex"
+                  [title]="color.name"
+                  (click)="customKayakHullColor = color.hex; customKayakHullColorChange.emit(color.hex)">
+                  @if (customKayakHullColor.toLowerCase() === color.hex.toLowerCase()) {
+                    <span class="swatch-check">✓</span>
+                  }
+                </button>
+              }
+            </div>
+          </div>
+
+          <!-- Blade Color Picker -->
+          <div class="customizer-section">
+            <div class="customizer-section-title-row">
+              <label class="customizer-section-title">
+                <span>⚡ Couleur des Pelles de Rame</span>
+              </label>
+              <div class="color-picker-input-wrap">
+                <input
+                  type="color"
+                  id="kayak-blade-color-picker"
+                  class="color-picker-native"
+                  [ngModel]="customKayakBladeColor"
+                  (ngModelChange)="customKayakBladeColor = $event; customKayakBladeColorChange.emit($event)"
+                  title="Choisir une couleur libre" />
+                <span class="color-hex-tag font-mono">{{ customKayakBladeColor }}</span>
+              </div>
+            </div>
+            <div class="color-swatches-row">
+              @for (color of presetColors; track color.hex) {
+                <button
+                  type="button"
+                  class="color-swatch-btn"
+                  [class.active]="customKayakBladeColor.toLowerCase() === color.hex.toLowerCase()"
+                  [style.backgroundColor]="color.hex"
+                  [title]="color.name"
+                  (click)="customKayakBladeColor = color.hex; customKayakBladeColorChange.emit(color.hex)">
+                  @if (customKayakBladeColor.toLowerCase() === color.hex.toLowerCase()) {
+                    <span class="swatch-check">✓</span>
+                  }
+                </button>
+              }
+            </div>
+          </div>
+
+          <!-- Glow Color Picker -->
+          <div class="customizer-section">
+            <div class="customizer-section-title-row">
+              <label class="customizer-section-title">
+                <span>🌟 Halo Néon & Sillage Lumineux</span>
+              </label>
+              <div class="color-picker-input-wrap">
+                <input
+                  type="color"
+                  id="kayak-glow-color-picker"
+                  class="color-picker-native"
+                  [ngModel]="customKayakGlowColor"
+                  (ngModelChange)="customKayakGlowColor = $event; customKayakGlowColorChange.emit($event)"
+                  title="Choisir une couleur libre" />
+                <span class="color-hex-tag font-mono">{{ customKayakGlowColor }}</span>
+              </div>
+            </div>
+            <div class="color-swatches-row">
+              @for (color of presetColors; track color.hex) {
+                <button
+                  type="button"
+                  class="color-swatch-btn"
+                  [class.active]="customKayakGlowColor.toLowerCase() === color.hex.toLowerCase()"
+                  [style.backgroundColor]="color.hex"
+                  [title]="color.name"
+                  (click)="customKayakGlowColor = color.hex; customKayakGlowColorChange.emit(color.hex)">
+                  @if (customKayakGlowColor.toLowerCase() === color.hex.toLowerCase()) {
+                    <span class="swatch-check">✓</span>
+                  }
+                </button>
+              }
+            </div>
+          </div>
+
+          <!-- Action buttons -->
+          <div class="modal-buttons customizer-buttons">
+            <button
+              type="button"
+              class="btn-primary btn-save-kayak"
+              [disabled]="isSavingKayak"
+              (click)="saveKayakCustomization()">
+              {{ isSavingKayak ? 'Enregistrement...' : 'Enregistrer mon style 🛶' }}
+            </button>
+            <button
+              type="button"
+              class="btn-secondary"
+              (click)="skipKayakCustomization()">
+              {{ isPostRegisterOnboarding ? 'Passer / Style par défaut' : 'Retour au profil' }}
+            </button>
+          </div>
+        </div>
+      }
+
+      <!-- TAB 6: REGATTA DISPLAY & ZOOM SETTINGS -->
+      @if (accountModalTab === 'regatta-settings') {
+        <div class="modal-form modal-form-scrollable regatta-settings-form">
+          <p class="modal-desc">
+            Configurez votre <strong>confort de lecture en mode Régate</strong> : choisissez le zoom des lignes d'eau (jusqu'à <strong>x3</strong> avec un minimum de 3 kayaks centrés sur votre course) ainsi que les données affichées sous le canevas. En zoomant, le nombre de données affichées diminue progressivement jusqu'aux <strong>3 premières données prioritaires</strong> afin de maximiser la taille de la police.
+          </p>
+
+          @if (regattaPreferencesFeedback) {
+            <div class="auth-feedback-success">
+              ✅ {{ regattaPreferencesFeedback }}
+            </div>
+          }
+          @if (regattaPreferencesError) {
+            <div class="auth-error">
+              ⚠️ {{ regattaPreferencesError }}
+            </div>
+          }
+
+          <!-- 1. Niveau de Zoom des Lignes d'Eau -->
+          <div class="customizer-section">
+            <label class="customizer-section-title">
+              <span>🔍 Niveau de Zoom sur les Lignes d'Eau (x1 à x3)</span>
+            </label>
+            <div class="zoom-presets-row">
+              @for (z of regattaZoomPresets; track z) {
+                <button
+                  type="button"
+                  class="zoom-preset-btn"
+                  [class.active]="regattaZoomLevel === z"
+                  (click)="setRegattaZoomRequest.emit({ level: z, persist: false })">
+                  <strong class="zp-level">Zoom x{{ z }}</strong>
+                  <span class="zp-desc">
+                    @if (z === 1) {
+                      Tous les kayaks · {{ selectedRegattaMetrics.length }} données
+                    } @else if (z >= 3) {
+                      Min. 3 kayaks (devant/vous/derrière) · 3 données max
+                    } @else {
+                      Lignes agrandies · Texte élargi
+                    }
+                  </span>
+                </button>
+              }
+            </div>
+          </div>
+
+          <!-- 2. Sélection des données parmi les 14 disponibles -->
+          <div class="customizer-section">
+            <div class="customizer-section-title-row">
+              <label class="customizer-section-title">
+                <span>📊 Données affichées sous le canevas ({{ selectedRegattaMetrics.length }} sélectionnées, min. 3)</span>
+              </label>
+              <button type="button" class="btn-reset-prefs-sm" (click)="resetRegattaPreferencesDefaultRequest.emit()">
+                ↺ Réinitialiser par défaut
+              </button>
+            </div>
+            <div class="regatta-metrics-selector-grid">
+              @for (item of regattaMetricsCatalog; track item.key) {
+                <button
+                  type="button"
+                  class="metric-option-tile"
+                  [class.selected]="isRegattaMetricSelected(item.key)"
+                  (click)="toggleRegattaMetricRequest.emit(item.key)">
+                  <span class="mot-check">{{ isRegattaMetricSelected(item.key) ? '✓' : '+' }}</span>
+                  <span class="mot-icon">{{ item.icon }}</span>
+                  <div class="mot-texts">
+                    <strong class="mot-label">{{ item.label }}</strong>
+                    <span class="mot-unit" *ngIf="item.unit">{{ item.unit }}</span>
+                  </div>
+                </button>
+              }
+            </div>
+          </div>
+
+          <!-- 3. Ordre de priorité (les 3 premières restent visibles au zoom maximal x3) -->
+          <div class="customizer-section">
+            <label class="customizer-section-title">
+              <span>⭐ Ordre d'affichage & Priorité au Zoom x3 (les 3 premières restent toujours visibles)</span>
+            </label>
+            <div class="selected-metrics-order-list">
+              @for (mKey of selectedRegattaMetrics; track mKey; let idx = $index) {
+                @let opt = getRegattaMetricOption(mKey);
+                <div class="metric-order-row" [class.is-priority-top3]="idx < 3">
+                  <span class="mor-rank">#{{ idx + 1 }}</span>
+                  <span class="mor-icon">{{ opt.icon }}</span>
+                  <div class="mor-info">
+                    <strong>{{ opt.label }}</strong>
+                    @if (idx < 3) {
+                      <span class="mor-priority-badge">★ Visible même en Zoom x3</span>
+                    } @else {
+                      <span class="mor-sub-badge">Masqué progressivement en zoomant</span>
+                    }
+                  </div>
+                  <div class="mor-actions">
+                    <button
+                      type="button"
+                      class="btn-mor-move"
+                      [disabled]="idx === 0"
+                      (click)="moveRegattaMetricRequest.emit({ index: idx, direction: -1 })"
+                      title="Monter la priorité">↑</button>
+                    <button
+                      type="button"
+                      class="btn-mor-move"
+                      [disabled]="idx === selectedRegattaMetrics.length - 1"
+                      (click)="moveRegattaMetricRequest.emit({ index: idx, direction: 1 })"
+                      title="Descendre la priorité">↓</button>
+                  </div>
+                </div>
+              }
+            </div>
+          </div>
+
+          <!-- 4. Option du Compte à Rebours Flottant avant la course -->
+          <div class="customizer-section timer-pref-section">
+            <label class="customizer-section-title">
+              <span>⏱️ Compte à Rebours Flottant avant le Départ</span>
+            </label>
+            <div class="timer-pref-box">
+              <label class="pref-toggle-label">
+                <input
+                  type="checkbox"
+                  [checked]="!isPrestartTimerDismissed"
+                  (change)="togglePrestartTimerPreferenceRequest.emit($any($event.target).checked)" />
+                <span class="pref-toggle-text">Afficher le popup flottant lors du compte à rebours avant le départ</span>
+              </label>
+              <span class="field-hint">
+                Si vous aviez fermé ce popup avec la croix ✕, vous pouvez le réactiver ici à tout moment sur ce terminal.
+              </span>
+            </div>
+          </div>
+
+          <div class="modal-buttons customizer-buttons">
+            <button
+              type="button"
+              class="btn-primary btn-save-kayak"
+              [disabled]="isSavingRegattaPreferences"
+              (click)="saveRegattaPreferencesRequest.emit()">
+              {{ isSavingRegattaPreferences ? 'Enregistrement...' : 'Enregistrer dans mon profil 💾' }}
+            </button>
+            @if (isIdentified) {
+              <button
+                type="button"
+                class="btn-secondary"
+                (click)="switchTab('profile')">
+                Retour au profil
+              </button>
+            } @else {
+              <button
+                type="button"
+                class="btn-secondary"
+                (click)="closeAccountModalRequest.emit()">
+                Fermer
+              </button>
+            }
+          </div>
+        </div>
+      }
+    </div>
+  </div>
+}

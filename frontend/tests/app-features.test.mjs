@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { readAppHtmlBundle, readAppTsBundle } from './test-app-bundle.helper.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -148,7 +149,7 @@ test('Official contact address contact@rowerrace.com is present in html files', 
   const appHtmlPath = path.resolve(__dirname, '../src/app/app.html');
   const indexHtmlPath = path.resolve(__dirname, '../src/index.html');
 
-  const appHtml = fs.readFileSync(appHtmlPath, 'utf8');
+  const appHtml = readAppHtmlBundle();
   const indexHtml = fs.readFileSync(indexHtmlPath, 'utf8');
 
   assert.ok(appHtml.includes('contact@rowerrace.com'), 'app.html contains contact@rowerrace.com');
@@ -157,7 +158,7 @@ test('Official contact address contact@rowerrace.com is present in html files', 
 
 test('Fullscreen button on first line next to race counter & screen On button removal', () => {
   const appHtmlPath = path.resolve(__dirname, '../src/app/app.html');
-  const appHtml = fs.readFileSync(appHtmlPath, 'utf8');
+  const appHtml = readAppHtmlBundle();
 
   // Verify that the "écran On" button has been removed from the header and quick tools
   assert.ok(!appHtml.includes('hero-wakelock'), 'app.html must not contain hero-wakelock button');
@@ -233,7 +234,7 @@ test('i18n service provides fullscreen translations for all supported languages'
 test('Fullscreen button accessibility and responsive CSS rules', () => {
   const appHtmlPath = path.resolve(__dirname, '../src/app/app.html');
   const appCssPath = path.resolve(__dirname, '../src/app/app.css');
-  const appHtml = fs.readFileSync(appHtmlPath, 'utf8');
+  const appHtml = readAppHtmlBundle();
   const appCss = fs.readFileSync(appCssPath, 'utf8');
 
   // Accessibility attributes
@@ -334,7 +335,7 @@ test('Pseudo-fullscreen fallback behavior when native DOM fullscreen is unavaila
 });
 
 test('Subscription paid buttons wired to Stripe checkout and protected against deactivated tiers', () => {
-  const html = fs.readFileSync(path.join(__dirname, '../src/app/app.html'), 'utf8');
+  const html = readAppHtmlBundle();
 
   // Verify that club tier and pro tier buttons trigger subscribeToTier
   assert.match(html, /btn-pricing btn-club[^>]*\(click\)="subscribeToTier\('intermediate'\)"/);
@@ -370,7 +371,7 @@ test('Subscription paid buttons wired to Stripe checkout and protected against d
 });
 
 test('Lobby engaged rowers panel displays Race In Progress banner with Top 3 and remaining duration', () => {
-  const html = fs.readFileSync(path.join(__dirname, '../src/app/app.html'), 'utf8');
+  const html = readAppHtmlBundle();
 
   // Verify presence of live race banner in engaged rowers table section
   assert.ok(
@@ -507,7 +508,7 @@ test('Mobile and Tablet Fullscreen display logic: only cockpit with player selec
   assert.equal(checkIsMobileFullscreenOnly(false, checkIsMobileOrTablet(375, 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X)', true)), false);
 
   // Read app.html to verify mobile-fullscreen-view hides header, footer, dual tables and shows only arena (cockpit or canvas)
-  const appHtml = fs.readFileSync(path.join(__dirname, '../src/app/app.html'), 'utf8');
+  const appHtml = readAppHtmlBundle();
   assert.match(appHtml, /\[class\.mobile-fullscreen-view\]="isMobileFullscreenOnly"/);
   assert.match(appHtml, /<header class="hud-header" \*ngIf="!isMobileFullscreenOnly">/);
   assert.match(appHtml, /@if \(isRaceActive \|\| isMobileFullscreenOnly\)/);
@@ -528,7 +529,7 @@ test('Garmin Web pairing: 6-char ephemeral code, countdown, real-time paired sta
   assert.equal(validatePairingCode('AB@12!'), false, 'Special chars rejected');
 
   // Verify app.html contains new pairing section and buttons
-  const appHtml = fs.readFileSync(path.join(__dirname, '../src/app/app.html'), 'utf8');
+  const appHtml = readAppHtmlBundle();
   assert.match(appHtml, /class="garmin-pairing-section"/, 'Must contain garmin-pairing-section');
   assert.match(appHtml, /generateGarminPairingCode\(\)/, 'Must call generateGarminPairingCode');
   assert.match(appHtml, /resetGarminPairing\(\)/, 'Must call resetGarminPairing');
@@ -546,13 +547,13 @@ test('Garmin Web pairing: 6-char ephemeral code, countdown, real-time paired sta
 });
 
 test('Duel 1v1 Bot mode only proposed if player is paired', () => {
-  const appHtml = fs.readFileSync(path.join(__dirname, '../src/app/app.html'), 'utf8');
+  const appHtml = readAppHtmlBundle();
   // btn-bot-duel must be conditioned on isPaired || isWatchConfirmed
   assert.match(appHtml, /\*ngIf="isPaired \|\| isWatchConfirmed"[\s\S]*?class="btn-hud btn-bot-duel"/);
 });
 
 test('Statistiques button moved to the right of Salons Prives and displayed for identified players', () => {
-  const appHtml = fs.readFileSync(path.join(__dirname, '../src/app/app.html'), 'utf8');
+  const appHtml = readAppHtmlBundle();
   const privateRoomIdx = appHtml.indexOf('class="btn-hud btn-private"');
   const statsIdx = appHtml.indexOf('class="btn-hud btn-stats"');
   const pricingIdx = appHtml.indexOf('class="btn-hud btn-pricing"');
@@ -565,7 +566,7 @@ test('Statistiques button moved to the right of Salons Prives and displayed for 
 
 test('Smartphone mode: full-width fullscreen button underneath next race, and modal links for standings/history', () => {
   const appCss = fs.readFileSync(path.join(__dirname, '../src/app/app.css'), 'utf8');
-  const appHtml = fs.readFileSync(path.join(__dirname, '../src/app/app.html'), 'utf8');
+  const appHtml = readAppHtmlBundle();
 
   // CSS for 768px smartphone: hero-schedule-cluster is flex-direction column, hero-fullscreen is full width (100%)
   assert.match(appCss, /@media\s*\(max-width:\s*768px\)[\s\S]*?\.hero-schedule-cluster\s*\{[\s\S]*?flex-direction:\s*column/);
@@ -599,7 +600,7 @@ test('Leaderboard only includes players who finished a race', () => {
 });
 
 test('Account creation and subscription possible without prior pairing, and old watch login purged', () => {
-  const appHtml = fs.readFileSync(path.join(__dirname, '../src/app/app.html'), 'utf8');
+  const appHtml = readAppHtmlBundle();
   // Account modal button is available on un-paired header (line 1 and line 2)
   assert.match(appHtml, /class="btn-hud btn-connect-compact"[\s\S]*?openAccountModal\('login'\)/);
   assert.match(appHtml, /class="header-line1-auth-box"/, 'Header line 1 has connection / profile trigger');
@@ -611,9 +612,9 @@ test('Account creation and subscription possible without prior pairing, and old 
 });
 
 test('Mobile and Tablet Fullscreen: in-cockpit player selection, bottom nav hidden, and robust state persistence', () => {
-  const appHtml = fs.readFileSync(path.join(__dirname, '../src/app/app.html'), 'utf8');
+  const appHtml = readAppHtmlBundle();
   const appCss = fs.readFileSync(path.join(__dirname, '../src/app/app.css'), 'utf8');
-  const appTs = fs.readFileSync(path.join(__dirname, '../src/app/app.ts'), 'utf8');
+  const appTs = readAppTsBundle();
 
   // Spectator / Camera tracking dropdown in Cockpit and Regatta views
   assert.match(appHtml, /class="spectator-camera-bar"/, 'Must contain spectator-camera-bar');
@@ -640,9 +641,9 @@ test('Mobile and Tablet Fullscreen: in-cockpit player selection, bottom nav hidd
 });
 
 test('Pure Screen Modes & Navigation: Mode Regate shows only 2D canvas, Mode Cockpit shows only cockpit HUD, Home displays full dashboard', () => {
-  const appHtml = fs.readFileSync(path.join(__dirname, '../src/app/app.html'), 'utf8');
+  const appHtml = readAppHtmlBundle();
   const appCss = fs.readFileSync(path.join(__dirname, '../src/app/app.css'), 'utf8');
-  const appTs = fs.readFileSync(path.join(__dirname, '../src/app/app.ts'), 'utf8');
+  const appTs = readAppTsBundle();
 
   // Pure screen header has Home button, view modes, language selector and fullscreen toggle
   assert.match(appHtml, /class="pure-screen-header" \*ngIf="siteView === 'regatta' \|\| siteView === 'cockpit'"/);
@@ -671,8 +672,8 @@ test('Pure Screen Modes & Navigation: Mode Regate shows only 2D canvas, Mode Coc
 });
 
 test('Mobile/Tablet SEO guide is replaced by interactive link and adapts dynamically to dropdown language', () => {
-  const appHtml = fs.readFileSync(path.join(__dirname, '../src/app/app.html'), 'utf8');
-  const appTs = fs.readFileSync(path.join(__dirname, '../src/app/app.ts'), 'utf8');
+  const appHtml = readAppHtmlBundle();
+  const appTs = readAppTsBundle();
   const appCss = fs.readFileSync(path.join(__dirname, '../src/app/app.css'), 'utf8');
   const i18nServiceTs = fs.readFileSync(path.join(__dirname, '../src/app/services/i18n.service.ts'), 'utf8');
 
@@ -750,9 +751,9 @@ test('Mobile & Tablet: Automatic Fullscreen on Cockpit or Regatta entry, and Flo
   const appHtmlPath = path.resolve(__dirname, '../src/app/app.html');
   const appCssPath = path.resolve(__dirname, '../src/app/app.css');
   const appTsPath = path.resolve(__dirname, '../src/app/app.ts');
-  const appHtml = fs.readFileSync(appHtmlPath, 'utf8');
+  const appHtml = readAppHtmlBundle();
   const appCss = fs.readFileSync(appCssPath, 'utf8');
-  const appTs = fs.readFileSync(appTsPath, 'utf8');
+  const appTs = readAppTsBundle();
 
   // Verify device detection checks touch, pointer: coarse, and mobile UA
   assert.match(appTs, /get\s+isMobileOrTablet\(\)[\s\S]*?maxTouchPoints[\s\S]*?pointer:\s*coarse/);
@@ -784,9 +785,9 @@ test('Landscape orientation enforcement & visual portrait rotation invitation', 
   const appHtmlPath = path.resolve(__dirname, '../src/app/app.html');
   const appCssPath = path.resolve(__dirname, '../src/app/app.css');
   const appTsPath = path.resolve(__dirname, '../src/app/app.ts');
-  const appHtml = fs.readFileSync(appHtmlPath, 'utf8');
+  const appHtml = readAppHtmlBundle();
   const appCss = fs.readFileSync(appCssPath, 'utf8');
-  const appTs = fs.readFileSync(appTsPath, 'utf8');
+  const appTs = readAppTsBundle();
 
   // Verify visual invitation element in HTML
   assert.match(appHtml, /class="orientation-rotate-notice"/, 'app.html must contain orientation-rotate-notice banner');
@@ -811,8 +812,8 @@ test('Draggable & Collapsible Leaderboard in Regatta Canvas and Cockpit views', 
   const appCssPath = path.resolve(__dirname, '../src/app/app.css');
 
   const canvasTs = fs.readFileSync(canvasTsPath, 'utf8');
-  const appHtml = fs.readFileSync(appHtmlPath, 'utf8');
-  const appTs = fs.readFileSync(appTsPath, 'utf8');
+  const appHtml = readAppHtmlBundle();
+  const appTs = readAppTsBundle();
   const appCss = fs.readFileSync(appCssPath, 'utf8');
 
   // 1. Collapsed state badge format (ex: "2e / 8" or "1er / 8")
@@ -898,7 +899,7 @@ test('Draggable & Collapsible Leaderboard in Regatta Canvas and Cockpit views', 
 });
 
 test('Responsive UI Refactor: Floating fullscreen hidden on mobile, Timer block actions (Fullscreen & Garmin pairing), fairness banner desktop/mobile placement, and account identifier cleanup', () => {
-  const appHtml = fs.readFileSync(path.resolve(__dirname, '../src/app/app.html'), 'utf8');
+  const appHtml = readAppHtmlBundle();
   const appCss = fs.readFileSync(path.resolve(__dirname, '../src/app/app.css'), 'utf8');
 
   // 1. Suppression du bouton flottant plein écran en bas de page sur smartphone
@@ -946,8 +947,8 @@ test('Responsive UI Refactor: Floating fullscreen hidden on mobile, Timer block 
 
 test('Mobile Rigid Viewport & Anti-Scroll: 100dvh, 100vw, overflow hidden, position fixed, touch-action & overscroll-behavior none', () => {
   const appCss = fs.readFileSync(path.resolve(__dirname, '../src/app/app.css'), 'utf8');
-  const appHtml = fs.readFileSync(path.resolve(__dirname, '../src/app/app.html'), 'utf8');
-  const appTs = fs.readFileSync(path.resolve(__dirname, '../src/app/app.ts'), 'utf8');
+  const appHtml = readAppHtmlBundle();
+  const appTs = readAppTsBundle();
 
   // 1. Rigid viewport class definition in CSS
   assert.match(appCss, /html\.rigid-viewport,\s*body\.rigid-viewport\s*\{/);
@@ -972,7 +973,7 @@ test('Mobile Rigid Viewport & Anti-Scroll: 100dvh, 100vw, overflow hidden, posit
 });
 
 test('Regatta Unified HUD: displays Power, Pace/Speed, Cadence/SPM, Distance, and Chrono without scrolling', () => {
-  const appHtml = fs.readFileSync(path.resolve(__dirname, '../src/app/app.html'), 'utf8');
+  const appHtml = readAppHtmlBundle();
   const appCss = fs.readFileSync(path.resolve(__dirname, '../src/app/app.css'), 'utf8');
 
   // Unified HUD section in regatta view
@@ -991,9 +992,9 @@ test('Regatta Unified HUD: displays Power, Pace/Speed, Cadence/SPM, Distance, an
 });
 
 test('Ephemeral Finish Line Toast Notification: triggers for finished racers, 2-second max duration, slide down & fade out', () => {
-  const appHtml = fs.readFileSync(path.resolve(__dirname, '../src/app/app.html'), 'utf8');
+  const appHtml = readAppHtmlBundle();
   const appCss = fs.readFileSync(path.resolve(__dirname, '../src/app/app.css'), 'utf8');
-  const appTs = fs.readFileSync(path.resolve(__dirname, '../src/app/app.ts'), 'utf8');
+  const appTs = readAppTsBundle();
 
   // 1. Toast in HTML
   assert.match(appHtml, /class="finish-line-toast"\s*\*ngIf="activeFinishToast"/);
@@ -1011,8 +1012,8 @@ test('Ephemeral Finish Line Toast Notification: triggers for finished racers, 2-
 });
 
 test('Post-Race Detailed Ranking: displayed on public race finish and maintained across 2-minute pause until next race start', () => {
-  const appHtml = fs.readFileSync(path.resolve(__dirname, '../src/app/app.html'), 'utf8');
-  const appTs = fs.readFileSync(path.resolve(__dirname, '../src/app/app.ts'), 'utf8');
+  const appHtml = readAppHtmlBundle();
+  const appTs = readAppTsBundle();
 
   // Triggered on public race finish
   assert.match(appTs, /if\s*\(isPublicRace && this\.isFinished && !this\.isPostRaceRankingActive && this\.nextRaceInfo\?\.race\?\.id\)\s*\{/);
@@ -1028,7 +1029,7 @@ test('Post-Race Detailed Ranking: displayed on public race finish and maintained
 });
 
 test('Real-time Telemetry WebSocket Binding: updates Watts, SPM, Pace, and Distance continuously and synchronously', () => {
-  const appTs = fs.readFileSync(path.resolve(__dirname, '../src/app/app.ts'), 'utf8');
+  const appTs = readAppTsBundle();
 
   // Synchronizes myActivity directly from WebSocket update.leaderboard
   assert.match(appTs, /this\.myActivity\.netDistance\s*=\s*myMetric\.dist;/);
@@ -1057,8 +1058,8 @@ test('Duel 1v1 Bot automatic 15s countdown, Garmin watch admission, and collapsi
   const privTs = fs.readFileSync(path.resolve(__dirname, '../src/app/components/private-room-manager/private-room-manager.component.ts'), 'utf8');
   const privHtml = fs.readFileSync(path.resolve(__dirname, '../src/app/components/private-room-manager/private-room-manager.component.html'), 'utf8');
   const privCss = fs.readFileSync(path.resolve(__dirname, '../src/app/components/private-room-manager/private-room-manager.component.css'), 'utf8');
-  const appTs = fs.readFileSync(path.resolve(__dirname, '../src/app/app.ts'), 'utf8');
-  const appHtml = fs.readFileSync(path.resolve(__dirname, '../src/app/app.html'), 'utf8');
+  const appTs = readAppTsBundle();
+  const appHtml = readAppHtmlBundle();
   const appCss = fs.readFileSync(path.resolve(__dirname, '../src/app/app.css'), 'utf8');
   const canvasTs = fs.readFileSync(path.resolve(__dirname, '../src/app/components/regatta-canvas/regatta-canvas.component.ts'), 'utf8');
   const bleDelegateMc = fs.readFileSync(path.resolve(__dirname, '../../garmin/source/BleDelegate.mc'), 'utf8');
@@ -1094,9 +1095,9 @@ test('Duel 1v1 Bot automatic 15s countdown, Garmin watch admission, and collapsi
 });
 
 test('Unified Onboarding Specification: Home Banner, 3 Action Cards, 3-Step Modal, 5-Char Guest Ticket, BLE READY State Machine, Garmin Start Lock & Profile Menu', () => {
-  const appHtml = fs.readFileSync(path.resolve(__dirname, '../src/app/app.html'), 'utf8');
+  const appHtml = readAppHtmlBundle();
   const appCss = fs.readFileSync(path.resolve(__dirname, '../src/app/app.css'), 'utf8');
-  const appTs = fs.readFileSync(path.resolve(__dirname, '../src/app/app.ts'), 'utf8');
+  const appTs = readAppTsBundle();
   const privHtml = fs.readFileSync(path.resolve(__dirname, '../src/app/components/private-room-manager/private-room-manager.component.html'), 'utf8');
   const privTs = fs.readFileSync(path.resolve(__dirname, '../src/app/components/private-room-manager/private-room-manager.component.ts'), 'utf8');
   const canvasTs = fs.readFileSync(path.resolve(__dirname, '../src/app/components/regatta-canvas/regatta-canvas.component.ts'), 'utf8');
@@ -1153,9 +1154,9 @@ test('Unified Onboarding Specification: Home Banner, 3 Action Cards, 3-Step Moda
 });
 
 test('Garmin pairing UX harmonization: single desktop invitation, PIN code guidance, dynamic profile pairing button & prior session recovery', () => {
-  const appHtml = fs.readFileSync(path.resolve(__dirname, '../src/app/app.html'), 'utf8');
+  const appHtml = readAppHtmlBundle();
   const appCss = fs.readFileSync(path.resolve(__dirname, '../src/app/app.css'), 'utf8');
-  const appTs = fs.readFileSync(path.resolve(__dirname, '../src/app/app.ts'), 'utf8');
+  const appTs = readAppTsBundle();
 
   // 1. Single invitation on desktop: welcome banner uses status pill is-unlinked (no duplicate btn-welcome-link-watch in welcome banner)
   assert.match(appHtml, /class="hardware-status-pill is-unlinked"[\s\S]*?\(click\)="scrollToGarminPairing\(\)"[\s\S]*?Montre non liée/);
@@ -1198,7 +1199,7 @@ test('Garmin pairing UX harmonization: single desktop invitation, PIN code guida
 });
 
 test('Quick Navigation in Regatta and Cockpit views: Accueil button placed to the left of Cockpit and Regate buttons', () => {
-  const appHtml = fs.readFileSync(path.join(__dirname, '../src/app/app.html'), 'utf8');
+  const appHtml = readAppHtmlBundle();
 
   // 1. In regatta-quick-nav-bar, Accueil (btn-quick-home) is placed before Cockpit (btn-quick-cockpit)
   const regattaNavBarMatch = appHtml.match(/<aside class="regatta-quick-nav-bar"[\s\S]*?<\/aside>/);
@@ -1222,9 +1223,9 @@ test('Quick Navigation in Regatta and Cockpit views: Accueil button placed to th
 });
 
 test('Web interface: zero references to Lemon Squeezy in templates, styles, and frontend source code', () => {
-  const appHtml = fs.readFileSync(path.join(__dirname, '../src/app/app.html'), 'utf8');
+  const appHtml = readAppHtmlBundle();
   const appCss = fs.readFileSync(path.join(__dirname, '../src/app/app.css'), 'utf8');
-  const appTs = fs.readFileSync(path.join(__dirname, '../src/app/app.ts'), 'utf8');
+  const appTs = readAppTsBundle();
   const rowerServiceTs = fs.readFileSync(path.join(__dirname, '../src/app/services/rower.service.ts'), 'utf8');
 
   assert.doesNotMatch(appHtml, /lemon\s*squeezy/i, 'app.html must not contain any reference to Lemon Squeezy');
@@ -1338,10 +1339,10 @@ test('Regatta mode: Only free kayaks can be claimed in public races (bots, paire
   assert.match(regattaCanvasTs, /canClaimBoat\(selectedKayakForClaim\)/, 'Canvas template must guard claim button with canClaimBoat()');
   assert.match(regattaCanvasTs, /canClaimBoat\(boat\)/, 'claimSelectedKayak must verify canClaimBoat before emitting');
 
-  const appHtml = fs.readFileSync(path.join(__dirname, '../src/app/app.html'), 'utf8');
+  const appHtml = readAppHtmlBundle();
   assert.match(appHtml, /\[canSelectKayak\]="canManualSelectPublicKayak"/, 'app.html must pass [canSelectKayak]="canManualSelectPublicKayak" to app-regatta-canvas');
 
-  const appTs = fs.readFileSync(path.join(__dirname, '../src/app/app.ts'), 'utf8');
+  const appTs = readAppTsBundle();
   assert.match(appTs, /!this\.canManualSelectPublicKayak/, 'app.ts must check canManualSelectPublicKayak in onKayakClaimed and selectablePublicKayaks');
 });
 
@@ -1354,8 +1355,8 @@ test('Regatta mode: Only free kayaks can be claimed in public races (bots, paire
 
 
 test('Home page boxes (Classement saison + Historique) auto-refresh: socket event, 60s poll, visibility guard, cleanup', () => {
-  const ts = fs.readFileSync(path.join(__dirname, '../src/app/app.ts'), 'utf8');
-  const html = fs.readFileSync(path.join(__dirname, '../src/app/app.html'), 'utf8');
+  const ts = readAppTsBundle();
+  const html = readAppHtmlBundle();
   assert.ok(ts.includes('initHomeAutoRefresh()'), 'auto-refresh is initialised');
   assert.match(ts, /HOME_POLL_MS = 60_000/, 'safety poll every 60s');
   assert.match(ts, /debounceTime\(2000\)/, 'refresh is debounced');

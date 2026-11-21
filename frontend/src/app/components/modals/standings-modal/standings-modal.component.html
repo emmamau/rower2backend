@@ -1,0 +1,235 @@
+<!-- 4. General Standings Leaderboard Modal -->
+@if (isStandingsOpen) {
+  <div class="modal-overlay">
+    <div class="modal-card modal-large" (click)="$event.stopPropagation()">
+      <div class="modal-header-row">
+        <h3 id="standings-modal-title">🏆 Classements & Ligues Rower Race</h3>
+        <button type="button" class="btn-close" (click)="closeStandingsModalRequest.emit()" [attr.aria-label]="i18n.t('BTN_CLOSE')">✕</button>
+      </div>
+
+      <!-- Onglets principaux : Ligues Hebdomadaires vs Classement Général -->
+      <div class="standings-mode-tabs">
+        <button
+          type="button"
+          class="btn-standings-tab"
+          [class.active]="standingsActiveTab === 'leagues'"
+          (click)="standingsActiveTab = 'leagues'; standingsActiveTabChange.emit('leagues'); loadLeagueStandingsRequest.emit(selectedLeagueTier)">
+          🏆 Ligues Hebdomadaires (Or / Argent / Bronze)
+        </button>
+        <button
+          type="button"
+          class="btn-standings-tab"
+          [class.active]="standingsActiveTab === 'general'"
+          (click)="standingsActiveTab = 'general'; standingsActiveTabChange.emit('general'); loadGeneralLeaderboardRequest.emit()">
+          🌍 Classement Général Carrière
+        </button>
+      </div>
+
+      @if (standingsActiveTab === 'leagues') {
+        <!-- Sélecteur de division de ligue -->
+        <div class="league-tier-selector-bar">
+          <button
+            type="button"
+            class="btn-tier-tab btn-tier-gold"
+            [class.active]="selectedLeagueTier === 'GOLD'"
+            (click)="loadLeagueStandingsRequest.emit('GOLD')">
+            🥇 Ligue Or
+          </button>
+          <button
+            type="button"
+            class="btn-tier-tab btn-tier-silver"
+            [class.active]="selectedLeagueTier === 'SILVER'"
+            (click)="loadLeagueStandingsRequest.emit('SILVER')">
+            🥈 Ligue Argent
+          </button>
+          <button
+            type="button"
+            class="btn-tier-tab btn-tier-bronze"
+            [class.active]="selectedLeagueTier === 'BRONZE'"
+            (click)="loadLeagueStandingsRequest.emit('BRONZE')">
+            🥉 Ligue Bronze
+          </button>
+        </div>
+
+        <!-- Bannière explicative des quotas et mouvements du lundi -->
+        <div class="league-rules-banner" [attr.data-tier]="selectedLeagueTier">
+          @if (selectedLeagueTier === 'BRONZE') {
+            <span>🚀 <strong>Promotion :</strong> Top 25% montent en Ligue Argent le lundi (si au moins 4 rameurs actifs). Aucune descente.</span>
+          } @else if (selectedLeagueTier === 'SILVER') {
+            <span>🚀 <strong>Promotion :</strong> Top 20% montent en Ligue Or. | ⚠️ <strong>Relégation :</strong> Derniers 20% descendent en Ligue Bronze (si au moins 5 actifs).</span>
+          } @else {
+            <span>👑 <strong>Élite Mondiale :</strong> Ligue Or. | ⚠️ <strong>Relégation :</strong> Derniers 20% descendent en Ligue Argent (si au moins 5 actifs).</span>
+          }
+          @if (leagueTotalActive > 0) {
+            <small class="league-active-count">({{ leagueTotalActive }} rameurs actifs cette semaine)</small>
+          }
+        </div>
+
+        <div tabindex="0" role="region" aria-label="Classement hebdomadaire" class="standings-table-container">
+          @if (isLoadingLeagueStandings) {
+            <div class="leaderboard-loading-box">
+              <span class="loading-spinner"></span>
+              <span>Chargement de la Ligue {{ selectedLeagueTier }}...</span>
+            </div>
+          } @else if (leagueStandings.length === 0) {
+            <div class="leaderboard-empty-box">
+              <p>Aucun rameur actif dans cette ligue pour le moment.</p>
+            </div>
+          } @else {
+            <table class="standings-table league-standings-table">
+              <thead>
+                <tr>
+                  <th scope="col" class="col-rank">RANG</th>
+                  <th scope="col" class="col-name">ATHLÈTE</th>
+                  <th scope="col" class="col-pts">POINTS SEMAINE</th>
+                  <th scope="col">MEILLEURE ALLURE / 500M</th>
+                  <th scope="col">COURSES</th>
+                  <th scope="col">STATUT LIGUE</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (entry of leagueStandings; track entry.user_id) {
+                  <tr
+                    [class.is-current-user]="entry.user_id === currentUser.id || entry.user_id === currentUser.login"
+                    [class.row-zone-promo]="entry.zone === 'PROMOTION'"
+                    [class.row-zone-relegate]="entry.zone === 'RELEGATION'"
+                    [class.row-zone-frozen]="entry.zone === 'FROZEN'">
+                    <td class="col-rank">
+                      <span class="rank-medal" *ngIf="entry.tier_rank === 1">🥇</span>
+                      <span class="rank-medal" *ngIf="entry.tier_rank === 2">🥈</span>
+                      <span class="rank-medal" *ngIf="entry.tier_rank === 3">🥉</span>
+                      #{{ entry.tier_rank }}
+                    </td>
+                    <th scope="row" class="col-name">
+                      <div class="athlete-name-wrap">
+                        <span class="country-flag" *ngIf="entry.country">{{ getCountryFlag(entry.country) }}</span>
+                        <span class="athlete-display-text">{{ entry.display_name || entry.user_name }}</span>
+                        @if (entry.is_resting) {
+                          <span class="tag-resting-pill" title="Mode Vacances / Repos activé : ligue gelée">🏖️ En pause</span>
+                        } @else if (entry.weekly_races_count === 0) {
+                          <span class="tag-inactive-pill" title="0 course disputée cette semaine">💤 Inactif</span>
+                        }
+                      </div>
+                    </th>
+                    <td class="col-pts">
+                      <strong>{{ entry.weekly_points }} pts</strong>
+                      <small class="career-sub-pts">({{ entry.total_career_points }} car.)</small>
+                    </td>
+                    <td>{{ formatPaceMs(entry.weekly_best_pace_ms) }}</td>
+                    <td>{{ entry.weekly_races_count }}</td>
+                    <td class="col-zone-cell">
+                      @if (entry.zone === 'PROMOTION') {
+                        <span class="zone-badge zone-promo">🚀 Montée</span>
+                      } @else if (entry.zone === 'RELEGATION') {
+                        <span class="zone-badge zone-relegate">⚠️ Descente</span>
+                      } @else if (entry.zone === 'FROZEN') {
+                        <span class="zone-badge zone-frozen">🏖️ Gelé</span>
+                      } @else {
+                        <span class="zone-badge zone-maintain">🛡️ Maintien</span>
+                      }
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          }
+        </div>
+      } @else {
+        <p class="modal-desc">
+          {{ i18n.t('MODAL_STANDINGS_DESC') }}
+        </p>
+
+        <!-- Filtres Pays, Sexe et Catégorie d'âge -->
+        <div class="leaderboard-filters-bar">
+          <div class="filter-group">
+            <label for="filter-country-m">🌍 Pays :</label>
+            <select id="filter-country-m" [ngModel]="leaderboardCountryFilter" (ngModelChange)="onCountryFilterChange($event)">
+              <option value="all">Tous les pays</option>
+              <option *ngFor="let c of availableLeaderboardCountries" [value]="c">
+                {{ getCountryFlag(c) }} {{ c }}
+              </option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <label for="filter-gender-m">⚧ Sexe :</label>
+            <select id="filter-gender-m" [ngModel]="leaderboardGenderFilter" (ngModelChange)="onGenderFilterChange($event)">
+              <option value="all">Tous</option>
+              <option value="M">Hommes (M)</option>
+              <option value="F">Femmes (F)</option>
+              <option value="Autre">Autre</option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <label for="filter-age-m">🎂 Catégorie :</label>
+            <select id="filter-age-m" [ngModel]="leaderboardAgeCategoryFilter" (ngModelChange)="onAgeFilterChange($event)">
+              <option value="all">Toutes</option>
+              <option value="U19">U19 (-19 ans)</option>
+              <option value="19-29">19-29 ans (Senior)</option>
+              <option value="30-39">30-39 ans (Master A)</option>
+              <option value="40-49">40-49 ans (Master B)</option>
+              <option value="50-59">50-59 ans (Master C)</option>
+              <option value="60+">60+ ans (Master D+)</option>
+            </select>
+          </div>
+          <button
+            *ngIf="leaderboardCountryFilter !== 'all' || leaderboardGenderFilter !== 'all' || leaderboardAgeCategoryFilter !== 'all'"
+            type="button"
+            class="btn-reset-filters"
+            (click)="resetLeaderboardFiltersRequest.emit()">
+            ✕ Réinitialiser
+          </button>
+        </div>
+
+        <div tabindex="0" role="region" aria-labelledby="standings-modal-title" class="standings-table-container">
+          <table
+            class="standings-table"
+            [style.--lbl-pts]="i18n.t('COL_POINTS')"
+            [style.--lbl-races]="i18n.t('COL_RACES')"
+            [style.--lbl-wins]="i18n.t('COL_WINS')"
+            [style.--lbl-podiums]="i18n.t('COL_PODIUMS')">
+            <thead>
+              <tr>
+                <th scope="col">{{ i18n.t('COL_POSITION').toUpperCase() }}</th>
+                <th scope="col">{{ i18n.t('COL_NAME').toUpperCase() }}</th>
+                <th scope="col">PAYS</th>
+                <th scope="col">CATÉGORIE</th>
+                <th scope="col">{{ i18n.t('COL_POINTS').toUpperCase() }}</th>
+                <th scope="col">{{ i18n.t('COL_RACES').toUpperCase() }}</th>
+                <th scope="col">{{ i18n.t('COL_WINS').toUpperCase() }}</th>
+                <th scope="col">{{ i18n.t('COL_PODIUMS').toUpperCase() }}</th>
+                <th scope="col">RECORD</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (player of filteredGeneralLeaderboard; track player.id; let pIdx = $index) {
+                <tr [class.is-current-user]="player.id === activeUserId">
+                  <td class="col-rank">
+                    <span class="rank-medal" *ngIf="pIdx === 0">🥇</span>
+                    <span class="rank-medal" *ngIf="pIdx === 1">🥈</span>
+                    <span class="rank-medal" *ngIf="pIdx === 2">🥉</span>
+                    #{{ pIdx + 1 }}
+                  </td>
+                  <th scope="row" class="col-name">
+                    <span class="user-league-badge-tag" [title]="getLeagueName(player.points)">{{ getLeagueBadge(player.points) }}</span>
+                    {{ player.name || player.id }}
+                  </th>
+                  <td class="col-country">{{ getCountryFlag(player.country) }} {{ player.country || '--' }}</td>
+                  <td class="col-category">{{ getAgeCategoryLabel(player.birthYear) }}</td>
+                  <td class="col-pts col-stat-pts">{{ player.points || 0 }} {{ i18n.t('POINTS') }}</td>
+                  <td class="col-stat-races">{{ player.totalRaces || 0 }}</td>
+                  <td class="col-stat-wins">{{ player.totalWins || 0 }}</td>
+                  <td class="col-stat-podiums">{{ player.podiums || 0 }}</td>
+                  <td class="col-stat-record">{{ player.bestRank ? ('#' + player.bestRank) : '--' }}</td>
+                </tr>
+              } @empty {
+                <tr class="empty-row">
+                  <td colspan="9" class="text-center">Aucun coureur ne correspond aux critères sélectionnés.</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </div>
+  </div>
+}

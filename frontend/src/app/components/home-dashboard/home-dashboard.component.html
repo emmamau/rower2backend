@@ -1,0 +1,468 @@
+<!-- 2.1 BANNIÈRE D'ACCUEIL & STATUT MATÉRIEL EN UN COUP D'ŒIL -->
+<section class="home-welcome-banner" *ngIf="!isMobileFullscreenOnly" aria-label="Accueil et statut matériel">
+  @if (isRegisteredUser || isSubscriber || isUserAdmin) {
+    <div class="welcome-banner-card is-connected">
+      <!-- Médaille & Salutation -->
+      <div class="welcome-inline-user">
+        <span class="welcome-league-badge" [title]="currentUserLeague.name">{{ currentUserLeague.badge }}</span>
+        <span class="welcome-greeting-text">
+          Ravi de vous revoir, <strong class="welcome-user-name">{{ currentUser.name }}</strong>
+        </span>
+      </div>
+
+      <span class="welcome-inline-divider" aria-hidden="true">|</span>
+
+      <!-- Ligue & Points -->
+      <div class="welcome-inline-league">
+        <span class="welcome-league-tag">Ligue {{ currentUserLeague.name }}</span>
+        <span class="welcome-points-tag">({{ currentUser.points || 0 }} pts)</span>
+      </div>
+
+      <span class="welcome-inline-divider" aria-hidden="true">|</span>
+
+      <!-- Résultat dernière course OU Invitation -->
+      <div class="welcome-inline-race">
+        @if (lastRaceSummary.hasRaced) {
+          <div class="welcome-race-pill is-completed" [title]="lastRaceSummary.date ? ('Course du ' + (lastRaceSummary.date | date:'short')) : 'Dernier résultat enregistré'">
+            <span class="pill-icon">🏁</span>
+            <span class="pill-label">Dernière course :</span>
+            <strong class="pill-rank">{{ lastRaceSummary.rankDisplay }}</strong>
+            <span class="pill-details" *ngIf="lastRaceSummary.distance || lastRaceSummary.timeFormatted">
+              ({{ lastRaceSummary.distance ? lastRaceSummary.distance + 'm' : '' }}{{ lastRaceSummary.distance && lastRaceSummary.timeFormatted ? ' · ' : '' }}{{ lastRaceSummary.timeFormatted || '' }})
+            </span>
+          </div>
+        } @else {
+          <div
+            class="welcome-race-pill is-invite is-clickable"
+            (click)="scrollToNextRace()"
+            title="Vous n'avez pas encore couru — Cliquez pour rejoindre le prochain départ !">
+            <span class="pill-icon">🚣</span>
+            <span class="pill-label">Aucune course effectuée · <em>Prenez votre 1ᵉʳ départ !</em></span>
+            <span class="pill-action-tag">Participer &rarr;</span>
+          </div>
+        }
+      </div>
+
+      <!-- Statut Montre Garmin -->
+      <div class="welcome-inline-hardware">
+        @if (isPaired || isWatchConfirmed) {
+          <div class="hardware-status-pill is-linked compact">
+            <span class="hw-status-dot dot-green"></span>
+            <span class="hw-status-label">Montre Garmin liée</span>
+          </div>
+        } @else {
+          <div
+            class="hardware-status-pill is-unlinked compact"
+            (click)="scrollToGarminPairing()"
+            title="Montre non liée — Saisissez un code PIN d'appairage ci-dessous">
+            <span class="hw-status-dot dot-amber"></span>
+            <span class="hw-status-label">Montre non liée</span>
+          </div>
+        }
+      </div>
+    </div>
+  } @else {
+    <div class="welcome-banner-card is-visitor">
+      <div class="welcome-left">
+        <span class="welcome-icon">🚣</span>
+        <div class="welcome-texts">
+          <h2 class="welcome-title">Prêt à ramer ? Rejoignez une course ou lancez un entraînement libre en quelques secondes</h2>
+          <span class="welcome-sub">Synchronisation directe Garmin Connect IQ · Concept2 PM5 · WaterRower SmartRow · FTMS</span>
+        </div>
+      </div>
+      <div class="welcome-right">
+        @if (isPaired || isWatchConfirmed) {
+          <div class="hardware-status-pill is-linked">
+            <span class="hw-status-dot dot-green"></span>
+            <span class="hw-status-label">Montre Garmin liée</span>
+          </div>
+        } @else {
+          <div
+            class="hardware-status-pill is-unlinked"
+            (click)="scrollToGarminPairing()"
+            title="Montre non liée — Saisissez un code PIN d'appairage ci-dessous">
+            <span class="hw-status-dot dot-amber"></span>
+            <span class="hw-status-label">Montre non liée</span>
+          </div>
+        }
+      </div>
+    </div>
+  }
+</section>
+
+<!-- TUNNEL D'ACTIONS RAPIDES ACCUEIL (3 CARTES D'ACCÈS DIRECT) -->
+<section class="home-action-tunnel" *ngIf="!isMobileFullscreenOnly" aria-label="Actions rapides de course">
+  <div class="tunnel-card" (click)="siteViewChange.emit('regatta')">
+    <span class="tunnel-icon">🛶</span>
+    <div class="tunnel-info">
+      <strong>Course Rapide / Salon Public</strong>
+      <span>Rejoindre le plan d'eau 2D en direct</span>
+    </div>
+  </div>
+  <div class="tunnel-card" (click)="openPrivateModalRequest.emit('join')">
+    <span class="tunnel-icon">🔒</span>
+    <div class="tunnel-info">
+      <strong>Rejoindre un Salon Privé</strong>
+      <span>Par code salon, lien ou ticket 5 caractères</span>
+    </div>
+  </div>
+  <div class="tunnel-card" (click)="siteViewChange.emit('cockpit')">
+    <span class="tunnel-icon">📱</span>
+    <div class="tunnel-info">
+      <strong>Cockpit / Entraînement Libre</strong>
+      <span>Affichage télémétrique haute lisibilité</span>
+    </div>
+  </div>
+</section>
+
+<!-- BANNIÈRE RAPIDE COURSE EN COURS DEPUIS L'ACCUEIL -->
+<div class="home-active-race-callout" *ngIf="isRaceActive">
+  <div class="callout-left">
+    <span class="callout-pulse">🔴</span>
+    <strong>{{ i18n.t('RACE_IN_PROGRESS') }}</strong>
+    <span>({{ nextRaceInfo?.race?.targetDistance || 2000 }}m) · {{ activeRacersCount }} {{ i18n.t('ACTIVE_RACERS') }}</span>
+  </div>
+  <div class="callout-actions">
+    <button type="button" class="btn-callout-mode" (click)="siteViewChange.emit('regatta')">
+      🛶 {{ i18n.t('MODE_REGATTA') }}
+    </button>
+    <button type="button" class="btn-callout-mode" (click)="siteViewChange.emit('cockpit')">
+      📱 {{ i18n.t('MODE_COCKPIT') }}
+    </button>
+  </div>
+</div>
+
+<!-- ZONE D'APPAIRAGE GARMIN MODERNE (CODE WEB -> MONTRE, VISIBLE SI NON APPAIRÉE) -->
+<section id="garmin-pairing-section" class="garmin-pairing-section" *ngIf="!isMobileFullscreenOnly && !isPaired" aria-label="Appairage Montre Garmin Connect IQ">
+  <div class="pairing-cyber-card">
+    <div class="cyber-header-row">
+      <div class="cyber-info-cluster">
+        <span class="cyber-icon">⌚</span>
+        <div class="cyber-titles">
+          <div class="cyber-title-badge-row">
+            <h3 class="cyber-card-title">Liaison Montre Garmin (Connect IQ)</h3>
+            <span class="cyber-status-badge unlinked">Montre non liée</span>
+          </div>
+          <p class="cyber-card-desc">
+            Générez un code PIN temporaire ci-dessous et saisissez-le sur votre montre Garmin pour transmettre vos métriques en direct.
+          </p>
+        </div>
+      </div>
+
+      <div class="cyber-actions-cluster">
+        <button
+          type="button"
+          class="btn-cyber-primary"
+          [disabled]="isGeneratingPairingCode"
+          (click)="generateGarminPairingCode()">
+          <span class="btn-icon">⚡</span>
+          {{ pairingCode ? 'Regénérer un code PIN' : 'Lier ma montre Garmin' }}
+        </button>
+      </div>
+    </div>
+
+    <!-- AFFICHAGE DU CODE UNIQUE AVEC COMPTE À REBOURS -->
+    @if (pairingCode) {
+      <div class="cyber-code-stage">
+        <div class="code-instruction-banner">
+          <span class="step-num">1</span>
+          <span>Sur votre montre Garmin, sélectionnez <strong>« Entrer un code »</strong> (ou « Entrer un code PIN ») et saisissez votre code PIN : <strong>[{{ pairingCode }}]</strong></span>
+        </div>
+
+        <div class="code-digits-wrapper">
+          <div class="code-display-box">
+            <span class="code-sub-tag">VOTRE CODE PIN D'APPAIRAGE :</span>
+            <div class="code-glow-digits">{{ pairingCode }}</div>
+            <span class="code-helper-text">Sur votre montre Garmin, sélectionnez « Entrer un code » (ou « Entrer un code PIN ») et saisissez : [{{ pairingCode }}]</span>
+          </div>
+
+          <div class="code-timer-box">
+            <span class="timer-sub-tag">COMPTE À REBOURS</span>
+            <div class="timer-digits-glow">{{ formattedPairingCountdown }}</div>
+            <span class="timer-pulse-sub">Validation en attente...</span>
+          </div>
+        </div>
+      </div>
+    }
+
+    <!-- SÉLECTION MANUELLE DU KAYAK SI NI COMPTE NI MONTRE APPAIRÉE -->
+    @if (canManualSelectPublicKayak && selectablePublicKayaks.length > 0) {
+      <div class="spectator-camera-bar" style="margin-block-start: 12px; border-radius: 10px;">
+        <div class="spectator-label-group">
+          <span class="cam-icon">🛶</span>
+          <span class="cam-title">Sélectionner votre kayak en course publique (sans compte ni montre liée) :</span>
+        </div>
+        <div class="spectator-dropdown-wrap">
+          <select
+            class="spectator-select"
+            aria-label="Sélectionner mon kayak dans la course publique"
+            [ngModel]="claimedRacerUserId || ''"
+            (ngModelChange)="selectPublicKayak.emit($event)">
+            <option value="">-- Choisir mon kayak dans la liste --</option>
+            <option *ngFor="let k of selectablePublicKayaks" [value]="k.userId">
+              🛶 {{ k.userName }} (Ligne {{ k.lane }} · {{ k.netDistance }}m · {{ k.lastPower }}W)
+            </option>
+          </select>
+        </div>
+      </div>
+    }
+
+    <!-- Messages de feedback -->
+    @if (pairingSuccessMessage) {
+      <div class="cyber-feedback-msg ok">{{ pairingSuccessMessage }}</div>
+    }
+    @if (pairingErrorMessage) {
+      <div class="cyber-feedback-msg err">⚠️ {{ pairingErrorMessage }}</div>
+    }
+  </div>
+</section>
+
+<!-- VUE 2D AU-DESSUS DES CLASSEMENTS ET HISTORIQUES AVEC LES LIGNES D'EAU OÙ LES JOUEURS SONT ENGAGÉS -->
+<section class="lobby-regatta-preview-section" *ngIf="!isSmartphone && !isMobileFullscreenOnly" aria-label="Grille de départ et lignes d'eau engagées">
+  <div class="lobby-preview-card">
+    <div class="panel-header">
+      <div class="panel-title-group">
+        <span class="panel-icon">🛶</span>
+        <h3 class="panel-title">Grille de Départ — Lignes d'eau engagées</h3>
+      </div>
+      <div class="preview-badges-cluster">
+        <span class="panel-badge-target">🎯 Objectif : {{ nextRaceInfo?.race?.targetDistance || 2000 }} m</span>
+        <span class="panel-badge">{{ liveMetricsList.length }} Rameurs engagés</span>
+      </div>
+    </div>
+
+    <!-- BANNIÈRE OFFICIELLE : COURSE EN COURS AVEC TOP 3 ET DURÉE RESTANTE DANS LE HAUT DU TABLEAU DES RAMEURS ENGAGÉS -->
+    <div class="lobby-live-race-banner" *ngIf="isRaceActive || nextRaceInfo?.status === 'in_progress'">
+      <div class="live-banner-headline">
+        <span class="live-pulse-badge">🔴 Course en cours</span>
+        <span class="live-remaining-timer">⏱️ Temps restant : <strong>{{ formattedGameRemaining }}</strong></span>
+      </div>
+      <div class="live-top3-strip">
+        <span class="live-top3-label">🏆 Top 3 en tête :</span>
+        <div class="live-top3-pills" *ngIf="topThreeLiveRacers.length > 0; else noTop3Yet">
+          <span class="top3-pill" *ngFor="let racer of topThreeLiveRacers; let idx = index" [class.gold]="idx === 0" [class.silver]="idx === 1" [class.bronze]="idx === 2">
+            <span class="top3-medal">{{ idx === 0 ? '🥇 1er' : (idx === 1 ? '🥈 2e' : '🥉 3e') }}</span>
+            <strong class="top3-name">{{ racer.name }}</strong>
+            <span class="top3-dist">({{ racer.dist }} m)</span>
+          </span>
+        </div>
+        <ng-template #noTop3Yet>
+          <span class="top3-waiting">Course lancée, acquisition de la télémétrie...</span>
+        </ng-template>
+      </div>
+    </div>
+
+    <p class="panel-subdesc">
+      Visualisez en direct chaque rameur et bot sur sa ligne d'eau (L1, L2, L3...) prêt pour le départ de la régate.
+    </p>
+
+    <div class="canvas-display-card">
+      <app-regatta-canvas
+        [racers]="liveMetricsList"
+        [targetDistance]="nextRaceInfo?.race?.targetDistance || 2000"
+        [activeUserId]="activeUserId"
+        [canSelectKayak]="canManualSelectPublicKayak"
+        [myKayakCustomization]="currentKayakCustomization"
+        [isRaceActive]="isRaceActive"
+        (racerSelected)="spectatorSelect.emit($event)"
+        (kayakClaimed)="kayakClaimed.emit($event)">
+      </app-regatta-canvas>
+    </div>
+
+    <!-- BANNIÈRE ÉGALITÉ SPORTIVE CONCEPT2 (POSITIONNÉE EN DESSOUS DE LA PRÉSENTATION DE LA RÉGATE) -->
+    <div class="concept2-fairness-banner lobby-fairness-banner">
+      <div class="fairness-content">
+        <span class="fairness-icon">⚖️</span>
+        <div class="fairness-text">
+          <strong>Égalité sportive garantie :</strong>
+          <span>
+            Les données FTMS de distance variant selon les modèles de rameurs, la distance parcourue est calculée en temps réel selon l'algorithme officiel Concept2 basé sur votre puissance en Watts (<span class="code-math">v = (Watts / 2.80)<sup>1/3</sup></span>).
+            Cette distance normalisée garantit une parfaite équité sportive entre tous les compétiteurs et peut légèrement différer de celle affichée sur votre console de rameur.
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- LIENS SMARTPHONE POUR AFFICHER LE CLASSEMENT ET L'HISTORIQUE (LISIBILITÉ MOBILE) -->
+<section class="smartphone-table-links" *ngIf="!isMobileFullscreenOnly" aria-label="Liens Classement et Historique">
+  <button type="button" class="btn-mobile-table-link link-standings" (click)="openStandingsModal()">
+    <div class="mobile-link-left">
+      <span class="link-icon">🏅</span>
+      <div class="link-text">
+        <strong>Classement Général</strong>
+        <span>{{ generalLeaderboard.length }} rameurs classés · Consulter</span>
+      </div>
+    </div>
+    <span class="link-arrow">→</span>
+  </button>
+
+  <button type="button" class="btn-mobile-table-link link-history" (click)="openHistoryModal()">
+    <div class="mobile-link-left">
+      <span class="link-icon">🏆</span>
+      <div class="link-text">
+        <strong>Historique des Régates</strong>
+        <span>{{ raceHistory.length }} courses archivées · Consulter</span>
+      </div>
+    </div>
+    <span class="link-arrow">→</span>
+  </button>
+</section>
+
+<!-- DEUX VUES RÉPARTIES SUR LA TOTALITÉ DE LA LARGEUR DE L'ÉCRAN AVEC ASCENSEUR -->
+<section class="dual-standings-history-container" *ngIf="!isMobileFullscreenOnly" aria-label="Classement et Historique">
+  <!-- VUE 1 : CLASSEMENT GÉNÉRAL AVEC ASCENSEUR -->
+  <div class="dual-panel-card panel-standings">
+    <div class="panel-header">
+      <div class="panel-title-group">
+        <span class="panel-icon">🏅</span>
+        <h3 class="panel-title">{{ i18n.t('MODAL_STANDINGS_TITLE') }}</h3>
+      </div>
+      <span class="panel-badge">{{ generalLeaderboard.length }} Rameurs</span>
+      <span class="panel-updated" *ngIf="lastHomeRefreshAt">Mis à jour {{ lastHomeRefreshAt | date:'HH:mm:ss' }}</span>
+    </div>
+    <p class="panel-subdesc">{{ i18n.t('MODAL_STANDINGS_DESC') }}</p>
+
+    <!-- Filtres Pays, Sexe et Catégorie d'âge -->
+    <div class="leaderboard-filters-bar">
+      <div class="filter-group">
+        <label for="filter-country-p">🌍 Pays :</label>
+        <select id="filter-country-p" [ngModel]="leaderboardCountryFilter" (ngModelChange)="onCountryFilterChange($event)">
+          <option value="all">Tous les pays</option>
+          <option *ngFor="let c of availableLeaderboardCountries" [value]="c">
+            {{ getCountryFlag(c) }} {{ c }}
+          </option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label for="filter-gender-p">⚧ Sexe :</label>
+        <select id="filter-gender-p" [ngModel]="leaderboardGenderFilter" (ngModelChange)="onGenderFilterChange($event)">
+          <option value="all">Tous</option>
+          <option value="M">Hommes (M)</option>
+          <option value="F">Femmes (F)</option>
+          <option value="Autre">Autre</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label for="filter-age-p">🎂 Catégorie :</label>
+        <select id="filter-age-p" [ngModel]="leaderboardAgeCategoryFilter" (ngModelChange)="onAgeFilterChange($event)">
+          <option value="all">Toutes</option>
+          <option value="U19">U19 (-19 ans)</option>
+          <option value="19-29">19-29 ans (Senior)</option>
+          <option value="30-39">30-39 ans (Master A)</option>
+          <option value="40-49">40-49 ans (Master B)</option>
+          <option value="50-59">50-59 ans (Master C)</option>
+          <option value="60+">60+ ans (Master D+)</option>
+        </select>
+      </div>
+      <button
+        *ngIf="leaderboardCountryFilter !== 'all' || leaderboardGenderFilter !== 'all' || leaderboardAgeCategoryFilter !== 'all'"
+        type="button"
+        class="btn-reset-filters"
+        (click)="resetLeaderboardFiltersRequest.emit()">
+        ✕ Réinitialiser
+      </button>
+    </div>
+
+    <div class="scroll-elevator-container" tabindex="0">
+      <table
+        class="standings-table"
+        [style.--lbl-pts]="i18n.t('COL_POINTS')"
+        [style.--lbl-races]="i18n.t('COL_RACES')"
+        [style.--lbl-wins]="i18n.t('COL_WINS')"
+        [style.--lbl-podiums]="i18n.t('COL_PODIUMS')">
+        <thead>
+          <tr>
+            <th scope="col">{{ i18n.t('COL_POSITION').toUpperCase() }}</th>
+            <th scope="col">{{ i18n.t('COL_NAME').toUpperCase() }}</th>
+            <th scope="col">PAYS</th>
+            <th scope="col">CATÉGORIE</th>
+            <th scope="col">{{ i18n.t('COL_POINTS').toUpperCase() }}</th>
+            <th scope="col">{{ i18n.t('COL_RACES').toUpperCase() }}</th>
+            <th scope="col">{{ i18n.t('COL_WINS').toUpperCase() }}</th>
+            <th scope="col">{{ i18n.t('COL_PODIUMS').toUpperCase() }}</th>
+            <th scope="col">RECORD</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (player of filteredGeneralLeaderboard; track player.id; let pIdx = $index) {
+            <tr [class.is-current-user]="player.id === activeUserId">
+              <td class="col-rank">
+                <span class="rank-medal" *ngIf="pIdx === 0">🥇</span>
+                <span class="rank-medal" *ngIf="pIdx === 1">🥈</span>
+                <span class="rank-medal" *ngIf="pIdx === 2">🥉</span>
+                #{{ pIdx + 1 }}
+              </td>
+              <th scope="row" class="col-name">
+                <span class="user-league-badge-tag" [title]="getLeagueName(player.points)">{{ getLeagueBadge(player.points) }}</span>
+                {{ player.name || player.id }}
+              </th>
+              <td class="col-country">{{ getCountryFlag(player.country) }} {{ player.country || '--' }}</td>
+              <td class="col-category">{{ getAgeCategoryLabel(player.birthYear) }}</td>
+              <td class="col-pts col-stat-pts">{{ player.points || 0 }} {{ i18n.t('POINTS') }}</td>
+              <td class="col-stat-races">{{ player.totalRaces || 0 }}</td>
+              <td class="col-stat-wins">{{ player.totalWins || 0 }}</td>
+              <td class="col-stat-podiums">{{ player.podiums || 0 }}</td>
+              <td class="col-stat-record">{{ player.bestRank ? ('#' + player.bestRank) : '--' }}</td>
+            </tr>
+          } @empty {
+            <tr class="empty-row">
+              <td colspan="9" class="text-center">Aucun coureur ne correspond aux critères sélectionnés.</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- VUE 2 : RÉSULTATS PRÉCÉDENTS AVEC ASCENSEUR -->
+  <div class="dual-panel-card panel-history">
+    <div class="panel-header">
+      <div class="panel-title-group">
+        <span class="panel-icon">🏆</span>
+        <h3 class="panel-title">{{ i18n.t('MODAL_HISTORY_TITLE') }}</h3>
+      </div>
+      <span class="panel-badge">{{ raceHistory.length }} Régates</span>
+      <span class="panel-updated" *ngIf="lastHomeRefreshAt">Mis à jour {{ lastHomeRefreshAt | date:'HH:mm:ss' }}</span>
+    </div>
+    <p class="panel-subdesc">{{ i18n.t('MODAL_HISTORY_DESC') }}</p>
+
+    <div class="scroll-elevator-container" tabindex="0">
+      <div class="history-list">
+        @for (item of raceHistory; track item.race.id) {
+          <div class="history-race-item is-clickable" (click)="openRaceLeaderboardRequest.emit(item.race.id)" title="Cliquez pour consulter le classement complet de cette course">
+            <div class="race-item-header">
+              <span class="race-tag">🏁 {{ i18n.t('RACE_AT') }} {{ item.race.startTime ? (item.race.startTime | date:'short') : '' }}</span>
+              <span class="race-details">
+                {{ i18n.t('DISTANCE_LABEL') }}: <strong>{{ item.race.targetDistance }}m</strong> |
+                {{ i18n.t('STATUS') }}: {{ item.race.status }}
+              </span>
+              <span class="race-status-tag" [class.tag-cancelled]="item.race.status === 'cancelled'">
+                {{ item.race.status === 'cancelled' ? 'Arrêtée / Annulée' : 'Terminée' }}
+              </span>
+            </div>
+
+            <div class="podium-mini-grid" *ngIf="item.podium.length > 0">
+              @for (p of item.podium; track p.userId; let pIdx = $index) {
+                <div class="podium-mini-item" [class.abandoned]="p.status === 'abandoned'">
+                  <span class="mini-rank">{{ p.status === 'abandoned' ? '❌' : (pIdx === 0 ? '🥇' : (pIdx === 1 ? '🥈' : '🥉')) }}</span>
+                  <span class="mini-name">{{ p.userName || p.userId }}</span>
+                  <span class="mini-dist">{{ p.status === 'abandoned' ? 'Abandonné' : (p.netDistance + ' m') }}</span>
+                </div>
+              }
+            </div>
+            <div class="no-podium" *ngIf="item.podium.length === 0">
+              Aucun participant n'a pris le départ de cette course.
+            </div>
+            <div class="history-item-footer">
+              <span class="btn-history-view-details">📊 Consulter le classement complet &rarr;</span>
+            </div>
+          </div>
+        } @empty {
+          <div class="empty-notice">Aucune course précédente enregistrée.</div>
+        }
+      </div>
+    </div>
+  </div>
+</section>

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { readAppHtmlBundle, readAppTsBundle } from './test-app-bundle.helper.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -25,8 +26,7 @@ test('Task 4: RowerService has updateKayakCustomization method', () => {
 });
 
 test('Task 4: app.ts defines kayak customization state and controller methods', () => {
-  const appTsFile = path.join(rootDir, 'src/app/app.ts');
-  const content = fs.readFileSync(appTsFile, 'utf8');
+  const content = readAppTsBundle();
 
   // Account modal tab extension
   assert.match(
@@ -60,8 +60,7 @@ test('Task 4: app.ts defines kayak customization state and controller methods', 
 });
 
 test('Task 4: app.html includes kayak customizer tab, onboarding banner, preview canvas, and profile card', () => {
-  const appHtmlFile = path.join(rootDir, 'src/app/app.html');
-  const content = fs.readFileSync(appHtmlFile, 'utf8');
+  const content = readAppHtmlBundle();
 
   // Tab button
   assert.match(content, /openKayakCustomizer\(\)/, 'Tab button opens kayak customizer');

@@ -1,11 +1,10 @@
-import { Component, OnInit, OnDestroy, ChangeDetectorRef, ViewChild, ElementRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef, ViewChild, ElementRef, ViewEncapsulation } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RowerService } from './services/rower.service';
 import { WakeLockService } from './services/wake-lock.service';
 import { I18nService, SupportedLang } from './services/i18n.service';
 import { SocketService, LiveRacerMetric } from './services/socket.service';
-import { RegattaCanvasComponent } from './components/regatta-canvas/regatta-canvas.component';
 import {
   PrivateRoomManagerComponent,
   PrivateModalTab
@@ -38,13 +37,45 @@ import { getLeagueByPoints, getLeagueByTier, LeagueInfo, WEEKLY_LEAGUES } from '
 import { interval, Subscription, of, Observable, Subject, forkJoin } from 'rxjs';
 import { switchMap, startWith, catchError, debounceTime, filter } from 'rxjs/operators';
 import { AdminDashboardComponent } from './components/admin-dashboard/admin-dashboard.component';
+import { RaceOverlaysComponent } from './components/race-overlays/race-overlays.component';
+import { AppHeaderComponent } from './components/app-header/app-header.component';
+import { HomeDashboardComponent } from './components/home-dashboard/home-dashboard.component';
+import { RegattaViewComponent } from './components/regatta-view/regatta-view.component';
+import { CockpitViewComponent } from './components/cockpit-view/cockpit-view.component';
+import { SeoFooterComponent } from './components/seo-footer/seo-footer.component';
+import { AccountModalComponent } from './components/modals/account-modal/account-modal.component';
+import { StandingsModalComponent } from './components/modals/standings-modal/standings-modal.component';
+import { RaceHistoryModalComponent } from './components/modals/race-history-modal/race-history-modal.component';
+import { StatisticsModalComponent } from './components/modals/statistics-modal/statistics-modal.component';
+import { SubscriptionModalComponent } from './components/modals/subscription-modal/subscription-modal.component';
+import { UnifiedConfigModalComponent } from './components/modals/unified-config-modal/unified-config-modal.component';
+import { LegalTermsModalComponent } from './components/modals/legal-terms-modal/legal-terms-modal.component';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule, FormsModule, RegattaCanvasComponent, PrivateRoomManagerComponent, AdminDashboardComponent],
+  imports: [
+    CommonModule,
+    FormsModule,
+    RaceOverlaysComponent,
+    AppHeaderComponent,
+    HomeDashboardComponent,
+    RegattaViewComponent,
+    CockpitViewComponent,
+    SeoFooterComponent,
+    AccountModalComponent,
+    StandingsModalComponent,
+    RaceHistoryModalComponent,
+    StatisticsModalComponent,
+    SubscriptionModalComponent,
+    UnifiedConfigModalComponent,
+    LegalTermsModalComponent,
+    PrivateRoomManagerComponent,
+    AdminDashboardComponent
+  ],
   templateUrl: './app.html',
-  styleUrls: ['./app.css']
+  styleUrls: ['./app.css'],
+  encapsulation: ViewEncapsulation.None
 })
 export class AppComponent implements OnInit, OnDestroy {
   protected Math = Math;
@@ -219,19 +250,6 @@ export class AppComponent implements OnInit, OnDestroy {
   customKayakGlowColor = '#00f0ff';
   isSavingKayak = false;
   isPostRegisterOnboarding = false;
-
-  private _previewCanvasRef?: ElementRef<HTMLCanvasElement>;
-  private _previewAnimFrameId?: any;
-
-  @ViewChild('kayakPreviewCanvas')
-  set kayakPreviewCanvas(ref: ElementRef<HTMLCanvasElement> | undefined) {
-    this._previewCanvasRef = ref;
-    if (ref) {
-      this.startKayakPreviewAnimation();
-    } else {
-      this.stopKayakPreviewAnimation();
-    }
-  }
 
   readonly presetColors = [
     { name: 'Cyan Néon', hex: '#00e5ff' },
@@ -540,398 +558,8 @@ export class AppComponent implements OnInit, OnDestroy {
     return list.slice(0, visibleCount);
   }
 
-  /**
-   * Calcule la valeur formatée, l'unité et le sous-titre pour chacune des 14 données configurables sous les lignes d'eau.
-   */
-  getRegattaMetricDisplay(key: RegattaMetricKey): {
-    key: RegattaMetricKey;
-    label: string;
-    icon: string;
-    value: string;
-    unit: string;
-    sub: string;
-    isHighlight: boolean;
-  } {
-    const opt = this.getRegattaMetricOption(key);
-    const telem = this.focusedTelemetry || this.myActivity;
-    const watts = Math.round(Number(telem?.lastPower || 0));
-    const avgWatts = Math.round(Number(telem?.avgPower || 0));
-    const paceSec = Number(telem?.lastPace || 0);
-    const avgPaceSec = Number(telem?.avgPace || 0);
-    const spm = Number(telem?.lastStrokeRate || telem?.avgStrokeRate || 0);
-    const netDist = Math.round(Number(telem?.netDistance || 0));
-    const remDist = Math.max(0, Math.round(this.activeTargetDistance - netDist));
-
-    // Vitesse instantanée (km/h) basée sur l'allure ou la formule Concept2 v = (W / 2.80)^(1/3)
-    let instSpeedKmh = 0;
-    if (paceSec >= 60 && paceSec < 600) {
-      instSpeedKmh = (500 / paceSec) * 3.6;
-    } else if (watts > 0) {
-      instSpeedKmh = Math.cbrt(watts / 2.80) * 3.6;
-    }
-    const avgSpeedKmh = Number(telem?.avgSpeedKmh || (avgPaceSec >= 60 && avgPaceSec < 600 ? (500 / avgPaceSec) * 3.6 : 0));
-
-    // Travail par coup (Joules) et Force (Newtons) selon le modèle biomécanique RowerDataModel
-    const workJoules = spm > 0 && watts > 0 ? Math.round((watts * 60) / spm) : 0;
-    const handleLengthM = Math.min(1.35, Math.max(0.80, (136 - 1.2 * spm) / 100));
-    const forceNewtons = workJoules > 0 && handleLengthM > 0 ? Math.round(workJoules / handleLengthM) : 0;
-
-    switch (key) {
-      case 'speed':
-        return {
-          key,
-          label: opt.shortLabel,
-          icon: opt.icon,
-          value: instSpeedKmh.toFixed(1),
-          unit: 'km/h',
-          sub: `Moy: ${avgSpeedKmh.toFixed(1)} km/h`,
-          isHighlight: false,
-        };
-      case 'pace':
-        return {
-          key,
-          label: opt.shortLabel,
-          icon: opt.icon,
-          value: this.formatPace(paceSec),
-          unit: '/500m',
-          sub: `Moy: ${this.formatPace(avgPaceSec)}`,
-          isHighlight: false,
-        };
-      case 'power':
-        return {
-          key,
-          label: opt.shortLabel,
-          icon: opt.icon,
-          value: String(watts),
-          unit: 'W',
-          sub: `Moy: ${avgWatts} W`,
-          isHighlight: true,
-        };
-      case 'position':
-        return {
-          key,
-          label: opt.shortLabel,
-          icon: opt.icon,
-          value: this.myRank ? `#${this.myRank}` : '--',
-          unit: `/${this.totalActiveRacers || 1}`,
-          sub: this.myRank === 1 ? '🥇 En tête' : (this.myRank ? `-${this.distToLeader}m du 1er` : 'Classement'),
-          isHighlight: true,
-        };
-      case 'distToPrev':
-        return {
-          key,
-          label: opt.shortLabel,
-          icon: opt.icon,
-          value: this.myRank === 1 ? 'Leader' : (this.myRank && this.myRank > 1 ? `-${this.distToPrev}` : '--'),
-          unit: this.myRank && this.myRank > 1 ? 'm' : '',
-          sub: 'Joueur devant',
-          isHighlight: false,
-        };
-      case 'distToLeader':
-        return {
-          key,
-          label: opt.shortLabel,
-          icon: opt.icon,
-          value: this.myRank === 1 ? 'Leader' : (this.myRank && this.myRank > 1 ? `-${this.distToLeader}` : '--'),
-          unit: this.myRank && this.myRank > 1 ? 'm' : '',
-          sub: 'Écart 1er',
-          isHighlight: false,
-        };
-      case 'distToNext':
-        return {
-          key,
-          label: opt.shortLabel,
-          icon: opt.icon,
-          value: this.myRank && this.myRank < this.totalActiveRacers ? `+${this.distToNext}` : '--',
-          unit: this.myRank && this.myRank < this.totalActiveRacers ? 'm' : '',
-          sub: 'Joueur derrière',
-          isHighlight: false,
-        };
-      case 'distRemaining':
-        return {
-          key,
-          label: opt.shortLabel,
-          icon: opt.icon,
-          value: String(remDist),
-          unit: 'm',
-          sub: `Objectif ${this.activeTargetDistance}m`,
-          isHighlight: false,
-        };
-      case 'distCovered':
-        return {
-          key,
-          label: opt.shortLabel,
-          icon: opt.icon,
-          value: String(netDist),
-          unit: 'm',
-          sub: `${this.myProgressPercent}% effectué`,
-          isHighlight: false,
-        };
-      case 'force':
-        return {
-          key,
-          label: opt.shortLabel,
-          icon: opt.icon,
-          value: String(forceNewtons),
-          unit: 'N',
-          sub: `${spm.toFixed(0)} SPM`,
-          isHighlight: false,
-        };
-      case 'work':
-        return {
-          key,
-          label: opt.shortLabel,
-          icon: opt.icon,
-          value: String(workJoules),
-          unit: 'J',
-          sub: 'Par coup de rame',
-          isHighlight: false,
-        };
-      case 'avgSpeed':
-        return {
-          key,
-          label: opt.shortLabel,
-          icon: opt.icon,
-          value: avgSpeedKmh.toFixed(1),
-          unit: 'km/h',
-          sub: `Inst: ${instSpeedKmh.toFixed(1)} km/h`,
-          isHighlight: false,
-        };
-      case 'avgPower':
-        return {
-          key,
-          label: opt.shortLabel,
-          icon: opt.icon,
-          value: String(avgWatts),
-          unit: 'W',
-          sub: `Inst: ${watts} W`,
-          isHighlight: false,
-        };
-      case 'avgPace':
-      default:
-        return {
-          key,
-          label: opt.shortLabel,
-          icon: opt.icon,
-          value: this.formatPace(avgPaceSec),
-          unit: '/500m',
-          sub: `Inst: ${this.formatPace(paceSec)}`,
-          isHighlight: false,
-        };
-    }
-  }
-
-  startKayakPreviewAnimation(): void {
-    this.stopKayakPreviewAnimation();
-    const render = () => {
-      this.drawKayakCustomizerPreview();
-      this._previewAnimFrameId = requestAnimationFrame(render);
-    };
-    this._previewAnimFrameId = requestAnimationFrame(render);
-  }
-
-  stopKayakPreviewAnimation(): void {
-    if (this._previewAnimFrameId) {
-      cancelAnimationFrame(this._previewAnimFrameId);
-      this._previewAnimFrameId = undefined;
-    }
-  }
-
   drawKayakCustomizerPreview(): void {
-    const canvas = this._previewCanvasRef?.nativeElement;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    const width = canvas.width;
-    const height = canvas.height;
-    const nowSec = performance.now() / 1000;
-
-    // Background water
-    const bgGrad = ctx.createLinearGradient(0, 0, width, height);
-    bgGrad.addColorStop(0, '#0a1628');
-    bgGrad.addColorStop(0.5, '#0c223d');
-    bgGrad.addColorStop(1, '#07111e');
-    ctx.fillStyle = bgGrad;
-    ctx.fillRect(0, 0, width, height);
-
-    // Subtle water ripples / wave lines
-    ctx.strokeStyle = 'rgba(0, 229, 255, 0.08)';
-    ctx.lineWidth = 1;
-    for (let i = 0; i < 4; i++) {
-      const waveY = ((height * 0.25 * i + (nowSec * 15)) % height);
-      ctx.beginPath();
-      ctx.moveTo(0, waveY);
-      for (let xPos = 0; xPos <= width; xPos += 20) {
-        const offset = Math.sin(xPos * 0.03 + nowSec * 2 + i) * 3;
-        ctx.lineTo(xPos, waveY + offset);
-      }
-      ctx.stroke();
-    }
-
-    // Floating bobbing effect
-    const bobbingY = Math.sin(nowSec * 2.2) * 2;
-    const centerX = width * 0.5;
-    const centerY = height * 0.5 + bobbingY;
-
-    const hullRx = Math.min(width * 0.26, 85);
-    const hullRy = 14;
-
-    // Wake / Sillage behind boat tinted with glowColor
-    const sternX = centerX - hullRx;
-    const previewGlow = this.customKayakGlowColor || '#00f0ff';
-    ctx.fillStyle = hexToRgba(previewGlow, 0.15);
-    ctx.beginPath();
-    ctx.ellipse(sternX - 16, centerY, 32, 9, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.fillStyle = hexToRgba(previewGlow, 0.28);
-    ctx.beginPath();
-    ctx.ellipse(sternX - 6, centerY, 18, 6, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Glow effect
-    ctx.save();
-    ctx.shadowColor = this.customKayakGlowColor || '#00f0ff';
-    ctx.shadowBlur = 16 + Math.sin(nowSec * 4) * 4;
-    ctx.strokeStyle = this.customKayakGlowColor || '#00f0ff';
-    ctx.lineWidth = 2.5;
-    ctx.beginPath();
-    ctx.ellipse(centerX, centerY, hullRx + 4, hullRy + 4, 0, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.restore();
-
-    // Oars and rowing animation
-    const strokeAngle = Math.sin(nowSec * 2.4) * 0.42;
-    const oarLen = 44;
-    const dxOar = Math.sin(strokeAngle) * oarLen;
-    const dyOar = Math.cos(strokeAngle) * oarLen;
-    const x1 = centerX - dxOar;
-    const y1 = centerY - dyOar;
-    const x2 = centerX + dxOar;
-    const y2 = centerY + dyOar;
-
-    // Splashes at blade tips when moving
-    if (Math.abs(strokeAngle) > 0.2) {
-      ctx.fillStyle = 'rgba(0, 240, 255, 0.5)';
-      ctx.beginPath();
-      ctx.arc(x1, y1, 3.5, 0, Math.PI * 2);
-      ctx.arc(x2, y2, 3.5, 0, Math.PI * 2);
-      ctx.fill();
-    }
-
-    // Oar shafts
-    ctx.strokeStyle = '#e2e8f0';
-    ctx.lineWidth = 2.5;
-    ctx.lineCap = 'round';
-    ctx.beginPath();
-    ctx.moveTo(x1, y1);
-    ctx.lineTo(x2, y2);
-    ctx.stroke();
-
-    // Blades (Pelles)
-    const bladeColor = this.customKayakBladeColor || '#00f0ff';
-    // Port blade
-    ctx.save();
-    ctx.translate(x1, y1);
-    ctx.rotate(-strokeAngle);
-    ctx.fillStyle = bladeColor;
-    ctx.strokeStyle = '#ffffff';
-    ctx.lineWidth = 1.2;
-    ctx.beginPath();
-    ctx.ellipse(0, 0, 7.5, 4, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
-    ctx.restore();
-
-    // Starboard blade
-    ctx.save();
-    ctx.translate(x2, y2);
-    ctx.rotate(-strokeAngle);
-    ctx.fillStyle = bladeColor;
-    ctx.strokeStyle = '#ffffff';
-    ctx.lineWidth = 1.2;
-    ctx.beginPath();
-    ctx.ellipse(0, 0, 7.5, 4, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
-    ctx.restore();
-
-    // Boat Hull
-    ctx.save();
-    ctx.beginPath();
-    ctx.moveTo(centerX + hullRx, centerY);
-    ctx.quadraticCurveTo(centerX, centerY - hullRy, centerX - hullRx, centerY);
-    ctx.quadraticCurveTo(centerX, centerY + hullRy, centerX + hullRx, centerY);
-    ctx.closePath();
-
-    const hullColor = this.customKayakHullColor || '#00e5ff';
-    const pattern = this.customKayakPattern || 'racing-stripe';
-
-    if (pattern === 'gradient') {
-      const grad = ctx.createLinearGradient(centerX - hullRx, centerY, centerX + hullRx, centerY);
-      grad.addColorStop(0, bladeColor);
-      grad.addColorStop(1, hullColor);
-      ctx.fillStyle = grad;
-      ctx.fill();
-    } else if (pattern === 'dual-tone') {
-      ctx.fillStyle = hullColor;
-      ctx.fill();
-      ctx.save();
-      ctx.clip();
-      ctx.fillStyle = bladeColor;
-      ctx.fillRect(centerX - hullRx, centerY - hullRy * 2, hullRx, hullRy * 4);
-      ctx.restore();
-    } else {
-      ctx.fillStyle = hullColor;
-      ctx.fill();
-    }
-
-    // Racing stripe pattern
-    if (pattern === 'racing-stripe') {
-      ctx.save();
-      ctx.clip();
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
-      ctx.lineWidth = 2.5;
-      ctx.beginPath();
-      ctx.moveTo(centerX - hullRx + 4, centerY - 2.5);
-      ctx.lineTo(centerX + hullRx - 4, centerY - 2.5);
-      ctx.moveTo(centerX - hullRx + 4, centerY + 2.5);
-      ctx.lineTo(centerX + hullRx - 4, centerY + 2.5);
-      ctx.stroke();
-      ctx.restore();
-    }
-
-    // Hull 3D highlight (top curvature sheen)
-    ctx.save();
-    ctx.clip();
-    const sheenGrad = ctx.createLinearGradient(centerX, centerY - hullRy, centerX, centerY);
-    sheenGrad.addColorStop(0, 'rgba(255, 255, 255, 0.45)');
-    sheenGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
-    ctx.fillStyle = sheenGrad;
-    ctx.fill();
-    ctx.restore();
-
-    // Hull border
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
-    ctx.lineWidth = 1.2;
-    ctx.stroke();
-    ctx.restore();
-
-    // Cockpit
-    ctx.fillStyle = '#0f172a';
-    ctx.beginPath();
-    ctx.ellipse(centerX - 4, centerY, 13, 5.5, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
-    ctx.lineWidth = 1;
-    ctx.stroke();
-
-    // Rower head icon/circle
-    ctx.fillStyle = '#f8fafc';
-    ctx.beginPath();
-    ctx.arc(centerX - 4, centerY, 3.2, 0, Math.PI * 2);
-    ctx.fill();
+    // Délégué à AccountModalComponent
   }
 
   // Login inputs
@@ -1360,7 +988,6 @@ export class AppComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.destroyHomeAutoRefresh();
-    this.stopKayakPreviewAnimation();
     if (this.pollingSub) {
       this.pollingSub.unsubscribe();
       this.pollingSub = undefined;

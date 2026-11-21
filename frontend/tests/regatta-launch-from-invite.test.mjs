@@ -5,6 +5,7 @@ import path from 'node:path';
 import vm from 'node:vm';
 import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
+import { readAppHtmlBundle } from './test-app-bundle.helper.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const utilTsPath = path.resolve(__dirname, '../src/app/utils/room-link.util.ts');
@@ -50,13 +51,13 @@ test('1. Room link utility builds launch URL with ?mode=regatta and detects it i
 });
 
 test('2. HTML template contains the Regatta Launch Splash overlay with logo and action button', () => {
-  const html = fs.readFileSync(appHtmlPath, 'utf8');
+  const html = readAppHtmlBundle();
   assert.ok(html.includes('regatta-launch-overlay'), 'Le template doit comporter la classe regatta-launch-overlay');
   assert.ok(html.includes('isRegattaLaunchSplashOpen'), 'L\'overlay doit être conditionné par isRegattaLaunchSplashOpen');
   assert.ok(html.includes('regatta-launch-svg'), 'L\'overlay doit contenir le logo SVG du site');
   assert.ok(html.includes('btn-regatta-launch-action'), 'Le bouton principal doit être présent');
-  assert.ok(html.includes('launchRegattaFromSplash()'), 'Le bouton doit appeler launchRegattaFromSplash()');
-  assert.ok(html.includes('dismissRegattaLaunchSplash()'), 'Le bouton secondaire doit appeler dismissRegattaLaunchSplash()');
+  assert.ok(html.includes('launchRegattaFromSplash()') || html.includes('launchRegattaSplash.emit()'), 'Le bouton doit appeler launchRegattaFromSplash()');
+  assert.ok(html.includes('dismissRegattaLaunchSplash()') || html.includes('dismissRegattaSplash.emit()'), 'Le bouton secondaire doit appeler dismissRegattaLaunchSplash()');
 });
 
 test('3. CSS contains branding colors and animations for the Regatta Launch Splash', () => {

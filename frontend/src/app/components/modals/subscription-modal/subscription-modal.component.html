@@ -1,0 +1,100 @@
+<!-- MODALE ABONNEMENTS & TARIFS -->
+<div class="modal-overlay" *ngIf="isSubscriptionModalOpen">
+  <div class="modal-card modal-pricing" (click)="$event.stopPropagation()">
+    <div class="modal-header-row">
+      <div class="modal-title-with-badge">
+        <h3>🛶 Offres d'Abonnement Rower Race</h3>
+        <span class="badge-role-tag is-sub">Paiements sécurisés</span>
+      </div>
+      <button type="button" class="btn-close" (click)="closeSubscriptionModalRequest.emit()">✕</button>
+    </div>
+
+    <p class="modal-desc">
+      Choisissez l'offre qui correspond à votre pratique. Les paiements récurrents et la facturation sont gérés de manière sécurisée.
+    </p>
+
+    <div class="subscription-tiers-grid">
+      <!-- 1. Offre Gratuite -->
+      <div class="pricing-card free-tier" [class.current-tier]="subscriptionStatus?.tier === 'free'">
+        <div class="pricing-header">
+          <h4>Offre Gratuite</h4>
+          <div class="pricing-price">0 €</div>
+          <span class="pricing-period">Pour s'entraîner</span>
+        </div>
+        <ul class="pricing-features">
+          <li>✓ <strong>1 salon</strong> ouvert à la fois (<strong>5 / semaine max</strong>)</li>
+          <li>✓ 1 joueur invité en salon privé (2 coureurs max)</li>
+          <li>✓ Courses jusqu'à 2 000 m (2 km)</li>
+          <li>✓ 1 bot d'entraînement virtuel</li>
+          <li>✓ Historique des courses sur 10 jours</li>
+          <li>✓ Cockpit et classements publics</li>
+        </ul>
+        <button
+          type="button"
+          class="btn-pricing btn-free"
+          (click)="subscribeToTier('free')"
+          [disabled]="subscriptionLoading || subscriptionStatus?.tier === 'free'">
+          {{ subscriptionStatus?.tier === 'free' ? 'Forfait actuel' : 'Sélectionner' }}
+        </button>
+      </div>
+
+      <!-- 2. Offre Intermédiaire (5,99 €) -->
+      <div class="pricing-card club-tier popular" [class.current-tier]="subscriptionStatus?.tier === 'intermediate'">
+        <div class="popular-ribbon">⭐ Recommandé</div>
+        <div class="pricing-header">
+          <h4>Offre Club</h4>
+          <div class="pricing-price">5,99 €</div>
+          <span class="pricing-period">par mois</span>
+        </div>
+        <ul class="pricing-features">
+          <li>✓ <strong>Jusqu'à 3 salons</strong> ouverts à la fois (<strong>10 / semaine max</strong>)</li>
+          <li>✓ <strong>Jusqu'à 5 joueurs</strong> en salon privé</li>
+          <li>✓ Courses jusqu'à <strong>5 000 m (5 km)</strong></li>
+          <li>✓ <strong>Jusqu'à 3 bots</strong> configurables</li>
+          <li>✓ <strong>Historique illimité</strong> des courses</li>
+          <li>✓ <strong>Statistiques & analyses</strong> de course illimitées</li>
+          <li>✓ Départ manuel ou <strong>programmé à l'heure</strong></li>
+        </ul>
+        <button
+          type="button"
+          class="btn-pricing btn-club"
+          (click)="subscribeToTier('intermediate')"
+          [disabled]="subscriptionLoading || subscriptionStatus?.tier === 'intermediate' || !isTierActive('intermediate')"
+          [title]="!isTierActive('intermediate') ? 'Offre temporairement désactivée par l\'administrateur' : (subscriptionStatus?.tier === 'intermediate' ? 'Votre forfait actuel' : 'Souscrire à l\'Offre Club via Stripe')">
+          {{ subscriptionStatus?.tier === 'intermediate' ? 'Forfait actuel' : (!isTierActive('intermediate') ? '⚠️ Offre désactivée' : 'Choisir l\'Offre Club (5,99 €/m)') }}
+        </button>
+      </div>
+
+      <!-- 3. Offre Premium (8,99 €) -->
+      <div class="pricing-card pro-tier" [class.current-tier]="subscriptionStatus?.tier === 'premium'">
+        <div class="pricing-header">
+          <h4>Élite Pro</h4>
+          <div class="pricing-price">8,99 €</div>
+          <span class="pricing-period">par mois</span>
+        </div>
+        <ul class="pricing-features">
+          <li>✓ <strong>Jusqu'à 5 salons</strong> ouverts à la fois (<strong>15 / semaine max</strong>)</li>
+          <li>✓ <strong>Jusqu'à 10 joueurs</strong> en salon privé</li>
+          <li>✓ Courses longues jusqu'à <strong>10 000 m (10 km)</strong></li>
+          <li>✓ <strong>Jusqu'à 5 bots</strong> avec allure max</li>
+          <li>✓ <strong>Historique illimité</strong> & export</li>
+          <li>✓ Analyses avancées & export de données</li>
+          <li>✓ Support prioritaire & nouveautés</li>
+        </ul>
+        <button
+          type="button"
+          class="btn-pricing btn-pro"
+          (click)="subscribeToTier('premium')"
+          [disabled]="subscriptionLoading || subscriptionStatus?.tier === 'premium' || !isTierActive('premium')"
+          [title]="!isTierActive('premium') ? 'Offre temporairement désactivée par l\'administrateur' : (subscriptionStatus?.tier === 'premium' ? 'Votre forfait actuel' : 'Souscrire à l\'Offre Élite Pro via Stripe')">
+          {{ subscriptionStatus?.tier === 'premium' ? 'Forfait actuel' : (!isTierActive('premium') ? '⚠️ Offre désactivée' : 'Choisir Élite Pro (8,99 €/m)') }}
+        </button>
+      </div>
+    </div>
+
+    <div class="pricing-messages" *ngIf="subscriptionSuccessMessage || subscriptionError">
+      <div class="pricing-feedback ok" *ngIf="subscriptionSuccessMessage">{{ subscriptionSuccessMessage }}</div>
+      <div class="pricing-feedback err" *ngIf="subscriptionError">{{ subscriptionError }}</div>
+    </div>
+  </div>
+</div>

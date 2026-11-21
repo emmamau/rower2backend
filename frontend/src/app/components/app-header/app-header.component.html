@@ -1,0 +1,532 @@
+<!-- EN-TÊTE ÉPURÉ POUR MODE RÉGATE ET MODE COCKPIT (AVEC ICÔNE ACCUEIL) -->
+<header class="pure-screen-header" *ngIf="siteView === 'regatta' || siteView === 'cockpit'">
+  <div class="pure-header-left">
+    <button
+      type="button"
+      class="btn-pure-nav btn-pure-home"
+      (click)="setSiteView('home')"
+      [title]="i18n.t('NAV_HOME')">
+      <span class="pure-icon" aria-hidden="true">🏠</span>
+      <span class="pure-label">{{ i18n.t('NAV_HOME') }}</span>
+    </button>
+
+    <!-- Profil utilisateur cliquable immédiatement à droite du bouton Accueil -->
+    <div
+      class="pure-user-pill is-clickable"
+      (click)="openAccountModal(isIdentified ? 'profile' : 'login')"
+      title="Gérer mon compte">
+      @if (isIdentified) {
+        <span class="pure-league-badge" [title]="currentUserLeague.name">{{ currentUserLeague.badge }}</span>
+        <span class="pure-user-name">{{ currentUser.name }}</span>
+        <span class="pure-user-lane-badge" *ngIf="myAssignedLane" title="Ligne d'eau assignée">Ligne {{ myAssignedLane }}</span>
+      } @else {
+        <span class="pure-user-name">👤 {{ isUserAssociatedWithRace ? currentUser.name : 'Invité' }}</span>
+      }
+    </div>
+
+    <!-- Liste déroulante d'identification du kayak si joueur non connecté à un compte et sans montre appairée -->
+    @if (canManualSelectPublicKayak && selectablePublicKayaks.length > 0) {
+      <div class="pure-kayak-select-wrapper">
+        <label for="pure-kayak-select" class="pure-kayak-label" title="Identifier votre kayak dans la course publique">🛶 Mon kayak :</label>
+        <select
+          id="pure-kayak-select"
+          class="spectator-select pure-kayak-select"
+          [ngModel]="isUserAssociatedWithRace ? activeUserId : ''"
+          (ngModelChange)="selectPublicKayak.emit($event)"
+          aria-label="Sélectionner votre kayak dans la course publique">
+          <option value="">-- Choisir mon kayak --</option>
+          @for (k of selectablePublicKayaks; track k.userId) {
+            <option [value]="k.userId">
+              🛶 Ligne {{ k.lane }} · {{ k.name }} ({{ k.dist }}m)
+            </option>
+          }
+        </select>
+      </div>
+    }
+
+    <!-- Sélecteur de langue épuré immédiatement à droite du User -->
+    <div class="lang-dropdown-wrapper pure-lang-dropdown">
+      <label for="pure-lang-select" class="lang-icon" title="Changer de langue">🌐</label>
+      <select
+        id="pure-lang-select"
+        class="lang-select-input pure-lang-select"
+        [value]="i18n.getCurrentLang()"
+        (change)="languageChange.emit($event)"
+        aria-label="Sélectionner la langue">
+        @for (item of i18n.languages; track item.code) {
+          <option [value]="item.code">
+            {{ item.flag }} {{ item.label }} ({{ item.code.toUpperCase() }})
+          </option>
+        }
+      </select>
+    </div>
+  </div>
+
+  <div class="pure-header-right">
+    <!-- Bouton dédié Organisateur : Démarrer / Arrêter la course dans la barre d'en-tête épurée -->
+    @if (canStartOrStopRace) {
+      @if (isRaceActive) {
+        <button
+          type="button"
+          class="btn-pure-nav btn-pure-stop"
+          (click)="stopActiveRaceRequest.emit()"
+          title="Arrêter la course immédiatement et finaliser le classement">
+          <span class="pure-icon" aria-hidden="true">🛑</span>
+          <span class="pure-label">Arrêter</span>
+        </button>
+      } @else if (canStartRace) {
+        <button
+          type="button"
+          class="btn-pure-nav btn-pure-start"
+          (click)="startActivePrivateRaceRequest.emit()"
+          title="Démarrer la course manuellement (compte à rebours de 10s)">
+          <span class="pure-icon" aria-hidden="true">🚀</span>
+          <span class="pure-label">Démarrer</span>
+        </button>
+      }
+    }
+
+    <!-- Affichage du temps restant de course à droite dans la barre d'en-tête (notamment en mode paysage) -->
+    <div class="pure-header-timer" *ngIf="siteView === 'regatta' && (isRaceActive || nextRaceInfo?.status === 'in_progress' || isPreStartCountdown)">
+      <span class="pure-timer-badge" [class.is-running]="isRaceActive">
+        ⏱️ {{ isRaceActive ? (formattedGameRemaining ? ('Fin : ' + formattedGameRemaining) : 'Course en cours') : ('Départ : ' + formattedPreRaceCountdown) }}
+      </span>
+    </div>
+
+    <button
+      *ngIf="isUserAdmin"
+      type="button"
+      class="btn-pure-nav btn-pure-admin"
+      (click)="openAdminDashboardRequest.emit()"
+      title="Administration">
+      <span class="pure-icon" aria-hidden="true">🛡️</span>
+      <span class="pure-label">Admin</span>
+    </button>
+    <span class="pure-screen-tag">
+      {{ siteView === 'regatta' ? i18n.t('MODE_REGATTA') : i18n.t('MODE_COCKPIT') }}
+    </span>
+  </div>
+</header>
+
+<!-- HUD Header (Page d'accueil) -->
+<header class="hud-header" *ngIf="!isMobileFullscreenOnly">
+  <!-- LIGNE 1 : LOGO EN GROS, MODES RÉGATE/COCKPIT, PROCHAINE COURSE, PLEIN ÉCRAN TRÈS ACCESSIBLE, LISTE DÉROULANTE DES LANGUES DISCRÈTE -->
+  <div class="header-hero-row">
+    <div class="hero-left-cluster">
+      <!-- Logo en gros -->
+      <div class="game-logo hero-logo">
+        <div class="logo-emblem">
+          <svg class="kayak-svg-logo hero-svg" viewBox="0 0 100 100" width="56" height="56">
+            <defs>
+              <linearGradient id="logoWater" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#00f0ff"/>
+                <stop offset="100%" stop-color="#ff0055"/>
+              </linearGradient>
+              <linearGradient id="logoHull" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stop-color="#ff0055"/>
+                <stop offset="50%" stop-color="#ff6600"/>
+                <stop offset="100%" stop-color="#ffe600"/>
+              </linearGradient>
+            </defs>
+            <circle cx="50" cy="50" r="46" fill="#080e1e" stroke="url(#logoWater)" stroke-width="4"/>
+            <path d="M 16 64 C 34 58 66 58 84 64" fill="none" stroke="#00f0ff" stroke-width="3" stroke-linecap="round" opacity="0.8"/>
+            <path d="M 12 50 C 24 43 76 43 88 50 C 76 57 24 57 12 50 Z" fill="url(#logoHull)"/>
+            <ellipse cx="50" cy="50" rx="9" ry="3.5" fill="#060913" stroke="#ffe600" stroke-width="1.5"/>
+            <circle cx="50" cy="33" r="5" fill="#00f0ff" stroke="#ffffff" stroke-width="1.5"/>
+            <line x1="28" y1="26" x2="72" y2="74" stroke="#ffffff" stroke-width="3.5" stroke-linecap="round"/>
+            <ellipse cx="26" cy="24" rx="6" ry="3" transform="rotate(-35 26 24)" fill="#ff0055"/>
+            <ellipse cx="74" cy="76" rx="6" ry="3" transform="rotate(-35 74 76)" fill="#ff0055"/>
+            <polygon points="50,14 52,19 57,20 53,23 54,28 50,25 46,28 47,23 43,20 48,19" fill="#ffe600"/>
+          </svg>
+        </div>
+        <div class="logo-text">
+          <div class="title-row">
+            <h1 class="game-title hero-game-title">{{ i18n.t('APP_TITLE') }}</h1>
+            <span class="pro-racing-tag">{{ i18n.t('ESPORT_BADGE') }}</span>
+          </div>
+          <span class="game-subtitle">{{ i18n.t('APP_SUBTITLE') }}</span>
+        </div>
+      </div>
+
+      <!-- Navigation modes d'affichage épurés -->
+      <nav class="home-nav-modes" role="navigation" aria-label="Modes du site">
+        <button
+          type="button"
+          class="btn-nav-mode btn-nav-home-only"
+          [class.active]="isViewActive('home')"
+          (click)="setSiteView('home')"
+          [title]="i18n.t('NAV_HOME')">
+          <span class="mode-icon">🏠</span>
+          <span class="mode-txt">{{ i18n.t('NAV_HOME') }}</span>
+        </button>
+        <button
+          type="button"
+          class="btn-nav-mode btn-nav-regatta"
+          [class.active]="isViewActive('regatta')"
+          (click)="setSiteView('regatta')"
+          [title]="i18n.t('MODE_REGATTA')">
+          <span class="mode-icon">🛶</span>
+          <span class="mode-txt">{{ i18n.t('MODE_REGATTA') }}</span>
+        </button>
+        <button
+          type="button"
+          class="btn-nav-mode btn-nav-cockpit"
+          [class.active]="isViewActive('cockpit')"
+          (click)="setSiteView('cockpit')"
+          [title]="i18n.t('MODE_COCKPIT')">
+          <span class="mode-icon">📱</span>
+          <span class="mode-txt">{{ i18n.t('MODE_COCKPIT') }}</span>
+        </button>
+        <button
+          *ngIf="isUserAdmin"
+          type="button"
+          class="btn-nav-mode btn-nav-admin"
+          [class.active]="isAdminDashboardOpen"
+          (click)="openAdminDashboardRequest.emit()"
+          title="Administration Plateforme">
+          <span class="mode-icon">🛡️</span>
+          <span class="mode-txt">Admin</span>
+        </button>
+      </nav>
+
+      <!-- Groupe Smartphone : Login utilisateur + Choix de la langue repositionnés sous le logo -->
+      <div class="smartphone-header-user-bar">
+        <div class="smartphone-auth-box">
+          @if (isIdentified) {
+            <button
+              type="button"
+              class="btn-line1-auth smartphone-auth-btn"
+              (click)="openAccountModal(isIdentified ? 'profile' : 'login')"
+              title="Gérer mon compte et abonnement">
+              <span class="user-avatar-tag">{{ currentUser.name.slice(0, 2).toUpperCase() }}</span>
+              <span class="user-league-badge-tag" [title]="currentUserLeague.name">{{ currentUserLeague.badge }}</span>
+              <span class="user-name-tag">{{ currentUser.name }}</span>
+              @if (isUserAdmin) {
+                <span class="role-tag is-admin">👑 Admin</span>
+              } @else if (isSubscriber) {
+                <span class="role-tag is-sub">⭐ Abonné</span>
+              }
+            </button>
+          } @else {
+            <button
+              type="button"
+              class="btn-line1-auth guest-mode smartphone-auth-btn"
+              (click)="openAccountModal('login')"
+              title="Connexion / S'inscrire">
+              <span class="user-avatar-tag">👤</span>
+              <span class="user-name-tag">Connexion</span>
+            </button>
+          }
+        </div>
+
+        <div class="lang-dropdown-wrapper smartphone-lang-dropdown">
+          <label for="smart-lang-select" class="lang-icon" title="Changer de langue">🌐</label>
+          <select
+            id="smart-lang-select"
+            class="lang-select-input"
+            [value]="i18n.getCurrentLang()"
+            (change)="languageChange.emit($event)"
+            title="Langue / Language">
+            @for (item of i18n.languages; track item.code) {
+              <option [value]="item.code">
+                {{ item.flag }} {{ item.label }} ({{ item.code.toUpperCase() }})
+              </option>
+            }
+          </select>
+        </div>
+      </div>
+
+      <!-- Groupe Prochaine Course (Bloc Timer) avec Plein Écran et Appairage Garmin intégrés -->
+      <div class="hero-schedule-cluster">
+        <!-- Prochaine Course -->
+        <div class="race-schedule-badge hero-schedule" [class.private-mode]="!!activePrivateRoom" [class.is-completed]="isPrivateRoomCompleted" *ngIf="nextRaceInfo">
+          <div class="badge-title">
+            @if (activePrivateRoom) {
+              @if (isPrivateRoomCompleted) {
+                🏁 {{ activePrivateRoom.race.title }} · {{ i18n.t('RACE_FINISHED_ROOM_CLOSED') || 'Course terminée (Salon fermé)' }}
+              } @else {
+                🔒 {{ i18n.t('PRIVATE_ROOM_BADGE') }} · {{ activePrivateRoom.race.title }} ({{ activePrivateRoom.race.targetDistance }}M)
+              }
+            } @else {
+              {{ nextRaceInfo.status === 'in_progress' ? i18n.t('RACE_IN_PROGRESS') : i18n.t('NEXT_RACE') }} ({{ nextRaceInfo.race.targetDistance }}M)
+            }
+          </div>
+          <div class="badge-timer">
+            <div class="timer-display-box" [class.is-running]="nextRaceInfo.status === 'in_progress'" [class.is-completed]="isPrivateRoomCompleted">
+              @if (isPrivateRoomCompleted) {
+                <span class="timer-digits race-finished-badge">🏁 Course terminée</span>
+              } @else {
+                <span class="timer-label-sub" *ngIf="nextRaceInfo.status === 'in_progress'">⏱️ Temps restant : </span>
+                <span class="timer-label-sub" *ngIf="nextRaceInfo.status === 'post_race_pause'">⏸️ Pause : </span>
+                <span class="timer-digits">
+                  {{ activePrivateRoom ? waitingStatusText : (nextRaceInfo.status === 'in_progress' ? formattedGameRemaining : formattedPreRaceCountdown) }}
+                </span>
+              }
+            </div>
+
+            @if (isPrivateRoomCompleted && activePrivateRoom) {
+              <button
+                type="button"
+                class="btn-leave-room-header"
+                (click)="leaveCompletedRoomRequest.emit()"
+                title="Quitter le salon et revenir aux courses publiques">
+                🚪 Quitter le salon
+              </button>
+              <button
+                type="button"
+                class="btn-view-ranking-header"
+                (click)="openRaceLeaderboardRequest.emit(activePrivateRoom.race.id)"
+                title="Voir le classement officiel de la course">
+                🏆 Classement
+              </button>
+            }
+
+            <span class="racers-count" [class.has-players]="activeRacersCount > 0" *ngIf="!isPrivateRoomCompleted">
+              <span class="pulse-dot" *ngIf="activeRacersCount > 0"></span>
+              👥 {{ activeRacersCount }} {{ i18n.t('ACTIVE_RACERS') }}
+            </span>
+
+            <!-- Action Plein Écran compacte intégrée au bloc Timer -->
+            <button
+              type="button"
+              class="btn-fullscreen hero-fullscreen"
+              [class.active]="isFullscreen"
+              (click)="toggleFullscreen()"
+              [title]="isFullscreen ? i18n.t('FULLSCREEN_EXIT') : i18n.t('FULLSCREEN_ENTER')"
+              [attr.aria-label]="isFullscreen ? i18n.t('FULLSCREEN_EXIT') : i18n.t('FULLSCREEN_ENTER')"
+              [attr.aria-pressed]="isFullscreen">
+              <span class="fullscreen-icon" aria-hidden="true">{{ isFullscreen ? '✕' : '⛶' }}</span>
+              <span class="fullscreen-label">{{ isFullscreen ? (i18n.t('FULLSCREEN_EXIT_LABEL') || 'Quitter') : (i18n.t('TOGGLE_FULLSCREEN') || 'Plein Écran') }}</span>
+            </button>
+          </div>
+
+          <!-- Action / Lien d'appairage Montre Garmin intégré au Bloc Timer avant le départ si non appairée -->
+          @if (!isPaired && !isWatchConfirmed && nextRaceInfo.status !== 'in_progress' && !isPrivateRoomCompleted) {
+            <div class="timer-pairing-bar">
+              @if (!pairingCode) {
+                <button
+                  type="button"
+                  class="btn-timer-pair"
+                  [disabled]="isGeneratingPairingCode"
+                  (click)="generateGarminPairingCode()"
+                  title="Lier votre montre Garmin (Connect IQ) pour la course">
+                  <span class="pair-icon">⌚</span>
+                  <span class="pair-text">{{ isGeneratingPairingCode ? 'Génération...' : 'Lier ma montre Garmin' }}</span>
+                </button>
+              } @else {
+                <div
+                  class="timer-pairing-code-pill"
+                  (click)="openWatchGuidanceAndPair()"
+                  title="Toucher pour voir les étapes de saisie du PIN sur votre montre">
+                  <span class="pair-code-tag">PIN Garmin :</span>
+                  <strong class="pair-code-num">{{ pairingCode }}</strong>
+                  <span class="pair-code-timer">⏱️ {{ formattedPairingCountdown }}</span>
+                  <span class="pair-code-help-icon" aria-hidden="true">ℹ️</span>
+                </div>
+              }
+              @if (pairingErrorMessage) {
+                <span class="timer-pairing-err">⚠️ {{ pairingErrorMessage }}</span>
+              }
+            </div>
+          }
+        </div>
+
+        <!-- Bouton Compte / Connexion sur la Ligne 1 du Header (Desktop / Tablette) -->
+        <div class="header-line1-auth-box desktop-only-auth">
+          @if (isIdentified) {
+            <button
+              type="button"
+              class="btn-line1-auth"
+              (click)="openAccountModal(isIdentified ? 'profile' : 'login')"
+              title="Gérer mon compte et abonnement">
+              <span class="user-avatar-tag">{{ currentUser.name.slice(0, 2).toUpperCase() }}</span>
+              <span class="user-league-badge-tag" [title]="currentUserLeague.name">{{ currentUserLeague.badge }}</span>
+              <span class="user-name-tag">{{ currentUser.name }}</span>
+              @if (isUserAdmin) {
+                <span class="role-tag is-admin">👑 Admin</span>
+              } @else if (isSubscriber) {
+                <span class="role-tag is-sub">⭐ Abonné</span>
+              }
+            </button>
+          } @else {
+            <button
+              type="button"
+              class="btn-line1-auth guest-mode"
+              (click)="openAccountModal('login')"
+              title="Connexion / S'inscrire">
+              <span class="user-avatar-tag">👤</span>
+              <span class="user-name-tag">Connexion</span>
+            </button>
+          }
+        </div>
+      </div>
+    </div>
+
+    <!-- Liste déroulante des langues discrète (Desktop / Tablette) -->
+    <div class="lang-dropdown-wrapper desktop-only-lang">
+      <label for="header-lang-select" class="lang-icon" title="Changer de langue">🌐</label>
+      <select
+        id="header-lang-select"
+        class="lang-select-input"
+        [value]="i18n.getCurrentLang()"
+        (change)="languageChange.emit($event)"
+        title="Langue / Language">
+        @for (item of i18n.languages; track item.code) {
+          <option [value]="item.code">
+            {{ item.flag }} {{ item.label }} ({{ item.code.toUpperCase() }})
+          </option>
+        }
+      </select>
+    </div>
+  </div>
+
+  <!-- LIGNE 2 : APPAREILLAGE / USER CONNECTÉ, CONFIG, DUEL (SI APPAIRÉ), SALONS PRIVÉS, STATISTIQUES (À DROITE DES SALONS), ABONNEMENTS -->
+  <div class="header-user-row">
+    <div class="user-nav-cluster">
+      <!-- GAUCHE 2EME LIGNE : Appareillage Montre Garmin OU Joueur identifié -->
+      @if (isIdentified) {
+        <div class="player-card" (click)="openAccountModalRequest.emit(isIdentified ? 'profile' : 'login')">
+          <div class="player-avatar-box">
+            <div class="player-avatar-initial">{{ currentUser.name.slice(0, 2).toUpperCase() }}</div>
+            <span class="player-status-dot"></span>
+          </div>
+          <div class="player-info">
+            <div class="player-name">
+              <span class="user-league-badge-tag" [title]="currentUserLeague.name">{{ currentUserLeague.badge }}</span>
+              {{ currentUser.name }}
+              @if (isUserAdmin) {
+                <span class="badge-role-tag is-admin" title="Administratrice">👑 Admin</span>
+              } @else if (isSubscriber) {
+                <span class="badge-role-tag is-sub" title="Abonné(e)">⭐ Abonné</span>
+              }
+            </div>
+            <div class="player-code">
+              {{ i18n.t('GENERAL_RANK') }}: <span class="highlight">#{{ generalUserRank }}</span> ({{ currentUser.points || 0 }} {{ i18n.t('POINTS') }}) · {{ currentUser.totalRaces || 0 }} {{ i18n.t('RACES_COUNT') }}
+            </div>
+          </div>
+          <div class="player-card-actions">
+            <button
+              type="button"
+              class="btn-hud btn-connect"
+              (click)="$event.stopPropagation(); openAccountModal(isIdentified ? 'profile' : 'login')">
+              {{ isIdentified ? 'Mon Compte' : 'Connexion' }}
+            </button>
+          </div>
+        </div>
+      } @else {
+        <!-- Zone profil invité épurée : pseudo invité modifiable au clic tant que non connecté -->
+        <div class="guest-hero-pill">
+          <span class="guest-avatar-icon">👤</span>
+          <div class="guest-pill-text is-clickable" (click)="editGuestPseudoRequest.emit()" title="Cliquer pour modifier votre pseudo invité temporaire">
+            <span class="guest-pill-name">{{ currentUser.name }} <span class="guest-edit-icon" aria-hidden="true">✏️</span></span>
+            <span class="guest-pill-sub">Mode Invité (cliquer pour changer)</span>
+          </div>
+          <button
+            type="button"
+            class="btn-hud btn-connect-compact"
+            (click)="openAccountModal('login')"
+            title="Créer un compte ou souscrire un abonnement">
+            Connexion / S'inscrire
+          </button>
+        </div>
+      }
+
+      <!-- Bouton Administration Plateforme (Back-Office Complet & Configuration des courses publiques) -->
+      <button
+        *ngIf="isUserAdmin"
+        type="button"
+        class="btn-hud btn-admin-backoffice is-admin"
+        (click)="openAdminDashboardRequest.emit()"
+        title="🛡️ Ouvrir le tableau de bord d'administration de la plateforme">
+        🛡️ Administration
+      </button>
+
+      <!-- Bouton Duel 1v1 Bot si appairé -->
+      <button
+        *ngIf="isPaired || isWatchConfirmed"
+        type="button"
+        class="btn-hud btn-bot-duel"
+        (click)="openBotDuelModalRequest.emit()"
+        title="Lancer un duel 1v1 rapide contre un bot virtuel">
+        <span class="btn-icon">🤖</span>
+        Duel 1v1 Bot
+      </button>
+
+      <!-- Boutons Salons Privés -->
+      <button
+        type="button"
+        class="btn-hud btn-private"
+        [class.active-private]="!!activePrivateRoom"
+        (click)="openPrivateModal()"
+        title="Salons privés : créer ou rejoindre une régate sur invitation">
+        <span class="btn-icon">🔒</span>
+        {{ i18n.t('BTN_PRIVATE_ROOMS') }}
+        <span class="badge-pending" *ngIf="pendingApprovalPlayers.length > 0">
+          {{ pendingApprovalPlayers.length }}
+        </span>
+      </button>
+
+      <!-- Bouton Espace Statistiques & Analyses (Remonté à droite du bouton salons privés pour les joueurs identifiés) -->
+      <button
+        *ngIf="isIdentified"
+        type="button"
+        class="btn-hud btn-stats"
+        (click)="openStatisticsModal()"
+        title="Consulter vos statistiques et analyses de courses détaillées (Illimité pour les abonnés, 10 jours en compte gratuit)">
+        <span class="btn-icon">📊</span>
+        Statistiques
+      </button>
+
+      <!-- Bouton Abonnements -->
+      <button
+        type="button"
+        class="btn-hud btn-pricing"
+        (click)="openSubscriptionModal()"
+        title="Offres et abonnements Club & Élite Pro">
+        <span class="btn-icon">⭐</span>
+        {{ isSubscriber ? 'Mon Abonnement' : 'Abonnements' }}
+      </button>
+
+      <!-- Bouton dédié Organisateur : Démarrer la course en attente / Arrêter la course en cours -->
+      @if (canStartOrStopRace) {
+        @if (isRaceActive) {
+          <button
+            type="button"
+            class="btn-hud btn-stop-race"
+            (click)="stopActiveRaceRequest.emit()"
+            title="Arrêter la course immédiatement et établir le classement officiel selon les positions réelles">
+            🛑 Arrêter la course
+          </button>
+        } @else if (canStartRace) {
+          <button
+            type="button"
+            class="btn-hud btn-start-race"
+            (click)="startActivePrivateRaceRequest.emit()"
+            title="Démarrer la course manuellement (compte à rebours de 10s)">
+            🚀 Démarrer la course
+          </button>
+        }
+      }
+    </div>
+  </div>
+</header>
+
+<!-- Bannière d'information si les courses publiques sont suspendues -->
+<div class="public-races-suspended-banner" *ngIf="isPublicRaceSuspended">
+  <div class="banner-content">
+    <span class="banner-icon">⚠️</span>
+    <span class="banner-text"><strong>Information :</strong> Les courses publiques sont actuellement suspendues par l'administration. Les courses en cours se terminent normalement et les salons privés restent disponibles.</span>
+  </div>
+</div>
+
+<!-- Bouton Plein Écran Flottant (Desktop & Tablette) -->
+<button
+  type="button"
+  class="btn-floating-fullscreen"
+  [class.active]="isFullscreen"
+  (click)="toggleFullscreenRequest.emit()"
+  [title]="isFullscreen ? i18n.t('FULLSCREEN_EXIT') : i18n.t('FULLSCREEN_ENTER')"
+  [attr.aria-label]="isFullscreen ? i18n.t('FULLSCREEN_EXIT') : i18n.t('FULLSCREEN_ENTER')"
+  [attr.aria-pressed]="isFullscreen">
+  <span class="floating-fs-icon" aria-hidden="true">{{ isFullscreen ? '✕' : '⛶' }}</span>
+</button>

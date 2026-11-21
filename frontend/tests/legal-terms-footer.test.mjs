@@ -3,21 +3,21 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { readAppHtmlBundle } from './test-app-bundle.helper.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const appHtmlPath = path.resolve(__dirname, '../src/app/app.html');
 
 test('Footer has exactly one link/button opening the Legal Terms & CGU modal', () => {
-  const html = fs.readFileSync(appHtmlPath, 'utf8');
+  const html = readAppHtmlBundle();
 
   // Find the app-footer block
   const footerMatch = html.match(/<footer class="app-footer"[\s\S]*?<\/footer>/);
   assert.ok(footerMatch, 'HTML must contain <footer class="app-footer">');
   const footerHtml = footerMatch[0];
 
-  // Count buttons opening the legal modal (isLegalTermsOpen = true)
-  const legalButtons = footerHtml.match(/isLegalTermsOpen\s*=\s*true/g) || [];
+  // Count buttons opening the legal modal (isLegalTermsOpen = true or openLegalTermsRequest.emit())
+  const legalButtons = footerHtml.match(/isLegalTermsOpen\s*=\s*true|openLegalTermsRequest\.emit\(\)/g) || [];
   assert.equal(
     legalButtons.length,
     1,
@@ -34,7 +34,7 @@ test('Footer has exactly one link/button opening the Legal Terms & CGU modal', (
 });
 
 test('Legal Terms modal contains updated platform evolutions (Flutter, Garmin off-line, Organizer powers, Solo first-stroke, Anti-cheat, RGPD)', () => {
-  const html = fs.readFileSync(appHtmlPath, 'utf8');
+  const html = readAppHtmlBundle();
 
   // Find the legal terms modal block
   const modalMatch = html.match(/@if\s*\(\s*isLegalTermsOpen\s*\)[\s\S]*?<\/div>\s*<\/div>\s*}/);

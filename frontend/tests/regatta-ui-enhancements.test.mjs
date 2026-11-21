@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { readAppHtmlBundle } from './test-app-bundle.helper.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -74,8 +75,7 @@ test('Leaderboard Duration: Backend returns formattedDuration and Frontend displ
   assert.match(backendCode, /formattedDuration:\s*chrono/,
     'Backend race controller must explicitly include formattedDuration in leaderboard response');
 
-  const appHtmlPath = path.join(rootDir, 'src/app/app.html');
-  const htmlCode = fs.readFileSync(appHtmlPath, 'utf-8');
+  const htmlCode = readAppHtmlBundle();
 
   assert.match(htmlCode, /entry\.formattedDuration\s*\|\|\s*entry\.chrono/,
     'Frontend leaderboard table must bind entry.formattedDuration || entry.chrono');
@@ -109,8 +109,7 @@ test('Finish Line Celebration: 2-second fireworks and bold BRAVO overlay before 
   const timerMatch = tsCode.match(/triggerFinishCelebration[\s\S]*?setTimeout\(\s*\(\)\s*=>[\s\S]*?,\s*2000\s*\)/);
   assert.ok(timerMatch, 'Celebration overlay must use a strict 2-second (2000ms) timer');
 
-  const appHtmlPath = path.join(rootDir, 'src/app/app.html');
-  const htmlCode = fs.readFileSync(appHtmlPath, 'utf-8');
+  const htmlCode = readAppHtmlBundle();
 
   assert.match(htmlCode, /class="finish-celebration-fullscreen-overlay"/,
     'app.html must define the fullscreen celebration overlay');
@@ -129,8 +128,7 @@ test('Regatta Mode: Duplicate internal canvas zoom is deleted, leaving zoom sole
   assert.ok(!canvasCode.includes('canvas-zoom-controls'), 'Internal canvas-zoom-controls must be deleted from regatta canvas');
   assert.ok(!canvasCode.includes('btn-zoom-step'), 'Internal btn-zoom-step must be deleted from regatta canvas');
 
-  const appHtmlPath = path.join(rootDir, 'src/app/app.html');
-  const appHtml = fs.readFileSync(appHtmlPath, 'utf-8');
+  const appHtml = readAppHtmlBundle();
   assert.match(appHtml, /class="regatta-quick-zoom-group"/, 'Zoom controls must remain in regatta-quick-nav-bar above the canvas');
 });
 
@@ -140,10 +138,9 @@ test('Regatta Mode: Leaderboard popup removed from canvas DOM and placed above c
 
   assert.ok(!canvasCode.includes('mini-leaderboard'), 'Mini-leaderboard popup must be removed from canvas DOM');
 
-  const appHtmlPath = path.join(rootDir, 'src/app/app.html');
-  const appHtml = fs.readFileSync(appHtmlPath, 'utf-8');
+  const appHtml = readAppHtmlBundle();
   assert.match(appHtml, /class="btn-cockpit-quick btn-quick-ranking"/, 'Top bar must include btn-quick-ranking with 🏆');
-  assert.match(appHtml, /class="regatta-top-leaderboard-panel"/, 'regatta-top-leaderboard-panel must be placed above the canvas in HTML');
+  assert.match(appHtml, /regatta-top-leaderboard-panel|regatta-floating-leaderboard-panel/, 'regatta leaderboard panel must be present in HTML');
 
   const appTsPath = path.join(rootDir, 'src/app/app.ts');
   const appTs = fs.readFileSync(appTsPath, 'utf-8');

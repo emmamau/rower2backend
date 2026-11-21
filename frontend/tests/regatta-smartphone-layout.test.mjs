@@ -3,6 +3,7 @@ import assert from 'node:assert';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { readAppHtmlBundle } from './test-app-bundle.helper.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -42,8 +43,7 @@ test('Regatta mode smartphone layout: buttons above water lines, telemetry data 
   );
 
   // 3. Verify HTML keeps Accueil & Cockpit in regatta-quick-nav-bar
-  const htmlPath = path.join(rootDir, 'src/app/app.html');
-  const htmlContent = fs.readFileSync(htmlPath, 'utf-8');
+  const htmlContent = readAppHtmlBundle();
   assert.match(
     htmlContent,
     /<aside class="regatta-quick-nav-bar"[\s\S]*?btn-quick-home[\s\S]*?btn-quick-cockpit[\s\S]*?<\/aside>/s,

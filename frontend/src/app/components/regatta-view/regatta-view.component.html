@@ -1,0 +1,402 @@
+<!-- BANNIÈRE D'ATTENTE SALON PRIVÉ EN RÉGATE -->
+<div class="regatta-waiting-banner" *ngIf="activePrivateRoom && !isPrivateBannerCollapsed && !isRaceActive && !isPostRaceDisplayActive">
+  <span class="waiting-icon">⏳</span>
+  <span class="waiting-text">{{ waitingStatusText }}</span>
+</div>
+
+<!-- BANNIÈRE DE FÉLICITATIONS FIN DE COURSE ET CLASSEMENT GÉNÉRAL COMPLET -->
+<section class="finish-celebration-banner" *ngIf="isPostRaceDisplayActive" role="region" aria-label="Félicitations de fin de course">
+  <div class="finish-celebration-card" [class.podium-gold]="myRank === 1" [class.podium-silver]="myRank === 2" [class.podium-bronze]="myRank === 3">
+    <div class="finish-badge-header">
+      <span class="finish-confetti">{{ isRaceStoppedByOrganizer ? '🛑' : '🎉' }}</span>
+      <h2 class="finish-title">{{ isRaceStoppedByOrganizer ? 'COURSE ARRÊTÉE - CLASSEMENT OFFICIEL' : 'BRAVO ! COURSE TERMINÉE !' }}</h2>
+      <span class="finish-confetti">{{ isRaceStoppedByOrganizer ? '🛑' : '🎉' }}</span>
+    </div>
+
+    <div class="finish-podium-spotlight" *ngIf="myPodiumMedal">
+      <span class="podium-medal-huge">{{ myPodiumMedal.icon }}</span>
+      <div class="podium-medal-text">
+        <span class="podium-medal-badge">{{ myPodiumMedal.label.toUpperCase() }}</span>
+        <span class="podium-medal-sub">Félicitations pour votre podium !</span>
+      </div>
+    </div>
+
+    <div class="finish-stats-grid">
+      <div class="finish-stat-box highlight">
+        <span class="f-lbl">CLASSEMENT</span>
+        <span class="f-val">#{{ myRank || 1 }}</span>
+      </div>
+      <div class="finish-stat-box">
+        <span class="f-lbl">TEMPS OFFICIEL</span>
+        <span class="f-val">{{ formatTime(myActivity?.elapsedTime) }}</span>
+      </div>
+      <div class="finish-stat-box">
+        <span class="f-lbl">DISTANCE</span>
+        <span class="f-val">{{ formatDist(myActivity?.netDistance || activeTargetDistance) }}</span>
+      </div>
+      <div class="finish-stat-box">
+        <span class="f-lbl">ALLURE MOYENNE</span>
+        <span class="f-val">{{ formatPace(myActivity?.avgPace) }}</span>
+      </div>
+      <div class="finish-stat-box">
+        <span class="f-lbl">PUISSANCE MOY.</span>
+        <span class="f-val">{{ myActivity?.avgPower || 0 }} W</span>
+      </div>
+    </div>
+
+    <!-- CLASSEMENT GÉNÉRAL COMPLET ET DÉTAILLÉ DE LA MANCHE (POSITIONS, PSEUDOS, CHRONOS, ÉCARTS, POINTS) -->
+    <div class="finish-ranking-section">
+      <div class="finish-ranking-header">
+        <h3 class="finish-ranking-title">🏆 {{ i18n.t('LEADERBOARD') || 'Classement Général de la Régate' }}</h3>
+        <button
+          *ngIf="nextRaceInfo?.race?.id"
+          type="button"
+          class="btn-open-full-leaderboard"
+          (click)="openCurrentRaceLeaderboardRequest.emit()"
+          title="Afficher le tableau officiel complet">
+          📊 Voir Détails Complets
+        </button>
+      </div>
+
+      <div class="finish-ranking-table-wrap">
+        <table class="race-leaderboard-table compact-finish-table">
+          <thead>
+            <tr>
+              <th>Rang</th>
+              <th>Coureur</th>
+              <th>Chrono</th>
+              <th>Allure</th>
+              <th>Écart</th>
+              <th>Points</th>
+            </tr>
+          </thead>
+          <tbody>
+            @if (selectedRaceLeaderboard.length > 0) {
+              @for (entry of selectedRaceLeaderboard; track entry.userId || $index) {
+                <tr [class.is-winner]="entry.position === 1" [class.is-me]="entry.userId === activeUserId">
+                  <td class="col-rank">
+                    <span class="rank-badge" [class.rank-1]="entry.position === 1" [class.rank-2]="entry.position === 2" [class.rank-3]="entry.position === 3">
+                      #{{ entry.position }}
+                    </span>
+                  </td>
+                  <td class="col-user">
+                    <div class="user-cell">
+                      <span class="user-league-badge" *ngIf="entry.league" [title]="entry.league.name">{{ entry.league.badge }}</span>
+                      <span class="bot-indicator" *ngIf="entry.isBot" title="Robot / IA">🤖</span>
+                      <strong class="user-name">{{ entry.userName }}</strong>
+                      <span class="badge-estimated" *ngIf="entry.isEstimated" title="Temps estimé par extrapolation d'allure">⏱️ Estimé</span>
+                    </div>
+                  </td>
+                  <td class="col-time font-mono">{{ entry.formattedDuration || entry.chrono || '--' }}</td>
+                  <td class="col-pace font-mono">{{ formatPace(entry.avgPaceSec || entry.avgPace) }}</td>
+                  <td class="col-gap font-mono">{{ entry.gap || '--' }}</td>
+                  <td class="col-points">{{ formatPoints(entry.points) }}</td>
+                </tr>
+              }
+            } @else {
+              @for (m of liveMetricsList; track m.userId || $index) {
+                <tr [class.is-winner]="$index === 0" [class.is-me]="m.userId === activeUserId">
+                  <td class="col-rank">
+                    <span class="rank-badge" [class.rank-1]="$index === 0" [class.rank-2]="$index === 1" [class.rank-3]="$index === 2">
+                      #{{ $index + 1 }}
+                    </span>
+                  </td>
+                  <td class="col-user">
+                    <div class="user-cell">
+                      <strong class="user-name">{{ m.name }}</strong>
+                    </div>
+                  </td>
+                  <td class="col-time font-mono">{{ formatTime(m.elapsedTime) }}</td>
+                  <td class="col-pace font-mono">{{ formatPace(m.split) }}</td>
+                  <td class="col-gap font-mono">{{ m.dist ? m.dist + 'm' : '--' }}</td>
+                  <td class="col-points">
+                    <span class="points-pill">{{ m.status === 'finished' ? '+100 pts' : '—' }}</span>
+                  </td>
+                </tr>
+              }
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="finish-actions-row">
+      <button
+        type="button"
+        class="btn-finish-home"
+        (click)="returnToHomeAfterRaceRequest.emit()"
+        title="Quitter la course et revenir à la page d'accueil">
+        {{ i18n.t('BTN_RETURN_HOME') }}
+      </button>
+      <button
+        *ngIf="nextRaceInfo?.race?.id"
+        type="button"
+        class="btn-open-full-leaderboard"
+        (click)="openCurrentRaceLeaderboardRequest.emit()"
+        title="Afficher la modale détaillée">
+        📊 Détails complets du classement
+      </button>
+    </div>
+  </div>
+</section>
+
+<!-- SÉLECTEUR D'IDENTIFICATION DU KAYAK (SI NON CONNECTÉ ET SANS MONTRE APPAIRÉE) + SUIVI CAMÉRA -->
+<div class="spectator-camera-bar">
+  @if (canManualSelectPublicKayak) {
+    <div class="spectator-label-group">
+      <span class="cam-icon">🛶</span>
+      <span class="cam-title">Sélectionner mon kayak :</span>
+    </div>
+    <div class="spectator-dropdown-wrap">
+      <select
+        class="spectator-select"
+        [ngModel]="isUserAssociatedWithRace ? activeUserId : ''"
+        (ngModelChange)="selectPublicKayak.emit($event)"
+        aria-label="Sélectionner votre kayak dans la course publique">
+        <option value="">-- Identifier mon kayak dans la course --</option>
+        @for (k of selectablePublicKayaks; track k.userId) {
+          <option [value]="k.userId">
+            🛶 Ligne {{ k.lane }} · {{ k.name }} ({{ k.dist }}m)
+          </option>
+        }
+      </select>
+    </div>
+  } @else if (!activePrivateRoom) {
+    <span class="spectator-tip">
+      🔗 Kayak lié automatiquement : <strong>{{ currentUser.name }}</strong>
+      @if (myAssignedLane) {
+        <span>(Ligne {{ myAssignedLane }})</span>
+      }
+    </span>
+  }
+  <div class="spectator-label-group">
+    <span class="cam-icon">🎥</span>
+    <span class="cam-title">Suivi Bateau / Focus :</span>
+  </div>
+  <div class="spectator-dropdown-wrap">
+    <select
+      class="spectator-select"
+      [ngModel]="selectedSpectatorUserId"
+      (ngModelChange)="spectatorSelect.emit($event)">
+      <option value="">🎯 Mon Bateau (Focus principal)</option>
+      <option *ngFor="let racer of racers" [value]="racer.userId">
+        🚣 {{ racer.userName || racer.userId }} ({{ racer.netDistance || 0 }}m · {{ racer.lastPower || 0 }}W)
+      </option>
+    </select>
+  </div>
+  <span class="spectator-tip" *ngIf="selectedSpectatorUserId">
+    Caméra centrée sur {{ selectedSpectatorRacerName }}
+  </span>
+</div>
+
+<!-- BARRE D'ACTION RAPIDE VUE RÉGATE : BASCULE ACCUEIL, COCKPIT, CLASSEMENT, ZOOM X3 & PARAMÉTRAGE DONNÉES -->
+<aside class="regatta-quick-nav-bar" role="toolbar" aria-label="Navigation rapide et zoom régate">
+  <button
+    type="button"
+    class="btn-cockpit-quick btn-quick-home"
+    (click)="setSiteView('home')"
+    title="Retour à l'accueil"
+    aria-label="Accueil">
+    <span class="btn-quick-icon">🏠</span>
+    <span class="btn-quick-label">Accueil</span>
+  </button>
+  <button
+    type="button"
+    class="btn-cockpit-quick btn-quick-cockpit"
+    (click)="setSiteView('cockpit')"
+    title="Bascule instantanée vers le Cockpit (données pures)"
+    aria-label="Mode Cockpit">
+    <span class="btn-quick-icon">📱</span>
+    <span class="btn-quick-label">Cockpit</span>
+  </button>
+
+  <!-- Bouton classement placé au-dessus du plan d'eau -->
+  <button
+    type="button"
+    class="btn-cockpit-quick btn-quick-ranking"
+    [class.active]="isRegattaLeaderboardOpen"
+    (click)="toggleRegattaLeaderboard()"
+    title="Afficher/Masquer le classement en direct"
+    aria-label="Classement">
+    <span class="btn-quick-icon">🏆</span>
+    <span class="btn-quick-label">Classement</span>
+  </button>
+
+  <!-- BOUTON DÉPART / ARRÊT DÉDIÉ ORGANISATEUR DANS LA BARRE RAPIDE RÉGATE -->
+  @if (canStartOrStopRace) {
+    @if (isRaceActive) {
+      <button
+        type="button"
+        class="btn-cockpit-quick btn-quick-stop-race"
+        (click)="stopActiveRaceRequest.emit()"
+        title="Arrêter la course immédiatement et finaliser le classement officiel">
+        <span class="btn-quick-icon">🛑</span>
+        <span class="btn-quick-label">Arrêter</span>
+      </button>
+    } @else if (canStartRace) {
+      <button
+        type="button"
+        class="btn-cockpit-quick btn-quick-start-race"
+        (click)="startActivePrivateRaceRequest.emit()"
+        title="Démarrer la course manuellement (compte à rebours de 10s)">
+        <span class="btn-quick-icon">🚀</span>
+        <span class="btn-quick-label">Démarrer</span>
+      </button>
+    }
+  }
+
+  <!-- Contrôle direct du Zoom (x1 à x3) dans la barre rapide de régate -->
+  <div class="regatta-quick-zoom-group" role="group" aria-label="Zoom lignes d'eau et données">
+    <button
+      type="button"
+      class="btn-cockpit-quick btn-quick-zoom"
+      [disabled]="regattaZoomLevel <= 1"
+      (click)="stepRegattaZoomRequest.emit(-0.5)"
+      title="Réduire le zoom"
+      aria-label="Zoom moins">
+      🔍 −
+    </button>
+    <span class="quick-zoom-indicator" [class.is-zoomed]="regattaZoomLevel > 1">
+      <span class="zoom-prefix">Zoom </span>x{{ regattaZoomLevel }}
+    </span>
+    <button
+      type="button"
+      class="btn-cockpit-quick btn-quick-zoom"
+      [disabled]="regattaZoomLevel >= 3"
+      (click)="stepRegattaZoomRequest.emit(0.5)"
+      title="Augmenter le zoom jusqu'à x3 (texte maximisé, 3 kayaks et 3 données)"
+      aria-label="Zoom plus">
+      +
+    </button>
+  </div>
+
+  <button
+    type="button"
+    class="btn-cockpit-quick btn-quick-prefs"
+    (click)="openRegattaSettingsRequest.emit()"
+    title="Configurer les données affichées sous les lignes d'eau dans votre profil"
+    aria-label="Données télémétrie">
+    <span class="btn-quick-icon">⚙️</span>
+    <span class="btn-quick-label">Données ({{ visibleRegattaMetrics.length }})</span>
+  </button>
+
+  <!-- TEMPS RESTANT DE COURSE EN MODE PAYSAGE / RÉGATE À DROITE -->
+  <div class="regatta-nav-timer" *ngIf="isRaceActive || nextRaceInfo?.status === 'in_progress' || isPreStartCountdown" role="status" aria-live="polite">
+    <span class="nav-timer-pill" [class.is-running]="isRaceActive">
+      ⏱️ {{ isRaceActive ? (formattedGameRemaining ? ('Fin : ' + formattedGameRemaining) : 'Course en cours') : ('Départ : ' + formattedPreRaceCountdown) }}
+    </span>
+  </div>
+</aside>
+
+<!-- Vue Régate Canvas 2D (Tableau de la Régate avec Zoom x1..x3) -->
+<section class="regatta-canvas-section">
+  <div class="canvas-display-card">
+    <app-regatta-canvas
+      [racers]="liveMetricsList"
+      [targetDistance]="nextRaceInfo?.race?.targetDistance || 2000"
+      [activeUserId]="activeUserId"
+      [focusedUserId]="selectedSpectatorUserId"
+      [canSelectKayak]="canManualSelectPublicKayak"
+      [myKayakCustomization]="currentKayakCustomization"
+      [isRaceActive]="isRaceActive"
+      [zoomLevel]="regattaZoomLevel"
+      (zoomLevelChange)="setRegattaZoomRequest.emit($event)"
+      (racerSelected)="spectatorSelect.emit($event)"
+      (kayakClaimed)="kayakClaimed.emit($event)">
+    </app-regatta-canvas>
+
+    <!-- PANNEAU CLASSEMENT EN DIRECT FLOTTANT INTÉGRÉ AU PLAN D'EAU (DÉPLAÇABLE SANS DÉCALAGE DE L'IHM) -->
+    <div
+      class="regatta-floating-leaderboard-panel regatta-top-leaderboard-panel"
+      *ngIf="isRegattaLeaderboardOpen"
+      [style.left.px]="regattaLeaderboardPos.x"
+      [style.top.px]="regattaLeaderboardPos.y"
+      (pointermove)="regattaLeaderboardPointerMove.emit($event)"
+      (pointerup)="regattaLeaderboardPointerUp.emit($event)"
+      (pointercancel)="regattaLeaderboardPointerUp.emit($event)"
+      role="region"
+      aria-label="Classement en direct de la régate">
+      <div
+        class="regatta-lead-header draggable-handle"
+        (pointerdown)="regattaLeaderboardPointerDown.emit($event)"
+        title="Glisser pour déplacer le classement">
+        <span class="regatta-lead-title">
+          🏆 {{ i18n.t('LEADERBOARD') || 'Classement en direct' }} ({{ sortedLiveMetrics.length }})
+        </span>
+        <button
+          type="button"
+          class="btn-close-lead"
+          (pointerdown)="$event.stopPropagation()"
+          (click)="closeRegattaLeaderboardRequest.emit(); $event.stopPropagation()"
+          title="Fermer le classement"
+          aria-label="Fermer">✕</button>
+      </div>
+      <div class="regatta-lead-body" *ngIf="sortedLiveMetrics.length > 0">
+        <div
+          *ngFor="let racer of sortedLiveMetrics; let rank = index"
+          class="mini-lead-row"
+          [class.active-player]="racer.userId === activeUserId"
+          [class.focused-racer]="racer.userId === selectedSpectatorUserId"
+          (click)="spectatorSelect.emit(racer.userId)"
+          title="Cliquer pour centrer la caméra sur ce concurrent">
+          <span class="mini-lead-rank">{{ rank + 1 }}</span>
+          <span
+            class="ble-state-dot"
+            [class.is-ready]="racer.ready !== false && racer.connectionState !== 'CONNECTED'"
+            [class.is-waiting]="racer.ready === false || racer.connectionState === 'CONNECTED'"
+            [title]="(racer.ready === false || racer.connectionState === 'CONNECTED') ? 'En attente du rameur' : 'Rameur prêt'"></span>
+          <span class="mini-lead-name">{{ racer.name }}</span>
+          <span class="mini-lead-dist">{{ Math.round(racer.dist) }}m</span>
+          <span class="mini-lead-gap" [class.leader]="rank === 0">
+            {{ formatRacerGap(racer, sortedLiveMetrics[0]) }}
+          </span>
+        </div>
+      </div>
+      <div class="regatta-lead-empty" *ngIf="sortedLiveMetrics.length === 0">
+        En attente des rameurs...
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- DONNÉES PARAMÉTRABLES AFFICHÉES SOUS LE CANEVAS DES LIGNES D'EAU (SE RÉDUISENT JUSQU'À MIN 3 EN ZOOMANT AVEC POLICE MAXIMISÉE) -->
+<section
+  class="regatta-unified-hud regatta-under-canvas-hud"
+  [attr.data-zoom]="regattaZoomLevel"
+  [style.--regatta-zoom]="regattaZoomLevel"
+  [style.--regatta-cols]="visibleRegattaMetrics.length"
+  aria-label="Données de course configurables sous les lignes d'eau">
+  <div class="regatta-hud-grid" [style.grid-template-columns]="'repeat(' + visibleRegattaMetrics.length + ', minmax(0, 1fr))'">
+    @for (metricKey of visibleRegattaMetrics; track metricKey) {
+      @let metric = getRegattaMetricDisplay(metricKey);
+      <div
+        class="hud-mini-card"
+        [class.hud-power]="metric.key === 'power' || metric.key === 'avgPower'"
+        [class.hud-pace]="metric.key === 'pace' || metric.key === 'avgPace'"
+        [class.hud-spm]="metric.key === 'force' || metric.key === 'work'"
+        [class.hud-dist]="metric.key === 'distRemaining' || metric.key === 'distCovered'"
+        [class.hud-chrono]="metric.key === 'speed' || metric.key === 'avgSpeed'"
+        [class.hud-rank]="metric.key === 'position'">
+        <span class="hm-lbl">{{ metric.icon }} {{ metric.label }}</span>
+        <span class="hm-val font-mono" [class.rank-glow]="metric.key === 'position'">
+          {{ metric.value }}<span class="hm-unit" *ngIf="metric.unit">{{ metric.unit }}</span>
+        </span>
+        <span class="hm-sub">{{ metric.sub }}</span>
+      </div>
+    }
+  </div>
+</section>
+
+<!-- BANNIÈRE ÉGALITÉ SPORTIVE CONCEPT2 (POSITIONNÉE EN DESSOUS DE LA PRÉSENTATION DE LA RÉGATE) -->
+<aside class="concept2-fairness-banner regatta-fairness-banner" aria-label="Égalité sportive Concept2">
+  <div class="fairness-content">
+    <span class="fairness-icon">⚖️</span>
+    <div class="fairness-text">
+      <strong>Égalité sportive garantie :</strong>
+      <span>
+        Les données FTMS de distance variant selon les modèles de rameurs, la distance parcourue est calculée en temps réel selon l'algorithme officiel Concept2 basé sur votre puissance en Watts (<span class="code-math">v = (Watts / 2.80)<sup>1/3</sup></span>).
+        Cette distance normalisée garantit une parfaite équité sportive entre tous les compétiteurs et peut légèrement différer de celle affichée sur votre console de rameur.
+      </span>
+    </div>
+  </div>
+</aside>

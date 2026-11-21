@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { readAppHtmlBundle } from './test-app-bundle.helper.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -53,13 +54,12 @@ test('Logout logic: logoutUser clears rower_subscription_tier, resets subscripti
 });
 
 test('App template: Mon Compte and Profile navigation uses isIdentified consistently', () => {
-  const appHtmlPath = path.resolve(__dirname, '../src/app/app.html');
-  const appHtml = fs.readFileSync(appHtmlPath, 'utf8');
+  const appHtml = readAppHtmlBundle();
 
   // Verify player-card action button uses isIdentified for opening profile vs login
   assert.match(
     appHtml,
-    /openAccountModal\(isIdentified\s*\?\s*'profile'\s*:\s*'login'\)/,
+    /openAccountModal(?:Request\.emit)?\(isIdentified\s*\?\s*'profile'\s*:\s*'login'\)/,
     'Template must open profile or login based on isIdentified'
   );
 });

@@ -3,6 +3,7 @@ import assert from 'node:assert';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { readAppHtmlBundle } from './test-app-bundle.helper.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -45,9 +46,8 @@ test('RegattaCanvasComponent: rank medal and remaining distance badge logic', ()
     'Must calculate remaining distance to target'
   );
 
-  // 6. Check app.html passes [isRaceActive]="isRaceActive"
-  const appHtmlPath = path.join(rootDir, 'src/app/app.html');
-  const appHtmlContent = fs.readFileSync(appHtmlPath, 'utf-8');
+  // 6. Check app.html / regatta templates pass [isRaceActive]="isRaceActive"
+  const appHtmlContent = readAppHtmlBundle();
   assert.match(
     appHtmlContent,
     /<app-regatta-canvas[^>]*\[isRaceActive\]="isRaceActive"/s,

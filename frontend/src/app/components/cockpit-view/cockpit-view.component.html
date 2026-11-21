@@ -1,0 +1,378 @@
+<!-- MINI-LEADERBOARD RÉTRACTABLE ET DÉPLAÇABLE DANS LE COCKPIT -->
+<div
+  #cockpitLeaderboardEl
+  class="mini-leaderboard cockpit-floating-leaderboard"
+  [class.collapsed]="isCockpitLeaderboardCollapsed"
+  [class.is-dragging]="isDraggingCockpitLeaderboard"
+  [style.left.px]="cockpitLeaderboardPos ? cockpitLeaderboardPos.x : null"
+  [style.top.px]="cockpitLeaderboardPos ? cockpitLeaderboardPos.y : null"
+  [style.right]="cockpitLeaderboardPos ? 'auto' : null"
+  (pointerdown)="onCockpitLeaderboardPointerDown($event)"
+  (pointermove)="onCockpitLeaderboardPointerMove($event)"
+  (pointerup)="onCockpitLeaderboardPointerUp($event)"
+  (pointercancel)="onCockpitLeaderboardPointerUp($event)"
+  *ngIf="liveMetricsList.length > 0">
+  <button
+    type="button"
+    class="mini-lead-header"
+    (click)="onCockpitLeaderboardHeaderClick($event)"
+    title="Afficher/Masquer le classement des écarts">
+    <span class="mini-lead-title">
+      🏆 {{ isCockpitLeaderboardCollapsed ? myCockpitRankBadgeText : (i18n.t('LEADERBOARD') || 'Classement direct') }}
+    </span>
+    <span class="mini-lead-toggle">{{ isCockpitLeaderboardCollapsed ? '◀' : '▼' }}</span>
+  </button>
+  <div class="mini-lead-body" *ngIf="!isCockpitLeaderboardCollapsed">
+    <div
+      *ngFor="let racer of sortedLiveMetrics; let rank = index"
+      class="mini-lead-row"
+      [class.active-player]="racer.userId === activeUserId"
+      (click)="spectatorSelect.emit(racer.userId)">
+      <span class="mini-lead-rank">{{ rank + 1 }}</span>
+      <span class="mini-lead-name">{{ racer.name }}</span>
+      <span class="mini-lead-dist">{{ Math.round(racer.dist) }}m</span>
+      <span class="mini-lead-gap" [class.leader]="rank === 0">
+        {{ formatRacerGap(racer, sortedLiveMetrics[0]) }}
+      </span>
+    </div>
+  </div>
+</div>
+
+<!-- BANNIÈRE DE FÉLICITATIONS FIN DE COURSE -->
+<section class="finish-celebration-banner" *ngIf="isPostRaceDisplayActive" role="region" aria-label="Félicitations de fin de course">
+  <div class="finish-celebration-card" [class.podium-gold]="myRank === 1" [class.podium-silver]="myRank === 2" [class.podium-bronze]="myRank === 3">
+    <div class="finish-badge-header">
+      <span class="finish-confetti">{{ isRaceStoppedByOrganizer ? '🛑' : '🎉' }}</span>
+      <h2 class="finish-title">{{ isRaceStoppedByOrganizer ? 'COURSE ARRÊTÉE - CLASSEMENT OFFICIEL' : 'BRAVO ! COURSE TERMINÉE !' }}</h2>
+      <span class="finish-confetti">{{ isRaceStoppedByOrganizer ? '🛑' : '🎉' }}</span>
+    </div>
+
+    <div class="finish-podium-spotlight" *ngIf="myPodiumMedal">
+      <span class="podium-medal-huge">{{ myPodiumMedal.icon }}</span>
+      <div class="podium-medal-text">
+        <span class="podium-medal-badge">{{ myPodiumMedal.label.toUpperCase() }}</span>
+        <span class="podium-medal-sub">Félicitations pour votre podium !</span>
+      </div>
+    </div>
+
+    <div class="finish-stats-grid">
+      <div class="finish-stat-box highlight">
+        <span class="f-lbl">CLASSEMENT</span>
+        <span class="f-val">#{{ myRank || 1 }}</span>
+      </div>
+      <div class="finish-stat-box">
+        <span class="f-lbl">TEMPS OFFICIEL</span>
+        <span class="f-val">{{ formatTime((focusedTelemetry || myActivity)?.elapsedTime) }}</span>
+      </div>
+      <div class="finish-stat-box">
+        <span class="f-lbl">DISTANCE</span>
+        <span class="f-val">{{ formatDist((focusedTelemetry || myActivity)?.netDistance || activeTargetDistance) }}</span>
+      </div>
+      <div class="finish-stat-box">
+        <span class="f-lbl">ALLURE MOYENNE</span>
+        <span class="f-val">{{ formatPace((focusedTelemetry || myActivity)?.avgPace) }}</span>
+      </div>
+      <div class="finish-stat-box">
+        <span class="f-lbl">PUISSANCE MOY.</span>
+        <span class="f-val">{{ (focusedTelemetry || myActivity)?.avgPower || 0 }} W</span>
+      </div>
+    </div>
+
+    <!-- CLASSEMENT GÉNÉRAL COMPLET ET DÉTAILLÉ DE LA MANCHE DANS LE COCKPIT -->
+    <div class="finish-ranking-section">
+      <div class="finish-ranking-header">
+        <h3 class="finish-ranking-title">🏆 {{ i18n.t('LEADERBOARD') || 'Classement Général de la Régate' }}</h3>
+        <button
+          *ngIf="nextRaceInfo?.race?.id"
+          type="button"
+          class="btn-open-full-leaderboard"
+          (click)="openCurrentRaceLeaderboardRequest.emit()"
+          title="Afficher le tableau officiel complet">
+          📊 Voir Détails Complets
+        </button>
+      </div>
+
+      <div class="finish-ranking-table-wrap">
+        <table class="race-leaderboard-table compact-finish-table">
+          <thead>
+            <tr>
+              <th>Rang</th>
+              <th>Coureur</th>
+              <th>Chrono</th>
+              <th>Allure</th>
+              <th>Écart</th>
+              <th>Points</th>
+            </tr>
+          </thead>
+          <tbody>
+            @if (selectedRaceLeaderboard.length > 0) {
+              @for (entry of selectedRaceLeaderboard; track entry.userId || $index) {
+                <tr [class.is-winner]="entry.position === 1" [class.is-me]="entry.userId === activeUserId">
+                  <td class="col-rank">
+                    <span class="rank-badge" [class.rank-1]="entry.position === 1" [class.rank-2]="entry.position === 2" [class.rank-3]="entry.position === 3">
+                      #{{ entry.position }}
+                    </span>
+                  </td>
+                  <td class="col-user">
+                    <div class="user-cell">
+                      <span class="user-league-badge" *ngIf="entry.league" [title]="entry.league.name">{{ entry.league.badge }}</span>
+                      <span class="bot-indicator" *ngIf="entry.isBot" title="Robot / IA">🤖</span>
+                      <strong class="user-name">{{ entry.userName }}</strong>
+                      <span class="badge-estimated" *ngIf="entry.isEstimated" title="Temps estimé par extrapolation d'allure">⏱️ Estimé</span>
+                    </div>
+                  </td>
+                  <td class="col-time font-mono">{{ entry.formattedDuration || entry.chrono || '--' }}</td>
+                  <td class="col-pace font-mono">{{ formatPace(entry.avgPaceSec || entry.avgPace) }}</td>
+                  <td class="col-gap font-mono">{{ entry.gap || '--' }}</td>
+                  <td class="col-points">{{ formatPoints(entry.points) }}</td>
+                </tr>
+              }
+            } @else {
+              @for (m of liveMetricsList; track m.userId || $index) {
+                <tr [class.is-winner]="$index === 0" [class.is-me]="m.userId === activeUserId">
+                  <td class="col-rank">
+                    <span class="rank-badge" [class.rank-1]="$index === 0" [class.rank-2]="$index === 1" [class.rank-3]="$index === 2">
+                      #{{ $index + 1 }}
+                    </span>
+                  </td>
+                  <td class="col-user">
+                    <div class="user-cell">
+                      <strong class="user-name">{{ m.name }}</strong>
+                    </div>
+                  </td>
+                  <td class="col-time font-mono">{{ formatTime(m.elapsedTime) }}</td>
+                  <td class="col-pace font-mono">{{ formatPace(m.split) }}</td>
+                  <td class="col-gap font-mono">{{ m.dist ? m.dist + 'm' : '--' }}</td>
+                  <td class="col-points">
+                    <span class="points-pill">{{ m.status === 'finished' ? '+100 pts' : '—' }}</span>
+                  </td>
+                </tr>
+              }
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="finish-actions-row">
+      <button
+        type="button"
+        class="btn-finish-home"
+        (click)="returnToHomeAfterRaceRequest.emit()"
+        title="Quitter la course et revenir à la page d'accueil">
+        {{ i18n.t('BTN_RETURN_HOME') }}
+      </button>
+      <button
+        *ngIf="nextRaceInfo?.race?.id"
+        type="button"
+        class="btn-open-full-leaderboard"
+        (click)="openCurrentRaceLeaderboardRequest.emit()"
+        title="Afficher la modale détaillée">
+        📊 Détails complets du classement
+      </button>
+    </div>
+  </div>
+</section>
+
+<!-- RACCOURCI DIRECT D'APPAIRAGE GARMIN DANS LE COCKPIT SANS INTERRUPTION -->
+<section class="cockpit-pair-shortcut-strip" *ngIf="!isPaired" aria-label="Lier ma montre">
+  <div class="cockpit-shortcut-card">
+    <div class="shortcut-info">
+      <span class="shortcut-icon">⌚</span>
+      <div>
+        <strong>Lier ma montre Garmin</strong>
+        <span class="shortcut-sub">Synchronisez vos Watts, cadence et cardio en direct sur votre cockpit.</span>
+      </div>
+    </div>
+    <button
+      type="button"
+      class="btn-cockpit-pair-action"
+      [disabled]="isGeneratingPairingCode"
+      (click)="generateGarminPairingCode()">
+      ⚡ {{ pairingCode ? ('PIN : ' + pairingCode + ' (' + formattedPairingCountdown + ')') : 'Lier ma montre Garmin (Code PIN)' }}
+    </button>
+  </div>
+  <div class="cockpit-code-floating-box" *ngIf="pairingCode">
+    <div class="code-digits-compact">{{ pairingCode }}</div>
+    <div class="code-instruction-compact">Sur votre montre Garmin, sélectionnez « Entrer un code » (ou « Entrer un code PIN ») et saisissez votre code PIN : [{{ pairingCode }}] · ⏱️ {{ formattedPairingCountdown }}</div>
+  </div>
+</section>
+
+<!-- SÉLECTEUR DE VUE / SUIVI DE JOUEUR DANS LE COCKPIT -->
+<div class="spectator-camera-bar cockpit-spectator-bar">
+  @if (canManualSelectPublicKayak) {
+    <div class="spectator-label-group">
+      <span class="cam-icon">🛶</span>
+      <span class="cam-title">Mon kayak :</span>
+    </div>
+    <div class="spectator-dropdown-wrap">
+      <select
+        class="spectator-select"
+        aria-label="Sélectionner mon kayak"
+        [ngModel]="claimedRacerUserId || ''"
+        (ngModelChange)="selectPublicKayak.emit($event)">
+        <option value="">-- Identifier mon kayak --</option>
+        <option *ngFor="let k of selectablePublicKayaks" [value]="k.userId">
+          🛶 {{ k.userName }} (L{{ k.lane }} · {{ k.netDistance }}m · {{ k.lastPower }}W)
+        </option>
+      </select>
+    </div>
+  } @else {
+    <span class="spectator-tip" style="color: #10b981; font-weight: 600;">
+      🔗 Kayak lié : {{ myActivity?.userName || currentUser.name }}
+    </span>
+  }
+  <div class="spectator-label-group">
+    <span class="cam-icon">📱</span>
+    <span class="cam-title">Télémétrie coureur :</span>
+  </div>
+  <div class="spectator-dropdown-wrap">
+    <select
+      class="spectator-select"
+      [ngModel]="selectedSpectatorUserId"
+      (ngModelChange)="spectatorSelect.emit($event)">
+      <option value="">🎯 Mon Cockpit (Mes métriques)</option>
+      <option *ngFor="let racer of racers" [value]="racer.userId">
+        🚣 {{ racer.userName || racer.userId }} ({{ racer.netDistance || 0 }}m · {{ racer.lastPower || 0 }}W)
+      </option>
+    </select>
+  </div>
+  <span class="spectator-tip" *ngIf="selectedSpectatorUserId">
+    Affichage des jauges de {{ selectedSpectatorRacerName }}
+  </span>
+</div>
+
+<!-- Dedicated Ergometer Cockpit Live Progress Bar -->
+<section class="cockpit-progress-strip" aria-label="Progression de course">
+  <div class="cockpit-progress-head">
+    <div class="cockpit-head-left">
+      <!-- BOUTONS D'ACTION RAPIDE / BASCULE DIRECTE ACCUEIL & RÉGATE -->
+      <div class="cockpit-quick-nav" role="toolbar" aria-label="Navigation rapide">
+        <button
+          type="button"
+          class="btn-cockpit-quick btn-quick-home"
+          (click)="setSiteView('home')"
+          title="Retour à l'accueil"
+          aria-label="Accueil">
+          <span class="btn-quick-icon">🏠</span>
+          <span class="btn-quick-label">Accueil</span>
+        </button>
+        <button
+          type="button"
+          class="btn-cockpit-quick btn-quick-regatta"
+          (click)="setSiteView('regatta')"
+          title="Bascule instantanée vers la vue Régate (plan d'eau 2D)"
+          aria-label="Vue Régate">
+          <span class="btn-quick-icon">🛶</span>
+          <span class="btn-quick-label">Régate</span>
+        </button>
+
+        <!-- BOUTON DÉPART / ARRÊT DÉDIÉ ORGANISATEUR DANS LE COCKPIT QUICK NAV -->
+        @if (canStartOrStopRace) {
+          @if (isRaceActive) {
+            <button
+              type="button"
+              class="btn-cockpit-quick btn-quick-stop-race"
+              (click)="stopActiveRaceRequest.emit()"
+              title="Arrêter la course immédiatement et finaliser le classement officiel">
+              <span class="btn-quick-icon">🛑</span>
+              <span class="btn-quick-label">Arrêter</span>
+            </button>
+          } @else if (canStartRace) {
+            <button
+              type="button"
+              class="btn-cockpit-quick btn-quick-start-race"
+              (click)="startActivePrivateRaceRequest.emit()"
+              title="Démarrer la course manuellement (compte à rebours de 10s)">
+              <span class="btn-quick-icon">🚀</span>
+              <span class="btn-quick-label">Démarrer</span>
+            </button>
+          }
+        }
+
+        @if (fullscreenSupported || isFullscreen || isPseudoFullscreen) {
+          <button
+            type="button"
+            class="btn-cockpit-quick"
+            (click)="toggleFullscreenRequest.emit()"
+            [title]="isFullscreen ? i18n.t('FULLSCREEN_EXIT') : i18n.t('FULLSCREEN_ENTER')">
+            <span class="btn-quick-icon">{{ isFullscreen ? '✕' : '⛶' }}</span>
+            <span class="btn-quick-label">{{ isFullscreen ? 'Quitter' : 'Plein écran' }}</span>
+          </button>
+        }
+      </div>
+      <span class="cockpit-prog-title">
+        🚣 {{ myActivity?.netDistance || 0 }}m / {{ activeTargetDistance }}m ({{ myProgressPercent }}%)
+      </span>
+    </div>
+    <span class="cockpit-prog-meta">
+      👥 {{ activeRacersCount }} · ⏱️ {{ activePrivateRoom?.waitingForHost ? i18n.t('STATUS_WAITING_HOST') : (nextRaceInfo?.status === 'post_race_pause' ? ('Pause : ' + formattedPreRaceCountdown) : (nextRaceInfo?.status === 'in_progress' ? ('Fin dans : ' + formattedGameRemaining) : formattedPreRaceCountdown)) }}
+    </span>
+  </div>
+  <div class="cockpit-progress-track">
+    <div class="cockpit-progress-fill" [style.inline-size.%]="myProgressPercent"></div>
+  </div>
+</section>
+
+<!-- Cockpit Telemetry HUD (Personal Rower Stats) -->
+<section class="cockpit-hud cockpit-expanded">
+  <!-- CARTE POSITION & ÉCARTS AU CLASSEMENT -->
+  <div class="hud-card rank-gap-card">
+    <div class="hud-label">{{ i18n.t('LEADERBOARD').toUpperCase() }}</div>
+    <div class="hud-value-huge rank-val">
+      {{ myRank ? ('#' + myRank) : '--' }} <span class="unit">/ {{ totalActiveRacers || 1 }}</span>
+    </div>
+    <div class="gap-metrics-grid">
+      <div class="gap-col">
+        <span class="gap-title">{{ i18n.t('GAP_FIRST').toUpperCase() }}</span>
+        <span class="gap-val">{{ myRank === 1 ? 'LEADER' : ('-' + distToLeader + 'm') }}</span>
+      </div>
+      <div class="gap-col">
+        <span class="gap-title">{{ i18n.t('GAP_PREV').toUpperCase() }}</span>
+        <span class="gap-val">{{ myRank && myRank > 1 ? ('-' + distToPrev + 'm') : '--' }}</span>
+      </div>
+      <div class="gap-col">
+        <span class="gap-title">{{ i18n.t('GAP_NEXT').toUpperCase() }}</span>
+        <span class="gap-val">{{ myRank && myRank < totalActiveRacers ? ('+' + distToNext + 'm') : '--' }}</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="hud-card primary-card">
+    <div class="hud-label">{{ i18n.t('DISTANCE').toUpperCase() }}</div>
+    <div class="hud-value-huge">{{ (focusedTelemetry || myActivity)?.netDistance || 0 }} <span class="unit">M</span></div>
+    <div class="hud-sub">
+      {{ (focusedTelemetry || myActivity)?.status === 'abandoned' ? 'Course abandonnée' : ('Départ : ' + ((focusedTelemetry || myActivity)?.initialDistance || 0) + 'm · Objectif : ' + ((focusedTelemetry || myActivity)?.targetDistance || activeTargetDistance) + 'm') }}
+    </div>
+  </div>
+
+  <div class="hud-card">
+    <div class="hud-label">{{ i18n.t('CADENCE').toUpperCase() }}</div>
+    <div class="hud-value">{{ (focusedTelemetry || myActivity) ? ((focusedTelemetry || myActivity)!.lastStrokeRate | number:'1.1-1') : '0.0' }} <span class="unit">SPM</span></div>
+    <div class="hud-sub">Coups totaux : {{ (focusedTelemetry || myActivity)?.totalStrokes || 0 }}</div>
+  </div>
+
+  <div class="hud-card">
+    <div class="hud-label">{{ i18n.t('POWER').toUpperCase() }}</div>
+    <div class="hud-value">{{ (focusedTelemetry || myActivity)?.lastPower || 0 }} <span class="unit">WATTS</span></div>
+    <div class="hud-sub">{{ i18n.t('AVG_POWER') }} : {{ (focusedTelemetry || myActivity)?.avgPower || 0 }} W</div>
+  </div>
+
+  <div class="hud-card">
+    <div class="hud-label">{{ i18n.t('PACE_500M').toUpperCase() }}</div>
+    <div class="hud-value">{{ formatPace((focusedTelemetry || myActivity)?.lastPace) }}</div>
+    <div class="hud-sub">Moyenne : {{ formatPace((focusedTelemetry || myActivity)?.avgPace) }}</div>
+  </div>
+
+  <div class="hud-card">
+    <div class="hud-label">VITESSE MOYENNE</div>
+    <div class="hud-value">{{ (focusedTelemetry || myActivity)?.avgSpeedKmh || 0 }} <span class="unit">KM/H</span></div>
+    <div class="hud-sub">{{ i18n.t('TIME_ELAPSED') }} : {{ formatTime((focusedTelemetry || myActivity)?.elapsedTime) }}</div>
+  </div>
+
+  <div class="hud-card">
+    <div class="hud-label">CARDIO & CALORIES</div>
+    <div class="hud-value">{{ (focusedTelemetry || myActivity)?.lastHeartRate || '--' }} <span class="unit">BPM</span></div>
+    <div class="hud-sub">Calories : {{ (focusedTelemetry || myActivity)?.totalEnergy || 0 }} kcal</div>
+  </div>
+</section>

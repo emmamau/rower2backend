@@ -1,0 +1,202 @@
+<!-- 5. Legal Terms, Conditions of Use & GDPR Modal -->
+@if (isLegalTermsOpen) {
+  <div class="modal-overlay">
+    <div class="modal-card modal-large" (click)="$event.stopPropagation()">
+      <div class="modal-header-row">
+        <h3>{{ i18n.t('MODAL_LEGAL_TITLE') }}</h3>
+        <button type="button" class="btn-close" (click)="closeLegalTermsRequest.emit()" [attr.aria-label]="i18n.t('BTN_CLOSE')">✕</button>
+      </div>
+      <div class="legal-content">
+        <h4>1. Objet du Service & Écosystème Multi-Plateforme</h4>
+        <p>
+          La plateforme <strong>Rower Race</strong> est un écosystème esportif et d'entraînement connecté dédié à l'aviron en salle (indoor rowing). Elle assure la connexion en direct des ergomètres équipés de capteurs Bluetooth FTMS, Concept2 PM5 et WaterRower SmartRow, et se déploie à travers trois interfaces coordonnées :
+        </p>
+        <ul>
+          <li><strong>Application Web :</strong> Modes Accueil, Régate 2D en temps réel avec couloirs dynamiques, Cockpit télémétrique immersif (HUD d'allure, puissance en Watts, cadence SPM, FC, calories) et plein écran optimisé pour l'orientation paysage.</li>
+          <li><strong>Application Mobile Flutter (Android & iOS) :</strong> Connexion Bluetooth FTMS directe sur smartphone, synchronisation temps réel des régates, compte à rebours, détection des faux départs et affichage de la télémétrie sur le terrain.</li>
+          <li><strong>Application Montre Garmin Connect IQ :</strong> Appairage sécurisé par code PIN éphémère à 4 chiffres (sans échange de mot de passe), liaison Bluetooth BLE directe aux ergomètres et nouveau mode autonome « Ramer off-line » pour s'entraîner sans connexion internet.</li>
+        </ul>
+        <p>
+          <strong>Contact officiel & Support :</strong> Pour toute question relative à l'utilisation du service, aux abonnements ou à vos données personnelles, vous pouvez contacter l'équipe à l'adresse officielle : <a href="mailto:contact@rowerrace.com" class="legal-link">contact@rowerrace.com</a>.
+        </p>
+
+        <h4>2. Comptes Utilisateurs, Niveaux d'Accès, Abonnements & Paiements Stripe</h4>
+        <p>
+          Rower Race propose plusieurs niveaux d'accès adaptés à la pratique sportive individuelle et en club :
+        </p>
+        <ul>
+          <li><strong>Compte Invité / Gratuit (0 €) :</strong> Accès aux courses publiques programmées, au mode entraînement solo avec départ au premier coup de rame, au mode duel 1v1 contre un bot, et création de salons privés jusqu'à 2 coureurs et 2 000 m. L'historique et les statistiques d'analyses de courses sont conservés pendant <strong>10 jours</strong>.</li>
+          <li><strong>Abonnement Club (5,99 € TTC / mois) :</strong> Salons privés jusqu'à 5 coureurs et 5 000 m, jusqu'à 3 bots configurables, personnalisation avancée du kayak de course et <strong>historique et analyses statistiques illimités</strong>.</li>
+          <li><strong>Abonnement Élite Pro (8,99 € TTC / mois) :</strong> Salons privés jusqu'à 10 coureurs et 10 000 m, jusqu'à 5 bots avec régulation de cadence/puissance, personnalisation intégrale, historique illimité et support prioritaire.</li>
+        </ul>
+
+        <h5 style="color: #00e5ff; margin-top: 14px; margin-bottom: 6px;">Paiements Sécurisés en Ligne (Stripe)</h5>
+        <p>
+          Les transactions financières et abonnements en ligne sont opérés par la société <strong>Stripe Payments Europe, Ltd.</strong>, établissement de paiement agréé et certifié conforme au standard de sécurité bancaire <strong>PCI-DSS Niveau 1</strong>. Les données de carte bancaire sont transmises via un protocole chiffré TLS de bout en bout et ne transitent ni ne sont conservées sur les serveurs de Rower Race.
+        </p>
+
+        <h5 style="color: #00e5ff; margin-top: 14px; margin-bottom: 6px;">Facturation Récurrente, Renouvellement & Droit de Rétractation</h5>
+        <p>
+          Les abonnements payants sont conclus sans engagement de durée avec reconduction tacite mensuelle à date anniversaire. Conformément à l'article <strong>L221-28 13° du Code de la consommation</strong>, l'utilisateur bénéficie d'un accès immédiat aux fonctionnalités numériques dès confirmation du paiement. L'utilisateur peut résilier son abonnement à tout moment sans motif ni pénalité.
+        </p>
+
+        <h5 style="color: #00e5ff; margin-top: 14px; margin-bottom: 6px;">Modalités de Résiliation & Clôture d'Abonnement</h5>
+        <p>
+          La résiliation s'effectue en 1 clic directement dans l'interface « Mon Compte » (ou via le portail client Stripe accessible en libre-service), ou par email à <a href="mailto:contact@rowerrace.com" class="legal-link">contact@rowerrace.com</a>. La résiliation prend effet à l'échéance de la période mensuelle entamée. Le compte bascule alors automatiquement sur la formule Gratuite sans perte des identifiants ni de l'appairage montre Garmin, et un courriel de confirmation de clôture d'abonnement est automatiquement adressé.
+        </p>
+
+        <h5 style="color: #00e5ff; margin-top: 14px; margin-bottom: 6px;">Fermeture Définitive de Compte & RGPD Art. 17</h5>
+        <p>
+          En cas de suppression de compte par l'utilisateur, tout abonnement Stripe récurrent en cours est immédiatement résilié sans aucun prélèvement futur, l'ensemble des données personnelles et historiques sportifs sont définitivement purgés, et un courriel de confirmation de suppression est expédié.
+        </p>
+
+        <h5 style="color: #00e5ff; margin-top: 14px; margin-bottom: 6px;">Disponibilité & Activation des Offres par l'Administration</h5>
+        <p>
+          L'administration de Rower Race se réserve le droit d'activer, désactiver ou suspendre temporairement la souscription à tout ou partie des offres payantes pour des raisons opérationnelles ou de maintenance, sans préjudice des abonnements en cours préalablement souscrits.
+        </p>
+
+        <h4>3. Modes de Course, Salons Privés & Rôle de l'Organisateur</h4>
+        <p>
+          Rower Race propose différentes formules de régates et d'entraînements :
+        </p>
+        <ul>
+          <li><strong>Courses Publiques :</strong> Régates collectives ouvertes à tous à intervalles réguliers. L'administration de la plateforme se réserve le droit de suspendre temporairement les courses publiques pour maintenance ou mise à jour, sans interrompre les salons privés.</li>
+          <li><strong>Salons Privés sur Invitation :</strong> Accès restreint par code de salon, lien URL direct ou PIN Garmin. <strong>Rôle de l'Organisateur :</strong> Le créateur du salon dispose des droits d'admission (validation ou refus des coureurs en attente), de déclenchement du départ, ainsi que de la faculté d'ordonner l'arrêt anticipé de la course. En cas d'arrêt par l'organisateur, le classement officiel est immédiatement validé et figé selon les positions réelles et distances parcourues.</li>
+          <li><strong>Entraînement Solo & Duel 1v1 Bot :</strong> Le mode solo propose un départ automatique « Au premier coup de rame » (détection du premier coup de rame sans compte à rebours bloquant). En mode duel 1v1 contre un bot, <strong>seul un utilisateur inscrit avec un compte peut ajouter, retirer ou configurer un bot virtuel</strong>.</li>
+        </ul>
+
+        <h4>4. Intégrité Sportive, Fair-Play & Lutte Anti-Triche</h4>
+        <p>
+          Afin de préserver l'équité des épreuves esportives et la fiabilité des classements de saison :
+        </p>
+        <ul>
+          <li><strong>Cohérence de télémétrie :</strong> Les flux de télémétrie (puissance en Watts, cadence SPM, split /500m et distance) font l'objet d'un contrôle automatique de cohérence physique basé sur les modèles biomécaniques des ergomètres Concept2 et FTMS.</li>
+          <li><strong>Faux départ (False Start) :</strong> Tout déplacement ou coup de rame prématuré détecté durant le compte à rebours synchrone entraîne un signalement ou une pénalité sportive.</li>
+          <li><strong>Sanctions :</strong> Toute tentative de manipulation logicielle, d'émulation artificielle de métriques ou de triche avérée entraînera la disqualification de la course, l'invalidation des points de ligue et la suspension possible du compte.</li>
+        </ul>
+
+        <h4>5. Personnalisation du Kayak & Bienséance</h4>
+        <p>
+          Les utilisateurs enregistrés peuvent personnaliser leur kayak de course (couleurs de coque, cockpit, rames, drapeau de pays). Les pseudonymes et livrées choisis doivent respecter les règles de respect et de bienséance. Tout élément injurieux, haineux, discriminatoire ou diffamatoire fera l'objet d'une modération ou d'un bannissement immédiat.
+        </p>
+
+        <h4>6. Données Personnelles, Télémétrie & Conformité RGPD (Règlement UE 2016/679)</h4>
+        <p>
+          Conformément au Règlement Général sur la Protection des Données (RGPD) :
+        </p>
+        <ul>
+          <li><strong>Données collectées :</strong> Pseudonyme, nom, prénom, email, année de naissance (catégories sportives U19, Senior, Master), pays, télémétrie de performance en direct (Watts, cadence, allure, BPM, kcal, coups de rame), identifiants matériels (Concept2, SmartRow, FTMS, Garmin) et PIN d'appairage temporaire.</li>
+          <li><strong>Aucune revente :</strong> Vos données sportives et personnelles ne sont ni cédées, ni louées, ni vendues à des régies publicitaires ou tiers commerciaux.</li>
+          <li><strong>Durée de conservation :</strong> 10 jours pour les utilisateurs gratuits ; conservation illimitée pour les abonnés Club et Élite Pro tant que le compte est actif.</li>
+          <li><strong>Droit à l'effacement / Droit à l'oubli (Art. 17 RGPD) :</strong> Vous pouvez supprimer définitivement votre compte et l'intégralité de vos données en 1 clic directement depuis l'onglet « Mon Compte » ou sur simple demande par courriel à <a href="mailto:contact@rowerrace.com" class="legal-link">contact@rowerrace.com</a>.</li>
+          <li><strong>Droit d'accès et de rectification :</strong> Consultable à tout moment dans votre Espace Statistiques ou par email au support.</li>
+        </ul>
+
+        <h4>7. Avertissement Médical et Responsabilité</h4>
+        <p>
+          L'aviron en salle sur ergomètre est une discipline sportive intense mobilisant 85% de la masse musculaire et sollicitant fortement le système cardiovasculaire. Il est recommandé de s'assurer de son aptitude médicale auprès d'un professionnel de santé avant toute participation. Rower Race décline toute responsabilité en cas de malaise, accident ou blessure lors de la pratique.
+        </p>
+      </div>
+      <div class="modal-buttons">
+        <button type="button" class="btn-primary" (click)="closeLegalTermsRequest.emit()">{{ i18n.t('BTN_CLOSE') }}</button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- 2.3 MODALE DE GUIDAGE PAS-À-PAS EN 3 ÉTAPES ILLUSTRÉES (SI MONTRE NON LIÉE) -->
+<div class="modal-overlay" *ngIf="isWatchGuidanceModalOpen">
+  <div class="modal-content modal-watch-guidance" (click)="$event.stopPropagation()">
+    <div class="modal-header-row">
+      <h3>⌚ Lier votre montre Garmin en 3 étapes</h3>
+      <button type="button" class="btn-close" (click)="closeWatchGuidanceModalRequest.emit()" aria-label="Fermer">✕</button>
+    </div>
+    <p class="modal-desc">
+      Suivez ces 3 étapes rapides pour associer votre montre Garmin à votre session :
+    </p>
+    <div class="guidance-steps-grid">
+      <div class="guidance-step-card">
+        <span class="guidance-step-badge">Étape 1</span>
+        <div class="guidance-step-illus" aria-hidden="true">⌚</div>
+        <p class="guidance-step-text">Ouvrez l'application RowerRace sur votre montre Garmin.</p>
+      </div>
+      <div class="guidance-step-card">
+        <span class="guidance-step-badge">Étape 2</span>
+        <div class="guidance-step-illus" aria-hidden="true">📲</div>
+        <p class="guidance-step-text">Sur votre montre, sélectionnez <strong>« Entrer un code »</strong> (ou « Entrer un code PIN »).</p>
+      </div>
+      <div class="guidance-step-card">
+        <span class="guidance-step-badge">Étape 3</span>
+        <div class="guidance-step-illus" aria-hidden="true">🔢</div>
+        <p class="guidance-step-text">Saisissez le <strong>code PIN d'appairage</strong> affiché à l'écran.</p>
+      </div>
+    </div>
+
+    @if (pairingCode) {
+      <div class="guidance-active-code-box">
+        <span class="guidance-code-lbl">VOTRE CODE PIN D'APPAIRAGE</span>
+        <strong class="guidance-code-digits">{{ pairingCode }}</strong>
+        <span class="guidance-code-timer">⏱️ Valide pendant {{ formattedPairingCountdown }}</span>
+      </div>
+    }
+
+    <div class="guidance-modal-actions">
+      @if (!pairingCode) {
+        <button
+          type="button"
+          class="btn-cyber-primary"
+          [disabled]="isGeneratingPairingCode"
+          (click)="generateGarminPairingCodeRequest.emit()">
+          🔑 {{ isGeneratingPairingCode ? 'Génération...' : 'Afficher mon code PIN d\'appairage' }}
+        </button>
+      }
+      <button type="button" class="btn-secondary" (click)="closeWatchGuidanceModalRequest.emit()">
+        Fermer
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- MODALE BILAN HEBDOMADAIRE (RÉCAPITULATIF DU LUNDI & PROMOTIONS/RELÉGATIONS) -->
+@if (isWeeklySummaryModalOpen && unseenWeeklySummary) {
+  <div class="modal-overlay weekly-summary-overlay">
+    <div class="modal-card modal-weekly-summary" (click)="$event.stopPropagation()">
+      @let details = getWeeklySummaryDetails(unseenWeeklySummary);
+      <div class="weekly-summary-header" [ngClass]="details.cls">
+        <span class="weekly-summary-icon">{{ details.icon }}</span>
+        <h3>{{ details.title }}</h3>
+        <p>{{ details.subtitle }}</p>
+      </div>
+      <div class="weekly-summary-body">
+        <div class="summary-stat-grid">
+          <div class="summary-stat-card">
+            <span class="stat-label">Ancienne Ligue</span>
+            <span class="stat-val">{{ unseenWeeklySummary.previous_league }}</span>
+          </div>
+          <div class="summary-arrow">&rarr;</div>
+          <div class="summary-stat-card highlight">
+            <span class="stat-label">Nouvelle Ligue</span>
+            <span class="stat-val">{{ unseenWeeklySummary.new_league }}</span>
+          </div>
+        </div>
+        <div class="summary-details-row">
+          <div class="detail-item">
+            <span class="d-label">Points marqués</span>
+            <span class="d-val">{{ unseenWeeklySummary.final_points }} pts</span>
+          </div>
+          @if (unseenWeeklySummary.final_rank) {
+            <div class="detail-item">
+              <span class="d-label">Rang final</span>
+              <span class="d-val">#{{ unseenWeeklySummary.final_rank }}</span>
+            </div>
+          }
+        </div>
+      </div>
+      <div class="weekly-summary-actions">
+        <button type="button" class="btn-primary btn-summary-continue" (click)="closeWeeklySummaryModalRequest.emit()">
+          Continuer la Saison 🚣
+        </button>
+      </div>
+    </div>
+  </div>
+}

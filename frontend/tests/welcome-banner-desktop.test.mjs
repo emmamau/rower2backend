@@ -3,15 +3,15 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { readAppHtmlBundle } from './test-app-bundle.helper.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const appHtmlPath = path.resolve(__dirname, '../src/app/app.html');
 const appTsPath = path.resolve(__dirname, '../src/app/app.ts');
 const appCssPath = path.resolve(__dirname, '../src/app/app.css');
 
 test('Desktop welcome banner: HTML contains single-line structure with greeting, league, last race/invite and garmin status', () => {
-  const html = fs.readFileSync(appHtmlPath, 'utf8');
+  const html = readAppHtmlBundle();
 
   // Must have connected welcome card
   assert.match(html, /welcome-banner-card\s+is-connected/, 'HTML should contain .welcome-banner-card.is-connected');
@@ -28,7 +28,7 @@ test('Desktop welcome banner: HTML contains single-line structure with greeting,
   assert.match(html, /lastRaceSummary\.hasRaced/, 'HTML should check lastRaceSummary.hasRaced');
   assert.match(html, /Derni[eè]re course/, 'HTML should display last race label');
   assert.match(html, /Prenez votre 1.+d[eé]part/i, 'HTML should display invitation when no race completed');
-  assert.match(html, /scrollToNextRace\(\)/, 'HTML should allow scrolling to next race on invitation click');
+  assert.match(html, /scrollToNextRace(?:Request\.emit)?\(\)/, 'HTML should allow scrolling to next race on invitation click');
 
   // Must have Garmin status
   assert.match(html, /Montre Garmin li[eé]e/, 'HTML should display linked Garmin watch status');

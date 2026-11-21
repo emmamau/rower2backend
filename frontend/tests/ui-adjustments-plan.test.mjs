@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { readAppHtmlBundle } from './test-app-bundle.helper.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const frontendSrcDir = path.resolve(__dirname, '../src');
@@ -60,7 +61,7 @@ test('UI Rule 3: Mouseover active feedback on private room buttons (ouvrir, copi
 });
 
 test('UI Rule 4: No automatic modal closing on outside backdrop click for any modal', () => {
-  const appHtml = fs.readFileSync(path.join(frontendSrcDir, 'app/app.html'), 'utf8');
+  const appHtml = readAppHtmlBundle();
   const privHtml = fs.readFileSync(path.join(frontendSrcDir, 'app/components/private-room-manager/private-room-manager.component.html'), 'utf8');
 
   // Verify priv-dialog-overlay does not have click handler
