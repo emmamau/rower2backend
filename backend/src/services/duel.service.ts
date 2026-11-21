@@ -322,6 +322,7 @@ export class DuelService {
       c.challengedUserId = user.id;
       c.challengedLogin = login;
       c.challengedName = name;
+      c.inviteToken = null;
       c.updatedAt = now;
       await this.persistChallenge(c);
     }
@@ -784,7 +785,7 @@ export class DuelService {
     const challengerLogin = challenger.login || challenger.id;
     const challengedLogin = challenged ? challenged.login || challenged.id : targetEmail!;
     const challengedName = challenged ? challenged.name || challengedLogin : targetEmail!;
-    const title = params.title?.trim() || `Duel 1v1 : ${challengerLogin} vs ${challengedLogin}`;
+    const title = (params.title?.trim() || `Duel 1v1 : ${challengerLogin} vs ${challengedLogin}`).slice(0, 255);
 
     const race = raceManager.createPrivateRace({
       title,

@@ -475,6 +475,10 @@ test('POST /api/user/register with duelInviteToken links pending duel, sets refe
     assert.equal(updatedChallenge.challengedLogin, newLogin);
     assert.equal(updatedChallenge.challengedName, 'Friend Invited');
     assert.equal(updatedChallenge.status, 'PENDING');
+    assert.equal(updatedChallenge.inviteToken, null, 'linkGuestToRegisteredUser must clear inviteToken upon registration');
+
+    const byTokenAfterClaim = await duelService.findChallengeByInviteToken(outcome.challenge.inviteToken);
+    assert.equal(byTokenAfterClaim, null, 'Claimed inviteToken must no longer resolve');
   } finally {
     await ctx.close();
   }
@@ -771,6 +775,66 @@ test('POST /api/duels/challenge and GET /api/duels/:id do not leak inviteToken',
     assert.equal(getData.success, true);
     assert.equal(getData.challenge.inviteToken, undefined, 'GET /api/duels/:id must not expose inviteToken');
     assert.ok(!('inviteToken' in getData.challenge));
+
+    const myRes = await fetch(`${ctx.baseUrl}/api/duels/my-challenges?userId=${encodeURIComponent(challenger.id)}`);
+    assert.equal(myRes.status, 200);
+    const myData = await myRes.json();
+    assert.equal(myData.success, true);
+    assert.ok(Array.isArray(myData.sent) && myData.sent.length === 1);
+    assert.equal(myData.sent[0].inviteToken, undefined, 'GET /api/duels/my-challenges sent must not expose inviteToken');
+    assert.ok(!('inviteToken' in myData.sent[0]));
+
+    // Also verify received & blockedSlots omit inviteToken by creating a second challenge for a registered opponent with an inviteToken present
+    const opponent = await userStore.createUser({
+      id: `leak_opp_${suffix}`,
+      login: `leak_opp_${suffix}`,
+      name: 'Leak Opponent',
+      email: `leak_opp_${suffix}@example.com`,
+    });
+    const duel2Outcome = await duelService.createChallenge({
+      challengerId: challenger.id,
+      challengedLoginOrId: opponent.login,
+      slotStart: futureUtcDaytimeSlot(7, 14),
+      targetDistance: 2000,
+    });
+    assert.ok('challenge' in duel2Outcome);
+    duel2Outcome.challenge.inviteToken = 'inv_should_never_leak';
+    await duelService.persistChallenge(duel2Outcome.challenge);
+
+    const oppBeforeRes = await fetch(`${ctx.baseUrl}/api/duels/my-challenges?userId=${encodeURIComponent(opponent.id)}`);
+    assert.equal(oppBeforeRes.status, 200);
+    const oppBeforeData = await oppBeforeRes.json();
+    assert.ok(oppBeforeData.received.length >= 1);
+    for (const item of oppBeforeData.received) {
+      assert.equal(item.inviteToken, undefined, 'GET /api/duels/my-challenges received must not expose inviteToken');
+      assert.ok(!('inviteToken' in item));
+    }
+
+    const respondRes = await fetch(`${ctx.baseUrl}/api/duels/${duel2Outcome.challenge.id}/respond`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: opponent.id, action: 'accept' }),
+    });
+    assert.equal(respondRes.status, 200);
+    const respondData = await respondRes.json();
+    assert.ok(!('inviteToken' in respondData.challenge), 'respondToChallenge must not expose inviteToken');
+
+    const oppAfterRes = await fetch(`${ctx.baseUrl}/api/duels/my-challenges?userId=${encodeURIComponent(opponent.id)}`);
+    assert.equal(oppAfterRes.status, 200);
+    const oppAfterData = await oppAfterRes.json();
+    assert.ok(oppAfterData.blockedSlots.length >= 1);
+    for (const item of oppAfterData.blockedSlots) {
+      assert.ok(!('inviteToken' in item), 'GET /api/duels/my-challenges blockedSlots must not expose inviteToken');
+    }
+
+    const cancelRes = await fetch(`${ctx.baseUrl}/api/duels/${duel2Outcome.challenge.id}/cancel`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: challenger.id }),
+    });
+    assert.equal(cancelRes.status, 200);
+    const cancelData = await cancelRes.json();
+    assert.ok(!('inviteToken' in cancelData.challenge), 'cancelChallenge must not expose inviteToken');
   } finally {
     await ctx.close();
   }
@@ -802,4 +866,86 @@ test('sendDuelInvitationNewUserEmail escapes HTML special characters in user-sup
   assert.ok(lastMail.html.includes('&lt;script&gt;alert(1)&lt;/script&gt; &amp; &quot;Co&quot;'));
   assert.ok(lastMail.html.includes('bad&#39;login&lt;&gt;'));
   assert.ok(lastMail.html.includes('Europe/Paris&lt;img src=x&gt;'));
+});
+
+test('DuelChallenge widens challengedName/title to 255 and clamps long titles', async () => {
+  duelService.clearInMemoryChallenges();
+  emailService.clearLog();
+
+  const DuelChallenges = db.duelChallenges;
+  assert.equal(DuelChallenges.rawAttributes.challengedName.type.options.length, 255);
+  assert.equal(DuelChallenges.rawAttributes.title.type.options.length, 255);
+
+  const suffix = `${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+  const challenger = await userStore.createUser({
+    id: `widen_ch_${suffix}`,
+    login: `widen_ch_${suffix}`,
+    name: 'Widen Challenger',
+    email: `widen_ch_${suffix}@example.com`,
+  });
+
+  const longEmail = `${'a'.repeat(180)}_${suffix}@subdomain.example.com`;
+  assert.ok(longEmail.length > 128 && longEmail.length <= 254);
+
+  const outcome = await duelService.createChallenge({
+    challengerId: challenger.id,
+    challengedLoginOrId: longEmail,
+    slotStart: futureUtcDaytimeSlot(8, 14),
+    targetDistance: 2000,
+    title: 'X'.repeat(300),
+  });
+  assert.ok('challenge' in outcome, `Creation failed: ${outcome.error}`);
+  assert.equal(outcome.challenge.challengedName, longEmail);
+  assert.equal(outcome.challenge.title.length, 255);
+});
+
+test('sendDuelResponseEmail and sendDuelCancelledEmail escape HTML special characters', async () => {
+  emailService.clearLog();
+
+  const slotStart = new Date('2026-12-15T18:00:00.000Z').toISOString();
+  const slotEnd = new Date('2026-12-15T18:30:00.000Z').toISOString();
+
+  await emailService.sendDuelResponseEmail({
+    to: 'resp@test.com',
+    challengerName: 'Alice <script>alert(1)</script>',
+    challengedName: 'Bob & "Friends"',
+    challengedLogin: 'bob<img>',
+    challengeId: 'duel_xss_1',
+    accepted: true,
+    slotStart,
+    slotEnd,
+    roomPin: '99<99>',
+    targetDistance: 2000,
+    lang: 'fr',
+  });
+
+  await emailService.sendDuelCancelledEmail({
+    to: 'canc@test.com',
+    recipientName: 'Eve <svg onload=1>',
+    cancelledByName: 'Mallory "X" & Co',
+    cancelledByLogin: "mallory'<>",
+    challengeId: 'duel_xss_2',
+    slotStart,
+    slotEnd,
+    isForfeit: false,
+    lang: 'en',
+  });
+
+  const sent = emailService.getSentEmails();
+  assert.equal(sent.length, 2);
+
+  const respMail = sent[0];
+  assert.ok(!respMail.html.includes('<script>alert(1)</script>'));
+  assert.ok(!respMail.html.includes('bob<img>'));
+  assert.ok(!respMail.html.includes('99<99>'));
+  assert.ok(respMail.html.includes('Alice &lt;script&gt;alert(1)&lt;/script&gt;'));
+  assert.ok(respMail.html.includes('Bob &amp; &quot;Friends&quot;'));
+  assert.ok(respMail.html.includes('bob&lt;img&gt;'));
+  assert.ok(respMail.html.includes('99&lt;99&gt;'));
+
+  const cancelMail = sent[1];
+  assert.ok(!cancelMail.html.includes('<svg onload=1>'));
+  assert.ok(cancelMail.html.includes('Eve &lt;svg onload=1&gt;'));
+  assert.ok(cancelMail.html.includes('Mallory &quot;X&quot; &amp; Co'));
+  assert.ok(cancelMail.html.includes('mallory&#39;&lt;&gt;'));
 });

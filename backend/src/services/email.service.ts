@@ -1521,27 +1521,33 @@ export class EmailService {
           ? `✅ Rower Race - ${params.challengedName} accepted your duel challenge!`
           : `❌ Rower Race - ${params.challengedName} declined your duel challenge`);
 
+    const safeChallengerName = escapeHtml(params.challengerName);
+    const safeChallengedName = escapeHtml(params.challengedName);
+    const safeChallengedLogin = escapeHtml(params.challengedLogin);
+    const safeRoomPin = escapeHtml(params.roomPin || "");
+    const safeSlotFormatted = escapeHtml(slotFormatted);
+
     const bodyContentHtml = isFr
       ? `
         <h2 style="color: #ffffff; font-size: 20px; margin-top: 0;">
-          Bonjour <span style="color: #00f0ff;">${params.challengerName}</span>,
+          Bonjour <span style="color: #00f0ff;">${safeChallengerName}</span>,
         </h2>
         <p style="color: #cbd5e1;">
-          <strong>${params.challengedName}</strong> (<code>${params.challengedLogin}</code>) a <strong>${params.accepted ? "accepté" : "refusé"}</strong> votre défi en duel 1 contre 1 prévu le <strong>${slotFormatted}</strong> (${params.targetDistance}m).
+          <strong>${safeChallengedName}</strong> (<code>${safeChallengedLogin}</code>) a <strong>${params.accepted ? "accepté" : "refusé"}</strong> votre défi en duel 1 contre 1 prévu le <strong>${safeSlotFormatted}</strong> (${params.targetDistance}m).
         </p>
         ${params.accepted
-          ? `<p style="color: #10b981;">Le créneau est désormais bloqué pour vous deux. ${params.roomPin ? `Code PIN montre Garmin : <strong>${params.roomPin}</strong>.` : ""}</p>`
+          ? `<p style="color: #10b981;">Le créneau est désormais bloqué pour vous deux. ${safeRoomPin ? `Code PIN montre Garmin : <strong>${safeRoomPin}</strong>.` : ""}</p>`
           : `<p style="color: #94a3b8;">Le créneau reste libre. Vous pouvez défier un autre abonné depuis le classement ou les salons privés.</p>`}
       `
       : `
         <h2 style="color: #ffffff; font-size: 20px; margin-top: 0;">
-          Hello <span style="color: #00f0ff;">${params.challengerName}</span>,
+          Hello <span style="color: #00f0ff;">${safeChallengerName}</span>,
         </h2>
         <p style="color: #cbd5e1;">
-          <strong>${params.challengedName}</strong> (<code>${params.challengedLogin}</code>) has <strong>${params.accepted ? "accepted" : "declined"}</strong> your 1v1 duel challenge scheduled for <strong>${slotFormatted}</strong> (${params.targetDistance}m).
+          <strong>${safeChallengedName}</strong> (<code>${safeChallengedLogin}</code>) has <strong>${params.accepted ? "accepted" : "declined"}</strong> your 1v1 duel challenge scheduled for <strong>${safeSlotFormatted}</strong> (${params.targetDistance}m).
         </p>
         ${params.accepted
-          ? `<p style="color: #10b981;">The time slot is now blocked for both players. ${params.roomPin ? `Garmin Watch PIN: <strong>${params.roomPin}</strong>.` : ""}</p>`
+          ? `<p style="color: #10b981;">The time slot is now blocked for both players. ${safeRoomPin ? `Garmin Watch PIN: <strong>${safeRoomPin}</strong>.` : ""}</p>`
           : `<p style="color: #94a3b8;">The slot remains free. You can challenge another subscriber at any time.</p>`}
       `;
 
@@ -1598,13 +1604,18 @@ export class EmailService {
           ? `🏆 Rower Race - Duel cancelled within 24h (Forfeit by ${params.cancelledByName})`
           : `🚫 Rower Race - Duel cancelled by ${params.cancelledByName} (Slot freed)`);
 
+    const safeRecipientName = escapeHtml(params.recipientName);
+    const safeCancelledByName = escapeHtml(params.cancelledByName);
+    const safeCancelledByLogin = escapeHtml(params.cancelledByLogin);
+    const safeSlotFormatted = escapeHtml(slotFormatted);
+
     const bodyContentHtml = isFr
       ? `
         <h2 style="color: #ffffff; font-size: 20px; margin-top: 0;">
-          Bonjour <span style="color: #00f0ff;">${params.recipientName}</span>,
+          Bonjour <span style="color: #00f0ff;">${safeRecipientName}</span>,
         </h2>
         <p style="color: #cbd5e1;">
-          <strong>${params.cancelledByName}</strong> (<code>${params.cancelledByLogin}</code>) a annulé le duel prévu le <strong>${slotFormatted}</strong>.
+          <strong>${safeCancelledByName}</strong> (<code>${safeCancelledByLogin}</code>) a annulé le duel prévu le <strong>${safeSlotFormatted}</strong>.
         </p>
         ${params.isForfeit
           ? `<p style="color: #10b981;">L'annulation étant intervenue à moins de 24h du duel, elle est comptabilisée comme un <strong>forfait</strong> de votre adversaire : vous remportez la victoire (+${params.pointsAwarded ?? 10} points) et votre créneau horaire est libéré.</p>`
@@ -1612,10 +1623,10 @@ export class EmailService {
       `
       : `
         <h2 style="color: #ffffff; font-size: 20px; margin-top: 0;">
-          Hello <span style="color: #00f0ff;">${params.recipientName}</span>,
+          Hello <span style="color: #00f0ff;">${safeRecipientName}</span>,
         </h2>
         <p style="color: #cbd5e1;">
-          <strong>${params.cancelledByName}</strong> (<code>${params.cancelledByLogin}</code>) cancelled the duel scheduled for <strong>${slotFormatted}</strong>.
+          <strong>${safeCancelledByName}</strong> (<code>${safeCancelledByLogin}</code>) cancelled the duel scheduled for <strong>${safeSlotFormatted}</strong>.
         </p>
         ${params.isForfeit
           ? `<p style="color: #10b981;">Because the cancellation occurred within 24 hours of the duel, it counts as a <strong>forfeit</strong>: you win (+${params.pointsAwarded ?? 10} points) and your time slot has been freed.</p>`

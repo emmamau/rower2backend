@@ -201,7 +201,10 @@ export class DuelController {
       const data = await duelService.getMyChallenges(userId);
       res.status(200).json({
         success: true,
-        ...data,
+        received: data.received.map(sanitizeChallengePublic),
+        sent: data.sent.map(sanitizeChallengePublic),
+        blockedSlots: data.blockedSlots.map(sanitizeChallengePublic),
+        stats: data.stats,
       });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
@@ -280,7 +283,7 @@ export class DuelController {
           action === "accept"
             ? "Défi accepté ! Le créneau est bloqué pour les deux joueurs et votre adversaire a été notifié."
             : "Défi refusé. Votre adversaire a été notifié.",
-        challenge: outcome.challenge,
+        challenge: sanitizeChallengePublic(outcome.challenge),
       });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
@@ -323,7 +326,7 @@ export class DuelController {
         message: outcome.isForfeit
           ? "Annulation tardive (< 24h) : forfait appliqué (-10 points). Le créneau est libéré et l'adversaire notifié."
           : "Duel annulé avec succès. Le créneau est libéré et votre adversaire a été notifié.",
-        challenge: outcome.challenge,
+        challenge: sanitizeChallengePublic(outcome.challenge),
       });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
@@ -400,7 +403,7 @@ export class DuelController {
       res.status(200).json({
         success: true,
         message: "Résultat du duel enregistré et points mis à jour.",
-        challenge: outcome.challenge,
+        challenge: sanitizeChallengePublic(outcome.challenge),
       });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);

@@ -74,7 +74,7 @@ export default (sequelize: Sequelize, _DataTypesInstance: typeof DataTypes): Due
         defaultValue: "",
       },
       challengedName: {
-        type: DataTypes.STRING(128),
+        type: DataTypes.STRING(255),
         allowNull: false,
       },
       challengedEmail: {
@@ -102,7 +102,7 @@ export default (sequelize: Sequelize, _DataTypesInstance: typeof DataTypes): Due
         defaultValue: 2000,
       },
       title: {
-        type: DataTypes.STRING(128),
+        type: DataTypes.STRING(255),
         allowNull: true,
       },
       roomId: {
