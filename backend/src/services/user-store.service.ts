@@ -63,6 +63,7 @@ export interface StoredUser {
   duelsLost?: number;
   duelsDrawn?: number;
   duelPoints?: number;
+  referredBy?: string | null;
   createdAt: Date;
   updatedAt: Date;
   toJSON?: () => Record<string, any>;

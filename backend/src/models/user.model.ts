@@ -98,6 +98,7 @@ export interface UserAttributes {
   duelsLost?: number;
   duelsDrawn?: number;
   duelPoints?: number;
+  referredBy?: string | null;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -327,6 +328,10 @@ export default (sequelize: Sequelize, _DataTypesInstance: typeof DataTypes): Use
       duelPoints: {
         type: DataTypes.INTEGER,
         defaultValue: 0,
+      },
+      referredBy: {
+        type: DataTypes.STRING(64),
+        allowNull: true,
       },
     },
     {

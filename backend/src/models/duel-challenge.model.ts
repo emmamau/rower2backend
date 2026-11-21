@@ -17,6 +17,8 @@ export interface DuelChallengeAttributes {
   challengedUserId: string;
   challengedLogin: string;
   challengedName: string;
+  challengedEmail?: string | null;
+  inviteToken?: string | null;
   slotStart: Date;
   slotEnd: Date;
   timezone: string;
@@ -63,15 +65,25 @@ export default (sequelize: Sequelize, _DataTypesInstance: typeof DataTypes): Due
       },
       challengedUserId: {
         type: DataTypes.STRING(64),
-        allowNull: false,
+        allowNull: true,
+        defaultValue: "",
       },
       challengedLogin: {
         type: DataTypes.STRING(64),
-        allowNull: false,
+        allowNull: true,
+        defaultValue: "",
       },
       challengedName: {
         type: DataTypes.STRING(128),
         allowNull: false,
+      },
+      challengedEmail: {
+        type: DataTypes.STRING(255),
+        allowNull: true,
+      },
+      inviteToken: {
+        type: DataTypes.STRING(128),
+        allowNull: true,
       },
       slotStart: {
         type: DataTypes.DATE,
