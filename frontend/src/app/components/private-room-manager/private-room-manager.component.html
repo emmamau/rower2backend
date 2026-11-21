@@ -611,17 +611,28 @@
 
             <!-- Distance de course -->
             <div class="priv-field">
-              <label for="priv-room-dist" class="priv-label">
-                Distance cible
-              </label>
+              <div class="priv-bots-header">
+                <label for="priv-room-dist" class="priv-label">
+                  Distance cible
+                </label>
+                <span class="priv-badge-tier-limit">
+                  Max {{ maxDistanceAllowed }}m ({{ quotaInfo?.tierName || 'Forfait' }})
+                </span>
+              </div>
               <div class="priv-preset-row" role="group" aria-label="Distances rapides">
                 @for (preset of distancePresets; track preset) {
                   <button
                     type="button"
                     class="priv-preset-chip"
                     [class.active]="targetDistance === preset"
+                    [class.disabled-tier]="!isUserAdmin && preset > maxDistanceAllowed"
+                    [disabled]="!isUserAdmin && preset > maxDistanceAllowed"
+                    [title]="(!isUserAdmin && preset > maxDistanceAllowed) ? ('Plafond de votre forfait : ' + maxDistanceAllowed + 'm') : ''"
                     (click)="selectDistancePreset(preset)">
                     {{ preset }}m
+                    @if (!isUserAdmin && preset > maxDistanceAllowed) {
+                      <span class="priv-tier-lock" aria-hidden="true">🔒</span>
+                    }
                   </button>
                 }
               </div>
@@ -630,11 +641,16 @@
                 name="targetDistance"
                 type="number"
                 min="100"
-                max="100000"
+                [max]="isUserAdmin ? 100000 : maxDistanceAllowed"
                 step="100"
                 inputmode="numeric"
                 class="priv-input priv-input-sm"
                 [(ngModel)]="targetDistance" />
+              @if (!isUserAdmin && targetDistance > maxDistanceAllowed) {
+                <p class="priv-error-msg" role="alert">
+                  Votre forfait ({{ quotaInfo?.tierName || 'Gratuit' }}) limite la distance à {{ maxDistanceAllowed }}m.
+                </p>
+              }
             </div>
 
             <!-- CONFIGURATION SPÉCIFIQUE : DUEL CONTRE UN BOT (CHOIX DU NIVEAU) -->
@@ -798,15 +814,20 @@
             <!-- CONFIGURATION SPÉCIFIQUE : MULTI-JOUEURS -->
             @if (selectedGameMode === 'multi') {
               <div class="priv-field">
-                <label for="priv-max-players" class="priv-label">
-                  Nombre maximum de participants
-                </label>
+                <div class="priv-bots-header">
+                  <label for="priv-max-players" class="priv-label">
+                    Nombre maximum de participants
+                  </label>
+                  <span class="priv-badge-tier-limit">
+                    Max {{ maxParticipantsAllowed }} ({{ quotaInfo?.tierName || 'Forfait' }})
+                  </span>
+                </div>
                 <input
                   id="priv-max-players"
                   name="maxParticipants"
                   type="number"
                   min="2"
-                  max="30"
+                  [max]="maxParticipantsAllowed"
                   step="1"
                   class="priv-input priv-input-sm"
                   [(ngModel)]="maxParticipants" />

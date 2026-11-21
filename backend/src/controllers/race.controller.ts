@@ -5,6 +5,7 @@ import config from "../config";
 import raceManager, { RaceState, RaceManager } from "../services/race-manager.service";
 import { isEmmaAdminUser } from "../services/auth.service";
 import { SUBSCRIPTION_TIERS } from "./subscription.controller";
+import subscriptionPlanService from "../services/subscription-plan.service";
 import userStore from "../services/user-store.service";
 import { IpGeoService } from "../services/ip-geo.service";
 import { generateRealisticBotPace, calculateBotPhysics, getLeagueByPoints, calculateRacePoints } from "../utils/league.util";
@@ -868,15 +869,21 @@ export const toggleBots = async (req: Request, res: Response): Promise<void> => 
       const hostUser = managedPrivate.hostUserId ? await userStore.findUser(managedPrivate.hostUserId) : null;
       const isHostEmma = managedPrivate.hostUserId ? isEmmaAdminUser(managedPrivate.hostUserId, hostUser?.name) : false;
       const isHostAdmin = Boolean(isHostEmma || hostUser?.isAdmin);
-      let botsAllowed = isHostAdmin && !hostUser?.subscriptionTier ? 20 : 3;
-      if (hostUser?.subscriptionTier) {
-        const rawTier = String(hostUser.subscriptionTier).toLowerCase().trim();
-        const tierId = rawTier === "pro" || rawTier === "elite_pro" ? "premium" : (rawTier === "club" || rawTier === "standard" ? "intermediate" : rawTier);
-        const limits = SUBSCRIPTION_TIERS[tierId] || SUBSCRIPTION_TIERS.intermediate;
-        botsAllowed = limits.maxBots;
-      }
+      const hostLimits = await subscriptionPlanService.getLimitsForTier(hostUser || "free");
+      const botsAllowed = isHostAdmin ? 20 : (hostLimits.maxBots !== undefined ? hostLimits.maxBots : 1);
 
       const requestedBots = Math.max(1, Number(botCount) || 1);
+      if (!isHostAdmin && !managedPrivate.isBotDuel && requestedBots > botsAllowed) {
+        res.status(403).json({
+          success: false,
+          message: `Votre forfait (${hostLimits.name}) limite le nombre de bots virtuels à ${botsAllowed}.`,
+          code: "BOT_LIMIT_EXCEEDED",
+          maxAllowedBots: botsAllowed,
+          requestedBots
+        });
+        return;
+      }
+
       const clamped = managedPrivate.isBotDuel ? 1 : Math.min(botsAllowed, requestedBots);
       const finalMin = Number.isFinite(Number(botMinPace)) ? Number(botMinPace) : managedPrivate.botMinPace;
       const finalMax = Number.isFinite(Number(botMaxPace)) ? Number(botMaxPace) : managedPrivate.botMaxPace;

@@ -162,6 +162,30 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
   customBotMaxPaceText = '1:55';
   botMaxPaceError = '';
 
+  get maxDistanceAllowed(): number {
+    if (this.isUserAdmin) return 100000;
+    if (this.quotaInfo?.maxDistance !== undefined) return this.quotaInfo.maxDistance;
+    const rawTier = String(this.userSubscriptionTier || (this.isSubscriber ? 'intermediate' : 'free')).toLowerCase().trim();
+    if (rawTier === 'pro' || rawTier === 'elite_pro' || rawTier === 'premium') return 10000;
+    if (rawTier === 'club' || rawTier === 'standard' || rawTier === 'intermediate') return 5000;
+    return 2000;
+  }
+
+  get maxParticipantsAllowed(): number {
+    if (this.isUserAdmin) return 30;
+    if (this.quotaInfo?.maxParticipants !== undefined) return this.quotaInfo.maxParticipants;
+    const rawTier = String(this.userSubscriptionTier || (this.isSubscriber ? 'intermediate' : 'free')).toLowerCase().trim();
+    if (rawTier === 'pro' || rawTier === 'elite_pro' || rawTier === 'premium') return 10;
+    if (rawTier === 'club' || rawTier === 'standard' || rawTier === 'intermediate') return 5;
+    return this.isSubscriber ? 5 : 2;
+  }
+
+  get canCreateDuel1v1(): boolean {
+    if (this.isUserAdmin) return true;
+    if (this.quotaInfo?.canCreateDuel1v1 !== undefined) return Boolean(this.quotaInfo.canCreateDuel1v1);
+    return true;
+  }
+
   get maxBotsAllowed(): number {
     if (this.quotaInfo?.maxBots !== undefined) return this.quotaInfo.maxBots;
     const rawTier = String(this.userSubscriptionTier || (this.isSubscriber ? 'intermediate' : 'free')).toLowerCase().trim();
@@ -646,7 +670,7 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
       this.startMode = 'manual';
     } else {
       this.roomTitle = this.defaultRoomTitle();
-      this.maxParticipants = 8;
+      this.maxParticipants = this.maxParticipantsAllowed;
       this.botCount = 0;
     }
     this.cdr.markForCheck();
@@ -899,7 +923,14 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
   }
 
   selectDistancePreset(dist: number): void {
+    if (!this.isUserAdmin && dist > this.maxDistanceAllowed) {
+      this.createGeneralError = `Distance ${dist}m non autorisée avec votre offre (${this.quotaInfo?.tierName || 'Actuelle'} : max ${this.maxDistanceAllowed}m). Surclassez votre abonnement pour y accéder.`;
+      this.cdr.markForCheck();
+      return;
+    }
+    this.createGeneralError = '';
     this.targetDistance = dist;
+    this.cdr.markForCheck();
   }
 
   validateCreateTitle(): boolean {
@@ -1098,6 +1129,18 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
 
     if (!this.validateCreateTitle()) return;
 
+    if (!this.isUserAdmin && Number(this.targetDistance) > this.maxDistanceAllowed) {
+      this.createGeneralError = `Distance de course maximale autorisée avec votre abonnement (${this.quotaInfo?.tierName || 'Actuel'}) : ${this.maxDistanceAllowed}m.`;
+      this.cdr.markForCheck();
+      return;
+    }
+
+    if (this.selectedGameMode === 'multi' && !this.isUserAdmin && Number(this.maxParticipants) > this.maxParticipantsAllowed) {
+      this.createGeneralError = `Votre forfait autorise au maximum ${this.maxParticipantsAllowed} participants par salon multi-joueurs.`;
+      this.cdr.markForCheck();
+      return;
+    }
+
     if (this.selectedGameMode === 'bot_duel' && this.isCustomBotPace && this.botPaceError) {
       this.createGeneralError = this.botPaceError;
       this.cdr.markForCheck();
@@ -1106,12 +1149,12 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
     this.createGeneralError = '';
     this.isCreating = true;
 
-    const clampedDist = Math.min(100000, Math.max(100, Math.round(Number(this.targetDistance) || 2000)));
+    const clampedDist = Math.min(this.isUserAdmin ? 100000 : this.maxDistanceAllowed, Math.max(100, Math.round(Number(this.targetDistance) || 2000)));
     const clampedMax = this.selectedGameMode === 'solo'
       ? 1
       : this.selectedGameMode === 'bot_duel'
       ? 2
-      : Math.min(30, Math.max(2, Math.round(Number(this.maxParticipants) || 8)));
+      : Math.min(this.maxParticipantsAllowed, Math.max(2, Math.round(Number(this.maxParticipants) || this.maxParticipantsAllowed)));
 
     const isSolo = this.selectedGameMode === 'solo';
     const isBotDuel = this.selectedGameMode === 'bot_duel';
@@ -1980,6 +2023,16 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
     if (this.isSendingDuelChallenge) return;
     if (!this.isRegisteredUser && !this.isUserAdmin) {
       this.duelChallengeError = 'Vous devez être connecté avec un compte abonné pour envoyer un défi en duel.';
+      this.cdr.markForCheck();
+      return;
+    }
+    if (!this.isUserAdmin && !this.canCreateDuel1v1) {
+      this.duelChallengeError = 'Votre abonnement ne vous autorise pas à créer des duels 1v1.';
+      this.cdr.markForCheck();
+      return;
+    }
+    if (!this.isUserAdmin && Number(this.targetDistance) > this.maxDistanceAllowed) {
+      this.duelChallengeError = `Distance maximale autorisée pour votre duel : ${this.maxDistanceAllowed}m (votre offre : ${this.quotaInfo?.tierName || 'Gratuite'}).`;
       this.cdr.markForCheck();
       return;
     }

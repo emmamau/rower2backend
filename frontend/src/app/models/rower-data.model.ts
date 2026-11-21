@@ -194,6 +194,8 @@ export interface RoomCreationQuotaInfo {
   tierName?: string;
   maxBots?: number;
   maxParticipants?: number;
+  maxDistance?: number;
+  canCreateDuel1v1?: boolean;
   concurrent: {
     current: number;
     max: number;

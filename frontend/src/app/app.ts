@@ -1828,14 +1828,28 @@ export class AppComponent implements OnInit, OnDestroy {
     this.cdr.markForCheck();
   }
 
+  get maxDistanceAllowed(): number {
+    if (this.currentUser?.isAdmin) return 100000;
+    const rawTier = String(this.currentSubscriberTier || (this.isSubscriber ? 'intermediate' : 'free')).toLowerCase().trim();
+    if (rawTier === 'pro' || rawTier === 'elite_pro' || rawTier === 'premium') return 10000;
+    if (rawTier === 'club' || rawTier === 'standard' || rawTier === 'intermediate') return 5000;
+    return 2000;
+  }
+
   setBotDuelPresetDistance(dist: number): void {
+    if (!this.currentUser?.isAdmin && dist > this.maxDistanceAllowed) {
+      this.botDuelError = `Distance ${dist}m non autorisée avec votre offre (max ${this.maxDistanceAllowed}m). Surclassez votre abonnement pour y accéder.`;
+      this.cdr.markForCheck();
+      return;
+    }
+    this.botDuelError = '';
     this.botDuelDistance = dist;
     this.cdr.markForCheck();
   }
 
   startBotDuel(): void {
-    if (this.botDuelDistance < 100 || this.botDuelDistance > 10000) {
-      this.botDuelError = 'Veuillez choisir une distance comprise entre 100m et 10 000m.';
+    if (this.botDuelDistance < 100 || (!this.currentUser?.isAdmin && this.botDuelDistance > this.maxDistanceAllowed)) {
+      this.botDuelError = `Veuillez choisir une distance comprise entre 100m et ${this.maxDistanceAllowed}m autorisée par votre forfait.`;
       return;
     }
 
@@ -5522,7 +5536,7 @@ export class AppComponent implements OnInit, OnDestroy {
       if (typeof localStorage !== 'undefined' && room?.race?.id) {
         localStorage.setItem('rower_active_private_room_id', room.race.id);
         if (room.code || room.race?.code) {
-          localStorage.setItem('rower_active_private_room_code', room.code || room.race.code);
+          localStorage.setItem('rower_active_private_room_code', (room.code || room.race?.code || ''));
         }
       }
     } catch {}

@@ -1018,15 +1018,51 @@ export class TelemetryController {
         return;
       }
 
+      const limits = await subscriptionPlanService.getLimitsForTier(user || "free");
+
+      // RÈGLES D'ACCÈS CONSOLIDÉES :
+      // 1. Solo et Duel Bot : 100% gratuits et SANS COMPTE (anonymes acceptés, pas besoin d'être connecté).
+      // 2. Duel 1v1 contre un autre joueur : COMPTE GRATUIT OBLIGATOIRE (l'utilisateur doit être inscrit/connecté).
+      // 3. Multi-joueurs (>2 joueurs) : RÉSERVÉ AUX ABONNÉS CLUB ET ÉLITE PRO (ou admin Emma).
+      if (isDuel1v1) {
+        const cleanHost = String(hostUserId || "").trim();
+        const isAnon = !cleanHost || cleanHost === "anonymous" || cleanHost.startsWith("guest_") || cleanHost.startsWith("usr_");
+        const registeredUser = isAnon ? null : await userStore.findUser(cleanHost);
+        const isEmma = isEmmaAdminUser(hostUserId, hostUserName);
+        if (!isEmma && (!registeredUser || isAnon)) {
+          res.status(401).json({
+            success: false,
+            error: "La création d'un duel 1 vs 1 contre un joueur nécessite d'être connecté à un compte (gratuit). Veuillez vous connecter ou créer un compte.",
+            code: "ACCOUNT_REQUIRED"
+          });
+          return;
+        }
+        if (!isUserAdmin && !limits.canCreateDuel1v1) {
+          res.status(403).json({
+            success: false,
+            error: `Votre forfait (${limits.name}) ne vous autorise pas à créer des duels 1v1.`,
+            code: "DUEL_NOT_ALLOWED"
+          });
+          return;
+        }
+      } else if (!isSolo && !isBotDuel) {
+        // Multi-joueurs
+        const authCheck = await isUserSubscriberOrAdmin(hostUserId, hostUserName);
+        if (!authCheck.authorized) {
+          res.status(403).json({
+            success: false,
+            error: authCheck.reason || "La création d'un salon multi-joueurs est réservée aux abonnés Club et Élite Pro.",
+            code: "SUBSCRIBER_REQUIRED"
+          });
+          return;
+        }
+      }
+
       // QUOTAS PAR OFFRE (SIMULTANÉS ET HEBDOMADAIRES)
       // Gratuite : 1 simultané, 5 / semaine
       // Club : 3 simultanés, 10 / semaine
       // Élite Pro : 5 simultanés, 15 / semaine
       if (!isUserAdmin && hostUserId && hostUserId !== "anonymous") {
-        const rawTier = String(user?.subscriptionTier || (user?.isSubscriber ? "intermediate" : "free")).toLowerCase().trim();
-        const tierId = rawTier === "pro" || rawTier === "elite_pro" ? "premium" : (rawTier === "club" || rawTier === "standard" ? "intermediate" : rawTier);
-        const limits = await subscriptionPlanService.getLimitsForTier(user || tierId);
-
         const customConcurrent = (user as any)?.customConcurrentRooms ?? (user as any)?.custom_concurrent_rooms;
         const customWeekly = (user as any)?.customWeeklyRooms ?? (user as any)?.custom_weekly_rooms;
 
@@ -1067,67 +1103,53 @@ export class TelemetryController {
         }
       }
 
-      // RÈGLES D'ACCÈS CONSOLIDÉES :
-      // 1. Solo et Duel Bot : 100% gratuits et SANS COMPTE (anonymes acceptés, pas besoin d'être connecté).
-      // 2. Duel 1v1 contre un autre joueur : COMPTE GRATUIT OBLIGATOIRE (l'utilisateur doit être inscrit/connecté).
-      // 3. Multi-joueurs (>2 joueurs) : RÉSERVÉ AUX ABONNÉS CLUB ET ÉLITE PRO (ou admin Emma).
-      if (isDuel1v1) {
-        const cleanHost = String(hostUserId || "").trim();
-        const isAnon = !cleanHost || cleanHost === "anonymous" || cleanHost.startsWith("guest_") || cleanHost.startsWith("usr_");
-        const registeredUser = isAnon ? null : await userStore.findUser(cleanHost);
-        const isEmma = isEmmaAdminUser(hostUserId, hostUserName);
-        if (!isEmma && (!registeredUser || isAnon)) {
-          res.status(401).json({
-            success: false,
-            error: "La création d'un duel 1 vs 1 contre un joueur nécessite d'être connecté à un compte (gratuit). Veuillez vous connecter ou créer un compte.",
-            code: "ACCOUNT_REQUIRED"
-          });
-          return;
-        }
-      } else if (!isSolo && !isBotDuel) {
-        // Multi-joueurs
-        const authCheck = await isUserSubscriberOrAdmin(hostUserId, hostUserName);
-        if (!authCheck.authorized) {
-          res.status(403).json({
-            success: false,
-            error: authCheck.reason || "La création d'un salon multi-joueurs est réservée aux abonnés Club et Élite Pro.",
-            code: "SUBSCRIBER_REQUIRED"
-          });
-          return;
-        }
-      }
-
       // Valider et borner les quotas selon le forfait d'abonnement
       const allowAdminSpectator = (isSolo || isBotDuel)
         ? false
         : (isUserAdmin ? (adminAsSpectator !== undefined ? Boolean(adminAsSpectator) : true) : false);
 
-      let maxAllowed = isSolo ? 1 : (isBotDuel || isDuel1v1) ? 2 : 30;
-      let distAllowed = (isSolo || isBotDuel || isDuel1v1) ? 10000 : 100000;
-      let botsAllowed = isSolo ? 0 : isBotDuel ? 1 : (isUserAdmin ? 20 : 3);
-
-      if (!isSolo && !isBotDuel && user && user.subscriptionTier) {
-        const rawTier = String(user.subscriptionTier).toLowerCase().trim();
-        const tierId = rawTier === "pro" || rawTier === "elite_pro" ? "premium" : (rawTier === "club" || rawTier === "standard" ? "intermediate" : rawTier);
-        const limits = SUBSCRIPTION_TIERS[tierId] || SUBSCRIPTION_TIERS.intermediate;
-        maxAllowed = limits.maxParticipants;
-        distAllowed = limits.maxDistance;
-        botsAllowed = limits.maxBots;
-      } else if ((isSolo || isBotDuel || isDuel1v1) && user && user.subscriptionTier) {
-        const rawTier = String(user.subscriptionTier).toLowerCase().trim();
-        const tierId = rawTier === "pro" || rawTier === "elite_pro" ? "premium" : (rawTier === "club" || rawTier === "standard" ? "intermediate" : rawTier);
-        const limits = SUBSCRIPTION_TIERS[tierId] || SUBSCRIPTION_TIERS.intermediate;
-        distAllowed = limits.maxDistance;
-      }
+      const maxAllowed = isSolo ? 1 : (isBotDuel || isDuel1v1) ? 2 : (isUserAdmin ? 30 : (limits.maxParticipants || 5));
+      const distAllowed = isUserAdmin ? 100000 : (limits.maxDistance || 2000);
+      const botsAllowed = isSolo ? 0 : isBotDuel ? 1 : isDuel1v1 ? 0 : (isUserAdmin ? 20 : (limits.maxBots !== undefined ? limits.maxBots : 3));
 
       const rawDist = Number(targetDistance) || 2000;
+      if (!isUserAdmin && rawDist > distAllowed) {
+        res.status(403).json({
+          success: false,
+          error: `Votre forfait (${limits.name}) limite la distance des courses créées à ${distAllowed}m. Vous ne pouvez pas créer une course de ${rawDist}m.`,
+          code: "DISTANCE_LIMIT_EXCEEDED",
+          maxAllowedDistance: distAllowed,
+          requestedDistance: rawDist
+        });
+        return;
+      }
       const finalDist = Math.min(distAllowed, Math.max(100, rawDist));
 
       const rawMax = isSolo ? 1 : (isBotDuel || isDuel1v1) ? 2 : (Number(maxParticipants) || maxAllowed);
+      if (!isUserAdmin && !isSolo && !isBotDuel && !isDuel1v1 && rawMax > maxAllowed) {
+        res.status(403).json({
+          success: false,
+          error: `Votre forfait (${limits.name}) autorise au maximum ${maxAllowed} participants par salon multi-joueurs.`,
+          code: "MAX_PARTICIPANTS_EXCEEDED",
+          maxAllowedParticipants: maxAllowed,
+          requestedParticipants: rawMax
+        });
+        return;
+      }
       const finalMax = isSolo ? 1 : (isBotDuel || isDuel1v1) ? 2 : Math.min(maxAllowed, Math.max(2, rawMax));
 
-      const rawBots = isSolo ? 0 : isBotDuel ? 1 : (Number(botCount) || 0);
-      const finalBots = isSolo ? 0 : isBotDuel ? 1 : Math.min(botsAllowed, Math.max(0, rawBots));
+      const rawBots = isSolo ? 0 : isBotDuel ? 1 : isDuel1v1 ? 0 : (Number(botCount) || 0);
+      if (!isUserAdmin && !isSolo && !isBotDuel && !isDuel1v1 && rawBots > botsAllowed) {
+        res.status(403).json({
+          success: false,
+          error: `Votre forfait (${limits.name}) autorise au maximum ${botsAllowed} bot(s) par salon.`,
+          code: "BOT_LIMIT_EXCEEDED",
+          maxAllowedBots: botsAllowed,
+          requestedBots: rawBots
+        });
+        return;
+      }
+      const finalBots = isSolo ? 0 : isBotDuel ? 1 : isDuel1v1 ? 0 : Math.min(botsAllowed, Math.max(0, rawBots));
 
       const rawMinPace = Number(botMinPace ?? req.body?.botMinPace);
       const rawMaxPace = Number(botMaxPace ?? req.body?.botMaxPace);
@@ -1295,6 +1317,8 @@ export class TelemetryController {
         tierName: (isUserAdmin && !user?.subscriptionTier) ? "Administrateur" : tierConfig.name,
         maxBots: (isUserAdmin && !user?.subscriptionTier) ? 20 : (tierConfig.maxBots || (tierId === "premium" ? 5 : (tierId === "intermediate" ? 3 : 1))),
         maxParticipants: (isUserAdmin && !user?.subscriptionTier) ? 30 : (tierConfig.maxParticipants || (tierId === "premium" ? 10 : (tierId === "intermediate" ? 5 : 2))),
+        maxDistance: isUserAdmin ? 100000 : (tierConfig.maxDistance || 2000),
+        canCreateDuel1v1: isUserAdmin ? true : Boolean(tierConfig.canCreateDuel1v1 ?? true),
         concurrent: {
           current: activeCount,
           max: maxConcurrent,

@@ -46,6 +46,14 @@ export class UnifiedConfigModalComponent {
   @Input() botDuelError = '';
   @Input() isCreatingBotDuel = false;
 
+  get maxDistanceAllowed(): number {
+    if (this.isUserAdmin) return 100000;
+    const rawTier = String(this.currentSubscriberTier || (this.isSubscriber ? 'intermediate' : 'free')).toLowerCase().trim();
+    if (rawTier === 'pro' || rawTier === 'elite_pro' || rawTier === 'premium') return 10000;
+    if (rawTier === 'club' || rawTier === 'standard' || rawTier === 'intermediate') return 5000;
+    return 2000;
+  }
+
   @Output() unifiedConfigActiveTabChange = new EventEmitter<'public' | 'active'>();
   @Output() configTargetDistanceChange = new EventEmitter<number>();
   @Output() configIntervalMinutesChange = new EventEmitter<number>();

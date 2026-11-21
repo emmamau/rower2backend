@@ -5,6 +5,8 @@ import userStore, { StoredUser } from "./user-store.service";
 import emailService from "./email.service";
 import raceManager from "./race-manager.service";
 import socketGateway from "../websocket/socket.gateway";
+import subscriptionPlanService from "./subscription-plan.service";
+import { isEmmaAdminUser } from "./auth.service";
 
 const DuelChallenges = db.duelChallenges;
 
@@ -562,7 +564,26 @@ export class DuelService {
       };
     }
 
-    const targetDistance = Math.min(100000, Math.max(100, Math.round(Number(params.targetDistance) || 2000)));
+    const isChallengerEmma = isEmmaAdminUser(challenger.id, challenger.name);
+    const isChallengerAdmin = Boolean(isChallengerEmma || challenger.isAdmin);
+    const challengerLimits = await subscriptionPlanService.getLimitsForTier(challenger);
+
+    if (!isChallengerAdmin && !challengerLimits.canCreateDuel1v1) {
+      return {
+        error: `Votre forfait (${challengerLimits.name}) ne vous autorise pas à créer des duels 1v1.`,
+        statusCode: 403,
+      };
+    }
+
+    const requestedDistance = Number(params.targetDistance) || 2000;
+    if (!isChallengerAdmin && requestedDistance > challengerLimits.maxDistance) {
+      return {
+        error: `Votre forfait (${challengerLimits.name}) limite la distance des duels à ${challengerLimits.maxDistance}m. Vous ne pouvez pas organiser un duel de ${requestedDistance}m.`,
+        statusCode: 403,
+      };
+    }
+
+    const targetDistance = Math.min(isChallengerAdmin ? 100000 : challengerLimits.maxDistance, Math.max(100, Math.round(requestedDistance)));
     const timezone = params.timezone || sanitizeDuelPreferences(challenger.duelPreferences).timezone || "Europe/Paris";
     const challengerLogin = challenger.login || challenger.id;
     const challengedLogin = challenged.login || challenged.id;

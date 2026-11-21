@@ -285,9 +285,9 @@
           <button type="button" class="btn-preset" [class.selected]="botDuelDistance === 500" (click)="setBotDuelPresetDistanceRequest.emit(500)">500m</button>
           <button type="button" class="btn-preset" [class.selected]="botDuelDistance === 1000" (click)="setBotDuelPresetDistanceRequest.emit(1000)">1 000m</button>
           <button type="button" class="btn-preset" [class.selected]="botDuelDistance === 2000" (click)="setBotDuelPresetDistanceRequest.emit(2000)">2 000m</button>
-          <button type="button" class="btn-preset" [class.selected]="botDuelDistance === 5000" (click)="setBotDuelPresetDistanceRequest.emit(5000)">5 000m</button>
-          <button type="button" class="btn-preset" [class.selected]="botDuelDistance === 6000" (click)="setBotDuelPresetDistanceRequest.emit(6000)">6 000m</button>
-          <button type="button" class="btn-preset" [class.selected]="botDuelDistance === 10000" (click)="setBotDuelPresetDistanceRequest.emit(10000)">10 000m</button>
+          <button type="button" class="btn-preset" [class.selected]="botDuelDistance === 5000" [disabled]="!isUserAdmin && 5000 > maxDistanceAllowed" (click)="setBotDuelPresetDistanceRequest.emit(5000)">5 000m</button>
+          <button type="button" class="btn-preset" [class.selected]="botDuelDistance === 6000" [disabled]="!isUserAdmin && 6000 > maxDistanceAllowed" (click)="setBotDuelPresetDistanceRequest.emit(6000)">6 000m</button>
+          <button type="button" class="btn-preset" [class.selected]="botDuelDistance === 10000" [disabled]="!isUserAdmin && 10000 > maxDistanceAllowed" (click)="setBotDuelPresetDistanceRequest.emit(10000)">10 000m</button>
         </div>
         <input
           id="bot-duel-dist"
