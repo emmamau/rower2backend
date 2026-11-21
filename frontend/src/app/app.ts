@@ -2543,8 +2543,16 @@ export class AppComponent implements OnInit, OnDestroy {
 
   get formattedPreRaceCountdown(): string {
     const s = Math.max(0, Math.floor(this.countdownSeconds));
-    const m = Math.floor(s / 60);
+    const days = Math.floor(s / 86400);
+    const hours = Math.floor((s % 86400) / 3600);
+    const m = Math.floor((s % 3600) / 60);
     const sec = s % 60;
+    if (days > 0) {
+      return `${days}j ${hours}h ${m}m ${sec < 10 ? '0' : ''}${sec}s`;
+    }
+    if (hours > 0) {
+      return `${hours}h ${m}m ${sec < 10 ? '0' : ''}${sec}s`;
+    }
     return `${m}m ${sec < 10 ? '0' : ''}${sec}s`;
   }
 
@@ -4522,7 +4530,7 @@ export class AppComponent implements OnInit, OnDestroy {
         next: (res) => {
           if (res?.success && Array.isArray(res.races)) {
             this.pendingPrivateSalonsCount = res.races.filter(
-              (r) => r.race && r.race.status !== 'ABANDONED' && r.race.status !== 'FINISHED'
+              (r) => r.race && !r.race.isDuel1v1 && r.race.status !== 'ABANDONED' && r.race.status !== 'FINISHED' && r.race.status !== 'COMPLETED' && r.race.status !== 'STOPPED' && r.race.status !== 'CANCELLED'
             ).length;
           } else {
             this.pendingPrivateSalonsCount = 0;
@@ -4538,14 +4546,18 @@ export class AppComponent implements OnInit, OnDestroy {
       this.pendingPrivateSalonsCount = 0;
     }
 
-    // 2. Duels en attente (statut PENDING)
+    // 2. Duels actifs ou ouverts (statut PENDING ou ACCEPTED)
     if (uid && this.isRegisteredUser) {
       this.rowerService.getMyDuelChallenges(uid).subscribe({
         next: (res) => {
           if (res?.success) {
-            const receivedPending = (res.received || []).filter((d) => d && d.status === 'PENDING').length;
-            const sentPending = (res.sent || []).filter((d) => d && d.status === 'PENDING').length;
-            this.pendingDuelsCount = receivedPending + sentPending;
+            const receivedActiveOrOpen = (res.received || []).filter(
+              (d) => d && (d.status === 'PENDING' || d.status === 'ACCEPTED')
+            ).length;
+            const sentActiveOrOpen = (res.sent || []).filter(
+              (d) => d && (d.status === 'PENDING' || d.status === 'ACCEPTED')
+            ).length;
+            this.pendingDuelsCount = receivedActiveOrOpen + sentActiveOrOpen;
           } else {
             this.pendingDuelsCount = 0;
           }
@@ -5307,6 +5319,29 @@ export class AppComponent implements OnInit, OnDestroy {
     });
   }
 
+  formatDetailedCountdown(msUntilStart: number): string {
+    if (msUntilStart <= 0) return 'imminent';
+    const totalSec = Math.max(0, Math.ceil(msUntilStart / 1000));
+    const days = Math.floor(totalSec / 86400);
+    const hours = Math.floor((totalSec % 86400) / 3600);
+    const minutes = Math.floor((totalSec % 3600) / 60);
+    const seconds = totalSec % 60;
+
+    if (days > 0) {
+      return `${days}j ${hours}h ${minutes}m ${seconds}s`;
+    }
+    if (hours > 0) {
+      return `${hours}h ${minutes}m ${seconds}s`;
+    }
+    if (seconds > 0 && minutes > 0) {
+      return `${minutes}m ${seconds < 10 ? '0' : ''}${seconds}s`;
+    }
+    if (seconds > 0 && minutes === 0) {
+      return `${seconds}s`;
+    }
+    return `${minutes} min`;
+  }
+
   getWaitingStatusText(): string {
     const race = this.activePrivateRoom?.race || (this.nextRaceInfo as any)?.race || (this.nextRaceInfo as any);
     if (!race && !this.activePrivateRoom) {
@@ -5328,25 +5363,26 @@ export class AppComponent implements OnInit, OnDestroy {
       if (scheduledTime) {
         const d = new Date(scheduledTime);
         const ms = d.getTime() - Date.now();
-        const min = Math.max(0, Math.ceil(ms / 60000));
         const localTimeStr = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         const isSameDay = new Date().toDateString() === d.toDateString();
         const localDateStr = d.toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' });
         if (ms <= 0) {
           return `Départ imminent (prévu à ${localTimeStr})`;
         }
+        const durationStr = this.formatDetailedCountdown(ms);
         if (isSameDay) {
-          if (min < 60) {
-            return `Départ prévu à ${localTimeStr} (dans ${min} min)`;
-          }
-          const hours = Math.floor(min / 60);
-          const remMin = min % 60;
-          return `Départ prévu à ${localTimeStr} (dans ${hours}h${remMin > 0 ? ' ' + remMin + 'm' : ''})`;
+          return `Départ prévu à ${localTimeStr} (dans ${durationStr})`;
         } else {
-          const days = Math.floor(min / 1440);
-          const hours = Math.floor((min % 1440) / 60);
-          return `Départ prévu ${localDateStr} à ${localTimeStr} (dans ${days > 0 ? days + 'j ' : ''}${hours}h)`;
+          return `Départ prévu ${localDateStr} à ${localTimeStr} (dans ${durationStr})`;
         }
+      }
+    }
+    const lobbyEndsAt = race?.lobbyEndsAt || (this.activePrivateRoom as any)?.lobbyEndsAt;
+    if (lobbyEndsAt && (race?.autoStart || (this.activePrivateRoom as any)?.autoStart)) {
+      const ms = new Date(lobbyEndsAt).getTime() - Date.now();
+      if (ms > 0) {
+        const durationStr = this.formatDetailedCountdown(ms);
+        return `Départ dans ${durationStr}`;
       }
     }
     const serverMsg = (this.activePrivateRoom as any)?.waitingStatusMessage || race?.waitingStatusMessage;

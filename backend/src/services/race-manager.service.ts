@@ -178,6 +178,29 @@ export function parseDateTimeInTimezone(dateInput: Date | string, timeZone: stri
   }
 }
 
+export function formatDetailedCountdown(msUntilStart: number): string {
+  if (msUntilStart <= 0) return "imminent";
+  const totalSec = Math.max(0, Math.ceil(msUntilStart / 1000));
+  const days = Math.floor(totalSec / 86400);
+  const hours = Math.floor((totalSec % 86400) / 3600);
+  const minutes = Math.floor((totalSec % 3600) / 60);
+  const seconds = totalSec % 60;
+
+  if (days > 0) {
+    return `${days}j ${hours}h ${minutes}m ${seconds}s`;
+  }
+  if (hours > 0) {
+    return `${hours}h ${minutes}m ${seconds}s`;
+  }
+  if (seconds > 0 && minutes > 0) {
+    return `${minutes}m ${seconds < 10 ? "0" : ""}${seconds}s`;
+  }
+  if (seconds > 0 && minutes === 0) {
+    return `${seconds}s`;
+  }
+  return `${minutes} min`;
+}
+
 export function getWaitingStatusMessage(race: RaceState, now: Date = new Date()): string {
   if (race.status === "RUNNING") {
     return "Course en cours";
@@ -240,24 +263,18 @@ export function getWaitingStatusMessage(race: RaceState, now: Date = new Date())
       return `Départ imminent (prévu à ${timeStr}${tzLabel})`;
     }
 
+    const durationStr = formatDetailedCountdown(msUntilStart);
     if (isSameDay) {
-      const minUntilStart = Math.max(1, Math.ceil(msUntilStart / 60000));
-      if (minUntilStart < 60) {
-        return `Départ prévu à ${timeStr}${tzLabel} (dans ${minUntilStart} min)`;
-      }
-      const hours = Math.floor(msUntilStart / 3600000);
-      const remMin = Math.ceil((msUntilStart % 3600000) / 60000);
-      return `Départ prévu à ${timeStr}${tzLabel} (dans ${hours}h${remMin > 0 ? " " + remMin + "m" : ""})`;
+      return `Départ prévu à ${timeStr}${tzLabel} (dans ${durationStr})`;
     } else {
-      const days = Math.floor(msUntilStart / 86400000);
-      const hours = Math.floor((msUntilStart % 86400000) / 3600000);
-      const remMin = Math.ceil((msUntilStart % 3600000) / 60000);
-      const durationStr = days > 0
-        ? `${days}j ${hours}h`
-        : hours > 0
-        ? `${hours}h${remMin > 0 ? " " + remMin + "m" : ""}`
-        : `${remMin} min`;
       return `Départ prévu ${raceDateStr} à ${timeStr}${tzLabel} (dans ${durationStr})`;
+    }
+  }
+  if (race.autoStart && race.lobbyEndsAt) {
+    const msUntilStart = race.lobbyEndsAt.getTime() - now.getTime();
+    if (msUntilStart > 0) {
+      const durationStr = formatDetailedCountdown(msUntilStart);
+      return `Départ dans ${durationStr}`;
     }
   }
   return "En attente du signal de départ de l'organisateur...";

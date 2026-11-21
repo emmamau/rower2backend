@@ -14,6 +14,8 @@ export default (app: Application): void => {
   router.post("/:id/respond", DuelController.respondToChallenge);
   router.post("/:id/cancel", DuelController.cancelChallenge);
   router.post("/:id/resolve", DuelController.resolveChallenge);
+  router.delete("/:id", DuelController.deleteChallenge);
+  router.post("/:id/delete", DuelController.deleteChallenge);
 
   app.use("/api/duels", router);
   app.use("/api/v1/duels", router);

@@ -86,12 +86,12 @@ export class AppHeaderComponent {
     if (this.i18n.getCurrentLang() === 'fr') {
       const parts: string[] = [];
       if (salons > 0) parts.push(`${salons} salon${salons > 1 ? 's' : ''} privé${salons > 1 ? 's' : ''}`);
-      if (duels > 0) parts.push(`${duels} duel${duels > 1 ? 's' : ''} en attente`);
+      if (duels > 0) parts.push(`${duels} duel${duels > 1 ? 's' : ''} actif${duels > 1 ? 's' : ''}/ouvert${duels > 1 ? 's' : ''}`);
       return `Salons privés : ${parts.join(', ')}`;
     } else {
       const parts: string[] = [];
       if (salons > 0) parts.push(`${salons} private room${salons > 1 ? 's' : ''}`);
-      if (duels > 0) parts.push(`${duels} pending duel${duels > 1 ? 's' : ''}`);
+      if (duels > 0) parts.push(`${duels} active/open duel${duels > 1 ? 's' : ''}`);
       return `Private rooms: ${parts.join(', ')}`;
     }
   }

@@ -932,6 +932,57 @@ export class DuelService {
     return { challenge, isForfeit: false };
   }
 
+  public async deleteChallenge(params: {
+    challengeId: string;
+    userId: string;
+    isAdmin?: boolean;
+  }): Promise<{ success: boolean; message: string } | { error: string; statusCode: number }> {
+    const cleanId = String(params.challengeId || "").trim();
+    if (!cleanId) {
+      return { error: "Identifiant du défi requis.", statusCode: 400 };
+    }
+    const challenge = await this.getChallengeById(cleanId);
+    if (!challenge) {
+      return { error: "Défi introuvable.", statusCode: 404 };
+    }
+
+    if (challenge.status !== "REFUSED" && challenge.status !== "CANCELLED" && challenge.status !== "EXPIRED") {
+      return {
+        error: `Seuls les duels refusés, annulés ou expirés peuvent être supprimés (statut actuel : '${challenge.status}').`,
+        statusCode: 400,
+      };
+    }
+
+    const actor = await userStore.findUser(params.userId);
+    const isEmma = params.isAdmin || actor?.role === "admin";
+    const isChallenger =
+      sameUserIdentifier(params.userId, challenge.challengerUserId) ||
+      sameUserIdentifier(params.userId, challenge.challengerLogin) ||
+      userMatchesId(actor, challenge.challengerUserId) ||
+      userMatchesId(actor, challenge.challengerLogin);
+    const isChallenged =
+      sameUserIdentifier(params.userId, challenge.challengedUserId) ||
+      sameUserIdentifier(params.userId, challenge.challengedLogin) ||
+      userMatchesId(actor, challenge.challengedUserId) ||
+      userMatchesId(actor, challenge.challengedLogin);
+
+    if (!isEmma && !isChallenger && !isChallenged) {
+      return { error: "Vous n'êtes pas autorisé à supprimer ce duel.", statusCode: 403 };
+    }
+
+    this.inMemoryChallenges.delete(cleanId);
+    try {
+      await DuelChallenges.destroy({ where: { id: cleanId } });
+    } catch {}
+
+    socketGateway.broadcast("duel:challenge_deleted", {
+      challengeId: cleanId,
+      deletedByUserId: params.userId,
+    });
+
+    return { success: true, message: "Duel supprimé avec succès." };
+  }
+
   private async applyOutcomeToChallenge(
     challenge: StoredDuelChallenge,
     outcome: {

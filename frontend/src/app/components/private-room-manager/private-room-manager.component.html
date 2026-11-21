@@ -1683,6 +1683,15 @@
                           (click)="cancelDuel(d)">
                           {{ isDuelWithin24h(d.slotStart) ? '⚠️ Forfait (-10 pts)' : '🚫 Annuler' }}
                         </button>
+                      } @else if (d.status === 'REFUSED' || d.status === 'CANCELLED' || d.status === 'EXPIRED') {
+                        <button
+                          type="button"
+                          class="priv-btn-mini priv-btn-mini-danger"
+                          [disabled]="duelActionBusyId === d.id"
+                          (click)="deleteDuel(d)"
+                          title="Supprimer ce duel de la liste">
+                          🗑️ Supprimer
+                        </button>
                       }
                     </div>
                   </div>
@@ -1724,6 +1733,16 @@
                           [disabled]="duelActionBusyId === d.id"
                           (click)="cancelDuel(d)">
                           {{ d.status === 'ACCEPTED' && isDuelWithin24h(d.slotStart) ? '⚠️ Forfait (-10 pts)' : '🚫 Annuler' }}
+                        </button>
+                      }
+                      @if (d.status === 'REFUSED' || d.status === 'CANCELLED' || d.status === 'EXPIRED') {
+                        <button
+                          type="button"
+                          class="priv-btn-mini priv-btn-mini-danger"
+                          [disabled]="duelActionBusyId === d.id"
+                          (click)="deleteDuel(d)"
+                          title="Supprimer ce défi de la liste">
+                          🗑️ Supprimer
                         </button>
                       }
                     </div>

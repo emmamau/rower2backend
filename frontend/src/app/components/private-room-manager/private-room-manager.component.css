@@ -367,7 +367,7 @@
   background: #0b1120;
   color: #f8fafc;
   padding: 0;
-  inline-size: min(94dvw, 720px);
+  inline-size: min(95dvw, 890px);
   max-block-size: 90dvh;
   overflow: auto;
   overscroll-behavior: contain;
@@ -433,10 +433,12 @@
 /* TABS */
 .priv-tablist {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.45rem;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  gap: 0.5rem;
   border-bottom: 1px solid rgba(148, 163, 184, 0.25);
   padding-bottom: 0.65rem;
+  -webkit-overflow-scrolling: touch;
 }
 
 .priv-tab-btn {
@@ -451,7 +453,10 @@
   cursor: pointer;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 0.4rem;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .priv-tab-btn.active {

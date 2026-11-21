@@ -647,6 +647,16 @@ export class RowerService {
     );
   }
 
+  deleteDuelChallenge(
+    challengeId: string,
+    userId: string
+  ): Observable<{ success: boolean; message: string }> {
+    return this.http.delete<{ success: boolean; message: string }>(
+      `${this.apiUrl}/api/duels/${encodeURIComponent(challengeId)}`,
+      { body: { userId } }
+    );
+  }
+
   resolveDuelChallenge(
     challengeId: string,
     payload: { winnerUserId?: string; isDraw?: boolean; forfeitUserId?: string }

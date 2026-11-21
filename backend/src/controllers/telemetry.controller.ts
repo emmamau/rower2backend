@@ -122,13 +122,26 @@ async function buildPrivateRacePayload(race: RaceState) {
   const remainingSeconds = timing.remainingSeconds;
   const maxDurationSeconds = timing.maxDurationSeconds;
 
-  let formattedCountdown = `${Math.floor(secondsRemaining / 60)}m ${(secondsRemaining % 60).toString().padStart(2, "0")}s`;
+  let formattedCountdown = "";
   if (waitingForHost) {
     formattedCountdown = "PRÊT";
   } else if (race.status === "RUNNING") {
     formattedCountdown = `${Math.floor(remainingSeconds / 60)}m ${(remainingSeconds % 60).toString().padStart(2, "0")}s`;
   } else if (race.status === "COMPLETED") {
     formattedCountdown = "TERMINÉ";
+  } else if (secondsRemaining >= 86400) {
+    const d = Math.floor(secondsRemaining / 86400);
+    const h = Math.floor((secondsRemaining % 86400) / 3600);
+    const m = Math.floor((secondsRemaining % 3600) / 60);
+    const s = secondsRemaining % 60;
+    formattedCountdown = `${d}j ${h}h ${m}m ${s.toString().padStart(2, "0")}s`;
+  } else if (secondsRemaining >= 3600) {
+    const h = Math.floor(secondsRemaining / 3600);
+    const m = Math.floor((secondsRemaining % 3600) / 60);
+    const s = secondsRemaining % 60;
+    formattedCountdown = `${h}h ${m}m ${s.toString().padStart(2, "0")}s`;
+  } else {
+    formattedCountdown = `${Math.floor(secondsRemaining / 60)}m ${(secondsRemaining % 60).toString().padStart(2, "0")}s`;
   }
 
   const totalParticipants = await countPrivateParticipants(race);

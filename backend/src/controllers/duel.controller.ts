@@ -326,6 +326,48 @@ export class DuelController {
   }
 
   /**
+   * DELETE /api/duels/:id
+   * POST /api/duels/:id/delete
+   */
+  public static async deleteChallenge(req: Request, res: Response): Promise<void> {
+    try {
+      const challengeId = String(req.params.id || "").trim();
+      const body = req.body || {};
+      const authUser = (req as any).user;
+      const userId = String(body.userId || req.query.userId || authUser?.id || authUser?.login || "").trim();
+      const isAdmin = authUser?.role === "admin" || body.isAdmin === true;
+
+      if (!challengeId) {
+        res.status(400).json({ success: false, message: "Identifiant du défi requis." });
+        return;
+      }
+      if (!userId) {
+        res.status(400).json({ success: false, message: "Identifiant utilisateur requis." });
+        return;
+      }
+
+      const outcome = await duelService.deleteChallenge({
+        challengeId,
+        userId,
+        isAdmin,
+      });
+
+      if ("error" in outcome) {
+        res.status(outcome.statusCode).json({ success: false, message: outcome.error, error: outcome.error });
+        return;
+      }
+
+      res.status(200).json({
+        success: true,
+        message: outcome.message || "Défi supprimé avec succès.",
+      });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      res.status(500).json({ success: false, message });
+    }
+  }
+
+  /**
    * POST /api/duels/:id/resolve
    */
   public static async resolveChallenge(req: Request, res: Response): Promise<void> {

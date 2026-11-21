@@ -2109,6 +2109,27 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
     });
   }
 
+  deleteDuel(challenge: DuelChallenge): void {
+    if (!challenge?.id || !this.activeUserId || this.duelActionBusyId) return;
+    this.duelActionBusyId = challenge.id;
+    this.duelManageError = '';
+    this.duelManageMessage = '';
+
+    this.rowerService.deleteDuelChallenge(challenge.id, this.activeUserId).subscribe({
+      next: (res) => {
+        this.duelActionBusyId = '';
+        this.duelManageMessage = res?.message || 'Défi supprimé avec succès.';
+        this.refreshMyDuels();
+        this.cdr.markForCheck();
+      },
+      error: (err) => {
+        this.duelActionBusyId = '';
+        this.duelManageError = err?.error?.message || err?.error?.error || 'Impossible de supprimer ce duel.';
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
   isDuelWithin24h(slotStart: string): boolean {
     const startMs = new Date(slotStart).getTime();
     if (!Number.isFinite(startMs)) return false;
