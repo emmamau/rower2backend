@@ -1050,11 +1050,6 @@
     padding: 1rem 1rem calc(1.25rem + env(safe-area-inset-bottom, 0px));
   }
 
-  .priv-tablist {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(105px, 1fr));
-  }
-
   .priv-tab-btn {
     justify-content: center;
     min-height: 44px;
@@ -1073,6 +1068,28 @@
   .priv-quota-pill {
     flex: 1 1 100%;
     min-width: 0;
+  }
+}
+
+/* Smartphone en vue portrait uniquement : 4 boutons répartis sur 2 lignes de 2 */
+@media (max-width: 768px) and (orientation: portrait) {
+  .priv-tablist {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.5rem;
+  }
+
+  .priv-tab-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    min-height: 44px;
+    padding: 0.45rem 0.35rem;
+    font-size: 0.78rem;
+    line-height: 1.25;
+    white-space: normal;
+    word-break: normal;
   }
 }
 
