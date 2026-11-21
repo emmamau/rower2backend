@@ -67,18 +67,40 @@ export const LEAGUES: LeagueInfo[] = [
 ];
 
 export interface CalculateRacePointsOptions {
-  raceMode: "BOT" | "DUEL_1V1" | "MULTIPLAYER" | string;
+  raceMode: "BOT" | "SOLO" | "DUEL_1V1" | "MULTIPLAYER" | "RACE" | string;
   playerRank: number;
   totalHumanFinishers?: number;
   isFinisher?: boolean;
   isDnf?: boolean;
   todayRewardedBotRacesCount?: number;
+  playerLeagueTier?: "BRONZE" | "SILVER" | "GOLD" | string;
+  playerWins?: number;
+  opponentLeagueTier?: "BRONZE" | "SILVER" | "GOLD" | string;
+  opponentWins?: number;
+}
+
+export interface PointsBreakdown {
+  basePoints: number;
+  rankPoints: number;
+  podiumBonus: number;
+  higherRankedBonus: number;
+  pelotonMultiplier: number;
+  totalPoints: number;
+  description: string;
+}
+
+function getTierWeight(tier?: string): number {
+  const t = String(tier || "").toUpperCase();
+  if (t === "GOLD" || t === "OR") return 3;
+  if (t === "SILVER" || t === "ARGENT") return 2;
+  if (t === "BRONZE") return 1;
+  return 1;
 }
 
 /**
- * Calcule les points gagnés selon les spécifications officielles de ligue
+ * Calcule les points gagnés et le détail décomposé selon les spécifications officielles de ligue
  */
-export function calculateRacePointsEarned(options: CalculateRacePointsOptions): number {
+export function calculateRacePointsBreakdown(options: CalculateRacePointsOptions): PointsBreakdown {
   const {
     raceMode,
     playerRank,
@@ -86,37 +108,141 @@ export function calculateRacePointsEarned(options: CalculateRacePointsOptions): 
     isFinisher = true,
     isDnf = false,
     todayRewardedBotRacesCount = 0,
+    playerLeagueTier = "BRONZE",
+    playerWins = 0,
+    opponentLeagueTier,
+    opponentWins = 0,
   } = options;
 
   // 1. Abandon (DNF) ou non finisher
   if (isDnf || !isFinisher || playerRank <= 0) {
-    return 0;
+    return {
+      basePoints: 0,
+      rankPoints: 0,
+      podiumBonus: 0,
+      higherRankedBonus: 0,
+      pelotonMultiplier: 1.0,
+      totalPoints: 0,
+      description: "0 pt (Abandon / DNF)",
+    };
   }
 
   const normalizedMode = String(raceMode || "").toUpperCase();
 
-  // 2. Mode BOT
+  // 2. Mode BOT / SOLO
   if (normalizedMode === "BOT" || normalizedMode === "SOLO") {
     if (todayRewardedBotRacesCount >= 3) {
-      return 0; // Plafond atteint : 0 point au-delà de 3 courses rémunérées par jour
+      return {
+        basePoints: 0,
+        rankPoints: 0,
+        podiumBonus: 0,
+        higherRankedBonus: 0,
+        pelotonMultiplier: 1.0,
+        totalPoints: 0,
+        description: "0 pt (Plafond bot atteint : max 3 par jour)",
+      };
     }
-    return playerRank === 1 ? 5 : 2;
+    const isWin = playerRank === 1;
+    const pts = isWin ? 10 : 5;
+    return {
+      basePoints: pts,
+      rankPoints: 0,
+      podiumBonus: 0,
+      higherRankedBonus: 0,
+      pelotonMultiplier: 1.0,
+      totalPoints: pts,
+      description: isWin ? "+10 pts : Victoire contre bot" : "+5 pts : Entraînement bot terminé",
+    };
   }
 
-  // 3. Modes Humains (DUEL_1V1, MULTIPLAYER, RACE)
-  const finishers = Math.max(1, totalHumanFinishers);
   const rank = Math.max(1, playerRank);
+  const finishers = Math.max(1, totalHumanFinishers);
+  const isDuel = normalizedMode === "DUEL_1V1" || (normalizedMode === "DUEL" || (normalizedMode === "RACE" && finishers === 2));
+
+  // 3. Mode DUEL 1V1
+  if (isDuel) {
+    const basePoints = 10;
+    if (rank === 1) {
+      const rankPoints = 10; // 1 rameur battu
+      const podiumBonus = 20; // 1ère place
+      let higherRankedBonus = 0;
+      const bonusParts: string[] = [];
+
+      // Bonus Ligue supérieure (+25 pts)
+      if (opponentLeagueTier && getTierWeight(opponentLeagueTier) > getTierWeight(playerLeagueTier)) {
+        higherRankedBonus += 25;
+        bonusParts.push("+25 pts ligue sup.");
+      }
+
+      // Bonus Palmarès victoires supérieur (+15 pts)
+      if (Number(opponentWins) > Number(playerWins)) {
+        higherRankedBonus += 15;
+        bonusParts.push("+15 pts palmarès sup.");
+      }
+
+      const total = basePoints + rankPoints + podiumBonus + higherRankedBonus;
+      const desc = higherRankedBonus > 0
+        ? `+${total} pts : Victoire duel (40) ${bonusParts.join(" ")}`
+        : `+${total} pts : Victoire duel (Base 10 + Battu 10 + Podium 20)`;
+
+      return {
+        basePoints,
+        rankPoints,
+        podiumBonus,
+        higherRankedBonus,
+        pelotonMultiplier: 1.0,
+        totalPoints: total,
+        description: desc,
+      };
+    } else {
+      // Défaite en duel : points de participation
+      return {
+        basePoints,
+        rankPoints: 0,
+        podiumBonus: 0,
+        higherRankedBonus: 0,
+        pelotonMultiplier: 1.0,
+        totalPoints: basePoints,
+        description: `+${basePoints} pts : Duel terminé (Base de participation)`,
+      };
+    }
+  }
+
+  // 4. Mode MULTIPLAYER (peloton)
   const basePoints = 10;
-  const rankBonus = Math.max(0, (finishers - rank) * 15);
+  const beatenRacers = Math.max(0, finishers - rank);
+  const rankPoints = beatenRacers * 10;
+
   let podiumBonus = 0;
   if (rank === 1) podiumBonus = 20;
   else if (rank === 2) podiumBonus = 10;
   else if (rank === 3) podiumBonus = 5;
 
-  const isMultiplayer = normalizedMode === "MULTIPLAYER" || (normalizedMode === "RACE" && finishers > 2);
-  const multiplier = isMultiplayer ? 1.2 : 1.0;
+  const pelotonMultiplier = finishers > 4 ? 1.25 : 1.0;
+  const rawSum = basePoints + rankPoints + podiumBonus;
+  const total = Math.round(rawSum * pelotonMultiplier);
 
-  return Math.round((basePoints + rankBonus + podiumBonus) * multiplier);
+  let desc = `+${total} pts : Base ${basePoints}`;
+  if (rankPoints > 0) desc += ` + ${beatenRacers} battu(s) (${rankPoints})`;
+  if (podiumBonus > 0) desc += ` + Podium (${podiumBonus})`;
+  if (pelotonMultiplier > 1.0) desc += ` × Peloton (+25%)`;
+
+  return {
+    basePoints,
+    rankPoints,
+    podiumBonus,
+    higherRankedBonus: 0,
+    pelotonMultiplier,
+    totalPoints: total,
+    description: desc,
+  };
+}
+
+/**
+ * Calcule les points gagnés selon les spécifications officielles de ligue
+ */
+export function calculateRacePointsEarned(options: CalculateRacePointsOptions): number {
+  return calculateRacePointsBreakdown(options).totalPoints;
 }
 
 export const BASE_FINISH_POINTS = 10;

@@ -38,15 +38,15 @@ test("Points Rules: DNF (abandoned) always awards 0 points regardless of mode or
   );
 });
 
-test("Points Rules: BOT mode awards 5 pts for win, 2 pts for defeat, capped at 3 rewarded races per day", () => {
-  // 1st place under cap: 5 pts
+test("Points Rules: BOT mode awards 10 pts for win, 5 pts for defeat, capped at 3 rewarded races per day", () => {
+  // 1st place under cap: 10 pts
   assert.strictEqual(
     calculateRacePointsEarned({
       raceMode: "BOT",
       playerRank: 1,
       todayRewardedBotRacesCount: 0,
     }),
-    5
+    10
   );
   assert.strictEqual(
     calculateRacePointsEarned({
@@ -54,17 +54,17 @@ test("Points Rules: BOT mode awards 5 pts for win, 2 pts for defeat, capped at 3
       playerRank: 1,
       todayRewardedBotRacesCount: 2,
     }),
-    5
+    10
   );
 
-  // 2nd+ place under cap: 2 pts
+  // 2nd+ place under cap: 5 pts
   assert.strictEqual(
     calculateRacePointsEarned({
       raceMode: "BOT",
       playerRank: 2,
       todayRewardedBotRacesCount: 1,
     }),
-    2
+    5
   );
   assert.strictEqual(
     calculateRacePointsEarned({
@@ -72,7 +72,7 @@ test("Points Rules: BOT mode awards 5 pts for win, 2 pts for defeat, capped at 3
       playerRank: 4,
       todayRewardedBotRacesCount: 2,
     }),
-    2
+    5
   );
 
   // Beyond daily cap (3+ rewarded bot races already done today): 0 pts
@@ -94,58 +94,58 @@ test("Points Rules: BOT mode awards 5 pts for win, 2 pts for defeat, capped at 3
   );
 });
 
-test("Points Rules: Human DUEL_1V1 awards exact base + rank bonus + podium with 1.0 multiplier", () => {
-  // DUEL_1V1 (2 finishers)
-  // Rank 1: base(10) + (2 - 1)*15 (15) + podium 1st(20) = 45 * 1.0 = 45 pts
+test("Points Rules: Human DUEL_1V1 awards 40 pts for win and 10 pts for loss (standard)", () => {
+  // DUEL_1V1 standard (2 finishers)
+  // Rank 1: base(10) + (2 - 1)*10 (10) + podium 1st(20) = 40 pts
   const winPts = calculateRacePointsEarned({
     raceMode: "DUEL_1V1",
     playerRank: 1,
     totalHumanFinishers: 2,
   });
-  assert.strictEqual(winPts, 45);
+  assert.strictEqual(winPts, 40);
 
-  // Rank 2: base(10) + (2 - 2)*15 (0) + podium 2nd(10) = 20 * 1.0 = 20 pts
+  // Rank 2: base(10) = 10 pts
   const secondPts = calculateRacePointsEarned({
     raceMode: "DUEL_1V1",
     playerRank: 2,
     totalHumanFinishers: 2,
   });
-  assert.strictEqual(secondPts, 20);
+  assert.strictEqual(secondPts, 10);
 });
 
-test("Points Rules: Human MULTIPLAYER awards exact base + rank bonus + podium with 1.2 multiplier", () => {
-  // 5 human finishers
-  // Rank 1: base(10) + (5 - 1)*15 (60) + podium 1st(20) = 90 * 1.2 = 108 pts
+test("Points Rules: Human MULTIPLAYER awards base 10 + 10 per beaten racer + podium, with 1.25 peloton multiplier when > 4", () => {
+  // 5 human finishers (finishers > 4 -> multiplier 1.25)
+  // Rank 1: (base 10 + 4*10 + podium 20) * 1.25 = 70 * 1.25 = 87.5 -> 88 pts
   const first = calculateRacePointsEarned({
     raceMode: "MULTIPLAYER",
     playerRank: 1,
     totalHumanFinishers: 5,
   });
-  assert.strictEqual(first, 108);
+  assert.strictEqual(first, 88);
 
-  // Rank 2: base(10) + (5 - 2)*15 (45) + podium 2nd(10) = 65 * 1.2 = 78 pts
+  // Rank 2: (base 10 + 3*10 + podium 10) * 1.25 = 50 * 1.25 = 62.5 -> 63 pts
   const second = calculateRacePointsEarned({
     raceMode: "MULTIPLAYER",
     playerRank: 2,
     totalHumanFinishers: 5,
   });
-  assert.strictEqual(second, 78);
+  assert.strictEqual(second, 63);
 
-  // Rank 3: base(10) + (5 - 3)*15 (30) + podium 3rd(5) = 45 * 1.2 = 54 pts
+  // Rank 3: (base 10 + 2*10 + podium 5) * 1.25 = 35 * 1.25 = 43.75 -> 44 pts
   const third = calculateRacePointsEarned({
     raceMode: "MULTIPLAYER",
     playerRank: 3,
     totalHumanFinishers: 5,
   });
-  assert.strictEqual(third, 54);
+  assert.strictEqual(third, 44);
 
-  // Rank 4: base(10) + (5 - 4)*15 (15) + podium 4th(0) = 25 * 1.2 = 30 pts
+  // Rank 4: (base 10 + 1*10 + 0) * 1.25 = 20 * 1.25 = 25 pts
   const fourth = calculateRacePointsEarned({
     raceMode: "MULTIPLAYER",
     playerRank: 4,
     totalHumanFinishers: 5,
   });
-  assert.strictEqual(fourth, 30);
+  assert.strictEqual(fourth, 25);
 });
 
 test("League Tiers: 3 Official Weekly Leagues (Gold, Silver, Bronze)", () => {
