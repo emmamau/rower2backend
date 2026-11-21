@@ -172,6 +172,10 @@ function sameUserIdentifier(a: string, b: string): boolean {
   return a.trim().toLowerCase() === b.trim().toLowerCase();
 }
 
+function isEmailString(val: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/i.test(String(val || "").trim());
+}
+
 export class DuelService {
   private static instance: DuelService;
   private inMemoryChallenges: Map<string, StoredDuelChallenge> = new Map();
@@ -212,6 +216,65 @@ export class DuelService {
       }
     } catch {}
     return null;
+  }
+
+  public async findChallengeByInviteToken(token: string): Promise<StoredDuelChallenge | null> {
+    const clean = String(token || "").trim();
+    if (!clean) return null;
+    for (const c of this.inMemoryChallenges.values()) {
+      if (c.inviteToken === clean) {
+        return c;
+      }
+    }
+    try {
+      const row = await DuelChallenges.findOne({ where: { inviteToken: clean } });
+      if (row) {
+        const plain = row.toJSON() as StoredDuelChallenge;
+        this.inMemoryChallenges.set(plain.id, plain);
+        return plain;
+      }
+    } catch {}
+    return null;
+  }
+
+  private async dispatchGuestInvitationEmail(
+    challenge: StoredDuelChallenge,
+    lang: string = "fr"
+  ): Promise<void> {
+    if (!challenge.challengedEmail) return;
+    await emailService
+      .sendDuelInvitationNewUserEmail({
+        to: challenge.challengedEmail,
+        challengerName: challenge.challengerName,
+        challengerLogin: challenge.challengerLogin,
+        slotStart: new Date(challenge.slotStart).toISOString(),
+        slotEnd: new Date(challenge.slotEnd).toISOString(),
+        timezone: challenge.timezone,
+        targetDistance: challenge.targetDistance,
+        roomCode: challenge.roomCode || "",
+        roomPin: challenge.roomPin || "",
+        inviteToken: challenge.inviteToken || "",
+        lang,
+      })
+      .catch(() => {});
+  }
+
+  public async resendInvitation(
+    challengeId: string,
+    challengerUserId: string
+  ): Promise<{ success: boolean; message: string }> {
+    const challenge = await this.getChallengeById(challengeId);
+    if (!challenge || challenge.challengerUserId !== challengerUserId) {
+      return { success: false, message: "Défi introuvable." };
+    }
+    if (challenge.status !== "PENDING" || !challenge.challengedEmail) {
+      return { success: false, message: "Ce défi ne peut plus être renvoyé." };
+    }
+
+    const challenger = await userStore.findUser(challenge.challengerUserId);
+    await this.dispatchGuestInvitationEmail(challenge, challenger?.language || "fr");
+
+    return { success: true, message: "Invitation renvoyée avec succès !" };
   }
 
   public async getChallengeByRoom(roomIdentifier: string): Promise<StoredDuelChallenge | null> {
@@ -517,15 +580,35 @@ export class DuelService {
       return { error: "Compte initiateur introuvable. Veuillez vous connecter.", statusCode: 404 };
     }
 
-    const challenged = await userStore.findUser(params.challengedLoginOrId);
-    if (!challenged) {
-      return { error: `Abonné '${params.challengedLoginOrId}' introuvable.`, statusCode: 404 };
+    const rawTarget = String(params.challengedLoginOrId || "").trim();
+    const targetIsEmail = isEmailString(rawTarget);
+    let challenged: StoredUser | null = null;
+    let targetEmail: string | null = null;
+
+    if (targetIsEmail) {
+      const normalizedEmail = rawTarget.toLowerCase();
+      const allUsers = await userStore.getAllUsers();
+      challenged =
+        allUsers.find((u) => u.email && u.email.trim().toLowerCase() === normalizedEmail) || null;
+      if (!challenged) {
+        targetEmail = normalizedEmail;
+      }
+    } else {
+      challenged = await userStore.findUser(rawTarget);
+      if (!challenged) {
+        return { error: `Abonné '${params.challengedLoginOrId}' introuvable.`, statusCode: 404 };
+      }
     }
 
     if (
-      sameUserIdentifier(challenger.id, challenged.id) ||
-      (challenger.login && challenged.login && sameUserIdentifier(challenger.login, challenged.login))
+      challenged &&
+      (sameUserIdentifier(challenger.id, challenged.id) ||
+        (challenger.login && challenged.login && sameUserIdentifier(challenger.login, challenged.login)))
     ) {
+      return { error: "Vous ne pouvez pas vous défier vous-même.", statusCode: 400 };
+    }
+
+    if (!challenged && targetEmail && challenger.email && sameUserIdentifier(challenger.email, targetEmail)) {
       return { error: "Vous ne pouvez pas vous défier vous-même.", statusCode: 400 };
     }
 
@@ -556,12 +639,14 @@ export class DuelService {
       };
     }
 
-    const availability = await this.checkPlayerAvailabilityForSlot(challenged, start, end);
-    if (!availability.available) {
-      return {
-        error: availability.reason || "Ce joueur n'est pas disponible sur ce créneau.",
-        statusCode: 409,
-      };
+    if (challenged) {
+      const availability = await this.checkPlayerAvailabilityForSlot(challenged, start, end);
+      if (!availability.available) {
+        return {
+          error: availability.reason || "Ce joueur n'est pas disponible sur ce créneau.",
+          statusCode: 409,
+        };
+      }
     }
 
     const isChallengerEmma = isEmmaAdminUser(challenger.id, challenger.name);
@@ -586,7 +671,8 @@ export class DuelService {
     const targetDistance = Math.min(isChallengerAdmin ? 100000 : challengerLimits.maxDistance, Math.max(100, Math.round(requestedDistance)));
     const timezone = params.timezone || sanitizeDuelPreferences(challenger.duelPreferences).timezone || "Europe/Paris";
     const challengerLogin = challenger.login || challenger.id;
-    const challengedLogin = challenged.login || challenged.id;
+    const challengedLogin = challenged ? challenged.login || challenged.id : targetEmail!;
+    const challengedName = challenged ? challenged.name || challengedLogin : targetEmail!;
     const title = params.title?.trim() || `Duel 1v1 : ${challengerLogin} vs ${challengedLogin}`;
 
     const race = raceManager.createPrivateRace({
@@ -606,15 +692,19 @@ export class DuelService {
 
     const id = `duel_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
     const expiresAt = new Date(now.getTime() + DUEL_PENDING_EXPIRY_MS);
+    const inviteToken = !challenged
+      ? "inv_" + Math.random().toString(36).substring(2, 10) + Date.now().toString(36)
+      : undefined;
 
     const challenge: StoredDuelChallenge = {
       id,
       challengerUserId: challenger.id,
       challengerLogin,
       challengerName: challenger.name || challengerLogin,
-      challengedUserId: challenged.id,
+      challengedUserId: challenged ? challenged.id : "",
       challengedLogin,
-      challengedName: challenged.name || challengedLogin,
+      challengedName,
+      ...(targetEmail ? { challengedEmail: targetEmail, inviteToken } : {}),
       slotStart: start,
       slotEnd: end,
       timezone,
@@ -639,7 +729,9 @@ export class DuelService {
 
     await this.persistChallenge(challenge);
 
-    if (challenged.email) {
+    if (!challenged && targetEmail && inviteToken) {
+      await this.dispatchGuestInvitationEmail(challenge, challenger.language || "fr");
+    } else if (challenged?.email) {
       await emailService.sendDuelChallengeEmail({
         to: challenged.email,
         challengerName: challenge.challengerName,

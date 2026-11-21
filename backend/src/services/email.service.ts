@@ -37,6 +37,20 @@ export interface RoomInvitationEmailParams {
   lang?: string;
 }
 
+export interface DuelInvitationNewUserParams {
+  to: string;
+  challengerName: string;
+  challengerLogin: string;
+  slotStart: string;
+  slotEnd: string;
+  timezone?: string;
+  targetDistance: number;
+  roomCode: string;
+  roomPin: string;
+  inviteToken: string;
+  lang?: string;
+}
+
 export interface EmailConfig {
   resendApiKey: string;
   fromEmail: string;
@@ -1221,6 +1235,41 @@ export class EmailService {
     const text = isFr
       ? `Bonjour ${params.challengedName},\n\nVous avez été pris en duel 1v1 par ${params.challengerName} (@${params.challengerLogin}) sur Rower Race !\n\nCréneau proposé : ${slotFormatted}\nDistance : ${params.targetDistance} m\n${params.roomCode ? `Salon : ${params.roomCode}\n` : ""}\n⏱️ DÉLAI DE RÉPONSE : Vous avez 72 heures pour répondre (accepter ou refuser). Passé ce délai, le défi sera automatiquement expiré.\n\nAccédez au salon du duel pour accepter ou refuser :\n${targetUrl}`
       : `Hello ${params.challengedName},\n\nYou have been challenged to a 1v1 duel by ${params.challengerName} (@${params.challengerLogin}) on Rower Race!\n\nProposed slot: ${slotFormatted}\nDistance: ${params.targetDistance} m\n${params.roomCode ? `Room: ${params.roomCode}\n` : ""}\n⏱️ RESPONSE DEADLINE: You have 72 hours to respond (accept or decline). After that, the challenge expires automatically.\n\nJoin the duel room to accept or decline:\n${targetUrl}`;
+
+    const res = await this.sendEmail({ to: params.to, subject, text, html });
+    return res.success;
+  }
+
+  /**
+   * Envoi d'une invitation à un duel 1v1 pour un ami non encore inscrit sur Rower Race.
+   */
+  public async sendDuelInvitationNewUserEmail(params: DuelInvitationNewUserParams): Promise<boolean> {
+    const config = getEmailConfig();
+    const isFr = (params.lang || "fr").toLowerCase().startsWith("fr");
+    const signupUrl = `${config.frontendUrl}/?duelInviteToken=${encodeURIComponent(params.inviteToken)}&email=${encodeURIComponent(params.to)}&mode=register`;
+
+    const subject = isFr
+      ? `⚔️ ${params.challengerName} vous défie en duel sur Rower Race !`
+      : `⚔️ ${params.challengerName} challenged you to a 1v1 duel on Rower Race!`;
+
+    const bodyContentHtml = isFr
+      ? `<p><strong>${params.challengerName}</strong> (@${params.challengerLogin}) vous défie en duel 1v1 sur ${params.targetDistance}m.</p>`
+      : `<p><strong>${params.challengerName}</strong> (@${params.challengerLogin}) challenged you to a 1v1 duel over ${params.targetDistance}m.</p>`;
+
+    const html = renderCyberEmailHtml({
+      title: subject,
+      preheader: isFr
+        ? `Relevez le défi de ${params.challengerName} sur ${params.targetDistance}m !`
+        : `Accept ${params.challengerName}'s ${params.targetDistance}m duel challenge!`,
+      bodyContentHtml,
+      ctaText: isFr ? "Créer mon compte et relever le défi" : "Create Account & Accept Duel",
+      ctaUrl: signupUrl,
+      lang: isFr ? "fr" : "en",
+    });
+
+    const text = isFr
+      ? `${params.challengerName} (@${params.challengerLogin}) vous défie en duel 1v1 sur ${params.targetDistance}m.\nCréer votre compte : ${signupUrl}`
+      : `${params.challengerName} (@${params.challengerLogin}) challenged you to a 1v1 duel over ${params.targetDistance}m.\nCreate your account: ${signupUrl}`;
 
     const res = await this.sendEmail({ to: params.to, subject, text, html });
     return res.success;

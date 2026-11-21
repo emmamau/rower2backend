@@ -1,6 +1,9 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const db = require('../dist/models').default;
+const duelService = require('../dist/services/duel.service').default;
+const userStore = require('../dist/services/user-store.service').default;
+const emailService = require('../dist/services/email.service').default;
 
 test.after(async () => {
   if (db?.sequelize?.close) {
@@ -60,4 +63,132 @@ test('User model defines nullable referredBy attribute', async () => {
 
   await user.validate();
   assert.equal(user.referredBy, 'challenger_123');
+});
+
+function futureUtcDaytimeSlot(daysAhead, hourUtc = 14) {
+  const base = new Date();
+  return new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth(), base.getUTCDate() + daysAhead, hourUtc, 0, 0, 0));
+}
+
+test('createChallenge with unknown email creates pending invitation challenge with inviteToken', async () => {
+  duelService.clearInMemoryChallenges();
+  emailService.clearLog();
+
+  const suffix = `${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+  const challenger = await userStore.createUser({
+    id: `challenger_${suffix}`,
+    login: `challenger_${suffix}`,
+    name: 'Challenger',
+    email: `challenger_${suffix}@example.com`,
+  });
+
+  const slotStart = futureUtcDaytimeSlot(2, 14);
+  const outcome = await duelService.createChallenge({
+    challengerId: challenger.id,
+    challengedLoginOrId: `newfriend_${suffix}@test.com`,
+    slotStart,
+    targetDistance: 2000,
+  });
+
+  assert.ok('challenge' in outcome, `Creation failed: ${outcome.error}`);
+  assert.equal(outcome.challenge.challengedEmail, `newfriend_${suffix}@test.com`);
+  assert.equal(outcome.challenge.challengedUserId, '');
+  assert.equal(outcome.challenge.challengedLogin, `newfriend_${suffix}@test.com`);
+  assert.ok(outcome.challenge.inviteToken, 'inviteToken must be generated');
+  assert.ok(outcome.challenge.inviteToken.startsWith('inv_'), 'inviteToken should start with inv_');
+  assert.equal(outcome.challenge.status, 'PENDING');
+  assert.ok(outcome.challenge.roomCode, 'roomCode must be created');
+
+  const sent = emailService.getSentEmails();
+  assert.ok(
+    sent.some((e) => e.to === `newfriend_${suffix}@test.com`),
+    'Invitation email must be dispatched to guest email'
+  );
+
+  const retrieved = await duelService.findChallengeByInviteToken(outcome.challenge.inviteToken);
+  assert.ok(retrieved, 'Should retrieve challenge by invite token');
+  assert.equal(retrieved.id, outcome.challenge.id);
+
+  const missing = await duelService.findChallengeByInviteToken('inv_nonexistent_token');
+  assert.equal(missing, null);
+});
+
+test('createChallenge with existing user email reuses existing user account', async () => {
+  duelService.clearInMemoryChallenges();
+  emailService.clearLog();
+
+  const suffix = `${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+  const existingEmail = `existing_${suffix}@test.com`;
+  const existingUser = await userStore.createUser({
+    id: `existing_${suffix}`,
+    login: `racer_${suffix}`,
+    name: 'Existing Racer',
+    email: existingEmail,
+  });
+  const challenger = await userStore.createUser({
+    id: `ch2_${suffix}`,
+    login: `ch2_${suffix}`,
+    name: 'Challenger 2',
+    email: `ch2_${suffix}@example.com`,
+  });
+
+  const slotStart = futureUtcDaytimeSlot(3, 14);
+  const outcome = await duelService.createChallenge({
+    challengerId: challenger.id,
+    challengedLoginOrId: existingEmail.toUpperCase(),
+    slotStart,
+    targetDistance: 2000,
+  });
+
+  assert.ok('challenge' in outcome, `Creation failed: ${outcome.error}`);
+  assert.equal(outcome.challenge.challengedUserId, existingUser.id);
+  assert.equal(outcome.challenge.challengedLogin, existingUser.login);
+  assert.ok(!outcome.challenge.inviteToken, 'Existing user challenge should not generate inviteToken');
+  assert.ok(!outcome.challenge.challengedEmail, 'Existing user challenge should not set guest challengedEmail');
+});
+
+test('resendInvitation succeeds when called by challenger and rejects unauthorized or non-guest challenges', async () => {
+  duelService.clearInMemoryChallenges();
+  emailService.clearLog();
+
+  const suffix = `${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+  const challenger = await userStore.createUser({
+    id: `ch3_${suffix}`,
+    login: `ch3_${suffix}`,
+    name: 'Challenger 3',
+    email: `ch3_${suffix}@example.com`,
+  });
+  const existingUser = await userStore.createUser({
+    id: `ex3_${suffix}`,
+    login: `ex3_${suffix}`,
+    name: 'Existing 3',
+    email: `ex3_${suffix}@example.com`,
+  });
+
+  const guestOutcome = await duelService.createChallenge({
+    challengerId: challenger.id,
+    challengedLoginOrId: `guest3_${suffix}@test.com`,
+    slotStart: futureUtcDaytimeSlot(4, 14),
+    targetDistance: 2000,
+  });
+  assert.ok('challenge' in guestOutcome, `Guest creation failed: ${guestOutcome.error}`);
+
+  const countBefore = emailService.getSentEmails().length;
+  const resendOk = await duelService.resendInvitation(guestOutcome.challenge.id, challenger.id);
+  assert.equal(resendOk.success, true);
+  assert.equal(emailService.getSentEmails().length, countBefore + 1);
+
+  const resendOther = await duelService.resendInvitation(guestOutcome.challenge.id, existingUser.id);
+  assert.equal(resendOther.success, false);
+
+  const regularOutcome = await duelService.createChallenge({
+    challengerId: challenger.id,
+    challengedLoginOrId: existingUser.login,
+    slotStart: futureUtcDaytimeSlot(5, 14),
+    targetDistance: 2000,
+  });
+  assert.ok('challenge' in regularOutcome, `Regular creation failed: ${regularOutcome.error}`);
+
+  const resendRegular = await duelService.resendInvitation(regularOutcome.challenge.id, challenger.id);
+  assert.equal(resendRegular.success, false);
 });
