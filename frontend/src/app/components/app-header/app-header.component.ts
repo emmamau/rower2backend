@@ -49,6 +49,9 @@ export class AppHeaderComponent {
   @Input() pairingErrorMessage = '';
   @Input() generalUserRank = 1;
   @Input() pendingApprovalPlayers: any[] = [];
+  @Input() totalPendingPrivateAndDuelsCount = 0;
+  @Input() pendingPrivateSalonsCount = 0;
+  @Input() pendingDuelsCount = 0;
   @Input() isPublicRaceSuspended = false;
 
   @Output() siteViewChange = new EventEmitter<'home' | 'regatta' | 'cockpit'>();
@@ -70,6 +73,28 @@ export class AppHeaderComponent {
   @Output() openBotDuelModalRequest = new EventEmitter<void>();
 
   constructor(public i18n: I18nService) {}
+
+  get privateRoomsAndDuelsTooltip(): string {
+    const total = this.totalPendingPrivateAndDuelsCount;
+    if (total <= 0) {
+      return this.i18n.getCurrentLang() === 'fr'
+        ? 'Salons privés : créer ou rejoindre une régate sur invitation'
+        : 'Private rooms: create or join an invite-only regatta';
+    }
+    const salons = this.pendingPrivateSalonsCount + (this.pendingApprovalPlayers ? this.pendingApprovalPlayers.length : 0);
+    const duels = this.pendingDuelsCount;
+    if (this.i18n.getCurrentLang() === 'fr') {
+      const parts: string[] = [];
+      if (salons > 0) parts.push(`${salons} salon${salons > 1 ? 's' : ''} privé${salons > 1 ? 's' : ''}`);
+      if (duels > 0) parts.push(`${duels} duel${duels > 1 ? 's' : ''} en attente`);
+      return `Salons privés : ${parts.join(', ')}`;
+    } else {
+      const parts: string[] = [];
+      if (salons > 0) parts.push(`${salons} private room${salons > 1 ? 's' : ''}`);
+      if (duels > 0) parts.push(`${duels} pending duel${duels > 1 ? 's' : ''}`);
+      return `Private rooms: ${parts.join(', ')}`;
+    }
+  }
 
   isViewActive(view: string): boolean {
     return this.siteView === view;

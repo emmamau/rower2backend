@@ -447,11 +447,11 @@
         class="btn-hud btn-private"
         [class.active-private]="!!activePrivateRoom"
         (click)="openPrivateModal()"
-        title="Salons privés : créer ou rejoindre une régate sur invitation">
+        [title]="privateRoomsAndDuelsTooltip">
         <span class="btn-icon">🔒</span>
         {{ i18n.t('BTN_PRIVATE_ROOMS') }}
-        <span class="badge-pending" *ngIf="pendingApprovalPlayers.length > 0">
-          {{ pendingApprovalPlayers.length }}
+        <span class="badge-pending" *ngIf="totalPendingPrivateAndDuelsCount > 0">
+          {{ totalPendingPrivateAndDuelsCount }}
         </span>
       </button>
 

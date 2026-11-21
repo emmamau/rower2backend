@@ -226,6 +226,14 @@ export class AppComponent implements OnInit, OnDestroy {
   duelPreferencesFeedback = '';
   duelPreferencesError = '';
 
+  // Salons privés & Duels en attente
+  pendingPrivateSalonsCount = 0;
+  pendingDuelsCount = 0;
+
+  get totalPendingPrivateAndDuelsCount(): number {
+    return this.pendingPrivateSalonsCount + this.pendingDuelsCount + this.pendingApprovalPlayers.length;
+  }
+
   // Modale Bilan Hebdomadaire (Lundi récapitulatif)
   unseenWeeklySummary: WeeklyLeagueHistoryItem | null = null;
   isWeeklySummaryModalOpen = false;
@@ -1123,6 +1131,7 @@ export class AppComponent implements OnInit, OnDestroy {
     };
     this.initSocketListeners();
     this.initCountdownTicker();
+    this.refreshPendingPrivateAndDuels();
     this.resolveRoomFromCurrentUrl();
     this.enableScreenWakeLock();
     this.syncRigidViewport();
@@ -1503,6 +1512,7 @@ export class AppComponent implements OnInit, OnDestroy {
         this.syncKayakCustomizationFromUser(res.user);
         this.syncRegattaPreferencesFromUser(res.user);
         this.syncDuelPreferencesFromUser(res.user);
+        this.refreshPendingPrivateAndDuels();
         if (res.user.language) {
           this.i18n.setLang(res.user.language as SupportedLang);
           this.syncSeoLanguage(res.user.language);
@@ -4453,17 +4463,20 @@ export class AppComponent implements OnInit, OnDestroy {
     this.closeAllOverlayModals();
     this.privateModalTab = tab || (this.activePrivateRoom ? 'share' : 'create');
     this.isPrivateModalOpen = true;
+    this.refreshPendingPrivateAndDuels();
     this.cdr.markForCheck();
   }
 
   onPrivateModalClosed(): void {
     this.isPrivateModalOpen = false;
     this.privateUrlError = '';
+    this.refreshPendingPrivateAndDuels();
     this.cdr.markForCheck();
   }
 
   onPrivateRoomSelected(event: { payload: PrivateRacePayload; pushUrl: boolean }): void {
     this.activatePrivateRoom(event.payload, event.pushUrl);
+    this.refreshPendingPrivateAndDuels();
   }
 
   onPrivateRoomUpdated(updated: PrivateRacePayload): void {
@@ -4475,12 +4488,77 @@ export class AppComponent implements OnInit, OnDestroy {
     }
     this.updateDocumentTitle();
     this.initGameLoop();
+    this.refreshPendingPrivateAndDuels();
     this.cdr.markForCheck();
   }
 
   onPrivateRoomClosedOrLeft(_event: { closedOnServer: boolean; raceId?: string }): void {
     this.exitPrivateRoomToPublic(true);
     this.initGameLoop();
+    this.refreshPendingPrivateAndDuels();
+  }
+
+  refreshPendingPrivateAndDuels(): void {
+    let savedCodes: string[] = [];
+    try {
+      if (typeof localStorage !== 'undefined') {
+        const raw = localStorage.getItem('rower_saved_private_salons');
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) {
+            savedCodes = parsed.map((s: any) => s?.code).filter(Boolean);
+          }
+        }
+      }
+    } catch {
+      savedCodes = [];
+    }
+
+    const uid = this.currentUser?.id || this.currentUser?.login || this.activeUserId || '';
+
+    // 1. Salons privés actifs / en attente
+    if (uid || savedCodes.length > 0) {
+      this.rowerService.listPrivateRaces(uid || undefined, savedCodes).subscribe({
+        next: (res) => {
+          if (res?.success && Array.isArray(res.races)) {
+            this.pendingPrivateSalonsCount = res.races.filter(
+              (r) => r.race && r.race.status !== 'ABANDONED' && r.race.status !== 'FINISHED'
+            ).length;
+          } else {
+            this.pendingPrivateSalonsCount = 0;
+          }
+          this.cdr.markForCheck();
+        },
+        error: () => {
+          this.pendingPrivateSalonsCount = 0;
+          this.cdr.markForCheck();
+        }
+      });
+    } else {
+      this.pendingPrivateSalonsCount = 0;
+    }
+
+    // 2. Duels en attente (statut PENDING)
+    if (uid && this.isRegisteredUser) {
+      this.rowerService.getMyDuelChallenges(uid).subscribe({
+        next: (res) => {
+          if (res?.success) {
+            const receivedPending = (res.received || []).filter((d) => d && d.status === 'PENDING').length;
+            const sentPending = (res.sent || []).filter((d) => d && d.status === 'PENDING').length;
+            this.pendingDuelsCount = receivedPending + sentPending;
+          } else {
+            this.pendingDuelsCount = 0;
+          }
+          this.cdr.markForCheck();
+        },
+        error: () => {
+          this.pendingDuelsCount = 0;
+          this.cdr.markForCheck();
+        }
+      });
+    } else {
+      this.pendingDuelsCount = 0;
+    }
   }
 
   onPrivateRoomBotsToggled(enable: boolean): void {
@@ -5058,6 +5136,7 @@ export class AppComponent implements OnInit, OnDestroy {
       if (this.isStandingsOpen && this.standingsActiveTab === 'duels') {
         this.loadDuelLeaderboard();
       }
+      this.refreshPendingPrivateAndDuels();
       this.cdr.markForCheck();
     });
   }

@@ -918,7 +918,7 @@ export class I18nService {
 
   private readonly privateRoomTranslations: Record<SupportedLang, Record<string, string>> = {
     fr: {
-      'BTN_PRIVATE_ROOMS': '🔒 Salons Privés',
+      'BTN_PRIVATE_ROOMS': 'Salons Privés',
       'PRIVATE_ROOM_BADGE': 'SALON PRIVÉ',
       'PRIVATE_MODAL_TITLE': 'Salons Privés — Codes & Liens de Connexion',
       'PRIVATE_MODAL_SUB': 'Créez une régate privée, gérez vos codes d\'accès (Web + PIN Montre Garmin) et partagez l\'URL aux joueurs.',
@@ -1058,7 +1058,7 @@ export class I18nService {
       'RACE_STOPPED_FINISHED': '🏁 Corrida concluída',
     },
     en: {
-      'BTN_PRIVATE_ROOMS': '🔒 Private Rooms',
+      'BTN_PRIVATE_ROOMS': 'Private Rooms',
       'PRIVATE_ROOM_BADGE': 'PRIVATE ROOM',
       'PRIVATE_MODAL_TITLE': 'Private Rooms — Access Codes & Share Links',
       'PRIVATE_MODAL_SUB': 'Create a private regatta, manage access codes (Web + Garmin Watch PIN), and share the connection URL.',
@@ -1138,7 +1138,7 @@ export class I18nService {
       'INVITE_MSG_HEADER': 'Rower Race — Private Room Invite'
     },
     de: {
-      'BTN_PRIVATE_ROOMS': '🔒 Private Räume',
+      'BTN_PRIVATE_ROOMS': 'Private Räume',
       'PRIVATE_ROOM_BADGE': 'PRIVATER RAUM',
       'PRIVATE_MODAL_TITLE': 'Private Räume — Codes & Einladungslinks',
       'PRIVATE_MODAL_SUB': 'Erstellen Sie eine private Regatta, verwalten Sie Zugriffscodes (Web + Garmin Watch PIN) und teilen Sie den Link.',
@@ -1218,7 +1218,7 @@ export class I18nService {
       'INVITE_MSG_HEADER': 'Rower Race — Einladung Privater Raum'
     },
     es: {
-      'BTN_PRIVATE_ROOMS': '🔒 Salas Privadas',
+      'BTN_PRIVATE_ROOMS': 'Salas Privadas',
       'PRIVATE_ROOM_BADGE': 'SALA PRIVADA',
       'PRIVATE_MODAL_TITLE': 'Salas Privadas — Códigos y Enlaces',
       'PRIVATE_MODAL_SUB': 'Cree una regata privada, gestione códigos (Web + PIN Garmin) y comparta el enlace.',
@@ -1298,7 +1298,7 @@ export class I18nService {
       'INVITE_MSG_HEADER': 'Rower Race — Invitación a Sala Privada'
     },
     it: {
-      'BTN_PRIVATE_ROOMS': '🔒 Stanze Private',
+      'BTN_PRIVATE_ROOMS': 'Stanze Private',
       'PRIVATE_ROOM_BADGE': 'STANZA PRIVATA',
       'PRIVATE_MODAL_TITLE': 'Stanze Private — Codici e Link',
       'PRIVATE_MODAL_SUB': 'Crea una regata privata, gestisci i codici di accesso (Web + PIN Garmin) e condividi il link.',
@@ -1378,7 +1378,7 @@ export class I18nService {
       'INVITE_MSG_HEADER': 'Rower Race — Invito Stanza Privata'
     },
     pt: {
-      'BTN_PRIVATE_ROOMS': '🔒 Salas Privadas',
+      'BTN_PRIVATE_ROOMS': 'Salas Privadas',
       'PRIVATE_ROOM_BADGE': 'SALA PRIVADA',
       'PRIVATE_MODAL_TITLE': 'Salas Privadas — Códigos e Links',
       'PRIVATE_MODAL_SUB': 'Crie uma regata privada, gerencie códigos (Web + PIN Garmin) e compartilhe o link.',
