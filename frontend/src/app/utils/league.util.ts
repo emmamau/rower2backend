@@ -60,3 +60,165 @@ export function getLeagueByPoints(points: number = 0): LeagueInfo {
   if (pts >= 100) return WEEKLY_LEAGUES.SILVER;
   return WEEKLY_LEAGUES.BRONZE;
 }
+
+export interface CalculateRacePointsOptions {
+  raceMode: "BOT" | "SOLO" | "DUEL_1V1" | "MULTIPLAYER" | "RACE" | string;
+  playerRank: number;
+  totalHumanFinishers?: number;
+  isFinisher?: boolean;
+  isDnf?: boolean;
+  todayRewardedBotRacesCount?: number;
+  playerLeagueTier?: "BRONZE" | "SILVER" | "GOLD" | string;
+  playerWins?: number;
+  opponentLeagueTier?: "BRONZE" | "SILVER" | "GOLD" | string;
+  opponentWins?: number;
+}
+
+export interface PointsBreakdown {
+  basePoints: number;
+  rankPoints: number;
+  podiumBonus: number;
+  higherRankedBonus: number;
+  pelotonMultiplier: number;
+  totalPoints: number;
+  description: string;
+}
+
+function getTierWeight(tier?: string): number {
+  const t = String(tier || "").toUpperCase();
+  if (t === "GOLD" || t === "OR") return 3;
+  if (t === "SILVER" || t === "ARGENT") return 2;
+  if (t === "BRONZE") return 1;
+  return 1;
+}
+
+export function calculateRacePointsBreakdown(options: CalculateRacePointsOptions): PointsBreakdown {
+  const {
+    raceMode,
+    playerRank,
+    totalHumanFinishers = 1,
+    isFinisher = true,
+    isDnf = false,
+    todayRewardedBotRacesCount = 0,
+    playerLeagueTier = "BRONZE",
+    playerWins = 0,
+    opponentLeagueTier,
+    opponentWins = 0,
+  } = options;
+
+  if (isDnf || !isFinisher || playerRank <= 0) {
+    return {
+      basePoints: 0,
+      rankPoints: 0,
+      podiumBonus: 0,
+      higherRankedBonus: 0,
+      pelotonMultiplier: 1.0,
+      totalPoints: 0,
+      description: "0 pt (Abandon / DNF)",
+    };
+  }
+
+  const normalizedMode = String(raceMode || "").toUpperCase();
+
+  if (normalizedMode === "BOT" || normalizedMode === "SOLO") {
+    if (todayRewardedBotRacesCount >= 3) {
+      return {
+        basePoints: 0,
+        rankPoints: 0,
+        podiumBonus: 0,
+        higherRankedBonus: 0,
+        pelotonMultiplier: 1.0,
+        totalPoints: 0,
+        description: "0 pt (Plafond bot atteint : max 3 par jour)",
+      };
+    }
+    const isWin = playerRank === 1;
+    const pts = isWin ? 10 : 5;
+    return {
+      basePoints: pts,
+      rankPoints: 0,
+      podiumBonus: 0,
+      higherRankedBonus: 0,
+      pelotonMultiplier: 1.0,
+      totalPoints: pts,
+      description: isWin ? "+10 pts : Victoire contre bot" : "+5 pts : Entraînement bot terminé",
+    };
+  }
+
+  const rank = Math.max(1, playerRank);
+  const finishers = Math.max(1, totalHumanFinishers);
+  const isDuel = normalizedMode === "DUEL_1V1" || (normalizedMode === "DUEL" || (normalizedMode === "RACE" && finishers === 2));
+
+  if (isDuel) {
+    const basePoints = 10;
+    if (rank === 1) {
+      const rankPoints = 10;
+      const podiumBonus = 20;
+      let higherRankedBonus = 0;
+      const bonusParts: string[] = [];
+
+      if (opponentLeagueTier && getTierWeight(opponentLeagueTier) > getTierWeight(playerLeagueTier)) {
+        higherRankedBonus += 25;
+        bonusParts.push("+25 pts ligue sup.");
+      }
+
+      if (Number(opponentWins) > Number(playerWins)) {
+        higherRankedBonus += 15;
+        bonusParts.push("+15 pts palmarès sup.");
+      }
+
+      const total = basePoints + rankPoints + podiumBonus + higherRankedBonus;
+      const desc = higherRankedBonus > 0
+        ? `+${total} pts : Victoire duel (40) ${bonusParts.join(" ")}`
+        : `+${total} pts : Victoire duel (Base 10 + Battu 10 + Podium 20)`;
+
+      return {
+        basePoints,
+        rankPoints,
+        podiumBonus,
+        higherRankedBonus,
+        pelotonMultiplier: 1.0,
+        totalPoints: total,
+        description: desc,
+      };
+    } else {
+      return {
+        basePoints,
+        rankPoints: 0,
+        podiumBonus: 0,
+        higherRankedBonus: 0,
+        pelotonMultiplier: 1.0,
+        totalPoints: basePoints,
+        description: `+${basePoints} pts : Duel terminé (Base de participation)`,
+      };
+    }
+  }
+
+  const basePoints = 10;
+  const beatenRacers = Math.max(0, finishers - rank);
+  const rankPoints = beatenRacers * 10;
+
+  let podiumBonus = 0;
+  if (rank === 1) podiumBonus = 20;
+  else if (rank === 2) podiumBonus = 10;
+  else if (rank === 3) podiumBonus = 5;
+
+  const pelotonMultiplier = finishers > 4 ? 1.25 : 1.0;
+  const rawSum = basePoints + rankPoints + podiumBonus;
+  const total = Math.round(rawSum * pelotonMultiplier);
+
+  let desc = `+${total} pts : Base ${basePoints}`;
+  if (rankPoints > 0) desc += ` + ${beatenRacers} battu(s) (${rankPoints})`;
+  if (podiumBonus > 0) desc += ` + Podium (${podiumBonus})`;
+  if (pelotonMultiplier > 1.0) desc += ` × Peloton (+25%)`;
+
+  return {
+    basePoints,
+    rankPoints,
+    podiumBonus,
+    higherRankedBonus: 0,
+    pelotonMultiplier,
+    totalPoints: total,
+    description: desc,
+  };
+}

@@ -90,7 +90,7 @@
                   <td class="col-time font-mono">{{ entry.formattedDuration || entry.chrono || '--' }}</td>
                   <td class="col-pace font-mono">{{ formatPace(entry.avgPaceSec || entry.avgPace) }}</td>
                   <td class="col-gap font-mono">{{ entry.gap || '--' }}</td>
-                  <td class="col-points">{{ formatPoints(entry.points) }}</td>
+                  <td class="col-points" [title]="entry.pointsBreakdown || formatPoints(entry.points)">{{ formatPoints(entry.points) }}</td>
                 </tr>
               }
             } @else {

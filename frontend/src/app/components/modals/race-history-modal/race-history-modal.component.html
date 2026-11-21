@@ -109,7 +109,7 @@
                   <td class="col-dist font-mono">
                     {{ formatDist(entry.netDistance || entry.distance) }}
                   </td>
-                  <td class="col-points">
+                  <td class="col-points" [title]="entry.pointsBreakdown || formatPoints(entry.points)">
                     {{ formatPoints(entry.points) }}
                   </td>
                   <td class="col-status">
