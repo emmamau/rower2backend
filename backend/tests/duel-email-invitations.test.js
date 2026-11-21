@@ -1,9 +1,34 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const http = require('node:http');
+const express = require('express');
+const initUserRoutes = require('../dist/routes/user.routes').default;
+const initDuelRoutes = require('../dist/routes/duel.routes').default;
 const db = require('../dist/models').default;
 const duelService = require('../dist/services/duel.service').default;
 const userStore = require('../dist/services/user-store.service').default;
 const emailService = require('../dist/services/email.service').default;
+
+function createTestServer() {
+  const app = express();
+  app.use(express.json());
+  initUserRoutes(app);
+  initDuelRoutes(app);
+  const server = http.createServer(app);
+  return new Promise((resolve) => {
+    server.listen(0, '127.0.0.1', () => {
+      const addr = server.address();
+      resolve({
+        server,
+        baseUrl: `http://127.0.0.1:${addr.port}`,
+        close: () =>
+          new Promise((resClose) => {
+            server.close(() => resClose());
+          }),
+      });
+    });
+  });
+}
 
 test.after(async () => {
   if (db?.sequelize?.close) {
@@ -281,4 +306,223 @@ test('sendDuelInvitationNewUserEmail (EN) generates localized English cyber emai
   assert.ok(lastMail.html.includes('Google Calendar'));
   assert.ok(lastMail.html.includes('Outlook'));
   assert.ok(lastMail.attachments?.some((a) => a.filename === 'invitation-duel-rowerrace.ics' && a.type === 'text/calendar'));
+});
+
+test('GET /api/duels/invite-info returns invite metadata and validates token', async () => {
+  duelService.clearInMemoryChallenges();
+  emailService.clearLog();
+  const ctx = await createTestServer();
+
+  try {
+    const suffix = `${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+    const challenger = await userStore.createUser({
+      id: `invinfo_ch_${suffix}`,
+      login: `invinfo_ch_${suffix}`,
+      name: 'Alice Invite',
+      email: `invinfo_ch_${suffix}@example.com`,
+    });
+
+    const outcome = await duelService.createChallenge({
+      challengerId: challenger.id,
+      challengedLoginOrId: `invinfo_guest_${suffix}@test.com`,
+      slotStart: futureUtcDaytimeSlot(3, 14),
+      targetDistance: 1500,
+    });
+    assert.ok('challenge' in outcome, `Creation failed: ${outcome.error}`);
+
+    const missingRes = await fetch(`${ctx.baseUrl}/api/duels/invite-info`);
+    assert.equal(missingRes.status, 400);
+
+    const notFoundRes = await fetch(`${ctx.baseUrl}/api/duels/invite-info?token=inv_does_not_exist`);
+    assert.equal(notFoundRes.status, 404);
+
+    const okRes = await fetch(
+      `${ctx.baseUrl}/api/duels/invite-info?token=${encodeURIComponent(outcome.challenge.inviteToken)}`
+    );
+    assert.equal(okRes.status, 200);
+    const data = await okRes.json();
+    assert.equal(data.success, true);
+    assert.equal(data.challenge.id, outcome.challenge.id);
+    assert.equal(data.challenge.challengerName, 'Alice Invite');
+    assert.equal(data.challenge.challengerLogin, challenger.login);
+    assert.equal(data.challenge.targetDistance, 1500);
+    assert.equal(data.challenge.challengedEmail, `invinfo_guest_${suffix}@test.com`);
+    assert.equal(data.challenge.status, 'PENDING');
+  } finally {
+    await ctx.close();
+  }
+});
+
+test('POST /api/duels/:id/resend-invite dispatches email for challenger and rejects unauthorized user', async () => {
+  duelService.clearInMemoryChallenges();
+  emailService.clearLog();
+  const ctx = await createTestServer();
+
+  try {
+    const suffix = `${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+    const challenger = await userStore.createUser({
+      id: `resend_ch_${suffix}`,
+      login: `resend_ch_${suffix}`,
+      name: 'Bob Resend',
+      email: `resend_ch_${suffix}@example.com`,
+    });
+    const otherUser = await userStore.createUser({
+      id: `resend_other_${suffix}`,
+      login: `resend_other_${suffix}`,
+      name: 'Other User',
+      email: `resend_other_${suffix}@example.com`,
+    });
+
+    const outcome = await duelService.createChallenge({
+      challengerId: challenger.id,
+      challengedLoginOrId: `resend_guest_${suffix}@test.com`,
+      slotStart: futureUtcDaytimeSlot(4, 15),
+      targetDistance: 2000,
+    });
+    assert.ok('challenge' in outcome, `Creation failed: ${outcome.error}`);
+
+    const countBefore = emailService.getSentEmails().length;
+
+    const noUserRes = await fetch(`${ctx.baseUrl}/api/duels/${outcome.challenge.id}/resend-invite`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    });
+    assert.equal(noUserRes.status, 400);
+
+    const unauthRes = await fetch(`${ctx.baseUrl}/api/duels/${outcome.challenge.id}/resend-invite`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: otherUser.id }),
+    });
+    assert.equal(unauthRes.status, 400);
+    const unauthData = await unauthRes.json();
+    assert.equal(unauthData.success, false);
+    assert.equal(emailService.getSentEmails().length, countBefore);
+
+    const authRes = await fetch(`${ctx.baseUrl}/api/duels/${outcome.challenge.id}/resend-invite`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: challenger.id }),
+    });
+    assert.equal(authRes.status, 200);
+    const authData = await authRes.json();
+    assert.equal(authData.success, true);
+    assert.equal(emailService.getSentEmails().length, countBefore + 1);
+  } finally {
+    await ctx.close();
+  }
+});
+
+test('POST /api/user/register with duelInviteToken links pending duel, sets referredBy, and keeps status PENDING', async () => {
+  duelService.clearInMemoryChallenges();
+  emailService.clearLog();
+  const ctx = await createTestServer();
+
+  try {
+    const suffix = `${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+    const challenger = await userStore.createUser({
+      id: `reg_tok_ch_${suffix}`,
+      login: `reg_tok_ch_${suffix}`,
+      name: 'Challenger Token',
+      email: `reg_tok_ch_${suffix}@example.com`,
+    });
+
+    const guestEmail = `invited_tok_${suffix}@test.com`;
+    const outcome = await duelService.createChallenge({
+      challengerId: challenger.id,
+      challengedLoginOrId: guestEmail,
+      slotStart: futureUtcDaytimeSlot(5, 16),
+      targetDistance: 2000,
+    });
+    assert.ok('challenge' in outcome, `Creation failed: ${outcome.error}`);
+
+    const newLogin = `invited_tok_${suffix}`;
+    const regRes = await fetch(`${ctx.baseUrl}/api/user/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        nom: 'Invited',
+        prenom: 'Friend',
+        anneeNaissance: 1994,
+        sexe: 'F',
+        pays: 'France',
+        login: newLogin,
+        email: guestEmail,
+        password: 'StrongPassword123!',
+        duelInviteToken: outcome.challenge.inviteToken,
+      }),
+    });
+    assert.equal(regRes.status, 201);
+    const regData = await regRes.json();
+    assert.equal(regData.success, true);
+    assert.equal(regData.user.referredBy, challenger.id);
+
+    const storedUser = await userStore.findUser(newLogin);
+    assert.ok(storedUser, 'Registered user must exist in store');
+    assert.equal(storedUser.referredBy, challenger.id);
+
+    const updatedChallenge = await duelService.getChallengeById(outcome.challenge.id);
+    assert.ok(updatedChallenge, 'Challenge must still exist');
+    assert.equal(updatedChallenge.challengedUserId, storedUser.id);
+    assert.equal(updatedChallenge.challengedLogin, newLogin);
+    assert.equal(updatedChallenge.challengedName, 'Friend Invited');
+    assert.equal(updatedChallenge.status, 'PENDING');
+  } finally {
+    await ctx.close();
+  }
+});
+
+test('POST /api/user/register without token links pending duel by matching email and sets referredBy', async () => {
+  duelService.clearInMemoryChallenges();
+  emailService.clearLog();
+  const ctx = await createTestServer();
+
+  try {
+    const suffix = `${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+    const challenger = await userStore.createUser({
+      id: `reg_mail_ch_${suffix}`,
+      login: `reg_mail_ch_${suffix}`,
+      name: 'Challenger Email',
+      email: `reg_mail_ch_${suffix}@example.com`,
+    });
+
+    const guestEmail = `invited_mail_${suffix}@test.com`;
+    const outcome = await duelService.createChallenge({
+      challengerId: challenger.id,
+      challengedLoginOrId: guestEmail,
+      slotStart: futureUtcDaytimeSlot(6, 17),
+      targetDistance: 2000,
+    });
+    assert.ok('challenge' in outcome, `Creation failed: ${outcome.error}`);
+
+    const newLogin = `invited_mail_${suffix}`;
+    const regRes = await fetch(`${ctx.baseUrl}/api/user/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        nom: 'Email',
+        prenom: 'Matcher',
+        anneeNaissance: 1991,
+        sexe: 'M',
+        pays: 'France',
+        login: newLogin,
+        email: guestEmail.toUpperCase(),
+        password: 'StrongPassword123!',
+      }),
+    });
+    assert.equal(regRes.status, 201);
+    const regData = await regRes.json();
+    assert.equal(regData.success, true);
+    assert.equal(regData.user.referredBy, challenger.id);
+
+    const updatedChallenge = await duelService.getChallengeById(outcome.challenge.id);
+    assert.ok(updatedChallenge);
+    assert.equal(updatedChallenge.challengedUserId, regData.user.id);
+    assert.equal(updatedChallenge.challengedLogin, newLogin);
+    assert.equal(updatedChallenge.challengedName, 'Matcher Email');
+    assert.equal(updatedChallenge.status, 'PENDING');
+  } finally {
+    await ctx.close();
+  }
 });

@@ -458,6 +458,7 @@ export class UserStoreService {
       duelsLost: data.duelsLost || 0,
       duelsDrawn: data.duelsDrawn || 0,
       duelPoints: data.duelPoints || 0,
+      referredBy: data.referredBy ?? null,
       createdAt: now,
       updatedAt: now,
     };

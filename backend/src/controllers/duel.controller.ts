@@ -429,6 +429,60 @@ export class DuelController {
       res.status(500).json({ success: false, message });
     }
   }
+
+  /**
+   * GET /api/duels/invite-info?token=...
+   */
+  public static async getInviteInfo(req: Request, res: Response): Promise<void> {
+    try {
+      const token = String(req.query.token || "").trim();
+      if (!token) {
+        res.status(400).json({ success: false, message: "Jeton d'invitation requis." });
+        return;
+      }
+      const challenge = await duelService.findChallengeByInviteToken(token);
+      if (!challenge) {
+        res.status(404).json({ success: false, message: "Invitation introuvable ou expirée." });
+        return;
+      }
+      res.status(200).json({
+        success: true,
+        challenge: {
+          id: challenge.id,
+          challengerName: challenge.challengerName,
+          challengerLogin: challenge.challengerLogin,
+          targetDistance: challenge.targetDistance,
+          slotStart: challenge.slotStart,
+          slotEnd: challenge.slotEnd,
+          timezone: challenge.timezone,
+          challengedEmail: challenge.challengedEmail,
+          status: challenge.status,
+        },
+      });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      res.status(500).json({ success: false, message });
+    }
+  }
+
+  /**
+   * POST /api/duels/:id/resend-invite
+   */
+  public static async resendInvite(req: Request, res: Response): Promise<void> {
+    try {
+      const challengeId = String(req.params.id || "").trim();
+      const userId = resolveRequestUserId(req);
+      if (!challengeId || !userId) {
+        res.status(400).json({ success: false, message: "Identifiant du défi et utilisateur requis." });
+        return;
+      }
+      const outcome = await duelService.resendInvitation(challengeId, userId);
+      res.status(outcome.success ? 200 : 400).json(outcome);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      res.status(500).json({ success: false, message });
+    }
+  }
 }
 
 export default DuelController;

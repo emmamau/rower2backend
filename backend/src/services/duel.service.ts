@@ -193,7 +193,7 @@ export class DuelService {
     this.inMemoryChallenges.clear();
   }
 
-  private async persistChallenge(challenge: StoredDuelChallenge): Promise<void> {
+  public async persistChallenge(challenge: StoredDuelChallenge): Promise<void> {
     this.inMemoryChallenges.set(challenge.id, challenge);
     try {
       await DuelChallenges.upsert(challenge as any);
@@ -257,6 +257,61 @@ export class DuelService {
         lang,
       })
       .catch(() => {});
+  }
+
+  public async findPendingGuestChallenges(
+    email?: string,
+    inviteToken?: string
+  ): Promise<StoredDuelChallenge[]> {
+    const matchedById = new Map<string, StoredDuelChallenge>();
+    const cleanToken = String(inviteToken || "").trim();
+    const cleanEmail = String(email || "").trim().toLowerCase();
+
+    if (cleanToken) {
+      const byToken = await this.findChallengeByInviteToken(cleanToken);
+      if (byToken && byToken.status === "PENDING" && !byToken.challengedUserId) {
+        matchedById.set(byToken.id, byToken);
+      }
+    }
+
+    if (cleanEmail) {
+      const all = await this.listAllChallenges();
+      for (const c of all) {
+        if (
+          c.status === "PENDING" &&
+          !c.challengedUserId &&
+          c.challengedEmail &&
+          c.challengedEmail.trim().toLowerCase() === cleanEmail &&
+          !matchedById.has(c.id)
+        ) {
+          matchedById.set(c.id, c);
+        }
+      }
+    }
+
+    return Array.from(matchedById.values());
+  }
+
+  public async linkGuestToRegisteredUser(
+    user: StoredUser,
+    inviteToken?: string
+  ): Promise<StoredDuelChallenge[]> {
+    const matches = await this.findPendingGuestChallenges(user.email, inviteToken);
+    if (matches.length === 0) return [];
+
+    const now = new Date();
+    const login = user.login || user.id;
+    const name = user.name || login;
+
+    for (const c of matches) {
+      c.challengedUserId = user.id;
+      c.challengedLogin = login;
+      c.challengedName = name;
+      c.updatedAt = now;
+      await this.persistChallenge(c);
+    }
+
+    return matches;
   }
 
   public async resendInvitation(

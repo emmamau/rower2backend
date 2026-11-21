@@ -11,7 +11,7 @@ import raceManager from "../services/race-manager.service";
 import pairingService from "../services/pairing.service";
 import { getLeagueByPoints, WEEKLY_LEAGUES, LeagueTier } from "../utils/league.util";
 import { ensureCurrentWeek } from "../services/league-db.service";
-import { sanitizeDuelPreferences } from "../services/duel.service";
+import duelService, { sanitizeDuelPreferences } from "../services/duel.service";
 
 const Activities = db.activities;
 
@@ -154,6 +154,7 @@ function sanitizeUser(user: any): Record<string, any> {
   plain.duelsLost = Number(plain.duelsLost || 0);
   plain.duelsDrawn = Number(plain.duelsDrawn || 0);
   plain.duelPoints = Number(plain.duelPoints || 0);
+  plain.referredBy = plain.referredBy ?? null;
   plain.language = plain.language ? String(plain.language).toLowerCase().trim() : "fr";
   return plain;
 }
@@ -191,6 +192,9 @@ export const registerUser = async (req: Request, res: Response): Promise<void> =
       refusedDays,
       isAbsent,
       duelTimezone,
+      duelInviteToken,
+      inviteToken,
+      referredBy,
       website_url,
       bot_trap,
     } = req.body || {};
@@ -347,6 +351,16 @@ export const registerUser = async (req: Request, res: Response): Promise<void> =
       }
     );
 
+    const rawDuelInviteToken = String(duelInviteToken || inviteToken || "").trim();
+    const pendingGuestChallenges = await duelService.findPendingGuestChallenges(
+      cleanEmail,
+      rawDuelInviteToken || undefined
+    );
+    const explicitReferredBy = referredBy ? String(referredBy).trim() : null;
+    const resolvedReferredBy =
+      explicitReferredBy ||
+      (pendingGuestChallenges.length > 0 ? pendingGuestChallenges[0].challengerUserId : null);
+
     const newUser = await userStore.createUser({
       id: cleanLogin,
       name: `${cleanFirstName} ${cleanLastName}`.trim() || cleanLogin,
@@ -379,10 +393,15 @@ export const registerUser = async (req: Request, res: Response): Promise<void> =
       duelsLost: 0,
       duelsDrawn: 0,
       duelPoints: 0,
+      referredBy: resolvedReferredBy,
       kayakCustomization: initialKayak,
       regattaPreferences: sanitizeRegattaPreferences(regattaPreferences),
       duelPreferences: resolvedDuelPreferences,
     });
+
+    if (pendingGuestChallenges.length > 0) {
+      await duelService.linkGuestToRegisteredUser(newUser, rawDuelInviteToken || undefined);
+    }
 
     // Migration automatique de l'appairage invité vers le nouveau compte abonné
     const tokenToMigrate = guestPairingToken || guestToken || req.body?.deviceToken || req.body?.guestUserId;
