@@ -15,15 +15,20 @@ final raceControllerProvider = StateNotifierProvider<RaceController, RaceSession
   final socketService = ref.watch(realtimeSocketServiceProvider);
   final bleService = ref.watch(bleFtmsServiceProvider);
   final storage = ref.watch(secureStorageServiceProvider);
-  final authState = ref.watch(authControllerProvider);
 
   final controller = RaceController(
     apiClient,
     socketService,
     bleService,
     storage,
-    authState.value?.displayPseudo ?? 'Rameur_Mobile',
+    ref.read(authControllerProvider).value?.displayPseudo ?? 'Rameur_Mobile',
   );
+
+  // Ne recree plus le controleur (et son etat) a chaque changement d'auth
+  ref.listen(authControllerProvider, (_, next) {
+    final pseudo = next.value?.displayPseudo;
+    if (pseudo != null) controller.updateUserDisplayName(pseudo);
+  });
 
   ref.onDispose(() => controller.dispose());
   return controller;
@@ -53,7 +58,7 @@ class RaceController extends StateNotifier<RaceSessionState> {
     this._bleService,
     this._storage,
     this._userDisplayName,
-  ) : super(const RaceSessionState()) {
+  ) : super(RaceSessionState(myMetrics: _bleService.currentMetrics)) {
     _initSubscriptions();
   }
 

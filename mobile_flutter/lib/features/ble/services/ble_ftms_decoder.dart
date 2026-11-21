@@ -71,8 +71,8 @@ class BleFtmsDecoder {
     _baselineRawStrokes = _lastRawStrokes;
     _distanceOffset = 0;
     _strokesOffset = 0;
-    _pendingInitialDistanceTare = false;
-    _pendingInitialStrokesTare = false;
+    // Si aucun paquet n'a encore ete recu, on conserve la tare initiale en attente :
+    // le premier paquet fixera la base (sinon la valeur cumulee de la poulie fausse tout).
   }
 
   void alignDistance(int authoritativeDistance, int currentDistance) {

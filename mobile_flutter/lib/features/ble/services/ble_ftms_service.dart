@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/storage/secure_storage_service.dart';
@@ -25,10 +26,17 @@ final connectedDeviceNameProvider = Provider<String?>((ref) {
   return service.deviceName;
 });
 
-final rowingMetricsStreamProvider = StreamProvider<RowingMetrics>((ref) {
+final rowingMetricsStreamProvider = StreamProvider<RowingMetrics>((ref) async* {
   final service = ref.watch(bleFtmsServiceProvider);
-  return service.metricsStream;
+  yield service.currentMetrics;
+  yield* service.metricsStream;
 });
+
+void _bleLog(String msg) {
+  if (kDebugMode) debugPrint('[BLE] $msg');
+}
+
+String _hex(List<int> v) => v.map((b) => (b & 0xFF).toRadixString(16).padLeft(2, '0')).join(' ');
 
 class BleFtmsService {
   final SecureStorageService _storage;
@@ -451,6 +459,8 @@ class BleFtmsService {
         _startWatchdogTimer();
 
         _setStatus(BleConnectionStatus.connected);
+        _metricsController.add(_currentMetrics);
+        _bleLog('SmartRow direct connecte, notifications actives');
         return true;
       }
 
@@ -560,7 +570,8 @@ class BleFtmsService {
               .timeout(const Duration(seconds: 2));
         }
       }
-    } catch (_) {
+    } catch (e) {
+      _bleLog('SmartRow write error: $e');
     } finally {
       _srWriteBusy = false;
       if (_srWriteQueue.isNotEmpty) {
@@ -573,6 +584,7 @@ class BleFtmsService {
   void _onFtmsDataReceived(List<int> value) {
     if (value.isEmpty) return;
     _secondsWithoutData = 0;
+    _bleLog('FTMS rx: ${_hex(value)}');
     _currentMetrics = _decoder.decode(value, _currentMetrics);
     _metricsController.add(_currentMetrics);
   }
@@ -580,6 +592,7 @@ class BleFtmsService {
   void _onSmartRowDataReceived(List<int> value) {
     if (value.isEmpty) return;
     _secondsWithoutData = 0;
+    _bleLog('SmartRow rx (hs=$_srHandshakeState): ${_hex(value)}');
 
     // 1. Accumulation ASCII imprimable pour détecter les messages de version V3 et KEYLOCK= fragmentés
     final StringBuffer chunkBuf = StringBuffer();
