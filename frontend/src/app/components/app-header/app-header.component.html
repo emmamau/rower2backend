@@ -441,17 +441,6 @@
         🛡️ Administration
       </button>
 
-      <!-- Bouton Duel 1v1 Bot si appairé -->
-      <button
-        *ngIf="isPaired || isWatchConfirmed"
-        type="button"
-        class="btn-hud btn-bot-duel"
-        (click)="openBotDuelModalRequest.emit()"
-        title="Lancer un duel 1v1 rapide contre un bot virtuel">
-        <span class="btn-icon">🤖</span>
-        Duel 1v1 Bot
-      </button>
-
       <!-- Boutons Salons Privés -->
       <button
         type="button"

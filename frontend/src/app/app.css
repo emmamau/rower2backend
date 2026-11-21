@@ -5396,6 +5396,29 @@ body.rigid-viewport {
   text-shadow: 0 0 10px rgba(255, 230, 0, 0.5);
 }
 
+/* Composants hôtes pour affichage pleine hauteur dans race-arena */
+app-regatta-view,
+app-cockpit-view {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0;
+  min-height: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.game-container.rigid-viewport app-regatta-view,
+.game-container.mobile-fullscreen-view app-regatta-view,
+.game-container.pure-screen-active app-regatta-view {
+  flex: 1 1 0 !important;
+  min-height: 0 !important;
+  height: 100% !important;
+  width: 100% !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+}
+
 /* Regatta Canvas in Rigid Viewport or when Private Salon Banner is Collapsed */
 .game-container.rigid-viewport .race-arena,
 .game-container.mobile-fullscreen-view .race-arena,
@@ -5451,6 +5474,15 @@ body.rigid-viewport {
     padding: 0.15rem 0.5rem !important;
     min-height: 28px !important;
   }
+  app-regatta-view {
+    flex: 1 1 0 !important;
+    min-height: 0 !important;
+    height: 100% !important;
+    width: 100% !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+  }
   .regatta-quick-nav-bar {
     order: 1 !important;
     display: inline-flex !important;
@@ -5496,6 +5528,13 @@ body.rigid-viewport {
 
 /* Smartphone Viewport: Boutons au-dessus du plan d'eau, données en dessous */
 @media (max-width: 768px) {
+  app-regatta-view {
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100% !important;
+    flex: 1 1 0 !important;
+    min-height: 0 !important;
+  }
   .regatta-quick-nav-bar {
     order: 1 !important;
   }
@@ -5590,6 +5629,13 @@ body.rigid-viewport {
 
 /* Smartphone Viewport: Boutons au-dessus du plan d'eau, données en dessous */
 @media (max-width: 768px) {
+  app-regatta-view {
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100% !important;
+    flex: 1 1 0 !important;
+    min-height: 0 !important;
+  }
   .regatta-quick-nav-bar {
     order: 1 !important;
   }
@@ -6674,6 +6720,16 @@ body.rigid-viewport {
     overflow: hidden !important;
     width: 100% !important;
     height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 22px) !important;
+  }
+
+  app-regatta-view {
+    flex: 1 1 0 !important;
+    min-height: 0 !important;
+    height: 100% !important;
+    width: 100% !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
   }
 
   /* Boutons Accueil et Cockpit placés au-dessus des lignes d'eau */

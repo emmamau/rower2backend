@@ -546,10 +546,10 @@ test('Garmin Web pairing: 6-char ephemeral code, countdown, real-time paired sta
   assert.match(userManagerMc, /Storage\.deleteValue\("deviceToken"\)/, 'UserManager deletes deviceToken on reset');
 });
 
-test('Duel 1v1 Bot mode only proposed if player is paired', () => {
+test('Duel 1v1 Bot button removed from home HUD header', () => {
   const appHtml = readAppHtmlBundle();
-  // btn-bot-duel must be conditioned on isPaired || isWatchConfirmed
-  assert.match(appHtml, /\*ngIf="isPaired \|\| isWatchConfirmed"[\s\S]*?class="btn-hud btn-bot-duel"/);
+  // btn-bot-duel has been removed from home header to streamline homepage
+  assert.ok(!appHtml.includes('class="btn-hud btn-bot-duel"'), 'btn-bot-duel must not be present in app-header');
 });
 
 test('Statistiques button moved to the right of Salons Prives and displayed for identified players', () => {
@@ -1113,10 +1113,10 @@ test('Unified Onboarding Specification: Home Banner, 3 Action Cards, 3-Step Moda
   assert.match(appHtml, /Ravi de vous revoir, \{\{ currentUser\.name \}\}/);
   assert.match(appHtml, /Montre Garmin liée/);
   assert.match(appHtml, /Prêt à ramer \? Rejoignez une course ou lancez un entraînement libre en quelques secondes/);
-  assert.match(appHtml, /class="home-action-tunnel"/);
-  assert.match(appHtml, /Course Rapide \/ Salon Public/);
-  assert.match(appHtml, /Rejoindre un Salon Privé/);
-  assert.match(appHtml, /Cockpit \/ Entraînement Libre/);
+  assert.ok(!appHtml.includes('class="home-action-tunnel"'), 'home-action-tunnel must not be present');
+  assert.ok(!appHtml.includes('Course Rapide / Salon Public'), 'Course Rapide / Salon Public must not be present');
+  assert.ok(!appHtml.includes('Rejoindre un Salon Privé'), 'Rejoindre un Salon Privé must not be present');
+  assert.ok(!appHtml.includes('Cockpit / Entraînement Libre'), 'Cockpit / Entraînement Libre must not be present');
   assert.match(appHtml, /class="modal-content modal-watch-guidance"/);
   assert.match(appHtml, /Ouvrez l'application RowerRace sur votre montre Garmin\./);
   assert.match(appHtml, /« Entrer un code »|Appairer la montre/);

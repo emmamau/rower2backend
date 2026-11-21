@@ -49,4 +49,16 @@ test('Regatta mode smartphone layout: buttons above water lines, telemetry data 
     /<aside class="regatta-quick-nav-bar"[\s\S]*?btn-quick-home[\s\S]*?btn-quick-cockpit[\s\S]*?<\/aside>/s,
     'regatta-quick-nav-bar must contain both Accueil and Cockpit buttons'
   );
+
+  // 4. Verify app-regatta-view host element is a flex container with flex: 1 and 100% height
+  assert.match(
+    cssContent,
+    /app-regatta-view[^{]*\{[\s\S]*?display:\s*flex[\s\S]*?flex:\s*1 1 0[\s\S]*?height:\s*100%/s,
+    'app-regatta-view host element must be a flex container taking full height'
+  );
+  assert.match(
+    cssContent,
+    /@media[^{]*max-height:\s*(?:500|600)px[^{]*landscape[^{]*\{[\s\S]*?app-regatta-view[\s\S]*?flex:\s*1 1 0\s*!important/s,
+    'app-regatta-view must have flex: 1 1 0 !important in smartphone landscape query'
+  );
 });

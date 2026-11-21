@@ -90,31 +90,6 @@
   }
 </section>
 
-<!-- TUNNEL D'ACTIONS RAPIDES ACCUEIL (3 CARTES D'ACCÈS DIRECT) -->
-<section class="home-action-tunnel" *ngIf="!isMobileFullscreenOnly" aria-label="Actions rapides de course">
-  <div class="tunnel-card" (click)="siteViewChange.emit('regatta')">
-    <span class="tunnel-icon">🛶</span>
-    <div class="tunnel-info">
-      <strong>Course Rapide / Salon Public</strong>
-      <span>Rejoindre le plan d'eau 2D en direct</span>
-    </div>
-  </div>
-  <div class="tunnel-card" (click)="openPrivateModalRequest.emit('join')">
-    <span class="tunnel-icon">🔒</span>
-    <div class="tunnel-info">
-      <strong>Rejoindre un Salon Privé</strong>
-      <span>Par code salon, lien ou ticket 5 caractères</span>
-    </div>
-  </div>
-  <div class="tunnel-card" (click)="siteViewChange.emit('cockpit')">
-    <span class="tunnel-icon">📱</span>
-    <div class="tunnel-info">
-      <strong>Cockpit / Entraînement Libre</strong>
-      <span>Affichage télémétrique haute lisibilité</span>
-    </div>
-  </div>
-</section>
-
 <!-- BANNIÈRE RAPIDE COURSE EN COURS DEPUIS L'ACCUEIL -->
 <div class="home-active-race-callout" *ngIf="isRaceActive">
   <div class="callout-left">
