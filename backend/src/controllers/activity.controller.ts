@@ -3,7 +3,7 @@ import { Op } from "sequelize";
 import db from "../models";
 import { getOrCreateCurrentRace } from "./race.controller";
 import raceManager, { RaceManager } from "../services/race-manager.service";
-import { calculateRacePoints, calculateRacePointsEarned, getLeagueByPoints } from "../utils/league.util";
+import { calculateRacePoints, calculateRacePointsEarned, calculateRacePointsBreakdown, getLeagueByPoints } from "../utils/league.util";
 import { ensureCurrentWeek, getTodayRewardedBotRaces } from "../services/league-db.service";
 import socketGateway from "../websocket/socket.gateway";
 import pairingService from "../services/pairing.service";
@@ -216,14 +216,43 @@ export const syncActivity = async (req: Request, res: Response): Promise<void> =
           const actRaceMode = String(activity.get("raceMode") || "MULTIPLAYER");
           const todayBots = await getTodayRewardedBotRaces(userId);
 
-          const ptsEarned = calculateRacePointsEarned({
+          let opponentLeagueTier: string | undefined = undefined;
+          let opponentWins: number | undefined = undefined;
+          if (actRaceMode === "DUEL_1V1" || humanFinishers === 2) {
+            const oppAct = await Activities.findOne({
+              where: {
+                activityId: actualActivityId,
+                isBot: false,
+                userId: { [Op.ne]: userId },
+              },
+            });
+            if (oppAct) {
+              const oppUid = String(oppAct.get("userId") || "");
+              const oppUser = await userStore.findUser(oppUid);
+              if (oppUser) {
+                opponentLeagueTier = oppUser.league || getLeagueByPoints(oppUser.points || 0).tier;
+                opponentWins = oppUser.totalWins || 0;
+              }
+            }
+          }
+
+          const playerLeagueTier = (user.get("league") as string) || getLeagueByPoints((user.get("points") as number) || 0).tier;
+          const playerWins = (user.get("totalWins") as number) || 0;
+
+          const breakdown = calculateRacePointsBreakdown({
             raceMode: actRaceMode,
             playerRank: assignedRank,
             totalHumanFinishers: humanFinishers,
             isFinisher: true,
             isDnf: false,
             todayRewardedBotRacesCount: todayBots,
+            playerLeagueTier,
+            playerWins,
+            opponentLeagueTier,
+            opponentWins,
           });
+
+          const ptsEarned = breakdown.totalPoints;
 
           if (assignedRank === 1) {
             await user.increment("totalWins");
@@ -252,6 +281,7 @@ export const syncActivity = async (req: Request, res: Response): Promise<void> =
             await activity.update({
               points: ptsEarned,
               pointsEarned: ptsEarned,
+              pointsBreakdown: breakdown.description,
               isDnf: false,
               totalHumanFinishers: humanFinishers,
               avgPaceMs: ((activity.get("avgPace") as number) || 0) * 1000,

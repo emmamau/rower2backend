@@ -10,7 +10,7 @@ import { SUBSCRIPTION_TIERS } from "./subscription.controller";
 import subscriptionPlanService from "../services/subscription-plan.service";
 import { IpGeoService } from "../services/ip-geo.service";
 import pairingService from "../services/pairing.service";
-import { calculateRacePointsEarned } from "../utils/league.util";
+import { calculateRacePointsEarned, calculateRacePointsBreakdown, getLeagueByPoints } from "../utils/league.util";
 import { ensureCurrentWeek, getTodayRewardedBotRaces } from "../services/league-db.service";
 import duelService from "../services/duel.service";
 
@@ -850,6 +850,7 @@ export class TelemetryController {
       socketGateway.broadcastLeaderboard(raceId, liveList);
 
       let pointsEarned: number | undefined = undefined;
+      let pointsBreakdownDesc: string | undefined = undefined;
       if (isFinished && !wasAlreadyFinished && userId && userId !== "anonymous") {
         try {
           await ensureCurrentWeek();
@@ -861,19 +862,49 @@ export class TelemetryController {
           const hasBots = activeRacers.some((a: any) => (typeof a.get === "function" ? a.get("isBot") : a.isBot));
           const rMode = String(body.raceMode || (hasBots ? "BOT" : (humanFinishers > 2 ? "MULTIPLAYER" : "DUEL_1V1")));
           const todayBots = await getTodayRewardedBotRaces(userId);
-          pointsEarned = calculateRacePointsEarned({
+
+          let opponentLeagueTier: string | undefined = undefined;
+          let opponentWins: number | undefined = undefined;
+          if (rMode === "DUEL_1V1" || (!hasBots && humanFinishers === 2)) {
+            const oppRacer = activeRacers.find((a: any) => {
+              const uid = typeof a.get === "function" ? a.get("userId") : a.userId;
+              const isB = typeof a.get === "function" ? a.get("isBot") : a.isBot;
+              return !isB && uid && uid !== userId;
+            });
+            if (oppRacer) {
+              const oppUid = typeof oppRacer.get === "function" ? oppRacer.get("userId") : oppRacer.userId;
+              const oppUser = await userStore.findUser(oppUid);
+              if (oppUser) {
+                opponentLeagueTier = oppUser.league || getLeagueByPoints(oppUser.points || 0).tier;
+                opponentWins = oppUser.totalWins || 0;
+              }
+            }
+          }
+
+          const playerLeagueTier = user?.league || getLeagueByPoints((user?.points as number) || 0).tier;
+          const playerWins = (user?.totalWins as number) || 0;
+
+          const breakdown = calculateRacePointsBreakdown({
             raceMode: rMode,
             playerRank: myRank,
             totalHumanFinishers: humanFinishers,
             isFinisher: true,
             isDnf: false,
             todayRewardedBotRacesCount: todayBots,
+            playerLeagueTier,
+            playerWins,
+            opponentLeagueTier,
+            opponentWins,
           });
+
+          pointsEarned = breakdown.totalPoints;
+          pointsBreakdownDesc = breakdown.description;
 
           if (activity) {
             await activity.update({
               points: pointsEarned,
               pointsEarned,
+              pointsBreakdown: pointsBreakdownDesc,
               isDnf: false,
               totalHumanFinishers: humanFinishers,
               avgPaceMs: actualSplit * 1000,
@@ -918,6 +949,7 @@ export class TelemetryController {
         soundAlert: falseStartDetected ? "false_start" : undefined,
         status: (matchedRace?.status === "RUNNING" ? "RUNNING" : matchedRace?.status) || "RUNNING",
         pointsEarned,
+        pointsBreakdown: pointsBreakdownDesc,
         race_points: pointsEarned,
       });
     } catch (err: unknown) {

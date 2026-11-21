@@ -716,6 +716,7 @@ export const getRaceLeaderboard = async (req: Request, res: Response): Promise<v
           netDistance: Number.isFinite(dist) ? dist : 0,
           gap,
           points: earnedPoints,
+          pointsBreakdown: String(getVal("pointsBreakdown") || "") || undefined,
           league,
           kayak,
         };

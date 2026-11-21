@@ -37,6 +37,7 @@ export interface ActivityAttributes {
   finalRank?: number;
   finishedAt?: Date;
   pointsEarned?: number;
+  pointsBreakdown?: string;
   isDnf?: boolean;
   totalHumanFinishers?: number;
   avgPaceMs?: number;
@@ -168,6 +169,11 @@ export default (sequelize: Sequelize, _DataTypesInstance: typeof DataTypes): Act
         type: DataTypes.INTEGER,
         field: "points_earned",
         defaultValue: 0,
+      },
+      pointsBreakdown: {
+        type: DataTypes.STRING(255),
+        field: "points_breakdown",
+        allowNull: true,
       },
       isDnf: {
         type: DataTypes.BOOLEAN,
