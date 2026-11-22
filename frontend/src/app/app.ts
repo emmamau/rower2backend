@@ -10,7 +10,7 @@ import {
   PrivateModalTab
 } from './components/private-room-manager/private-room-manager.component';
 import { RowerData, NextRaceInfo, PastRaceResult, PrivateRacePayload } from './models/rower-data.model';
-import { extractInvitationEmail, extractRoomFromLocation, isRegattaModeRequested } from './utils/room-link.util';
+import { buildAndroidIntentUrl, detectInAppBrowser, extractInvitationEmail, extractRoomFromLocation, isRegattaModeRequested } from './utils/room-link.util';
 import {
   UserProfile,
   UserHistoryItem,
@@ -809,6 +809,9 @@ export class AppComponent implements OnInit, OnDestroy {
   invitationStep: 'choice' | 'guest-pairing' | 'login' | 'register' = 'choice';
   invitationAuthError = '';
   isInvitationSubmitting = false;
+  isInAppBrowser = false;
+  isIosInApp = false;
+  isAndroidInApp = false;
 
   // Mini-leaderboard cockpit rétractable & déplaçable (Draggable Leaderboard)
   isCockpitLeaderboardCollapsed = true;
@@ -5645,6 +5648,26 @@ export class AppComponent implements OnInit, OnDestroy {
     const extracted = extractRoomFromLocation(window.location.pathname, window.location.search);
     const isRegattaRequested = isRegattaModeRequested(window.location.search);
     const emailParam = extractInvitationEmail(window.location.search);
+
+    const inAppInfo = detectInAppBrowser();
+    this.isInAppBrowser = inAppInfo.isInApp;
+    this.isIosInApp = inAppInfo.isIosInApp;
+    this.isAndroidInApp = inAppInfo.isAndroidInApp;
+
+    // Tentative d'échappement automatique de la WebView sur Android vers le navigateur externe par défaut
+    if (inAppInfo.isAndroidInApp && typeof window !== 'undefined') {
+      try {
+        const hasEscaped = sessionStorage.getItem('rower_inapp_escape_attempted');
+        if (!hasEscaped) {
+          sessionStorage.setItem('rower_inapp_escape_attempted', '1');
+          const intentUrl = buildAndroidIntentUrl(window.location.href);
+          if (intentUrl) {
+            window.location.href = intentUrl;
+          }
+        }
+      } catch {}
+    }
+
     if (emailParam) {
       this.invitationEmail = emailParam;
       if (!this.loginAccountInput) {

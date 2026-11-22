@@ -58,3 +58,45 @@ export function withInvitationEmail(url: string, email?: string): string {
   const hash = hashIdx >= 0 ? url.slice(hashIdx) : "";
   return `${base}${base.includes("?") ? "&" : "?"}email=${encodeURIComponent(cleanEmail)}${hash}`;
 }
+
+export interface InAppBrowserInfo {
+  isInApp: boolean;
+  isAndroidInApp: boolean;
+  isIosInApp: boolean;
+}
+
+/**
+ * Détecte si la page web s'exécute dans un navigateur intégré d'application de messagerie ou réseau social.
+ */
+export function detectInAppBrowser(ua = ""): InAppBrowserInfo {
+  if (!ua) return { isInApp: false, isAndroidInApp: false, isIosInApp: false };
+
+  const isAndroid = /Android/i.test(ua);
+  const isIos = /iPhone|iPad|iPod/i.test(ua);
+
+  const isAndroidInApp = isAndroid && (
+    /;\s*wv\)/i.test(ua) ||
+    /Version\/[0-9.]+\s+Chrome/i.test(ua) ||
+    /GSA\/|Gmail|Outlook|Yahoo|FBAN|FBAV|Instagram|Line|Slack/i.test(ua)
+  );
+
+  const isIosInApp = isIos && (
+    /GSA\/|Gmail|Outlook|Yahoo|FBAN|FBAV|Instagram|Line|Twitter|Slack|MicroMessenger/i.test(ua) ||
+    (!/Version\/[0-9.]+\s+(Mobile\/[A-Za-z0-9]+\s+)?Safari/i.test(ua) && /Mobile\/[A-Za-z0-9]+/i.test(ua))
+  );
+
+  return {
+    isInApp: Boolean(isAndroidInApp || isIosInApp),
+    isAndroidInApp: Boolean(isAndroidInApp),
+    isIosInApp: Boolean(isIosInApp)
+  };
+}
+
+/**
+ * Construit une URL d'Intent Android pour forcer l'ouverture dans le navigateur par défaut externe.
+ */
+export function buildAndroidIntentUrl(url: string): string {
+  if (!url) return "";
+  const cleanUrl = url.replace(/^https?:\/\//i, "");
+  return `intent://${cleanUrl}#Intent;scheme=https;action=android.intent.action.VIEW;end`;
+}

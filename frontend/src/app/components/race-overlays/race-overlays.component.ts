@@ -45,6 +45,12 @@ export class RaceOverlaysComponent implements OnChanges {
   @Input() invitationAuthError = '';
   @Input() isInvitationSubmitting = false;
 
+  // Détection du navigateur intégré de messagerie (In-App Browser / WebView)
+  @Input() isInAppBrowser = false;
+  @Input() isIosInApp = false;
+  @Input() isAndroidInApp = false;
+  isInAppNoticeDismissed = false;
+
   @Output() dismissOrientation = new EventEmitter<void>();
   @Output() launchRegattaSplash = new EventEmitter<void>();
   @Output() dismissRegattaSplash = new EventEmitter<void>();

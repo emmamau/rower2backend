@@ -94,6 +94,25 @@
       {{ activePrivateRoom?.race?.title || i18n.t('REGATTA_LAUNCH_TITLE') }}
     </h2>
 
+    <!-- Avertissement In-App Browser (Email WebView) pour basculer vers Safari ou Chrome -->
+    <div class="inapp-browser-alert-card" *ngIf="isInAppBrowser && !isInAppNoticeDismissed" role="note">
+      <div class="inapp-alert-icon">{{ isIosInApp ? '🧭' : '🌐' }}</div>
+      <div class="inapp-alert-content">
+        <strong class="inapp-alert-title">{{ isIosInApp ? (i18n.t('INAPP_IOS_TITLE') || 'Ouvrir dans Safari') : (i18n.t('INAPP_ANDROID_TITLE') || 'Ouvrir dans Chrome') }}</strong>
+        <p class="inapp-alert-desc" *ngIf="isIosInApp">
+          {{ i18n.t('INAPP_IOS_DESC') || 'Pour activer le plein écran et orienter votre smartphone sur le rameur : touchez ⋯ ou la boussole puis « Ouvrir dans Safari ».' }}
+        </p>
+        <p class="inapp-alert-desc" *ngIf="!isIosInApp">
+          {{ i18n.t('INAPP_ANDROID_DESC') || 'Pour un confort optimal sur votre rameur : appuyez sur ⋮ en haut à droite puis « Ouvrir dans Chrome ».' }}
+        </p>
+      </div>
+      <button
+        type="button"
+        class="btn-dismiss-inapp-alert"
+        (click)="isInAppNoticeDismissed = true"
+        aria-label="Fermer l'avertissement">✕</button>
+    </div>
+
     <!-- CAS 1 : JOUEUR DÉJÀ CONNECTÉ -->
     <ng-container *ngIf="isIdentified">
       <div class="invite-connected-user-pill">
