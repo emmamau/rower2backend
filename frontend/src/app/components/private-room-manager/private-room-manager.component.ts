@@ -430,7 +430,11 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
     }
 
     if (changes['siteView']) {
-      this.checkAutoCollapseOnMobile();
+      if (this.siteView === 'home') {
+        this.setBannerCollapsed(false);
+      } else {
+        this.checkAutoCollapseOnMobile();
+      }
       this.cdr.markForCheck();
     }
 
@@ -697,6 +701,7 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
 
   private checkAutoCollapseOnMobile(): void {
     if (typeof window === 'undefined' || !this.activeRoom) return;
+    if (this.siteView === 'home') return;
     const isSmallScreen = window.innerWidth <= 768 || window.innerHeight <= 600;
     const internalSt = (this.activeRoom as any)?.internalStatus || (this.activeRoom.race as any)?.internalStatus;
     const isRaceStartingOrRunning =

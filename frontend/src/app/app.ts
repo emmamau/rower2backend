@@ -2765,13 +2765,12 @@ export class AppComponent implements OnInit, OnDestroy {
     this.closeRaceLeaderboardModal();
     this.isPostRaceRankingActive = false;
     this.showFinishCelebration = false;
-    this.isPrivateRoomCompleted = false;
+    if (!this.activePrivateRoom) {
+      this.isPrivateRoomCompleted = false;
+    }
     if (this.finishCelebrationTimer) {
       clearTimeout(this.finishCelebrationTimer);
       this.finishCelebrationTimer = null;
-    }
-    if (this.activePrivateRoom) {
-      this.exitPrivateRoomToPublic(true);
     }
     this.setSiteView('home');
     this.initGameLoop();
@@ -2930,13 +2929,9 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   setSiteView(view: 'home' | 'regatta' | 'cockpit'): void {
-    if (view === 'home' && this.activePrivateRoom) {
-      // Revenir sur la page d'accueil public lors d'un clic sur l'icône / bouton Accueil
-      this.exitPrivateRoomToPublic(true);
-      this.initGameLoop();
-    }
     this.siteView = view;
     if (view === 'home') {
+      this.isPrivateBannerCollapsed = false;
       this.homeRefresh$.next();
     }
     if (view === 'regatta') {
@@ -4825,6 +4820,7 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   onPrivateRoomUpdated(updated: PrivateRacePayload): void {
+    const prevStatus = (this.activePrivateRoom?.status || this.activePrivateRoom?.race?.status || '').toString().toUpperCase();
     this.activePrivateRoom = updated;
     this.nextRaceInfo = updated;
     if (updated?.secondsRemaining && updated.secondsRemaining > 0) {
@@ -4832,8 +4828,18 @@ export class AppComponent implements OnInit, OnDestroy {
       this.syncCountdownUI();
     }
     const updatedStatus = (updated?.status || updated?.race?.status || '').toString().toUpperCase();
+    const isNowStartingOrRunning =
+      updatedStatus === 'COUNTDOWN' ||
+      updatedStatus === 'RUNNING' ||
+      updatedStatus === 'IN_PROGRESS';
+    const wasAlreadyStartingOrRunning =
+      prevStatus === 'COUNTDOWN' ||
+      prevStatus === 'RUNNING' ||
+      prevStatus === 'IN_PROGRESS';
+    const justStarted = isNowStartingOrRunning && !wasAlreadyStartingOrRunning;
     if (
-      (updatedStatus === 'COUNTDOWN' || updatedStatus === 'RUNNING' || (updated?.secondsRemaining && updated.secondsRemaining > 0)) &&
+      isNowStartingOrRunning &&
+      (!this.userExplicitlyNavigatedHome || justStarted) &&
       (this.isSmartphone || this.isMobileOrTablet)
     ) {
       this.isPrivateModalOpen = false;
