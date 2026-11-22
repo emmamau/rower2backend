@@ -4,7 +4,7 @@
  * internationalisation (langue de l'organisateur avec repli par défaut en anglais)
  * et repli sécurisé en mode simulation pour le développement et les tests.
  */
-import { buildShareableRoomUrl, normalizeSalonCode, withRegattaMode } from "../utils/room-link.util";
+import { buildShareableRoomUrl, normalizeSalonCode, withInvitationEmail, withRegattaMode } from "../utils/room-link.util";
 import {
   CalendarEventParams,
   generateGoogleCalendarUrl,
@@ -531,12 +531,13 @@ export class EmailService {
     const lang = isFr ? "fr" : "en";
 
     // Garantir le format canonique de l'URL pour la plateforme (/r/:code),
-    // complété par ?mode=regatta pour ouvrir directement le site en mode régate (plein écran paysage).
+    // complété par ?mode=regatta pour ouvrir directement le site en mode régate (plein écran paysage)
+    // et &email=... pour pré-remplir l'authentification/inscription sur smartphone.
     const code = params.roomCode || "";
     const baseJoinUrl = params.joinUrl && params.joinUrl.includes("/r/")
       ? params.joinUrl
       : buildShareableRoomUrl(config.frontendUrl, code);
-    const canonicalJoinUrl = withRegattaMode(baseJoinUrl);
+    const canonicalJoinUrl = withInvitationEmail(withRegattaMode(baseJoinUrl), params.to);
 
     const orgName = (params.organizerName || (isFr ? "Un rameur" : "A rower")).trim();
 
@@ -685,9 +686,9 @@ export class EmailService {
           </ol>
         </div>
 
-        <!-- OPTION NAVIGATION WEB -->
+        <!-- OPTION NAVIGATION WEB & SMARTPHONE -->
         <div style="background-color: rgba(255, 255, 255, 0.03); border-left: 3px solid #00f0ff; padding: 12px 16px; margin: 18px 0; border-radius: 4px; font-size: 13px; color: #cbd5e1; line-height: 1.5;">
-          💻 <strong>Participer depuis votre ordinateur ou tablette :</strong> Cliquez sur le bouton ci-dessous pour entrer directement sur la ligne de départ, ou ouvrez l'adresse <a href="${canonicalJoinUrl}" style="color: #00f0ff; text-decoration: underline;">${canonicalJoinUrl}</a>.
+          📱 <strong>Participer depuis votre smartphone, ordinateur ou tablette :</strong> Cliquez sur le bouton ci-dessous pour accéder au salon (connexion, création de compte ou accès direct invité) et lancer la régate en mode plein écran : <a href="${canonicalJoinUrl}" style="color: #00f0ff; text-decoration: underline;">${canonicalJoinUrl}</a>.
         </div>
       `;
 
@@ -777,9 +778,9 @@ export class EmailService {
           </ol>
         </div>
 
-        <!-- WEB BROWSER OPTION -->
+        <!-- SMARTPHONE & WEB BROWSER OPTION -->
         <div style="background-color: rgba(255, 255, 255, 0.03); border-left: 3px solid #00f0ff; padding: 12px 16px; margin: 18px 0; border-radius: 4px; font-size: 13px; color: #cbd5e1; line-height: 1.5;">
-          💻 <strong>Join via Web Browser:</strong> Click the button below to open the starting line directly, or navigate to <a href="${canonicalJoinUrl}" style="color: #00f0ff; text-decoration: underline;">${canonicalJoinUrl}</a>.
+          📱 <strong>Join from your smartphone, computer or tablet:</strong> Click the button below to access the room (log in, quick sign-up or guest mode) and launch full-screen regatta: <a href="${canonicalJoinUrl}" style="color: #00f0ff; text-decoration: underline;">${canonicalJoinUrl}</a>.
         </div>
       `;
 

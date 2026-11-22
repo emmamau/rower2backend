@@ -43,3 +43,18 @@ export function withRegattaMode(url: string): string {
   const hash = hashIdx >= 0 ? url.slice(hashIdx) : "";
   return `${base}${base.includes("?") ? "&" : "?"}mode=regatta${hash}`;
 }
+
+/**
+ * Ajoute le paramètre ?email=... à une URL de salon existante (sans le dupliquer),
+ * permettant de pré-remplir l'authentification lors de l'accès mobile ou web.
+ */
+export function withInvitationEmail(url: string, email?: string): string {
+  if (!url || !email) return url;
+  const cleanEmail = email.trim().toLowerCase();
+  if (!cleanEmail || !cleanEmail.includes("@")) return url;
+  if (/[?&]email=/i.test(url)) return url;
+  const hashIdx = url.indexOf("#");
+  const base = hashIdx >= 0 ? url.slice(0, hashIdx) : url;
+  const hash = hashIdx >= 0 ? url.slice(hashIdx) : "";
+  return `${base}${base.includes("?") ? "&" : "?"}email=${encodeURIComponent(cleanEmail)}${hash}`;
+}

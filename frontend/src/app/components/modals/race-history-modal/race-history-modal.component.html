@@ -124,6 +124,20 @@
         </div>
       }
 
+      <!-- Bannière d'incitation à l'enregistrement pour les invités -->
+      <div class="guest-conversion-banner" *ngIf="!isIdentified">
+        <div class="conversion-text">
+          <strong>💾 Sauvegardez votre chrono et vos statistiques !</strong>
+          <p>Créez votre compte gratuit en quelques secondes pour inscrire votre performance dans l'historique et au classement général.</p>
+        </div>
+        <button
+          type="button"
+          class="btn-save-stats-register"
+          (click)="saveGuestStatsRegisterRequest.emit()">
+          ⭐ Créer mon compte et sauvegarder
+        </button>
+      </div>
+
       <!-- Actions en bas de modale de classement -->
       <div class="modal-footer-actions">
         @if (activePrivateRoom) {

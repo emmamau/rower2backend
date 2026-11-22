@@ -18,11 +18,13 @@ export class RaceHistoryModalComponent {
   @Input() isLoadingRaceLeaderboard = false;
   @Input() selectedRaceLeaderboard: any[] = [];
   @Input() activePrivateRoom: PrivateRacePayload | null = null;
+  @Input() isIdentified = false;
 
   @Output() closeHistoryModalRequest = new EventEmitter<void>();
   @Output() openRaceLeaderboardRequest = new EventEmitter<string>();
   @Output() closeRaceLeaderboardModalRequest = new EventEmitter<void>();
   @Output() leaveCompletedPrivateRoomRequest = new EventEmitter<void>();
+  @Output() saveGuestStatsRegisterRequest = new EventEmitter<void>();
 
   constructor(public i18n: I18nService) {}
 

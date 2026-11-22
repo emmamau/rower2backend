@@ -93,24 +93,260 @@
       {{ activePrivateRoom?.race?.title || i18n.t('REGATTA_LAUNCH_TITLE') }}
     </h2>
 
-    <p class="regatta-launch-text">
-      {{ i18n.t('REGATTA_LAUNCH_DESC') }}
-    </p>
+    <!-- CAS 1 : JOUEUR DÉJÀ CONNECTÉ -->
+    <ng-container *ngIf="isIdentified">
+      <div class="invite-connected-user-pill">
+        <span>👤 Connecté :</span> <strong>{{ currentUserName }}</strong>
+      </div>
+      <p class="regatta-launch-text">
+        {{ i18n.t('REGATTA_LAUNCH_DESC') }}
+      </p>
+      <div class="regatta-launch-actions">
+        <button
+          type="button"
+          class="btn-regatta-launch-action"
+          (click)="launchRegattaFromSplash()">
+          {{ i18n.t('INVITE_BTN_ENTER_FULLSCREEN') || i18n.t('REGATTA_LAUNCH_BTN') }}
+        </button>
+        <button
+          type="button"
+          class="btn-regatta-launch-skip"
+          (click)="dismissRegattaLaunchSplash()">
+          {{ i18n.t('REGATTA_LAUNCH_SKIP') }}
+        </button>
+      </div>
+    </ng-container>
 
-    <div class="regatta-launch-actions">
-      <button
-        type="button"
-        class="btn-regatta-launch-action"
-        (click)="launchRegattaFromSplash()">
-        {{ i18n.t('REGATTA_LAUNCH_BTN') }}
-      </button>
-      <button
-        type="button"
-        class="btn-regatta-launch-skip"
-        (click)="dismissRegattaLaunchSplash()">
-        {{ i18n.t('REGATTA_LAUNCH_SKIP') }}
-      </button>
-    </div>
+    <!-- CAS 2 : JOUEUR NON CONNECTÉ (3 CHOIX OU SOUS-ÉCRAN DÉDIÉ) -->
+    <ng-container *ngIf="!isIdentified">
+      <!-- 2.1 ÉCRAN DES 3 CHOIX -->
+      <div *ngIf="invitationStep === 'choice'" class="invite-choice-container">
+        <p class="invite-choice-intro">
+          {{ i18n.t('INVITE_CHOICE_SUB') }}
+        </p>
+
+        <div class="invite-choice-cards">
+          <!-- Carte 1 : Invité direct -->
+          <button
+            type="button"
+            class="invite-choice-card card-guest"
+            (click)="goToInvitationStep('guest-pairing')">
+            <div class="choice-icon">🚣</div>
+            <div class="choice-content">
+              <strong class="choice-title">{{ i18n.t('INVITE_OPT_GUEST_TITLE') }}</strong>
+              <span class="choice-desc">{{ i18n.t('INVITE_OPT_GUEST_DESC') }}</span>
+            </div>
+            <div class="choice-arrow">→</div>
+          </button>
+
+          <!-- Carte 2 : Se connecter -->
+          <button
+            type="button"
+            class="invite-choice-card card-login"
+            (click)="goToInvitationStep('login')">
+            <div class="choice-icon">🔑</div>
+            <div class="choice-content">
+              <strong class="choice-title">{{ i18n.t('INVITE_OPT_LOGIN_TITLE') }}</strong>
+              <span class="choice-desc">{{ i18n.t('INVITE_OPT_LOGIN_DESC') }}</span>
+            </div>
+            <div class="choice-arrow">→</div>
+          </button>
+
+          <!-- Carte 3 : Créer un compte -->
+          <button
+            type="button"
+            class="invite-choice-card card-register"
+            (click)="goToInvitationStep('register')">
+            <div class="choice-icon">📝</div>
+            <div class="choice-content">
+              <strong class="choice-title">{{ i18n.t('INVITE_OPT_REGISTER_TITLE') }}</strong>
+              <span class="choice-desc">{{ i18n.t('INVITE_OPT_REGISTER_DESC') }}</span>
+            </div>
+            <div class="choice-arrow">→</div>
+          </button>
+        </div>
+
+        <button
+          type="button"
+          class="btn-regatta-launch-skip"
+          (click)="dismissRegattaLaunchSplash()">
+          {{ i18n.t('REGATTA_LAUNCH_SKIP') }}
+        </button>
+      </div>
+
+      <!-- 2.2 APPAIRAGE MONTRE INVITÉ -->
+      <div *ngIf="invitationStep === 'guest-pairing'" class="invite-pairing-container">
+        <div class="invite-subscreen-header">
+          <button type="button" class="btn-subscreen-back" (click)="goToInvitationStep('choice')">
+            {{ i18n.t('INVITE_BTN_BACK') }}
+          </button>
+          <span class="subscreen-badge">⌚ Appairage Montre</span>
+        </div>
+
+        <h3 class="invite-pairing-title">{{ i18n.t('INVITE_PIN_WATCH_HEADING') }}</h3>
+        
+        <div class="invite-pin-display-box">
+          <span class="invite-pin-label">CODE PIN DU SALON</span>
+          <div class="invite-pin-digits font-mono">
+            {{ activeFullscreenPinCode || activePrivateRoom?.pinCode || activePrivateRoom?.race?.pinCode || '----' }}
+          </div>
+        </div>
+
+        <div class="invite-steps-guide">
+          <div class="step-row">
+            <span class="step-num">1</span>
+            <span class="step-txt">{{ i18n.t('INVITE_PIN_WATCH_STEP1') }}</span>
+          </div>
+          <div class="step-row">
+            <span class="step-num">2</span>
+            <span class="step-txt">{{ i18n.t('INVITE_PIN_WATCH_STEP2') }} <strong>{{ activeFullscreenPinCode || activePrivateRoom?.pinCode || activePrivateRoom?.race?.pinCode }}</strong></span>
+          </div>
+          <div class="step-row">
+            <span class="step-num">3</span>
+            <span class="step-txt">{{ i18n.t('INVITE_PIN_WATCH_STEP3') }}</span>
+          </div>
+        </div>
+
+        <div class="invite-watch-status-pill" [class.is-connected]="isPaired">
+          <span class="status-indicator-dot"></span>
+          <span>{{ isPaired ? i18n.t('INVITE_PIN_CONNECTED') : i18n.t('INVITE_PIN_WAITING') }}</span>
+        </div>
+
+        <div class="regatta-launch-actions">
+          <button
+            type="button"
+            class="btn-regatta-launch-action"
+            (click)="launchRegattaFromSplash()">
+            {{ i18n.t('INVITE_BTN_ENTER_FULLSCREEN') }}
+          </button>
+        </div>
+      </div>
+
+      <!-- 2.3 CONNEXION RAPIDE -->
+      <div *ngIf="invitationStep === 'login'" class="invite-form-container">
+        <div class="invite-subscreen-header">
+          <button type="button" class="btn-subscreen-back" (click)="goToInvitationStep('choice')">
+            {{ i18n.t('INVITE_BTN_BACK') }}
+          </button>
+          <span class="subscreen-badge">🔑 Connexion</span>
+        </div>
+
+        <h3 class="invite-form-title">Connexion à votre compte</h3>
+        
+        <div class="invite-auth-error" *ngIf="invitationAuthError">
+          ⚠️ {{ invitationAuthError }}
+        </div>
+
+        <form (ngSubmit)="onQuickLogin()" class="invite-quick-form">
+          <div class="form-group-field">
+            <label for="invQuickLogin">Email ou Identifiant</label>
+            <input
+              id="invQuickLogin"
+              type="text"
+              name="quickLoginInput"
+              [(ngModel)]="quickLoginInput"
+              placeholder="votre.email@exemple.com"
+              required
+              autocomplete="username">
+          </div>
+
+          <div class="form-group-field">
+            <label for="invQuickPass">Mot de passe</label>
+            <input
+              id="invQuickPass"
+              type="password"
+              name="quickPasswordInput"
+              [(ngModel)]="quickPasswordInput"
+              placeholder="••••••••"
+              required
+              autocomplete="current-password">
+          </div>
+
+          <button
+            type="submit"
+            class="btn-regatta-launch-action"
+            [disabled]="isInvitationSubmitting">
+            {{ isInvitationSubmitting ? 'Connexion en cours...' : 'Se connecter & Rejoindre' }}
+          </button>
+
+          <button
+            type="button"
+            class="btn-open-full-modal"
+            (click)="openAccountModal('login')">
+            Mot de passe oublié ?
+          </button>
+        </form>
+      </div>
+
+      <!-- 2.4 CRÉATION DE COMPTE RAPIDE -->
+      <div *ngIf="invitationStep === 'register'" class="invite-form-container">
+        <div class="invite-subscreen-header">
+          <button type="button" class="btn-subscreen-back" (click)="goToInvitationStep('choice')">
+            {{ i18n.t('INVITE_BTN_BACK') }}
+          </button>
+          <span class="subscreen-badge">📝 Inscription</span>
+        </div>
+
+        <h3 class="invite-form-title">Créer votre compte joueur</h3>
+
+        <div class="invite-auth-error" *ngIf="invitationAuthError">
+          ⚠️ {{ invitationAuthError }}
+        </div>
+
+        <form (ngSubmit)="onQuickRegister()" class="invite-quick-form">
+          <div class="form-group-field">
+            <label for="invRegPseudo">Pseudo public de course</label>
+            <input
+              id="invRegPseudo"
+              type="text"
+              name="quickRegLogin"
+              [(ngModel)]="quickRegLogin"
+              placeholder="Ex: RameurExpress"
+              required
+              maxlength="30"
+              autocomplete="nickname">
+          </div>
+
+          <div class="form-group-field">
+            <label for="invRegEmail">Adresse email</label>
+            <input
+              id="invRegEmail"
+              type="email"
+              name="quickRegEmail"
+              [(ngModel)]="quickRegEmail"
+              placeholder="votre.email@exemple.com"
+              required
+              autocomplete="email">
+          </div>
+
+          <div class="form-group-field">
+            <label for="invRegPass">Mot de passe</label>
+            <input
+              id="invRegPass"
+              type="password"
+              name="quickRegPassword"
+              [(ngModel)]="quickRegPassword"
+              placeholder="Minimum 6 caractères"
+              required
+              autocomplete="new-password">
+          </div>
+
+          <button
+            type="submit"
+            class="btn-regatta-launch-action"
+            [disabled]="isInvitationSubmitting">
+            {{ isInvitationSubmitting ? 'Création en cours...' : 'Créer mon compte & Rejoindre' }}
+          </button>
+
+          <button
+            type="button"
+            class="btn-open-full-modal"
+            (click)="openAccountModal('register')">
+            Formulaire d'inscription détaillé
+          </button>
+        </form>
+      </div>
+    </ng-container>
   </div>
 </div>
 

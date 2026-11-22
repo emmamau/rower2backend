@@ -6801,30 +6801,37 @@ app-cockpit-view {
     gap: 2px !important;
   }
   .hud-mini-card {
-    padding: 1px 3px !important;
+    padding: 2px 4px !important;
     display: flex !important;
     flex-direction: column !important;
     align-items: center !important;
     justify-content: center !important;
-    min-height: 24px !important;
-    background: rgba(10, 25, 47, 0.75) !important;
-    border-radius: 3px !important;
+    min-height: 28px !important;
+    background: rgba(10, 25, 47, 0.88) !important;
+    border: 1px solid rgba(0, 240, 255, 0.35) !important;
+    border-radius: 4px !important;
   }
   .hud-mini-card .hm-lbl {
-    font-size: calc(0.50rem * (1 + (var(--regatta-zoom, 1) - 1) * 0.28)) !important;
+    font-size: calc(0.55rem * (1 + (var(--regatta-zoom, 1) - 1) * 0.28)) !important;
     line-height: 1 !important;
     text-transform: uppercase !important;
-    opacity: 0.85 !important;
+    opacity: 0.9 !important;
     margin-bottom: 1px !important;
+    letter-spacing: 0.5px !important;
   }
   .hud-mini-card .hm-val {
-    font-size: calc(0.80rem * (1 + (var(--regatta-zoom, 1) - 1) * 0.42)) !important;
+    font-size: calc(1.02rem * (1 + (var(--regatta-zoom, 1) - 1) * 0.42)) !important;
     line-height: 1.1 !important;
-    font-weight: 800 !important;
+    font-weight: 900 !important;
     margin: 0 !important;
+    color: #ffffff !important;
+  }
+  .hud-mini-card.hud-power .hm-val {
+    color: #00f0ff !important;
+    text-shadow: 0 0 8px rgba(0, 240, 255, 0.6) !important;
   }
   .hud-mini-card .hm-unit {
-    font-size: calc(0.50rem * (1 + (var(--regatta-zoom, 1) - 1) * 0.30)) !important;
+    font-size: calc(0.55rem * (1 + (var(--regatta-zoom, 1) - 1) * 0.30)) !important;
   }
   .hud-mini-card .hm-sub {
     display: none !important;
@@ -9838,6 +9845,380 @@ app-cockpit-view {
 
 .btn-regatta-launch-skip:hover {
   color: #00f0ff;
+}
+
+/* --- Invitation Mobile-First Splash & Bottom Sheet UI --- */
+.invite-connected-user-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(0, 240, 255, 0.12);
+  border: 1px solid rgba(0, 240, 255, 0.4);
+  padding: 0.4rem 0.85rem;
+  border-radius: 999px;
+  font-size: 0.88rem;
+  color: #e2e8f0;
+  margin-bottom: 0.75rem;
+}
+
+.invite-connected-user-pill strong {
+  color: #00f0ff;
+}
+
+.invite-choice-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+  margin-top: 0.5rem;
+}
+
+.invite-choice-intro {
+  color: #cbd5e1;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.invite-choice-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  width: 100%;
+}
+
+.invite-choice-card {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.15rem;
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  outline: none;
+  width: 100%;
+}
+
+.invite-choice-card:hover,
+.invite-choice-card:focus-visible {
+  transform: translateY(-2px);
+  background: rgba(15, 23, 42, 0.98);
+}
+
+.invite-choice-card.card-guest {
+  border-color: rgba(0, 240, 255, 0.45);
+}
+.invite-choice-card.card-guest:hover {
+  border-color: #00f0ff;
+  box-shadow: 0 0 20px rgba(0, 240, 255, 0.35);
+}
+
+.invite-choice-card.card-login {
+  border-color: rgba(255, 230, 0, 0.45);
+}
+.invite-choice-card.card-login:hover {
+  border-color: #ffe600;
+  box-shadow: 0 0 20px rgba(255, 230, 0, 0.35);
+}
+
+.invite-choice-card.card-register {
+  border-color: rgba(255, 0, 85, 0.45);
+}
+.invite-choice-card.card-register:hover {
+  border-color: #ff0055;
+  box-shadow: 0 0 20px rgba(255, 0, 85, 0.35);
+}
+
+.choice-icon {
+  font-size: 1.75rem;
+  flex-shrink: 0;
+}
+
+.choice-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.choice-title {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #ffffff;
+}
+
+.choice-desc {
+  font-size: 0.82rem;
+  color: #94a3b8;
+  line-height: 1.35;
+}
+
+.choice-arrow {
+  font-size: 1.25rem;
+  color: #64748b;
+  transition: transform 0.2s ease, color 0.2s ease;
+  flex-shrink: 0;
+}
+
+.invite-choice-card:hover .choice-arrow {
+  transform: translateX(4px);
+  color: #00f0ff;
+}
+
+/* Sous-écrans : Appairage & Formulaires */
+.invite-subscreen-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.85rem;
+}
+
+.btn-subscreen-back {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #cbd5e1;
+  padding: 0.35rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-subscreen-back:hover {
+  border-color: #00f0ff;
+  color: #00f0ff;
+}
+
+.subscreen-badge {
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #00f0ff;
+  letter-spacing: 0.5px;
+}
+
+.invite-pairing-title,
+.invite-form-title {
+  color: #ffffff;
+  font-size: 1.25rem;
+  font-weight: 800;
+  margin: 0 0 1rem 0;
+}
+
+.invite-pin-display-box {
+  background: rgba(0, 0, 0, 0.6);
+  border: 2px solid #ffe600;
+  box-shadow: 0 0 25px rgba(255, 230, 0, 0.3);
+  border-radius: 12px;
+  padding: 1.25rem;
+  margin-bottom: 1.25rem;
+  text-align: center;
+}
+
+.invite-pin-label {
+  display: block;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: #ffe600;
+  font-weight: 700;
+  margin-bottom: 0.35rem;
+}
+
+.invite-pin-digits {
+  font-size: 2.75rem;
+  font-weight: 900;
+  letter-spacing: 6px;
+  color: #ffffff;
+  text-shadow: 0 0 16px rgba(255, 230, 0, 0.7);
+}
+
+.invite-steps-guide {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  text-align: left;
+  background: rgba(15, 23, 42, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 0.95rem 1rem;
+  margin-bottom: 1.15rem;
+}
+
+.step-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+}
+
+.step-num {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #00f0ff;
+  color: #060913;
+  font-size: 0.78rem;
+  font-weight: 900;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.step-txt {
+  font-size: 0.88rem;
+  color: #cbd5e1;
+  line-height: 1.4;
+}
+
+.step-txt strong {
+  color: #ffe600;
+}
+
+.invite-watch-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.5rem 1rem;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 1.25rem;
+  background: rgba(255, 230, 0, 0.12);
+  border: 1px solid rgba(255, 230, 0, 0.4);
+  color: #ffe600;
+}
+
+.invite-watch-status-pill.is-connected {
+  background: rgba(34, 197, 94, 0.15);
+  border-color: #22c55e;
+  color: #4ade80;
+}
+
+.status-indicator-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: pulseDot 1.4s infinite ease-in-out;
+}
+
+@keyframes pulseDot {
+  0%, 100% { opacity: 0.4; transform: scale(0.9); }
+  50% { opacity: 1; transform: scale(1.25); }
+}
+
+/* Formulaires rapides */
+.invite-quick-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  text-align: left;
+}
+
+.form-group-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.form-group-field label {
+  font-size: 0.82rem;
+  color: #94a3b8;
+  font-weight: 600;
+}
+
+.form-group-field input {
+  background: rgba(15, 23, 42, 0.9);
+  border: 1px solid rgba(0, 240, 255, 0.3);
+  color: #ffffff;
+  padding: 0.75rem 0.9rem;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.form-group-field input:focus {
+  border-color: #00f0ff;
+  box-shadow: 0 0 10px rgba(0, 240, 255, 0.3);
+}
+
+.invite-auth-error {
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid #ef4444;
+  color: #fca5a5;
+  padding: 0.65rem 0.9rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  margin-bottom: 0.75rem;
+  text-align: left;
+}
+
+.btn-open-full-modal {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  font-size: 0.82rem;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 0.3rem 0;
+  align-self: center;
+  transition: color 0.15s ease;
+}
+
+.btn-open-full-modal:hover {
+  color: #00f0ff;
+}
+
+/* Bannière de conversion post-course invité */
+.guest-conversion-banner {
+  background: linear-gradient(90deg, rgba(0, 240, 255, 0.12) 0%, rgba(255, 0, 85, 0.12) 100%);
+  border: 1px solid rgba(0, 240, 255, 0.4);
+  border-radius: 12px;
+  padding: 1.15rem 1.35rem;
+  margin: 1.25rem 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.conversion-text strong {
+  display: block;
+  color: #ffffff;
+  font-size: 1rem;
+  margin-bottom: 0.25rem;
+}
+
+.conversion-text p {
+  color: #cbd5e1;
+  font-size: 0.85rem;
+  margin: 0;
+  line-height: 1.4;
+}
+
+.btn-save-stats-register {
+  background: linear-gradient(90deg, #00f0ff 0%, #3b82f6 100%);
+  border: none;
+  color: #060913;
+  font-weight: 800;
+  padding: 0.65rem 1.25rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  box-shadow: 0 0 18px rgba(0, 240, 255, 0.4);
+  transition: transform 0.15s ease;
+}
+
+.btn-save-stats-register:hover {
+  transform: scale(1.03);
 }
 
 /* --- Duels 1v1 : Profil, Inscription & Classement --- */

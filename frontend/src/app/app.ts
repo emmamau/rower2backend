@@ -10,7 +10,7 @@ import {
   PrivateModalTab
 } from './components/private-room-manager/private-room-manager.component';
 import { RowerData, NextRaceInfo, PastRaceResult, PrivateRacePayload } from './models/rower-data.model';
-import { extractRoomFromLocation, isRegattaModeRequested } from './utils/room-link.util';
+import { extractInvitationEmail, extractRoomFromLocation, isRegattaModeRequested } from './utils/room-link.util';
 import {
   UserProfile,
   UserHistoryItem,
@@ -805,6 +805,10 @@ export class AppComponent implements OnInit, OnDestroy {
   // Écran d'accueil de lancement direct de régate (lien email ?mode=regatta)
   isRegattaLaunchSplashOpen = false;
   pendingRegattaLaunch = false;
+  invitationEmail = '';
+  invitationStep: 'choice' | 'guest-pairing' | 'login' | 'register' = 'choice';
+  invitationAuthError = '';
+  isInvitationSubmitting = false;
 
   // Mini-leaderboard cockpit rétractable & déplaçable (Draggable Leaderboard)
   isCockpitLeaderboardCollapsed = true;
@@ -4574,19 +4578,183 @@ export class AppComponent implements OnInit, OnDestroy {
 
   /**
    * Action déclenchée par le geste utilisateur sur l'écran d'accueil de la régate :
-   * passe en mode régate, bascule en plein écran et verrouille le mode paysage.
+   * passe en mode régate, bascule en plein écran, verrouille le mode paysage et active le maintien d'écran éveillé.
    */
   async launchRegattaFromSplash(): Promise<void> {
     this.isRegattaLaunchSplashOpen = false;
     this.setSiteView('regatta');
     await this.enterFullscreen();
     await this.lockLandscape();
+    await this.enableScreenWakeLock();
     this.cdr.markForCheck();
   }
 
   dismissRegattaLaunchSplash(): void {
     this.isRegattaLaunchSplashOpen = false;
     this.setSiteView('regatta');
+    this.cdr.markForCheck();
+  }
+
+  onSetInvitationStep(step: 'choice' | 'guest-pairing' | 'login' | 'register'): void {
+    this.invitationStep = step;
+    this.invitationAuthError = '';
+    this.cdr.markForCheck();
+  }
+
+  onQuickLoginSubmit(data: { emailOrLogin: string; password: string }): void {
+    this.isInvitationSubmitting = true;
+    this.invitationAuthError = '';
+    this.loginAccountInput = data.emailOrLogin;
+    this.passwordAccountInput = data.password;
+
+    const existingGuestToken = (this.deviceToken || this.pairingCode) ? String(this.deviceToken || this.pairingCode) : undefined;
+    this.rowerService.loginUser({
+      login: data.emailOrLogin.trim(),
+      password: data.password.trim(),
+      deviceToken: existingGuestToken || undefined,
+      guestPairingToken: existingGuestToken || undefined,
+      guestUserId: this.activeUserId || undefined,
+    }).subscribe({
+      next: (res) => {
+        this.isInvitationSubmitting = false;
+        if (res.success && res.user) {
+          const userLogin = res.user.login || res.user.id;
+          const isAdminUser = Boolean(res.isAdmin || res.role === 'ADMIN' || res.user.isAdmin || res.user.role === 'ADMIN');
+          const resolvedRole = res.role || res.user.role || (isAdminUser ? 'ADMIN' : 'USER');
+          const resolvedTier = String(res.subscriptionTier || res.user.subscriptionTier || (isAdminUser ? 'premium' : 'free')).toLowerCase();
+          const isSub = Boolean(isAdminUser || (resolvedTier !== 'free' && (res.isSubscriber || res.user.isSubscriber)));
+
+          this.activeUserId = userLogin;
+          this.userIdInput = res.user.watchUserId || userLogin;
+          this.currentUser = {
+            ...res.user,
+            name: userLogin,
+            isAdmin: isAdminUser,
+            role: resolvedRole,
+            subscriptionTier: resolvedTier,
+            isSubscriber: isSub,
+          };
+          this.userLoginInput = userLogin;
+          this.syncKayakCustomizationFromUser(res.user);
+          this.syncRegattaPreferencesFromUser(res.user);
+          this.syncDuelPreferencesFromUser(res.user);
+          if (res.user.language) {
+            this.i18n.setLang(res.user.language as any);
+            this.syncSeoLanguage(res.user.language);
+          }
+
+          try {
+            localStorage.setItem('rower_user_id', userLogin);
+            localStorage.setItem('rower_user_login', userLogin);
+            localStorage.setItem('rower_is_subscriber', String(isSub));
+            localStorage.setItem('rower_is_admin', String(isAdminUser));
+            localStorage.setItem('rower_user_role', resolvedRole);
+            localStorage.setItem('rower_subscription_tier', resolvedTier);
+            if (res.token) {
+              localStorage.setItem('rower_auth_token', res.token);
+            }
+          } catch {}
+
+          if (res.isGarminPaired || res.user.isGarminPaired) {
+            this.isPaired = true;
+            this.isWatchConfirmed = true;
+          }
+
+          this.launchRegattaFromSplash();
+        } else {
+          this.invitationAuthError = res.message || 'Identifiants incorrects.';
+        }
+        this.cdr.markForCheck();
+      },
+      error: (err) => {
+        this.isInvitationSubmitting = false;
+        this.invitationAuthError = err?.error?.message || err?.error?.error || 'Erreur lors de la connexion. Vérifiez vos identifiants.';
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  onQuickRegisterSubmit(data: { login: string; email: string; password: string }): void {
+    this.isInvitationSubmitting = true;
+    this.invitationAuthError = '';
+    const existingGuestToken = (this.deviceToken || this.pairingCode) ? String(this.deviceToken || this.pairingCode) : undefined;
+
+    this.rowerService.registerUser({
+      nom: data.login.trim(),
+      prenom: data.login.trim(),
+      anneeNaissance: 1995,
+      sexe: 'M',
+      pays: 'France',
+      login: data.login.trim(),
+      email: data.email.trim(),
+      password: data.password.trim(),
+      deviceToken: existingGuestToken || undefined,
+      guestPairingToken: existingGuestToken || undefined,
+      guestToken: existingGuestToken || undefined,
+      guestUserId: this.activeUserId || undefined,
+    }).subscribe({
+      next: (res) => {
+        this.isInvitationSubmitting = false;
+        if (res.success && res.user) {
+          const userLogin = res.user.login || res.user.id;
+          this.activeUserId = userLogin;
+          this.userIdInput = userLogin;
+          this.currentUser = {
+            ...res.user,
+            name: userLogin,
+            isAdmin: false,
+            role: 'USER',
+            subscriptionTier: 'free',
+            isSubscriber: false,
+          };
+          this.userLoginInput = userLogin;
+          try {
+            localStorage.setItem('rower_user_id', userLogin);
+            localStorage.setItem('rower_user_login', userLogin);
+            localStorage.setItem('rower_is_subscriber', 'false');
+            localStorage.setItem('rower_is_admin', 'false');
+            localStorage.setItem('rower_user_role', 'USER');
+            localStorage.setItem('rower_subscription_tier', 'free');
+            if (res.token) {
+              localStorage.setItem('rower_auth_token', res.token);
+            }
+          } catch {}
+
+          if (res.isGarminPaired) {
+            this.isPaired = true;
+            this.isWatchConfirmed = true;
+          }
+
+          this.launchRegattaFromSplash();
+        } else {
+          this.invitationAuthError = res.message || "Erreur lors de l'inscription.";
+        }
+        this.cdr.markForCheck();
+      },
+      error: (err) => {
+        this.isInvitationSubmitting = false;
+        this.invitationAuthError = err?.error?.message || err?.error?.error || "Erreur lors de l'inscription. Ce pseudo ou cet email est peut-être déjà utilisé.";
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  onOpenFullAccountModal(tab: 'login' | 'register'): void {
+    this.accountModalTab = tab;
+    this.isAccountModalOpen = true;
+    this.cdr.markForCheck();
+  }
+
+  onSaveGuestStatsRegister(): void {
+    this.closeRaceLeaderboardModal();
+    this.accountModalTab = 'register';
+    if (this.invitationEmail && !this.regEmail) {
+      this.regEmail = this.invitationEmail;
+    }
+    if (this.currentUser?.name && !this.regLogin && !this.currentUser.name.startsWith('Invité_')) {
+      this.regLogin = this.currentUser.name;
+    }
+    this.isAccountModalOpen = true;
     this.cdr.markForCheck();
   }
 
@@ -5427,8 +5595,20 @@ export class AppComponent implements OnInit, OnDestroy {
 
     const extracted = extractRoomFromLocation(window.location.pathname, window.location.search);
     const isRegattaRequested = isRegattaModeRequested(window.location.search);
+    const emailParam = extractInvitationEmail(window.location.search);
+    if (emailParam) {
+      this.invitationEmail = emailParam;
+      if (!this.loginAccountInput) {
+        this.loginAccountInput = emailParam;
+      }
+      if (!this.regEmail) {
+        this.regEmail = emailParam;
+      }
+    }
     if (isRegattaRequested) {
       this.pendingRegattaLaunch = true;
+      this.isRegattaLaunchSplashOpen = true;
+      this.invitationStep = 'choice';
     }
 
     if (!extracted) {

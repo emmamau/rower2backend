@@ -171,6 +171,35 @@ export function withRegattaMode(url: string): string {
 }
 
 /**
+ * Appends ?email=... to a shareable room link without duplicating parameters.
+ */
+export function withInvitationEmail(url: string, email?: string): string {
+  if (!url || !email) return url;
+  const cleanEmail = email.trim().toLowerCase();
+  if (!cleanEmail || !cleanEmail.includes('@')) return url;
+  if (/[?&]email=/i.test(url)) return url;
+  const hashIdx = url.indexOf('#');
+  const base = hashIdx >= 0 ? url.slice(0, hashIdx) : url;
+  const hash = hashIdx >= 0 ? url.slice(hashIdx) : '';
+  return `${base}${base.includes('?') ? '&' : '?'}email=${encodeURIComponent(cleanEmail)}${hash}`;
+}
+
+/**
+ * Extracts and sanitizes an invitation email from a location query string.
+ */
+export function extractInvitationEmail(search: string): string | null {
+  if (!search) return null;
+  try {
+    const params = new URLSearchParams(search);
+    const email = params.get('email');
+    if (email && email.trim() && email.includes('@')) {
+      return email.trim().toLowerCase();
+    }
+  } catch {}
+  return null;
+}
+
+/**
  * Checks if ?mode=regatta is requested in the search string.
  */
 export function isRegattaModeRequested(search: string): boolean {

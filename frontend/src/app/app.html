@@ -34,6 +34,17 @@
     [shouldShowSmartphonePinOverlay]="shouldShowSmartphonePinOverlay"
     [activeFullscreenPinCode]="activeFullscreenPinCode"
     [formattedPairingCountdown]="formattedPairingCountdown"
+    [isIdentified]="isIdentified"
+    [currentUserName]="currentUser.name || currentUser.login || activeUserId"
+    [isPaired]="isPaired"
+    [invitationEmail]="invitationEmail"
+    [invitationStep]="invitationStep"
+    [invitationAuthError]="invitationAuthError"
+    [isInvitationSubmitting]="isInvitationSubmitting"
+    (setInvitationStep)="onSetInvitationStep($event)"
+    (quickLoginSubmit)="onQuickLoginSubmit($event)"
+    (quickRegisterSubmit)="onQuickRegisterSubmit($event)"
+    (openFullAccountModal)="onOpenFullAccountModal($event)"
     (dismissOrientation)="dismissOrientationNotice()"
     (launchRegattaSplash)="launchRegattaFromSplash()"
     (dismissRegattaSplash)="dismissRegattaLaunchSplash()"
@@ -204,10 +215,12 @@
       [isLoadingRaceLeaderboard]="isLoadingRaceLeaderboard"
       [selectedRaceLeaderboard]="selectedRaceLeaderboard"
       [activePrivateRoom]="activePrivateRoom"
+      [isIdentified]="isIdentified"
       (closeHistoryModalRequest)="isHistoryOpen = false"
       (openRaceLeaderboardRequest)="openRaceLeaderboard($event)"
       (closeRaceLeaderboardModalRequest)="closeRaceLeaderboardModal()"
-      (leaveCompletedPrivateRoomRequest)="leaveCompletedPrivateRoom()">
+      (leaveCompletedPrivateRoomRequest)="leaveCompletedPrivateRoom()"
+      (saveGuestStatsRegisterRequest)="onSaveGuestStatsRegister()">
     </app-race-history-modal>
   }
 

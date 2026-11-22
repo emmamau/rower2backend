@@ -1,16 +1,19 @@
-import { Component, Input, Output, EventEmitter, ViewEncapsulation } from '@angular/core';
+import { Component, Input, Output, EventEmitter, ViewEncapsulation, OnChanges, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { I18nService } from '../../services/i18n.service';
 import { PrivateRacePayload } from '../../models/rower-data.model';
+
+export type InvitationOverlayStep = 'choice' | 'guest-pairing' | 'login' | 'register';
 
 @Component({
   selector: 'app-race-overlays',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, FormsModule],
   templateUrl: './race-overlays.component.html',
   encapsulation: ViewEncapsulation.None
 })
-export class RaceOverlaysComponent {
+export class RaceOverlaysComponent implements OnChanges {
   @Input() activeFinishToast: string | null = null;
   @Input() showFinishCelebration = false;
   @Input() isMobileOrTablet = false;
@@ -33,6 +36,15 @@ export class RaceOverlaysComponent {
   @Input() activeFullscreenPinCode = '';
   @Input() formattedPairingCountdown = '';
 
+  // Nouveaux états d'authentification et d'invitation mobile-first
+  @Input() isIdentified = false;
+  @Input() currentUserName = '';
+  @Input() isPaired = false;
+  @Input() invitationEmail = '';
+  @Input() invitationStep: InvitationOverlayStep = 'choice';
+  @Input() invitationAuthError = '';
+  @Input() isInvitationSubmitting = false;
+
   @Output() dismissOrientation = new EventEmitter<void>();
   @Output() launchRegattaSplash = new EventEmitter<void>();
   @Output() dismissRegattaSplash = new EventEmitter<void>();
@@ -44,7 +56,59 @@ export class RaceOverlaysComponent {
   @Output() approvePlayer = new EventEmitter<string>();
   @Output() rejectPlayer = new EventEmitter<string>();
 
+  @Output() setInvitationStep = new EventEmitter<InvitationOverlayStep>();
+  @Output() quickLoginSubmit = new EventEmitter<{ emailOrLogin: string; password: string }>();
+  @Output() quickRegisterSubmit = new EventEmitter<{ login: string; email: string; password: string }>();
+  @Output() openFullAccountModal = new EventEmitter<'login' | 'register'>();
+
+  // Champs de saisie formulaires rapides d'invitation
+  quickLoginInput = '';
+  quickPasswordInput = '';
+  quickRegLogin = '';
+  quickRegEmail = '';
+  quickRegPassword = '';
+
   constructor(public i18n: I18nService) {}
+
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes['invitationEmail'] && this.invitationEmail) {
+      if (!this.quickLoginInput) {
+        this.quickLoginInput = this.invitationEmail;
+      }
+      if (!this.quickRegEmail) {
+        this.quickRegEmail = this.invitationEmail;
+      }
+    }
+  }
+
+  goToInvitationStep(step: InvitationOverlayStep): void {
+    if (step === 'login' && this.invitationEmail && !this.quickLoginInput) {
+      this.quickLoginInput = this.invitationEmail;
+    }
+    if (step === 'register' && this.invitationEmail && !this.quickRegEmail) {
+      this.quickRegEmail = this.invitationEmail;
+    }
+    this.setInvitationStep.emit(step);
+  }
+
+  onQuickLogin(): void {
+    const emailOrLogin = (this.quickLoginInput || '').trim();
+    const password = (this.quickPasswordInput || '').trim();
+    if (!emailOrLogin || !password) return;
+    this.quickLoginSubmit.emit({ emailOrLogin, password });
+  }
+
+  onQuickRegister(): void {
+    const login = (this.quickRegLogin || '').trim();
+    const email = (this.quickRegEmail || '').trim();
+    const password = (this.quickRegPassword || '').trim();
+    if (!login || !password) return;
+    this.quickRegisterSubmit.emit({ login, email, password });
+  }
+
+  openAccountModal(tab: 'login' | 'register'): void {
+    this.openFullAccountModal.emit(tab);
+  }
 
   dismissOrientationNotice(): void {
     this.dismissOrientation.emit();
