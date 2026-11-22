@@ -18,8 +18,10 @@
       <div class="pricing-card free-tier" [class.current-tier]="subscriptionStatus?.tier === 'free'">
         <div class="pricing-header">
           <h4>{{ i18n.t('SUB_FREE_TITLE') }}</h4>
-          <div class="pricing-price">0 €</div>
-          <span class="pricing-period">{{ i18n.t('SUB_FREE_PERIOD') }}</span>
+          <ng-container *ngIf="isTierActive('free')">
+            <div class="pricing-price">0 €</div>
+            <span class="pricing-period">{{ i18n.t('SUB_FREE_PERIOD') }}</span>
+          </ng-container>
         </div>
         <ul class="pricing-features">
           <li>✓ {{ i18n.t('SUB_FREE_FEAT_1') }}</li>
@@ -33,8 +35,8 @@
           type="button"
           class="btn-pricing btn-free"
           (click)="subscribeToTier('free')"
-          [disabled]="subscriptionLoading || subscriptionStatus?.tier === 'free'">
-          {{ subscriptionStatus?.tier === 'free' ? i18n.t('PLAN_CURRENT') : i18n.t('PLAN_SELECT') }}
+          [disabled]="subscriptionLoading || subscriptionStatus?.tier === 'free' || !isTierActive('free')">
+          {{ subscriptionStatus?.tier === 'free' ? i18n.t('PLAN_CURRENT') : (!isTierActive('free') ? i18n.t('PLAN_DISABLED') : i18n.t('PLAN_SELECT')) }}
         </button>
       </div>
 
@@ -43,8 +45,10 @@
         <div class="popular-ribbon">{{ i18n.t('PLAN_RECOMMENDED') }}</div>
         <div class="pricing-header">
           <h4>{{ i18n.t('SUB_CLUB_TITLE') }}</h4>
-          <div class="pricing-price">5,99 €</div>
-          <span class="pricing-period">{{ i18n.t('SUB_PER_MONTH') }}</span>
+          <ng-container *ngIf="isTierActive('intermediate')">
+            <div class="pricing-price">5,99 €</div>
+            <span class="pricing-period">{{ i18n.t('SUB_PER_MONTH') }}</span>
+          </ng-container>
         </div>
         <ul class="pricing-features">
           <li>✓ {{ i18n.t('SUB_CLUB_FEAT_1') }}</li>
@@ -69,8 +73,10 @@
       <div class="pricing-card pro-tier" [class.current-tier]="subscriptionStatus?.tier === 'premium'">
         <div class="pricing-header">
           <h4>{{ i18n.t('SUB_PRO_TITLE') }}</h4>
-          <div class="pricing-price">8,99 €</div>
-          <span class="pricing-period">{{ i18n.t('SUB_PER_MONTH') }}</span>
+          <ng-container *ngIf="isTierActive('premium')">
+            <div class="pricing-price">8,99 €</div>
+            <span class="pricing-period">{{ i18n.t('SUB_PER_MONTH') }}</span>
+          </ng-container>
         </div>
         <ul class="pricing-features">
           <li>✓ {{ i18n.t('SUB_PRO_FEAT_1') }}</li>

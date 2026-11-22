@@ -4548,14 +4548,13 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   isTierActive(tierId: string): boolean {
-    if (tierId === 'free') return true;
     const clean = String(tierId || '').toLowerCase().trim();
     const tier = (this.subscriptionTiers || []).find((t: any) => {
       const code = String(t.code || t.id || '').toLowerCase().trim();
       return code === clean || (clean === 'intermediate' && code === 'standard') || (clean === 'premium' && code === 'elite_pro');
     });
-    if (!tier) return true;
-    return tier.isActive !== false;
+    if (!tier) return false;
+    return tier.isActive === true;
   }
 
   subscribeToTier(tierId: string): void {

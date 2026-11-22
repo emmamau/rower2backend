@@ -145,25 +145,32 @@ export const getSubscriptionTiers = async (_req: Request, res: Response): Promis
     const premiumDb = plans.find((p: any) => String(p.code || "").toUpperCase() === "PREMIUM");
     const freeDb = plans.find((p: any) => String(p.code || "").toUpperCase() === "FREE");
 
-    const isStandardActive = standardDb ? Boolean(standardDb.isActive ?? standardDb.is_active ?? true) : true;
-    const isPremiumActive = premiumDb ? Boolean(premiumDb.isActive ?? premiumDb.is_active ?? true) : true;
-    const isFreeActive = freeDb ? Boolean(freeDb.isActive ?? freeDb.is_active ?? true) : true;
+    const isStandardActive = standardDb ? Boolean(standardDb.isActive ?? standardDb.is_active ?? false) : false;
+    const isPremiumActive = premiumDb ? Boolean(premiumDb.isActive ?? premiumDb.is_active ?? false) : false;
+    const isFreeActive = freeDb ? Boolean(freeDb.isActive ?? freeDb.is_active ?? false) : false;
+
+    const formatTier = (tierConfig: SubscriptionTierConfig, isActive: boolean) => ({
+      ...tierConfig,
+      priceEur: isActive ? tierConfig.priceEur : null,
+      priceFormatted: isActive ? tierConfig.priceFormatted : null,
+      isActive,
+    });
 
     res.status(200).json({
       success: true,
       tiers: [
-        { ...SUBSCRIPTION_TIERS.free, isActive: isFreeActive },
-        { ...SUBSCRIPTION_TIERS.intermediate, isActive: isStandardActive },
-        { ...SUBSCRIPTION_TIERS.premium, isActive: isPremiumActive },
+        formatTier(SUBSCRIPTION_TIERS.free, isFreeActive),
+        formatTier(SUBSCRIPTION_TIERS.intermediate, isStandardActive),
+        formatTier(SUBSCRIPTION_TIERS.premium, isPremiumActive),
       ],
     });
   } catch {
     res.status(200).json({
       success: true,
       tiers: [
-        { ...SUBSCRIPTION_TIERS.free, isActive: true },
-        { ...SUBSCRIPTION_TIERS.intermediate, isActive: true },
-        { ...SUBSCRIPTION_TIERS.premium, isActive: true },
+        { ...SUBSCRIPTION_TIERS.free, priceEur: null, priceFormatted: null, isActive: false },
+        { ...SUBSCRIPTION_TIERS.intermediate, priceEur: null, priceFormatted: null, isActive: false },
+        { ...SUBSCRIPTION_TIERS.premium, priceEur: null, priceFormatted: null, isActive: false },
       ],
     });
   }
