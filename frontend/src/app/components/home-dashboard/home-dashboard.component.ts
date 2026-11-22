@@ -22,6 +22,7 @@ export class HomeDashboardComponent {
   @Input() isRegisteredUser = false;
   @Input() isSubscriber = false;
   @Input() isUserAdmin = false;
+  @Input() hasActivePrivateRoom = false;
   @Input() currentUser!: UserProfile;
   @Input() currentUserLeague!: LeagueInfo;
   @Input() lastRaceSummary!: UserLastRaceSummary;

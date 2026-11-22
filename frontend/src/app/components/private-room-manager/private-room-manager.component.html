@@ -157,16 +157,24 @@
                   }
                 </p>
               </div>
-            } @else if (!activeUserId) {
+            } @else if (!isRegisteredUser) {
               <div class="priv-duel-salon-content">
                 <p class="priv-duel-salon-sub">
                   @if (activeDuelChallenge.challengedEmail && !activeDuelChallenge.challengedUserId) {
-                    ⚔️ Ce duel 1v1 est adressé à <strong>Invité : {{ activeDuelChallenge.challengedEmail }}</strong>. Créez votre compte ou connectez-vous avec cet e-mail pour accepter ou refuser le défi.
+                    ⚔️ Ce duel 1v1 est adressé à <strong>Invité : {{ activeDuelChallenge.challengedEmail }}</strong>. Créez votre compte gratuit ou connectez-vous avec cet e-mail pour accepter ou refuser le défi.
                   } @else {
                     ⚔️ Ce duel 1v1 est adressé à <strong>&#64;{{ activeDuelChallenge.challengedLogin }}</strong>. Connectez-vous avec ce compte pour accepter ou refuser le défi.
                   }
                 </p>
                 <div class="priv-duel-salon-btn-row">
+                  @if (activeDuelChallenge.challengedEmail && !activeDuelChallenge.challengedUserId) {
+                    <button
+                      type="button"
+                      class="priv-btn priv-btn-launch"
+                      (click)="requestAccountModal.emit('register')">
+                      📝 Créer mon compte gratuit pour accepter le défi
+                    </button>
+                  }
                   <button
                     type="button"
                     class="priv-btn priv-btn-cyan"
@@ -288,7 +296,7 @@
               (click)="triggerStart(15)">
               🚀 Démarrer (15s)
             </button>
-          } @else if (activeRoom.status === 'in_progress' || activeRoom.status === 'running') {
+          } @else if (isActiveRoomRunning) {
             <button
               type="button"
               class="priv-btn priv-btn-danger"
@@ -1442,7 +1450,7 @@
                     {{ activeRoomBotCount === 0 ? '🤖 + Ajouter des bots' : '🤖 Retirer les ' + activeRoomBotCount + ' bot(s)' }}
                   </button>
                 }
-              } @else if (activeRoom.status === 'in_progress' || activeRoom.status === 'running') {
+              } @else if (isActiveRoomRunning) {
                 <button
                   type="button"
                   class="priv-btn priv-btn-danger"

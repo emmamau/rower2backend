@@ -1,5 +1,5 @@
-<!-- 2.1 BANNIÈRE D'ACCUEIL & STATUT MATÉRIEL EN UN COUP D'ŒIL -->
-<section class="home-welcome-banner" *ngIf="!isMobileFullscreenOnly" [attr.aria-label]="i18n.t('HOME_WELCOME_ARIA')">
+<!-- 2.1 BANNIÈRE D'ACCUEIL & STATUT MATÉRIEL EN UN COUP D'ŒIL (MASQUÉE SUR UN SALON PRIVÉ / DUEL POUR ALLÉGER L'ÉCRAN) -->
+<section class="home-welcome-banner" *ngIf="!isMobileFullscreenOnly && !hasActivePrivateRoom" [attr.aria-label]="i18n.t('HOME_WELCOME_ARIA')">
   @if (isRegisteredUser || isSubscriber || isUserAdmin) {
     <div class="welcome-banner-card is-connected">
       <!-- Médaille & Salutation -->
@@ -92,8 +92,8 @@
   }
 </section>
 
-<!-- BANNIÈRE RAPIDE COURSE EN COURS DEPUIS L'ACCUEIL -->
-<div class="home-active-race-callout" *ngIf="isRaceActive">
+<!-- BANNIÈRE RAPIDE COURSE EN COURS DEPUIS L'ACCUEIL (SUPPRIMÉE : NON AFFICHÉE SUR UN SALON PRIVÉ NI POUR UNE COURSE PROGRAMMÉE NON ENCORE ATTEINTE) -->
+<div class="home-active-race-callout" *ngIf="false">
   <div class="callout-left">
     <span class="callout-pulse">🔴</span>
     <strong>{{ i18n.t('RACE_IN_PROGRESS') }}</strong>
@@ -208,8 +208,8 @@
       </div>
     </div>
 
-    <!-- BANNIÈRE OFFICIELLE : COURSE EN COURS AVEC TOP 3 ET DURÉE RESTANTE DANS LE HAUT DU TABLEAU DES RAMEURS ENGAGÉS -->
-    <div class="lobby-live-race-banner" *ngIf="isRaceActive || nextRaceInfo?.status === 'in_progress'">
+    <!-- BANNIÈRE OFFICIELLE : COURSE EN COURS AVEC TOP 3 ET DURÉE RESTANTE (UNIQUEMENT SI LA COURSE EST LANCÉE ET PAS SUR UN SALON PRIVÉ EN ATTENTE / PROGRAMMÉ) -->
+    <div class="lobby-live-race-banner" *ngIf="isRaceActive && !hasActivePrivateRoom">
       <div class="live-banner-headline">
         <span class="live-pulse-badge">🔴 {{ i18n.t('HOME_LIVE_RACE_BADGE') }}</span><!-- 🔴 Course en cours -->
         <span class="live-remaining-timer">⏱️ {{ i18n.t('HEADER_TIME_REMAINING_LABEL') }} <strong>{{ formattedGameRemaining }}</strong></span>
@@ -262,8 +262,8 @@
   </div>
 </section>
 
-<!-- LIENS SMARTPHONE POUR AFFICHER LE CLASSEMENT ET L'HISTORIQUE (LISIBILITÉ MOBILE) -->
-<section class="smartphone-table-links" *ngIf="!isMobileFullscreenOnly" [attr.aria-label]="i18n.t('HOME_MOBILE_LINKS_ARIA')">
+<!-- LIENS SMARTPHONE POUR AFFICHER LE CLASSEMENT ET L'HISTORIQUE (MASQUÉS EN MODE SALON PRIVÉ ÉPURÉ) -->
+<section class="smartphone-table-links" *ngIf="!isMobileFullscreenOnly && !hasActivePrivateRoom" [attr.aria-label]="i18n.t('HOME_MOBILE_LINKS_ARIA')">
   <button type="button" class="btn-mobile-table-link link-standings" (click)="openStandingsModal()">
     <div class="mobile-link-left">
       <span class="link-icon">🏅</span>
@@ -287,8 +287,8 @@
   </button>
 </section>
 
-<!-- DEUX VUES RÉPARTIES SUR LA TOTALITÉ DE LA LARGEUR DE L'ÉCRAN AVEC ASCENSEUR -->
-<section class="dual-standings-history-container" *ngIf="!isMobileFullscreenOnly" [attr.aria-label]="i18n.t('HOME_DUAL_SECTION_ARIA')">
+<!-- DEUX VUES RÉPARTIES SUR LA TOTALITÉ DE LA LARGEUR DE L'ÉCRAN AVEC ASCENSEUR (MASQUÉES SUR UN SALON PRIVÉ / DUEL POUR ALLÉGER L'ÉCRAN) -->
+<section class="dual-standings-history-container" *ngIf="!isMobileFullscreenOnly && !hasActivePrivateRoom" [attr.aria-label]="i18n.t('HOME_DUAL_SECTION_ARIA')">
   <!-- VUE 1 : CLASSEMENT GÉNÉRAL AVEC ASCENSEUR -->
   <div class="dual-panel-card panel-standings">
     <div class="panel-header">

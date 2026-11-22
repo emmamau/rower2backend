@@ -531,13 +531,13 @@ export class EmailService {
     const lang = isFr ? "fr" : "en";
 
     // Garantir le format canonique de l'URL pour la plateforme (/r/:code),
-    // complété par ?mode=regatta pour ouvrir directement le site en mode régate (plein écran paysage)
-    // et &email=... pour pré-remplir l'authentification/inscription sur smartphone.
+    // qui arrive directement sur la page d'accueil du salon ou du duel (plus en vue régate)
+    // et ?email=... pour pré-remplir l'authentification/inscription.
     const code = params.roomCode || "";
     const baseJoinUrl = params.joinUrl && params.joinUrl.includes("/r/")
-      ? params.joinUrl
+      ? params.joinUrl.replace(/([?&])mode=regatta(&|$)/i, (_m, p1, p2) => (p1 === "?" && p2 === "&" ? "?" : p2 ? p1 : ""))
       : buildShareableRoomUrl(config.frontendUrl, code);
-    const canonicalJoinUrl = withInvitationEmail(withRegattaMode(baseJoinUrl), params.to);
+    const canonicalJoinUrl = withInvitationEmail(baseJoinUrl, params.to);
 
     const orgName = (params.organizerName || (isFr ? "Un rameur" : "A rower")).trim();
 
@@ -1275,7 +1275,8 @@ export class EmailService {
     const isFr = (params.lang || "fr").toLowerCase().startsWith("fr");
     const lang = isFr ? "fr" : "en";
     const tz = params.timezone || "Europe/Paris";
-    const signupUrl = `${config.frontendUrl}/?duelInviteToken=${encodeURIComponent(params.inviteToken)}&email=${encodeURIComponent(params.to)}&mode=register`;
+    const roomPath = params.roomCode ? buildShareableRoomUrl(config.frontendUrl, params.roomCode) : config.frontendUrl;
+    const signupUrl = `${roomPath}?duelInviteToken=${encodeURIComponent(params.inviteToken)}&email=${encodeURIComponent(params.to)}`;
 
     let dateStr = params.slotStart;
     let slotTimeStr = `${params.slotStart} - ${params.slotEnd}`;

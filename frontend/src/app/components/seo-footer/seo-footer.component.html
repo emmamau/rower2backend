@@ -1,5 +1,5 @@
-<!-- ESPACE DE CONTENU SEO MULTILINGUE & RÉFÉRENCEMENT INTERNATIONAL -->
-<section class="seo-hub-section" id="seo-guides" aria-label="Guide Aviron Indoor, Télémétrie et Régates Connectées" *ngIf="siteView === 'home'">
+<!-- ESPACE DE CONTENU SEO MULTILINGUE & RÉFÉRENCEMENT INTERNATIONAL (MASQUÉ EN MODE SALON PRIVÉ / DUEL POUR ALLÉGER L'ÉCRAN) -->
+<section class="seo-hub-section" id="seo-guides" aria-label="Guide Aviron Indoor, Télémétrie et Régates Connectées" *ngIf="siteView === 'home' && !hasActivePrivateRoom">
   <div class="seo-container">
     <!-- VERSION SMARTPHONE ET TABLETTE : LA PARTIE INFÉRIEURE ESPORT ROWING ET GUIDE CONNECTÉ EST REMPLACÉE PAR UN LIEN -->
     <div class="seo-mobile-link-wrapper" *ngIf="isMobileOrTablet">

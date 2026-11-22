@@ -596,10 +596,38 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
   get canManageActiveRoom(): boolean {
     if (!this.activeRoom) return false;
     if (this.isUserAdmin) return true;
-    const hostId = this.activeRoom.race.hostUserId;
-    const origHostId = (this.activeRoom.race as any).originalHostUserId;
-    if (!hostId || hostId === 'anonymous') return true;
-    return hostId === this.activeUserId || (Boolean(origHostId) && origHostId === this.activeUserId);
+    const hostId = (this.activeRoom.race?.hostUserId || '').trim();
+    const origHostId = ((this.activeRoom.race as any)?.originalHostUserId || '').trim();
+    const uid = (this.activeUserId || '').trim();
+    if (!uid || uid === 'anonymous') return false;
+    if (!hostId || hostId === 'anonymous') return false;
+    return (
+      hostId.toLowerCase() === uid.toLowerCase() ||
+      (Boolean(origHostId) && origHostId.toLowerCase() === uid.toLowerCase())
+    );
+  }
+
+  get isActiveRoomRunning(): boolean {
+    if (!this.activeRoom) return false;
+    const st = String(this.activeRoom.status || '').toLowerCase();
+    const raceSt = String(this.activeRoom.race?.status || '').toLowerCase();
+    const internalSt = String((this.activeRoom as any).internalStatus || (this.activeRoom.race as any)?.internalStatus || '').toUpperCase();
+    const isRunningStatus =
+      st === 'in_progress' ||
+      st === 'running' ||
+      raceSt === 'in_progress' ||
+      raceSt === 'running' ||
+      internalSt === 'RUNNING';
+    if (!isRunningStatus) return false;
+    const sched = this.activeRoomScheduledStartTime;
+    if (sched) {
+      const schedMs = new Date(sched).getTime();
+      const startedAt = (this.activeRoom.race as any)?.startedAt || (this.activeRoom as any)?.startedAt;
+      if (Number.isFinite(schedMs) && !startedAt && Date.now() < schedMs) {
+        return false;
+      }
+    }
+    return true;
   }
 
   get isBotDuelRoom(): boolean {

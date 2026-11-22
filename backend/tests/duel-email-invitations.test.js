@@ -249,8 +249,9 @@ test('sendDuelInvitationNewUserEmail (FR) generates cyber email with .ics attach
   assert.ok(lastMail.html.includes('ROWER'), 'HTML must include Rower Race cyber branding');
   assert.ok(lastMail.html.includes('tok_test_123'), 'HTML must include inviteToken');
   assert.ok(lastMail.html.includes('2000'), 'HTML must include targetDistance');
+  assert.ok(lastMail.html.includes('/r/rr-1234') || lastMail.html.includes('/r/RR-1234'), 'HTML must link to the duel room /r/:code');
   assert.ok(lastMail.html.includes('duelInviteToken=tok_test_123'), 'HTML must include signupUrl with duelInviteToken');
-  assert.ok(lastMail.html.includes('mode=register'), 'HTML must include mode=register in signupUrl');
+  assert.ok(!lastMail.html.includes('mode=regatta'), 'HTML must not open in regatta view');
   assert.ok(lastMail.html.includes('Europe/Paris'), 'HTML must display timezone');
   assert.ok(lastMail.html.includes('Créer mon compte et relever le défi'), 'HTML must include French CTA');
   assert.ok(lastMail.html.includes('calendar.google.com/calendar/render'), 'HTML must include Google Calendar link');

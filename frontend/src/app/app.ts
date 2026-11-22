@@ -1096,25 +1096,37 @@ export class AppComponent implements OnInit, OnDestroy {
         const inviteEmail = urlParams.get('email');
         if (duelInviteToken) {
           const cleanInviteToken = duelInviteToken.trim();
+          this.pendingDuelInviteToken = cleanInviteToken;
+          if (inviteEmail && inviteEmail.trim()) {
+            this.pendingRegistrationEmail = inviteEmail.trim();
+            this.regEmail = inviteEmail.trim();
+          }
           this.rowerService.getDuelInviteInfo(cleanInviteToken).subscribe({
             next: (res) => {
               if (res?.success && res.challenge) {
                 const challengerLabel = res.challenge.challengerName || res.challenge.challengerLogin || 'un rameur';
+                const resolvedEmail = (inviteEmail || res.challenge.challengedEmail || '').trim();
+                if (resolvedEmail) {
+                  this.pendingRegistrationEmail = resolvedEmail;
+                  this.regEmail = resolvedEmail;
+                }
+                this.setSiteView('home');
+                this.userExplicitlyNavigatedHome = true;
+                if (res.challenge.roomCode && !window.location.pathname.startsWith('/r/')) {
+                  const targetUrl = `/r/${encodeURIComponent(res.challenge.roomCode)}?duelInviteToken=${encodeURIComponent(cleanInviteToken)}${resolvedEmail ? `&email=${encodeURIComponent(resolvedEmail)}` : ''}`;
+                  try {
+                    window.history.replaceState({ roomCode: res.challenge.roomCode }, '', targetUrl);
+                  } catch {}
+                  this.resolveRoomFromCurrentUrl();
+                }
                 if (this.isIdentified) {
                   this.refreshPendingPrivateAndDuels();
-                  this.triggerFinishToast(`⚔️ Défi 1v1 de ${challengerLabel} (${res.challenge.targetDistance || 2000}m). Consultez vos duels.`);
-                  this.openPrivateModal('duels');
+                  this.triggerFinishToast(`⚔️ Défi 1v1 de ${challengerLabel} (${res.challenge.targetDistance || 2000}m).`);
                 } else {
-                  this.pendingDuelInviteToken = cleanInviteToken;
-                  const resolvedEmail = (inviteEmail || res.challenge.challengedEmail || '').trim();
-                  if (resolvedEmail) {
-                    this.pendingRegistrationEmail = resolvedEmail;
-                    this.regEmail = resolvedEmail;
-                  }
-                  this.setSiteView('home');
-                  this.userExplicitlyNavigatedHome = true;
-                  this.openAccountModal('register');
                   this.accountAuthSuccess = `⚔️ Défi 1v1 de ${challengerLabel} (${res.challenge.targetDistance || 2000}m) ! Créez votre compte gratuit pour le relever.`;
+                  if (!res.challenge.roomCode && !window.location.pathname.startsWith('/r/')) {
+                    this.openAccountModal('register');
+                  }
                 }
               } else {
                 this.pendingDuelInviteToken = '';
@@ -2625,16 +2637,34 @@ export class AppComponent implements OnInit, OnDestroy {
 
   get isOrganizerOfActiveRoom(): boolean {
     if (!this.activePrivateRoom) return false;
-    const hostId = this.activePrivateRoom.race?.hostUserId;
-    return Boolean(hostId && this.activeUserId && hostId === this.activeUserId);
+    const hostId = (this.activePrivateRoom.race?.hostUserId || '').trim();
+    const origHostId = ((this.activePrivateRoom.race as any)?.originalHostUserId || '').trim();
+    const uid = (this.activeUserId || '').trim();
+    if (!uid || uid === 'anonymous' || (!hostId && !origHostId)) return false;
+    return (
+      (Boolean(hostId) && hostId !== 'anonymous' && hostId.toLowerCase() === uid.toLowerCase()) ||
+      (Boolean(origHostId) && origHostId !== 'anonymous' && origHostId.toLowerCase() === uid.toLowerCase())
+    );
   }
 
   get isRaceActive(): boolean {
-    return Boolean(
+    const isRunningStatus = Boolean(
       this.nextRaceInfo?.status === 'in_progress' ||
       this.nextRaceInfo?.race?.status === 'RUNNING' ||
       this.nextRaceInfo?.race?.status === 'in_progress'
     );
+    if (!isRunningStatus) return false;
+    const race = this.activePrivateRoom?.race || this.nextRaceInfo?.race;
+    const startMode = race?.startMode || (this.activePrivateRoom as any)?.startMode;
+    const scheduledTime = race?.scheduledStartTime || (this.activePrivateRoom as any)?.scheduledStartTime;
+    const startedAt = (race as any)?.startedAt || (this.activePrivateRoom as any)?.startedAt;
+    if (startMode === 'scheduled' && scheduledTime && !startedAt) {
+      const schedMs = new Date(scheduledTime).getTime();
+      if (Number.isFinite(schedMs) && Date.now() < schedMs) {
+        return false;
+      }
+    }
+    return true;
   }
 
   get formattedPreRaceCountdown(): string {
@@ -5687,6 +5717,11 @@ export class AppComponent implements OnInit, OnDestroy {
       this.pendingRegattaLaunch = true;
       this.isRegattaLaunchSplashOpen = true;
       this.invitationStep = 'choice';
+    } else if (extracted && extracted.valid) {
+      // Un clic sur un lien e-mail de salon privé ou duel (/r/:code) arrive sur la page d'accueil du salon ou du duel
+      this.pendingRegattaLaunch = false;
+      this.isRegattaLaunchSplashOpen = false;
+      this.setSiteView('home');
     }
 
     if (!extracted) {

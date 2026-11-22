@@ -1102,14 +1102,26 @@ export const stopRace = async (req: Request, res: Response): Promise<void> => {
 
     const managedPrivate = raceManager.findPrivateRace(cleanRaceId);
     const managedPublic = raceManager.getCurrentPublicRace();
-    const user = await Users.findByPk(cleanUserId);
+    const targetRace = managedPrivate || (managedPublic && managedPublic.id === cleanRaceId ? managedPublic : raceManager.getRaceById(cleanRaceId));
+    if (!targetRace || targetRace.status !== "RUNNING") {
+      res.status(409).json({
+        success: false,
+        message: "Impossible d'arrêter la course : une course ne peut être arrêtée qu'une fois qu'elle est lancée."
+      });
+      return;
+    }
+
+    const user = await userStore.findUser(cleanUserId);
     const isAdmin = Boolean(
-      cleanUserId.toLowerCase() === "emmaracer" ||
-      user?.get("isAdmin") === true ||
+      isEmmaAdminUser(cleanUserId, user?.name) ||
+      user?.isAdmin === true ||
+      (user as any)?.role === "ADMIN" ||
       (user as any)?.role === "admin"
     );
 
-    const isHostOfPrivate = Boolean(managedPrivate && managedPrivate.hostUserId === cleanUserId);
+    const isHostOfPrivate = Boolean(
+      managedPrivate && raceManager.canManagePrivateRace(managedPrivate, cleanUserId, isAdmin)
+    );
 
     if (!isAdmin && !isHostOfPrivate) {
       res.status(403).json({

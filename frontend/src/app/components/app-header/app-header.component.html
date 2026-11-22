@@ -238,54 +238,23 @@
 
       <!-- Groupe Prochaine Course (Bloc Timer) avec Plein Écran et Appairage Garmin intégrés -->
       <div class="hero-schedule-cluster">
-        <!-- Prochaine Course -->
-        <div class="race-schedule-badge hero-schedule" [class.private-mode]="!!activePrivateRoom" [class.is-completed]="isPrivateRoomCompleted" *ngIf="nextRaceInfo">
+        <!-- Prochaine Course (Masqué lorsqu'un salon privé est actif pour éviter tout doublon avec la bannière du salon privé) -->
+        <div class="race-schedule-badge hero-schedule" [class.private-mode]="!!activePrivateRoom" [class.is-completed]="isPrivateRoomCompleted" *ngIf="nextRaceInfo && !activePrivateRoom">
           <div class="badge-title">
-            @if (activePrivateRoom) {
-              @if (isPrivateRoomCompleted) {
-                🏁 {{ activePrivateRoom.race.title }} · {{ i18n.t('RACE_FINISHED_ROOM_CLOSED') }}
-              } @else {
-                🔒 {{ i18n.t('PRIVATE_ROOM_BADGE') }} · {{ activePrivateRoom.race.title }} ({{ activePrivateRoom.race.targetDistance }}M)
-              }
-            } @else {
-              {{ nextRaceInfo.status === 'in_progress' ? i18n.t('RACE_IN_PROGRESS') : i18n.t('NEXT_RACE') }} ({{ nextRaceInfo.race.targetDistance }}M)
-            }
+            {{ nextRaceInfo.status === 'in_progress' ? i18n.t('RACE_IN_PROGRESS') : i18n.t('NEXT_RACE') }} ({{ nextRaceInfo.race.targetDistance }}M)
           </div>
           <div class="badge-timer">
-            @if (activePrivateRoom && !isPrivateRoomCompleted) {
-              <div class="timer-display-box is-private-room-badge">
-                <span class="timer-digits">🔒 {{ i18n.t('HEADER_ACTIVE_ROOM_BADGE') }}</span>
-              </div>
-            } @else {
-              <div class="timer-display-box" [class.is-running]="nextRaceInfo.status === 'in_progress'" [class.is-completed]="isPrivateRoomCompleted">
-                @if (isPrivateRoomCompleted) {
-                  <span class="timer-digits race-finished-badge">{{ i18n.t('RACE_STOPPED_FINISHED') }}</span>
-                } @else {
-                  <span class="timer-label-sub" *ngIf="nextRaceInfo.status === 'in_progress'">⏱️ {{ i18n.t('HEADER_TIME_REMAINING_LABEL') }} </span>
-                  <span class="timer-label-sub" *ngIf="nextRaceInfo.status === 'post_race_pause'">⏸️ {{ i18n.t('HEADER_PAUSE_LABEL') }} </span>
-                  <span class="timer-digits">
-                    {{ nextRaceInfo.status === 'in_progress' ? formattedGameRemaining : formattedPreRaceCountdown }}
-                  </span>
-                }
-              </div>
-            }
-
-            @if (isPrivateRoomCompleted && activePrivateRoom) {
-              <button
-                type="button"
-                class="btn-leave-room-header"
-                (click)="leaveCompletedRoomRequest.emit()"
-                [title]="i18n.t('HEADER_LEAVE_ROOM_PUBLIC_TIP')">
-                {{ i18n.t('BTN_LEAVE_ROOM_TO_PUBLIC') }}
-              </button>
-              <button
-                type="button"
-                class="btn-view-ranking-header"
-                (click)="openRaceLeaderboardRequest.emit(activePrivateRoom.race.id)"
-                [title]="i18n.t('HEADER_VIEW_RANKING_TIP')">
-                🏆 {{ i18n.t('HEADER_RANKING_SHORT') }}
-              </button>
-            }
+            <div class="timer-display-box" [class.is-running]="nextRaceInfo.status === 'in_progress'" [class.is-completed]="isPrivateRoomCompleted">
+              @if (isPrivateRoomCompleted) {
+                <span class="timer-digits race-finished-badge">{{ i18n.t('RACE_STOPPED_FINISHED') }}</span>
+              } @else {
+                <span class="timer-label-sub" *ngIf="nextRaceInfo.status === 'in_progress'">⏱️ {{ i18n.t('HEADER_TIME_REMAINING_LABEL') }} </span>
+                <span class="timer-label-sub" *ngIf="nextRaceInfo.status === 'post_race_pause'">⏸️ {{ i18n.t('HEADER_PAUSE_LABEL') }} </span>
+                <span class="timer-digits">
+                  {{ nextRaceInfo.status === 'in_progress' ? formattedGameRemaining : formattedPreRaceCountdown }}
+                </span>
+              }
+            </div>
 
             <span class="racers-count" [class.has-players]="activeRacersCount > 0" *ngIf="!isPrivateRoomCompleted">
               <span class="pulse-dot" *ngIf="activeRacersCount > 0"></span>

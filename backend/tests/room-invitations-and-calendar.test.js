@@ -457,7 +457,7 @@ test('7. Internationalisation : Envoi par défaut en anglais si organisateur non
     assert.ok(mail.html.includes('How to join with your Garmin watch?'), 'Le titre du guide montre doit être en anglais');
     assert.ok(mail.html.includes('apps.garmin.com'), 'Le lien vers le store apps.garmin.com doit être présent');
     assert.ok(mail.html.includes(`/r/${roomCode}`), 'L\'URL canonique doit être /r/:code');
-    assert.ok(mail.html.includes('mode=regatta'), 'Le lien doit contenir ?mode=regatta');
+    assert.ok(!mail.html.includes('mode=regatta'), 'Le lien ne doit plus contenir ?mode=regatta afin d\'arriver sur la page d\'accueil du salon/duel');
     assert.ok(mail.html.includes('rowerrace-logo.png'), 'Le HTML anglais doit intégrer rowerrace-logo.png');
     assert.ok(mail.html.includes('#ff0055'), 'Le HTML anglais doit intégrer #ff0055');
 
