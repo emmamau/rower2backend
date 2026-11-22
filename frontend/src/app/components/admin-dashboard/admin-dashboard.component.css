@@ -301,6 +301,33 @@
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
+/* Conteneur optimisé avec hauteur maîtrisée pour l'onglet utilisateurs */
+.table-users-container {
+  max-height: calc(88vh - 240px);
+  min-height: 280px;
+  overflow: auto;
+  position: relative;
+}
+
+.table-users-container::-webkit-scrollbar {
+  height: 9px;
+  width: 8px;
+}
+
+.table-users-container::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.7);
+  border-radius: 4px;
+}
+
+.table-users-container::-webkit-scrollbar-thumb {
+  background: rgba(0, 240, 255, 0.35);
+  border-radius: 4px;
+}
+
+.table-users-container::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 240, 255, 0.65);
+}
+
 .admin-table {
   width: 100%;
   border-collapse: collapse;
@@ -327,6 +354,61 @@
 
 .admin-table tr:hover {
   background: rgba(255, 255, 255, 0.03);
+}
+
+/* En-tête et colonnes figées (Sticky) pour le tableau Utilisateurs */
+.table-users-sticky th,
+.table-users-sticky td {
+  padding: 10px 12px;
+}
+
+.table-users-sticky thead th {
+  position: sticky;
+  top: 0;
+  z-index: 6;
+  background: #0d1526;
+  border-bottom: 1px solid rgba(0, 240, 255, 0.2);
+}
+
+/* Colonne Compte : figée à gauche */
+.table-users-sticky th.col-sticky-account,
+.table-users-sticky td.col-sticky-account {
+  position: sticky;
+  left: 0;
+  z-index: 5;
+  background: #0d1526;
+  box-shadow: 4px 0 10px rgba(0, 0, 0, 0.5);
+}
+
+.table-users-sticky thead th.col-sticky-account {
+  z-index: 10;
+  background: #0d1526;
+}
+
+/* Colonne Actions : figée à droite */
+.table-users-sticky th.col-sticky-actions,
+.table-users-sticky td.col-sticky-actions {
+  position: sticky;
+  right: 0;
+  z-index: 5;
+  background: #0d1526;
+  box-shadow: -4px 0 10px rgba(0, 0, 0, 0.5);
+  white-space: nowrap;
+}
+
+.table-users-sticky thead th.col-sticky-actions {
+  z-index: 10;
+  background: #0d1526;
+}
+
+/* Survol synchronisé de la ligne et des cellules sticky */
+.table-users-sticky tr:hover td {
+  background-color: #162238;
+}
+
+.table-users-sticky tr:hover td.col-sticky-account,
+.table-users-sticky tr:hover td.col-sticky-actions {
+  background-color: #162238;
 }
 
 .table-badge {
@@ -363,17 +445,19 @@
 .action-buttons {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+  flex-wrap: nowrap;
 }
 
 .btn-action {
-  padding: 6px 10px;
+  padding: 5px 9px;
   border-radius: 6px;
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   font-weight: 600;
   cursor: pointer;
   border: 1px solid transparent;
   transition: all 0.2s;
+  white-space: nowrap;
 }
 
 .btn-action-revoke {

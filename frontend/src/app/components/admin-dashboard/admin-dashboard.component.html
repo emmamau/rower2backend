@@ -205,23 +205,23 @@
       </div>
 
       <!-- Tableau des utilisateurs -->
-      <div class="table-responsive">
-        <table class="admin-table">
+      <div class="table-responsive table-users-container">
+        <table class="admin-table table-users-sticky">
           <thead>
             <tr>
-              <th>{{ i18n.t('ADMIN_COL_ACCOUNT') }}</th>
+              <th class="col-sticky-account">{{ i18n.t('ADMIN_COL_ACCOUNT') }}</th>
               <th>{{ i18n.t('ADMIN_COL_EMAIL') }}</th>
               <th>{{ i18n.t('ADMIN_COL_ROLE') }}</th>
               <th>{{ i18n.t('ADMIN_COL_PLAN') }}</th>
               <th>{{ i18n.t('ADMIN_COL_QUOTAS') }}</th>
               <th>{{ i18n.t('ADMIN_COL_LEAGUE') }}</th>
               <th>{{ i18n.t('ADMIN_COL_STATUS') }}</th>
-              <th>{{ i18n.t('ADMIN_COL_ACTIONS') }}</th>
+              <th class="col-sticky-actions">{{ i18n.t('ADMIN_COL_ACTIONS') }}</th>
             </tr>
           </thead>
           <tbody>
             <tr *ngFor="let u of usersList">
-              <td>
+              <td class="col-sticky-account">
                 <strong>{{ u.login || u.name }}</strong>
                 <div *ngIf="u.name && u.name !== u.login" style="font-size: 0.75rem; color: #94a3b8;">{{ u.name }}</div>
               </td>
@@ -274,7 +274,7 @@
                   {{ u.isRevoked ? i18n.t('ADMIN_USERS_STATUS_REVOKED') : i18n.t('ADMIN_USERS_STATUS_ACTIVE') }}
                 </span>
               </td>
-              <td>
+              <td class="col-sticky-actions">
                 <div class="action-buttons">
                   <button
                     class="btn-action btn-action-details"
