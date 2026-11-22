@@ -1271,11 +1271,14 @@
             }
           </div>
         } @else {
-          <!-- Notice Salon Solo / Duel Bot -->
+          <!-- Notice Salon Solo / Duel Bot / Duel 1v1 -->
           <div class="priv-share-card priv-solo-notice-card">
-            <div class="priv-label">🚣 {{ isSoloRoom ? 'Entraînement Solo' : 'Duel contre un Bot' }}</div>
+            <div class="priv-label">⚔️ {{ isSoloRoom ? 'Entraînement Solo' : isBotDuelRoom ? 'Duel contre un Bot' : 'Duel 1v1' }}</div>
             <p class="priv-hint">
-              Ce salon est configuré pour une session individuelle ou contre un bot. Le partage sur smartphone, réseaux sociaux et les invitations par email ne sont pas nécessaires pour ce mode.
+              {{ (isSoloRoom || isBotDuelRoom)
+                ? 'Ce salon est configuré pour une session individuelle ou contre un bot. Le partage sur smartphone, réseaux sociaux et les invitations par email ne sont pas nécessaires pour ce mode.'
+                : 'L\'invitation à ce duel a déjà été transmise à votre adversaire. Les partages d\'invitations multiples ne sont pas nécessaires pour ce mode 1v1.'
+              }}
             </p>
             <p class="priv-hint">
               Pour connecter votre montre, utilisez le <strong>PIN Garmin</strong> ci-dessous.

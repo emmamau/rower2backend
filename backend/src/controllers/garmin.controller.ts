@@ -3,6 +3,7 @@ import pairingService from "../services/pairing.service";
 import sessionService from "../services/session.service";
 import { RaceManager, getWaitingStatusMessage } from "../services/race-manager.service";
 import userStore from "../services/user-store.service";
+import duelService from "../services/duel.service";
 import db from "../models";
 import socketGateway from "../websocket/socket.gateway";
 
@@ -200,6 +201,12 @@ export class GarminController {
 
       const ticket = raceManager.getGuestTicket(rawPin);
       let race = ticket ? raceManager.getRaceById(ticket.roomId) : raceManager.findPrivateRace(rawPin);
+      if (!race) {
+        const challenge = await duelService.getChallengeByRoom(rawPin);
+        if (challenge && (challenge.status === "PENDING" || challenge.status === "ACCEPTED")) {
+          race = raceManager.restoreDuelRaceFromChallenge(challenge);
+        }
+      }
 
       if (!race) {
         try {

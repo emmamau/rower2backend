@@ -5,6 +5,7 @@ import db from "./models";
 import initRoutes from "./routes";
 import socketGateway from "./websocket/socket.gateway";
 import raceManager from "./services/race-manager.service";
+import duelService from "./services/duel.service";
 import { initializeLeagueSchema } from "./services/league-db.service";
 import AdminInitService from "./services/admin-init.service";
 import {
@@ -97,6 +98,8 @@ db.sequelize
     await raceManager.loadPublicRaceSettingsFromDb();
     // Initialisation du schéma de ligues paresseuses
     await initializeLeagueSchema();
+    // Reconstitution des salons de duel actifs persistés en SQL
+    await duelService.rehydrateDuelSalons();
     // Démarrer la première course publique si activée
     if (raceManager.isPublicRaceEnabled) {
       await raceManager.tickPublicRace();

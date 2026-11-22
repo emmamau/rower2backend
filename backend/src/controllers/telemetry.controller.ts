@@ -1436,7 +1436,38 @@ export class TelemetryController {
   public static async getPrivateRace(req: Request, res: Response): Promise<void> {
     try {
       const identifier = String(req.params.identifier || "");
-      const race = raceManager.findPrivateRace(identifier);
+      let race = raceManager.findPrivateRace(identifier);
+
+      if (!race) {
+        // Tentative de réhydratation à la volée depuis la table DuelChallenges si redémarrage ou purge RAM
+        const challenge = await duelService.getChallengeByRoom(identifier);
+        if (challenge) {
+          if (challenge.status === "PENDING" || challenge.status === "ACCEPTED") {
+            const restored = raceManager.restoreDuelRaceFromChallenge(challenge);
+            if (restored) {
+              race = restored;
+            } else {
+              res.status(410).json({
+                error: "Ce duel est expiré car le créneau horaire est dépassé.",
+                message: "Ce duel est expiré car le créneau horaire est dépassé."
+              });
+              return;
+            }
+          } else {
+            const statusLabel =
+              challenge.status === "CANCELLED" ? "annulé" :
+              challenge.status === "REFUSED" ? "refusé" :
+              challenge.status === "EXPIRED" ? "expiré" :
+              challenge.status === "COMPLETED" ? "terminé" : challenge.status;
+            res.status(410).json({
+              error: `Ce duel est ${statusLabel}.`,
+              message: `Ce duel est ${statusLabel}.`
+            });
+            return;
+          }
+        }
+      }
+
       if (!race) {
         // Vérifier si la course privée vient de se terminer et est archivée en DB
         let finishedRace: any = null;

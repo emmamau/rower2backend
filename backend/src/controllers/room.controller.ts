@@ -11,6 +11,7 @@ import { getLeagueByPoints, isLeagueEligible } from "../utils/league.util";
 import { SUBSCRIPTION_TIERS } from "./subscription.controller";
 import subscriptionPlanService from "../services/subscription-plan.service";
 import emailService, { getEmailConfig } from "../services/email.service";
+import duelService from "../services/duel.service";
 import { buildShareableRoomUrl } from "../utils/room-link.util";
 import {
   CalendarEventParams,
@@ -87,8 +88,14 @@ export class RoomController {
         /^[a-zA-Z0-9]{4,8}$/.test(rawCode)
       );
 
-      // 2. Recherche du salon privé
-      const race = raceManager.findPrivateRace(rawCode);
+      // 2. Recherche du salon privé (avec réhydratation automatique si salon de duel persistant)
+      let race = raceManager.findPrivateRace(rawCode);
+      if (!race) {
+        const challenge = await duelService.getChallengeByRoom(rawCode);
+        if (challenge && (challenge.status === "PENDING" || challenge.status === "ACCEPTED")) {
+          race = raceManager.restoreDuelRaceFromChallenge(challenge);
+        }
+      }
       if (!race) {
         res.status(404).json({
           success: false,

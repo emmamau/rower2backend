@@ -1196,6 +1196,10 @@ export class RaceManager {
         : (race.createdAt || now);
 
       if (now.getTime() - referenceTime.getTime() > ttlMs) {
+        // Ne pas purger prématurément un salon de duel 1v1 tant que son défi est actif
+        if (race.isDuel1v1) {
+          continue;
+        }
         this.removePrivateRaceInternal(race);
         continue;
       }
@@ -1934,6 +1938,96 @@ export class RaceManager {
     }
 
     return privateRace;
+  }
+
+  /**
+   * Reconstitue en mémoire vive (RAM) un salon de duel 1v1 à partir d'un défi persisté en base SQL.
+   * Conserve à l'identique l'identifiant (PRIV_...), le code Meet (krm-wzx-qpl) et le code PIN montre Garmin.
+   */
+  public restoreDuelRaceFromChallenge(challenge: {
+    id: string;
+    roomId?: string;
+    roomCode?: string;
+    roomPin?: string;
+    slotStart: Date | string;
+    slotEnd: Date | string;
+    targetDistance: number;
+    title?: string;
+    challengerUserId: string;
+    challengerName?: string;
+    challengerLogin?: string;
+    status: string;
+    timezone?: string;
+  }): RaceState | null {
+    if (!challenge.roomId || !challenge.roomCode) return null;
+
+    // Déjà présent en mémoire
+    if (this.privateRacesById.has(challenge.roomId)) {
+      return this.privateRacesById.get(challenge.roomId)!;
+    }
+    const normalizedCode = RaceManager.normalizeMeetCode(challenge.roomCode);
+    if (normalizedCode && this.privateRaces.has(normalizedCode)) {
+      return this.privateRaces.get(normalizedCode)!;
+    }
+    if (this.privateRaces.has(challenge.roomCode)) {
+      return this.privateRaces.get(challenge.roomCode)!;
+    }
+
+    const now = new Date();
+    const scheduledStart = new Date(challenge.slotStart);
+    const scheduledEnd = new Date(challenge.slotEnd);
+
+    // Si le créneau est dépassé ou que le duel est déjà clos/refusé/annulé, ne pas réhydrater
+    if (
+      (Number.isFinite(scheduledEnd.getTime()) && scheduledEnd.getTime() <= now.getTime()) ||
+      !["PENDING", "ACCEPTED"].includes(challenge.status)
+    ) {
+      return null;
+    }
+
+    const participants = new Map<string, PrivateParticipantInfo>();
+    const pin = (challenge.roomPin || this.generateUniquePinCode()).toUpperCase();
+
+    const restoredRace: RaceState = {
+      id: challenge.roomId,
+      code: challenge.roomCode,
+      pinCode: pin,
+      type: "PRIVATE_INVITE",
+      status: "LOBBY",
+      startMode: "scheduled",
+      scheduledStartTime: scheduledStart,
+      lobbyEndsAt: scheduledStart,
+      autoStart: true,
+      startedAt: undefined,
+      endedAt: undefined,
+      title: challenge.title || `Duel 1v1`,
+      targetDistance: challenge.targetDistance || 2000,
+      maxParticipants: 2,
+      maxDurationMinutes: 55,
+      hostUserId: challenge.challengerUserId,
+      originalHostUserId: challenge.challengerUserId,
+      hostUserName: challenge.challengerName || challenge.challengerLogin,
+      isSolo: false,
+      isBotDuel: false,
+      isDuel1v1: true,
+      gameMode: "duel_1v1",
+      hostParticipates: true,
+      totalParticipants: 0,
+      createdAt: now,
+      requireApproval: false,
+      participants,
+      pendingParticipants: new Map(),
+      rejectedParticipants: new Set(),
+    };
+
+    this.privateRaces.set(challenge.roomCode, restoredRace);
+    if (normalizedCode) {
+      this.privateRaces.set(normalizedCode, restoredRace);
+    }
+    this.privateRacesById.set(challenge.roomId, restoredRace);
+    this.pinToRaceMap.set(pin, { raceId: challenge.roomId, lane: 1 });
+
+    return restoredRace;
   }
 
   private async ensureSalonBots(

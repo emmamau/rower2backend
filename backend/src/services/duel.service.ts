@@ -392,24 +392,64 @@ export class DuelService {
   public async getChallengeByRoom(roomIdentifier: string): Promise<StoredDuelChallenge | null> {
     if (!roomIdentifier) return null;
     const clean = roomIdentifier.trim().toLowerCase();
+    const cleanNoDashes = clean.replace(/-/g, "");
     for (const c of this.inMemoryChallenges.values()) {
+      const cCode = (c.roomCode || "").toLowerCase();
+      const cCodeNoDashes = cCode.replace(/-/g, "");
       if (
         (c.roomId && c.roomId.toLowerCase() === clean) ||
-        (c.roomCode && c.roomCode.toLowerCase() === clean)
+        (cCode && (cCode === clean || cCodeNoDashes === cleanNoDashes)) ||
+        (c.roomPin && c.roomPin.toLowerCase() === clean)
       ) {
         return c;
       }
     }
     try {
       const all = await this.listAllChallenges();
-      const found = all.find(
-        (c) =>
+      const found = all.find((c) => {
+        const cCode = (c.roomCode || "").toLowerCase();
+        const cCodeNoDashes = cCode.replace(/-/g, "");
+        return (
           (c.roomId && c.roomId.toLowerCase() === clean) ||
-          (c.roomCode && c.roomCode.toLowerCase() === clean)
-      );
+          (cCode && (cCode === clean || cCodeNoDashes === cleanNoDashes)) ||
+          (c.roomPin && c.roomPin.toLowerCase() === clean)
+        );
+      });
       if (found) return found;
     } catch {}
     return null;
+  }
+
+  /**
+   * Restaure tous les salons de duels actifs (PENDING ou ACCEPTED avec slotEnd > now) dans RaceManager.
+   * Exécuté au démarrage du serveur ou après reconnexion pour garantir la résilience aux redémarrages.
+   */
+  public async rehydrateDuelSalons(): Promise<number> {
+    try {
+      const all = await this.listAllChallenges();
+      let restoredCount = 0;
+      const now = new Date();
+      for (const challenge of all) {
+        if (
+          (challenge.status === "PENDING" || challenge.status === "ACCEPTED") &&
+          challenge.roomId &&
+          challenge.roomCode
+        ) {
+          const endMs = new Date(challenge.slotEnd).getTime();
+          if (Number.isFinite(endMs) && endMs > now.getTime()) {
+            const restored = raceManager.restoreDuelRaceFromChallenge(challenge);
+            if (restored) restoredCount++;
+          }
+        }
+      }
+      if (restoredCount > 0) {
+        console.log(`[DuelService] ${restoredCount} salon(s) de duel actif(s) réhydraté(s) avec succès.`);
+      }
+      return restoredCount;
+    } catch (err) {
+      console.error("[DuelService] Erreur lors de la réhydratation des salons de duel :", err);
+      return 0;
+    }
   }
 
   public async listAllChallenges(): Promise<StoredDuelChallenge[]> {

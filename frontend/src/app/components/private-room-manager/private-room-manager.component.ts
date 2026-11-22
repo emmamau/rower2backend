@@ -682,7 +682,7 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
   }
 
   get canShareOrInvite(): boolean {
-    return !this.isSoloRoom && !this.isBotDuelRoom;
+    return !this.isSoloRoom && !this.isBotDuelRoom && !this.isDuel1v1Room && !this.isDuelRoom;
   }
 
   selectGameMode(mode: 'solo' | 'bot_duel' | 'duel_1v1' | 'multi'): void {
@@ -2427,12 +2427,12 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
         this.isActionBusy = false;
         this.rememberSalon(room, challenge.challengerUserId === this.activeUserId);
         this.roomSelected.emit({ payload: room, pushUrl: true });
-        this.activeTab = 'share';
+        this.closeModal();
         this.cdr.markForCheck();
       },
       error: (err) => {
         this.isActionBusy = false;
-        this.duelManageError = err?.error?.message || 'Le salon associé à ce duel est inaccessible ou fermé.';
+        this.duelManageError = err?.error?.message || err?.error?.error || 'Le salon associé à ce duel est inaccessible ou fermé.';
         this.cdr.markForCheck();
       }
     });
