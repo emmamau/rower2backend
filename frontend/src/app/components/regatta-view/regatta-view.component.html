@@ -1,7 +1,74 @@
-<!-- BANNIÈRE D'ATTENTE SALON PRIVÉ EN RÉGATE -->
-<div class="regatta-waiting-banner" *ngIf="activePrivateRoom && !isPrivateBannerCollapsed && !isRaceActive && !isPostRaceDisplayActive">
-  <span class="waiting-icon">⏳</span>
-  <span class="waiting-text">{{ waitingStatusText }}</span>
+<!-- BANNIÈRE COMPACTE SEMI-TRANSPARENTE SALON PRIVÉ EN RÉGATE (Smartphone & Desktop) -->
+<div
+  class="regatta-waiting-banner"
+  *ngIf="activePrivateRoom && !isRaceActive && !isPostRaceDisplayActive"
+  [class.is-collapsed]="isPrivateBannerCollapsed">
+  
+  <!-- VERSION REPLIÉE (Bandeau compact sur une seule ligne) -->
+  <div class="rwb-collapsed-row" *ngIf="isPrivateBannerCollapsed" (click)="toggleBannerCollapse()">
+    <div class="rwb-left-cluster">
+      <span class="rwb-pill-lock">🔒</span>
+      <button
+        type="button"
+        class="rwb-pin-pill"
+        (click)="copyPin(activePrivateRoomPin, $event)"
+        [title]="isPinCopied ? 'PIN copié !' : 'Toucher pour copier le PIN'">
+        🔑 PIN : <strong>{{ activePrivateRoomPin || '----' }}</strong>
+        <span class="rwb-copy-badge" *ngIf="isPinCopied">✓</span>
+      </button>
+      <span class="rwb-date-pill" *ngIf="activePrivateRoomScheduledDateDisplay">
+        📅 {{ activePrivateRoomScheduledDateDisplay }}
+      </span>
+      <span class="rwb-timer-pill" [class.is-imminent]="isCountdownImminent">
+        ⏱️ {{ activePrivateRoomCountdownDisplay }}
+      </span>
+    </div>
+    <button
+      type="button"
+      class="rwb-toggle-btn"
+      (click)="toggleBannerCollapse(); $event.stopPropagation()"
+      title="Déplier les détails"
+      aria-label="Déplier les détails">
+      ▼ Détails
+    </button>
+  </div>
+
+  <!-- VERSION ÉTENDUE (Détaillée et tactile) -->
+  <div class="rwb-expanded-row" *ngIf="!isPrivateBannerCollapsed">
+    <div class="rwb-main-info">
+      <div class="rwb-badge-group">
+        <span class="rwb-pill-lock">🔒 Salon Privé</span>
+        <button
+          type="button"
+          class="rwb-pin-chip-interactive"
+          (click)="copyPin(activePrivateRoomPin, $event)"
+          [title]="isPinCopied ? 'PIN copié !' : 'Toucher pour copier le PIN'">
+          <span class="rwb-key-icon">🔑</span>
+          <span class="rwb-pin-lbl">PIN :</span>
+          <strong class="rwb-pin-val">{{ activePrivateRoomPin || '----' }}</strong>
+          <span class="rwb-copy-toast" *ngIf="isPinCopied">✓ Copié !</span>
+        </button>
+      </div>
+
+      <div class="rwb-time-group">
+        <span class="rwb-date-badge" *ngIf="activePrivateRoomScheduledDateDisplay">
+          📅 {{ activePrivateRoomScheduledDateDisplay }}
+        </span>
+        <span class="rwb-countdown-badge" [class.is-imminent]="isCountdownImminent">
+          ⏱️ {{ activePrivateRoomCountdownDisplay }}
+        </span>
+      </div>
+    </div>
+
+    <button
+      type="button"
+      class="rwb-toggle-btn is-fold"
+      (click)="toggleBannerCollapse()"
+      title="Replier pour libérer l'eau"
+      aria-label="Replier pour libérer l'écran">
+      ▲ Replier
+    </button>
+  </div>
 </div>
 
 <!-- BANNIÈRE DE FÉLICITATIONS FIN DE COURSE ET CLASSEMENT GÉNÉRAL COMPLET -->

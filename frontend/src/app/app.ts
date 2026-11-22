@@ -1412,6 +1412,26 @@ export class AppComponent implements OnInit, OnDestroy {
             });
             this.totalActiveRacers = activeList.length;
             const roomParts = this.activePrivateRoom?.race?.participants || (raceData.race as any)?.participants || [];
+            // Maintien continu des participants du salon sur la ligne de départ (anti-clignotement)
+            if (roomParts && roomParts.length > 0 && (!this.isRaceActive || isRaceWaitingOrCountdown)) {
+              for (const p of roomParts) {
+                if (!p.userId) continue;
+                if (!activeList.some(r => r.userId === p.userId)) {
+                  activeList.push({
+                    userId: p.userId,
+                    userName: p.name || p.userName || p.userId,
+                    netDistance: 0,
+                    currentDistance: 0,
+                    lane: p.lane || (activeList.length + 1),
+                    status: 'waiting',
+                    lastPower: 0,
+                    lastStrokeRate: 0,
+                    lastPace: 120,
+                    kayak: p.kayak
+                  } as any);
+                }
+              }
+            }
             this.liveMetricsList = activeList.map((r, idx) => {
               const isMe = r.userId === this.activeUserId;
               const assignedLane = Number((r as any).lane) || (isMe && this.myAssignedLane ? this.myAssignedLane : (idx + 1));
@@ -4985,6 +5005,28 @@ export class AppComponent implements OnInit, OnDestroy {
           }
           return updated;
         });
+
+        // Maintien continu des participants du salon sur la ligne de départ (anti-clignotement socket)
+        const roomParts = this.activePrivateRoom?.race?.participants || [];
+        if (roomParts.length > 0 && (!this.isRaceActive || this.isPreStartCountdown)) {
+          for (const p of roomParts) {
+            if (!p.userId) continue;
+            if (!this.liveMetricsList.some(m => m.userId === p.userId)) {
+              this.liveMetricsList.push({
+                lane: p.lane || (this.liveMetricsList.length + 1),
+                userId: p.userId,
+                name: (p as any).name || p.userName || p.userId,
+                dist: 0,
+                split: 120,
+                watts: 0,
+                spm: 0,
+                ready: p.ready !== false,
+                connectionState: p.connectionState || 'CONNECTED',
+                kayak: p.kayak
+              } as any);
+            }
+          }
+        }
 
         // 1. Sync racers array for spectators and reactive gauges using the unified liveMetricsList
         this.liveMetricsList.forEach((m) => {

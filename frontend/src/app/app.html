@@ -424,6 +424,7 @@
           (siteViewChange)="setSiteView($event)"
           (toggleRegattaLeaderboardRequest)="toggleRegattaLeaderboard()"
           (closeRegattaLeaderboardRequest)="isRegattaLeaderboardOpen = false"
+          (togglePrivateBannerCollapseRequest)="onPrivateBannerCollapsedChange(!isPrivateBannerCollapsed)"
           (stopActiveRaceRequest)="stopActiveRace()"
           (startActivePrivateRaceRequest)="startActivePrivateRace()"
           (stepRegattaZoomRequest)="stepRegattaZoom($event)"

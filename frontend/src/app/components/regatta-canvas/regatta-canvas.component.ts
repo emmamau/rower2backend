@@ -777,9 +777,14 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
       }
     });
 
-    for (const existingId of Array.from(this.boatsMap.keys())) {
+    // Maintien persistant des kayaks sur la ligne de départ et délai de grâce anti-clignotement (8s avant départ, 3s en course)
+    const gracePeriodMs = this.isRaceActive ? 3000 : 8000;
+    for (const [existingId, boat] of Array.from(this.boatsMap.entries())) {
       if (!activeIds.has(existingId)) {
-        this.boatsMap.delete(existingId);
+        const timeSinceLastPacket = now - (boat.lastPacketTime || 0);
+        if (timeSinceLastPacket > gracePeriodMs) {
+          this.boatsMap.delete(existingId);
+        }
       }
     }
   }

@@ -80,8 +80,85 @@ export class RegattaViewComponent {
   @Output() regattaLeaderboardPointerDown = new EventEmitter<PointerEvent>();
   @Output() regattaLeaderboardPointerMove = new EventEmitter<PointerEvent>();
   @Output() regattaLeaderboardPointerUp = new EventEmitter<PointerEvent>();
+  @Output() togglePrivateBannerCollapseRequest = new EventEmitter<void>();
+
+  isPinCopied = false;
+  private pinCopyTimeout?: any;
 
   constructor(public i18n: I18nService) {}
+
+  copyPin(pin: string, event?: Event): void {
+    if (event) event.stopPropagation();
+    if (!pin || pin === '----') return;
+    if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(pin).then(() => {
+        this.isPinCopied = true;
+        clearTimeout(this.pinCopyTimeout);
+        this.pinCopyTimeout = setTimeout(() => {
+          this.isPinCopied = false;
+        }, 2000);
+      }).catch(() => {});
+    }
+  }
+
+  toggleBannerCollapse(): void {
+    this.togglePrivateBannerCollapseRequest.emit();
+  }
+
+  get activePrivateRoomPin(): string {
+    return this.activePrivateRoom?.pinCode || this.activePrivateRoom?.race?.pinCode || '';
+  }
+
+  get activePrivateRoomCode(): string {
+    return this.activePrivateRoom?.code || this.activePrivateRoom?.race?.code || '';
+  }
+
+  get activePrivateRoomScheduledStartTime(): string | undefined {
+    if (!this.activePrivateRoom) return undefined;
+    const race = this.activePrivateRoom.race || this.activePrivateRoom;
+    const startMode = race?.startMode || (this.activePrivateRoom as any)?.startMode;
+    if (startMode !== 'scheduled') return undefined;
+    return race?.scheduledStartTime || (this.activePrivateRoom as any)?.scheduledStartTime;
+  }
+
+  get activePrivateRoomScheduledDateDisplay(): string {
+    const time = this.activePrivateRoomScheduledStartTime;
+    if (!time) return '';
+    try {
+      const d = new Date(time);
+      if (!Number.isFinite(d.getTime())) return '';
+      const tz = (this.currentUser as any)?.timezone || (this.activePrivateRoom?.race?.timezone) || 'Europe/Paris';
+      const dtf = new Intl.DateTimeFormat('fr-FR', {
+        weekday: 'short',
+        day: 'numeric',
+        month: 'short',
+        hour: '2-digit',
+        minute: '2-digit',
+        timeZone: tz
+      });
+      return dtf.format(d);
+    } catch {
+      return String(time);
+    }
+  }
+
+  get activePrivateRoomCountdownDisplay(): string {
+    if (this.activePrivateRoom?.formattedCountdown) {
+      return this.activePrivateRoom.formattedCountdown;
+    }
+    if (this.isPreStartCountdown && this.formattedPreRaceCountdown) {
+      return this.formattedPreRaceCountdown;
+    }
+    if (this.waitingStatusText) {
+      return this.waitingStatusText;
+    }
+    return '0m 00s';
+  }
+
+  get isCountdownImminent(): boolean {
+    const cd = this.activePrivateRoomCountdownDisplay;
+    return cd.includes('s') && !cd.includes('h') && !cd.includes('m');
+  }
 
   setSiteView(view: 'home' | 'regatta' | 'cockpit'): void {
     this.siteViewChange.emit(view);

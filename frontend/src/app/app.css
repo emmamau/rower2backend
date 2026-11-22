@@ -5234,13 +5234,205 @@ body.rigid-viewport {
    ========================================================================== */
 .regatta-waiting-banner {
   width: 100%;
-  margin-block: 0.25rem 0.4rem;
-  padding: 0.4rem 0.75rem;
-  background: linear-gradient(90deg, rgba(245, 158, 11, 0.16), rgba(6, 13, 29, 0.95), rgba(0, 240, 255, 0.16));
-  border: 1px solid rgba(245, 158, 11, 0.4);
+  margin-block: 0.2rem 0.35rem;
+  padding: 0.35rem 0.75rem;
+  background: rgba(6, 13, 29, 0.88);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(0, 240, 255, 0.35);
   border-radius: 8px;
   box-sizing: border-box;
-  animation: pulse-waiting-glow 2.5s infinite ease-in-out;
+  animation: pulse-waiting-glow 3s infinite ease-in-out;
+  transition: all 0.25s ease-in-out;
+  z-index: 30;
+}
+
+.regatta-waiting-banner.is-collapsed {
+  padding: 0.22rem 0.55rem;
+  background: rgba(6, 13, 29, 0.82);
+  border-color: rgba(0, 240, 255, 0.25);
+  cursor: pointer;
+}
+
+.rwb-collapsed-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 0.5rem;
+}
+
+.rwb-left-cluster {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  font-size: 0.82rem;
+}
+
+.rwb-pin-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: rgba(0, 240, 255, 0.15);
+  border: 1px solid rgba(0, 240, 255, 0.4);
+  border-radius: 4px;
+  padding: 0.15rem 0.45rem;
+  color: #00f0ff;
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.rwb-pin-pill:hover {
+  background: rgba(0, 240, 255, 0.28);
+  border-color: #00f0ff;
+}
+
+.rwb-date-pill {
+  color: #e2e8f0;
+  font-size: 0.82rem;
+  font-weight: 500;
+}
+
+.rwb-timer-pill {
+  color: #fbd38d;
+  font-size: 0.82rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.rwb-timer-pill.is-imminent {
+  color: #f87171;
+  animation: pulse-imminent 1s infinite alternate;
+}
+
+.rwb-toggle-btn {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #94a3b8;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: 4px;
+  padding: 0.15rem 0.45rem;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+}
+
+.rwb-toggle-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+}
+
+.rwb-toggle-btn.is-fold {
+  color: #00f0ff;
+  border-color: rgba(0, 240, 255, 0.35);
+}
+
+.rwb-expanded-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.rwb-main-info {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.rwb-badge-group {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.rwb-pill-lock {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #00f0ff;
+  background: rgba(0, 240, 255, 0.1);
+  border: 1px solid rgba(0, 240, 255, 0.3);
+  border-radius: 4px;
+  padding: 0.15rem 0.4rem;
+}
+
+.rwb-pin-chip-interactive {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: rgba(0, 240, 255, 0.12);
+  border: 1px solid rgba(0, 240, 255, 0.45);
+  border-radius: 6px;
+  padding: 0.22rem 0.55rem;
+  color: #00f0ff;
+  font-size: 0.86rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.rwb-pin-chip-interactive:hover {
+  background: rgba(0, 240, 255, 0.22);
+  border-color: #00f0ff;
+  box-shadow: 0 0 10px rgba(0, 240, 255, 0.3);
+}
+
+.rwb-pin-lbl {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  color: #94a3b8;
+  letter-spacing: 0.05em;
+}
+
+.rwb-pin-val {
+  font-size: 0.95rem;
+  letter-spacing: 1px;
+}
+
+.rwb-time-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.rwb-date-badge {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  padding: 0.22rem 0.5rem;
+  font-size: 0.84rem;
+  color: #e2e8f0;
+}
+
+.rwb-countdown-badge {
+  background: rgba(245, 158, 11, 0.14);
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  border-radius: 6px;
+  padding: 0.22rem 0.55rem;
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: #fbd38d;
+  font-variant-numeric: tabular-nums;
+}
+
+.rwb-countdown-badge.is-imminent {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: rgba(239, 68, 68, 0.6);
+  color: #fca5a5;
+  animation: pulse-imminent 0.9s infinite alternate;
+}
+
+.rwb-copy-toast, .rwb-copy-badge {
+  font-size: 0.72rem;
+  color: #10b981;
+  font-weight: 700;
+  margin-left: 0.2rem;
 }
 
 @keyframes pulse-waiting-glow {
@@ -7955,7 +8147,6 @@ app-cockpit-view {
 
   .game-container.rigid-viewport app-private-room-manager,
   .game-container.rigid-viewport .priv-active-banner,
-  .game-container.rigid-viewport .regatta-waiting-banner,
   .game-container.rigid-viewport .spectator-camera-bar,
   .game-container.rigid-viewport .regatta-user-summary,
   .game-container.rigid-viewport .concept2-fairness-banner,
@@ -7963,10 +8154,13 @@ app-cockpit-view {
     display: none !important;
   }
 
-  .game-container.rigid-viewport .regatta-waiting-banner:has(.rwb-actions) {
-    display: block !important;
+  .game-container.rigid-viewport .regatta-waiting-banner,
+  .game-container.mobile-fullscreen-view .regatta-waiting-banner {
+    display: flex !important;
+    position: relative !important;
     padding: 0.25rem 0.5rem !important;
-    margin-block: 0.15rem !important;
+    margin-block: 0.15rem 0.25rem !important;
+    font-size: 0.8rem !important;
   }
 }
 
