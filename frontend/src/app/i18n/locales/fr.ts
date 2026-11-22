@@ -1241,6 +1241,7 @@ export const fr: Record<string, string> = {
   'HEADER_TIME_REMAINING_LABEL': 'Temps restant :',
   'HEADER_PAUSE_LABEL': 'Pause :',
   'HEADER_LEAVE_ROOM_PUBLIC_TIP': 'Quitter le salon et revenir aux courses publiques',
+  'HEADER_LOGO_EXIT_TIP': 'Revenir aux courses publiques / Libérer la ligne d\'eau',
   'HEADER_VIEW_RANKING_TIP': 'Voir le classement officiel de la course',
   'HEADER_RANKING_SHORT': 'Classement',
   'HEADER_PAIR_WATCH_BTN': 'Lier ma montre Garmin',

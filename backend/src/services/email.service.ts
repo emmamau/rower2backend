@@ -1191,7 +1191,7 @@ export class EmailService {
     } catch {}
 
     const roomPath = params.roomCode ? buildShareableRoomUrl(config.frontendUrl, params.roomCode) : config.frontendUrl;
-    const targetUrl = `${roomPath}?duelChallenge=${encodeURIComponent(params.challengeId)}`;
+    const targetUrl = `${roomPath}?duelChallenge=${encodeURIComponent(params.challengeId)}${params.to ? `&email=${encodeURIComponent(params.to)}` : ''}`;
     const safeChallengerName = escapeHtml(params.challengerName);
     const safeChallengerLogin = escapeHtml(params.challengerLogin);
     const safeChallengedName = escapeHtml(params.challengedName);

@@ -210,6 +210,7 @@ export class AppComponent implements OnInit, OnDestroy {
   prefilledDuelLogin = '';
   prefilledDuelChallengeMode = false;
   pendingDuelInviteToken = '';
+  pendingDuelChallengeId = '';
   pendingRegistrationEmail = '';
 
   regAcceptsDuels = true;
@@ -702,6 +703,79 @@ export class AppComponent implements OnInit, OnDestroy {
     this.prefilledDuelChallengeMode = false;
   }
 
+  handleIncomingDuelChallenge(challengeId: string): void {
+    const cleanId = String(challengeId || '').trim();
+    if (!cleanId) return;
+
+    this.setSiteView('home');
+    this.userExplicitlyNavigatedHome = true;
+
+    if (!this.isIdentified) {
+      this.pendingDuelChallengeId = cleanId;
+      if (this.invitationEmail) {
+        this.loginAccountInput = this.invitationEmail;
+        this.regEmail = this.invitationEmail;
+      }
+      this.openAccountModal('login');
+      this.accountAuthSuccess = 'Connectez-vous à votre compte pour accéder à votre défi de duel 1v1.';
+      this.cdr.markForCheck();
+      return;
+    }
+
+    this.rowerService.getDuelChallengeById(cleanId).subscribe({
+      next: (res) => {
+        if (!res?.success || !res.challenge) {
+          this.triggerFinishToast('⚠️ Défi de duel introuvable ou expiré.');
+          this.pendingDuelChallengeId = '';
+          this.cdr.markForCheck();
+          return;
+        }
+
+        const ch = res.challenge;
+        const status = ch.status;
+
+        if (status === 'REFUSED' || status === 'CANCELLED' || status === 'EXPIRED') {
+          const statusLabel = status === 'REFUSED'
+            ? 'refusé'
+            : status === 'CANCELLED'
+            ? 'annulé par son créateur'
+            : 'expiré';
+          this.triggerFinishToast(`⚠️ Ce défi de duel a été ${statusLabel}.`);
+          this.pendingDuelChallengeId = '';
+          this.isPrivateModalOpen = false;
+          this.setSiteView('home');
+          this.cdr.markForCheck();
+          return;
+        }
+
+        // Si PENDING ou ACCEPTED : charger le salon privé et ouvrir la modale
+        const targetRoomCode = ch.roomCode || ch.roomId;
+        if (targetRoomCode) {
+          this.rowerService.getPrivateRace(targetRoomCode).subscribe({
+            next: (room) => {
+              (room as any).duelChallenge = ch;
+              this.activatePrivateRoom(room, false);
+              this.setSiteView('home');
+              this.userExplicitlyNavigatedHome = true;
+              this.isPrivateModalOpen = true;
+              this.privateModalTab = 'share';
+              this.pendingDuelChallengeId = '';
+              this.cdr.markForCheck();
+            },
+            error: () => {
+              this.triggerFinishToast('⚠️ Impossible de charger le salon associé à ce duel.');
+              this.pendingDuelChallengeId = '';
+            }
+          });
+        }
+      },
+      error: () => {
+        this.triggerFinishToast('⚠️ Erreur lors de la récupération du duel.');
+        this.pendingDuelChallengeId = '';
+      }
+    });
+  }
+
   /**
    * Liste des données visibles sous le canevas des lignes d'eau :
    * En zoomant (de x1 à x3), réduit progressivement le nombre de données visibles jusqu'à un minimum de 3.
@@ -1077,19 +1151,10 @@ export class AppComponent implements OnInit, OnDestroy {
         }
 
         const duelChallengeParam = urlParams.get('duelChallenge');
-        if (duelChallengeParam && !window.location.pathname.startsWith('/r/')) {
-          this.rowerService.getDuelChallengeById(duelChallengeParam.trim()).subscribe({
-            next: (res) => {
-              if (res?.challenge?.roomCode) {
-                const targetUrl = `/r/${encodeURIComponent(res.challenge.roomCode)}?duelChallenge=${encodeURIComponent(res.challenge.id)}`;
-                try {
-                  window.history.replaceState({ roomCode: res.challenge.roomCode }, '', targetUrl);
-                } catch {}
-                this.resolveRoomFromCurrentUrl();
-              }
-            },
-            error: () => {}
-          });
+        if (duelChallengeParam) {
+          const cleanChallengeId = duelChallengeParam.trim();
+          this.pendingDuelChallengeId = cleanChallengeId;
+          this.handleIncomingDuelChallenge(cleanChallengeId);
         }
 
         const duelInviteToken = urlParams.get('duelInviteToken') || urlParams.get('inviteToken');
@@ -1121,12 +1186,22 @@ export class AppComponent implements OnInit, OnDestroy {
                 }
                 if (this.isIdentified) {
                   this.refreshPendingPrivateAndDuels();
-                  this.triggerFinishToast(`⚔️ Défi 1v1 de ${challengerLabel} (${res.challenge.targetDistance || 2000}m).`);
+                  if (res.challenge.roomCode) {
+                    this.rowerService.getPrivateRace(res.challenge.roomCode).subscribe((room) => {
+                      (room as any).duelChallenge = res.challenge;
+                      this.activatePrivateRoom(room, false);
+                      this.setSiteView('home');
+                      this.userExplicitlyNavigatedHome = true;
+                      this.isPrivateModalOpen = true;
+                      this.privateModalTab = 'share';
+                      this.cdr.markForCheck();
+                    });
+                  } else {
+                    this.triggerFinishToast(`⚔️ Défi 1v1 de ${challengerLabel} (${res.challenge.targetDistance || 2000}m).`);
+                  }
                 } else {
                   this.accountAuthSuccess = `⚔️ Défi 1v1 de ${challengerLabel} (${res.challenge.targetDistance || 2000}m) ! Créez votre compte gratuit pour le relever.`;
-                  if (!res.challenge.roomCode && !window.location.pathname.startsWith('/r/')) {
-                    this.openAccountModal('register');
-                  }
+                  this.openAccountModal('register');
                 }
               } else {
                 this.pendingDuelInviteToken = '';
@@ -2348,6 +2423,14 @@ export class AppComponent implements OnInit, OnDestroy {
             if (typeof window !== 'undefined' && (window.location.pathname === '/login' || window.location.pathname.startsWith('/login/'))) {
               try { window.history.replaceState({}, '', '/'); } catch {}
             }
+            if (this.pendingDuelChallengeId) {
+              const pendingId = this.pendingDuelChallengeId;
+              this.pendingDuelChallengeId = '';
+              this.handleIncomingDuelChallenge(pendingId);
+            } else if (this.activePrivateRoom || (typeof window !== 'undefined' && window.location.pathname.startsWith('/r/'))) {
+              this.isPrivateModalOpen = true;
+              this.privateModalTab = 'share';
+            }
             this.cdr.markForCheck();
           }, 500);
         } else {
@@ -2491,7 +2574,22 @@ export class AppComponent implements OnInit, OnDestroy {
           }
           this.isPostRegisterOnboarding = true;
           setTimeout(() => {
-            this.accountModalTab = 'kayak-customizer';
+            if (this.pendingDuelChallengeId) {
+              const pendingId = this.pendingDuelChallengeId;
+              this.pendingDuelChallengeId = '';
+              this.closeAccountModal();
+              this.setSiteView('home');
+              this.userExplicitlyNavigatedHome = true;
+              this.handleIncomingDuelChallenge(pendingId);
+            } else if (this.activePrivateRoom || (typeof window !== 'undefined' && window.location.pathname.startsWith('/r/'))) {
+              this.closeAccountModal();
+              this.setSiteView('home');
+              this.userExplicitlyNavigatedHome = true;
+              this.isPrivateModalOpen = true;
+              this.privateModalTab = 'share';
+            } else {
+              this.accountModalTab = 'kayak-customizer';
+            }
             this.cdr.markForCheck();
           }, 1200);
         } else {
@@ -2983,6 +3081,10 @@ export class AppComponent implements OnInit, OnDestroy {
   setSiteView(view: 'home' | 'regatta' | 'cockpit'): void {
     this.siteView = view;
     if (view === 'home') {
+      if (view === 'home' && this.activePrivateRoom) {
+        this.exitPrivateRoomToPublic(true);
+        this.initGameLoop();
+      }
       this.isPrivateBannerCollapsed = false;
       this.homeRefresh$.next();
     }
@@ -3017,6 +3119,58 @@ export class AppComponent implements OnInit, OnDestroy {
       }
     }
     this.syncRigidViewport();
+    this.cdr.markForCheck();
+  }
+
+  onHeaderLogoClick(): void {
+    // 1. Déterminer si le joueur a un kayak sur une ligne d'eau
+    const hasLane = Boolean(this.myAssignedLane) || this.isUserAssociatedWithRace;
+
+    // 2. Déterminer si la course a commencé
+    const isStarted = this.isRaceActive ||
+      (this.nextRaceInfo?.status === 'in_progress') ||
+      (this.nextRaceInfo?.race?.status === 'RUNNING') ||
+      (this.activePrivateRoom?.status === 'in_progress') ||
+      (this.activePrivateRoom?.race?.status === 'RUNNING');
+
+    // Si le joueur est sur une ligne d'eau et que la course a démarré -> Demander confirmation
+    if (hasLane && isStarted) {
+      const confirmed = typeof window !== 'undefined' ? window.confirm('Êtes-vous sûr de vouloir abandonner la course et libérer votre couloir ?') : true;
+      if (!confirmed) {
+        return;
+      }
+    }
+
+    // Sortie d'un salon privé / duel
+    if (this.activePrivateRoom) {
+      this.exitPrivateRoomToPublic(true);
+      this.initGameLoop();
+    } else if (hasLane) {
+      // Sortie de la ligne d'eau en course publique
+      const currentRaceId = this.nextRaceInfo?.race?.id;
+      if (currentRaceId && this.activeUserId) {
+        this.rowerService.leaveRoom(currentRaceId, this.activeUserId).subscribe({
+          next: () => {},
+          error: (err) => console.warn('Could not notify leave public race to backend:', err)
+        });
+      }
+      if (this.myActivity) {
+        if (isStarted) {
+          this.myActivity.status = 'abandoned';
+        } else {
+          this.myActivity = null;
+        }
+      }
+      this.myAssignedLane = null as any;
+      this.selectedSpectatorUserId = '';
+      this.selectedCockpitPlayerId = '';
+      if (!this.isIdentified && !this.isPaired) {
+        this.activeUserId = 'guest';
+      }
+    }
+
+    // Toujours revenir sur la vue des courses publiques
+    this.setSiteView('home');
     this.cdr.markForCheck();
   }
 
@@ -5776,15 +5930,17 @@ export class AppComponent implements OnInit, OnDestroy {
         this.regEmail = emailParam;
       }
     }
-    if (isRegattaRequested) {
-      this.pendingRegattaLaunch = true;
-      this.isRegattaLaunchSplashOpen = true;
-      this.invitationStep = 'choice';
-    } else if (extracted && extracted.valid) {
-      // Un clic sur un lien e-mail de salon privé ou duel (/r/:code) arrive sur la page d'accueil du salon ou du duel
+    if (extracted && extracted.valid) {
+      // Un clic sur un lien e-mail de salon privé ou duel (/r/:code) arrive toujours sur la page d'accueil du salon ou du duel (jamais directement en vue régate)
       this.pendingRegattaLaunch = false;
       this.isRegattaLaunchSplashOpen = false;
       this.setSiteView('home');
+      this.userExplicitlyNavigatedHome = true;
+    } else if (isRegattaRequested) {
+      this.pendingRegattaLaunch = false;
+      this.isRegattaLaunchSplashOpen = false;
+      this.setSiteView('home');
+      this.userExplicitlyNavigatedHome = true;
     }
 
     if (!extracted) {
@@ -5851,6 +6007,18 @@ export class AppComponent implements OnInit, OnDestroy {
           next: (room) => {
             (room as any).lane = assignedLane;
             this.activatePrivateRoom(room, false);
+            this.setSiteView('home');
+            this.userExplicitlyNavigatedHome = true;
+            const hasDuelChallenge = typeof window !== 'undefined' && (window.location.search.includes('duelChallenge') || window.location.search.includes('duelInviteToken'));
+            if (!hasDuelChallenge) {
+              this.isPrivateModalOpen = true;
+              this.privateModalTab = 'share';
+            }
+            if (!this.isIdentified && emailParam) {
+              this.openAccountModal('login');
+              this.accountAuthSuccess = 'Connectez-vous à votre compte pour accéder à votre salon privé.';
+            }
+            this.cdr.markForCheck();
           },
           error: () => {
             this.exitPrivateRoomToPublic(true, this.i18n.t('JOIN_ERR_NOT_FOUND'));
@@ -6023,15 +6191,8 @@ export class AppComponent implements OnInit, OnDestroy {
     this.updateDocumentTitle();
     this.syncSocketRoom(room.race.id);
 
-    if (this.pendingRegattaLaunch) {
-      this.pendingRegattaLaunch = false;
-      this.setSiteView('regatta');
-      if (!this.checkIsFullscreen()) {
-        this.isRegattaLaunchSplashOpen = true;
-      }
-      this.enterFullscreen().catch(() => {});
-      this.lockLandscape().catch(() => {});
-    }
+    this.pendingRegattaLaunch = false;
+    this.isRegattaLaunchSplashOpen = false;
 
     this.initGameLoop();
     this.cdr.markForCheck();

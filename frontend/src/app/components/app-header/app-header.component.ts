@@ -68,6 +68,7 @@ export class AppHeaderComponent {
   @Output() openWatchGuidanceRequest = new EventEmitter<void>();
   @Output() editGuestPseudoRequest = new EventEmitter<void>();
   @Output() openPrivateModalRequest = new EventEmitter<PrivateModalTab | undefined>();
+  @Output() headerLogoClick = new EventEmitter<void>();
   @Output() openStatisticsModalRequest = new EventEmitter<void>();
   @Output() openSubscriptionModalRequest = new EventEmitter<void>();
   @Output() openBotDuelModalRequest = new EventEmitter<void>();
@@ -98,6 +99,10 @@ export class AppHeaderComponent {
 
   setSiteView(view: 'home' | 'regatta' | 'cockpit'): void {
     this.siteViewChange.emit(view);
+  }
+
+  onLogoClick(): void {
+    this.headerLogoClick.emit();
   }
 
   openAccountModal(tab: 'login' | 'register' | 'profile' | 'forgot' | 'kayak-customizer' | 'regatta-settings' = 'login'): void {

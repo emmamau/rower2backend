@@ -3175,9 +3175,14 @@ export class RaceManager {
     identifier: string,
     userId: string
   ): { success: boolean; roomClosed: boolean; remainingParticipants: number } | { error: string; statusCode: number } {
-    const race = this.findPrivateRace(identifier);
+    let race = this.findPrivateRace(identifier);
+    let isPublic = false;
+    if (!race && this.currentPublicRace && (this.currentPublicRace.id === identifier || this.currentPublicRace.pinCode === identifier || this.currentPublicRace.code === identifier)) {
+      race = this.currentPublicRace;
+      isPublic = true;
+    }
     if (!race) {
-      return { error: "Salon introuvable ou déjà fermé.", statusCode: 404 };
+      return { error: "Salon ou course introuvable ou déjà fermé.", statusCode: 404 };
     }
 
     const cleanUserId = String(userId || "").trim();
@@ -3189,13 +3194,23 @@ export class RaceManager {
       race.pendingParticipants.delete(cleanUserId);
     }
 
-    // Marquer l'activité de ce joueur en abandoned (qu'elle soit RUNNING ou en attente LOBBY)
-    (Activities as any).update(
-      { status: "abandoned", speed: 0, powerWatts: 0, strokeRate: 0 },
-      { where: { activityId: race.id, userId: cleanUserId } }
-    ).catch((err: any) => {
-      console.error(`[RaceManager] Error marking activity abandoned for user ${cleanUserId} in race ${race.id}:`, err);
-    });
+    const isRunning = race.status === "RUNNING";
+    if (isRunning) {
+      // Course commencée : marquer l'activité en abandoned
+      (Activities as any).update(
+        { status: "abandoned", speed: 0, powerWatts: 0, strokeRate: 0 },
+        { where: { activityId: race.id, userId: cleanUserId } }
+      ).catch((err: any) => {
+        console.error(`[RaceManager] Error marking activity abandoned for user ${cleanUserId} in race ${race.id}:`, err);
+      });
+    } else {
+      // Course non commencée : libérer le couloir sans considérer que c'est un abandon
+      (Activities as any).destroy({
+        where: { activityId: race.id, userId: cleanUserId }
+      }).catch((err: any) => {
+        console.error(`[RaceManager] Error removing activity for user ${cleanUserId} before race start:`, err);
+      });
+    }
 
     const remainingParticipants = race.participants ? race.participants.size : 0;
     race.totalParticipants = remainingParticipants;
@@ -3203,7 +3218,7 @@ export class RaceManager {
     // L'ouverture d'un salon privé pour le consulter ne doit pas le supprimer.
     // Un salon en attente (LOBBY) ou programmé reste ouvert même si 0 participant est connecté.
     // Seul un salon dont la course est terminée (COMPLETED) ou sur action explicite de l'organisateur (closePrivateRace) est détruit.
-    if (remainingParticipants === 0 && race.status === "COMPLETED") {
+    if (!isPublic && remainingParticipants === 0 && race.status === "COMPLETED") {
       this.removePrivateRaceInternal(race);
       return { success: true, roomClosed: true, remainingParticipants: 0 };
     }

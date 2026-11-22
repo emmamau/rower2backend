@@ -1241,6 +1241,7 @@ export const de: Record<string, string> = {
   'HEADER_TIME_REMAINING_LABEL': 'Restzeit:',
   'HEADER_PAUSE_LABEL': 'Pause:',
   'HEADER_LEAVE_ROOM_PUBLIC_TIP': 'Raum verlassen und zu öffentlichen Rennen zurückkehren',
+  'HEADER_LOGO_EXIT_TIP': 'Zurück zu öffentlichen Rennen / Bahn freigeben',
   'HEADER_VIEW_RANKING_TIP': 'Offizielle Rennrangliste anzeigen',
   'HEADER_RANKING_SHORT': 'Rangliste',
   'HEADER_PAIR_WATCH_BTN': 'Garmin-Uhr koppeln',

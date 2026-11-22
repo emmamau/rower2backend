@@ -6231,6 +6231,66 @@ app-cockpit-view {
   box-shadow: 0 0 12px rgba(0, 240, 255, 0.4);
 }
 
+.game-logo.hero-logo.is-clickable {
+  cursor: pointer;
+  user-select: none;
+  transition: transform 0.2s ease, filter 0.2s ease;
+}
+
+.game-logo.hero-logo.is-clickable:hover {
+  transform: translateY(-1px) scale(1.02);
+  filter: drop-shadow(0 0 12px rgba(0, 240, 255, 0.45));
+}
+
+.game-logo.hero-logo.is-clickable:active {
+  transform: translateY(0) scale(0.99);
+}
+
+.pure-header-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0.6rem;
+  background: rgba(15, 23, 42, 0.85);
+  border: 1.5px solid rgba(0, 240, 255, 0.5);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.pure-header-logo:hover {
+  background: rgba(0, 240, 255, 0.18);
+  border-color: #00f0ff;
+  box-shadow: 0 0 14px rgba(0, 240, 255, 0.5);
+  transform: translateY(-1px);
+}
+
+.pure-header-logo:active {
+  transform: translateY(0);
+}
+
+.pure-header-logo .pure-emblem {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pure-header-logo .pure-svg {
+  width: 32px;
+  height: 32px;
+}
+
+.pure-header-logo .pure-logo-text {
+  font-size: 0.88rem;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  background: linear-gradient(135deg, #00f0ff 0%, #ff0055 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  white-space: nowrap;
+}
+
 .btn-pure-home {
   background: linear-gradient(135deg, rgba(0, 240, 255, 0.2) 0%, rgba(15, 23, 42, 0.9) 100%);
   border: 1.5px solid #00f0ff;
@@ -6918,6 +6978,16 @@ app-cockpit-view {
   .pure-screen-header .pure-user-pill {
     padding: 1px 6px !important;
     font-size: 0.70rem !important;
+  }
+  .pure-screen-header .pure-header-logo {
+    padding: 1px 4px !important;
+  }
+  .pure-screen-header .pure-header-logo .pure-svg {
+    width: 18px !important;
+    height: 18px !important;
+  }
+  .pure-screen-header .pure-header-logo .pure-logo-text {
+    font-size: 0.68rem !important;
   }
 
   .game-container.pure-screen-active .hud-header {

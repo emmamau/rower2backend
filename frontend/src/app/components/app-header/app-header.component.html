@@ -1,16 +1,44 @@
-<!-- EN-TÊTE ÉPURÉ POUR MODE RÉGATE ET MODE COCKPIT (AVEC ICÔNE ACCUEIL) -->
+<!-- EN-TÊTE ÉPURÉ POUR MODE RÉGATE ET MODE COCKPIT (AVEC LOGO CLIQUABLE RETOUR COURSES PUBLIQUES) -->
 <header class="pure-screen-header" *ngIf="siteView === 'regatta' || siteView === 'cockpit'">
   <div class="pure-header-left">
-    <button
-      type="button"
-      class="btn-pure-nav btn-pure-home"
-      (click)="setSiteView('home')"
-      [title]="i18n.t('NAV_HOME')">
-      <span class="pure-icon" aria-hidden="true">🏠</span>
-      <span class="pure-label">{{ i18n.t('NAV_HOME') }}</span>
-    </button>
+    <!-- Logo compact cliquable pour sortir d'une course et revenir aux courses publiques -->
+    <div
+      class="pure-header-logo is-clickable"
+      role="button"
+      tabindex="0"
+      (click)="onLogoClick()"
+      (keydown.enter)="onLogoClick()"
+      (keydown.space)="onLogoClick()"
+      [title]="i18n.t('HEADER_LOGO_EXIT_TIP')"
+      [attr.aria-label]="i18n.t('HEADER_LOGO_EXIT_TIP')">
+      <div class="logo-emblem pure-emblem">
+        <svg class="kayak-svg-logo pure-svg" viewBox="0 0 100 100" width="34" height="34">
+          <defs>
+            <linearGradient id="pureLogoWater" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#00f0ff"/>
+              <stop offset="100%" stop-color="#ff0055"/>
+            </linearGradient>
+            <linearGradient id="pureLogoHull" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stop-color="#ff0055"/>
+              <stop offset="50%" stop-color="#ff6600"/>
+              <stop offset="100%" stop-color="#ffe600"/>
+            </linearGradient>
+          </defs>
+          <circle cx="50" cy="50" r="46" fill="#080e1e" stroke="url(#pureLogoWater)" stroke-width="4"/>
+          <path d="M 16 64 C 34 58 66 58 84 64" fill="none" stroke="#00f0ff" stroke-width="3" stroke-linecap="round" opacity="0.8"/>
+          <path d="M 12 50 C 24 43 76 43 88 50 C 76 57 24 57 12 50 Z" fill="url(#pureLogoHull)"/>
+          <ellipse cx="50" cy="50" rx="9" ry="3.5" fill="#060913" stroke="#ffe600" stroke-width="1.5"/>
+          <circle cx="50" cy="33" r="5" fill="#00f0ff" stroke="#ffffff" stroke-width="1.5"/>
+          <line x1="28" y1="26" x2="72" y2="74" stroke="#ffffff" stroke-width="3.5" stroke-linecap="round"/>
+          <ellipse cx="26" cy="24" rx="6" ry="3" transform="rotate(-35 26 24)" fill="#ff0055"/>
+          <ellipse cx="74" cy="76" rx="6" ry="3" transform="rotate(-35 74 76)" fill="#ff0055"/>
+          <polygon points="50,14 52,19 57,20 53,23 54,28 50,25 46,28 47,23 43,20 48,19" fill="#ffe600"/>
+        </svg>
+      </div>
+      <span class="pure-logo-text">Rower Race</span>
+    </div>
 
-    <!-- Profil utilisateur cliquable immédiatement à droite du bouton Accueil -->
+    <!-- Profil utilisateur cliquable immédiatement à droite du Logo -->
     <div
       class="pure-user-pill is-clickable"
       (click)="openAccountModal(isIdentified ? 'profile' : 'login')"
@@ -113,8 +141,16 @@
   <!-- LIGNE 1 : LOGO EN GROS, MODES RÉGATE/COCKPIT, PROCHAINE COURSE, PLEIN ÉCRAN TRÈS ACCESSIBLE, LISTE DÉROULANTE DES LANGUES DISCRÈTE -->
   <div class="header-hero-row">
     <div class="hero-left-cluster">
-      <!-- Logo en gros -->
-      <div class="game-logo hero-logo">
+      <!-- Logo cliquable pour sortir d'une course privée / duel ou libérer la ligne d'eau -->
+      <div
+        class="game-logo hero-logo is-clickable"
+        role="button"
+        tabindex="0"
+        (click)="onLogoClick()"
+        (keydown.enter)="onLogoClick()"
+        (keydown.space)="onLogoClick()"
+        [title]="i18n.t('HEADER_LOGO_EXIT_TIP')"
+        [attr.aria-label]="i18n.t('HEADER_LOGO_EXIT_TIP')">
         <div class="logo-emblem">
           <svg class="kayak-svg-logo hero-svg" viewBox="0 0 100 100" width="56" height="56">
             <defs>
@@ -150,15 +186,6 @@
 
       <!-- Navigation modes d'affichage épurés -->
       <nav class="home-nav-modes" role="navigation" [attr.aria-label]="i18n.t('HEADER_SITE_MODES_ARIA')">
-        <button
-          type="button"
-          class="btn-nav-mode btn-nav-home-only"
-          [class.active]="isViewActive('home')"
-          (click)="setSiteView('home')"
-          [title]="i18n.t('NAV_HOME')">
-          <span class="mode-icon">🏠</span>
-          <span class="mode-txt">{{ i18n.t('NAV_HOME') }}</span>
-        </button>
         <button
           type="button"
           class="btn-nav-mode btn-nav-regatta"

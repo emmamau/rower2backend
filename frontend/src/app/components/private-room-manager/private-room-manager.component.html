@@ -34,13 +34,6 @@
               title="Voir le classement officiel">
               🏆
             </button>
-            <button
-              type="button"
-              class="priv-btn-mini priv-btn-mini-danger"
-              (click)="leaveToPublicRace()"
-              title="Quitter le salon">
-              🚪
-            </button>
           } @else {
             <button
               type="button"
@@ -93,12 +86,6 @@
               class="priv-btn priv-btn-cyan"
               (click)="openModalRequest.emit('share')">
               {{ i18n.t('BTN_MANAGE_CODES') }}
-            </button>
-            <button
-              type="button"
-              class="priv-btn priv-btn-ghost"
-              (click)="leaveToPublicRace()">
-              {{ i18n.t('BTN_BACK_PUBLIC') }}
             </button>
           }
           <button
@@ -210,7 +197,7 @@
         <div class="priv-banner-completed-box">
           <div class="priv-completed-text-cluster">
             <strong class="priv-completed-title">🏁 Cette course privée est terminée. Le salon est désormais définitivement fermé.</strong>
-            <span class="priv-completed-sub">Le classement officiel est conservé et consultable. Vous pouvez quitter le salon pour revenir sur la page des courses publiques.</span>
+            <span class="priv-completed-sub">Le classement officiel est conservé et consultable. Cliquez sur le logo Rower Race dans la bannière pour revenir sur la page des courses publiques.</span>
           </div>
           <div class="priv-completed-btn-row">
             <button
@@ -218,12 +205,6 @@
               class="priv-btn priv-btn-gold"
               (click)="viewRankingRequest.emit(activeRoom.race.id)">
               {{ i18n.t('BTN_VIEW_RANKING') || '🏆 Voir le classement officiel' }}
-            </button>
-            <button
-              type="button"
-              class="priv-btn priv-btn-cyan"
-              (click)="leaveToPublicRace()">
-              {{ i18n.t('BTN_LEAVE_ROOM_TO_PUBLIC') || '🚪 Quitter le salon (Courses publiques)' }}
             </button>
           </div>
         </div>
@@ -1469,13 +1450,6 @@
                 {{ i18n.t('BTN_CLOSE_ROOM') }}
               </button>
             }
-
-            <button
-              type="button"
-              class="priv-btn priv-btn-ghost"
-              (click)="leaveToPublicRace()">
-              {{ i18n.t('BTN_BACK_PUBLIC') }}
-            </button>
           </div>
 
           @if (actionError) {

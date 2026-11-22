@@ -261,17 +261,8 @@
 <section class="cockpit-progress-strip" [attr.aria-label]="i18n.t('COCKPIT_PROGRESS_ARIA')">
   <div class="cockpit-progress-head">
     <div class="cockpit-head-left">
-      <!-- BOUTONS D'ACTION RAPIDE / BASCULE DIRECTE ACCUEIL & RÉGATE -->
+      <!-- BOUTONS D'ACTION RAPIDE / BASCULE DIRECTE RÉGATE -->
       <div class="cockpit-quick-nav" role="toolbar" [attr.aria-label]="i18n.t('COCKPIT_QUICK_NAV_ARIA')">
-        <button
-          type="button"
-          class="btn-cockpit-quick btn-quick-home"
-          (click)="setSiteView('home')"
-          [title]="i18n.t('REGATTA_HOME_TIP')"
-          [attr.aria-label]="i18n.t('NAV_HOME')">
-          <span class="btn-quick-icon">🏠</span>
-          <span class="btn-quick-label">{{ i18n.t('NAV_HOME') }}</span>
-        </button>
         <button
           type="button"
           class="btn-cockpit-quick btn-quick-regatta"
