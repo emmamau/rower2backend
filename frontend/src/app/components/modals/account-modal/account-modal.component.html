@@ -1085,6 +1085,7 @@
                     class="lane-select"
                     [value]="myLaneMetrics[0]"
                     (change)="setMyLaneMetric(0, $any($event.target).value)">
+                    <option value="none">🚫 {{ i18n.t('REGATTA_METRIC_DO_NOT_DISPLAY') }}</option>
                     @for (m of regattaMetricsCatalog; track m.key) {
                       <option [value]="m.key">{{ m.icon }} {{ getRegattaMetricLabel(m.key) }}</option>
                     }
@@ -1096,6 +1097,7 @@
                     class="lane-select"
                     [value]="myLaneMetrics[1]"
                     (change)="setMyLaneMetric(1, $any($event.target).value)">
+                    <option value="none">🚫 {{ i18n.t('REGATTA_METRIC_DO_NOT_DISPLAY') }}</option>
                     @for (m of regattaMetricsCatalog; track m.key) {
                       <option [value]="m.key">{{ m.icon }} {{ getRegattaMetricLabel(m.key) }}</option>
                     }
@@ -1138,6 +1140,7 @@
                   class="lane-select"
                   [value]="myHeaderMetric"
                   (change)="setMyHeaderMetric($any($event.target).value)">
+                  <option value="none">🚫 {{ i18n.t('REGATTA_METRIC_DO_NOT_DISPLAY') }}</option>
                   @for (m of regattaMetricsCatalog; track m.key) {
                     <option [value]="m.key">{{ m.icon }} {{ getRegattaMetricLabel(m.key) }}</option>
                   }
@@ -1155,6 +1158,7 @@
                     class="lane-select"
                     [value]="opponentLaneMetrics[0]"
                     (change)="setOpponentLaneMetric(0, $any($event.target).value)">
+                    <option value="none">🚫 {{ i18n.t('REGATTA_METRIC_DO_NOT_DISPLAY') }}</option>
                     @for (m of regattaMetricsCatalog; track m.key) {
                       <option [value]="m.key">{{ m.icon }} {{ getRegattaMetricLabel(m.key) }}</option>
                     }
@@ -1166,6 +1170,7 @@
                     class="lane-select"
                     [value]="opponentLaneMetrics[1]"
                     (change)="setOpponentLaneMetric(1, $any($event.target).value)">
+                    <option value="none">🚫 {{ i18n.t('REGATTA_METRIC_DO_NOT_DISPLAY') }}</option>
                     @for (m of regattaMetricsCatalog; track m.key) {
                       <option [value]="m.key">{{ m.icon }} {{ getRegattaMetricLabel(m.key) }}</option>
                     }
@@ -1208,6 +1213,7 @@
                   class="lane-select"
                   [value]="opponentHeaderMetric"
                   (change)="setOpponentHeaderMetric($any($event.target).value)">
+                  <option value="none">🚫 {{ i18n.t('REGATTA_METRIC_DO_NOT_DISPLAY') }}</option>
                   @for (m of regattaMetricsCatalog; track m.key) {
                     <option [value]="m.key">{{ m.icon }} {{ getRegattaMetricLabel(m.key) }}</option>
                   }
@@ -1225,7 +1231,7 @@
                   class="lane-select"
                   [value]="watermarkMetric"
                   (change)="setWatermarkMetric($any($event.target).value)">
-                  <option value="none">🚫 {{ i18n.t('REGATTA_METRIC_NAME_NONE') }}</option>
+                  <option value="none">🚫 {{ i18n.t('REGATTA_METRIC_DO_NOT_DISPLAY') }}</option>
                   @for (m of regattaMetricsCatalog; track m.key) {
                     <option [value]="m.key">{{ m.icon }} {{ getRegattaMetricLabel(m.key) }}</option>
                   }

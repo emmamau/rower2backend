@@ -158,6 +158,16 @@ export class RegattaViewComponent {
     return '0m 00s';
   }
 
+  get myOfficialFinishTime(): string {
+    const myEntry = this.selectedRaceLeaderboard.find(e => e.userId === this.activeUserId);
+    if (myEntry?.formattedDuration) return myEntry.formattedDuration;
+    if (myEntry?.chrono) return myEntry.chrono;
+    if (myEntry?.elapsedTime) return this.formatTime(myEntry.elapsedTime);
+    if ((this.myActivity as any)?.formattedDuration) return (this.myActivity as any).formattedDuration;
+    if ((this.myActivity as any)?.chrono) return (this.myActivity as any).chrono;
+    return this.formatTime(this.myActivity?.elapsedTime);
+  }
+
   get isCountdownImminent(): boolean {
     const cd = this.activePrivateRoomCountdownDisplay;
     return cd.includes('s') && !cd.includes('h') && !cd.includes('m');

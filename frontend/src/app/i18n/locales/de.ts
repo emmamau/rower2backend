@@ -849,6 +849,7 @@ export const de: Record<string, string> = {
   'REGATTA_METRIC_NAME_CHRONO': 'Stoppuhr (Verstrichene Zeit)',
   'REGATTA_METRIC_NAME_SPM': 'Schlagfrequenz (SPM)',
   'REGATTA_METRIC_NAME_NONE': 'Keine (Deaktiviert)',
+  'REGATTA_METRIC_DO_NOT_DISPLAY': 'Nicht anzeigen',
   'ACCOUNT_REGATTA_LANES_SECTION_TITLE': 'Anzeige & Konfiguration der Wasserbahnen',
   'ACCOUNT_REGATTA_MY_LANE_TITLE': 'Mein Kajak (Meine Wasserbahn)',
   'ACCOUNT_REGATTA_MY_LANE_DATA1': 'Metrik 1 auf meiner Wasserbahn',

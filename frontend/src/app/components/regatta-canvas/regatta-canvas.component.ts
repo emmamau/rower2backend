@@ -1217,14 +1217,17 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
             const val = this.formatMetricValue(watermarkKey, activeBoat);
             if (val) {
               ctx.save();
-              const watermarkFontPx = Math.min(Math.floor(laneH * 0.74), Math.max(16, Math.round(36 * fontScale)));
-              ctx.font = `900 ${watermarkFontPx}px monospace`;
+              // Agrandissement au maximum de la hauteur de ligne d'eau (90-95%) avec contrôle de largeur
+              const maxFontByHeight = Math.floor(laneH * 0.92);
+              const maxFontByWidth = Math.floor((w * 0.88) / Math.max(1, val.length * 0.62));
+              const watermarkFontPx = Math.max(18, Math.min(maxFontByHeight, maxFontByWidth));
+              ctx.font = `900 ${watermarkFontPx}px "Exo 2", monospace, sans-serif`;
               ctx.textAlign = 'center';
               ctx.textBaseline = 'middle';
-              ctx.fillStyle = 'rgba(0, 240, 255, 0.18)';
+              ctx.fillStyle = 'rgba(0, 240, 255, 0.22)';
               ctx.shadowColor = '#00f0ff';
-              ctx.shadowBlur = 6;
-              ctx.fillText(val, w * 0.5, watermarkY);
+              ctx.shadowBlur = 10;
+              ctx.fillText(val, Math.round(w * 0.5), Math.round(watermarkY));
               ctx.restore();
             }
           }

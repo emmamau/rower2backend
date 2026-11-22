@@ -849,6 +849,7 @@ export const pt: Record<string, string> = {
   'REGATTA_METRIC_NAME_CHRONO': 'Cronómetro (Tempo decorrido)',
   'REGATTA_METRIC_NAME_SPM': 'Cadência (SPM)',
   'REGATTA_METRIC_NAME_NONE': 'Nenhuma (Desativada)',
+  'REGATTA_METRIC_DO_NOT_DISPLAY': 'Não exibir',
   'ACCOUNT_REGATTA_LANES_SECTION_TITLE': 'Visualização e Configuração de Pistas',
   'ACCOUNT_REGATTA_MY_LANE_TITLE': 'Meu Caiaque (Minha Pista)',
   'ACCOUNT_REGATTA_MY_LANE_DATA1': 'Dado 1 na minha pista',

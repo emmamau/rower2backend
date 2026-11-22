@@ -10,13 +10,15 @@
 .three-sec-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.78);
-  backdrop-filter: blur(10px);
+  background: radial-gradient(circle at center, rgba(0, 0, 0, 0.65) 0%, rgba(0, 0, 0, 0.88) 100%);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 1rem;
   z-index: 9999;
+  pointer-events: none;
 }
 
 /* Pre-start countdown overlay (15s..4s before race) */
@@ -251,39 +253,64 @@
   animation: pulseBox 1s infinite alternate;
 }
 
-.three-sec-box {
-  background: linear-gradient(135deg, rgba(255, 0, 85, 0.25), rgba(0, 240, 255, 0.25));
-  border: 3px solid var(--neon-cyan);
-  box-shadow: 0 0 50px rgba(0, 240, 255, 0.8), inset 0 0 30px rgba(255, 0, 85, 0.5);
-  border-radius: 24px;
-  padding: clamp(1.5rem, 4vw, 2.5rem) clamp(1.75rem, 6vw, 4rem);
-  max-inline-size: 92dvw;
+.three-sec-huge-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   text-align: center;
-  animation: pulseBox 1s infinite alternate;
+  inline-size: 100%;
+  pointer-events: none;
 }
 
 .three-sec-title {
   font-family: var(--font-race);
-  font-size: clamp(1.1rem, 0.9rem + 1.5vw, 1.6rem);
-  letter-spacing: 2.5px;
+  font-size: clamp(1.4rem, 1.2rem + 2vw, 2.6rem);
+  letter-spacing: 4px;
   color: var(--neon-yellow);
+  text-transform: uppercase;
+  margin-bottom: 0.5rem;
+  text-shadow: 0 0 25px rgba(255, 230, 0, 0.85);
 }
 
 .three-sec-number {
   font-family: var(--font-race);
-  font-size: clamp(4.5rem, 3rem + 10vw, 8rem);
-  line-height: 1;
+  font-size: clamp(10rem, 28vw, 24rem);
+  font-weight: 900;
+  line-height: 0.85;
   color: #fff;
-  text-shadow: 0 0 30px var(--neon-cyan), 0 0 60px var(--primary-accent);
+  text-shadow:
+    0 0 35px #00f0ff,
+    0 0 70px #00f0ff,
+    0 0 120px var(--primary-accent),
+    0 0 180px var(--primary-accent);
   margin: 0.8rem 0;
-  animation: popNumber 1s infinite cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  animation: popNumberHuge 1s infinite cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.three-sec-number.is-go {
+  color: var(--neon-lime);
+  text-shadow:
+    0 0 35px #00f0ff,
+    0 0 70px #39ff14,
+    0 0 130px #39ff14;
 }
 
 .three-sec-sub {
-  font-size: clamp(0.9rem, 0.8rem + 0.5vw, 1.1rem);
-  font-weight: 800;
+  font-size: clamp(1.2rem, 1rem + 1vw, 2.2rem);
+  font-weight: 900;
   color: var(--neon-lime);
-  letter-spacing: 1px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  margin-top: 1rem;
+  text-shadow: 0 0 25px rgba(57, 255, 20, 0.85);
+}
+
+@keyframes popNumberHuge {
+  0% { transform: scale(0.65); opacity: 0.7; }
+  45% { transform: scale(1.12); opacity: 1; }
+  75% { transform: scale(0.98); opacity: 1; }
+  100% { transform: scale(1); opacity: 0.95; }
 }
 
 @keyframes popNumber {

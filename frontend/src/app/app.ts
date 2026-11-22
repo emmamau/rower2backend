@@ -324,11 +324,66 @@ export class AppComponent implements OnInit, OnDestroy {
     };
   }
 
+  // Horloge locale monotone haute précision (interdiction absolue de recul temporel)
+  private raceMonotonicStartTimestamp: number | null = null;
+  private raceMonotonicMaxElapsed = 0;
+  private lastFetchedLeaderboardRaceId: string | null = null;
+
   get currentRaceElapsedSeconds(): number {
-    if (this.myActivity?.elapsedTime && this.myActivity.elapsedTime > 0) {
+    if (this.myActivity?.status === 'finished' && this.myActivity?.elapsedTime && this.myActivity.elapsedTime > 0) {
       return this.myActivity.elapsedTime;
     }
-    return Math.max(0, (this.gameMaxDurationSeconds || 0) - (this.gameRemainingSeconds || 0));
+    const isRunning = this.isRaceActive;
+    if (!isRunning) {
+      if (this.isPostRaceDisplayActive && this.raceMonotonicMaxElapsed > 0) {
+        return this.raceMonotonicMaxElapsed;
+      }
+      this.raceMonotonicStartTimestamp = null;
+      this.raceMonotonicMaxElapsed = 0;
+      return 0;
+    }
+    const now = Date.now();
+    if (!this.raceMonotonicStartTimestamp) {
+      const candidateElapsed = (this.myActivity?.elapsedTime && this.myActivity.elapsedTime > 0)
+        ? this.myActivity.elapsedTime
+        : Math.max(0, (this.gameMaxDurationSeconds || 0) - (this.gameRemainingSeconds || 0));
+      this.raceMonotonicStartTimestamp = now - candidateElapsed * 1000;
+      this.raceMonotonicMaxElapsed = Math.max(this.raceMonotonicMaxElapsed, candidateElapsed);
+    }
+    const computedElapsed = Math.max(0, Math.floor((now - this.raceMonotonicStartTimestamp) / 1000));
+    const serverElapsed = (this.myActivity?.elapsedTime && this.myActivity.elapsedTime > 0)
+      ? this.myActivity.elapsedTime
+      : Math.max(0, (this.gameMaxDurationSeconds || 0) - (this.gameRemainingSeconds || 0));
+    if (serverElapsed > computedElapsed + 2) {
+      this.raceMonotonicStartTimestamp = now - serverElapsed * 1000;
+    }
+    const effective = Math.max(this.raceMonotonicMaxElapsed, computedElapsed, serverElapsed > computedElapsed ? serverElapsed : 0);
+    this.raceMonotonicMaxElapsed = effective;
+    return effective;
+  }
+
+  refreshOfficialRaceLeaderboard(raceId: string): void {
+    if (!raceId) return;
+    this.rowerService.getRaceLeaderboard(raceId).subscribe({
+      next: (res) => {
+        if (res && res.success && Array.isArray(res.leaderboard) && res.leaderboard.length > 0) {
+          this.selectedRaceInfo = res.race || this.selectedRaceInfo;
+          this.selectedRaceLeaderboard = res.leaderboard;
+          const myEntry = this.selectedRaceLeaderboard.find(e => e.userId === this.activeUserId);
+          if (myEntry) {
+            this.myRank = myEntry.position;
+            if (this.myActivity) {
+              if (myEntry.elapsedTime) this.myActivity.elapsedTime = myEntry.elapsedTime;
+              if (myEntry.formattedDuration) (this.myActivity as any).formattedDuration = myEntry.formattedDuration;
+              if (myEntry.chrono) (this.myActivity as any).chrono = myEntry.chrono;
+              if (myEntry.avgPaceSec) this.myActivity.avgPace = myEntry.avgPaceSec;
+            }
+          }
+          this.cdr.markForCheck();
+        }
+      },
+      error: () => {}
+    });
   }
 
   // Personnalisation du Kayak 2D
@@ -2994,13 +3049,27 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   get isPostRaceDisplayActive(): boolean {
-    return Boolean(this.isFinished || this.isPostRaceRankingActive || this.isRaceEnded);
+    const active = Boolean(this.isFinished || this.isPostRaceRankingActive || this.isRaceEnded);
+    if (active) {
+      const rId = this.nextRaceInfo?.race?.id || this.activePrivateRoom?.race?.id || (this.nextRaceInfo as any)?.id || (this.activePrivateRoom as any)?.id;
+      if (rId && rId !== this.lastFetchedLeaderboardRaceId) {
+        this.lastFetchedLeaderboardRaceId = rId;
+        this.refreshOfficialRaceLeaderboard(rId);
+      }
+    } else {
+      this.lastFetchedLeaderboardRaceId = null;
+    }
+    return active;
   }
 
   returnToHomeAfterRace(): void {
     this.closeRaceLeaderboardModal();
     this.isPostRaceRankingActive = false;
     this.showFinishCelebration = false;
+    this.raceMonotonicStartTimestamp = null;
+    this.raceMonotonicMaxElapsed = 0;
+    this.lastFetchedLeaderboardRaceId = null;
+    this.selectedRaceLeaderboard = [];
     if (!this.activePrivateRoom) {
       this.isPrivateRoomCompleted = false;
     }
@@ -4366,14 +4435,16 @@ export class AppComponent implements OnInit, OnDestroy {
 
   closeRaceLeaderboardModal(): void {
     this.isRaceLeaderboardModalOpen = false;
-    this.isPostRaceRankingActive = false;
-    this.showFinishCelebration = false;
     if (this.finishCelebrationTimer) {
       clearTimeout(this.finishCelebrationTimer);
       this.finishCelebrationTimer = null;
     }
-    this.selectedRaceLeaderboard = [];
-    this.selectedRaceInfo = null;
+    if (!this.isPostRaceDisplayActive) {
+      this.isPostRaceRankingActive = false;
+      this.showFinishCelebration = false;
+      this.selectedRaceLeaderboard = [];
+      this.selectedRaceInfo = null;
+    }
     this.cdr.markForCheck();
   }
 

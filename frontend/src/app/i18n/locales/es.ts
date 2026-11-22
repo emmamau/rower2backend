@@ -849,6 +849,7 @@ export const es: Record<string, string> = {
   'REGATTA_METRIC_NAME_CHRONO': 'Cronómetro (Tiempo transcurrido)',
   'REGATTA_METRIC_NAME_SPM': 'Cadencia (SPM)',
   'REGATTA_METRIC_NAME_NONE': 'Ninguna (Desactivada)',
+  'REGATTA_METRIC_DO_NOT_DISPLAY': 'No mostrar',
   'ACCOUNT_REGATTA_LANES_SECTION_TITLE': 'Visualización y Configuración de Calles',
   'ACCOUNT_REGATTA_MY_LANE_TITLE': 'Mi Kayak (Mi Calle)',
   'ACCOUNT_REGATTA_MY_LANE_DATA1': 'Dato 1 en mi calle',

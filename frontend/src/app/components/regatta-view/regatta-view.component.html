@@ -95,7 +95,7 @@
       </div>
       <div class="finish-stat-box">
         <span class="f-lbl">{{ i18n.t('RACE_STAT_OFFICIAL_TIME') }}</span>
-        <span class="f-val">{{ formatTime(myActivity?.elapsedTime) }}</span>
+        <span class="f-val">{{ myOfficialFinishTime }}</span>
       </div>
       <div class="finish-stat-box">
         <span class="f-lbl">{{ i18n.t('DISTANCE').toUpperCase() }}</span>
@@ -154,7 +154,7 @@
                       <span class="badge-estimated" *ngIf="entry.isEstimated" [title]="i18n.t('RACE_ESTIMATED_TIP')">⏱️ {{ i18n.t('RACE_ESTIMATED_BADGE') }}</span>
                     </div>
                   </td>
-                  <td class="col-time font-mono">{{ entry.formattedDuration || entry.chrono || '--' }}</td>
+                  <td class="col-time font-mono">{{ entry.formattedDuration || entry.chrono || (entry.elapsedTime ? formatTime(entry.elapsedTime) : '--') }}</td>
                   <td class="col-pace font-mono">{{ formatPace(entry.avgPaceSec || entry.avgPace) }}</td>
                   <td class="col-gap font-mono">{{ entry.gap || '--' }}</td>
                   <td class="col-points" [title]="entry.pointsBreakdown || formatPoints(entry.points)">{{ formatPoints(entry.points) }}</td>

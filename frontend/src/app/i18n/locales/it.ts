@@ -849,6 +849,7 @@ export const it: Record<string, string> = {
   'REGATTA_METRIC_NAME_CHRONO': 'Cronometro (Tempo trascorso)',
   'REGATTA_METRIC_NAME_SPM': 'Cadenza (SPM)',
   'REGATTA_METRIC_NAME_NONE': 'Nessuna (Disattivata)',
+  'REGATTA_METRIC_DO_NOT_DISPLAY': 'Non mostrare',
   'ACCOUNT_REGATTA_LANES_SECTION_TITLE': 'Visualizzazione e Configurazione Corsie',
   'ACCOUNT_REGATTA_MY_LANE_TITLE': 'Il Mio Kayak (La Mia Corsia)',
   'ACCOUNT_REGATTA_MY_LANE_DATA1': 'Dato 1 sulla mia corsia',

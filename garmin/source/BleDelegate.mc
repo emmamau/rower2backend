@@ -1025,18 +1025,19 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
                 }
             }
 
-            if (!_isWaitingForReadyOrHost) {
-                if (state == RowerView.STATE_WAITING_START && cd <= 5 && cd > 0) {
+            if (cd <= 3 && cd > 0) {
+                _isWaitingForReadyOrHost = false;
+                if (state != RowerView.STATE_COUNTDOWN_5S) {
                     view.set5sCountdown(cd);
                     view.setAppState(RowerView.STATE_COUNTDOWN_5S);
                     vibrateSingleTick(false);
-                } else if (state == RowerView.STATE_COUNTDOWN_5S) {
-                    if (cd > 0) {
-                        view.set5sCountdown(cd);
-                        vibrateSingleTick(false);
-                    } else {
-                        handleRaceStartTrigger(view, isRowing);
-                    }
+                } else {
+                    view.set5sCountdown(cd);
+                    vibrateSingleTick(false);
+                }
+            } else if (state == RowerView.STATE_COUNTDOWN_5S) {
+                if (cd <= 0) {
+                    handleRaceStartTrigger(view, isRowing);
                 }
             }
         }
@@ -1654,7 +1655,9 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
                 (curState == RowerView.STATE_LOBBY || curState == RowerView.STATE_WAITING_START || curState == RowerView.STATE_COUNTDOWN_5S || curState == RowerView.STATE_PENDING_APPROVAL)) {
                 var isRowing = (_model.strokeRate > 0 || _model.instantPower > 0);
                 handleRaceStartTrigger(view, isRowing);
-            } else if (!isRunning && !_isWaitingForReadyOrHost && countdown > 0 && countdown <= 5 && curState == RowerView.STATE_WAITING_START) {
+            } else if (!isRunning && countdown > 0 && countdown <= 3 &&
+                (curState == RowerView.STATE_WAITING_START || curState == RowerView.STATE_LOBBY || curState == RowerView.STATE_COUNTDOWN_5S)) {
+                _isWaitingForReadyOrHost = false;
                 view.set5sCountdown(countdown);
                 view.setAppState(RowerView.STATE_COUNTDOWN_5S);
             }

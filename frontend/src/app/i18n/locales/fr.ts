@@ -849,6 +849,7 @@ export const fr: Record<string, string> = {
   'REGATTA_METRIC_NAME_CHRONO': 'Chrono (Temps écoulé)',
   'REGATTA_METRIC_NAME_SPM': 'Cadence (SPM)',
   'REGATTA_METRIC_NAME_NONE': 'Aucune (Désactivée)',
+  'REGATTA_METRIC_DO_NOT_DISPLAY': 'Ne pas afficher',
   'ACCOUNT_REGATTA_LANES_SECTION_TITLE': 'Affichage & Configuration des Lignes d\'Eau',
   'ACCOUNT_REGATTA_MY_LANE_TITLE': 'Mon Kayak (Ma Ligne d\'Eau)',
   'ACCOUNT_REGATTA_MY_LANE_DATA1': 'Donnée 1 sur ma ligne d\'eau',

@@ -370,11 +370,13 @@
   </div>
 </div>
 
-<!-- 3 SECONDS RACE COUNTDOWN OVERLAY -->
+<!-- 3 SECONDS RACE COUNTDOWN OVERLAY (TRÈS ÉNORME AU MILIEU DE L'ÉCRAN) -->
 <div class="three-sec-overlay" *ngIf="is3sCountdown && !isAnyModalOpen">
-  <div class="three-sec-box">
+  <div class="three-sec-huge-wrap">
     <div class="three-sec-title">{{ i18n.t('COUNTDOWN_TITLE') }}</div>
-    <div class="three-sec-number">{{ threeSecondsCount }}</div>
+    <div class="three-sec-number" [class.is-go]="threeSecondsCount <= 0">
+      {{ threeSecondsCount > 0 ? threeSecondsCount : (i18n.t('COUNTDOWN_GO') || 'GO !') }}
+    </div>
     <div class="three-sec-sub">{{ i18n.t('COUNTDOWN_SUB') }}</div>
   </div>
 </div>

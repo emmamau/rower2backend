@@ -849,6 +849,7 @@ export const en: Record<string, string> = {
   'REGATTA_METRIC_NAME_CHRONO': 'Chrono (Elapsed time)',
   'REGATTA_METRIC_NAME_SPM': 'Stroke Rate (SPM)',
   'REGATTA_METRIC_NAME_NONE': 'None (Disabled)',
+  'REGATTA_METRIC_DO_NOT_DISPLAY': 'Do not display',
   'ACCOUNT_REGATTA_LANES_SECTION_TITLE': 'Water Lanes Display & Configuration',
   'ACCOUNT_REGATTA_MY_LANE_TITLE': 'My Kayak (My Water Lane)',
   'ACCOUNT_REGATTA_MY_LANE_DATA1': 'Metric 1 on my water lane',
