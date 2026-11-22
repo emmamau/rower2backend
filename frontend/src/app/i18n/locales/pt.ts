@@ -1328,5 +1328,19 @@ export const pt: Record<string, string> = {
   'ERR_TOKEN_INVALID': 'Token inválido ou expirado.',
   'ERR_DELETE_ACCOUNT': 'Erro ao eliminar a conta.',
   'ERR_LEADERBOARD_LOAD': 'Não foi possível carregar a classificação desta regata.',
-  'ERR_ROOM_DENIED': 'Acesso negado para esta sala'
+  'ERR_ROOM_DENIED': 'Acesso negado para esta sala',
+
+  // Purge & Virtual Guests
+  'ADMIN_USERS_ROLE_GUEST': 'Convidado / Anônimo',
+  'ADMIN_USERS_BTN_PURGE_GUESTS': 'Purgar convidados',
+  'ADMIN_PURGE_MODAL_TITLE': 'Purgar usuários convidados órfãos',
+  'ADMIN_PURGE_MODAL_DESC': 'Esta ação remove permanentemente do banco de dados os perfis anônimos sem endereço de e-mail ou conta permanente. As contas de administradores e assinantes nunca serão afetadas.',
+  'ADMIN_PURGE_INCLUDE_RACES_LABEL': 'Incluir também convidados com corridas concluídas (atenção: purga completa de todos os convidados sem conta)',
+  'ADMIN_PURGE_BTN_CONFIRM': 'Confirmar purga',
+  'ADMIN_PURGE_BTN_PURGING': 'Purgando...',
+  'ADMIN_PURGE_SUCCESS': 'Usuários convidados purgados com sucesso.',
+  'ADMIN_ERR_PURGE_USERS': 'Erro ao purgar os usuários convidados.',
+  'RACE_FINISH_GUEST_SAVE_TITLE': 'Ótima corrida! Salve seu tempo oficial',
+  'RACE_FINISH_GUEST_SAVE_DESC': 'Crie sua conta gratuita em 15 segundos para manter seu histórico, entrar na classificação das ligas e sincronizar seus relógios.',
+  'RACE_FINISH_GUEST_REGISTER_BTN': 'Criar conta e salvar'
 };

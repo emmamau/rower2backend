@@ -194,6 +194,7 @@
           <option value="">{{ i18n.t('ADMIN_USERS_ALL_ROLES') }}</option>
           <option value="USER">USER</option>
           <option value="ADMIN">ADMIN</option>
+          <option value="GUEST">{{ i18n.t('ADMIN_USERS_ROLE_GUEST') }}</option>
         </select>
         <select class="select-filter" [(ngModel)]="filterTier" (change)="loadUsers(1)">
           <option value="">{{ i18n.t('ADMIN_USERS_ALL_TIERS') }}</option>
@@ -208,6 +209,14 @@
         </select>
         <button class="btn-submit" style="padding: 10px 18px;" (click)="loadUsers(1)">
           🔍 {{ i18n.t('ADMIN_USERS_BTN_FILTER') }}
+        </button>
+        <button
+          type="button"
+          class="btn-cancel"
+          style="padding: 10px 18px; margin-left: auto;"
+          (click)="openPurgeModal()"
+          [title]="i18n.t('ADMIN_USERS_BTN_PURGE_GUESTS')">
+          🧹 {{ i18n.t('ADMIN_USERS_BTN_PURGE_GUESTS') }}
         </button>
       </div>
 
@@ -1424,6 +1433,38 @@
           [disabled]="isDeletingUser"
         >
           {{ isDeletingUser ? i18n.t('ADMIN_DELETE_DELETING') : i18n.t('ADMIN_DELETE_BTN_CONFIRM') }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modale Purge des Utilisateurs Anonymes / Invités -->
+  <div class="modal-overlay" *ngIf="isPurgeModalOpen">
+    <div class="modal-dialog" style="max-width: 540px; border-color: rgba(245, 158, 11, 0.4);">
+      <h3 class="modal-title" style="color: #fbbf24;">🧹 {{ i18n.t('ADMIN_PURGE_MODAL_TITLE') }}</h3>
+
+      <div class="alert-banner alert-warning" style="margin: 16px 0; font-size: 0.85rem; line-height: 1.5;">
+        ⚠️ {{ i18n.t('ADMIN_PURGE_MODAL_DESC') }}
+      </div>
+
+      <div style="background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 8px; padding: 14px; margin-bottom: 20px;">
+        <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; color: #f1f5f9; font-size: 0.9rem;">
+          <input type="checkbox" [(ngModel)]="purgeIncludeWithRaces" style="accent-color: #f59e0b; width: 18px; height: 18px;" />
+          <span>{{ i18n.t('ADMIN_PURGE_INCLUDE_RACES_LABEL') }}</span>
+        </label>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn-close" (click)="closePurgeModal()" [disabled]="isPurgingUsers">
+          {{ i18n.t('ADMIN_MODAL_CANCEL') }}
+        </button>
+        <button
+          class="btn-action"
+          style="background: linear-gradient(135deg, #d97706, #b45309); color: white; padding: 10px 20px; font-weight: 700; border: none; border-radius: 8px; cursor: pointer;"
+          (click)="confirmPurgeUsers()"
+          [disabled]="isPurgingUsers"
+        >
+          {{ isPurgingUsers ? i18n.t('ADMIN_PURGE_BTN_PURGING') : i18n.t('ADMIN_PURGE_BTN_CONFIRM') }}
         </button>
       </div>
     </div>

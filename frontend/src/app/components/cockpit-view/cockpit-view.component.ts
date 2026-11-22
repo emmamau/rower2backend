@@ -23,6 +23,7 @@ export class CockpitViewComponent {
   @Input() myCockpitRankBadgeText = '--';
   @Input() sortedLiveMetrics: LiveRacerMetric[] = [];
   @Input() activeUserId = '';
+  @Input() isGuestUser = false;
   @Input() isPostRaceDisplayActive = false;
   @Input() myRank: number | null = null;
   @Input() isRaceStoppedByOrganizer = false;
@@ -66,6 +67,7 @@ export class CockpitViewComponent {
   @Output() spectatorSelect = new EventEmitter<string>();
   @Output() openCurrentRaceLeaderboardRequest = new EventEmitter<void>();
   @Output() returnToHomeAfterRaceRequest = new EventEmitter<void>();
+  @Output() openRegisterModalRequest = new EventEmitter<void>();
   @Output() generateGarminPairingCodeRequest = new EventEmitter<void>();
   @Output() selectPublicKayak = new EventEmitter<string>();
   @Output() siteViewChange = new EventEmitter<'home' | 'regatta' | 'cockpit'>();

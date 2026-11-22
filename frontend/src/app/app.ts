@@ -2192,6 +2192,10 @@ export class AppComponent implements OnInit, OnDestroy {
     return Boolean((email && email.length > 0) || (!isGuest && !isAnonymousRacer));
   }
 
+  get isGuestUser(): boolean {
+    return !this.isRegisteredUser;
+  }
+
   get currentSubscriberTier(): string {
     if (this.isUserAdmin) return 'admin';
     const tier = (this.currentUser?.subscriptionTier || (typeof localStorage !== 'undefined' ? localStorage.getItem('rower_subscription_tier') || '' : '')).toLowerCase().trim();

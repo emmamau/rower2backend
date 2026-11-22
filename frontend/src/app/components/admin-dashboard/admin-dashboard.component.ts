@@ -91,6 +91,11 @@ export class AdminDashboardComponent implements OnInit {
   isDeleteUserModalOpen = false;
   isDeletingUser = false;
 
+  // Purge des comptes invités orphelins
+  isPurgeModalOpen = false;
+  isPurgingUsers = false;
+  purgeIncludeWithRaces = false;
+
   // Onglet 3 : Salons
   activeRoomsList: AdminActiveRoomItem[] = [];
   roomsHistoryList: any[] = [];
@@ -497,6 +502,39 @@ export class AdminDashboardComponent implements OnInit {
         this.isDeletingUser = false;
         this.errorMessage = this.formatAdminError(err, 'ADMIN_ERR_DELETE_USER');
         this.closeDeleteUserModal();
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  openPurgeModal(): void {
+    this.isPurgeModalOpen = true;
+    this.purgeIncludeWithRaces = false;
+    this.clearMessages();
+  }
+
+  closePurgeModal(): void {
+    this.isPurgeModalOpen = false;
+    this.isPurgingUsers = false;
+  }
+
+  confirmPurgeUsers(): void {
+    this.isPurgingUsers = true;
+    this.clearMessages();
+    this.adminService.purgeAnonymousUsers(this.purgeIncludeWithRaces).subscribe({
+      next: (res) => {
+        this.isPurgingUsers = false;
+        this.closePurgeModal();
+        if (res.success) {
+          this.feedbackMessage = res.message || this.i18n.t('ADMIN_PURGE_SUCCESS');
+          this.loadUsers(1);
+        }
+        this.cdr.markForCheck();
+      },
+      error: (err) => {
+        this.isPurgingUsers = false;
+        this.closePurgeModal();
+        this.errorMessage = this.formatAdminError(err, 'ADMIN_ERR_PURGE_USERS');
         this.cdr.markForCheck();
       }
     });

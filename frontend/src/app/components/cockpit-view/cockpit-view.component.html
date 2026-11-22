@@ -154,6 +154,21 @@
       </div>
     </div>
 
+    <!-- ENCOURAGEMENT CRÉATION DE COMPTE POUR INVITÉ (FINISHER) -->
+    <div class="finish-guest-register-banner" *ngIf="isGuestUser">
+      <div class="guest-register-icon">🏆</div>
+      <div class="guest-register-content">
+        <h4 class="guest-register-title">{{ i18n.t('RACE_FINISH_GUEST_SAVE_TITLE') }}</h4>
+        <p class="guest-register-desc">{{ i18n.t('RACE_FINISH_GUEST_SAVE_DESC') }}</p>
+      </div>
+      <button
+        type="button"
+        class="btn-guest-register-action"
+        (click)="openRegisterModalRequest.emit()">
+        {{ i18n.t('RACE_FINISH_GUEST_REGISTER_BTN') }}
+      </button>
+    </div>
+
     <div class="finish-actions-row">
       <button
         type="button"

@@ -1328,5 +1328,19 @@ export const en: Record<string, string> = {
   'ERR_TOKEN_INVALID': 'Invalid or expired token.',
   'ERR_DELETE_ACCOUNT': 'Error while deleting account.',
   'ERR_LEADERBOARD_LOAD': 'Unable to load this regatta\'s leaderboard.',
-  'ERR_ROOM_DENIED': 'Access denied for this room'
+  'ERR_ROOM_DENIED': 'Access denied for this room',
+
+  // Purge & Virtual Guests
+  'ADMIN_USERS_ROLE_GUEST': 'Guest / Anonymous',
+  'ADMIN_USERS_BTN_PURGE_GUESTS': 'Purge guests',
+  'ADMIN_PURGE_MODAL_TITLE': 'Purge orphan guest users',
+  'ADMIN_PURGE_MODAL_DESC': 'This action permanently removes anonymous profiles without an email address or permanent account from the database. Administrator and subscriber accounts will never be affected.',
+  'ADMIN_PURGE_INCLUDE_RACES_LABEL': 'Also include guests who completed races (warning: full purge of all unattached guests)',
+  'ADMIN_PURGE_BTN_CONFIRM': 'Confirm purge',
+  'ADMIN_PURGE_BTN_PURGING': 'Purging...',
+  'ADMIN_PURGE_SUCCESS': 'Guest users successfully purged.',
+  'ADMIN_ERR_PURGE_USERS': 'Error purging guest users.',
+  'RACE_FINISH_GUEST_SAVE_TITLE': 'Great race! Save your official time',
+  'RACE_FINISH_GUEST_SAVE_DESC': 'Create your free account in 15 seconds to keep your race history, join the league leaderboard, and sync your connected watches.',
+  'RACE_FINISH_GUEST_REGISTER_BTN': 'Create Account & Save'
 };

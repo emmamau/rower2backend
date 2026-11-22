@@ -260,6 +260,14 @@ export class AdminService {
     );
   }
 
+  purgeAnonymousUsers(includeWithRaces: boolean = false): Observable<{ success: boolean; message: string; purgedCount: number }> {
+    return this.http.post<{ success: boolean; message: string; purgedCount: number }>(
+      `${this.apiUrl}/api/admin/users/purge-anonymous`,
+      { includeWithRaces },
+      { headers: this.getAuthHeaders() }
+    );
+  }
+
   revokeUser(userId: string, isRevoked: boolean): Observable<{ success: boolean; message: string; user: AdminUserItem }> {
     return this.http.patch<{ success: boolean; message: string; user: AdminUserItem }>(
       `${this.apiUrl}/api/admin/users/${encodeURIComponent(userId)}/revoke`,

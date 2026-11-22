@@ -179,7 +179,25 @@ export class AdminController {
         ];
       }
 
-      if (role) {
+      if (String(role).toUpperCase() === "GUEST") {
+        whereClause[Op.and] = [
+          {
+            [Op.or]: [
+              { id: { [Op.like]: "usr_%" } },
+              { id: { [Op.like]: "guest_%" } },
+              { id: "anonymous" },
+              { login: { [Op.like]: "usr_%" } },
+              { login: { [Op.like]: "guest_%" } },
+            ],
+          },
+          {
+            [Op.or]: [
+              { email: null },
+              { email: "" },
+            ],
+          },
+        ];
+      } else if (role) {
         whereClause.role = String(role).toUpperCase();
       }
 
@@ -215,7 +233,9 @@ export class AdminController {
           const s = searchTerm.toLowerCase();
           all = all.filter((u) => (u.login && u.login.toLowerCase().includes(s)) || (u.name && u.name.toLowerCase().includes(s)) || (u.email && u.email.toLowerCase().includes(s)));
         }
-        if (role) {
+        if (String(role).toUpperCase() === "GUEST") {
+          all = all.filter((u) => (!u.email || u.email.trim() === "") && (u.id?.startsWith("usr_") || u.id?.startsWith("guest_") || u.id === "anonymous" || u.login?.startsWith("usr_") || u.login?.startsWith("guest_")));
+        } else if (role) {
           all = all.filter((u) => (u.role || (u.isAdmin ? "ADMIN" : "USER")) === String(role).toUpperCase());
         }
         if (tier) {
@@ -862,6 +882,28 @@ export class AdminController {
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       res.status(500).json({ success: false, message: `Erreur suppression utilisateur: ${message}` });
+    }
+  }
+
+  /**
+   * POST /api/admin/users/purge-anonymous
+   * Purge en masse les comptes invités / anonymes orphelins (sans email, sans mot de passe, non admin).
+   * Par défaut, ne supprime que les comptes n'ayant jamais terminé de course (totalRaces = 0).
+   * Si includeWithRaces === true, supprime tous les comptes invités orphelins.
+   */
+  public static async purgeAnonymousUsers(req: Request, res: Response): Promise<void> {
+    try {
+      const { includeWithRaces = false } = req.body || {};
+      const deletedCount = await userStore.purgeAnonymousGuests(Boolean(includeWithRaces));
+
+      res.status(200).json({
+        success: true,
+        message: `${deletedCount} utilisateur(s) invité(s) purgé(s) avec succès.`,
+        purgedCount: deletedCount,
+      });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      res.status(500).json({ success: false, message: "Erreur purge utilisateurs anonymes: " + message });
     }
   }
 

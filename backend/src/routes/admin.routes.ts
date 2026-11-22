@@ -15,6 +15,7 @@ export default (app: Application): void => {
 
   // 2. Gestion des utilisateurs
   router.get("/users", AdminController.getUsers);
+  router.post("/users/purge-anonymous", AdminController.purgeAnonymousUsers);
   router.get("/users/:id/details", AdminController.getUserDetails);
   router.delete("/users/:id", AdminController.deleteUser);
   router.patch("/users/:id/revoke", AdminController.revokeUser);

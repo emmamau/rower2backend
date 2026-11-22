@@ -7512,6 +7512,74 @@ app-cockpit-view {
   background: rgba(0, 240, 255, 0.1) !important;
 }
 
+.finish-guest-register-banner {
+  margin: 1.25rem 0 0.5rem 0;
+  padding: 1.1rem 1.4rem;
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.18) 0%, rgba(99, 102, 241, 0.22) 100%);
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+  text-align: left;
+}
+
+.guest-register-icon {
+  font-size: 2.2rem;
+  flex-shrink: 0;
+  filter: drop-shadow(0 0 10px rgba(251, 191, 36, 0.5));
+}
+
+.guest-register-content {
+  flex: 1;
+}
+
+.guest-register-title {
+  margin: 0 0 0.25rem 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #f1f5f9;
+}
+
+.guest-register-desc {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #cbd5e1;
+  line-height: 1.4;
+}
+
+.btn-guest-register-action {
+  padding: 0.75rem 1.4rem;
+  background: linear-gradient(135deg, #0284c7, #2563eb);
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 0.9rem;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+  white-space: nowrap;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
+  flex-shrink: 0;
+}
+
+.btn-guest-register-action:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(37, 99, 235, 0.5);
+}
+
+@media (max-width: 640px) {
+  .finish-guest-register-banner {
+    flex-direction: column;
+    text-align: center;
+    gap: 0.85rem;
+  }
+  .btn-guest-register-action {
+    width: 100%;
+  }
+}
+
 .finish-actions-row {
   display: flex;
   align-items: center;

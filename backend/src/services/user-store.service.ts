@@ -604,6 +604,22 @@ export class UserStoreService {
     return true;
   }
 
+  public async purgeAnonymousGuests(includeWithRaces: boolean = false): Promise<number> {
+    const all = await this.getAllUsers();
+    let count = 0;
+    for (const u of all) {
+      const isAnon = (!u.email || u.email.trim() === "") &&
+        (u.id?.startsWith("usr_") || u.id?.startsWith("guest_") || u.id === "anonymous" || u.login?.startsWith("usr_") || u.login?.startsWith("guest_"));
+      const isSafe = !isEmmaAdminUser(u.id, u.name) && !u.isAdmin && (u.role !== "ADMIN");
+      const racesSafe = includeWithRaces || (!u.totalRaces || u.totalRaces === 0);
+      if (isAnon && isSafe && racesSafe) {
+        await this.deleteUser(u.id);
+        count++;
+      }
+    }
+    return count;
+  }
+
   public async createLoginRequest(data: {
     id: string;
     userId: string;

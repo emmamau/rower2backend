@@ -901,3 +901,89 @@ test("13. Admin Platform Statistics & Timeline Aggregations", async () => {
     await ctx.close();
   }
 });
+
+test("14. Admin Anonymous Users Purge & Virtual Guest Protection", async () => {
+  const ctx = await createTestServer();
+  try {
+    const adminUser = await userStore.createUser({
+      id: "admin_purge_test",
+      login: "Admin_Purge_Test",
+      email: "admin_purge@example.com",
+      role: "ADMIN",
+      isAdmin: true,
+    });
+    const adminToken = JwtService.sign({
+      userId: adminUser.id,
+      login: adminUser.login,
+      role: "ADMIN",
+      isAdmin: true,
+    });
+
+    const registeredUser = await userStore.createUser({
+      id: "usr_registered_person",
+      login: "Athlete_Real",
+      name: "Jean Dupont",
+      email: "jean.dupont@example.com",
+      role: "USER",
+      isAdmin: false,
+      totalRaces: 3,
+    });
+
+    const orphanGuest1 = await userStore.createUser({
+      id: "usr_orphan_guest_1",
+      login: "usr_orphan_guest_1",
+      name: "Racer_1111",
+      role: "USER",
+      isAdmin: false,
+      totalRaces: 0,
+    });
+
+    const orphanGuest2 = await userStore.createUser({
+      id: "guest_orphan_temp_2",
+      login: "guest_orphan_temp_2",
+      name: "Racer_2222",
+      role: "USER",
+      isAdmin: false,
+      totalRaces: 0,
+    });
+
+    // 14.1 Filtrage des invités
+    const listGuestsRes = await fetch(`${ctx.baseUrl}/api/admin/users?role=GUEST`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    assert.equal(listGuestsRes.status, 200);
+    const listGuestsData = await listGuestsRes.json();
+    assert.equal(listGuestsData.success, true);
+    const guestIds = listGuestsData.users.map((u) => u.id);
+    assert.ok(guestIds.includes("usr_orphan_guest_1"));
+    assert.ok(guestIds.includes("guest_orphan_temp_2"));
+    assert.ok(!guestIds.includes("usr_registered_person"), "Un compte avec email ne doit pas être filtré comme invité orphelin");
+
+    // 14.2 Purge des comptes invités orphelins sans course
+    const purgeRes = await fetch(`${ctx.baseUrl}/api/admin/users/purge-anonymous`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${adminToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ includeWithRaces: false }),
+    });
+    assert.equal(purgeRes.status, 200);
+    const purgeData = await purgeRes.json();
+    assert.equal(purgeData.success, true);
+    assert.ok(purgeData.purgedCount >= 2);
+
+    // 14.3 Vérifier que les orphelins sont supprimés et le vrai utilisateur conservé
+    const checkOrphan1 = await userStore.findUser("usr_orphan_guest_1");
+    assert.equal(checkOrphan1, null);
+    const checkReal = await userStore.findUser("usr_registered_person");
+    assert.ok(checkReal !== null);
+    assert.equal(checkReal.email, "jean.dupont@example.com");
+
+    // 14.4 Vérifier la protection de l'administrateur
+    const checkAdmin = await userStore.findUser("admin_purge_test");
+    assert.ok(checkAdmin !== null);
+  } finally {
+    await ctx.close();
+  }
+});

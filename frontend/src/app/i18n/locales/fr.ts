@@ -1328,5 +1328,19 @@ export const fr: Record<string, string> = {
   'ERR_TOKEN_INVALID': 'Jeton invalide ou expiré.',
   'ERR_DELETE_ACCOUNT': 'Erreur lors de la suppression du compte.',
   'ERR_LEADERBOARD_LOAD': 'Impossible de charger le classement de cette régate.',
-  'ERR_ROOM_DENIED': 'Accès refusé pour ce salon'
+  'ERR_ROOM_DENIED': 'Accès refusé pour ce salon',
+
+  // Purge & Invités Virtuels
+  'ADMIN_USERS_ROLE_GUEST': 'Invité / Anonyme',
+  'ADMIN_USERS_BTN_PURGE_GUESTS': 'Purger les invités',
+  'ADMIN_PURGE_MODAL_TITLE': 'Purger les utilisateurs invités orphelins',
+  'ADMIN_PURGE_MODAL_DESC': 'Cette action supprime de la base de données les profils anonymes sans adresse e-mail ni compte permanent. Les comptes administrateurs et abonnés ne seront jamais affectés.',
+  'ADMIN_PURGE_INCLUDE_RACES_LABEL': 'Inclure également les invités ayant terminé des courses (attention : purge complète de tous les invités sans compte)',
+  'ADMIN_PURGE_BTN_CONFIRM': 'Confirmer la purge',
+  'ADMIN_PURGE_BTN_PURGING': 'Purge en cours...',
+  'ADMIN_PURGE_SUCCESS': 'Purge des utilisateurs invités effectuée avec succès.',
+  'ADMIN_ERR_PURGE_USERS': 'Erreur lors de la purge des utilisateurs invités.',
+  'RACE_FINISH_GUEST_SAVE_TITLE': 'Bravo pour votre course ! Enregistrez votre chrono',
+  'RACE_FINISH_GUEST_SAVE_DESC': 'Créez votre compte gratuit en 15 secondes pour conserver votre historique, intégrer le classement des ligues et synchroniser vos montres.',
+  'RACE_FINISH_GUEST_REGISTER_BTN': 'Créer mon compte & Enregistrer'
 };

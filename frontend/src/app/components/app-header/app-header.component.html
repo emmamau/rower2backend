@@ -421,6 +421,7 @@
         type="button"
         class="btn-hud btn-private"
         [class.active-private]="!!activePrivateRoom"
+        [attr.aria-label]="activePrivateRoom ? i18n.t('HEADER_ACTIVE_ROOM_BADGE') : null"
         (click)="openPrivateModal()"
         [title]="privateRoomsAndDuelsTooltip">
         <span class="btn-icon">🔒</span>

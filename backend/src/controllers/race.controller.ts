@@ -389,17 +389,20 @@ export const joinRace = async (req: Request, res: Response): Promise<void> => {
       }
     } catch {}
 
-    // Inscrire/actualiser l'utilisateur sans données personnelles (tolérant au mode offline DB)
+    // Inscrire/actualiser l'utilisateur sans données personnelles (uniquement comptes enregistrés permanents, pas d'invité anonyme)
     try {
-      const user = await Users.findByPk(userId);
-      if (!user) {
-        await Users.create({
-          id: userId,
-          name: cleanUserName || `Racer_${String(userId).slice(-4)}`,
-          totalRaces: 0,
-          totalWins: 0,
-          podiums: 0,
-        });
+      const isGuest = !userId || userId === "anonymous" || userId.startsWith("guest_") || userId.startsWith("usr_");
+      if (!isGuest) {
+        const user = await Users.findByPk(userId);
+        if (!user) {
+          await Users.create({
+            id: userId,
+            name: cleanUserName || `Racer_${String(userId).slice(-4)}`,
+            totalRaces: 0,
+            totalWins: 0,
+            podiums: 0,
+          });
+        }
       }
     } catch {}
 

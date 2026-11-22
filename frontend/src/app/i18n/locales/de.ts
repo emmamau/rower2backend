@@ -1328,5 +1328,19 @@ export const de: Record<string, string> = {
   'ERR_TOKEN_INVALID': 'Ungültiger oder abgelaufener Token.',
   'ERR_DELETE_ACCOUNT': 'Fehler beim Löschen des Kontos.',
   'ERR_LEADERBOARD_LOAD': 'Rangliste dieser Regatta konnte nicht geladen werden.',
-  'ERR_ROOM_DENIED': 'Zugriff auf diesen Raum verweigert'
+  'ERR_ROOM_DENIED': 'Zugriff auf diesen Raum verweigert',
+
+  // Purge & Virtual Guests
+  'ADMIN_USERS_ROLE_GUEST': 'Gast / Anonym',
+  'ADMIN_USERS_BTN_PURGE_GUESTS': 'Gäste bereinigen',
+  'ADMIN_PURGE_MODAL_TITLE': 'Verwaiste Gastbenutzer bereinigen',
+  'ADMIN_PURGE_MODAL_DESC': 'Diese Aktion entfernt anonyme Profile ohne E-Mail-Adresse oder permanentes Konto dauerhaft aus der Datenbank. Administratoren- und Abonnenten-Konten sind niemals betroffen.',
+  'ADMIN_PURGE_INCLUDE_RACES_LABEL': 'Auch Gäste mit abgeschlossenen Rennen einbeziehen (Achtung: vollständige Bereinigung aller Konten ohne Registrierung)',
+  'ADMIN_PURGE_BTN_CONFIRM': 'Bereinigung bestätigen',
+  'ADMIN_PURGE_BTN_PURGING': 'Bereinigung läuft...',
+  'ADMIN_PURGE_SUCCESS': 'Gastbenutzer erfolgreich bereinigt.',
+  'ADMIN_ERR_PURGE_USERS': 'Fehler beim Bereinigen der Gastbenutzer.',
+  'RACE_FINISH_GUEST_SAVE_TITLE': 'Tolles Rennen! Speichern Sie Ihre offizielle Zeit',
+  'RACE_FINISH_GUEST_SAVE_DESC': 'Erstellen Sie Ihr kostenloses Konto in 15 Sekunden, um Ihren Rennverlauf zu speichern, der Liga-Rangliste beizutreten und Uhren zu synchronisieren.',
+  'RACE_FINISH_GUEST_REGISTER_BTN': 'Konto erstellen & speichern'
 };

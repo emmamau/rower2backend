@@ -6,7 +6,7 @@ import { hashPassword, verifyPassword, isEmmaAdminUser, generateSecureToken } fr
 import JwtService from "../services/jwt.service";
 import emailService from "../services/email.service";
 import stripeService from "../services/stripe.service";
-import userStore from "../services/user-store.service";
+import userStore, { StoredUser } from "../services/user-store.service";
 import raceManager from "../services/race-manager.service";
 import pairingService from "../services/pairing.service";
 import { getLeagueByPoints, WEEKLY_LEAGUES, LeagueTier } from "../utils/league.util";
@@ -154,6 +154,46 @@ function sanitizeUser(user: any): Record<string, any> {
   plain.language = plain.language ? String(plain.language).toLowerCase().trim() : "fr";
   return plain;
 }
+
+/**
+ * Migre les activités et courses réalisées sous un identifiant invité temporaire vers un compte permanent.
+ */
+export const migrateGuestActivities = async (guestUserId?: string, targetUserId?: string): Promise<number> => {
+  if (!guestUserId || !targetUserId) return 0;
+  const cleanGuestId = String(guestUserId).trim();
+  const cleanTargetId = String(targetUserId).trim();
+  if (!cleanGuestId || !cleanTargetId || cleanGuestId === cleanTargetId) return 0;
+
+  let totalUpdated = 0;
+  try {
+    const [affectedCount] = await Activities.update(
+      { userId: cleanTargetId },
+      { where: { userId: cleanGuestId } }
+    );
+    totalUpdated += affectedCount || 0;
+    if (totalUpdated > 0) {
+      const userActivities = await Activities.findAll({ where: { userId: cleanTargetId } });
+      const totalRaces = userActivities.length;
+      const totalWins = userActivities.filter((a: any) => a.finalRank === 1).length;
+      const podiums = userActivities.filter((a: any) => a.finalRank && a.finalRank <= 3).length;
+      await userStore.updateUser(cleanTargetId, {
+        totalRaces,
+        totalWins,
+        podiums,
+      });
+    }
+  } catch (err) {
+    console.warn("[migrateGuestActivities] Erreur migration activités DB:", err);
+  }
+
+  for (const act of (userStore as any).inMemoryActivities || []) {
+    if (act && act.userId === cleanGuestId) {
+      act.userId = cleanTargetId;
+      totalUpdated++;
+    }
+  }
+  return totalUpdated;
+};
 
 /**
  * POST /api/user/register
@@ -429,6 +469,16 @@ export const registerUser = async (req: Request, res: Response): Promise<void> =
       } catch {}
     }
 
+    // Migration automatique des activités et courses réalisées en tant qu'invité
+    const candidateGuestId = req.body?.guestUserId || tokenToMigrate;
+    if (candidateGuestId && candidateGuestId !== newUser.id) {
+      try {
+        await migrateGuestActivities(String(candidateGuestId), newUser.id);
+      } catch (actErr) {
+        console.warn("[Register] Erreur migration activités invité:", actErr);
+      }
+    }
+
     // Envoi du courriel de bienvenue (de manière asynchrone sans bloquer la réponse HTTP)
     if (cleanEmail) {
       emailService.sendWelcomeEmail(cleanEmail, `${cleanFirstName} ${cleanLastName}`.trim(), cleanLogin, userLanguage).catch((mailErr) => {
@@ -541,6 +591,12 @@ export const loginUser = async (req: Request, res: Response): Promise<void> => {
           await pairingService.transferPairingTokenToUser(String(candidateTokenOrId).trim(), canonicalAccountUserId);
         } catch {}
       }
+    }
+
+    if (guestUserId && String(guestUserId).trim() && String(guestUserId).trim() !== canonicalAccountUserId) {
+      try {
+        await migrateGuestActivities(String(guestUserId).trim(), canonicalAccountUserId);
+      } catch {}
     }
 
     // Résolution du statut d'appairage Garmin associé de façon centrale au compte utilisateur
@@ -784,23 +840,49 @@ export const getUserProfile = async (req: Request, res: Response): Promise<void>
 
     const uName = user ? user.name : "";
     const isEmmaAdmin = isEmmaAdminUser(userId, uName);
+    const isGuest = !userId || userId === "anonymous" || userId.startsWith("guest_") || userId.startsWith("usr_");
 
     if (!user) {
-      user = await userStore.createUser({
-        id: userId,
-        name: `Racer_${userId.slice(-4)}`,
-        login: userId,
-        totalRaces: 0,
-        totalWins: 0,
-        podiums: 0,
-        points: 0,
-        bestRank: 0,
-        lastRank: 0,
-        isAdmin: isEmmaAdmin,
-        isSubscriber: isEmmaAdmin,
-      });
+      if (isGuest && !isEmmaAdmin) {
+        // Profil invité 100% virtuel en RAM (ne crée JAMAIS de ligne dans la table SQL Users)
+        user = {
+          id: userId,
+          name: `Racer_${userId.slice(-4)}`,
+          login: userId,
+          totalRaces: 0,
+          totalWins: 0,
+          podiums: 0,
+          points: 0,
+          bestRank: 0,
+          lastRank: 0,
+          isAdmin: false,
+          isSubscriber: false,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        } as StoredUser;
+        userStore.cacheUser(user);
+      } else {
+        user = await userStore.createUser({
+          id: userId,
+          name: `Racer_${userId.slice(-4)}`,
+          login: userId,
+          totalRaces: 0,
+          totalWins: 0,
+          podiums: 0,
+          points: 0,
+          bestRank: 0,
+          lastRank: 0,
+          isAdmin: isEmmaAdmin,
+          isSubscriber: isEmmaAdmin,
+        });
+      }
     } else if (isEmmaAdmin && (!user.isAdmin || !user.isSubscriber)) {
       user = (await userStore.updateUser(user.id, { isAdmin: true, isSubscriber: true })) || user;
+    }
+
+    if (!user) {
+      res.status(404).json({ message: "Utilisateur introuvable" });
+      return;
     }
 
     let pastActivities: any[] = [];
