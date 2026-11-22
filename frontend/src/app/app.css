@@ -7493,6 +7493,17 @@ app-cockpit-view {
   font-size: 0.78rem;
 }
 
+.welcome-race-pill.is-completed .pill-date {
+  color: #38bdf8;
+  font-weight: 600;
+  font-size: 0.78rem;
+}
+
+.welcome-race-pill.is-completed .pill-divider {
+  color: rgba(148, 163, 184, 0.5);
+  font-size: 0.75rem;
+}
+
 .welcome-race-pill.is-completed .pill-rank {
   color: #38bdf8;
   font-weight: 800;

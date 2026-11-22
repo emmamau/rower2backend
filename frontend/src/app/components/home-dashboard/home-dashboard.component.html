@@ -26,18 +26,20 @@
           <div class="welcome-race-pill is-completed" [title]="lastRaceSummary.date ? ('Course du ' + (lastRaceSummary.date | date:'short')) : 'Dernier résultat enregistré'">
             <span class="pill-icon">🏁</span>
             <span class="pill-label">Dernière course :</span>
+            <span class="pill-date" *ngIf="lastRaceSummary.date">{{ lastRaceSummary.dateFormatted || (lastRaceSummary.date | date:'dd/MM/yyyy') }}</span>
+            <span class="pill-divider" *ngIf="lastRaceSummary.date" aria-hidden="true">·</span>
             <strong class="pill-rank">{{ lastRaceSummary.rankDisplay }}</strong>
-            <span class="pill-details" *ngIf="lastRaceSummary.distance || lastRaceSummary.timeFormatted">
-              ({{ lastRaceSummary.distance ? lastRaceSummary.distance + 'm' : '' }}{{ lastRaceSummary.distance && lastRaceSummary.timeFormatted ? ' · ' : '' }}{{ lastRaceSummary.timeFormatted || '' }})
+            <span class="pill-details" *ngIf="lastRaceSummary.timeFormatted || lastRaceSummary.distance">
+              ({{ lastRaceSummary.timeFormatted ? lastRaceSummary.timeFormatted : '' }}{{ lastRaceSummary.timeFormatted && lastRaceSummary.distance ? ' · ' : '' }}{{ lastRaceSummary.distance ? lastRaceSummary.distance + 'm' : '' }})
             </span>
           </div>
         } @else {
           <div
             class="welcome-race-pill is-invite is-clickable"
             (click)="scrollToNextRace()"
-            title="Vous n'avez pas encore couru — Cliquez pour rejoindre le prochain départ !">
+            title="Vous n'avez pas encore terminé de course — Cliquez pour rejoindre le prochain départ !">
             <span class="pill-icon">🚣</span>
-            <span class="pill-label">Aucune course effectuée · <em>Prenez votre 1ᵉʳ départ !</em></span>
+            <span class="pill-label">Aucune course terminée · <em>Prenez votre 1ᵉʳ départ !</em></span>
             <span class="pill-action-tag">Participer &rarr;</span>
           </div>
         }

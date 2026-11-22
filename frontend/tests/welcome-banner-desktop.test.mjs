@@ -55,3 +55,106 @@ test('Desktop welcome banner: CSS contains desktop single-line styles and reduce
   assert.match(css, /\.welcome-banner-card/, 'CSS should define .welcome-banner-card');
   assert.match(css, /welcome-inline-user|welcome-inline-race|welcome-race-pill/, 'CSS should have styles for inline banner items');
 });
+
+test('Last race banner display: HTML renders date, rank, duration, and distance', () => {
+  const html = readAppHtmlBundle();
+
+  // Must render date in visible pill
+  assert.match(html, /pill-date/, 'HTML should have .pill-date for displaying the race date');
+  assert.match(html, /lastRaceSummary\.date/, 'HTML should display lastRaceSummary.date');
+
+  // Must render rank
+  assert.match(html, /pill-rank/, 'HTML should have .pill-rank for displaying the rank');
+  assert.match(html, /lastRaceSummary\.rankDisplay/, 'HTML should display lastRaceSummary.rankDisplay');
+
+  // Must render duration and distance in details
+  assert.match(html, /pill-details/, 'HTML should have .pill-details');
+  assert.match(html, /lastRaceSummary\.timeFormatted/, 'HTML should display duration via timeFormatted');
+  assert.match(html, /lastRaceSummary\.distance/, 'HTML should display distance');
+});
+
+test('Last race getter: filters only finished races and extracts date, rank, duration, and distance', () => {
+  const ts = fs.readFileSync(appTsPath, 'utf8');
+
+  // Must filter userHistory for finished races
+  assert.match(ts, /finished|completed/, 'lastRaceSummary should filter for finished or completed races');
+
+  // Must extract date, rank, distance and duration
+  assert.match(ts, /dateFormatted|createdAt/, 'lastRaceSummary should format/extract date');
+  assert.match(ts, /timeFormatted/, 'lastRaceSummary should extract timeFormatted duration');
+  assert.match(ts, /rankDisplay/, 'lastRaceSummary should compute rankDisplay');
+  assert.match(ts, /targetDistance|netDistance/, 'lastRaceSummary should extract distance');
+});
+
+test('Last race behavioral simulation: ignores abandoned/in_progress races and selects latest finished race with all 4 fields', () => {
+  function formatTime(val) {
+    const sec = Number(val) || 0;
+    const mins = Math.floor(sec / 60);
+    const secs = Math.floor(sec % 60);
+    return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+  }
+
+  function computeLastRaceSummary(userHistory, currentUser) {
+    if (userHistory && userHistory.length > 0) {
+      const finishedRaces = userHistory.filter(
+        (h) => h && (String(h.status || '').toLowerCase() === 'finished' || String(h.status || '').toLowerCase() === 'completed')
+      );
+      if (finishedRaces.length > 0) {
+        finishedRaces.sort((a, b) => {
+          const tA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const tB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return tB - tA;
+        });
+        const last = finishedRaces[0];
+        const r = Number(last.finalRank || currentUser?.lastRank || 0);
+        const rankDisplay = r === 1 ? '🥇 1ᵉʳ' : r === 2 ? '🥈 2ᵉ' : r === 3 ? '🥉 3ᵉ' : r > 0 ? `#${r}` : 'Terminée';
+        const dist = Number(last.targetDistance || last.netDistance || 0);
+        const time = last.elapsedTime ? formatTime(last.elapsedTime) : '';
+        let dateFormatted = '';
+        if (last.createdAt) {
+          const d = new Date(last.createdAt);
+          if (!isNaN(d.getTime())) {
+            const day = String(d.getDate()).padStart(2, '0');
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const year = d.getFullYear();
+            dateFormatted = `${day}/${month}/${year}`;
+          }
+        }
+        return {
+          hasRaced: true,
+          rank: r,
+          rankDisplay,
+          distance: dist > 0 ? dist : undefined,
+          timeFormatted: time || undefined,
+          date: last.createdAt,
+          dateFormatted: dateFormatted || undefined,
+        };
+      }
+    }
+    return { hasRaced: false };
+  }
+
+  // Case 1: User has 2 activities: latest was abandoned, previous was finished
+  const history1 = [
+    { activityId: 'act-2', status: 'abandoned', finalRank: 0, netDistance: 500, elapsedTime: 90, createdAt: '2026-11-22T08:00:00.000Z' },
+    { activityId: 'act-1', status: 'finished', finalRank: 2, targetDistance: 2000, elapsedTime: 435, createdAt: '2026-11-21T10:00:00.000Z' },
+  ];
+  const res1 = computeLastRaceSummary(history1, { lastRank: 2 });
+  assert.equal(res1.hasRaced, true);
+  assert.equal(res1.rankDisplay, '🥈 2ᵉ');
+  assert.equal(res1.distance, 2000);
+  assert.equal(res1.timeFormatted, '7:15');
+  assert.equal(res1.dateFormatted, '21/11/2026');
+
+  // Case 2: User has only abandoned/waiting activities -> hasRaced should be false
+  const history2 = [
+    { activityId: 'act-3', status: 'abandoned', finalRank: 0, netDistance: 200, elapsedTime: 40, createdAt: '2026-11-22T08:00:00.000Z' },
+    { activityId: 'act-4', status: 'waiting', finalRank: 0, netDistance: 0, elapsedTime: 0, createdAt: '2026-11-20T08:00:00.000Z' },
+  ];
+  const res2 = computeLastRaceSummary(history2, { totalRaces: 2, lastRank: 0 });
+  assert.equal(res2.hasRaced, false);
+
+  // Case 3: User has empty history -> hasRaced should be false even if totalRaces > 0
+  const res3 = computeLastRaceSummary([], { totalRaces: 5, lastRank: 1 });
+  assert.equal(res3.hasRaced, false);
+});

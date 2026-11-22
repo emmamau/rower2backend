@@ -371,6 +371,7 @@ export interface UserLastRaceSummary {
   distance?: number;
   timeFormatted?: string;
   date?: string | Date;
+  dateFormatted?: string;
 }
 
 export interface UserProfileResponse {
