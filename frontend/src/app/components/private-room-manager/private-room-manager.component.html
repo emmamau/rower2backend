@@ -9,9 +9,6 @@
       <div class="priv-collapsed-strip">
         <div class="priv-collapsed-left">
           <span class="priv-pill-lock priv-pill-lock-sm">🔒</span>
-          @if (isPreview) {
-            <span class="priv-preview-tag">👁️ Aperçu</span>
-          }
           <span class="priv-collapsed-pin" (click)="copyText(activeRoomPin)" title="Toucher pour copier le PIN">
             ⌚ PIN : <strong>{{ activeRoomPin || '----' }}</strong>
           </span>
@@ -29,15 +26,6 @@
         </div>
 
         <div class="priv-collapsed-right">
-          @if (isPreview) {
-            <button
-              type="button"
-              class="priv-btn-mini priv-btn-mini-return"
-              (click)="leaveToPublicRace()"
-              title="Revenir à la course publique">
-              ↩
-            </button>
-          }
           @if (isRoomCompleted) {
             <button
               type="button"
@@ -92,15 +80,6 @@
         </div>
 
         <div class="priv-banner-nav">
-          @if (isPreview) {
-            <button
-              type="button"
-              class="priv-btn priv-btn-ghost priv-btn-return-public"
-              (click)="leaveToPublicRace()"
-              title="Quitter l'aperçu et revenir à la course publique">
-              ↩ {{ i18n.t('BTN_BACK_PUBLIC') || 'Course Publique' }}
-            </button>
-          }
           @if (!isRoomCompleted) {
             <button
               type="button"

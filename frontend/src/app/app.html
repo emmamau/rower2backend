@@ -360,29 +360,6 @@
 
   <!-- 4. ARÈNE PRINCIPALE DE COURSE (Salons Privés, Vue Régate, Vue Cockpit ou Accueil) -->
   <main class="race-arena">
-    <!-- BANDEAU FLOTTANT DU MODE APERÇU (EN ATTENTE DE SAISIE DU PIN SUR LA MONTRE) -->
-    @if (activePrivateRoom && isPrivateRoomPreview) {
-      <aside class="priv-preview-floating-bar" role="status" aria-live="polite">
-        <div class="priv-preview-left">
-          <span class="priv-preview-badge">👁️ {{ i18n.t('PREVIEW_MODE') || 'Mode Aperçu' }}</span>
-          <span class="priv-preview-text">
-            {{ i18n.t('ENTER_PIN_ON_WATCH_PROMPT') || 'Saisissez le code PIN' }}
-            <button type="button" class="priv-preview-pin-btn" (click)="copyActivePin()" title="Cliquer pour copier le PIN">
-              {{ activeRoomPin || '----' }}
-            </button>
-            {{ i18n.t('ON_WATCH_TO_JOIN') || 'sur votre montre Garmin pour rejoindre la course.' }}
-          </span>
-        </div>
-        <button
-          type="button"
-          class="btn-return-public-race"
-          (click)="exitPrivateRoomFromPreview()"
-          [title]="i18n.t('RETURN_PUBLIC_RACE_TOOLTIP') || 'Revenir à la course publique'">
-          ↩ {{ i18n.t('BTN_BACK_PUBLIC') || 'Course Publique' }}
-        </button>
-      </aside>
-    }
-
     <!-- Gestionnaire de Salons Privés chargé en différé (@defer) -->
     @defer (when !isMobileFullscreenOnly || isPrivateModalOpen) {
       <app-private-room-manager
@@ -390,7 +367,6 @@
         [isOpen]="isPrivateModalOpen"
         [initialTab]="privateModalTab"
         [activeRoom]="activePrivateRoom"
-        [isPreview]="isPrivateRoomPreview"
         [activeUserId]="activeUserId"
         [activeUserName]="currentUser.name"
         [isUserAdmin]="isUserAdmin"
