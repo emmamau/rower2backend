@@ -316,3 +316,118 @@ test('SubscriptionModalComponent injects I18nService and translates all UI label
     }
   }
 });
+
+test('AdminDashboardComponent uses I18nService for headers, tabs, forms, modals, and action buttons', () => {
+  const adminHtmlPath = path.resolve(__dirname, '../src/app/components/admin-dashboard/admin-dashboard.component.html');
+  const adminTsPath = path.resolve(__dirname, '../src/app/components/admin-dashboard/admin-dashboard.component.ts');
+  const html = fs.readFileSync(adminHtmlPath, 'utf8');
+  const ts = fs.readFileSync(adminTsPath, 'utf8');
+
+  assert.match(ts, /import\s+\{\s*I18nService\s*\}\s+from\s+['"]\.\.\/\.\.\/services\/i18n\.service['"]/);
+  assert.ok(ts.includes('public i18n: I18nService'), 'AdminDashboardComponent must inject public i18n: I18nService');
+  assert.ok(ts.includes('this.i18n.t('), 'AdminDashboardComponent TS must use this.i18n.t()');
+  assert.ok(ts.includes('this.i18n.translateError('), 'AdminDashboardComponent TS must use this.i18n.translateError()');
+
+  assert.ok(html.includes('i18n.t('), 'AdminDashboard HTML template must use i18n.t()');
+  assert.ok(html.includes("i18n.t('ADMIN_TITLE')"), 'AdminDashboard must translate title');
+
+  const expectedHtmlKeys = [
+    'ADMIN_TITLE', 'ADMIN_BADGE', 'BTN_CLOSE',
+    'ADMIN_TAB_PUBLIC', 'ADMIN_TAB_USERS', 'ADMIN_TAB_PLANS',
+    'ADMIN_PUBLIC_TOGGLE_TITLE', 'ADMIN_PUBLIC_ENGINE_STATE',
+    'ADMIN_PUBLIC_ACTIVE', 'ADMIN_PUBLIC_SUSPENDED',
+    'ADMIN_PUBLIC_BTN_SUSPEND', 'ADMIN_PUBLIC_BTN_ACTIVATE',
+    'ADMIN_PUBLIC_SETTINGS_TITLE', 'ADMIN_PUBLIC_DIST_LABEL',
+    'ADMIN_PUBLIC_DURATION_LABEL', 'ADMIN_PUBLIC_MAX_PLAYERS_LABEL',
+    'ADMIN_PUBLIC_BOT_COUNT_LABEL', 'ADMIN_PUBLIC_DELAY_LABEL',
+    'ADMIN_PUBLIC_SAVING', 'ADMIN_PUBLIC_SAVE_BTN',
+    'ADMIN_USERS_SEARCH_PLACEHOLDER', 'ADMIN_USERS_ALL_ROLES',
+    'ADMIN_USERS_ALL_TIERS', 'ADMIN_USERS_TIER_FREE',
+    'ADMIN_USERS_TIER_CLUB', 'ADMIN_USERS_TIER_PRO',
+    'ADMIN_USERS_ALL_STATUSES', 'ADMIN_USERS_STATUS_ACTIVE',
+    'ADMIN_USERS_STATUS_REVOKED', 'ADMIN_USERS_BTN_FILTER',
+    'ADMIN_COL_ACCOUNT', 'ADMIN_COL_EMAIL', 'ADMIN_COL_ROLE',
+    'ADMIN_COL_PLAN', 'ADMIN_COL_QUOTAS', 'ADMIN_COL_LEAGUE',
+    'ADMIN_COL_STATUS', 'ADMIN_COL_ACTIONS',
+    'ADMIN_USERS_ROLE_TIP', 'ADMIN_USERS_PLAN_TIP',
+    'ADMIN_USERS_QUOTA_TIP', 'ADMIN_USERS_QUOTA_EDIT_TIP',
+    'ADMIN_USERS_BTN_RESTORE', 'ADMIN_USERS_BTN_REVOKE',
+    'ADMIN_USERS_BTN_PWD', 'ADMIN_USERS_BTN_ROOMS', 'ADMIN_USERS_ROOMS_TIP',
+    'ADMIN_USERS_LOADING', 'ADMIN_USERS_EMPTY',
+    'ADMIN_PAGINATION_PREV', 'ADMIN_PAGINATION_NEXT', 'ADMIN_PAGINATION_INFO',
+    'ADMIN_QUOTA_MAX_SUFFIX', 'ADMIN_QUOTA_WEEK_SUFFIX',
+    'ADMIN_PLANS_TITLE', 'ADMIN_PLANS_BTN_NEW', 'ADMIN_PLANS_NO_DESC',
+    'ADMIN_PLANS_FREE_PRICE', 'ADMIN_PLANS_MAX_BOTS', 'ADMIN_PLANS_MAX_DIST',
+    'ADMIN_PLANS_MAX_PLAYERS', 'ADMIN_PLANS_MAX_CONCURRENT', 'ADMIN_PLANS_MAX_WEEKLY',
+    'ADMIN_PLANS_DUEL_1V1', 'ADMIN_PLANS_SCHEDULE', 'ADMIN_PLANS_STATUS',
+    'ADMIN_PLANS_ENABLED', 'ADMIN_PLANS_DISABLED',
+    'ADMIN_PLANS_SCHED_ON', 'ADMIN_PLANS_SCHED_OFF',
+    'ADMIN_PLANS_ACTIVE', 'ADMIN_PLANS_INACTIVE',
+    'ADMIN_PLANS_BTN_DEACTIVATE', 'ADMIN_PLANS_BTN_ACTIVATE',
+    'ADMIN_PLANS_BTN_EDIT_QUOTAS', 'ADMIN_PLANS_DEACTIVATE_TIP', 'ADMIN_PLANS_ACTIVATE_TIP',
+    'ADMIN_MODAL_CANCEL', 'ADMIN_MODAL_CONFIRM',
+    'ADMIN_REVOKE_TITLE_RESTORE', 'ADMIN_REVOKE_TITLE_REVOKE',
+    'ADMIN_REVOKE_CONFIRM_MSG', 'ADMIN_REVOKE_ACTION_RESTORE',
+    'ADMIN_REVOKE_ACTION_REVOKE', 'ADMIN_REVOKE_WARNING',
+    'ADMIN_ROLE_TITLE_PROMOTE', 'ADMIN_ROLE_TITLE_DEMOTE',
+    'ADMIN_ROLE_CONFIRM_MSG', 'ADMIN_ROLE_ADMIN_WARN',
+    'ADMIN_ROLE_USER_WARN', 'ADMIN_ROLE_BTN_CONFIRM',
+    'ADMIN_PWD_TITLE', 'ADMIN_PWD_DESC', 'ADMIN_PWD_LABEL',
+    'ADMIN_PWD_PLACEHOLDER', 'ADMIN_PWD_BTN_SAVE',
+    'ADMIN_QUOTA_MODAL_TITLE', 'ADMIN_QUOTA_MODAL_DESC',
+    'ADMIN_QUOTA_ACTIVE_PLAN', 'ADMIN_QUOTA_DEFAULT_VALUES',
+    'ADMIN_QUOTA_CONCURRENT_UNIT', 'ADMIN_QUOTA_WEEKLY_UNIT',
+    'ADMIN_QUOTA_EMPTY_HINT', 'ADMIN_QUOTA_CONCURRENT_LABEL',
+    'ADMIN_QUOTA_CONCURRENT_HINT', 'ADMIN_QUOTA_WEEKLY_LABEL',
+    'ADMIN_QUOTA_WEEKLY_HINT', 'ADMIN_QUOTA_SAVING', 'ADMIN_QUOTA_SAVE_BTN',
+    'ADMIN_PLAN_MODAL_EDIT', 'ADMIN_PLAN_MODAL_CREATE',
+    'ADMIN_PLAN_FIELD_CODE', 'ADMIN_PLAN_FIELD_NAME',
+    'ADMIN_PLAN_FIELD_PRICE_M', 'ADMIN_PLAN_FIELD_PRICE_Y',
+    'ADMIN_PLAN_FIELD_BOTS', 'ADMIN_PLAN_FIELD_DIST',
+    'ADMIN_PLAN_FIELD_PLAYERS', 'ADMIN_PLAN_FIELD_CONCURRENT',
+    'ADMIN_PLAN_FIELD_WEEKLY', 'ADMIN_PLAN_CHECK_DUEL',
+    'ADMIN_PLAN_CHECK_SCHED', 'ADMIN_PLAN_CHECK_ACTIVE', 'ADMIN_PLAN_BTN_SAVE',
+    'ADMIN_PLANS_CODE_PREFIX',
+    'ADMIN_QUOTA_CONCURRENT_PLACEHOLDER', 'ADMIN_QUOTA_WEEKLY_PLACEHOLDER',
+    'ADMIN_PLAN_CODE_PLACEHOLDER', 'ADMIN_PLAN_NAME_PLACEHOLDER'
+  ];
+
+  const expectedTsKeys = [
+    'ADMIN_PUBLIC_SAVED_OK',
+    'ADMIN_PWD_ERR_MIN',
+    'ADMIN_PLAN_ERR_REQUIRED',
+    'ADMIN_PLAN_STANDARD_LABEL',
+    'SUB_FREE_TITLE',
+    'SUB_CLUB_TITLE',
+    'SUB_PRO_TITLE',
+    'ADMIN_ERR_LOAD_PUBLIC',
+    'ADMIN_ERR_SAVE_PUBLIC',
+    'ADMIN_ERR_TOGGLE_PUBLIC',
+    'ADMIN_ERR_LOAD_USERS',
+    'ADMIN_ERR_REVOKE_USER',
+    'ADMIN_ERR_RESET_PWD',
+    'ADMIN_ERR_UPDATE_ROLE',
+    'ADMIN_ERR_UPDATE_PLAN',
+    'ADMIN_ERR_UPDATE_QUOTAS',
+    'ADMIN_ERR_LOAD_PLANS',
+    'ADMIN_ERR_EDIT_PLAN',
+    'ADMIN_ERR_CREATE_PLAN',
+    'ADMIN_ERR_TOGGLE_PLAN'
+  ];
+
+  const { service } = loadI18nServiceRuntime({ savedLang: 'fr' });
+  for (const key of expectedHtmlKeys) {
+    assert.ok(html.includes(`i18n.t('${key}'`), `AdminDashboard HTML must reference i18n.t('${key}')`);
+  }
+  for (const key of expectedTsKeys) {
+    assert.ok(ts.includes(`'${key}'`), `AdminDashboard TS must reference '${key}'`);
+  }
+  for (const key of [...expectedHtmlKeys, ...expectedTsKeys]) {
+    for (const lang of ['fr', 'en', 'de', 'es', 'it', 'pt']) {
+      service.setLang(lang);
+      const val = service.t(key);
+      assert.notEqual(val, key, `Key ${key} must resolve to a translated string in ${lang}`);
+      assert.ok(val.trim().length > 0, `Key ${key} must be non-empty in ${lang}`);
+    }
+  }
+});

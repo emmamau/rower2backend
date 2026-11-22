@@ -7,6 +7,7 @@ import {
   AdminUserItem,
   SubscriptionPlanItem
 } from '../../services/admin.service';
+import { I18nService } from '../../services/i18n.service';
 
 @Component({
   selector: 'app-admin-dashboard',
@@ -91,7 +92,8 @@ export class AdminDashboardComponent implements OnInit {
 
   constructor(
     private adminService: AdminService,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
+    public i18n: I18nService
   ) {}
 
   ngOnInit(): void {
@@ -123,6 +125,13 @@ export class AdminDashboardComponent implements OnInit {
     this.close.emit();
   }
 
+  private formatAdminError(err: any, fallbackKey: string): string {
+    if (err?.error?.code || err?.error?.message || (typeof err?.error === 'string' && err.error.trim())) {
+      return this.i18n.translateError(err);
+    }
+    return this.i18n.t(fallbackKey);
+  }
+
   // ---------------------------------------------------------------------------
   // 1. Courses Publiques
   // ---------------------------------------------------------------------------
@@ -139,7 +148,7 @@ export class AdminDashboardComponent implements OnInit {
       },
       error: (err) => {
         this.isPublicLoading = false;
-        this.errorMessage = err.error?.message || 'Erreur lors de la lecture des paramètres publics.';
+        this.errorMessage = this.formatAdminError(err, 'ADMIN_ERR_LOAD_PUBLIC');
         this.cdr.markForCheck();
       }
     });
@@ -152,14 +161,14 @@ export class AdminDashboardComponent implements OnInit {
       next: (res) => {
         this.isPublicSubmitting = false;
         if (res.success) {
-          this.feedbackMessage = '✓ Paramètres des courses publiques enregistrés et appliqués à chaud !';
+          this.feedbackMessage = `✓ ${this.i18n.t('ADMIN_PUBLIC_SAVED_OK')}`;
           this.publicSettings = { ...res.settings };
         }
         this.cdr.markForCheck();
       },
       error: (err) => {
         this.isPublicSubmitting = false;
-        this.errorMessage = err.error?.message || 'Erreur lors de la sauvegarde.';
+        this.errorMessage = this.formatAdminError(err, 'ADMIN_ERR_SAVE_PUBLIC');
         this.cdr.markForCheck();
       }
     });
@@ -177,7 +186,7 @@ export class AdminDashboardComponent implements OnInit {
         this.cdr.markForCheck();
       },
       error: (err) => {
-        this.errorMessage = err.error?.message || 'Erreur lors de la bascule.';
+        this.errorMessage = this.formatAdminError(err, 'ADMIN_ERR_TOGGLE_PUBLIC');
         this.cdr.markForCheck();
       }
     });
@@ -210,7 +219,7 @@ export class AdminDashboardComponent implements OnInit {
       },
       error: (err) => {
         this.isLoadingUsers = false;
-        this.errorMessage = err.error?.message || 'Erreur lors du chargement des utilisateurs.';
+        this.errorMessage = this.formatAdminError(err, 'ADMIN_ERR_LOAD_USERS');
         this.cdr.markForCheck();
       }
     });
@@ -239,7 +248,7 @@ export class AdminDashboardComponent implements OnInit {
         this.cdr.markForCheck();
       },
       error: (err) => {
-        this.errorMessage = err.error?.message || 'Erreur lors du changement de statut de révocation.';
+        this.errorMessage = this.formatAdminError(err, 'ADMIN_ERR_REVOKE_USER');
         this.closeRevokeModal();
         this.cdr.markForCheck();
       }
@@ -260,7 +269,7 @@ export class AdminDashboardComponent implements OnInit {
 
   confirmPasswordReset(): void {
     if (!this.userToReset || !this.newPasswordInput || this.newPasswordInput.length < 4) {
-      alert('Un mot de passe d\'au moins 4 caractères est requis.');
+      alert(this.i18n.t('ADMIN_PWD_ERR_MIN'));
       return;
     }
 
@@ -271,7 +280,7 @@ export class AdminDashboardComponent implements OnInit {
         this.cdr.markForCheck();
       },
       error: (err) => {
-        this.errorMessage = err.error?.message || 'Erreur réinitialisation mot de passe.';
+        this.errorMessage = this.formatAdminError(err, 'ADMIN_ERR_RESET_PWD');
         this.closePasswordModal();
         this.cdr.markForCheck();
       }
@@ -306,7 +315,7 @@ export class AdminDashboardComponent implements OnInit {
         this.cdr.markForCheck();
       },
       error: (err) => {
-        this.errorMessage = err.error?.message || 'Erreur mise à jour rôle.';
+        this.errorMessage = this.formatAdminError(err, 'ADMIN_ERR_UPDATE_ROLE');
         this.closeRoleModal();
         this.cdr.markForCheck();
       }
@@ -326,7 +335,7 @@ export class AdminDashboardComponent implements OnInit {
         this.cdr.markForCheck();
       },
       error: (err) => {
-        this.errorMessage = err.error?.message || 'Erreur mise à jour offre.';
+        this.errorMessage = this.formatAdminError(err, 'ADMIN_ERR_UPDATE_PLAN');
         this.cdr.markForCheck();
       }
     });
@@ -374,7 +383,7 @@ export class AdminDashboardComponent implements OnInit {
       },
       error: (err) => {
         this.isSavingQuotas = false;
-        this.errorMessage = err.error?.message || 'Erreur modification quotas salons.';
+        this.errorMessage = this.formatAdminError(err, 'ADMIN_ERR_UPDATE_QUOTAS');
         this.closeQuotaModal();
         this.cdr.markForCheck();
       }
@@ -431,10 +440,10 @@ export class AdminDashboardComponent implements OnInit {
 
     // 2. Offres standards en fallback si non chargées ou complémentaires
     const defaults = [
-      { code: 'free', label: 'Offre Gratuite (FREE)' },
-      { code: 'standard', label: 'Offre Standard (STANDARD)' },
-      { code: 'intermediate', label: 'Offre Club (INTERMEDIATE)' },
-      { code: 'premium', label: 'Offre Élite Pro (PREMIUM)' }
+      { code: 'free', label: `${this.i18n.t('SUB_FREE_TITLE')} (FREE)` },
+      { code: 'standard', label: `${this.i18n.t('ADMIN_PLAN_STANDARD_LABEL')} (STANDARD)` },
+      { code: 'intermediate', label: `${this.i18n.t('SUB_CLUB_TITLE')} (INTERMEDIATE)` },
+      { code: 'premium', label: `${this.i18n.t('SUB_PRO_TITLE')} (PREMIUM)` }
     ];
 
     for (const d of defaults) {
@@ -464,7 +473,7 @@ export class AdminDashboardComponent implements OnInit {
       },
       error: (err) => {
         this.isLoadingPlans = false;
-        this.errorMessage = err.error?.message || 'Erreur chargement des offres.';
+        this.errorMessage = this.formatAdminError(err, 'ADMIN_ERR_LOAD_PLANS');
         this.cdr.markForCheck();
       }
     });
@@ -502,7 +511,7 @@ export class AdminDashboardComponent implements OnInit {
 
   savePlan(): void {
     if (!this.editingPlan.code || !this.editingPlan.name) {
-      alert('Le code et le nom de l\'offre sont obligatoires.');
+      alert(this.i18n.t('ADMIN_PLAN_ERR_REQUIRED'));
       return;
     }
 
@@ -514,7 +523,7 @@ export class AdminDashboardComponent implements OnInit {
           this.loadPlans();
         },
         error: (err) => {
-          this.errorMessage = err.error?.message || 'Erreur lors de la modification de l\'offre.';
+          this.errorMessage = this.formatAdminError(err, 'ADMIN_ERR_EDIT_PLAN');
           this.closePlanModal();
         }
       });
@@ -526,7 +535,7 @@ export class AdminDashboardComponent implements OnInit {
           this.loadPlans();
         },
         error: (err) => {
-          this.errorMessage = err.error?.message || 'Erreur lors de la création de l\'offre.';
+          this.errorMessage = this.formatAdminError(err, 'ADMIN_ERR_CREATE_PLAN');
           this.closePlanModal();
         }
       });
@@ -546,7 +555,7 @@ export class AdminDashboardComponent implements OnInit {
         this.cdr.markForCheck();
       },
       error: (err) => {
-        this.errorMessage = err.error?.message || "Erreur lors de la bascule de l'offre.";
+        this.errorMessage = this.formatAdminError(err, 'ADMIN_ERR_TOGGLE_PLAN');
         this.cdr.markForCheck();
       }
     });
