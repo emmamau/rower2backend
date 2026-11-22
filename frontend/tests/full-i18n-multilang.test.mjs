@@ -282,3 +282,37 @@ test('I18nService.translateError maps error codes and server messages with safe 
   assert.equal(service.translateError('Raw error text'), 'Raw error text');
   assert.equal(service.translateError(null), service.t('ERR_GENERIC'));
 });
+
+test('SubscriptionModalComponent injects I18nService and translates all UI labels across all 6 languages', () => {
+  const modalTsPath = path.resolve(__dirname, '../src/app/components/modals/subscription-modal/subscription-modal.component.ts');
+  const modalHtmlPath = path.resolve(__dirname, '../src/app/components/modals/subscription-modal/subscription-modal.component.html');
+  const modalTs = fs.readFileSync(modalTsPath, 'utf8');
+  const modalHtml = fs.readFileSync(modalHtmlPath, 'utf8');
+
+  assert.match(modalTs, /import\s+\{\s*I18nService\s*\}\s+from\s+['"]\.\.\/\.\.\/\.\.\/services\/i18n\.service['"]/);
+  assert.match(modalTs, /constructor\s*\(\s*public\s+i18n:\s*I18nService\s*\)/);
+
+  const expectedKeys = [
+    'SUB_TITLE', 'SUB_SECURE_BADGE', 'SUB_DESC',
+    'SUB_FREE_TITLE', 'SUB_FREE_PERIOD',
+    'SUB_FREE_FEAT_1', 'SUB_FREE_FEAT_2', 'SUB_FREE_FEAT_3', 'SUB_FREE_FEAT_4', 'SUB_FREE_FEAT_5', 'SUB_FREE_FEAT_6',
+    'PLAN_CURRENT', 'PLAN_SELECT', 'PLAN_RECOMMENDED', 'PLAN_DISABLED',
+    'SUB_CLUB_TITLE', 'SUB_PER_MONTH',
+    'SUB_CLUB_FEAT_1', 'SUB_CLUB_FEAT_2', 'SUB_CLUB_FEAT_3', 'SUB_CLUB_FEAT_4', 'SUB_CLUB_FEAT_5', 'SUB_CLUB_FEAT_6', 'SUB_CLUB_FEAT_7',
+    'SUB_PRO_TITLE',
+    'SUB_PRO_FEAT_1', 'SUB_PRO_FEAT_2', 'SUB_PRO_FEAT_3', 'SUB_PRO_FEAT_4', 'SUB_PRO_FEAT_5', 'SUB_PRO_FEAT_6', 'SUB_PRO_FEAT_7',
+    'SUB_STRIPE_DISABLED_TIP', 'SUB_CURRENT_PLAN_TIP', 'SUB_SUBSCRIBE_CLUB_TIP', 'SUB_SUBSCRIBE_PRO_TIP',
+    'SUB_CHOOSE_CLUB', 'SUB_CHOOSE_PRO'
+  ];
+
+  const { service } = loadI18nServiceRuntime({ savedLang: 'fr' });
+  for (const key of expectedKeys) {
+    assert.ok(modalHtml.includes(`i18n.t('${key}')`), `SubscriptionModal HTML must reference i18n.t('${key}')`);
+    for (const lang of ['fr', 'en', 'de', 'es', 'it', 'pt']) {
+      service.setLang(lang);
+      const val = service.t(key);
+      assert.notEqual(val, key, `Key ${key} must resolve to a translated string in ${lang}`);
+      assert.ok(val.trim().length > 0, `Key ${key} must be non-empty in ${lang}`);
+    }
+  }
+});

@@ -1,5 +1,6 @@
 import { Component, Input, Output, EventEmitter, ViewEncapsulation } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { I18nService } from '../../../services/i18n.service';
 
 @Component({
   selector: 'app-subscription-modal',
@@ -18,6 +19,8 @@ export class SubscriptionModalComponent {
 
   @Output() closeSubscriptionModalRequest = new EventEmitter<void>();
   @Output() subscribeToTierRequest = new EventEmitter<string>();
+
+  constructor(public i18n: I18nService) {}
 
   subscribeToTier(tierId: string): void {
     this.subscribeToTierRequest.emit(tierId);
