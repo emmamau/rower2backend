@@ -2811,11 +2811,20 @@ export class AppComponent implements OnInit, OnDestroy {
     return false;
   }
 
+  get isWatchEngaged(): boolean {
+    if (!this.activePrivateRoom) return false;
+    const race = this.activePrivateRoom.race || this.activePrivateRoom;
+    const parts: any = race.participants || (this.activePrivateRoom as any).participants || [];
+    const list: any[] = Array.isArray(parts) ? parts : Array.from((parts as any).values ? (parts as any).values() : []);
+    return list.some((p: any) => p.userId === this.activeUserId && (p.lane > 0 || p.ready || p.deviceToken));
+  }
+
   get canStartRace(): boolean {
     if (this.isRaceActive) return false;
     if (!this.activePrivateRoom) return false;
     if (this.isPrivateRoomStartLocked) return false;
     if (!this.isOrganizerOfActiveRoom && !this.isUserAdmin) return false;
+    if (!this.isWatchEngaged && !this.isUserAdmin) return false;
     const st = String(this.activePrivateRoom.status || this.activePrivateRoom.race?.status || '').toLowerCase();
     return st === 'waiting' || st === 'countdown' || st === 'lobby';
   }
@@ -5998,9 +6007,9 @@ export class AppComponent implements OnInit, OnDestroy {
       return;
     }
 
-    this.rowerService.joinRoom(extracted.value, this.activeUserId, this.currentUser.name).subscribe({
+    this.rowerService.openRoom(extracted.value, this.activeUserId, this.currentUser.name).subscribe({
       next: (joinRes) => {
-        const assignedLane = joinRes.lane || 1;
+        const assignedLane = joinRes.lane || 0;
         this.myAssignedLane = assignedLane;
         const roomIdent = joinRes.code || extracted.value;
         this.rowerService.getPrivateRace(roomIdent).subscribe({
@@ -6172,12 +6181,8 @@ export class AppComponent implements OnInit, OnDestroy {
       }
     }
 
-    if (code && this.activeUserId) {
-      this.rowerService
-        .joinPrivateRace(code, this.activeUserId, this.currentUser.name, false)
-        .pipe(catchError(() => of(null)))
-        .subscribe();
-    }
+    // L'ouverture d'un salon ou duel ne doit pas engager le couloir automatiquement.
+    // L'engagement sur la grille s'effectue uniquement lorsque la montre valide le code PIN.
 
     try {
       if (typeof localStorage !== 'undefined' && room?.race?.id) {

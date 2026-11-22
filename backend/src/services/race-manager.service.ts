@@ -1969,12 +1969,15 @@ export class RaceManager {
       }
       const { power, spm, speedMs } = calculateBotPhysics(botPace);
 
-      let assignedBotLane = 1;
+      let assignedBotLane = race?.isBotDuel ? 2 : 1;
       if (race && race.participants) {
         if (race.participants.has(botId)) {
-          assignedBotLane = race.participants.get(botId)!.lane || 1;
+          assignedBotLane = race.participants.get(botId)!.lane || (race.isBotDuel ? 2 : 1);
         } else {
           const usedLanes = new Set<number>();
+          if (race.isBotDuel) {
+            usedLanes.add(1); // Couloir 1 réservé pour l'utilisateur humain
+          }
           for (const p of race.participants.values()) {
             if (p.lane && p.lane > 0) usedLanes.add(p.lane);
           }
@@ -3081,9 +3084,9 @@ export class RaceManager {
       race.botStartMode = "countdown";
     }
 
-    // Si départ immédiat (0s) et des compétiteurs sont encore non prêts, inviter à un décompte court plutôt que bloquer
+    // Si départ immédiat (0s) et des compétiteurs connectés via montre sont encore non prêts
     if (countdownSec <= 0 && race.participants && race.participants.size > 0) {
-      const anyNotReady = Array.from(race.participants.values()).some((p) => p.ready === false);
+      const anyNotReady = Array.from(race.participants.values()).some((p) => p.deviceToken && p.ready === false);
       if (anyNotReady) {
         return {
           error: "Tous les compétiteurs connectés doivent avoir leur rameur prêt (READY) pour un départ immédiat sans décompte. Utilisez le départ dans 10s ou 3s.",

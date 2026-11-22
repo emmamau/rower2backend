@@ -7,7 +7,7 @@ import db from "../models";
 import socketGateway from "../websocket/socket.gateway";
 import { IpGeoService } from "../services/ip-geo.service";
 import { isEmmaAdminUser } from "../services/auth.service";
-import { getLeagueByPoints } from "../utils/league.util";
+import { getLeagueByPoints, isLeagueEligible } from "../utils/league.util";
 import { SUBSCRIPTION_TIERS } from "./subscription.controller";
 import subscriptionPlanService from "../services/subscription-plan.service";
 import emailService, { getEmailConfig } from "../services/email.service";
@@ -176,6 +176,74 @@ export class RoomController {
       const userLeague = (user as any)?.league || (user?.points !== undefined ? getLeagueByPoints(user.points).id : "bronze");
 
       const country = user?.country || user?.pays || (await IpGeoService.resolveCountryFromRequest(req));
+
+      // 1. Contrôle strict créateur pour les duels contre un bot (sauf si saisie du PIN montre par le créateur)
+      if (race.isBotDuel && !isHost && !alreadyApproved && !viaPin && !isDeviceAuthenticated) {
+        res.status(403).json({
+          success: false,
+          error: "Ce duel contre un bot est réservé à son créateur",
+          message: "Ce duel contre un bot est réservé à son créateur"
+        });
+        return;
+      }
+
+      // 2. Contrôle de prérequis d'abonnement
+      if (race.requiresSubscription && !isSubscriber && !isHost && !isAdmin) {
+        res.status(403).json({
+          success: false,
+          error: "Abonnement requis pour ce salon",
+          message: "Abonnement requis pour ce salon"
+        });
+        return;
+      }
+
+      // 3. Contrôle de prérequis de niveau de ligue
+      if (race.requiredLeague && !isHost && !isAdmin) {
+        const eligible = isLeagueEligible(userLeague, undefined, race.requiredLeague);
+        if (!eligible) {
+          res.status(403).json({
+            success: false,
+            error: `Niveau de ligue insuffisant pour ce salon (requis : ${race.requiredLeague})`,
+            message: `Niveau de ligue insuffisant pour ce salon (requis : ${race.requiredLeague})`
+          });
+          return;
+        }
+      }
+
+      const openOnly = Boolean(body.openOnly || query.openOnly);
+
+      // Si l'utilisateur demande une ouverture en mode consultation (openOnly) et n'a pas validé son code PIN sur sa montre,
+      // ouvrir le salon en mode consultation / attente sans attribuer de couloir de départ ni verrouiller la grille.
+      if (openOnly && !alreadyApproved && !viaPin && !isDeviceAuthenticated) {
+        res.status(200).json({
+          success: true,
+          lane: 0,
+          spectator: true,
+          waitingWatchPin: true,
+          raceId: race.id,
+          roomId: race.id,
+          code: race.code,
+          pinCode: race.pinCode,
+          title: race.title,
+          status: race.status,
+          targetDistance: race.targetDistance,
+          maxParticipants: race.maxParticipants,
+          organizerCapacity,
+          isHost,
+          isSubscriber,
+          requiresSubscription: race.requiresSubscription,
+          requiredLeague: race.requiredLeague,
+          isBotDuel: race.isBotDuel,
+          isDuel1v1: race.isDuel1v1,
+          isSolo: race.isSolo,
+          botStartMode: race.botStartMode,
+          scheduledStartTime: race.scheduledStartTime,
+          startMode: race.startMode,
+          participants: Array.from(race.participants?.values() || []),
+          message: "Salon ouvert en mode attente (saisie du code PIN requise sur la montre)."
+        });
+        return;
+      }
 
       const explicitReady = body.ready !== undefined ? Boolean(body.ready) : undefined;
       const joinResult = raceManager.joinPrivateRace(

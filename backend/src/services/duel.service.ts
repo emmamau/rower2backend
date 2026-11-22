@@ -984,20 +984,7 @@ export class DuelService {
     challenge.updatedAt = now;
     await this.persistChallenge(challenge);
 
-    // Pré-inscrire le joueur défié dans le salon privé 1v1 si ce salon est actif
-    if (challenge.roomId && challenged) {
-      raceManager.joinPrivateRace(
-        challenge.roomId,
-        challenged.id,
-        challenged.name || challenged.login,
-        challenged.country || challenged.pays,
-        {
-          isSubscriber: true,
-          bypassApproval: true,
-          ready: false,
-        }
-      );
-    }
+    // L'adversaire défié sera engagé sur son couloir lorsqu'il saisira le code PIN du duel sur sa montre Garmin.
 
     if (challenger?.email) {
       await emailService.sendDuelResponseEmail({

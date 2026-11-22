@@ -221,7 +221,7 @@ export class SessionService {
         let guestName =
           ticket?.guestName ||
           (existingPairing?.userId && !existingPairing.userId.startsWith("guest_") ? existingPairing.userId : "") ||
-          ((race.isSolo || race.isBotDuel) && race.hostUserName ? race.hostUserName : "") ||
+          (race.hostUserName ? race.hostUserName : "") ||
           `Rameur_${cleanCode.slice(0, 3)}`;
         if (customGuestPseudo && String(customGuestPseudo).trim().length > 0 && String(customGuestPseudo).trim() !== "Rameur_42") {
           guestName = String(customGuestPseudo).trim();
@@ -231,8 +231,22 @@ export class SessionService {
         if (!userId) {
           if (existingPairing && existingPairing.userId && !existingPairing.userId.startsWith("guest_")) {
             userId = existingPairing.userId;
-          } else if ((race.isSolo || race.isBotDuel) && race.hostUserId && race.hostUserId !== "anonymous") {
+          } else if (race.isDuel1v1) {
+            const ch = db.duelChallenges ? await db.duelChallenges.findOne({ where: { roomId: race.id } }) : null;
+            const chAny = ch as any;
+            const hostInParts = race.hostUserId ? Boolean(race.participants?.has(race.hostUserId)) : false;
+            if (!hostInParts && race.hostUserId && race.hostUserId !== "anonymous") {
+              userId = race.hostUserId;
+              guestName = race.hostUserName || guestName;
+            } else if (chAny && chAny.challengedId && !race.participants?.has(chAny.challengedId)) {
+              userId = chAny.challengedId;
+              guestName = chAny.challengedName || guestName;
+            } else {
+              userId = `guest_${cleanCode.toLowerCase()}`;
+            }
+          } else if (race.hostUserId && race.hostUserId !== "anonymous" && !race.participants?.has(race.hostUserId)) {
             userId = race.hostUserId;
+            guestName = race.hostUserName || guestName;
           } else {
             userId = `guest_${cleanCode.toLowerCase()}`;
           }

@@ -239,8 +239,40 @@ export class GarminController {
         return;
       }
 
-      const guestName = ticket?.guestName || String(body.guestName || body.userName || `Rameur_${rawPin.slice(0, 3)}`).trim();
-      const userId = ticket?.userId || String(body.userId || `guest_${rawPin.toLowerCase()}`).trim();
+      let guestName = ticket?.guestName || String(body.guestName || body.userName || "").trim();
+      let userId = ticket?.userId || String(body.userId || "").trim();
+
+      if (!userId || userId.startsWith("guest_")) {
+        const existingPairing = !ticket ? await pairingService.findPairingByDeviceId(deviceId) : null;
+        if (existingPairing?.userId && !existingPairing.userId.startsWith("guest_")) {
+          userId = existingPairing.userId;
+          const u = await userStore.findUser(userId);
+          if (u?.name) guestName = u.name;
+        } else if (race.isDuel1v1) {
+          const ch = db.duelChallenges ? await db.duelChallenges.findOne({ where: { roomId: race.id } }) : null;
+          const chAny = ch as any;
+          const hostInParts = race.hostUserId ? Boolean(race.participants?.has(race.hostUserId)) : false;
+          if (!hostInParts && race.hostUserId && race.hostUserId !== "anonymous") {
+            userId = race.hostUserId;
+            guestName = race.hostUserName || guestName || race.hostUserId;
+          } else if (chAny && chAny.challengedId && !race.participants?.has(chAny.challengedId)) {
+            userId = chAny.challengedId;
+            guestName = chAny.challengedName || guestName || chAny.challengedId;
+          } else {
+            userId = userId || `guest_${rawPin.toLowerCase()}`;
+            guestName = guestName || `Rameur_${rawPin.slice(0, 3)}`;
+          }
+        } else if (race.hostUserId && race.hostUserId !== "anonymous" && !race.participants?.has(race.hostUserId)) {
+          userId = race.hostUserId;
+          guestName = race.hostUserName || guestName || race.hostUserId;
+        } else {
+          userId = userId || `guest_${rawPin.toLowerCase()}`;
+          guestName = guestName || `Rameur_${rawPin.slice(0, 3)}`;
+        }
+      }
+      if (!guestName) {
+        guestName = `Rameur_${rawPin.slice(0, 3)}`;
+      }
       const socketId = ticket?.socketId;
 
       // 1. Appairer la montre et attribuer un deviceToken persistant

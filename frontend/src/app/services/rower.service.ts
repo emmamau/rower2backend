@@ -133,6 +133,15 @@ export class RowerService {
     });
   }
 
+  openRoom(code: string, userId?: string, userName?: string): Observable<any> {
+    return this.http.post<any>(`${this.apiUrl}/api/rooms/join`, {
+      code,
+      userId,
+      userName,
+      openOnly: true
+    });
+  }
+
   leaveRoom(codeOrId: string, userId: string): Observable<{ success: boolean; roomClosed?: boolean; remainingParticipants?: number }> {
     return this.http.post<{ success: boolean; roomClosed?: boolean; remainingParticipants?: number }>(
       `${this.apiUrl}/api/rooms/leave`,

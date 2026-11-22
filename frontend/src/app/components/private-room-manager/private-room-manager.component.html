@@ -251,6 +251,15 @@
         </div>
       </div>
 
+      @if (!isWatchEngaged && !isRoomCompleted) {
+        <div class="priv-watch-pending-alert" role="status">
+          <span class="priv-watch-alert-badge">⌚ EN ATTENTE MONTRE</span>
+          <span class="priv-watch-alert-text">
+            Saisissez le code PIN <strong>{{ activeRoomPin || '----' }}</strong> sur votre montre Garmin pour occuper votre couloir et déverrouiller le départ.
+          </span>
+        </div>
+      }
+
         <!-- Quick Action Controls (Host Start / Bots / Reset + BLE READY status) -->
       <div class="priv-banner-actions">
         @if (isBotDuelRoom || isSoloRoom) {

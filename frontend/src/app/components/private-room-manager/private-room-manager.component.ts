@@ -1023,6 +1023,14 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
     return startMode === 'scheduled' || Boolean(time);
   }
 
+  get isWatchEngaged(): boolean {
+    if (!this.activeRoom) return false;
+    const race = this.activeRoom.race || this.activeRoom;
+    const parts = race.participants || (this.activeRoom as any).participants || [];
+    const list: any[] = Array.isArray(parts) ? parts : Array.from((parts as any).values ? (parts as any).values() : []);
+    return list.some((p: any) => p.userId === this.activeUserId && (p.lane > 0 || p.ready || p.deviceToken));
+  }
+
   get isStartLocked(): boolean {
     if (!this.activeRoom) return false;
     const race = this.activeRoom.race || this.activeRoom;
@@ -1035,11 +1043,18 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
         return Date.now() < unlockMs;
       }
     }
+    // Verrouillage du départ tant que la montre Garmin n'a pas validé le code PIN du salon
+    if (!this.isWatchEngaged && !this.isUserAdmin) {
+      return true;
+    }
     return false;
   }
 
   get startLockTooltip(): string {
     if (!this.activeRoom) return '';
+    if (!this.isWatchEngaged && !this.isUserAdmin) {
+      return `Saisie du code PIN (${this.activeRoomPin || '----'}) requise sur votre montre Garmin pour engager votre couloir avant de démarrer`;
+    }
     if (this.isStartLocked) {
       const race = this.activeRoom.race || this.activeRoom;
       const scheduledTime = race.scheduledStartTime || (this.activeRoom as any).scheduledStartTime;
@@ -1438,9 +1453,9 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
     this.joinError = '';
     this.isJoining = true;
 
-    this.rowerService.joinRoom(parsed.value, this.activeUserId, this.activeUserName).subscribe({
+    this.rowerService.openRoom(parsed.value, this.activeUserId, this.activeUserName).subscribe({
       next: (joinRes) => {
-        const assignedLane = joinRes.lane || 1;
+        const assignedLane = joinRes.lane ?? 0;
         const roomIdent = joinRes.code || parsed.value;
 
         this.rowerService.getPrivateRace(roomIdent).subscribe({
@@ -1450,7 +1465,7 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
             (room as any).lane = assignedLane;
             this.rememberSalon(room);
             this.roomSelected.emit({ payload: room, pushUrl: true });
-            this.feedbackMessage = joinRes.message || `Entrée validée sur la ligne d'eau ${assignedLane}`;
+            this.feedbackMessage = joinRes.message || (assignedLane > 0 ? `Entrée validée sur la ligne d'eau ${assignedLane}` : `Salon ouvert en consultation. Saisissez le PIN ${joinRes.pin || ''} sur votre montre.`);
             this.activeTab = 'share';
             this.cdr.markForCheck();
           },
@@ -1471,7 +1486,7 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
               }
             };
             this.roomSelected.emit({ payload: fallbackRoom, pushUrl: true });
-            this.feedbackMessage = `Entrée validée sur la ligne d'eau ${assignedLane}`;
+            this.feedbackMessage = joinRes.message || (assignedLane > 0 ? `Entrée validée sur la ligne d'eau ${assignedLane}` : `Salon ouvert en consultation. Saisissez le PIN ${joinRes.pin || ''} sur votre montre.`);
             this.activeTab = 'share';
             this.cdr.markForCheck();
           }
@@ -1495,9 +1510,9 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
 
   openSavedSalon(salon: SavedPrivateSalon): void {
     this.actionError = '';
-    this.rowerService.joinRoom(salon.code, this.activeUserId, this.activeUserName).subscribe({
+    this.rowerService.openRoom(salon.code, this.activeUserId, this.activeUserName).subscribe({
       next: (joinRes) => {
-        const assignedLane = joinRes.lane || 1;
+        const assignedLane = joinRes.lane ?? 0;
         this.rowerService.getPrivateRace(salon.code).subscribe({
           next: (room) => {
             (room as any).lane = assignedLane;

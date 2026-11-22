@@ -279,6 +279,35 @@
   gap: 0.55rem;
 }
 
+.priv-watch-pending-alert {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.65rem 1rem;
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.45);
+  border-radius: 8px;
+  color: #fbbf24;
+  font-size: 0.9rem;
+  margin: 0.5rem 0 0.75rem 0;
+}
+
+.priv-watch-alert-badge {
+  background: #f59e0b;
+  color: #111827;
+  font-weight: 700;
+  font-size: 0.75rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+
+.priv-watch-alert-text {
+  color: #fef3c7;
+  font-size: 0.88rem;
+}
+
 .priv-banner-codes {
   display: flex;
   flex-wrap: wrap;
