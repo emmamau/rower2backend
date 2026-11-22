@@ -27,6 +27,7 @@ class RowerView extends WatchUi.View {
     public static const STATE_PAIRING_RESULT   = 16; // Confirmation succes / erreur
     public static const STATE_PSEUDO_INPUT     = 17; // Saisie pseudo invite local (UnifiedCodePickerView)
     public static const STATE_SUBMENU_MORE     = 18; // G10 : Sous-menu Autres choix
+    public static const STATE_WELCOME          = 19; // G0 : Message d'accueil / invitation rowerrace.com
 
     // Garmin Pro Dark Carbon Palette (64-color MIP & AMOLED compatible)
     private static const COL_BG        = Graphics.COLOR_BLACK;
@@ -41,7 +42,7 @@ class RowerView extends WatchUi.View {
     private static const COL_PILL_BG   = Graphics.COLOR_DK_BLUE;
 
     private var _model as RowerDataModel;
-    private var _currentState as Number = STATE_MENU;
+    private var _currentState as Number = STATE_WELCOME;
 
     // Navigation & Page indices
     private var _mainMenuIndex as Number = 0;   // 0..3
@@ -115,8 +116,8 @@ class RowerView extends WatchUi.View {
         _roomPinPicker = new UnifiedCodePickerView(5, "ENTRER UN CODE", method(:onRoomPinCompleted));
         _pseudoPicker = new UnifiedCodePickerView(6, "MON PSEUDO", method(:onPseudoCompleted));
         _pseudoPicker.setAllowSpace(true);
-        // Lancement direct sur le menu principal (G2)
-        _currentState = STATE_MENU;
+        // Lancement direct sur l'ecran d'accueil rowerrace.com (G0)
+        _currentState = STATE_WELCOME;
     }
 
     public function setPairingCompletedCallback(cb as Method?) as Void {
@@ -640,7 +641,9 @@ class RowerView extends WatchUi.View {
         dc.setColor(COL_BG, COL_BG);
         dc.clear();
 
-        if (_currentState == STATE_SCANNING) {
+        if (_currentState == STATE_WELCOME) {
+            drawWelcomeScreen(dc, w, h);
+        } else if (_currentState == STATE_SCANNING) {
             drawG1ConnectionScreen(dc, w, h);
         } else if (_currentState == STATE_MENU) {
             var menuItems = [] as Array<String>;
@@ -992,6 +995,78 @@ class RowerView extends WatchUi.View {
             return "BLE... " + _model.deviceName;
         }
         return "BLE Scan...";
+    }
+
+    // =========================================================================
+    // G0 : ECRAN D'ACCUEIL / INVITATION ROWERRACE.COM
+    // =========================================================================
+    private function drawWelcomeScreen(dc as Graphics.Dc, w as Number, h as Number) as Void {
+        var cx = w / 2;
+
+        // 1. Statut BLE discret en haut (Y ~ 6%..12% h)
+        var bleTag = getBleProtocolTag();
+        var topY = (h * 6) / 100;
+        var topMaxW = getSafeWidthAtY(w, h, topY, topY + 14);
+        dc.setColor(COL_MUTED, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, topY, Graphics.FONT_XTINY, truncateToWidth(dc, bleTag, Graphics.FONT_XTINY, topMaxW), Graphics.TEXT_JUSTIFY_CENTER);
+
+        // 2. Titre de l'application (Y ~ 15%..23% h)
+        var titleY = (h * 15) / 100;
+        var titleStr = I18n.getText("WELCOME_TITLE");
+        var titleMaxW = getSafeWidthAtY(w, h, titleY, titleY + 22);
+        var titleFont = fitFontToBox(dc, titleStr, [Graphics.FONT_MEDIUM, Graphics.FONT_SMALL, Graphics.FONT_TINY] as Array<Graphics.FontDefinition>, titleMaxW, 22);
+        dc.setColor(COL_ACCENT, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, titleY, titleFont, titleStr, Graphics.TEXT_JUSTIFY_CENTER);
+
+        // Separateur fin (Y ~ 26% h)
+        var divY = (h * 26) / 100;
+        var divHalfW = (w * 25) / 100;
+        dc.setColor(COL_GRID, Graphics.COLOR_TRANSPARENT);
+        dc.drawLine(cx - divHalfW, divY, cx + divHalfW, divY);
+
+        // 3. Carte centrale d'invitation (Y ~ 29%..74% h)
+        var cardTop = (h * 29) / 100;
+        var cardH = (h * 46) / 100;
+        var cardW = (w * 84) / 100;
+        dc.setColor(COL_PILL_BG, Graphics.COLOR_TRANSPARENT);
+        dc.fillRoundedRectangle(cx - (cardW / 2), cardTop, cardW, cardH, 8);
+        dc.setColor(COL_CYAN, Graphics.COLOR_TRANSPARENT);
+        dc.drawRoundedRectangle(cx - (cardW / 2), cardTop, cardW, cardH, 8);
+
+        // Ligne 1 : "Connectez-vous sur"
+        var line1 = I18n.getText("WELCOME_MSG_1");
+        dc.setColor(COL_PRIMARY, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, cardTop + (cardH * 8) / 100, Graphics.FONT_XTINY, truncateToWidth(dc, line1, Graphics.FONT_XTINY, cardW - 14), Graphics.TEXT_JUSTIFY_CENTER);
+
+        // Ligne 2 : "rowerrace.com" mis en valeur
+        var urlStr = I18n.getText("WELCOME_URL");
+        var urlFont = fitFontToBox(dc, urlStr, [Graphics.FONT_MEDIUM, Graphics.FONT_SMALL, Graphics.FONT_TINY] as Array<Graphics.FontDefinition>, cardW - 14, (cardH * 32) / 100);
+        dc.setColor(COL_ACCENT, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, cardTop + (cardH * 27) / 100, urlFont, urlStr, Graphics.TEXT_JUSTIFY_CENTER);
+
+        // Ligne 3 : "pour participer"
+        var line2 = I18n.getText("WELCOME_MSG_2");
+        dc.setColor(COL_PRIMARY, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, cardTop + (cardH * 58) / 100, Graphics.FONT_XTINY, truncateToWidth(dc, line2, Graphics.FONT_XTINY, cardW - 14), Graphics.TEXT_JUSTIFY_CENTER);
+
+        // Ligne 4 : "a une course !"
+        var line3 = I18n.getText("WELCOME_MSG_3");
+        dc.setColor(COL_MUTED, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, cardTop + (cardH * 77) / 100, Graphics.FONT_XTINY, truncateToWidth(dc, line3, Graphics.FONT_XTINY, cardW - 14), Graphics.TEXT_JUSTIFY_CENTER);
+
+        // 4. Bouton CTA en bas (Y ~ 79%..92% h)
+        var btnY = (h * 79) / 100;
+        var btnH = (h * 13) / 100;
+        var btnW = (w * 70) / 100;
+        dc.setColor(COL_GOOD, Graphics.COLOR_TRANSPARENT);
+        dc.fillRoundedRectangle(cx - (btnW / 2), btnY, btnW, btnH, 6);
+        dc.setColor(COL_PRIMARY, Graphics.COLOR_TRANSPARENT);
+        dc.drawRoundedRectangle(cx - (btnW / 2), btnY, btnW, btnH, 6);
+
+        var ctaStr = I18n.getText("WELCOME_CTA");
+        var ctaFont = fitFontToBox(dc, ctaStr, [Graphics.FONT_SMALL, Graphics.FONT_TINY, Graphics.FONT_XTINY] as Array<Graphics.FontDefinition>, btnW - 10, btnH - 2);
+        dc.setColor(COL_BG, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, btnY + (btnH / 2), ctaFont, ctaStr, Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
     }
 
     // =========================================================================

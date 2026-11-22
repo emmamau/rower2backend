@@ -52,6 +52,46 @@ module I18n {
             return "ROWER RACE";
         }
 
+        // --- G0: WELCOME / ONBOARDING ---
+        if (key.equals("WELCOME_TITLE")) {
+            return "ROWER RACE";
+        }
+        if (key.equals("WELCOME_MSG_1")) {
+            if (_currentLang == LANG_FR) { return "Connectez-vous sur"; }
+            if (_currentLang == LANG_DE) { return "Anmelden auf"; }
+            if (_currentLang == LANG_ES) { return "Inicia sesion en"; }
+            if (_currentLang == LANG_IT) { return "Accedi su"; }
+            if (_currentLang == LANG_PT) { return "Inicie sessao em"; }
+            return "Log in to";
+        }
+        if (key.equals("WELCOME_URL")) {
+            return "rowerrace.com";
+        }
+        if (key.equals("WELCOME_MSG_2")) {
+            if (_currentLang == LANG_FR) { return "pour participer"; }
+            if (_currentLang == LANG_DE) { return "um an einem Rennen"; }
+            if (_currentLang == LANG_ES) { return "para participar"; }
+            if (_currentLang == LANG_IT) { return "per partecipare"; }
+            if (_currentLang == LANG_PT) { return "para participar"; }
+            return "to participate in";
+        }
+        if (key.equals("WELCOME_MSG_3")) {
+            if (_currentLang == LANG_FR) { return "a une course !"; }
+            if (_currentLang == LANG_DE) { return "teilzunehmen!"; }
+            if (_currentLang == LANG_ES) { return "en una carrera!"; }
+            if (_currentLang == LANG_IT) { return "a una gara!"; }
+            if (_currentLang == LANG_PT) { return "numa corrida!"; }
+            return "a live race!";
+        }
+        if (key.equals("WELCOME_CTA")) {
+            if (_currentLang == LANG_FR) { return "START > Continuer"; }
+            if (_currentLang == LANG_DE) { return "START > Weiter"; }
+            if (_currentLang == LANG_ES) { return "START > Continuar"; }
+            if (_currentLang == LANG_IT) { return "START > Continua"; }
+            if (_currentLang == LANG_PT) { return "START > Continuar"; }
+            return "START > Continue";
+        }
+
         // --- G1: PRE-WORKOUT / BLE CONNECTION ---
         if (key.equals("PRE_SEARCH_TITLE")) {
             if (_currentLang == LANG_FR) { return "RECHERCHE RAMEUR"; }

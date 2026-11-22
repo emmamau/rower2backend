@@ -66,6 +66,12 @@ class RowerDelegate extends WatchUi.BehaviorDelegate {
     public function onKey(keyEvent as WatchUi.KeyEvent) as Boolean {
         var key = keyEvent.getKey();
         var state = _view.getAppState();
+        if (state == RowerView.STATE_WELCOME) {
+            if (key == WatchUi.KEY_ENTER || key == WatchUi.KEY_START) {
+                _view.setAppState(RowerView.STATE_MENU);
+                return true;
+            }
+        }
         if (state == RowerView.STATE_LOBBY ||
             state == RowerView.STATE_WAITING_START ||
             state == RowerView.STATE_COUNTDOWN_5S) {
@@ -81,7 +87,10 @@ class RowerDelegate extends WatchUi.BehaviorDelegate {
     public function onSelect() as Boolean {
         var state = _view.getAppState();
 
-        if (state == RowerView.STATE_SCANNING) {
+        if (state == RowerView.STATE_WELCOME) {
+            _view.setAppState(RowerView.STATE_MENU);
+            return true;
+        } else if (state == RowerView.STATE_SCANNING) {
             if (_bleDelegate.getModel().isConnected()) {
                 _view.setAppState(RowerView.STATE_MENU);
             } else {
@@ -274,7 +283,10 @@ class RowerDelegate extends WatchUi.BehaviorDelegate {
     // Handles touchscreen tap (on Venu / Epix / Forerunner / Fenix touch) without pausing race on water drops
     public function onTap(clickEvent as ClickEvent) as Boolean {
         var state = _view.getAppState();
-        if (state == RowerView.STATE_SCANNING && _bleDelegate.getModel().isConnected()) {
+        if (state == RowerView.STATE_WELCOME) {
+            _view.setAppState(RowerView.STATE_MENU);
+            return true;
+        } else if (state == RowerView.STATE_SCANNING && _bleDelegate.getModel().isConnected()) {
             _view.setAppState(RowerView.STATE_MENU);
             return true;
         } else if (state == RowerView.STATE_PAIRING_INPUT) {
@@ -304,7 +316,10 @@ class RowerDelegate extends WatchUi.BehaviorDelegate {
     public function onBack() as Boolean {
         var state = _view.getAppState();
 
-        if (state == RowerView.STATE_SCANNING) {
+        if (state == RowerView.STATE_WELCOME) {
+            _bleDelegate.disconnect();
+            return false; // Quitte l'application Garmin proprement
+        } else if (state == RowerView.STATE_SCANNING) {
             _bleDelegate.disconnect();
             return false; // Standard Garmin watch-app exit
         } else if (state == RowerView.STATE_MENU) {
