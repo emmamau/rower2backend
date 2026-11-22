@@ -1345,25 +1345,35 @@ export class AppComponent implements OnInit, OnDestroy {
             this.activePrivateRoom = raceData as PrivateRacePayload;
           }
           this.syncSocketRoom(raceData.race.id);
-          this.countdownSeconds = raceData.secondsRemaining;
-          this.gameRemainingSeconds = raceData.remainingSeconds !== undefined ? raceData.remainingSeconds : 3300;
           this.gameMaxDurationSeconds = raceData.maxDurationSeconds || 3300;
-          this.formattedGameRemaining = this.i18n.formatDetailedCountdown(this.gameRemainingSeconds);
           this.configTargetDistance = raceData.race.targetDistance;
           this.configIntervalMinutes = raceData.race.intervalMinutes;
 
           // Décompte visuel synchronisé avec le backend et la montre
-          const isRunning = raceData.status === 'in_progress' ||
-                            raceData.race?.status === 'RUNNING' ||
-                            raceData.race?.status === 'in_progress';
+          const isRunning = this.isRaceActive;
+          const isRoomWaiting = Boolean(
+            this.activePrivateRoom &&
+            (this.activePrivateRoom.status === 'LOBBY' ||
+             (this.activePrivateRoom as any).internalStatus === 'LOBBY' ||
+             this.activePrivateRoom.race?.status === 'LOBBY' ||
+             (raceData.status === 'waiting' && this.activePrivateRoom))
+          );
+
           if (isRunning) {
             this.countdownSeconds = 0;
             this.is3sCountdown = false;
             this.isPreStartCountdown = false;
+            this.gameRemainingSeconds = raceData.remainingSeconds !== undefined ? raceData.remainingSeconds : 3300;
             if (this.siteView === 'home' && !this.userExplicitlyNavigatedHome) {
               this.siteView = this.activeViewMode === 'cockpit' ? 'cockpit' : 'regatta';
             }
+          } else if (isRoomWaiting) {
+            this.countdownSeconds = 0;
+            this.is3sCountdown = false;
+            this.isPreStartCountdown = false;
+            this.gameRemainingSeconds = this.gameMaxDurationSeconds;
           } else {
+            this.gameRemainingSeconds = this.gameMaxDurationSeconds;
             const serverRemaining = raceData.secondsRemaining;
             if (serverRemaining !== undefined && serverRemaining !== null) {
               // Réconciliation douce : n'écrase pas le décompte local actif sauf si reset/nouveau joueur (diff > 3s)
@@ -1373,6 +1383,7 @@ export class AppComponent implements OnInit, OnDestroy {
             }
             this.syncCountdownUI();
           }
+          this.formattedGameRemaining = this.i18n.formatDetailedCountdown(this.gameRemainingSeconds);
 
           // Fetch Live Leaderboard
           this.rowerService.getRaceLeaderboard(raceData.race.id).pipe(
@@ -1958,6 +1969,7 @@ export class AppComponent implements OnInit, OnDestroy {
 
     this.rowerService.createPrivateRace({
       isBotDuel: true,
+      botStartMode: 'first_stroke',
       title: `Duel 1v1 Bot (${this.botDuelDistance}m)`,
       targetDistance: this.botDuelDistance,
       maxParticipants: 2,
@@ -2652,6 +2664,12 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   get isRaceActive(): boolean {
+    if (this.activePrivateRoom) {
+      const roomStatus = String(this.activePrivateRoom.status || this.activePrivateRoom.race?.status || (this.activePrivateRoom as any).internalStatus || '').toUpperCase();
+      if (roomStatus === 'LOBBY' || roomStatus === 'COUNTDOWN') {
+        return false;
+      }
+    }
     const isRunningStatus = Boolean(
       this.nextRaceInfo?.status === 'in_progress' ||
       this.nextRaceInfo?.race?.status === 'RUNNING' ||
@@ -4857,11 +4875,18 @@ export class AppComponent implements OnInit, OnDestroy {
     const prevStatus = (this.activePrivateRoom?.status || this.activePrivateRoom?.race?.status || '').toString().toUpperCase();
     this.activePrivateRoom = updated;
     this.nextRaceInfo = updated;
-    if (updated?.secondsRemaining && updated.secondsRemaining > 0) {
+    const updatedStatus = (updated?.status || updated?.race?.status || (updated as any)?.internalStatus || '').toString().toUpperCase();
+
+    if (updatedStatus === 'COUNTDOWN' && updated?.secondsRemaining && updated.secondsRemaining > 0) {
       this.countdownSeconds = updated.secondsRemaining;
       this.syncCountdownUI();
+    } else if (updatedStatus !== 'RUNNING' && updatedStatus !== 'IN_PROGRESS') {
+      this.countdownSeconds = 0;
+      this.isPreStartCountdown = false;
+      this.is3sCountdown = false;
+      this.gameRemainingSeconds = updated.maxDurationSeconds || this.gameMaxDurationSeconds || 3300;
+      this.formattedGameRemaining = this.i18n.formatDetailedCountdown(this.gameRemainingSeconds);
     }
-    const updatedStatus = (updated?.status || updated?.race?.status || '').toString().toUpperCase();
     const isNowStartingOrRunning =
       updatedStatus === 'COUNTDOWN' ||
       updatedStatus === 'RUNNING' ||
@@ -5448,8 +5473,9 @@ export class AppComponent implements OnInit, OnDestroy {
         if (assignedLaneVal > 0 && (isMyGuestTicketClaim || update.userId === currentActiveId || updateHostId === currentActiveId || Boolean(update?.['isBotDuel']))) {
           this.myAssignedLane = assignedLaneVal;
         }
+        const updateStatus = String(update?.['status'] || update?.['internalStatus'] || '').toUpperCase();
         const cdSec = Number(update?.['countdownSeconds'] ?? update?.['secondsRemaining'] ?? 0);
-        if (cdSec > 0) {
+        if (cdSec > 0 && updateStatus === 'COUNTDOWN') {
           this.countdownSeconds = cdSec;
           this.syncCountdownUI();
         }
@@ -5493,9 +5519,16 @@ export class AppComponent implements OnInit, OnDestroy {
               this.gameMaxDurationSeconds = data.maxDurationSeconds || this.gameMaxDurationSeconds;
               this.formattedGameRemaining = this.i18n.formatDetailedCountdown(this.gameRemainingSeconds);
             }
-            if (typeof data.secondsRemaining === 'number' && data.secondsRemaining > 0 && !data.waitingForHost) {
+            const isCountdown = data.race?.status === 'COUNTDOWN' || (data as any)?.internalStatus === 'COUNTDOWN' || data.status === 'countdown';
+            if (isCountdown && typeof data.secondsRemaining === 'number' && data.secondsRemaining > 0 && !data.waitingForHost) {
               this.countdownSeconds = data.secondsRemaining;
               this.syncCountdownUI();
+            } else if (!isCountdown && !this.isRaceActive) {
+              this.countdownSeconds = 0;
+              this.isPreStartCountdown = false;
+              this.is3sCountdown = false;
+              this.gameRemainingSeconds = data.maxDurationSeconds || this.gameMaxDurationSeconds || 3300;
+              this.formattedGameRemaining = this.i18n.formatDetailedCountdown(this.gameRemainingSeconds);
             }
             this.cdr.markForCheck();
           }
@@ -5590,10 +5623,16 @@ export class AppComponent implements OnInit, OnDestroy {
         this.isPreStartCountdown = false;
         return;
       }
-      const isRunning = this.nextRaceInfo?.status === 'in_progress' ||
-                        this.nextRaceInfo?.race?.status === 'RUNNING' ||
-                        this.nextRaceInfo?.race?.status === 'in_progress';
-      if (!isRunning && this.countdownSeconds > 0) {
+      const isRunning = this.isRaceActive;
+      const isRoomWaiting = Boolean(
+        this.activePrivateRoom &&
+        (this.activePrivateRoom.status === 'LOBBY' ||
+         (this.activePrivateRoom as any).internalStatus === 'LOBBY' ||
+         this.activePrivateRoom.race?.status === 'LOBBY' ||
+         (this.nextRaceInfo?.status === 'waiting' && this.activePrivateRoom))
+      );
+
+      if (!isRunning && !isRoomWaiting && this.countdownSeconds > 0) {
         this.countdownSeconds--;
         if (this.nextRaceInfo) {
           this.nextRaceInfo.secondsRemaining = this.countdownSeconds;
@@ -5604,17 +5643,21 @@ export class AppComponent implements OnInit, OnDestroy {
           if (this.nextRaceInfo?.status === 'post_race_pause') {
             this.loadNextRaceInfo();
           } else {
-            if (this.nextRaceInfo) {
-              this.nextRaceInfo.status = 'in_progress';
-              if (this.nextRaceInfo.race) {
-                this.nextRaceInfo.race.status = 'RUNNING';
-              }
-            }
+            // Attendre la confirmation officielle RUNNING par le backend (WebSocket / HTTP poll)
+            // Ne jamais forcer localement le statut RUNNING/in_progress sans le serveur
+            this.loadNextRaceInfo();
             if (this.siteView === 'regatta' || this.siteView === 'cockpit') {
               this.startImmersionAutoFade();
             }
           }
         }
+        this.cdr.markForCheck();
+      } else if (isRoomWaiting) {
+        this.countdownSeconds = 0;
+        this.is3sCountdown = false;
+        this.isPreStartCountdown = false;
+        this.gameRemainingSeconds = this.gameMaxDurationSeconds || 3300;
+        this.formattedGameRemaining = this.i18n.formatDetailedCountdown(this.gameRemainingSeconds);
         this.cdr.markForCheck();
       } else if (isRunning && this.gameRemainingSeconds > 0) {
         this.gameRemainingSeconds--;
@@ -5623,15 +5666,31 @@ export class AppComponent implements OnInit, OnDestroy {
           this.myActivity.elapsedTime = Math.max(0, this.gameMaxDurationSeconds - this.gameRemainingSeconds);
         }
         this.cdr.markForCheck();
+      } else if (!isRunning) {
+        this.gameRemainingSeconds = this.gameMaxDurationSeconds || 3300;
+        this.formattedGameRemaining = this.i18n.formatDetailedCountdown(this.gameRemainingSeconds);
+        this.cdr.markForCheck();
       }
     });
   }
 
   private syncCountdownUI(): void {
-    const isRunning = this.nextRaceInfo?.status === 'in_progress' ||
-                      this.nextRaceInfo?.race?.status === 'RUNNING' ||
-                      this.nextRaceInfo?.race?.status === 'in_progress';
-    if (isRunning || this.countdownSeconds <= 0) {
+    const isRunning = this.isRaceActive;
+    const isRoomWaiting = Boolean(
+      this.activePrivateRoom &&
+      (this.activePrivateRoom.status === 'LOBBY' ||
+       (this.activePrivateRoom as any).internalStatus === 'LOBBY' ||
+       this.activePrivateRoom.race?.status === 'LOBBY' ||
+       (this.nextRaceInfo?.status === 'waiting' && this.activePrivateRoom))
+    );
+
+    if (isRunning || isRoomWaiting || this.countdownSeconds <= 0) {
+      this.is3sCountdown = false;
+      this.isPreStartCountdown = false;
+      return;
+    }
+
+    if (this.activePrivateRoom && this.countdownSeconds > 15) {
       this.is3sCountdown = false;
       this.isPreStartCountdown = false;
       return;

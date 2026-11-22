@@ -1829,7 +1829,9 @@ export class RaceManager {
         userId: hostUserId,
         userName: hostUserName || hostUserId,
         joinedAt: now,
-        lane: 1
+        lane: 1,
+        ready: false,
+        connectionState: "CONNECTED"
       });
     }
 
@@ -2546,7 +2548,9 @@ export class RaceManager {
     // Moving to approved: remove from pending
     race.pendingParticipants.delete(cleanUserId);
 
-    const isReady = options?.ready === false ? false : true;
+    const isReady = options?.ready !== undefined
+      ? Boolean(options.ready)
+      : (Boolean(options?.viaPin) && race.isBotDuel && race.botStartMode !== "first_stroke" ? true : false);
     const connectionState: "CONNECTED" | "READY" = isReady ? "READY" : "CONNECTED";
 
     race.participants.set(cleanUserId, {
@@ -2565,7 +2569,7 @@ export class RaceManager {
       this.pinToRaceMap.set(race.pinCode.toUpperCase(), { raceId: race.id, lane: assignedLane });
     }
 
-    const allParticipantsReady = Array.from(race.participants.values()).every((p) => p.ready !== false);
+    const allParticipantsReady = race.participants.size > 0 && Array.from(race.participants.values()).every((p) => Boolean(p.ready));
 
     // 4. Logiques de départ
     // Duel 1v1 Joueur vs Joueur : déclenchement automatique du décompte de 15 s dès que les 2 joueurs sont READY sur leur ligne
@@ -2733,7 +2737,7 @@ export class RaceManager {
 
     const participantsList = Array.from(race.participants.values());
     const allReady =
-      participantsList.length > 0 && participantsList.every((p) => p.ready !== false);
+      participantsList.length > 0 && participantsList.every((p) => Boolean(p.ready));
 
     let countdownTriggered = false;
     const now = new Date();
