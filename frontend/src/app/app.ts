@@ -233,6 +233,26 @@ export class AppComponent implements OnInit, OnDestroy {
   // Salons privés & Duels en attente
   pendingPrivateSalonsCount = 0;
   pendingDuelsCount = 0;
+  isPrivateRoomPreview = false;
+
+  get activeRoomPin(): string {
+    return this.activePrivateRoom?.pinCode || this.activePrivateRoom?.race?.pinCode || '';
+  }
+
+  exitPrivateRoomFromPreview(): void {
+    this.exitPrivateRoomToPublic(true);
+    this.initGameLoop();
+    this.refreshPendingPrivateAndDuels();
+  }
+
+  copyActivePin(): void {
+    const pin = this.activeRoomPin;
+    if (pin && typeof navigator !== 'undefined' && navigator.clipboard) {
+      navigator.clipboard.writeText(pin).then(() => {
+        this.triggerFinishToast(`Code PIN ${pin} copié !`);
+      }).catch(() => {});
+    }
+  }
 
   get totalPendingPrivateAndDuelsCount(): number {
     return this.pendingPrivateSalonsCount + this.pendingDuelsCount + this.pendingApprovalPlayers.length;
@@ -865,7 +885,7 @@ export class AppComponent implements OnInit, OnDestroy {
           this.rowerService.getPrivateRace(targetRoomCode).subscribe({
             next: (room) => {
               (room as any).duelChallenge = ch;
-              this.activatePrivateRoom(room, false);
+              this.activatePrivateRoom(room, false, true);
               this.setSiteView('home');
               this.userExplicitlyNavigatedHome = true;
               this.isPrivateModalOpen = true;
@@ -1304,7 +1324,7 @@ export class AppComponent implements OnInit, OnDestroy {
                   if (res.challenge.roomCode) {
                     this.rowerService.getPrivateRace(res.challenge.roomCode).subscribe((room) => {
                       (room as any).duelChallenge = res.challenge;
-                      this.activatePrivateRoom(room, false);
+                      this.activatePrivateRoom(room, false, true);
                       this.setSiteView('home');
                       this.userExplicitlyNavigatedHome = true;
                       this.isPrivateModalOpen = true;
@@ -5176,8 +5196,9 @@ export class AppComponent implements OnInit, OnDestroy {
     this.cdr.markForCheck();
   }
 
-  onPrivateRoomSelected(event: { payload: PrivateRacePayload; pushUrl: boolean }): void {
-    this.activatePrivateRoom(event.payload, event.pushUrl);
+  onPrivateRoomSelected(event: { payload: PrivateRacePayload; pushUrl: boolean; isPreview?: boolean }): void {
+    const isPreview = event.isPreview !== undefined ? event.isPreview : true;
+    this.activatePrivateRoom(event.payload, event.pushUrl, isPreview);
     this.refreshPendingPrivateAndDuels();
   }
 
@@ -5761,6 +5782,17 @@ export class AppComponent implements OnInit, OnDestroy {
       );
 
       if (isMyGuestTicketClaim) {
+        this.isPrivateRoomPreview = false;
+        if (update.raceId) {
+          try {
+            if (typeof localStorage !== 'undefined') {
+              localStorage.setItem('rower_active_private_room_id', update.raceId);
+              if (update['code']) {
+                localStorage.setItem('rower_active_private_room_code', String(update['code']));
+              }
+            }
+          } catch {}
+        }
         if (update?.['deviceToken']) {
           this.onWatchPairedSuccess(String(update['deviceToken']), update.userId);
         }
@@ -5853,10 +5885,58 @@ export class AppComponent implements OnInit, OnDestroy {
       if (data && data.deviceToken) {
         const currentId = this.activeUserId || this.currentUser?.id || this.guestSessionId;
         const mySocketId = this.socketService.getSocketId();
-        const isMyTicket = Boolean(data.ticketClaimed && ((mySocketId && data.socketId === mySocketId) || (this.activePrivateRoom && this.activePrivateRoom.race?.id === data.raceId)));
+        const claimedRoomId = data.raceId || (data as any).roomId;
+        const isMyTicket = Boolean(
+          (data.ticketClaimed || (data as any).ticketPin || data.roomCode) &&
+          ((mySocketId && data.socketId === mySocketId) ||
+           (this.activePrivateRoom && (this.activePrivateRoom.race?.id === claimedRoomId || this.activePrivateRoom.code === data.roomCode)) ||
+           (data.userId && data.userId === currentId))
+        );
         if (!this.isPaired || data.userId === currentId || isMyTicket) {
           this.onWatchPairedSuccess(data.deviceToken, data.userId);
-          if (isMyTicket) {
+          if (claimedRoomId) {
+            this.isPrivateRoomPreview = false;
+            try {
+              if (typeof localStorage !== 'undefined') {
+                localStorage.setItem('rower_active_private_room_id', claimedRoomId);
+                const codeToSave = data.roomCode || this.activePrivateRoom?.code || this.activePrivateRoom?.race?.code;
+                if (codeToSave) {
+                  localStorage.setItem('rower_active_private_room_code', codeToSave);
+                }
+              }
+            } catch {}
+            if (this.activePrivateRoom && (this.activePrivateRoom.race?.id === claimedRoomId || this.activePrivateRoom.code === data.roomCode)) {
+              if (data.guestName) {
+                this.currentUser.name = data.guestName;
+                this.userLoginInput = data.guestName;
+              }
+              if (data.lane) {
+                this.myAssignedLane = data.lane;
+              }
+              this.isPrivateModalOpen = false;
+              this.setSiteView('regatta');
+              this.cdr.markForCheck();
+            } else {
+              // Si la page web était restée sur la course publique, la saisie du PIN sur la montre bascule vers le salon
+              const targetCode = data.roomCode || claimedRoomId;
+              this.rowerService.getPrivateRace(targetCode).subscribe({
+                next: (room) => {
+                  if (data.lane) {
+                    (room as any).lane = data.lane;
+                    this.myAssignedLane = data.lane;
+                  }
+                  if (data.guestName) {
+                    this.currentUser.name = data.guestName;
+                    this.userLoginInput = data.guestName;
+                  }
+                  this.activatePrivateRoom(room, false, false);
+                  this.isPrivateModalOpen = false;
+                  this.setSiteView('regatta');
+                  this.cdr.markForCheck();
+                }
+              });
+            }
+          } else if (isMyTicket) {
             if (data.guestName) {
               this.currentUser.name = data.guestName;
               this.userLoginInput = data.guestName;
@@ -6101,9 +6181,9 @@ export class AppComponent implements OnInit, OnDestroy {
 
     if (!extracted) {
       const storedRoomId = typeof localStorage !== 'undefined' ? localStorage.getItem('rower_active_private_room_id') : null;
-      const lookupTarget = storedRoomId || this.activeUserId || this.deviceToken;
 
-      if (lookupTarget) {
+      // Ne restaurer automatiquement un salon privé au rechargement QUE si le PIN a été validé sur la montre
+      if (storedRoomId) {
         this.rowerService.getMyActiveRace(this.activeUserId, this.deviceToken).pipe(
           catchError(() => of({ activeRoom: null }))
         ).subscribe((res) => {
@@ -6111,13 +6191,14 @@ export class AppComponent implements OnInit, OnDestroy {
           if (
             active &&
             active.race?.id &&
+            active.race.id === storedRoomId &&
             active.status !== 'COMPLETED' &&
             active.status !== 'finished' &&
             active.status !== 'STOPPED' &&
             active.status !== 'CANCELLED' &&
             active.status !== 'ABANDONED'
           ) {
-            this.activatePrivateRoom(active, false);
+            this.activatePrivateRoom(active, false, false);
             this.cdr.markForCheck();
           } else {
             if (this.activePrivateRoom) {
@@ -6162,7 +6243,7 @@ export class AppComponent implements OnInit, OnDestroy {
         this.rowerService.getPrivateRace(roomIdent).subscribe({
           next: (room) => {
             (room as any).lane = assignedLane;
-            this.activatePrivateRoom(room, false);
+            this.activatePrivateRoom(room, false, true);
             this.setSiteView('home');
             this.userExplicitlyNavigatedHome = true;
             const hasDuelChallenge = typeof window !== 'undefined' && (window.location.search.includes('duelChallenge') || window.location.search.includes('duelInviteToken'));
@@ -6291,7 +6372,7 @@ export class AppComponent implements OnInit, OnDestroy {
     return "En attente du signal de départ de l'organisateur...";
   }
 
-  private activatePrivateRoom(room: PrivateRacePayload, pushHistory: boolean): void {
+  private activatePrivateRoom(room: PrivateRacePayload, pushHistory: boolean, isPreview: boolean = false): void {
     const prevRoomId = this.activePrivateRoom?.race?.id;
     if (!prevRoomId || prevRoomId !== room.race?.id) {
       this.myActivity = null;
@@ -6305,6 +6386,7 @@ export class AppComponent implements OnInit, OnDestroy {
     }
     this.activePrivateRoom = room;
     this.nextRaceInfo = room;
+    this.isPrivateRoomPreview = isPreview;
     if ((room as any).lane) {
       this.myAssignedLane = (room as any).lane;
     }
@@ -6319,7 +6401,7 @@ export class AppComponent implements OnInit, OnDestroy {
     const code = room.code || room.race?.code;
     if (typeof window !== 'undefined' && code) {
       const targetPath = `/r/${encodeURIComponent(code)}`;
-      if (window.location.pathname !== targetPath || window.location.search) {
+      if (!isPreview && (window.location.pathname !== targetPath || window.location.search)) {
         if (pushHistory) {
           window.history.pushState({ roomCode: code }, '', targetPath);
         } else {
@@ -6328,14 +6410,18 @@ export class AppComponent implements OnInit, OnDestroy {
       }
     }
 
-    // L'ouverture d'un salon ou duel ne doit pas engager le couloir automatiquement.
-    // L'engagement sur la grille s'effectue uniquement lorsque la montre valide le code PIN.
-
+    // L'ouverture d'un salon ou duel depuis le web ne doit pas le rendre comme salon actif par défaut.
+    // C'est la saisie du code PIN depuis la montre qui rend le salon ou le duel visible par défaut à la place de la course publique.
     try {
-      if (typeof localStorage !== 'undefined' && room?.race?.id) {
-        localStorage.setItem('rower_active_private_room_id', room.race.id);
-        if (room.code || room.race?.code) {
-          localStorage.setItem('rower_active_private_room_code', (room.code || room.race?.code || ''));
+      if (typeof localStorage !== 'undefined') {
+        if (!isPreview && room?.race?.id) {
+          localStorage.setItem('rower_active_private_room_id', room.race.id);
+          if (room.code || room.race?.code) {
+            localStorage.setItem('rower_active_private_room_code', (room.code || room.race?.code || ''));
+          }
+        } else if (isPreview) {
+          localStorage.removeItem('rower_active_private_room_id');
+          localStorage.removeItem('rower_active_private_room_code');
         }
       }
     } catch {}
@@ -6361,6 +6447,7 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   private exitPrivateRoomToPublic(resetUrl: boolean, notFoundMessage?: string): void {
+    this.isPrivateRoomPreview = false;
     if (this.activePrivateRoom) {
       const roomIdent = this.activePrivateRoom.race?.id || this.activePrivateRoom.code;
       if (roomIdent && this.activeUserId) {

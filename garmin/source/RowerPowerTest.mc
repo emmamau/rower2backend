@@ -1,5 +1,6 @@
 import Toybox.Lang;
 import Toybox.Test;
+import Toybox.Graphics;
 
 //! Regression test 1: FTMS multi-packet BLE split frame (Bit 0 = 1 "More Data")
 //! must NOT wipe instantPower, instantPace, or strokeRate back to 0.
@@ -912,6 +913,70 @@ function testUnifiedCodePickerWithSpace(logger as Logger) as Boolean {
 
     return true;
 }
+
+//! Regression test 29: Toast notification color classification (Success / Green vs Alert / Red)
+(:test)
+function testWarningBannerColorClassification(logger as Logger) as Boolean {
+    var model = new RowerDataModel();
+    var view = new RowerView(model);
+
+    // Connection messages must be classified as success
+    Test.assertEqual(true, RowerView.isSuccessNotification("Rameur connecte !"));
+    Test.assertEqual(true, RowerView.isSuccessNotification("Rameur connecté !"));
+    Test.assertEqual(true, RowerView.isSuccessNotification("Rameur pret"));
+    Test.assertEqual(true, RowerView.isSuccessNotification("Reconnexion rameur..."));
+
+    // Penalty / warning messages must NOT be classified as success
+    Test.assertEqual(false, RowerView.isSuccessNotification("Faux depart"));
+    Test.assertEqual(false, RowerView.isSuccessNotification("DEPART RATE"));
+
+    view.showWarning("Rameur connecte !", 2);
+    Test.assertEqual(true, view.isWarningSuccess());
+
+    view.showWarning("Faux depart !", 2);
+    Test.assertEqual(false, view.isWarningSuccess());
+
+    view.showSuccess("Custom OK", 2);
+    Test.assertEqual(true, view.isWarningSuccess());
+
+    return true;
+}
+
+//! Regression test 30: BLE status color transitions (Green when connected, Accent when connecting, Muted when scanning/disconnected)
+(:test)
+function testBleStatusColors(logger as Logger) as Boolean {
+    var model = new RowerDataModel();
+    var view = new RowerView(model);
+
+    // Initial disconnected / scanning state
+    model.connectionState = RowerDataModel.STATE_DISCONNECTED;
+    Test.assertEqual(Graphics.COLOR_LT_GRAY, view.getBleProtocolColor());
+
+    model.connectionState = RowerDataModel.STATE_CONNECTING;
+    Test.assertEqual(Graphics.COLOR_YELLOW, view.getBleProtocolColor());
+
+    model.connectionState = RowerDataModel.STATE_CONNECTED_SMARTROW;
+    Test.assertEqual(Graphics.COLOR_GREEN, view.getBleProtocolColor());
+
+    model.connectionState = RowerDataModel.STATE_CONNECTED_FTMS;
+    Test.assertEqual(Graphics.COLOR_GREEN, view.getBleProtocolColor());
+
+    return true;
+}
+
+//! Regression test 31: SmartRow auto-recover stalled BLE watchdog resets handshake state cleanly
+(:test)
+function testSmartRowAutoRecoverWatchdog(logger as Logger) as Boolean {
+    var model = new RowerDataModel();
+    var del = new BleDelegate(model);
+
+    del.autoRecoverStalledBle();
+    Test.assertEqual(0, del.getSmartRowHandshakeState());
+    Test.assertEqual(0, del.getSecondsWithoutData());
+
+    return true;
+}
+
 
 
 

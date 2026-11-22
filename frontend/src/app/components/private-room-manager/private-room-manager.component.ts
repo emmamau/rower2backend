@@ -44,6 +44,7 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
   @Input() isOpen = false;
   @Input() initialTab: PrivateModalTab = 'create';
   @Input() activeRoom: PrivateRacePayload | null = null;
+  @Input() isPreview = false;
   @Input() activeUserId = '';
   @Input() activeUserName = '';
   @Input() isUserAdmin = false;
@@ -61,7 +62,7 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
   @Output() modalClose = new EventEmitter<void>();
   @Output() prefilledDuelHandled = new EventEmitter<void>();
   @Output() openModalRequest = new EventEmitter<PrivateModalTab>();
-  @Output() roomSelected = new EventEmitter<{ payload: PrivateRacePayload; pushUrl: boolean }>();
+  @Output() roomSelected = new EventEmitter<{ payload: PrivateRacePayload; pushUrl: boolean; isPreview?: boolean }>();
   @Output() roomUpdated = new EventEmitter<PrivateRacePayload>();
   @Output() roomClosedOrLeft = new EventEmitter<{ closedOnServer: boolean; raceId?: string }>();
   @Output() botsToggled = new EventEmitter<boolean>();
@@ -819,7 +820,7 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
               next: (room) => {
                 (room as any).lane = this.guestTicketLane;
                 this.rememberSalon(room);
-                this.roomSelected.emit({ payload: room, pushUrl: true });
+                this.roomSelected.emit({ payload: room, pushUrl: false, isPreview: true });
                 this.cdr.markForCheck();
               },
               error: () => {}
@@ -1337,7 +1338,7 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
           this.isCreating = false;
           (created as any).lane = (created as any).lane !== undefined ? (created as any).lane : 1;
           this.rememberSalon(created, true);
-          this.roomSelected.emit({ payload: created, pushUrl: true });
+          this.roomSelected.emit({ payload: created, pushUrl: false, isPreview: true });
           this.activeTab = 'share';
           this.showFeedback(this.i18n.t('PRIVATE_ROOM_BADGE') + ' : ' + (created.code || ''));
           this.refreshRoomLimits();
@@ -1464,7 +1465,7 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
             this.joinInput = '';
             (room as any).lane = assignedLane;
             this.rememberSalon(room);
-            this.roomSelected.emit({ payload: room, pushUrl: true });
+            this.roomSelected.emit({ payload: room, pushUrl: false, isPreview: true });
             this.feedbackMessage = joinRes.message || (assignedLane > 0 ? `Entrée validée sur la ligne d'eau ${assignedLane}` : `Salon ouvert en consultation. Saisissez le PIN ${joinRes.pin || ''} sur votre montre.`);
             this.activeTab = 'share';
             this.cdr.markForCheck();
@@ -1485,7 +1486,7 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
                 status: joinRes.internalStatus || 'LOBBY'
               }
             };
-            this.roomSelected.emit({ payload: fallbackRoom, pushUrl: true });
+            this.roomSelected.emit({ payload: fallbackRoom, pushUrl: false, isPreview: true });
             this.feedbackMessage = joinRes.message || (assignedLane > 0 ? `Entrée validée sur la ligne d'eau ${assignedLane}` : `Salon ouvert en consultation. Saisissez le PIN ${joinRes.pin || ''} sur votre montre.`);
             this.activeTab = 'share';
             this.cdr.markForCheck();
@@ -1517,7 +1518,7 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
           next: (room) => {
             (room as any).lane = assignedLane;
             this.rememberSalon(room);
-            this.roomSelected.emit({ payload: room, pushUrl: true });
+            this.roomSelected.emit({ payload: room, pushUrl: false, isPreview: true });
             this.activeTab = 'share';
             this.cdr.markForCheck();
           },
@@ -1720,7 +1721,7 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
       next: (updated) => {
         this.isActionBusy = false;
         this.rememberSalon(updated);
-        this.roomSelected.emit({ payload: updated, pushUrl: true });
+        this.roomSelected.emit({ payload: updated, pushUrl: false, isPreview: true });
         this.showFeedback(this.i18n.t('CODE_REGENERATED'));
         this.cdr.markForCheck();
       },
@@ -2426,7 +2427,7 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
       next: (room) => {
         this.isActionBusy = false;
         this.rememberSalon(room, challenge.challengerUserId === this.activeUserId);
-        this.roomSelected.emit({ payload: room, pushUrl: true });
+        this.roomSelected.emit({ payload: room, pushUrl: false, isPreview: true });
         this.closeModal();
         this.cdr.markForCheck();
       },

@@ -289,8 +289,10 @@ export class GarminController {
         roomId: race.id,
         raceId: race.id,
         code: race.code,
+        roomCode: race.code,
         ticketPin: rawPin,
         lane: ticket?.lane || 1,
+        ticketClaimed: true,
         socketId
       });
 

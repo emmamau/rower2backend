@@ -95,6 +95,7 @@ class RowerView extends WatchUi.View {
     private var _warningUntilTimerMs as Number = 0;
     private var _falseStartLocked as Boolean = false;
     private var _postRacePauseSec as Number = 0;
+    private var _warningIsSuccess as Boolean = false;
 
     // User Career Stats (shown in Lobby G4 grid)
     private var _userPoints as Number = 0;
@@ -370,8 +371,41 @@ class RowerView extends WatchUi.View {
 
     public function showWarning(text as String, durationSec as Number) as Void {
         _warningText = text;
+        _warningIsSuccess = isSuccessNotification(text);
         _warningUntilTimerMs = System.getTimer() + (durationSec * 1000);
         WatchUi.requestUpdate();
+    }
+
+    public function showSuccess(text as String, durationSec as Number) as Void {
+        _warningText = text;
+        _warningIsSuccess = true;
+        _warningUntilTimerMs = System.getTimer() + (durationSec * 1000);
+        WatchUi.requestUpdate();
+    }
+
+    public function isWarningSuccess() as Boolean {
+        return _warningIsSuccess;
+    }
+
+    public static function isSuccessNotification(text as String) as Boolean {
+        var lower = text.toLower();
+        return (lower.find("connecte") != null ||
+                lower.find("connecté") != null ||
+                lower.find("pret") != null ||
+                lower.find("prêt") != null ||
+                lower.find("reconnexion") != null ||
+                lower.find("succes") != null ||
+                lower.find("succès") != null ||
+                lower.find("ok") != null);
+    }
+
+    public function getBleProtocolColor() as Number {
+        if (_model.isConnected()) {
+            return COL_GOOD;
+        } else if (_model.connectionState == RowerDataModel.STATE_CONNECTING) {
+            return COL_ACCENT;
+        }
+        return COL_MUTED;
     }
 
     public function setFalseStartLocked(locked as Boolean) as Void {
@@ -1007,7 +1041,7 @@ class RowerView extends WatchUi.View {
         var bleTag = getBleProtocolTag();
         var topY = (h * 6) / 100;
         var topMaxW = getSafeWidthAtY(w, h, topY, topY + 14);
-        dc.setColor(COL_MUTED, Graphics.COLOR_TRANSPARENT);
+        dc.setColor(getBleProtocolColor(), Graphics.COLOR_TRANSPARENT);
         dc.drawText(cx, topY, Graphics.FONT_XTINY, truncateToWidth(dc, bleTag, Graphics.FONT_XTINY, topMaxW), Graphics.TEXT_JUSTIFY_CENTER);
 
         // 2. Titre de l'application (Y ~ 15%..23% h)
@@ -1178,7 +1212,7 @@ class RowerView extends WatchUi.View {
             var cardY = (h * 48) / 100;
             var cardH = (h * 14) / 100;
             var cardW = getSafeWidthAtY(w, h, cardY, cardY + cardH) - 12;
-            dc.setColor(COL_GRID, Graphics.COLOR_TRANSPARENT);
+            dc.setColor(COL_GOOD, Graphics.COLOR_TRANSPARENT);
             dc.drawRoundedRectangle(cx - (cardW / 2), cardY, cardW, cardH, 6);
 
             var hasLiveMovement = (_model.instantPower > 0 || _model.strokeRate > 0.0f || _model.instantPace > 0);
@@ -1190,12 +1224,12 @@ class RowerView extends WatchUi.View {
                     previewStr = previewStr + " | " + m + ":" + s.format("%02d");
                 }
                 var prevFont = fitFontToBox(dc, previewStr, [Graphics.FONT_SMALL, Graphics.FONT_TINY, Graphics.FONT_XTINY] as Array<Graphics.FontDefinition>, cardW - 10, cardH - 4);
-                dc.setColor(COL_ACCENT, Graphics.COLOR_TRANSPARENT);
+                dc.setColor(COL_GOOD, Graphics.COLOR_TRANSPARENT);
                 dc.drawText(cx, cardY + (cardH / 2), prevFont, truncateToWidth(dc, previewStr, prevFont, cardW - 10), Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
             } else {
                 var devName = (_model.deviceName.length() > 0) ? _model.deviceName : "BLE Rower";
                 var nameFont = fitFontToBox(dc, devName, [Graphics.FONT_SMALL, Graphics.FONT_TINY, Graphics.FONT_XTINY] as Array<Graphics.FontDefinition>, cardW - 10, cardH - 4);
-                dc.setColor(COL_PRIMARY, Graphics.COLOR_TRANSPARENT);
+                dc.setColor(COL_GOOD, Graphics.COLOR_TRANSPARENT);
                 dc.drawText(cx, cardY + (cardH / 2), nameFont, truncateToWidth(dc, devName, nameFont, cardW - 10), Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
             }
 
@@ -1244,7 +1278,8 @@ class RowerView extends WatchUi.View {
         if (subtitle.length() > 0) {
             var subY = (h * 12) / 100;
             var subMaxW = getSafeWidthAtY(w, h, subY, subY + 16);
-            dc.setColor(COL_MUTED, Graphics.COLOR_TRANSPARENT);
+            var subCol = _model.isConnected() ? COL_GOOD : COL_MUTED;
+            dc.setColor(subCol, Graphics.COLOR_TRANSPARENT);
             dc.drawText(cx, subY, Graphics.FONT_XTINY, truncateToWidth(dc, subtitle, Graphics.FONT_XTINY, subMaxW), Graphics.TEXT_JUSTIFY_CENTER);
         }
 
@@ -1991,7 +2026,10 @@ class RowerView extends WatchUi.View {
         var boxW = getSafeWidthAtY(w, h, boxY, boxY + boxH) - 12;
         var boxX = cx - (boxW / 2);
 
-        dc.setColor(COL_ALERT, COL_ALERT);
+        var isSuccess = _warningIsSuccess || isSuccessNotification(text);
+        var bannerBgCol = isSuccess ? COL_GOOD : COL_ALERT;
+
+        dc.setColor(bannerBgCol, bannerBgCol);
         dc.fillRoundedRectangle(boxX, boxY, boxW, boxH, 8);
         dc.setColor(COL_PRIMARY, Graphics.COLOR_TRANSPARENT);
         dc.setPenWidth(2);

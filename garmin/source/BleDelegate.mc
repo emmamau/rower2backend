@@ -544,14 +544,14 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
                 var v = _view as RowerView;
                 if (v.getAppState() == RowerView.STATE_SCANNING) {
                     if (_raceMode.equals("solo")) {
-                        v.showWarning("Rameur connecte !", 2);
+                        v.showSuccess("Rameur connecte !", 2);
                         launchSessionNow();
                     } else {
-                        v.showWarning("Rameur connecte !", 2);
+                        v.showSuccess("Rameur connecte !", 2);
                         v.setAppState(RowerView.STATE_MENU);
                     }
                 } else {
-                    v.showWarning("Rameur connecte !", 2);
+                    v.showSuccess("Rameur connecte !", 2);
                 }
             }
         } else {
@@ -887,7 +887,8 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
                 setupConnectedDevice(_device as BluetoothLowEnergy.Device);
             }
 
-            if (!_cccdSubscribed && _activeDataChar != null && !_bleWriteBusy) {
+            // Retry subscribing notifications every 4s if no data has arrived yet
+            if ((!_cccdSubscribed || _secondsWithoutData >= 4) && (_secondsWithoutData % 4 == 0) && _activeDataChar != null && !_bleWriteBusy) {
                 enableDataNotifications();
             }
 
@@ -907,13 +908,41 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
                     if (_secondsWithoutData >= 2 && (_secondsWithoutData % 2 == 0) && _srPacketQueue.size() == 0 && !_bleWriteBusy) {
                         sendSmartRowWakePing();
                     }
+                    if (_secondsWithoutData >= 6 && (_secondsWithoutData % 4 == 0) && _srPacketQueue.size() == 0 && !_bleWriteBusy) {
+                        sendSmartRowPacket([0x56, 0x40, 0x0D]b);
+                    }
+                }
+
+                // Déblocage automatique SmartRow : si connecté mais aucune donnée reçue au bout de 12s
+                // avant le début de séance (aucun coup de rame ni distance enregistrée)
+                if (_secondsWithoutData >= 12 && !_model.hasStartedRowing && _model.strokeCount == 0 && _model.totalDistance == 0) {
+                    _secondsWithoutData = 0;
+                    System.println("SmartRow watchdog: 12s sans donnees, relance automatique du BLE...");
+                    if (_view != null) {
+                        (_view as RowerView).showWarning("Reconnexion rameur...", 2);
+                    }
+                    autoRecoverStalledBle();
+                    return;
                 }
             }
-
-            if (_cccdSubscribed && _secondsWithoutData == 4 && !_bleWriteBusy && _model.hasStartedRowing) {
-                enableDataNotifications();
-            }
         }
+    }
+
+    //! Déblocage automatique en cas de blocage GATT initial SmartRow (soft reset propre et rescan)
+    public function autoRecoverStalledBle() as Void {
+        _srPacketQueue = [] as Array<ByteArray>;
+        _srHandshakeState = 0;
+        _srChallengeRequested = false;
+        _srRxBuffer = "";
+        _srV3LockTicks = 0;
+        _noCharTicks = 0;
+        _secondsWithoutData = 0;
+        stopScan();
+        startScan();
+    }
+
+    public function getSecondsWithoutData() as Number {
+        return _secondsWithoutData;
     }
 
     // =========================================================================
