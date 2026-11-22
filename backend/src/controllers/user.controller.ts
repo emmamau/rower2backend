@@ -142,12 +142,8 @@ function sanitizeUser(user: any): Record<string, any> {
   plain.isRevoked = plain.isRevoked !== undefined ? Boolean(plain.isRevoked) : Boolean(plain.is_revoked);
   plain.subscriptionTier = String(plain.subscriptionTier || plain.subscription_tier || "free").toLowerCase();
   plain.isAdmin = Boolean(plain.isAdmin || plain.is_admin || plain.role === "ADMIN");
-  plain.isSubscriber = Boolean(
-    plain.isSubscriber ||
-    plain.is_subscriber ||
-    (plain.subscriptionTier !== "free" && plain.subscriptionTier !== "") ||
-    plain.isAdmin
-  );
+  const isPaidTier = plain.subscriptionTier !== "free" && plain.subscriptionTier !== "none" && Boolean(plain.subscriptionTier);
+  plain.isSubscriber = Boolean(plain.isAdmin || (isPaidTier && (plain.isSubscriber ?? true)));
   plain.regattaPreferences = sanitizeRegattaPreferences(plain.regattaPreferences);
   plain.duelPreferences = sanitizeDuelPreferences(plain.duelPreferences);
   plain.duelsWon = Number(plain.duelsWon || 0);
@@ -392,7 +388,8 @@ export const registerUser = async (req: Request, res: Response): Promise<void> =
       language: userLanguage,
       passwordHash: hash,
       passwordSalt: salt,
-      isSubscriber: true, // Les inscrits sont abonnés et ont le droit de créer des salons privés
+      isSubscriber: isEmmaAdmin,
+      subscriptionTier: isEmmaAdmin ? "premium" : "free",
       isConfirmed: true,
       watchUserId: watchUserId ? String(watchUserId).trim() : undefined,
       isAdmin: isEmmaAdmin,
@@ -1193,7 +1190,9 @@ export const getUserStatistics = async (req: Request, res: Response): Promise<vo
     }
 
     const isEmma = isEmmaAdminUser(user.id, user.name);
-    const isSubscriber = Boolean(isEmma || user.isAdmin || user.isSubscriber || user.subscriptionTier === "intermediate" || user.subscriptionTier === "premium");
+    const resolvedTier = String(user.subscriptionTier || "free").toLowerCase().trim();
+    const isPaidTier = resolvedTier !== "free" && resolvedTier !== "none" && Boolean(resolvedTier);
+    const isSubscriber = Boolean(isEmma || user.isAdmin || (isPaidTier && (user.isSubscriber ?? true)));
 
     let allUserActivities: any[] = [];
     try {

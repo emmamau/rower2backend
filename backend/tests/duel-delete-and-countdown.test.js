@@ -64,12 +64,16 @@ test("3. duelService.deleteChallenge allows deleting REFUSED, CANCELLED and EXPI
   await userStore.createUser({ id: uid2, login: uid2, name: "Challenged Del", email: `${uid2}@test.com`, duelPreferences: { acceptsDuels: true, isAbsent: false, refusedDays: [], availableWindows: [{ startTime: "00:00", endTime: "23:59" }], timezone: "Europe/Paris" } });
   await userStore.createUser({ id: stranger, login: stranger, name: "Stranger", email: `${stranger}@test.com` });
 
+  const tomorrowNoon = new Date();
+  tomorrowNoon.setDate(tomorrowNoon.getDate() + 1);
+  tomorrowNoon.setHours(12, 0, 0, 0);
+
   // Create challenge
   const created = await duelService.createChallenge({
     challengerId: uid1,
     challengedLoginOrId: uid2,
-    slotStart: new Date(Date.now() + 3600000).toISOString(),
-    slotEnd: new Date(Date.now() + 7200000).toISOString(),
+    slotStart: tomorrowNoon.toISOString(),
+    slotEnd: new Date(tomorrowNoon.getTime() + 3600000).toISOString(),
     targetDistance: 2000,
   });
   assert.ok("challenge" in created, `Challenge must be created: ${JSON.stringify(created)}`);

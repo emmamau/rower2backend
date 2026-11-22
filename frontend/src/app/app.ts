@@ -1035,7 +1035,7 @@ export class AppComponent implements OnInit, OnDestroy {
     this.currentUser.isAdmin = isAdminUser;
     this.currentUser.role = storedRole || (isAdminUser ? 'ADMIN' : 'USER');
     this.currentUser.subscriptionTier = resolvedTier;
-    this.currentUser.isSubscriber = isEmma || storedIsSub || isAdminUser || (resolvedTier !== 'free');
+    this.currentUser.isSubscriber = isEmma || (resolvedTier !== 'free' && storedIsSub) || isAdminUser;
   }
 
   ngOnInit(): void {
@@ -1520,7 +1520,7 @@ export class AppComponent implements OnInit, OnDestroy {
         const isAdminUser = Boolean(res.user.isAdmin || res.user.role === 'ADMIN' || res.user.is_admin);
         const resolvedRole = res.user.role || (isAdminUser ? 'ADMIN' : 'USER');
         const resolvedTier = String(res.user.subscriptionTier || res.user.subscription_tier || (isAdminUser ? 'premium' : 'free')).toLowerCase();
-        const isSub = Boolean(res.user.isSubscriber || res.user.is_subscriber || isAdminUser || (resolvedTier !== 'free'));
+        const isSub = Boolean(isAdminUser || (resolvedTier !== 'free' && (res.user.isSubscriber || res.user.is_subscriber)));
 
         this.currentUser = {
           ...this.currentUser,
@@ -2137,14 +2137,13 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   get isSubscriber(): boolean {
+    if (this.isUserAdmin) return true;
+    const tier = (this.currentUser?.subscriptionTier || (typeof localStorage !== 'undefined' ? localStorage.getItem('rower_subscription_tier') || '' : '')).toLowerCase().trim();
+    if (tier === 'free' || tier === 'none' || !tier) return false;
+    if (tier === 'intermediate' || tier === 'club' || tier === 'standard' || tier === 'premium' || tier === 'pro' || tier === 'elite_pro') return true;
     return Boolean(
-      this.isUserAdmin ||
-      this.currentUser.isSubscriber ||
-      (this.currentUser.subscriptionTier && this.currentUser.subscriptionTier !== 'free') ||
-      (typeof localStorage !== 'undefined' && (
-        localStorage.getItem('rower_is_subscriber') === 'true' ||
-        (localStorage.getItem('rower_subscription_tier') && localStorage.getItem('rower_subscription_tier') !== 'free')
-      ))
+      (this.currentUser.isSubscriber && tier !== 'free') ||
+      (typeof localStorage !== 'undefined' && localStorage.getItem('rower_is_subscriber') === 'true' && localStorage.getItem('rower_subscription_tier') !== 'free')
     );
   }
 
@@ -2160,7 +2159,9 @@ export class AppComponent implements OnInit, OnDestroy {
 
   get currentSubscriberTier(): string {
     if (this.isUserAdmin) return 'admin';
-    return this.currentUser?.subscriptionTier || (typeof localStorage !== 'undefined' ? localStorage.getItem('rower_subscription_tier') || '' : '') || (this.isSubscriber ? 'standard' : 'free');
+    const tier = (this.currentUser?.subscriptionTier || (typeof localStorage !== 'undefined' ? localStorage.getItem('rower_subscription_tier') || '' : '')).toLowerCase().trim();
+    if (tier) return tier;
+    return this.isSubscriber ? 'intermediate' : 'free';
   }
 
   openAccountModal(tab: 'login' | 'register' | 'profile' | 'forgot' | 'kayak-customizer' | 'regatta-settings' = 'login'): void {
@@ -2237,7 +2238,7 @@ export class AppComponent implements OnInit, OnDestroy {
           const isAdminUser = Boolean(res.isAdmin || res.role === 'ADMIN' || res.user.isAdmin || res.user.role === 'ADMIN');
           const resolvedRole = res.role || res.user.role || (isAdminUser ? 'ADMIN' : 'USER');
           const resolvedTier = String(res.subscriptionTier || res.user.subscriptionTier || (isAdminUser ? 'premium' : 'free')).toLowerCase();
-          const isSub = Boolean(res.isSubscriber || res.user.isSubscriber || isAdminUser || (resolvedTier !== 'free'));
+          const isSub = Boolean(isAdminUser || (resolvedTier !== 'free' && (res.isSubscriber || res.user.isSubscriber)));
 
           this.activeUserId = userLogin;
           this.userIdInput = res.user.watchUserId || userLogin;

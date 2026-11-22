@@ -7,8 +7,12 @@
           <h3>Compte Utilisateur & Abonnés</h3>
           @if (isUserAdmin) {
             <span class="badge-role-tag is-admin">👑 Admin EmmaRacer</span>
-          } @else if (isSubscriber) {
-            <span class="badge-role-tag is-sub">⭐ Abonné Actif</span>
+          } @else if (currentUser.subscriptionTier === 'premium' || currentUser.subscriptionTier === 'pro' || currentUser.subscriptionTier === 'elite_pro') {
+            <span class="badge-role-tag is-premium">💎 Élite Pro</span>
+          } @else if (currentUser.subscriptionTier === 'intermediate' || currentUser.subscriptionTier === 'club' || currentUser.subscriptionTier === 'standard') {
+            <span class="badge-role-tag is-sub">⭐ Club</span>
+          } @else if (isRegisteredUser || isIdentified) {
+            <span class="badge-role-tag is-guest">🛶 Compte Gratuit</span>
           } @else {
             <span class="badge-role-tag is-guest">Invité Gratuit</span>
           }
@@ -43,7 +47,7 @@
           (click)="switchTab('register')">
           ⭐ S'inscrire (Abonné)
         </button>
-        @if (isSubscriber || isUserAdmin) {
+        @if (isSubscriber || isUserAdmin || isRegisteredUser || isIdentified) {
           <button
             type="button"
             class="modal-tab-btn"
@@ -335,8 +339,12 @@
                 <div class="profile-sub-status">
                   @if (isUserAdmin) {
                     <span class="badge-role-tag is-admin">👑 Administratrice en dur</span>
-                  } @else if (isSubscriber) {
-                    <span class="badge-role-tag is-sub">⭐ Compte Abonné Actif</span>
+                  } @else if (currentUser.subscriptionTier === 'premium' || currentUser.subscriptionTier === 'pro' || currentUser.subscriptionTier === 'elite_pro') {
+                    <span class="badge-role-tag is-premium">💎 Compte Élite Pro</span>
+                  } @else if (currentUser.subscriptionTier === 'intermediate' || currentUser.subscriptionTier === 'club' || currentUser.subscriptionTier === 'standard') {
+                    <span class="badge-role-tag is-sub">⭐ Compte Club</span>
+                  } @else if (isRegisteredUser || isIdentified) {
+                    <span class="badge-role-tag is-guest">🛶 Compte Gratuit</span>
                   } @else {
                     <span class="badge-role-tag is-guest">Invité non abonné</span>
                   }
@@ -375,13 +383,13 @@
               <div class="profile-field">
                 <span class="field-name">Formule d'abonnement</span>
                 <strong class="field-val highlight">
-                  {{ isUserAdmin ? '👑 Admin Illimité' : (currentUser.subscriptionTier === 'premium' ? '💎 Élite Pro (8,99€)' : (currentUser.subscriptionTier === 'intermediate' || isSubscriber ? '⭐ Club (5,99€)' : 'Gratuit')) }}
+                  {{ isUserAdmin ? '👑 Admin Illimité' : (currentUser.subscriptionTier === 'premium' || currentUser.subscriptionTier === 'pro' || currentUser.subscriptionTier === 'elite_pro' ? '💎 Élite Pro (8,99€)' : (currentUser.subscriptionTier === 'intermediate' || currentUser.subscriptionTier === 'club' || currentUser.subscriptionTier === 'standard' ? '⭐ Club (5,99€)' : 'Gratuit')) }}
                 </strong>
               </div>
               <div class="profile-field">
-                <span class="field-name">Création de salons privés</span>
-                <strong class="field-val is-granted">
-                  {{ (isSubscriber || isUserAdmin) ? '✅ Autorisée' : '❌ Réservée aux abonnés' }}
+                <span class="field-name">Création de salons multi-joueurs</span>
+                <strong class="field-val" [class.is-granted]="isSubscriber || isUserAdmin" [class.is-denied]="!isSubscriber && !isUserAdmin">
+                  {{ (isSubscriber || isUserAdmin) ? '✅ Autorisée' : '❌ Réservée aux abonnés Club & Élite Pro' }}
                 </strong>
               </div>
               <div class="profile-field">
@@ -657,7 +665,7 @@
                 📊 Accéder à mon Espace Statistiques
               </button>
               <button
-                *ngIf="isSubscriber && !isUserAdmin"
+                *ngIf="isSubscriber && !isUserAdmin && currentUser.subscriptionTier !== 'free' && currentUser.subscriptionTier !== 'none'"
                 type="button"
                 class="btn-unsubscribe"
                 [disabled]="isUnsubscribing"
