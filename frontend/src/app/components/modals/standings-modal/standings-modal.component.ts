@@ -58,8 +58,15 @@ export class StandingsModalComponent {
     return getLeagueByPoints(points || 0).badge;
   }
 
+  getLeagueTierLabel(tier?: string): string {
+    const clean = String(tier || 'BRONZE').toUpperCase();
+    if (clean === 'GOLD') return this.i18n.t('LEAGUE_GOLD_LABEL');
+    if (clean === 'SILVER') return this.i18n.t('LEAGUE_SILVER_LABEL');
+    return this.i18n.t('LEAGUE_BRONZE_LABEL');
+  }
+
   getLeagueName(points?: number): string {
-    return getLeagueByPoints(points || 0).name;
+    return this.getLeagueTierLabel(getLeagueByPoints(points || 0).tier);
   }
 
   formatPaceMs(paceMs: number | null): string {
@@ -117,12 +124,13 @@ export class StandingsModalComponent {
   getAgeCategoryLabel(birthYear?: number): string {
     if (!birthYear) return '--';
     const age = new Date().getFullYear() - birthYear;
-    if (age < 19) return `U19 (${age} ans)`;
-    if (age <= 29) return `Senior (${age} ans)`;
-    if (age <= 39) return `Master A (${age} ans)`;
-    if (age <= 49) return `Master B (${age} ans)`;
-    if (age <= 59) return `Master C (${age} ans)`;
-    return `Master D+ (${age} ans)`;
+    const yrs = this.i18n.t('STANDINGS_YEARS_SUFFIX');
+    if (age < 19) return `U19 (${age} ${yrs})`;
+    if (age <= 29) return `Senior (${age} ${yrs})`;
+    if (age <= 39) return `Master A (${age} ${yrs})`;
+    if (age <= 49) return `Master B (${age} ${yrs})`;
+    if (age <= 59) return `Master C (${age} ${yrs})`;
+    return `Master D+ (${age} ${yrs})`;
   }
 
   onCountryFilterChange(val: string): void {
@@ -149,8 +157,8 @@ export class StandingsModalComponent {
 
   getLeagueLabelFromTier(tier?: string): string {
     const clean = String(tier || 'BRONZE').toUpperCase();
-    if (clean === 'GOLD') return '🥇 Or';
-    if (clean === 'SILVER') return '🥈 Argent';
-    return '🥉 Bronze';
+    if (clean === 'GOLD') return this.i18n.t('LEAGUE_GOLD_SHORT');
+    if (clean === 'SILVER') return this.i18n.t('LEAGUE_SILVER_SHORT');
+    return this.i18n.t('LEAGUE_BRONZE_SHORT');
   }
 }

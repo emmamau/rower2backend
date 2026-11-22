@@ -3,7 +3,7 @@
   <div class="modal-overlay">
     <div class="modal-card modal-large" (click)="$event.stopPropagation()">
       <div class="modal-header-row">
-        <h3 id="standings-modal-title">🏆 Classements & Ligues Rower Race</h3>
+        <h3 id="standings-modal-title">🏆 {{ i18n.t('STANDINGS_MODAL_TITLE') }}</h3>
         <button type="button" class="btn-close" (click)="closeStandingsModalRequest.emit()" [attr.aria-label]="i18n.t('BTN_CLOSE')">✕</button>
       </div>
 
@@ -14,21 +14,21 @@
           class="btn-standings-tab"
           [class.active]="standingsActiveTab === 'leagues'"
           (click)="standingsActiveTab = 'leagues'; standingsActiveTabChange.emit('leagues'); loadLeagueStandingsRequest.emit(selectedLeagueTier)">
-          🏆 Ligues Hebdomadaires (Or / Argent / Bronze)
+          🏆 {{ i18n.t('STANDINGS_TAB_LEAGUES') }}
         </button>
         <button
           type="button"
           class="btn-standings-tab"
           [class.active]="standingsActiveTab === 'general'"
           (click)="standingsActiveTab = 'general'; standingsActiveTabChange.emit('general'); loadGeneralLeaderboardRequest.emit()">
-          🌍 Classement Général Carrière
+          🌍 {{ i18n.t('STANDINGS_TAB_GENERAL') }}
         </button>
         <button
           type="button"
           class="btn-standings-tab"
           [class.active]="standingsActiveTab === 'duels'"
           (click)="standingsActiveTab = 'duels'; standingsActiveTabChange.emit('duels'); loadDuelLeaderboardRequest.emit()">
-          ⚔️ Duels 1v1
+          ⚔️ {{ i18n.t('STANDINGS_TAB_DUELS') }}
         </button>
       </div>
 
@@ -40,58 +40,58 @@
             class="btn-tier-tab btn-tier-gold"
             [class.active]="selectedLeagueTier === 'GOLD'"
             (click)="loadLeagueStandingsRequest.emit('GOLD')">
-            🥇 Ligue Or
+            🥇 {{ i18n.t('LEAGUE_GOLD_LABEL') }}
           </button>
           <button
             type="button"
             class="btn-tier-tab btn-tier-silver"
             [class.active]="selectedLeagueTier === 'SILVER'"
             (click)="loadLeagueStandingsRequest.emit('SILVER')">
-            🥈 Ligue Argent
+            🥈 {{ i18n.t('LEAGUE_SILVER_LABEL') }}
           </button>
           <button
             type="button"
             class="btn-tier-tab btn-tier-bronze"
             [class.active]="selectedLeagueTier === 'BRONZE'"
             (click)="loadLeagueStandingsRequest.emit('BRONZE')">
-            🥉 Ligue Bronze
+            🥉 {{ i18n.t('LEAGUE_BRONZE_LABEL') }}
           </button>
         </div>
 
         <!-- Bannière explicative des quotas et mouvements du lundi -->
         <div class="league-rules-banner" [attr.data-tier]="selectedLeagueTier">
           @if (selectedLeagueTier === 'BRONZE') {
-            <span>🚀 <strong>Promotion :</strong> Top 25% montent en Ligue Argent le lundi (si au moins 4 rameurs actifs). Aucune descente.</span>
+            <span>{{ i18n.t('STANDINGS_RULE_BRONZE') }}</span>
           } @else if (selectedLeagueTier === 'SILVER') {
-            <span>🚀 <strong>Promotion :</strong> Top 20% montent en Ligue Or. | ⚠️ <strong>Relégation :</strong> Derniers 20% descendent en Ligue Bronze (si au moins 5 actifs).</span>
+            <span>{{ i18n.t('STANDINGS_RULE_SILVER') }}</span>
           } @else {
-            <span>👑 <strong>Élite Mondiale :</strong> Ligue Or. | ⚠️ <strong>Relégation :</strong> Derniers 20% descendent en Ligue Argent (si au moins 5 actifs).</span>
+            <span>{{ i18n.t('STANDINGS_RULE_GOLD') }}</span>
           }
           @if (leagueTotalActive > 0) {
-            <small class="league-active-count">({{ leagueTotalActive }} rameurs actifs cette semaine)</small>
+            <small class="league-active-count">({{ leagueTotalActive }} {{ i18n.t('STANDINGS_ACTIVE_THIS_WEEK') }})</small>
           }
         </div>
 
-        <div tabindex="0" role="region" aria-label="Classement hebdomadaire" class="standings-table-container">
+        <div tabindex="0" role="region" [attr.aria-label]="i18n.t('STANDINGS_WEEKLY_ARIA')" class="standings-table-container">
           @if (isLoadingLeagueStandings) {
             <div class="leaderboard-loading-box">
               <span class="loading-spinner"></span>
-              <span>Chargement de la Ligue {{ selectedLeagueTier }}...</span>
+              <span>{{ i18n.t('STANDINGS_LOADING_LEAGUE', { tier: getLeagueTierLabel(selectedLeagueTier) }) }}</span>
             </div>
           } @else if (leagueStandings.length === 0) {
             <div class="leaderboard-empty-box">
-              <p>Aucun rameur actif dans cette ligue pour le moment.</p>
+              <p>{{ i18n.t('STANDINGS_EMPTY_LEAGUE') }}</p>
             </div>
           } @else {
             <table class="standings-table league-standings-table">
               <thead>
                 <tr>
-                  <th scope="col" class="col-rank">RANG</th>
-                  <th scope="col" class="col-name">ATHLÈTE</th>
-                  <th scope="col" class="col-pts">POINTS SEMAINE</th>
-                  <th scope="col">MEILLEURE ALLURE / 500M</th>
-                  <th scope="col">COURSES</th>
-                  <th scope="col">STATUT LIGUE</th>
+                  <th scope="col" class="col-rank">{{ i18n.t('STANDINGS_COL_RANK') }}</th>
+                  <th scope="col" class="col-name">{{ i18n.t('STANDINGS_COL_ATHLETE') }}</th>
+                  <th scope="col" class="col-pts">{{ i18n.t('STANDINGS_COL_WEEK_PTS') }}</th>
+                  <th scope="col">{{ i18n.t('STANDINGS_COL_BEST_PACE') }}</th>
+                  <th scope="col">{{ i18n.t('STANDINGS_COL_RACES') }}</th>
+                  <th scope="col">{{ i18n.t('STANDINGS_COL_LEAGUE_STATUS') }}</th>
                 </tr>
               </thead>
               <tbody>
@@ -112,27 +112,27 @@
                         <span class="country-flag" *ngIf="entry.country">{{ getCountryFlag(entry.country) }}</span>
                         <span class="athlete-display-text">{{ entry.display_name || entry.user_name }}</span>
                         @if (entry.is_resting) {
-                          <span class="tag-resting-pill" title="Mode Vacances / Repos activé : ligue gelée">🏖️ En pause</span>
+                          <span class="tag-resting-pill" [title]="i18n.t('STANDINGS_TAG_RESTING_TIP')">🏖️ {{ i18n.t('STANDINGS_TAG_RESTING') }}</span>
                         } @else if (entry.weekly_races_count === 0) {
-                          <span class="tag-inactive-pill" title="0 course disputée cette semaine">💤 Inactif</span>
+                          <span class="tag-inactive-pill" [title]="i18n.t('STANDINGS_TAG_INACTIVE_TIP')">💤 {{ i18n.t('STANDINGS_TAG_INACTIVE') }}</span>
                         }
                       </div>
                     </th>
                     <td class="col-pts">
-                      <strong>{{ entry.weekly_points }} pts</strong>
-                      <small class="career-sub-pts">({{ entry.total_career_points }} car.)</small>
+                      <strong>{{ entry.weekly_points }} {{ i18n.t('POINTS') }}</strong>
+                      <small class="career-sub-pts">({{ entry.total_career_points }} {{ i18n.t('STANDINGS_CAREER_SHORT') }})</small>
                     </td>
                     <td>{{ formatPaceMs(entry.weekly_best_pace_ms) }}</td>
                     <td>{{ entry.weekly_races_count }}</td>
                     <td class="col-zone-cell">
                       @if (entry.zone === 'PROMOTION') {
-                        <span class="zone-badge zone-promo">🚀 Montée</span>
+                        <span class="zone-badge zone-promo">🚀 {{ i18n.t('STANDINGS_ZONE_PROMO') }}</span>
                       } @else if (entry.zone === 'RELEGATION') {
-                        <span class="zone-badge zone-relegate">⚠️ Descente</span>
+                        <span class="zone-badge zone-relegate">⚠️ {{ i18n.t('STANDINGS_ZONE_RELEGATE') }}</span>
                       } @else if (entry.zone === 'FROZEN') {
-                        <span class="zone-badge zone-frozen">🏖️ Gelé</span>
+                        <span class="zone-badge zone-frozen">🏖️ {{ i18n.t('STANDINGS_ZONE_FROZEN') }}</span>
                       } @else {
-                        <span class="zone-badge zone-maintain">🛡️ Maintien</span>
+                        <span class="zone-badge zone-maintain">🛡️ {{ i18n.t('STANDINGS_ZONE_MAINTAIN') }}</span>
                       }
                     </td>
                   </tr>
@@ -143,57 +143,57 @@
         </div>
       } @else if (standingsActiveTab === 'duels') {
         <p class="modal-desc">
-          Classement des rameurs selon le nombre de duels 1v1 gagnés (+10 pts victoire, +2 pts égalité, -10 pts forfait).
+          {{ i18n.t('STANDINGS_DUEL_DESC') }}
         </p>
 
         <div class="leaderboard-filters-bar">
           <div class="filter-group">
-            <label for="filter-duel-league">🏅 Ligue :</label>
+            <label for="filter-duel-league">🏅 {{ i18n.t('STANDINGS_FILTER_LEAGUE') }}</label>
             <select id="filter-duel-league" [ngModel]="duelLeagueFilter" (ngModelChange)="duelLeagueFilter = $event; duelLeagueFilterChange.emit($event); onDuelFilterChanged()">
-              <option value="all">Toutes ligues</option>
-              <option value="GOLD">🥇 Ligue Or</option>
-              <option value="SILVER">🥈 Ligue Argent</option>
-              <option value="BRONZE">🥉 Ligue Bronze</option>
+              <option value="all">{{ i18n.t('STANDINGS_OPT_ALL_LEAGUES') }}</option>
+              <option value="GOLD">🥇 {{ i18n.t('LEAGUE_GOLD_LABEL') }}</option>
+              <option value="SILVER">🥈 {{ i18n.t('LEAGUE_SILVER_LABEL') }}</option>
+              <option value="BRONZE">🥉 {{ i18n.t('LEAGUE_BRONZE_LABEL') }}</option>
             </select>
           </div>
           <div class="filter-group">
-            <label for="filter-duel-cat">🎂 Catégorie :</label>
+            <label for="filter-duel-cat">🎂 {{ i18n.t('STANDINGS_FILTER_CATEGORY') }}</label>
             <select id="filter-duel-cat" [ngModel]="duelCategoryFilter" (ngModelChange)="duelCategoryFilter = $event; duelCategoryFilterChange.emit($event); onDuelFilterChanged()">
-              <option value="all">Toutes</option>
-              <option value="U19">U19 (-19 ans)</option>
-              <option value="19-29">19-29 ans (Senior)</option>
-              <option value="30-39">30-39 ans (Master A)</option>
-              <option value="40-49">40-49 ans (Master B)</option>
-              <option value="50-59">50-59 ans (Master C)</option>
-              <option value="60+">60+ ans (Master D+)</option>
+              <option value="all">{{ i18n.t('STANDINGS_OPT_ALL_F') }}</option>
+              <option value="U19">{{ i18n.t('STANDINGS_CAT_U19') }}</option>
+              <option value="19-29">{{ i18n.t('STANDINGS_CAT_SENIOR') }}</option>
+              <option value="30-39">{{ i18n.t('STANDINGS_CAT_MASTER_A') }}</option>
+              <option value="40-49">{{ i18n.t('STANDINGS_CAT_MASTER_B') }}</option>
+              <option value="50-59">{{ i18n.t('STANDINGS_CAT_MASTER_C') }}</option>
+              <option value="60+">{{ i18n.t('STANDINGS_CAT_MASTER_D') }}</option>
             </select>
           </div>
           <div class="filter-group">
-            <label for="filter-duel-country">🌍 Pays :</label>
+            <label for="filter-duel-country">🌍 {{ i18n.t('STANDINGS_FILTER_COUNTRY') }}</label>
             <select id="filter-duel-country" [ngModel]="duelCountryFilter" (ngModelChange)="duelCountryFilter = $event; duelCountryFilterChange.emit($event); onDuelFilterChanged()">
-              <option value="all">Tous</option>
+              <option value="all">{{ i18n.t('STANDINGS_OPT_ALL_M') }}</option>
               <option *ngFor="let c of availableLeaderboardCountries" [value]="c">
                 {{ getCountryFlag(c) }} {{ c }}
               </option>
             </select>
           </div>
           <div class="filter-group">
-            <label for="filter-duel-gender">⚧ Sexe :</label>
+            <label for="filter-duel-gender">⚧ {{ i18n.t('STANDINGS_FILTER_GENDER') }}</label>
             <select id="filter-duel-gender" [ngModel]="duelGenderFilter" (ngModelChange)="duelGenderFilter = $event; duelGenderFilterChange.emit($event); onDuelFilterChanged()">
-              <option value="all">Tous</option>
-              <option value="M">Hommes (M)</option>
-              <option value="F">Femmes (F)</option>
-              <option value="Autre">Autre</option>
+              <option value="all">{{ i18n.t('STANDINGS_OPT_ALL_M') }}</option>
+              <option value="M">{{ i18n.t('STANDINGS_GENDER_MEN') }}</option>
+              <option value="F">{{ i18n.t('STANDINGS_GENDER_WOMEN') }}</option>
+              <option value="Autre">{{ i18n.t('FIELD_GENDER_OTHER') }}</option>
             </select>
           </div>
           <div class="filter-group">
-            <label for="filter-duel-age">🎯 Âge exact :</label>
+            <label for="filter-duel-age">🎯 {{ i18n.t('STANDINGS_FILTER_EXACT_AGE') }}</label>
             <input
               id="filter-duel-age"
               type="number"
               min="10"
               max="110"
-              placeholder="ex: 32"
+              [placeholder]="i18n.t('STANDINGS_AGE_PH')"
               class="filter-age-input"
               [ngModel]="duelExactAgeFilter"
               (ngModelChange)="duelExactAgeFilter = $event; duelExactAgeFilterChange.emit($event); onDuelFilterChanged()" />
@@ -203,30 +203,30 @@
             type="button"
             class="btn-reset-filters"
             (click)="resetDuelLeaderboardFiltersRequest.emit()">
-            ✕ Réinitialiser
+            ✕ {{ i18n.t('STANDINGS_BTN_RESET') }}
           </button>
         </div>
 
-        <div tabindex="0" role="region" aria-label="Classement des duels" class="standings-table-container">
+        <div tabindex="0" role="region" [attr.aria-label]="i18n.t('STANDINGS_DUELS_ARIA')" class="standings-table-container">
           @if (isLoadingDuelLeaderboard) {
             <div class="leaderboard-loading-box">
               <span class="loading-spinner"></span>
-              <span>Chargement du classement des duels...</span>
+              <span>{{ i18n.t('STANDINGS_LOADING_DUELS') }}</span>
             </div>
           } @else {
             <table class="standings-table duel-standings-table">
               <thead>
                 <tr>
-                  <th scope="col">RANG</th>
-                  <th scope="col">JOUEUR</th>
-                  <th scope="col">LIGUE</th>
-                  <th scope="col">PAYS</th>
-                  <th scope="col">SEXE / ÂGE</th>
-                  <th scope="col">GAGNÉS</th>
-                  <th scope="col">PERDUS</th>
-                  <th scope="col">ÉGALITÉS</th>
-                  <th scope="col">POINTS DUEL</th>
-                  <th scope="col">ACTION</th>
+                  <th scope="col">{{ i18n.t('STANDINGS_COL_RANK') }}</th>
+                  <th scope="col">{{ i18n.t('STANDINGS_COL_PLAYER') }}</th>
+                  <th scope="col">{{ i18n.t('STANDINGS_COL_LEAGUE') }}</th>
+                  <th scope="col">{{ i18n.t('STANDINGS_COL_COUNTRY') }}</th>
+                  <th scope="col">{{ i18n.t('STANDINGS_COL_GENDER_AGE') }}</th>
+                  <th scope="col">{{ i18n.t('STANDINGS_COL_WON') }}</th>
+                  <th scope="col">{{ i18n.t('STANDINGS_COL_LOST') }}</th>
+                  <th scope="col">{{ i18n.t('STANDINGS_COL_DRAWN') }}</th>
+                  <th scope="col">{{ i18n.t('STANDINGS_COL_DUEL_PTS') }}</th>
+                  <th scope="col">{{ i18n.t('STANDINGS_COL_ACTION') }}</th>
                 </tr>
               </thead>
               <tbody>
@@ -241,29 +241,29 @@
                     <th scope="row" class="col-name">{{ p.name || p.login }}</th>
                     <td>{{ getLeagueLabelFromTier(p.currentLeague) }}</td>
                     <td class="col-country">{{ getCountryFlag(p.country) }} {{ p.country || '--' }}</td>
-                    <td>{{ p.gender || '--' }}{{ p.age ? (' • ' + p.age + ' ans') : '' }}</td>
+                    <td>{{ p.gender || '--' }}{{ p.age ? (' • ' + p.age + ' ' + i18n.t('STANDINGS_YEARS_SUFFIX')) : '' }}</td>
                     <td class="col-pts"><strong>{{ p.duelsWon }}</strong></td>
                     <td>{{ p.duelsLost }}</td>
                     <td>{{ p.duelsDrawn }}</td>
-                    <td class="col-pts col-stat-pts">{{ p.duelPoints }} pts</td>
+                    <td class="col-pts col-stat-pts">{{ p.duelPoints }} {{ i18n.t('POINTS') }}</td>
                     <td class="col-duel-action">
                       @if ((p.login || p.id) !== activeUserId && p.acceptsDuels !== false) {
                         <button
                           type="button"
                           class="btn-challenge-player"
                           (click)="challengePlayerRequest.emit(p.login || p.id)">
-                          ⚔️ Défier
+                          ⚔️ {{ i18n.t('STANDINGS_BTN_CHALLENGE') }}
                         </button>
                       } @else if ((p.login || p.id) === activeUserId) {
-                        <span class="duel-self-tag">Moi</span>
+                        <span class="duel-self-tag">{{ i18n.t('STANDINGS_TAG_SELF') }}</span>
                       } @else {
-                        <span class="duel-unavailable-tag">Indispo</span>
+                        <span class="duel-unavailable-tag">{{ i18n.t('STANDINGS_TAG_UNAVAILABLE') }}</span>
                       }
                     </td>
                   </tr>
                 } @empty {
                   <tr class="empty-row">
-                    <td colspan="10" class="text-center">Aucun joueur trouvé pour ces critères.</td>
+                    <td colspan="10" class="text-center">{{ i18n.t('STANDINGS_DUELS_EMPTY') }}</td>
                   </tr>
                 }
               </tbody>
@@ -278,33 +278,33 @@
         <!-- Filtres Pays, Sexe et Catégorie d'âge -->
         <div class="leaderboard-filters-bar">
           <div class="filter-group">
-            <label for="filter-country-m">🌍 Pays :</label>
+            <label for="filter-country-m">🌍 {{ i18n.t('STANDINGS_FILTER_COUNTRY') }}</label>
             <select id="filter-country-m" [ngModel]="leaderboardCountryFilter" (ngModelChange)="onCountryFilterChange($event)">
-              <option value="all">Tous les pays</option>
+              <option value="all">{{ i18n.t('STANDINGS_OPT_ALL_COUNTRIES') }}</option>
               <option *ngFor="let c of availableLeaderboardCountries" [value]="c">
                 {{ getCountryFlag(c) }} {{ c }}
               </option>
             </select>
           </div>
           <div class="filter-group">
-            <label for="filter-gender-m">⚧ Sexe :</label>
+            <label for="filter-gender-m">⚧ {{ i18n.t('STANDINGS_FILTER_GENDER') }}</label>
             <select id="filter-gender-m" [ngModel]="leaderboardGenderFilter" (ngModelChange)="onGenderFilterChange($event)">
-              <option value="all">Tous</option>
-              <option value="M">Hommes (M)</option>
-              <option value="F">Femmes (F)</option>
-              <option value="Autre">Autre</option>
+              <option value="all">{{ i18n.t('STANDINGS_OPT_ALL_M') }}</option>
+              <option value="M">{{ i18n.t('STANDINGS_GENDER_MEN') }}</option>
+              <option value="F">{{ i18n.t('STANDINGS_GENDER_WOMEN') }}</option>
+              <option value="Autre">{{ i18n.t('FIELD_GENDER_OTHER') }}</option>
             </select>
           </div>
           <div class="filter-group">
-            <label for="filter-age-m">🎂 Catégorie :</label>
+            <label for="filter-age-m">🎂 {{ i18n.t('STANDINGS_FILTER_CATEGORY') }}</label>
             <select id="filter-age-m" [ngModel]="leaderboardAgeCategoryFilter" (ngModelChange)="onAgeFilterChange($event)">
-              <option value="all">Toutes</option>
-              <option value="U19">U19 (-19 ans)</option>
-              <option value="19-29">19-29 ans (Senior)</option>
-              <option value="30-39">30-39 ans (Master A)</option>
-              <option value="40-49">40-49 ans (Master B)</option>
-              <option value="50-59">50-59 ans (Master C)</option>
-              <option value="60+">60+ ans (Master D+)</option>
+              <option value="all">{{ i18n.t('STANDINGS_OPT_ALL_F') }}</option>
+              <option value="U19">{{ i18n.t('STANDINGS_CAT_U19') }}</option>
+              <option value="19-29">{{ i18n.t('STANDINGS_CAT_SENIOR') }}</option>
+              <option value="30-39">{{ i18n.t('STANDINGS_CAT_MASTER_A') }}</option>
+              <option value="40-49">{{ i18n.t('STANDINGS_CAT_MASTER_B') }}</option>
+              <option value="50-59">{{ i18n.t('STANDINGS_CAT_MASTER_C') }}</option>
+              <option value="60+">{{ i18n.t('STANDINGS_CAT_MASTER_D') }}</option>
             </select>
           </div>
           <button
@@ -312,7 +312,7 @@
             type="button"
             class="btn-reset-filters"
             (click)="resetLeaderboardFiltersRequest.emit()">
-            ✕ Réinitialiser
+            ✕ {{ i18n.t('STANDINGS_BTN_RESET') }}
           </button>
         </div>
 
@@ -327,14 +327,14 @@
               <tr>
                 <th scope="col">{{ i18n.t('COL_POSITION').toUpperCase() }}</th>
                 <th scope="col">{{ i18n.t('COL_NAME').toUpperCase() }}</th>
-                <th scope="col">PAYS</th>
-                <th scope="col">CATÉGORIE</th>
+                <th scope="col">{{ i18n.t('STANDINGS_COL_COUNTRY') }}</th>
+                <th scope="col">{{ i18n.t('STANDINGS_COL_CATEGORY') }}</th>
                 <th scope="col">{{ i18n.t('COL_POINTS').toUpperCase() }}</th>
                 <th scope="col">{{ i18n.t('COL_RACES').toUpperCase() }}</th>
                 <th scope="col">{{ i18n.t('COL_WINS').toUpperCase() }}</th>
                 <th scope="col">{{ i18n.t('COL_PODIUMS').toUpperCase() }}</th>
-                <th scope="col">RECORD</th>
-                <th scope="col">DUEL</th>
+                <th scope="col">{{ i18n.t('STANDINGS_COL_RECORD') }}</th>
+                <th scope="col">{{ i18n.t('STANDINGS_COL_DUEL') }}</th>
               </tr>
             </thead>
             <tbody>
@@ -363,18 +363,18 @@
                         type="button"
                         class="btn-challenge-player"
                         (click)="challengePlayerRequest.emit(player.login || player.id)">
-                        ⚔️ Défier
+                        ⚔️ {{ i18n.t('STANDINGS_BTN_CHALLENGE') }}
                       </button>
                     } @else if ((player.login || player.id) === activeUserId) {
-                      <span class="duel-self-tag">Moi</span>
+                      <span class="duel-self-tag">{{ i18n.t('STANDINGS_TAG_SELF') }}</span>
                     } @else {
-                      <span class="duel-unavailable-tag">Indispo</span>
+                      <span class="duel-unavailable-tag">{{ i18n.t('STANDINGS_TAG_UNAVAILABLE') }}</span>
                     }
                   </td>
                 </tr>
               } @empty {
                 <tr class="empty-row">
-                  <td colspan="10" class="text-center">Aucun coureur ne correspond aux critères sélectionnés.</td>
+                  <td colspan="10" class="text-center">{{ i18n.t('STANDINGS_GENERAL_EMPTY') }}</td>
                 </tr>
               }
             </tbody>

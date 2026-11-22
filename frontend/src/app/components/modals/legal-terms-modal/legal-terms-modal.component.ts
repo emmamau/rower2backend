@@ -27,39 +27,47 @@ export class LegalTermsModalComponent {
 
   constructor(public i18n: I18nService) {}
 
+  getLeagueLabel(tier?: string): string {
+    const clean = String(tier || 'BRONZE').toUpperCase();
+    if (clean === 'GOLD') return this.i18n.t('LEAGUE_GOLD_LABEL');
+    if (clean === 'SILVER') return this.i18n.t('LEAGUE_SILVER_LABEL');
+    return this.i18n.t('LEAGUE_BRONZE_LABEL');
+  }
+
   getWeeklySummaryDetails(summary: WeeklyLeagueHistoryItem | null): { title: string; subtitle: string; icon: string; cls: string } {
     if (!summary) return { title: '', subtitle: '', icon: '', cls: '' };
     const newInfo = getLeagueByTier(summary.new_league);
+    const leagueLabel = this.getLeagueLabel(newInfo.tier);
 
     switch (summary.outcome) {
       case 'PROMOTED':
         return {
-          title: `Félicitations ! Vous montez en Ligue ${newInfo.name} !`,
-          subtitle: `Grâce à vos ${summary.final_points} points la semaine dernière, vous accédez à l'échelon supérieur.`,
+          title: this.i18n.t('WEEKLY_PROMOTED_TITLE', { league: leagueLabel }),
+          subtitle: this.i18n.t('WEEKLY_PROMOTED_SUB', { points: summary.final_points }),
           icon: '🚀',
           cls: 'outcome-promoted'
         };
       case 'RELEGATED':
         return {
-          title: `Descente en Ligue ${newInfo.name}`,
-          subtitle: `Vous évoluerez en Ligue ${newInfo.name} cette semaine. Donnez tout sur l'eau pour remonter !`,
+          title: this.i18n.t('WEEKLY_RELEGATED_TITLE', { league: leagueLabel }),
+          subtitle: this.i18n.t('WEEKLY_RELEGATED_SUB', { league: leagueLabel }),
           icon: '⚠️',
           cls: 'outcome-relegated'
         };
       case 'FROZEN':
         return {
-          title: `Ligue ${newInfo.name} Gelée`,
+          title: this.i18n.t('WEEKLY_FROZEN_TITLE', { league: leagueLabel }),
           subtitle: summary.final_points > 0
-            ? `Vous étiez en Mode Vacances : votre ligue a été conservée sans risque de relégation.`
-            : `Aucune course enregistrée : votre statut en Ligue ${newInfo.name} reste inchangé.`,
+            ? this.i18n.t('WEEKLY_FROZEN_RESTING_SUB')
+            : this.i18n.t('WEEKLY_FROZEN_IDLE_SUB', { league: leagueLabel }),
           icon: '🏖️',
           cls: 'outcome-frozen'
         };
       case 'MAINTAINED':
       default:
         return {
-          title: `Maintien en Ligue ${newInfo.name}`,
-          subtitle: `Vous conservez votre place en Ligue ${newInfo.name} avec ${summary.final_points} points accumulés.`,
+          title: this.i18n.t('WEEKLY_MAINTAINED_TITLE', { league: leagueLabel }),
+          subtitle: this.i18n.t('WEEKLY_MAINTAINED_SUB', { league: leagueLabel, points: summary.final_points }),
           icon: '🛡️',
           cls: 'outcome-maintained'
         };

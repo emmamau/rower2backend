@@ -10,15 +10,15 @@
 
       <div class="history-list">
         @for (item of raceHistory; track item.race.id) {
-          <div class="history-race-item is-clickable" (click)="openRaceLeaderboardRequest.emit(item.race.id)" title="Cliquez pour consulter le classement complet de cette course">
+          <div class="history-race-item is-clickable" (click)="openRaceLeaderboardRequest.emit(item.race.id)" [title]="i18n.t('HIST_CLICK_DETAILS_TIP')">
             <div class="race-item-header">
               <span class="race-tag">🏁 {{ i18n.t('RACE_AT') }} {{ item.race.startTime ? (item.race.startTime | date:'short') : '' }}</span>
               <span class="race-details">
                 {{ i18n.t('DISTANCE_LABEL') }}: <strong>{{ item.race.targetDistance }}m</strong> |
-                {{ i18n.t('STATUS') }}: {{ item.race.status }}
+                {{ i18n.t('STATUS') }}: {{ item.race.status === 'cancelled' ? i18n.t('HIST_STATUS_CANCELLED') : i18n.t('HIST_STATUS_FINISHED') }}
               </span>
               <span class="race-status-tag" [class.tag-cancelled]="item.race.status === 'cancelled'">
-                {{ item.race.status === 'cancelled' ? 'Annulée' : 'Terminée' }}
+                {{ item.race.status === 'cancelled' ? i18n.t('HIST_STATUS_CANCELLED') : i18n.t('HIST_STATUS_FINISHED') }}
               </span>
             </div>
 
@@ -27,19 +27,19 @@
                 <div class="podium-mini-item" [class.abandoned]="p.status === 'abandoned'">
                   <span class="mini-rank">{{ p.status === 'abandoned' ? '❌' : (pIdx === 0 ? '🥇' : (pIdx === 1 ? '🥈' : '🥉')) }}</span>
                   <span class="mini-name">{{ p.userName || p.userId }}</span>
-                  <span class="mini-dist">{{ p.status === 'abandoned' ? 'Abandonné' : (p.netDistance + ' m') }}</span>
+                  <span class="mini-dist">{{ p.status === 'abandoned' ? i18n.t('HIST_ABANDONED') : (p.netDistance + ' m') }}</span>
                 </div>
               }
             </div>
             <div class="no-podium" *ngIf="item.podium.length === 0">
-              Aucun participant n'a pris le départ de cette course.
+              {{ i18n.t('HIST_NO_PARTICIPANTS') }}
             </div>
             <div class="history-item-footer">
-              <span class="btn-history-view-details">📊 Consulter le classement complet &rarr;</span>
+              <span class="btn-history-view-details">📊 {{ i18n.t('HIST_VIEW_FULL_LINK') }} &rarr;</span>
             </div>
           </div>
         } @empty {
-          <div class="empty-notice">Aucune course précédente enregistrée.</div>
+          <div class="empty-notice">{{ i18n.t('HIST_EMPTY') }}</div>
         }
       </div>
     </div>
@@ -52,34 +52,34 @@
     <div class="modal-card modal-large modal-race-leaderboard" (click)="$event.stopPropagation()">
       <div class="modal-header-row">
         <div class="modal-title-cluster">
-          <h3>🏆 Classement Officiel de la Régate</h3>
+          <h3>🏆 {{ i18n.t('HIST_OFFICIAL_RANKING_TITLE') }}</h3>
           <span class="race-id-badge" *ngIf="selectedRaceInfo">
-            {{ selectedRaceInfo.title || 'Course' }} ({{ selectedRaceInfo.targetDistance }}m) · {{ selectedRaceInfo.startTime ? (selectedRaceInfo.startTime | date:'short') : '' }}
+            {{ selectedRaceInfo.title || i18n.t('HIST_RACE_FALLBACK') }} ({{ selectedRaceInfo.targetDistance }}m) · {{ selectedRaceInfo.startTime ? (selectedRaceInfo.startTime | date:'short') : '' }}
           </span>
         </div>
-        <button type="button" class="btn-close" (click)="closeRaceLeaderboardModalRequest.emit()" aria-label="Fermer">✕</button>
+        <button type="button" class="btn-close" (click)="closeRaceLeaderboardModalRequest.emit()" [attr.aria-label]="i18n.t('BTN_CLOSE')">✕</button>
       </div>
 
       @if (isLoadingRaceLeaderboard) {
         <div class="leaderboard-loading-box">
           <span class="spinner-icon">🔄</span>
-          <span>Chargement du classement détaillé...</span>
+          <span>{{ i18n.t('HIST_LOADING_LEADERBOARD') }}</span>
         </div>
       } @else if (selectedRaceLeaderboard.length === 0) {
-        <div class="empty-notice">Aucun résultat enregistré pour cette course.</div>
+        <div class="empty-notice">{{ i18n.t('HIST_EMPTY_LEADERBOARD') }}</div>
       } @else {
         <div class="race-leaderboard-table-container">
           <table class="race-leaderboard-table">
             <thead>
               <tr>
-                <th>Rang</th>
-                <th>Coureur</th>
-                <th>Chrono</th>
-                <th>Allure moy. /500m</th>
-                <th>Écart</th>
-                <th>Distance</th>
-                <th>Points</th>
-                <th>Statut</th>
+                <th>{{ i18n.t('HIST_COL_RANK') }}</th>
+                <th>{{ i18n.t('HIST_COL_RACER') }}</th>
+                <th>{{ i18n.t('HIST_COL_TIME') }}</th>
+                <th>{{ i18n.t('HIST_COL_AVG_PACE') }}</th>
+                <th>{{ i18n.t('HIST_COL_GAP') }}</th>
+                <th>{{ i18n.t('HIST_COL_DISTANCE') }}</th>
+                <th>{{ i18n.t('HIST_COL_POINTS') }}</th>
+                <th>{{ i18n.t('HIST_COL_STATUS') }}</th>
               </tr>
             </thead>
             <tbody>
@@ -93,7 +93,7 @@
                   <td class="col-user">
                     <div class="user-cell">
                       <span class="user-league-badge" *ngIf="entry.league" [title]="entry.league.name">{{ entry.league.badge }}</span>
-                      <span class="bot-indicator" *ngIf="entry.isBot" title="Robot / IA">🤖</span>
+                      <span class="bot-indicator" *ngIf="entry.isBot" [title]="i18n.t('RACE_BOT_TIP')">🤖</span>
                       <strong class="user-name">{{ entry.userName }}</strong>
                     </div>
                   </td>
@@ -114,7 +114,7 @@
                   </td>
                   <td class="col-status">
                     <span class="status-chip" [class.status-finished]="entry.status === 'finished'" [class.status-abandoned]="entry.status === 'abandoned'">
-                      {{ entry.status === 'finished' ? 'Terminé' : (entry.status === 'abandoned' ? 'Abandonné' : 'En cours') }}
+                      {{ entry.status === 'finished' ? i18n.t('HIST_ENTRY_FINISHED') : (entry.status === 'abandoned' ? i18n.t('HIST_ABANDONED') : i18n.t('HIST_ENTRY_IN_PROGRESS')) }}
                     </span>
                   </td>
                 </tr>
@@ -127,14 +127,14 @@
       <!-- Bannière d'incitation à l'enregistrement pour les invités -->
       <div class="guest-conversion-banner" *ngIf="!isIdentified">
         <div class="conversion-text">
-          <strong>💾 Sauvegardez votre chrono et vos statistiques !</strong>
-          <p>Créez votre compte gratuit en quelques secondes pour inscrire votre performance dans l'historique et au classement général.</p>
+          <strong>💾 {{ i18n.t('HIST_GUEST_SAVE_TITLE') }}</strong>
+          <p>{{ i18n.t('HIST_GUEST_SAVE_DESC') }}</p>
         </div>
         <button
           type="button"
           class="btn-save-stats-register"
           (click)="saveGuestStatsRegisterRequest.emit()">
-          ⭐ Créer mon compte et sauvegarder
+          ⭐ {{ i18n.t('HIST_GUEST_SAVE_BTN') }}
         </button>
       </div>
 
@@ -145,15 +145,15 @@
             type="button"
             class="btn-modal-leave-room"
             (click)="leaveCompletedPrivateRoomRequest.emit()"
-            title="Quitter définitivement ce salon et revenir à la page des courses publiques">
-            🚪 {{ i18n.t('BTN_LEAVE_ROOM_TO_PUBLIC') || 'Quitter le salon' }} (Retour courses publiques)
+            [title]="i18n.t('HIST_LEAVE_ROOM_TIP')">
+            {{ i18n.t('BTN_LEAVE_ROOM_TO_PUBLIC') }} ({{ i18n.t('HIST_RETURN_PUBLIC_SHORT') }})
           </button>
         }
         <button
           type="button"
           class="btn-modal-close-secondary"
           (click)="closeRaceLeaderboardModalRequest.emit()">
-          {{ i18n.t('BTN_CLOSE') || 'Fermer' }}
+          {{ i18n.t('BTN_CLOSE') }}
         </button>
       </div>
     </div>

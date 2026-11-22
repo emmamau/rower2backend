@@ -3,14 +3,14 @@
   <div class="modal-card modal-large modal-statistics" (click)="$event.stopPropagation()">
     <div class="modal-header-row">
       <div class="modal-title-with-badge">
-        <h3>📊 Espace Statistiques & Analyses de Course</h3>
+        <h3>📊 {{ i18n.t('STATS_MODAL_TITLE') }}</h3>
         @if (userStatisticsData?.isSubscriber) {
           <span class="badge-role-tag is-sub">
-            ⭐ Abonné ({{ userStatisticsData?.subscriptionTier === 'premium' ? 'Élite Pro' : 'Club' }}) · Historique Illimité
+            ⭐ {{ i18n.t('STATS_BADGE_SUB') }} ({{ userStatisticsData?.subscriptionTier === 'premium' ? i18n.t('ACCOUNT_BADGE_PRO') : i18n.t('ACCOUNT_BADGE_CLUB') }}) · {{ i18n.t('STATS_BADGE_UNLIMITED') }}
           </span>
         } @else {
           <span class="badge-role-tag is-guest">
-            ⏳ Compte Gratuit · Limité à 10 Jours
+            ⏳ {{ i18n.t('STATS_BADGE_FREE_10D') }}
           </span>
         }
       </div>
@@ -21,11 +21,11 @@
     @if (userStatisticsData && !userStatisticsData.isSubscriber && userStatisticsData.olderRacesLocked > 0) {
       <div class="stats-upgrade-banner">
         <div class="stats-upgrade-text">
-          <strong>🔒 {{ userStatisticsData.olderRacesLocked }} course(s) plus ancienne(s) archivée(s) :</strong>
-          <span>L'offre gratuite donne accès aux 10 derniers jours de télémétrie. Passez à l'abonnement Club ou Élite Pro pour débloquer l'intégralité de vos archives sportives.</span>
+          <strong>🔒 {{ i18n.t('STATS_LOCKED_COUNT', { count: userStatisticsData.olderRacesLocked }) }}</strong>
+          <span>{{ i18n.t('STATS_LOCKED_NOTICE') }}</span>
         </div>
         <button type="button" class="btn-upgrade-stats" (click)="openSubscriptionModalRequest.emit()">
-          ⭐ Débloquer l'historique complet
+          {{ i18n.t('STATS_UNLOCK_BTN') }}
         </button>
       </div>
     }
@@ -33,14 +33,14 @@
     @if (isLoadingStatistics) {
       <div class="stats-loading-state">
         <div class="spinner-auth"></div>
-        <span>Chargement et analyse de vos données de courses...</span>
+        <span>{{ i18n.t('STATS_LOADING') }}</span>
       </div>
     } @else if (statisticsError) {
       <div class="modal-error-box">
-        ⚠️ {{ statisticsError }}
+        ⚠️ {{ i18n.translateError(statisticsError) }}
         <div class="stats-error-action" *ngIf="!isRegisteredUser">
           <button type="button" class="btn-primary" (click)="openAccountLoginRequest.emit()">
-            Se connecter avec votre compte
+            {{ i18n.t('STATS_BTN_LOGIN') }}
           </button>
         </div>
       </div>
@@ -48,56 +48,56 @@
       <!-- KPIs Résumés -->
       <div class="stats-summary-grid">
         <div class="stats-kpi-card highlight">
-          <span class="kpi-label">COURSES ANALYSÉES</span>
+          <span class="kpi-label">{{ i18n.t('KPI_ANALYZED_RACES') }}</span>
           <span class="kpi-value">{{ userStatisticsData.summary?.totalRaces || 0 }}</span>
           <span class="kpi-sub">
-            {{ userStatisticsData.isSubscriber ? 'Historique total' : 'Sur les 10 derniers jours' }}
+            {{ userStatisticsData.isSubscriber ? i18n.t('STATS_KPI_TOTAL_HIST') : i18n.t('STATS_KPI_LAST_10_DAYS') }}
           </span>
         </div>
         <div class="stats-kpi-card">
-          <span class="kpi-label">DISTANCE TOTALE</span>
+          <span class="kpi-label">{{ i18n.t('STATS_KPI_TOTAL_DIST') }}</span>
           <span class="kpi-value">{{ ((userStatisticsData.summary?.totalDistanceMeters || 0) / 1000) | number:'1.1-2' }} <span class="unit">KM</span></span>
-          <span class="kpi-sub">{{ userStatisticsData.summary?.totalDistanceMeters || 0 }} mètres</span>
+          <span class="kpi-sub">{{ userStatisticsData.summary?.totalDistanceMeters || 0 }} {{ i18n.t('STATS_METERS_UNIT') }}</span>
         </div>
         <div class="stats-kpi-card">
-          <span class="kpi-label">DURÉE CUMULÉE</span>
+          <span class="kpi-label">{{ i18n.t('KPI_TOTAL_TIME') }}</span>
           <span class="kpi-value">{{ formatTime(userStatisticsData.summary?.totalDurationSeconds) }}</span>
-          <span class="kpi-sub">Temps d'effort officiel</span>
+          <span class="kpi-sub">{{ i18n.t('STATS_KPI_OFFICIAL_EFFORT') }}</span>
         </div>
         <div class="stats-kpi-card">
-          <span class="kpi-label">PUISSANCE MOY.</span>
+          <span class="kpi-label">{{ i18n.t('STATS_KPI_AVG_POWER') }}</span>
           <span class="kpi-value">{{ userStatisticsData.summary?.avgPowerWatts || 0 }} <span class="unit">WATTS</span></span>
-          <span class="kpi-sub">Puissance développée</span>
+          <span class="kpi-sub">{{ i18n.t('KPI_AVG_POWER') }}</span>
         </div>
         <div class="stats-kpi-card">
-          <span class="kpi-label">MEILLEURE ALLURE</span>
+          <span class="kpi-label">{{ i18n.t('STATS_KPI_BEST_PACE') }}</span>
           <span class="kpi-value">{{ formatPace(userStatisticsData.summary?.bestPaceSec) }}</span>
-          <span class="kpi-sub">Record /500m</span>
+          <span class="kpi-sub">{{ i18n.t('STATS_KPI_RECORD_500M') }}</span>
         </div>
         <div class="stats-kpi-card">
-          <span class="kpi-label">VICTOIRES / PODIUMS</span>
-          <span class="kpi-value">🥇 {{ userStatisticsData.summary?.totalWins || 0 }} <span class="kpi-sub-podiums">({{ userStatisticsData.summary?.podiums || 0 }} top 3)</span></span>
-          <span class="kpi-sub">Régates officielles</span>
+          <span class="kpi-label">{{ i18n.t('STATS_KPI_WINS_PODIUMS') }}</span>
+          <span class="kpi-value">🥇 {{ userStatisticsData.summary?.totalWins || 0 }} <span class="kpi-sub-podiums">({{ userStatisticsData.summary?.podiums || 0 }} {{ i18n.t('STATS_KPI_TOP3') }})</span></span>
+          <span class="kpi-sub">{{ i18n.t('STATS_KPI_OFFICIAL_REGATTAS') }}</span>
         </div>
       </div>
 
       <!-- Tableau des courses précédentes détaillées -->
       <div class="stats-activities-section">
-        <h4>Historique détaillé des courses enregistrées</h4>
+        <h4>{{ i18n.t('STATS_TITLE') }}</h4>
         <div class="stats-table-wrapper" tabindex="0">
           <table class="stats-table">
             <thead>
               <tr>
-                <th scope="col">DATE</th>
-                <th scope="col">DISTANCE</th>
-                <th scope="col">TEMPS</th>
-                <th scope="col">ALLURE MOY.</th>
-                <th scope="col">PUISSANCE</th>
-                <th scope="col">CADENCE</th>
-                <th scope="col">COUPS</th>
-                <th scope="col">ÉNERGIE</th>
-                <th scope="col">RANG</th>
-                <th scope="col">MATÉRIEL</th>
+                <th scope="col">{{ i18n.t('STATS_COL_DATE') }}</th>
+                <th scope="col">{{ i18n.t('STATS_COL_DISTANCE') }}</th>
+                <th scope="col">{{ i18n.t('STATS_COL_TIME') }}</th>
+                <th scope="col">{{ i18n.t('STATS_COL_AVG_PACE') }}</th>
+                <th scope="col">{{ i18n.t('STATS_COL_POWER') }}</th>
+                <th scope="col">{{ i18n.t('STATS_COL_CADENCE') }}</th>
+                <th scope="col">{{ i18n.t('STATS_COL_STROKES') }}</th>
+                <th scope="col">{{ i18n.t('STATS_COL_ENERGY') }}</th>
+                <th scope="col">{{ i18n.t('STATS_COL_RANK') }}</th>
+                <th scope="col">{{ i18n.t('STATS_COL_HARDWARE') }}</th>
               </tr>
             </thead>
             <tbody>
@@ -112,22 +112,22 @@
                   <td class="col-strokes">{{ act.totalStrokes || '--' }}</td>
                   <td class="col-kcal">{{ act.totalEnergy ? (act.totalEnergy + ' kcal') : '--' }}</td>
                   <td class="col-rank">
-                    @if (act.finalRank === 1) { 🥇 1er }
-                    @else if (act.finalRank === 2) { 🥈 2e }
-                    @else if (act.finalRank === 3) { 🥉 3e }
+                    @if (act.finalRank === 1) { 🥇 {{ i18n.formatRankOrdinal(1) }} }
+                    @else if (act.finalRank === 2) { 🥈 {{ i18n.formatRankOrdinal(2) }} }
+                    @else if (act.finalRank === 3) { 🥉 {{ i18n.formatRankOrdinal(3) }} }
                     @else if (act.finalRank) { #{{ act.finalRank }} }
                     @else { -- }
                   </td>
                   <td class="col-hardware">
-                    <span class="hw-tag" [title]="act.rowerModel || 'Rameur FTMS / Concept2 / SmartRow'">
-                      🚣 {{ act.rowerModel || 'Rameur' }}
+                    <span class="hw-tag" [title]="act.rowerModel || i18n.t('STATS_ROWER_TIP')">
+                      🚣 {{ act.rowerModel || i18n.t('STATS_ROWER_FALLBACK') }}
                     </span>
                   </td>
                 </tr>
               } @empty {
                 <tr>
                   <td colspan="10" class="empty-state">
-                    Aucune course enregistrée dans cette période. Participez à votre première régate ou duel contre un bot !
+                    {{ i18n.t('STATS_EMPTY') }}
                   </td>
                 </tr>
               }
@@ -139,10 +139,10 @@
 
     <div class="modal-buttons">
       <button type="button" class="btn-cyan" (click)="openSubscriptionModalRequest.emit()">
-        ⭐ {{ userStatisticsData?.isSubscriber ? 'Gérer mon abonnement' : 'Débloquer l\'illimité (Abonnements)' }}
+        ⭐ {{ userStatisticsData?.isSubscriber ? i18n.t('ACCOUNT_BTN_MANAGE_SUB') : i18n.t('STATS_BTN_UNLOCK_PLANS') }}
       </button>
       <button type="button" class="btn-secondary" (click)="closeStatisticsModalRequest.emit()">
-        Fermer
+        {{ i18n.t('BTN_CLOSE') }}
       </button>
     </div>
   </div>

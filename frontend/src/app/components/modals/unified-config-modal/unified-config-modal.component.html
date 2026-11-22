@@ -4,13 +4,13 @@
     <div class="modal-card modal-admin-cfg" (click)="$event.stopPropagation()">
       <div class="modal-header-row">
         <div class="modal-title-with-badge">
-          <h3>⚙️ Configuration de Course</h3>
+          <h3>⚙️ {{ i18n.t('CFG_TITLE') }}</h3>
           @if (isUserAdmin) {
-            <span class="badge-role-tag is-admin">👑 Admin EmmaRacer</span>
+            <span class="badge-role-tag is-admin">👑 {{ i18n.t('ACCOUNT_BADGE_ADMIN') }} EmmaRacer</span>
           } @else if (isSubscriber) {
-            <span class="badge-role-tag is-sub">⭐ Abonné(e) {{ currentSubscriberTier.toUpperCase() }}</span>
+            <span class="badge-role-tag is-sub">⭐ {{ i18n.t('CFG_BADGE_SUB') }} {{ currentSubscriberTier.toUpperCase() }}</span>
           } @else {
-            <span class="badge-role-tag is-guest">Rameur Invité</span>
+            <span class="badge-role-tag is-guest">{{ i18n.t('CFG_BADGE_GUEST') }}</span>
           }
         </div>
         <button type="button" class="btn-close" (click)="closeUnifiedConfigModalRequest.emit()" [attr.aria-label]="i18n.t('BTN_CLOSE')">✕</button>
@@ -24,83 +24,83 @@
             class="unified-tab-btn"
             [class.active]="unifiedConfigActiveTab === 'public'"
             (click)="unifiedConfigActiveTab = 'public'; unifiedConfigActiveTabChange.emit('public')">
-            🌐 Régate Publique (Défauts)
+            🌐 {{ i18n.t('CFG_TAB_PUBLIC') }}
           </button>
           <button
             type="button"
             class="unified-tab-btn"
             [class.active]="unifiedConfigActiveTab === 'active'"
             (click)="unifiedConfigActiveTab = 'active'; unifiedConfigActiveTabChange.emit('active')">
-            ⚡ Course Active Immédiate
+            ⚡ {{ i18n.t('CFG_TAB_ACTIVE') }}
           </button>
         </div>
 
         @if (unifiedConfigActiveTab === 'public') {
           <p class="modal-desc">
-            Paramètres globaux appliqués aux courses publiques régulières pour tous les rameurs connectés.
+            {{ i18n.t('CFG_PUBLIC_DESC') }}
           </p>
 
           <form class="modal-form" (ngSubmit)="saveAdminConfigRequest.emit()">
             <div class="form-row-2">
               <div class="form-group">
-                <label for="admin-target-dist">Distance cible par défaut (mètres) :</label>
+                <label for="admin-target-dist">{{ i18n.t('CFG_ADMIN_DIST_LABEL') }}</label>
                 <input id="admin-target-dist" type="number" [(ngModel)]="adminConfig.targetDistance" name="targetDist" min="500" max="50000" step="500" />
-                <span class="field-hint">Défaut : 2000 m (2 KM)</span>
+                <span class="field-hint">{{ i18n.t('CFG_ADMIN_DIST_HINT') }}</span>
               </div>
               <div class="form-group">
-                <label for="admin-max-players">Nombre max de participants :</label>
+                <label for="admin-max-players">{{ i18n.t('CFG_ADMIN_MAX_PLAYERS_LABEL') }}</label>
                 <input id="admin-max-players" type="number" [(ngModel)]="adminConfig.maxParticipants" name="maxPart" min="2" max="50" />
-                <span class="field-hint">Défaut : 20 participants max</span>
+                <span class="field-hint">{{ i18n.t('CFG_ADMIN_MAX_PLAYERS_HINT') }}</span>
               </div>
             </div>
 
             <div class="form-row-2">
               <div class="form-group">
-                <label for="admin-bots-count">Nombre de bots par défaut :</label>
+                <label for="admin-bots-count">{{ i18n.t('CFG_ADMIN_BOTS_COUNT_LABEL') }}</label>
                 <input id="admin-bots-count" type="number" [(ngModel)]="adminConfig.defaultBotsCount" name="botsCount" min="0" max="10" />
-                <span class="field-hint">Défaut : 3 bots virtuels</span>
+                <span class="field-hint">{{ i18n.t('CFG_ADMIN_BOTS_COUNT_HINT') }}</span>
               </div>
               <div class="form-group">
-                <label for="admin-bots-pace">Allure des bots (sec / 500m) :</label>
+                <label for="admin-bots-pace">{{ i18n.t('CFG_ADMIN_BOTS_PACE_LABEL') }}</label>
                 <input id="admin-bots-pace" type="number" [(ngModel)]="adminConfig.defaultBotsPace" name="botsPace" min="60" max="240" step="5" />
-                <span class="field-hint">Défaut : 120s (2:00 / 500m)</span>
+                <span class="field-hint">{{ i18n.t('CFG_ADMIN_BOTS_PACE_HINT') }}</span>
               </div>
             </div>
 
             <div class="form-row-2">
               <div class="form-group">
-                <label for="admin-lobby-wait">Délai d'attente avant départ (minutes) :</label>
+                <label for="admin-lobby-wait">{{ i18n.t('CFG_ADMIN_LOBBY_WAIT_LABEL') }}</label>
                 <input id="admin-lobby-wait" type="number" [(ngModel)]="adminConfig.lobbyWaitMinutes" name="lobbyWaitMin" min="1" max="60" />
-                <span class="field-hint">Défaut : 15 min (départ à expiration ou si max coureurs atteint)</span>
+                <span class="field-hint">{{ i18n.t('CFG_ADMIN_LOBBY_WAIT_HINT') }}</span>
               </div>
               <div class="form-group">
-                <label for="admin-duration">Durée maximale de la partie (minutes) :</label>
+                <label for="admin-duration">{{ i18n.t('CFG_ADMIN_DURATION_LABEL') }}</label>
                 <input id="admin-duration" type="number" [(ngModel)]="adminConfig.maxDurationMinutes" name="durationMin" min="10" max="180" />
-                <span class="field-hint">Défaut : 55 minutes</span>
+                <span class="field-hint">{{ i18n.t('CFG_ADMIN_DURATION_HINT') }}</span>
               </div>
             </div>
 
             <div class="form-group">
-              <label for="admin-private-duration">Durée max des salons privés (minutes) :</label>
+              <label for="admin-private-duration">{{ i18n.t('CFG_ADMIN_PRIVATE_DURATION_LABEL') }}</label>
               <input id="admin-private-duration" type="number" [(ngModel)]="adminConfig.privateMaxDurationMinutes" name="privateDurationMin" min="5" max="180" step="5" />
-              <span class="field-hint">Défaut : 55 minutes. La course privée s'arrêtera automatiquement à expiration.</span>
+              <span class="field-hint">{{ i18n.t('CFG_ADMIN_PRIVATE_DURATION_HINT') }}</span>
             </div>
 
-            <div class="feedback-msg ok" *ngIf="adminConfigMessage">{{ adminConfigMessage }}</div>
-            <div class="feedback-msg err" *ngIf="adminConfigError">{{ adminConfigError }}</div>
+            <div class="feedback-msg ok" *ngIf="adminConfigMessage">{{ i18n.t(adminConfigMessage) }}</div>
+            <div class="feedback-msg err" *ngIf="adminConfigError">{{ i18n.translateError(adminConfigError) }}</div>
 
             <div class="modal-buttons">
               <button type="submit" class="btn-primary" [disabled]="isAdminConfigSubmitting">
-                {{ isAdminConfigSubmitting ? 'Sauvegarde...' : 'Enregistrer la configuration publique' }}
+                {{ isAdminConfigSubmitting ? i18n.t('ACCOUNT_SAVING') : i18n.t('CFG_ADMIN_SAVE_BTN') }}
               </button>
-              <button type="button" class="btn-secondary" (click)="closeUnifiedConfigModalRequest.emit()">Fermer</button>
+              <button type="button" class="btn-secondary" (click)="closeUnifiedConfigModalRequest.emit()">{{ i18n.t('BTN_CLOSE') }}</button>
             </div>
           </form>
         }
 
         @if (unifiedConfigActiveTab === 'active') {
           <p class="modal-desc">
-            Ajustement en direct de la distance et de l'intervalle de départ de la session active en cours.
+            {{ i18n.t('CFG_ACTIVE_DESC') }}
           </p>
           <div class="modal-form">
             <div class="form-group">
@@ -139,11 +139,11 @@
       @else if (isSubscriber) {
         @if (activePrivateRoom && isOrganizerOfActiveRoom) {
           <p class="modal-desc">
-            Vous êtes l'organisateur du salon <strong>{{ activePrivateRoom.race.title || activePrivateRoom.code }}</strong>. Ajustez les paramètres de votre course :
+            {{ i18n.t('CFG_SUB_ROOM_DESC', { room: activePrivateRoom.race.title || activePrivateRoom.code }) }}
           </p>
           <div class="modal-form">
             <div class="form-group">
-              <label for="sub-dist-input">Distance de votre course (mètres) :</label>
+              <label for="sub-dist-input">{{ i18n.t('CFG_SUB_DIST_LABEL') }}</label>
               <input
                 id="sub-dist-input"
                 name="subDistance"
@@ -154,10 +154,10 @@
                 step="500"
                 min="500"
                 [max]="currentSubscriberTier === 'pro' ? 10000 : 5000" />
-              <span class="field-hint">Limite de votre offre : {{ currentSubscriberTier === 'pro' ? '10 000 m (Élite Pro)' : '5 000 m (Club)' }}</span>
+              <span class="field-hint">{{ i18n.t('CFG_SUB_LIMIT_PREFIX') }} {{ currentSubscriberTier === 'pro' ? i18n.t('CFG_SUB_LIMIT_PRO') : i18n.t('CFG_SUB_LIMIT_CLUB') }}</span>
             </div>
             <div class="form-group">
-              <label for="sub-delay-input">Délai avant départ (minutes) :</label>
+              <label for="sub-delay-input">{{ i18n.t('CFG_SUB_DELAY_LABEL') }}</label>
               <input
                 id="sub-delay-input"
                 name="subDelay"
@@ -169,31 +169,30 @@
                 max="60" />
             </div>
             <div class="modal-buttons">
-              <button type="button" class="btn-primary" (click)="saveRaceConfigRequest.emit(); closeUnifiedConfigModalRequest.emit()">Mettre à jour mon salon</button>
-              <button type="button" class="btn-secondary" (click)="closeUnifiedConfigModalRequest.emit()">Fermer</button>
+              <button type="button" class="btn-primary" (click)="saveRaceConfigRequest.emit(); closeUnifiedConfigModalRequest.emit()">{{ i18n.t('CFG_SUB_UPDATE_BTN') }}</button>
+              <button type="button" class="btn-secondary" (click)="closeUnifiedConfigModalRequest.emit()">{{ i18n.t('BTN_CLOSE') }}</button>
             </div>
           </div>
         } @else {
           <div class="sub-config-overview">
             <div class="sub-privileges-box">
-              <div class="privileges-title">⭐ Vos Privilèges d'Abonné(e) {{ currentSubscriberTier.toUpperCase() }}</div>
+              <div class="privileges-title">⭐ {{ i18n.t('CFG_PRIVILEGES_TITLE') }} {{ currentSubscriberTier.toUpperCase() }}</div>
               <ul class="privileges-list">
-                <li><strong>Courses Privées Personnalisées :</strong> Distances configurables jusqu'à {{ currentSubscriberTier === 'pro' ? '10 000 m' : '5 000 m' }}.</li>
-                <li><strong>Gestion des Bots Virtuels :</strong> Jusqu'à {{ currentSubscriberTier === 'pro' ? '5 bots' : '3 bots' }} avec niveau d'allure ajustable.</li>
-                <li><strong>Modes de Départ :</strong> Top départ manuel après validation des rameurs ou départ programmé à date/heure précise.</li>
-                <li><strong>Analyses Statistiques :</strong> Accès illimité aux métriques et analyses de courses.</li>
-                <li><strong>Historique Illimité :</strong> Toutes vos statistiques de régate conservées sans limite.</li>
+                <li><strong>{{ i18n.t('CFG_PRIV_1_TITLE') }}</strong> {{ i18n.t('CFG_PRIV_1_DESC', { dist: currentSubscriberTier === 'pro' ? '10 000 m' : '5 000 m' }) }}</li>
+                <li><strong>{{ i18n.t('CFG_PRIV_2_TITLE') }}</strong> {{ i18n.t('CFG_PRIV_2_DESC', { count: currentSubscriberTier === 'pro' ? 5 : 3 }) }}</li>
+                <li><strong>{{ i18n.t('CFG_PRIV_3_TITLE') }}</strong> {{ i18n.t('CFG_PRIV_3_DESC') }}</li>
+                <li><strong>{{ i18n.t('CFG_PRIV_4_TITLE') }}</strong> {{ i18n.t('CFG_PRIV_4_DESC') }}</li>
+                <li><strong>{{ i18n.t('CFG_PRIV_5_TITLE') }}</strong> {{ i18n.t('CFG_PRIV_5_DESC') }}</li>
               </ul>
             </div>
             <p class="modal-desc">
-              Vous êtes actuellement sur la régate publique officielle (2 000 m).
-              Pour profiter de vos paramètres personnalisés, créez votre salon privé :
+              {{ i18n.t('CFG_SUB_PUBLIC_INFO') }}
             </p>
             <div class="modal-buttons">
               <button type="button" class="btn-primary" (click)="closeUnifiedConfigModalRequest.emit(); openPrivateModalRequest.emit('create')">
-                🔒 Créer un Salon Privé
+                🔒 {{ i18n.t('CFG_CREATE_PRIVATE_BTN') }}
               </button>
-              <button type="button" class="btn-secondary" (click)="closeUnifiedConfigModalRequest.emit()">Fermer</button>
+              <button type="button" class="btn-secondary" (click)="closeUnifiedConfigModalRequest.emit()">{{ i18n.t('BTN_CLOSE') }}</button>
             </div>
           </div>
         }
@@ -203,46 +202,45 @@
       @else {
         <div class="guest-config-view">
           <div class="guest-current-race-info">
-            <h4>🏁 Régate Publique Standard</h4>
+            <h4>🏁 {{ i18n.t('CFG_GUEST_PUBLIC_TITLE') }}</h4>
             <div class="info-grid">
               <div class="info-item">
-                <span class="info-label">Distance officielle :</span>
+                <span class="info-label">{{ i18n.t('CFG_GUEST_DIST_LABEL') }}</span>
                 <span class="info-val">{{ nextRaceInfo?.race?.targetDistance || 2000 }} m</span>
               </div>
               <div class="info-item">
-                <span class="info-label">Durée max :</span>
-                <span class="info-val">55 minutes</span>
+                <span class="info-label">{{ i18n.t('CFG_GUEST_MAX_DURATION_LABEL') }}</span>
+                <span class="info-val">{{ i18n.t('CFG_GUEST_MAX_DURATION_VAL') }}</span>
               </div>
               <div class="info-item">
-                <span class="info-label">Capacité :</span>
-                <span class="info-val">20 rameurs max</span>
+                <span class="info-label">{{ i18n.t('CFG_GUEST_CAPACITY_LABEL') }}</span>
+                <span class="info-val">{{ i18n.t('CFG_GUEST_CAPACITY_VAL') }}</span>
               </div>
               <div class="info-item">
-                <span class="info-label">Égalité mécanique :</span>
-                <span class="info-val">Formule Concept2 (Watts)</span>
+                <span class="info-label">{{ i18n.t('CFG_GUEST_FAIRNESS_LABEL') }}</span>
+                <span class="info-val">{{ i18n.t('CFG_GUEST_FAIRNESS_VAL') }}</span>
               </div>
             </div>
           </div>
 
           <div class="guest-unlock-promo">
-            <div class="promo-badge">⭐ ESPACE PRIVILÈGE ABONNÉS</div>
-            <h4>Prenez les commandes : organisez vos propres courses !</h4>
+            <div class="promo-badge">{{ i18n.t('CFG_PROMO_BADGE') }}</div>
+            <h4>{{ i18n.t('CFG_PROMO_TITLE') }}</h4>
             <p>
-              La personnalisation des distances (jusqu'à 10 000 m), le choix des bots virtuels,
-              les salons privés programmés et les fonctionnalités avancées sont réservés aux abonnés Club & Élite Pro.
+              {{ i18n.t('CFG_PROMO_DESC') }}
             </p>
             <div class="promo-pricing-pills">
-              <span class="pill-tier">Gratuit · 1 invité · 2 km · 1 bot</span>
-              <span class="pill-tier">Club 5,99 €/m · 5 joueurs · 5 km · 3 bots</span>
-              <span class="pill-tier">Élite 8,99 €/m · 10 joueurs · 10 km · 5 bots</span>
+              <span class="pill-tier">{{ i18n.t('CFG_PILL_FREE') }}</span>
+              <span class="pill-tier">{{ i18n.t('CFG_PILL_CLUB') }}</span>
+              <span class="pill-tier">{{ i18n.t('CFG_PILL_PRO') }}</span>
             </div>
           </div>
 
           <div class="modal-buttons">
             <button type="button" class="btn-primary" (click)="closeUnifiedConfigModalRequest.emit(); openSubscriptionModalRequest.emit()">
-              ⭐ Découvrir les Offres d'Abonnement
+              ⭐ {{ i18n.t('CFG_DISCOVER_PLANS_BTN') }}
             </button>
-            <button type="button" class="btn-secondary" (click)="closeUnifiedConfigModalRequest.emit()">Fermer</button>
+            <button type="button" class="btn-secondary" (click)="closeUnifiedConfigModalRequest.emit()">{{ i18n.t('BTN_CLOSE') }}</button>
           </div>
         </div>
       }
@@ -255,32 +253,31 @@
   <div class="modal-card modal-bot-duel" (click)="$event.stopPropagation()">
     <div class="modal-header-row">
       <div class="modal-title-with-badge">
-        <h3>🤖 Mode Duel 1v1 contre un Bot</h3>
-        <span class="badge-role-tag is-guest">Sans compte requis</span>
+        <h3>🤖 {{ i18n.t('BOT_DUEL_TITLE') }}</h3>
+        <span class="badge-role-tag is-guest">{{ i18n.t('BOT_DUEL_NO_ACCOUNT') }}</span>
       </div>
-      <button type="button" class="btn-close" (click)="closeBotDuelModalRequest.emit()">✕</button>
+      <button type="button" class="btn-close" (click)="closeBotDuelModalRequest.emit()" [attr.aria-label]="i18n.t('BTN_CLOSE')">✕</button>
     </div>
 
     <p class="modal-desc">
-      Affrontez un adversaire virtuel de niveau aléatoire sur la distance de votre choix jusqu'à 10 000 mètres.
-      Un salon privé exclusif est créé pour vous deux, et vous ferez la course uniquement contre votre bot !
+      {{ i18n.t('BOT_DUEL_DESC') }}
     </p>
 
     <form class="modal-form" (ngSubmit)="startBotDuelRequest.emit()">
       <div class="form-group">
-        <label for="bot-duel-name">Votre nom / pseudo :</label>
+        <label for="bot-duel-name">{{ i18n.t('BOT_DUEL_NAME_LABEL') }}</label>
         <input
           id="bot-duel-name"
           type="text"
           [ngModel]="botDuelName"
           (ngModelChange)="botDuelName = $event; botDuelNameChange.emit($event)"
           name="botDuelName"
-          placeholder="ex: RameurSolo"
+          [placeholder]="i18n.t('BOT_DUEL_NAME_PH')"
           maxlength="32" />
       </div>
 
       <div class="form-group">
-        <label for="bot-duel-dist">Distance cible (mètres, jusqu'à 10 000m) :</label>
+        <label for="bot-duel-dist">{{ i18n.t('BOT_DUEL_DIST_LABEL') }}</label>
         <div class="distance-preset-buttons">
           <button type="button" class="btn-preset" [class.selected]="botDuelDistance === 500" (click)="setBotDuelPresetDistanceRequest.emit(500)">500m</button>
           <button type="button" class="btn-preset" [class.selected]="botDuelDistance === 1000" (click)="setBotDuelPresetDistanceRequest.emit(1000)">1 000m</button>
@@ -303,16 +300,16 @@
 
       <div class="bot-level-note">
         <span class="note-icon">🎲</span>
-        <span>Le niveau du bot (allure et puissance) sera tiré aléatoirement au départ (de Débutant à Élite).</span>
+        <span>{{ i18n.t('BOT_DUEL_LEVEL_NOTE') }}</span>
       </div>
 
-      <div *ngIf="botDuelError" class="modal-error-box">{{ botDuelError }}</div>
+      <div *ngIf="botDuelError" class="modal-error-box">{{ i18n.translateError(botDuelError) }}</div>
 
       <div class="modal-buttons">
         <button type="submit" class="btn-primary btn-launch-duel" [disabled]="isCreatingBotDuel">
-          {{ isCreatingBotDuel ? 'Création du salon en cours...' : '🚀 Lancer le Duel contre le Bot' }}
+          {{ isCreatingBotDuel ? i18n.t('CREATING_ROOM') : i18n.t('BTN_LAUNCH_BOT_DUEL') }}
         </button>
-        <button type="button" class="btn-secondary" (click)="closeBotDuelModalRequest.emit()">Annuler</button>
+        <button type="button" class="btn-secondary" (click)="closeBotDuelModalRequest.emit()">{{ i18n.t('ADMIN_MODAL_CANCEL') }}</button>
       </div>
     </form>
   </div>

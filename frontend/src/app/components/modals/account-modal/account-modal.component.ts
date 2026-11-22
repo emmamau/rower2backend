@@ -164,14 +164,14 @@ export class AccountModalComponent implements OnChanges, OnDestroy {
   @Output() toggleDuelRefusedDayRequest = new EventEmitter<number>();
   @Output() saveDuelPreferencesRequest = new EventEmitter<void>();
 
-  readonly duelWeekDays: { id: number; label: string }[] = [
-    { id: 1, label: 'Lun' },
-    { id: 2, label: 'Mar' },
-    { id: 3, label: 'Mer' },
-    { id: 4, label: 'Jeu' },
-    { id: 5, label: 'Ven' },
-    { id: 6, label: 'Sam' },
-    { id: 0, label: 'Dim' }
+  readonly duelWeekDays: { id: number; key: string }[] = [
+    { id: 1, key: 'DAY_MON_SHORT' },
+    { id: 2, key: 'DAY_TUE_SHORT' },
+    { id: 3, key: 'DAY_WED_SHORT' },
+    { id: 4, key: 'DAY_THU_SHORT' },
+    { id: 5, key: 'DAY_FRI_SHORT' },
+    { id: 6, key: 'DAY_SAT_SHORT' },
+    { id: 0, key: 'DAY_SUN_SHORT' }
   ];
 
   showRegPassword = false;
@@ -182,22 +182,22 @@ export class AccountModalComponent implements OnChanges, OnDestroy {
   readonly regattaZoomPresets: number[] = [1, 1.5, 2, 2.5, 3];
 
   readonly presetColors = [
-    { name: 'Cyan Néon', hex: '#00e5ff' },
-    { name: 'Bleu Royal', hex: '#0055ff' },
-    { name: 'Rouge Racing', hex: '#ff0055' },
-    { name: 'Orange Éclair', hex: '#ff6600' },
-    { name: 'Or Vainqueur', hex: '#ffe600' },
-    { name: 'Vert Émeraude', hex: '#39ff14' },
-    { name: 'Violet Pulsar', hex: '#b026ff' },
-    { name: 'Noir Carbone', hex: '#1a1f2c' },
-    { name: 'Blanc Pur', hex: '#ffffff' }
+    { key: 'COLOR_CYAN_NEON', hex: '#00e5ff' },
+    { key: 'COLOR_ROYAL_BLUE', hex: '#0055ff' },
+    { key: 'COLOR_RACING_RED', hex: '#ff0055' },
+    { key: 'COLOR_LIGHTNING_ORANGE', hex: '#ff6600' },
+    { key: 'COLOR_WINNER_GOLD', hex: '#ffe600' },
+    { key: 'COLOR_EMERALD_GREEN', hex: '#39ff14' },
+    { key: 'COLOR_PULSAR_VIOLET', hex: '#b026ff' },
+    { key: 'COLOR_CARBON_BLACK', hex: '#1a1f2c' },
+    { key: 'COLOR_PURE_WHITE', hex: '#ffffff' }
   ];
 
-  readonly patternOptions: { id: KayakPattern; label: string; icon: string; desc: string }[] = [
-    { id: 'solid', label: 'Uni Épuré', icon: '🎨', desc: 'Finition classique monochrome' },
-    { id: 'racing-stripe', label: 'Bande Racing', icon: '⚡', desc: 'Double liseré central athlétique' },
-    { id: 'dual-tone', label: 'Bi-Colore', icon: '🌗', desc: 'Contraste marqué proue / poupe' },
-    { id: 'gradient', label: 'Dégradé', icon: '🌈', desc: 'Fusion fluide de teintes sportives' }
+  readonly patternOptions: { id: KayakPattern; labelKey: string; icon: string; descKey: string }[] = [
+    { id: 'solid', labelKey: 'PATTERN_SOLID_LABEL', icon: '🎨', descKey: 'PATTERN_SOLID_DESC' },
+    { id: 'racing-stripe', labelKey: 'PATTERN_STRIPE_LABEL', icon: '⚡', descKey: 'PATTERN_STRIPE_DESC' },
+    { id: 'dual-tone', labelKey: 'PATTERN_DUAL_LABEL', icon: '🌗', descKey: 'PATTERN_DUAL_DESC' },
+    { id: 'gradient', labelKey: 'PATTERN_GRADIENT_LABEL', icon: '🌈', descKey: 'PATTERN_GRADIENT_DESC' }
   ];
 
   private _previewCanvasRef?: ElementRef<HTMLCanvasElement>;
@@ -261,7 +261,27 @@ export class AccountModalComponent implements OnChanges, OnDestroy {
 
   getPatternLabel(pattern: KayakPattern): string {
     const found = this.patternOptions.find(p => p.id === pattern);
-    return found ? `${found.icon} ${found.label}` : 'Uni Épuré';
+    return found ? `${found.icon} ${this.i18n.t(found.labelKey)}` : this.i18n.t('PATTERN_SOLID_LABEL');
+  }
+
+  getRegattaMetricLabel(key: RegattaMetricKey): string {
+    const i18nKey = 'REGATTA_METRIC_NAME_' + String(key).toUpperCase();
+    const translated = this.i18n.t(i18nKey);
+    return translated !== i18nKey ? translated : this.getRegattaMetricOption(key).label;
+  }
+
+  getLeagueLabel(tier?: string): string {
+    const clean = String(tier || 'BRONZE').toUpperCase();
+    if (clean === 'GOLD') return this.i18n.t('LEAGUE_GOLD_LABEL');
+    if (clean === 'SILVER') return this.i18n.t('LEAGUE_SILVER_LABEL');
+    return this.i18n.t('LEAGUE_BRONZE_LABEL');
+  }
+
+  getLeagueDesc(tier?: string): string {
+    const clean = String(tier || 'BRONZE').toUpperCase();
+    if (clean === 'GOLD') return this.i18n.t('LEAGUE_GOLD_DESC');
+    if (clean === 'SILVER') return this.i18n.t('LEAGUE_SILVER_DESC');
+    return this.i18n.t('LEAGUE_BRONZE_DESC');
   }
 
   isRegattaMetricSelected(key: RegattaMetricKey): boolean {
@@ -290,9 +310,9 @@ export class AccountModalComponent implements OnChanges, OnDestroy {
     if (/\d/.test(pwd)) score++;
     if (/[!@#$%^&*(),.?":{}|<>]/.test(pwd)) score++;
 
-    if (score <= 2) return { score, label: 'Faible', class: 'strength-weak', width: '33%' };
-    if (score <= 4) return { score, label: 'Moyen', class: 'strength-medium', width: '66%' };
-    return { score, label: 'Robuste', class: 'strength-strong', width: '100%' };
+    if (score <= 2) return { score, label: this.i18n.t('PWD_STRENGTH_WEAK'), class: 'strength-weak', width: '33%' };
+    if (score <= 4) return { score, label: this.i18n.t('PWD_STRENGTH_MEDIUM'), class: 'strength-medium', width: '66%' };
+    return { score, label: this.i18n.t('PWD_STRENGTH_STRONG'), class: 'strength-strong', width: '100%' };
   }
 
   isPasswordPolicySatisfied(pwd: string): boolean {

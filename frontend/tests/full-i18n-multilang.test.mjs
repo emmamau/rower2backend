@@ -571,3 +571,107 @@ test('RegattaCanvasComponent, RaceOverlaysComponent, RegattaViewComponent and Co
     }
   }
 });
+
+test('Remaining modals (Account, UnifiedConfig, RaceHistory, Standings, Statistics, LegalTerms) use I18nService across all 6 languages', () => {
+  const modalNames = [
+    'account-modal',
+    'unified-config-modal',
+    'race-history-modal',
+    'standings-modal',
+    'statistics-modal',
+    'legal-terms-modal'
+  ];
+
+  const htmlContents = {};
+  const tsContents = {};
+  for (const name of modalNames) {
+    const base = path.resolve(__dirname, `../src/app/components/modals/${name}/${name}.component`);
+    const ts = fs.readFileSync(`${base}.ts`, 'utf8');
+    const html = fs.readFileSync(`${base}.html`, 'utf8');
+    tsContents[name] = ts;
+    htmlContents[name] = html;
+
+    assert.ok(ts.includes('public i18n: I18nService'), `${name} TS must inject public i18n: I18nService`);
+    assert.ok(html.includes('i18n.t('), `${name} HTML must use i18n.t()`);
+  }
+
+  const accountKeys = [
+    'ACCOUNT_TITLE', 'ACCOUNT_TAB_LOGIN', 'ACCOUNT_TAB_REGISTER', 'ACCOUNT_TAB_PROFILE',
+    'ACCOUNT_TAB_KAYAK', 'ACCOUNT_TAB_REGATTA_SETTINGS', 'ACCOUNT_TAB_FORGOT',
+    'ACCOUNT_VACATION_TITLE', 'ACCOUNT_DUEL_CARD_TITLE', 'ACCOUNT_SAVE_DUEL_PREFS',
+    'ACCOUNT_KAYAK_CARD_TITLE', 'ACCOUNT_KAYAK_SAVE_BTN', 'ACCOUNT_REGATTA_SAVE_BTN',
+    'DAY_MON_SHORT', 'DAY_SUN_SHORT', 'PWD_STRENGTH_WEAK', 'PWD_STRENGTH_STRONG',
+    'PATTERN_SOLID_LABEL', 'PATTERN_GRADIENT_LABEL', 'COLOR_CYAN_NEON'
+  ];
+  for (const key of accountKeys) {
+    assert.ok(
+      htmlContents['account-modal'].includes(`'${key}'`) || tsContents['account-modal'].includes(`'${key}'`),
+      `account-modal must reference key ${key}`
+    );
+  }
+
+  const configKeys = [
+    'CFG_TITLE', 'CFG_TAB_PUBLIC', 'CFG_TAB_ACTIVE', 'CFG_ADMIN_SAVE_BTN',
+    'CFG_PRIVILEGES_TITLE', 'CFG_GUEST_PUBLIC_TITLE', 'CFG_DISCOVER_PLANS_BTN',
+    'BOT_DUEL_TITLE', 'BOT_DUEL_DIST_LABEL', 'BTN_LAUNCH_BOT_DUEL'
+  ];
+  for (const key of configKeys) {
+    assert.ok(htmlContents['unified-config-modal'].includes(`'${key}'`), `unified-config-modal must reference key ${key}`);
+  }
+
+  const historyKeys = [
+    'MODAL_HISTORY_TITLE', 'HIST_OFFICIAL_RANKING_TITLE', 'HIST_COL_RANK',
+    'HIST_COL_POINTS', 'HIST_GUEST_SAVE_BTN', 'BTN_LEAVE_ROOM_TO_PUBLIC'
+  ];
+  for (const key of historyKeys) {
+    assert.ok(htmlContents['race-history-modal'].includes(`'${key}'`), `race-history-modal must reference key ${key}`);
+  }
+
+  const standingsKeys = [
+    'STANDINGS_MODAL_TITLE', 'STANDINGS_TAB_LEAGUES', 'STANDINGS_TAB_GENERAL', 'STANDINGS_TAB_DUELS',
+    'LEAGUE_GOLD_LABEL', 'LEAGUE_SILVER_LABEL', 'LEAGUE_BRONZE_LABEL',
+    'STANDINGS_FILTER_COUNTRY', 'STANDINGS_FILTER_GENDER', 'STANDINGS_FILTER_CATEGORY',
+    'STANDINGS_BTN_CHALLENGE', 'STANDINGS_DUELS_EMPTY', 'STANDINGS_GENERAL_EMPTY'
+  ];
+  for (const key of standingsKeys) {
+    assert.ok(
+      htmlContents['standings-modal'].includes(`'${key}'`) || tsContents['standings-modal'].includes(`'${key}'`),
+      `standings-modal must reference key ${key}`
+    );
+  }
+
+  const statsKeys = [
+    'STATS_MODAL_TITLE', 'STATS_BADGE_FREE_10D', 'STATS_LOCKED_NOTICE', 'STATS_UNLOCK_BTN',
+    'KPI_ANALYZED_RACES', 'STATS_KPI_TOTAL_DIST', 'KPI_TOTAL_TIME', 'STATS_KPI_AVG_POWER',
+    'STATS_KPI_BEST_PACE', 'STATS_KPI_WINS_PODIUMS', 'STATS_EMPTY'
+  ];
+  for (const key of statsKeys) {
+    assert.ok(htmlContents['statistics-modal'].includes(`'${key}'`), `statistics-modal must reference key ${key}`);
+  }
+  assert.ok(htmlContents['statistics-modal'].includes('i18n.formatRankOrdinal('), 'statistics-modal must localize rank ordinals');
+
+  const legalKeys = [
+    'MODAL_LEGAL_TITLE', 'LEGAL_S1_TITLE', 'LEGAL_S6_TITLE',
+    'GUIDE_TITLE', 'GUIDE_WATCH_STEP1', 'BTN_SHOW_PIN',
+    'WEEKLY_PROMOTED_TITLE', 'WEEKLY_BTN_CONTINUE'
+  ];
+  for (const key of legalKeys) {
+    assert.ok(
+      htmlContents['legal-terms-modal'].includes(`'${key}'`) || tsContents['legal-terms-modal'].includes(`'${key}'`),
+      `legal-terms-modal must reference key ${key}`
+    );
+  }
+
+  const allModalKeys = Array.from(new Set([
+    ...accountKeys, ...configKeys, ...historyKeys, ...standingsKeys, ...statsKeys, ...legalKeys
+  ]));
+  const { service } = loadI18nServiceRuntime({ savedLang: 'fr' });
+  for (const key of allModalKeys) {
+    for (const lang of ['fr', 'en', 'de', 'es', 'it', 'pt']) {
+      service.setLang(lang);
+      const val = service.t(key);
+      assert.notEqual(val, key, `Key ${key} must resolve to a translated string in ${lang}`);
+      assert.ok(val.trim().length > 0, `Key ${key} must be non-empty in ${lang}`);
+    }
+  }
+});
