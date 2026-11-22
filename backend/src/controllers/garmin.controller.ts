@@ -314,6 +314,9 @@ export class GarminController {
         p.connectionState = "CONNECTED";
         p.deviceToken = paired.deviceToken;
         if (socketId) p.socketId = socketId;
+        p.pinValidated = true;
+        p.ready = true;
+        p.connectionState = "READY";
         race.participants.set(userId, p);
       }
 

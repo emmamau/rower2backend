@@ -274,6 +274,25 @@ export class AppComponent implements OnInit, OnDestroy {
   accountAuthSuccess = '';
   isAccountSubmitting = false;
 
+  get isAnyModalOpen(): boolean {
+    return Boolean(
+      this.isAccountModalOpen ||
+      this.isLoginModalOpen ||
+      this.isPrivateModalOpen ||
+      this.isAdminDashboardOpen ||
+      this.isStandingsOpen ||
+      this.isHistoryOpen ||
+      this.isStatisticsModalOpen ||
+      this.isSubscriptionModalOpen ||
+      this.isLegalTermsOpen ||
+      this.isBotDuelModalOpen ||
+      this.isWatchGuidanceModalOpen ||
+      this.isRaceLeaderboardModalOpen ||
+      this.isWeeklySummaryModalOpen ||
+      this.isUnifiedConfigOpen
+    );
+  }
+
   // Préférences d'affichage en Mode Régate (Zoom Lignes d'Eau x1..x3 & Données sous le Canvas)
   readonly regattaMetricsCatalog: RegattaMetricOption[] = REGATTA_METRICS_CATALOG;
   readonly regattaZoomPresets: number[] = [1, 1.5, 2, 2.5, 3];
@@ -758,13 +777,17 @@ export class AppComponent implements OnInit, OnDestroy {
               this.setSiteView('home');
               this.userExplicitlyNavigatedHome = true;
               this.isPrivateModalOpen = true;
-              this.privateModalTab = 'share';
+              this.privateModalTab = 'duels';
               this.pendingDuelChallengeId = '';
               this.cdr.markForCheck();
             },
             error: () => {
-              this.triggerFinishToast('⚠️ Impossible de charger le salon associé à ce duel.');
+              this.setSiteView('home');
+              this.userExplicitlyNavigatedHome = true;
+              this.isPrivateModalOpen = true;
+              this.privateModalTab = 'duels';
               this.pendingDuelChallengeId = '';
+              this.cdr.markForCheck();
             }
           });
         }
@@ -1505,18 +1528,28 @@ export class AppComponent implements OnInit, OnDestroy {
             this.activeRacersCount = Math.max(raceData.totalParticipants || 0, this.racers.filter(r => r.status !== 'abandoned').length);
 
             // Calcul du classement et des écarts de distance en direct
-            const activeList = this.racers.filter(r => r.status !== 'abandoned').sort((a, b) => {
+            let activeList = this.racers.filter(r => r.status !== 'abandoned').sort((a, b) => {
               const isFinA = a.status === 'finished' ? 1 : 0;
               const isFinB = b.status === 'finished' ? 1 : 0;
               if (isFinA !== isFinB) return isFinB - isFinA;
               return (b.netDistance || 0) - (a.netDistance || 0);
             });
             this.totalActiveRacers = activeList.length;
+            const isDuelRoom = Boolean(
+              (this.activePrivateRoom as any)?.isDuel1v1 ||
+              this.activePrivateRoom?.race?.isDuel1v1 ||
+              (raceData.race as any)?.isDuel1v1 ||
+              (raceData.race as any)?.gameMode === 'duel_1v1'
+            );
             const roomParts = this.activePrivateRoom?.race?.participants || (raceData.race as any)?.participants || [];
             // Maintien continu des participants du salon sur la ligne de départ (anti-clignotement)
             if (roomParts && roomParts.length > 0 && (!this.isRaceActive || isRaceWaitingOrCountdown)) {
               for (const p of roomParts) {
                 if (!p.userId) continue;
+                // En mode duel 1v1, un kayak n'apparaît sur le plan d'eau QUE lorsque le joueur a validé son code PIN sur sa montre
+                if (isDuelRoom && !p.ready && !p.pinValidated && p.connectionState !== 'READY' && (p.netDistance || 0) <= 0) {
+                  continue;
+                }
                 if (!activeList.some(r => r.userId === p.userId)) {
                   activeList.push({
                     userId: p.userId,
@@ -1532,6 +1565,13 @@ export class AppComponent implements OnInit, OnDestroy {
                   } as any);
                 }
               }
+            }
+            if (isDuelRoom) {
+              activeList = activeList.filter(r => {
+                const partInfo = roomParts.find((p: any) => p.userId === r.userId);
+                const hasValidatedPin = Boolean(partInfo?.ready || partInfo?.pinValidated || partInfo?.connectionState === 'READY');
+                return hasValidatedPin || (r.netDistance || 0) > 0 || (r.lastPower || 0) > 0;
+              });
             }
             this.liveMetricsList = activeList.map((r, idx) => {
               const isMe = r.userId === this.activeUserId;
@@ -6227,6 +6267,13 @@ export class AppComponent implements OnInit, OnDestroy {
     this.isPrivateRoomCompleted = false;
     this.isRegattaLaunchSplashOpen = false;
     this.pendingRegattaLaunch = false;
+    this.racers = [];
+    this.liveMetricsList = [];
+    this.myActivity = null;
+    this.finishedRacerIds.clear();
+    this.finisherCount = 0;
+    this.totalActiveRacers = 0;
+    this.myAssignedLane = 1;
     try {
       if (typeof localStorage !== 'undefined') {
         localStorage.removeItem('rower_active_private_room_id');

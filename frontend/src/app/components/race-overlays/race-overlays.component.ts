@@ -18,6 +18,7 @@ export class RaceOverlaysComponent implements OnChanges {
   @Input() showFinishCelebration = false;
   @Input() isMobileOrTablet = false;
   @Input() isMobileFullscreenOnly = false;
+  @Input() isAnyModalOpen = false;
   @Input() isOrientationDismissed = false;
   @Input() siteView: 'home' | 'regatta' | 'cockpit' = 'home';
   @Input() isFullscreen = false;

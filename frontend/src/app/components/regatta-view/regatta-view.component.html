@@ -260,6 +260,15 @@
 <aside class="regatta-quick-nav-bar" role="toolbar" [attr.aria-label]="i18n.t('REGATTA_QUICK_NAV_ARIA')">
   <button
     type="button"
+    class="btn-cockpit-quick btn-quick-home"
+    (click)="setSiteView('home')"
+    [title]="i18n.t('RACE_RETURN_HOME_TIP')"
+    [attr.aria-label]="i18n.t('BTN_RETURN_HOME')">
+    <span class="btn-quick-icon">🏠</span>
+    <span class="btn-quick-label">{{ i18n.t('BTN_RETURN_HOME') || 'Accueil' }}</span>
+  </button>
+  <button
+    type="button"
     class="btn-cockpit-quick btn-quick-cockpit"
     (click)="setSiteView('cockpit')"
     [title]="i18n.t('REGATTA_COCKPIT_TIP')"

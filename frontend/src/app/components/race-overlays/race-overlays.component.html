@@ -371,7 +371,7 @@
 </div>
 
 <!-- 3 SECONDS RACE COUNTDOWN OVERLAY -->
-<div class="three-sec-overlay" *ngIf="is3sCountdown">
+<div class="three-sec-overlay" *ngIf="is3sCountdown && !isAnyModalOpen">
   <div class="three-sec-box">
     <div class="three-sec-title">{{ i18n.t('COUNTDOWN_TITLE') }}</div>
     <div class="three-sec-number">{{ threeSecondsCount }}</div>
@@ -380,7 +380,7 @@
 </div>
 
 <!-- RACE PRE-START COUNTDOWN TIMER (15s..4s) - DRAGGABLE -->
-<div class="prestart-countdown-overlay" [class.has-custom-pos]="!!timerPosition" *ngIf="isPreStartCountdown && !is3sCountdown && !isPrestartTimerDismissed">
+<div class="prestart-countdown-overlay" [class.has-custom-pos]="!!timerPosition" *ngIf="isPreStartCountdown && !is3sCountdown && !isPrestartTimerDismissed && !isAnyModalOpen">
   <div
     class="prestart-countdown-box"
     [class.is-custom-pos]="!!timerPosition"

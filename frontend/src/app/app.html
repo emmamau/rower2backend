@@ -13,6 +13,7 @@
 
   <!-- 1. SUPERPOSITIONS GLOBALES DE COURSE (Toasts, Célébration, Rotation, Splash, Compte à rebours) -->
   <app-race-overlays
+    [isAnyModalOpen]="isAnyModalOpen"
     [activeFinishToast]="activeFinishToast"
     [showFinishCelebration]="showFinishCelebration"
     [isMobileOrTablet]="isMobileOrTablet"

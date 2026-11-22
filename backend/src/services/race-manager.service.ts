@@ -24,7 +24,8 @@ export interface PrivateParticipantInfo {
   country?: string;
   lane?: number;
   ready?: boolean;
-  connectionState?: "CONNECTED" | "READY";
+  pinValidated?: boolean;
+  connectionState?: "CONNECTED" | "READY" | "PENDING_PIN";
   socketId?: string;
   deviceToken?: string;
   deviceId?: string;
@@ -609,7 +610,7 @@ export class RaceManager {
       const isParticipantReady = isBot
         ? true
         : (participantInfo?.ready !== undefined ? participantInfo.ready : (watts > 0 || spm > 0 || dist > 0 || true));
-      const connectionState: "CONNECTED" | "READY" = isBot
+      const connectionState: "CONNECTED" | "READY" | "PENDING_PIN" = isBot
         ? "READY"
         : (participantInfo?.connectionState || (participantInfo?.ready === false ? "CONNECTED" : "READY"));
 
@@ -1830,8 +1831,9 @@ export class RaceManager {
         userName: hostUserName || hostUserId,
         joinedAt: now,
         lane: 1,
-        ready: false,
-        connectionState: "CONNECTED"
+        ready: !isDuel1v1,
+        pinValidated: !isDuel1v1,
+        connectionState: isDuel1v1 ? "PENDING_PIN" : "CONNECTED"
       });
     }
 

@@ -473,6 +473,9 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
   }
 
   ngOnChanges(changes: SimpleChanges): void {
+    if (changes['targetDistance'] && !changes['targetDistance'].firstChange) {
+      this.clearAllBoats();
+    }
     if (changes['racers'] && this.racers) {
       this.syncRacersData();
       this.updateLeaderboard();
@@ -700,7 +703,17 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
     }
   }
 
+  public clearAllBoats(): void {
+    this.boatsMap.clear();
+    this.visibleBoatsCount = 0;
+    this.totalBoatsCount = 0;
+  }
+
   private syncRacersData(): void {
+    if (!this.racers || this.racers.length === 0) {
+      this.clearAllBoats();
+      return;
+    }
     const now = performance.now();
     const activeIds = new Set<string>();
 
@@ -782,7 +795,7 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
     for (const [existingId, boat] of Array.from(this.boatsMap.entries())) {
       if (!activeIds.has(existingId)) {
         const timeSinceLastPacket = now - (boat.lastPacketTime || 0);
-        if (timeSinceLastPacket > gracePeriodMs) {
+        if (timeSinceLastPacket > gracePeriodMs || !this.isRaceActive) {
           this.boatsMap.delete(existingId);
         }
       }

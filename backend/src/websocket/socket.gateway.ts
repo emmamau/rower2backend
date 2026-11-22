@@ -15,7 +15,7 @@ export interface LiveRacerMetric {
   status: string;
   elapsedTime?: number;
   ready?: boolean;
-  connectionState?: "CONNECTED" | "READY";
+  connectionState?: "CONNECTED" | "READY" | "PENDING_PIN";
   isBot?: boolean;
   isPaired?: boolean;
   kayak?: KayakCustomization;

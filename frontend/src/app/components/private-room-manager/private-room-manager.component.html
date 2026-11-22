@@ -1646,6 +1646,13 @@
                           (click)="respondToDuel(d, 'accept')">
                           ✅ Accepter
                         </button>
+                        <button
+                          type="button"
+                          class="priv-btn-mini priv-btn-mini-danger"
+                          [disabled]="duelActionBusyId === d.id"
+                          (click)="respondToDuel(d, 'refuse')">
+                          ❌ Refuser
+                        </button>
                       }
                       @if (d.status === 'PENDING' || d.status === 'ACCEPTED') {
                         <button

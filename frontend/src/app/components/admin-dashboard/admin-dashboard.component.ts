@@ -578,6 +578,8 @@ export class AdminDashboardComponent implements OnInit {
     for (const p of this.plansList) {
       if (p.code) {
         const lower = p.code.toLowerCase();
+        // Ignorer le code doublon 'standard' (alias historique de intermediate/club)
+        if (lower === 'standard') continue;
         if (!seen.has(lower)) {
           seen.add(lower);
           list.push({
@@ -591,7 +593,6 @@ export class AdminDashboardComponent implements OnInit {
     // 2. Offres standards en fallback si non chargées ou complémentaires
     const defaults = [
       { code: 'free', label: `${this.i18n.t('SUB_FREE_TITLE')} (FREE)` },
-      { code: 'standard', label: `${this.i18n.t('ADMIN_PLAN_STANDARD_LABEL')} (STANDARD)` },
       { code: 'intermediate', label: `${this.i18n.t('SUB_CLUB_TITLE')} (INTERMEDIATE)` },
       { code: 'premium', label: `${this.i18n.t('SUB_PRO_TITLE')} (PREMIUM)` }
     ];

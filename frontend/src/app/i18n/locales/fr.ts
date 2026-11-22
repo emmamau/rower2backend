@@ -216,7 +216,7 @@ export const fr: Record<string, string> = {
   // Private Rooms & Duels
   'BTN_PRIVATE_ROOMS': 'Salons Privés',
   'PRIVATE_ROOM_BADGE': 'SALON PRIVÉ',
-  'PRIVATE_MODAL_TITLE': 'Salons Privés — Codes & Liens de Connexion',
+  'PRIVATE_MODAL_TITLE': 'Salons Privés & Duels 1v1',
   'PRIVATE_MODAL_SUB': 'Créez une régate privée, gérez vos codes d\'accès (Web + PIN Montre Garmin) et partagez l\'URL aux joueurs.',
   'TAB_CREATE_ROOM': '➕ Créer un salon',
   'TAB_SHARE_CODES': '🔑 Codes & URL',

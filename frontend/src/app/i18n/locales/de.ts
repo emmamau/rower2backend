@@ -216,7 +216,7 @@ export const de: Record<string, string> = {
   // Private Rooms & Duels
   'BTN_PRIVATE_ROOMS': 'Private Räume',
   'PRIVATE_ROOM_BADGE': 'PRIVATER RAUM',
-  'PRIVATE_MODAL_TITLE': 'Private Räume — Codes & Einladungslinks',
+  'PRIVATE_MODAL_TITLE': 'Private Räume & 1v1-Duelle',
   'PRIVATE_MODAL_SUB': 'Erstellen Sie eine private Regatta, verwalten Sie Zugriffscodes (Web + Garmin Watch PIN) und teilen Sie den Link.',
   'TAB_CREATE_ROOM': '➕ Raum erstellen',
   'TAB_SHARE_CODES': '🔑 Codes & URL',

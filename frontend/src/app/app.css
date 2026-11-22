@@ -8314,10 +8314,13 @@ app-cockpit-view {
     padding: 0 !important;
   }
 
-  /* Conteneur principal plein écran rigide en mode Cockpit portrait */
+  /* Conteneur principal plein écran rigide en mode Cockpit & Régate portrait */
   .game-container:has(.cockpit-hud),
   .game-container.pure-screen-active:has(.cockpit-hud),
-  .game-container.rigid-viewport:has(.cockpit-hud) {
+  .game-container.rigid-viewport:has(.cockpit-hud),
+  .game-container:has(app-regatta-view),
+  .game-container.pure-screen-active:has(app-regatta-view),
+  .game-container.rigid-viewport:has(app-regatta-view) {
     position: fixed !important;
     inset: 0 !important;
     width: 100vw !important;
@@ -8536,7 +8539,10 @@ app-cockpit-view {
   /* Conteneur calé au plus près du bord supérieur en paysage */
   .game-container:has(.cockpit-hud),
   .game-container.pure-screen-active:has(.cockpit-hud),
-  .game-container.rigid-viewport:has(.cockpit-hud) {
+  .game-container.rigid-viewport:has(.cockpit-hud),
+  .game-container:has(app-regatta-view),
+  .game-container.pure-screen-active:has(app-regatta-view),
+  .game-container.rigid-viewport:has(app-regatta-view) {
     padding-top: max(2px, env(safe-area-inset-top, 0px)) !important;
     padding-bottom: max(2px, env(safe-area-inset-bottom, 0px)) !important;
     padding-left: max(6px, env(safe-area-inset-left, 0px)) !important;
