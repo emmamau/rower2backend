@@ -18,6 +18,18 @@ test('Email & link navigation: Backend email service generates duel link with du
     emailServiceContent.includes('email='),
     'email.service.ts doit inclure le paramètre email='
   );
+  assert.ok(
+    emailServiceContent.includes('"Accéder au salon"'),
+    'email.service.ts doit proposer le CTA "Accéder au salon"'
+  );
+  assert.ok(
+    emailServiceContent.includes('"Confirmer le duel"'),
+    'email.service.ts doit proposer le CTA "Confirmer le duel"'
+  );
+  assert.ok(
+    !emailServiceContent.includes('"Rejoindre la Régate"') && !emailServiceContent.includes('"Join the Regatta"'),
+    'email.service.ts ne doit plus utiliser l’ancien CTA "Rejoindre la Régate"'
+  );
 });
 
 test('Email & link navigation: app.ts neutralizes regatta direct launch from URL or email links', () => {
@@ -60,6 +72,11 @@ test('Email & link navigation: Private room link opens private modal on share ta
   assert.ok(
     joinPrivateRoomBlock.includes("this.setSiteView('home');"),
     'joinRoom doit maintenir la vue sur home'
+  );
+  assert.ok(
+    joinPrivateRoomBlock.includes('this.loginAccountInput = emailParam;') &&
+    !joinPrivateRoomBlock.includes("this.openAccountModal('login');"),
+    'joinRoom doit pré-remplir l’e-mail sans bloquer la vue détail par la modale de login'
   );
 });
 

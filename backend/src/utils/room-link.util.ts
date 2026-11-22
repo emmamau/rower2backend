@@ -25,23 +25,25 @@ export function buildShareableRoomUrl(origin: string, code: string): string {
 }
 
 /**
- * Construit l'URL de lancement direct en mode régate (liens des courriels d'invitation) :
- * ${origin}/r/${code}?mode=regatta — le frontend ouvre la vue Régate et propose le plein écran paysage.
+ * Construit l'URL canonique pour un salon privé : ${origin}/r/${code}
+ * Ne contient aucun paramètre vers la régate (conforme aux exigences de vue détail).
  */
 export function buildRegattaLaunchUrl(origin: string, code: string): string {
-  return `${buildShareableRoomUrl(origin, code)}?mode=regatta`;
+  return buildShareableRoomUrl(origin, code);
 }
 
 /**
- * Ajoute le paramètre ?mode=regatta à une URL de salon existante (sans le dupliquer).
+ * Nettoie toute URL de salon en retirant tout paramètre ?mode=regatta indésirable.
  */
 export function withRegattaMode(url: string): string {
   if (!url) return url;
-  if (/[?&]mode=regatta(?:&|#|$)/.test(url)) return url;
   const hashIdx = url.indexOf("#");
   const base = hashIdx >= 0 ? url.slice(0, hashIdx) : url;
   const hash = hashIdx >= 0 ? url.slice(hashIdx) : "";
-  return `${base}${base.includes("?") ? "&" : "?"}mode=regatta${hash}`;
+  const cleaned = base
+    .replace(/([?&])mode=regatta(&|$)/i, (_m, p1, p2) => (p1 === "?" && p2 === "&" ? "?" : p2 ? p1 : ""))
+    .replace(/[?&]$/, "");
+  return `${cleaned}${hash}`;
 }
 
 /**

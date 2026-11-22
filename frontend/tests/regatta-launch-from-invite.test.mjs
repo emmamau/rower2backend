@@ -37,12 +37,12 @@ const {
   extractRoomFromLocation
 } = loadTranspiledRoomLinkUtil();
 
-test('1. Room link utility builds launch URL with ?mode=regatta and detects it in search params', () => {
+test('1. Room link utility builds launch URL without regatta parameter and strips ?mode=regatta', () => {
   const url = buildRegattaLaunchUrl('https://rowerrace.com', 'abc-def-ghi');
-  assert.equal(url, 'https://rowerrace.com/r/abc-def-ghi?mode=regatta');
+  assert.equal(url, 'https://rowerrace.com/r/abc-def-ghi');
 
-  const withMode = withRegattaMode('https://rowerrace.com/r/krm-wzx-qpl');
-  assert.equal(withMode, 'https://rowerrace.com/r/krm-wzx-qpl?mode=regatta');
+  const withMode = withRegattaMode('https://rowerrace.com/r/krm-wzx-qpl?mode=regatta');
+  assert.equal(withMode, 'https://rowerrace.com/r/krm-wzx-qpl');
 
   assert.equal(isRegattaModeRequested('?mode=regatta'), true);
   assert.equal(isRegattaModeRequested('?code=krm-wzx-qpl&mode=regatta'), true);

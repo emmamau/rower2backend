@@ -152,22 +152,24 @@ export function buildShareableRoomUrl(origin: string, code: string): string {
 }
 
 /**
- * Builds direct regatta launch URL with ?mode=regatta parameter.
+ * Builds canonical shareable room URL without regatta launch parameter.
  */
 export function buildRegattaLaunchUrl(origin: string, code: string): string {
-  return `${buildShareableRoomUrl(origin, code)}?mode=regatta`;
+  return buildShareableRoomUrl(origin, code);
 }
 
 /**
- * Appends ?mode=regatta to a shareable room link without duplicating parameters.
+ * Strips any ?mode=regatta parameter from a room URL.
  */
 export function withRegattaMode(url: string): string {
   if (!url) return url;
-  if (/[?&]mode=regatta(?:&|#|$)/.test(url)) return url;
   const hashIdx = url.indexOf('#');
   const base = hashIdx >= 0 ? url.slice(0, hashIdx) : url;
   const hash = hashIdx >= 0 ? url.slice(hashIdx) : '';
-  return `${base}${base.includes('?') ? '&' : '?'}mode=regatta${hash}`;
+  const cleaned = base
+    .replace(/([?&])mode=regatta(&|$)/i, (_m, p1, p2) => (p1 === '?' && p2 === '&' ? '?' : p2 ? p1 : ''))
+    .replace(/[?&]$/, '');
+  return `${cleaned}${hash}`;
 }
 
 /**

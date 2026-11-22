@@ -6015,8 +6015,8 @@ export class AppComponent implements OnInit, OnDestroy {
               this.privateModalTab = 'share';
             }
             if (!this.isIdentified && emailParam) {
-              this.openAccountModal('login');
-              this.accountAuthSuccess = 'Connectez-vous à votre compte pour accéder à votre salon privé.';
+              this.loginAccountInput = emailParam;
+              this.regEmail = emailParam;
             }
             this.cdr.markForCheck();
           },

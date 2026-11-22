@@ -606,9 +606,11 @@ export class EmailService {
       const modeBadge = params.isDuel ? "⚔️ Duel 1 vs 1" : "🚣 Régate Multijoueurs";
       subject = params.isDuel
         ? `⚔️ Rower Race - Invitation au Duel 1v1 de ${orgName}`
-        : `🚣 Rower Race - Invitation à la régate "${params.roomTitle}" par ${orgName}`;
-      preheader = `${orgName} vous invite à la course ${params.roomTitle} (${params.targetDistance}m)`;
-      ctaText = "Rejoindre la Régate";
+        : `🚣 Rower Race - Invitation au salon privé "${params.roomTitle}" par ${orgName}`;
+      preheader = params.isDuel
+        ? `${orgName} vous défie en duel 1v1 (${params.targetDistance}m)`
+        : `${orgName} vous invite au salon privé ${params.roomTitle} (${params.targetDistance}m)`;
+      ctaText = params.isDuel ? "Confirmer le duel" : "Accéder au salon";
       securityNote = `Ce salon est privé et sécurisé. Votre lien de connexion direct : ${canonicalJoinUrl}`;
 
       bodyContentHtml = `
@@ -688,19 +690,21 @@ export class EmailService {
 
         <!-- OPTION NAVIGATION WEB & SMARTPHONE -->
         <div style="background-color: rgba(255, 255, 255, 0.03); border-left: 3px solid #00f0ff; padding: 12px 16px; margin: 18px 0; border-radius: 4px; font-size: 13px; color: #cbd5e1; line-height: 1.5;">
-          📱 <strong>Participer depuis votre smartphone, ordinateur ou tablette :</strong> Cliquez sur le bouton ci-dessous pour accéder au salon (connexion, création de compte ou accès direct invité) et lancer la régate en mode plein écran : <a href="${canonicalJoinUrl}" style="color: #00f0ff; text-decoration: underline;">${canonicalJoinUrl}</a>.
+          📱 <strong>Participer depuis votre smartphone, ordinateur ou tablette :</strong> Cliquez sur le bouton ci-dessous pour accéder directement à la vue détail du salon ${params.isDuel ? 'et confirmer le duel' : ''} : <a href="${canonicalJoinUrl}" style="color: #00f0ff; text-decoration: underline;">${canonicalJoinUrl}</a>.
         </div>
       `;
 
-      text = `Bonjour,\n\n${orgName} vous invite à une course connectée Rower Race !\n\nCourse : ${params.roomTitle}\nDistance : ${params.targetDistance}m\n${scheduleSectionText}\nLien direct canonique : ${canonicalJoinUrl}\nCode Salon Web : ${params.roomCode}\nCode Montre Garmin : ${params.roomPin}\n\nCOMMENT PARTICIPER AVEC VOTRE MONTRE GARMIN :\n1. Installez l'application 'Rower Race' depuis l'application Garmin (Garmin Connect IQ ou apps.garmin.com).\n2. Ouvrez l'application sur votre montre Garmin à proximité de votre rameur (Concept2 PM5, WaterRower, SmartRow ou ergomètre FTMS).\n3. Dans le menu, sélectionnez 'Rejoindre un salon' et saisissez le code montre : ${params.roomPin}\n4. Vos métriques (Watts, cadence, allure /500m, FC) seront transmises en direct.\n\nSportivement,\nL'équipe Rower Race`;
+      text = `Bonjour,\n\n${orgName} vous invite à une course connectée Rower Race !\n\nCourse : ${params.roomTitle}\nDistance : ${params.targetDistance}m\n${scheduleSectionText}\nLien direct vers le salon : ${canonicalJoinUrl}\nCode Salon Web : ${params.roomCode}\nCode Montre Garmin : ${params.roomPin}\n\nCOMMENT PARTICIPER AVEC VOTRE MONTRE GARMIN :\n1. Installez l'application 'Rower Race' depuis l'application Garmin (Garmin Connect IQ ou apps.garmin.com).\n2. Ouvrez l'application sur votre montre Garmin à proximité de votre rameur (Concept2 PM5, WaterRower, SmartRow ou ergomètre FTMS).\n3. Dans le menu, sélectionnez 'Rejoindre un salon' et saisissez le code montre : ${params.roomPin}\n4. Vos métriques (Watts, cadence, allure /500m, FC) seront transmises en direct.\n\nSportivement,\nL'équipe Rower Race`;
     } else {
       // VERSION ANGLAISE (PAR DÉFAUT SI NON FRANCOPHONE)
       const modeBadge = params.isDuel ? "⚔️ 1 vs 1 Duel" : "🚣 Multiplayer Regatta";
       subject = params.isDuel
         ? `⚔️ Rower Race - 1v1 Duel Invitation from ${orgName}`
         : `🚣 Rower Race - Invitation to "${params.roomTitle}" by ${orgName}`;
-      preheader = `${orgName} invites you to race in ${params.roomTitle} (${params.targetDistance}m)`;
-      ctaText = "Join the Regatta";
+      preheader = params.isDuel
+        ? `${orgName} invites you to a 1v1 duel in ${params.roomTitle} (${params.targetDistance}m)`
+        : `${orgName} invites you to private room ${params.roomTitle} (${params.targetDistance}m)`;
+      ctaText = params.isDuel ? "Confirm Duel" : "Access Room";
       securityNote = `This room is private and secure. Your direct access link: ${canonicalJoinUrl}`;
 
       bodyContentHtml = `
@@ -780,11 +784,11 @@ export class EmailService {
 
         <!-- SMARTPHONE & WEB BROWSER OPTION -->
         <div style="background-color: rgba(255, 255, 255, 0.03); border-left: 3px solid #00f0ff; padding: 12px 16px; margin: 18px 0; border-radius: 4px; font-size: 13px; color: #cbd5e1; line-height: 1.5;">
-          📱 <strong>Join from your smartphone, computer or tablet:</strong> Click the button below to access the room (log in, quick sign-up or guest mode) and launch full-screen regatta: <a href="${canonicalJoinUrl}" style="color: #00f0ff; text-decoration: underline;">${canonicalJoinUrl}</a>.
+          📱 <strong>Join from your smartphone, computer or tablet:</strong> Click the button below to view room details ${params.isDuel ? 'and confirm the duel' : ''}: <a href="${canonicalJoinUrl}" style="color: #00f0ff; text-decoration: underline;">${canonicalJoinUrl}</a>.
         </div>
       `;
 
-      text = `Hello,\n\n${orgName} invites you to a connected race on Rower Race!\n\nRace: ${params.roomTitle}\nDistance: ${params.targetDistance}m\n${scheduleSectionText}\nDirect room link: ${canonicalJoinUrl}\nWeb Room Code: ${params.roomCode}\nGarmin Watch Code: ${params.roomPin}\n\nHOW TO JOIN WITH YOUR GARMIN WATCH:\n1. Install the 'Rower Race' app from the Garmin app (Garmin Connect IQ or apps.garmin.com).\n2. Open the app on your Garmin watch near your rowing machine (Concept2 PM5, WaterRower, SmartRow, or FTMS ergometer).\n3. In the menu, select 'Join Room' and enter your watch code: ${params.roomPin}\n4. Your metrics (Watts, stroke rate, 500m pace, HR) will stream live to the race.\n\nBest regards,\nThe Rower Race Team`;
+      text = `Hello,\n\n${orgName} invites you to a connected race on Rower Race!\n\nRace: ${params.roomTitle}\nDistance: ${params.targetDistance}m\n${scheduleSectionText}\nDirect room details link: ${canonicalJoinUrl}\nWeb Room Code: ${params.roomCode}\nGarmin Watch Code: ${params.roomPin}\n\nHOW TO JOIN WITH YOUR GARMIN WATCH:\n1. Install the 'Rower Race' app from the Garmin app (Garmin Connect IQ or apps.garmin.com).\n2. Open the app on your Garmin watch near your rowing machine (Concept2 PM5, WaterRower, SmartRow, or FTMS ergometer).\n3. In the menu, select 'Join Room' and enter your watch code: ${params.roomPin}\n4. Your metrics (Watts, stroke rate, 500m pace, HR) will stream live to the race.\n\nBest regards,\nThe Rower Race Team`;
     }
 
     const html = renderCyberEmailHtml({
@@ -1254,7 +1258,7 @@ export class EmailService {
       title: subject,
       preheader: subject,
       bodyContentHtml,
-      ctaText: isFr ? "Accéder au salon du duel (Accepter / Refuser)" : "Join Duel Room (Accept / Decline)",
+      ctaText: isFr ? "Confirmer le duel" : "Confirm Duel",
       ctaUrl: targetUrl,
       lang: isFr ? "fr" : "en",
     });
@@ -1445,8 +1449,8 @@ export class EmailService {
       `;
 
     const ctaText = isFr
-      ? "Créer mon compte et relever le défi"
-      : "Create account and accept challenge";
+      ? "Créer mon compte et confirmer le duel"
+      : "Create account and confirm duel";
 
     const securityNote = isFr
       ? `Cette invitation personnelle est destinée à ${safeTo}. Lien d'inscription direct : ${safeSignupUrl}`

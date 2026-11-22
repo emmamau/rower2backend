@@ -253,7 +253,7 @@ test('sendDuelInvitationNewUserEmail (FR) generates cyber email with .ics attach
   assert.ok(lastMail.html.includes('duelInviteToken=tok_test_123'), 'HTML must include signupUrl with duelInviteToken');
   assert.ok(!lastMail.html.includes('mode=regatta'), 'HTML must not open in regatta view');
   assert.ok(lastMail.html.includes('Europe/Paris'), 'HTML must display timezone');
-  assert.ok(lastMail.html.includes('Créer mon compte et relever le défi'), 'HTML must include French CTA');
+  assert.ok(lastMail.html.includes('Créer mon compte et confirmer le duel'), 'HTML must include French CTA');
   assert.ok(lastMail.html.includes('calendar.google.com/calendar/render'), 'HTML must include Google Calendar link');
   assert.ok(lastMail.html.includes('outlook.live.com/calendar'), 'HTML must include Outlook Calendar link');
 
@@ -300,7 +300,7 @@ test('sendDuelInvitationNewUserEmail (EN) generates localized English cyber emai
   assert.ok(lastMail.subject.includes('Alex Row'));
   assert.ok(lastMail.subject.includes('challenged you to a duel on Rower Race'));
   assert.ok(lastMail.html.includes('<html lang="en">'), 'HTML lang attribute must be en');
-  assert.ok(lastMail.html.includes('Create account and accept challenge'), 'HTML must include English CTA');
+  assert.ok(lastMail.html.includes('Create account and confirm duel'), 'HTML must include English CTA');
   assert.ok(lastMail.html.includes('tok_en_456'));
   assert.ok(lastMail.html.includes('5000'));
   assert.ok(lastMail.html.includes('America/New_York'));
@@ -949,4 +949,67 @@ test('sendDuelResponseEmail and sendDuelCancelledEmail escape HTML special chara
   assert.ok(cancelMail.html.includes('Eve &lt;svg onload=1&gt;'));
   assert.ok(cancelMail.html.includes('Mallory &quot;X&quot; &amp; Co'));
   assert.ok(cancelMail.html.includes('mallory&#39;&lt;&gt;'));
+});
+
+test('sendRoomInvitationEmail & sendDuelChallengeEmail provide direct room/duel CTA and no regatta launch links', async () => {
+  emailService.clearLog();
+
+  // 1. Room invitation (multiplayer)
+  await emailService.sendRoomInvitationEmail({
+    to: 'multi@test.com',
+    organizerName: 'Emma Organizer',
+    roomTitle: 'Salon du Lac',
+    targetDistance: 2000,
+    roomCode: 'abc-def-ghi',
+    roomPin: '1234',
+    isDuel: false,
+    lang: 'fr',
+  });
+
+  // 2. Room invitation (duel 1v1)
+  await emailService.sendRoomInvitationEmail({
+    to: 'duelroom@test.com',
+    organizerName: 'Emma Duelist',
+    roomTitle: 'Duel 1v1 Sommet',
+    targetDistance: 1000,
+    roomCode: 'xyz-uvw-rst',
+    roomPin: '5678',
+    isDuel: true,
+    lang: 'fr',
+  });
+
+  // 3. Registered user duel challenge
+  await emailService.sendDuelChallengeEmail({
+    to: 'challenger@test.com',
+    challengerName: 'Emma Champ',
+    challengerLogin: 'EmmaChamp',
+    challengedName: 'Target Player',
+    challengeId: 'ch_test_999',
+    slotStart: new Date('2026-12-15T18:00:00.000Z').toISOString(),
+    slotEnd: new Date('2026-12-15T18:30:00.000Z').toISOString(),
+    targetDistance: 2000,
+    roomCode: 'ch-room-123',
+    roomPin: '9999',
+    lang: 'fr',
+  });
+
+  const sent = emailService.getSentEmails();
+  assert.equal(sent.length, 3);
+
+  const multiMail = sent[0];
+  assert.ok(multiMail.html.includes('Accéder au salon'), 'Multiplayer room invite CTA must be "Accéder au salon"');
+  assert.ok(!multiMail.html.includes('Rejoindre la Régate'), 'Multiplayer invite must not use "Rejoindre la Régate"');
+  assert.ok(!multiMail.html.includes('mode=regatta'), 'Must not link with mode=regatta');
+  assert.ok(multiMail.html.includes('/r/abc-def-ghi'), 'Must link to canonical room URL');
+
+  const duelRoomMail = sent[1];
+  assert.ok(duelRoomMail.html.includes('Confirmer le duel'), 'Duel room invite CTA must be "Confirmer le duel"');
+  assert.ok(!duelRoomMail.html.includes('Rejoindre la Régate'), 'Duel invite must not use "Rejoindre la Régate"');
+  assert.ok(!duelRoomMail.html.includes('mode=regatta'), 'Must not link with mode=regatta');
+  assert.ok(duelRoomMail.html.includes('/r/xyz-uvw-rst'), 'Must link to canonical room URL');
+
+  const directDuelMail = sent[2];
+  assert.ok(directDuelMail.html.includes('Confirmer le duel'), 'Duel challenge CTA must be "Confirmer le duel"');
+  assert.ok(!directDuelMail.html.includes('mode=regatta'), 'Duel challenge must not link with mode=regatta');
+  assert.ok(directDuelMail.html.includes('duelChallenge=ch_test_999'), 'Must contain challengeId in link');
 });
