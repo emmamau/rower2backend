@@ -52,7 +52,7 @@ export const es: Record<string, string> = {
   'SEO_GUIDE_DESC': 'Consultar la guía completa de remo indoor, telemetría y regatas',
   'SEO_TAG': '🌐 REMO E-SPORT & GUÍA CONECTADA',
   'SEO_TITLE': 'Rower Race — Plataforma de Remo Indoor y Regatas Multijugador',
-  'SEO_LEAD': 'Transforme cada sesión en remo Concept2, WaterRower SmartRow o ergómetro FTMS en una auténtica competición de remo conectada sincronizada con su reloj Garmin.',
+  'SEO_LEAD': 'Transforme cada sesión en remo Concept2, WaterRower SmartRow o ergómetro FTMS en una auténtica competición de remo conectada. Acceso directo de invitado sin registro, invitaciones por email en 1 clic, modo cockpit y regatas en directo sincronizadas con su reloj Garmin.',
   'WAKELOCK_ON': '🔆 Pantalla ACTIVA',
   'WAKELOCK_OFF': '🌙 Reposo',
 
@@ -114,6 +114,15 @@ export const es: Record<string, string> = {
   'BTN_CLOSE': 'Cerrar',
   'BTN_RETURN_HOME': 'Salir',
   'FOOTER_RGPD': 'RGPD y Privacidad: Cero rastreo, sin datos de salud almacenados, pseudonimización completa.',
+  'FOOTER_SUBSCRIPTIONS': 'Suscripciones y Tarifas',
+  'FOOTER_STATISTICS': 'Espacio de Estadísticas',
+  'FOOTER_RGPD_FULL': 'Datos deportivos y telemetría tratados según el RGPD (Art. 17 derecho al olvido). Contacto oficial: contact@rowerrace.com.',
+  'MOB_NAV_REGATTA': 'Regata',
+  'MOB_NAV_COCKPIT': 'Cockpit',
+  'MOB_NAV_LOCKED': 'Bloqueado',
+  'MOB_NAV_ROOMS': 'Salas',
+  'MOB_NAV_SEASON': 'Temporada',
+  'MOB_NAV_RACES': 'Carreras',
   'SELECT_LANGUAGE': 'Idioma',
 
   // Auth & Account Modal

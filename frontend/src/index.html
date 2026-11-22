@@ -6,69 +6,113 @@
   <base href="/">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#060913">
-  <meta name="description" content="Rower Race transforme vos séances sur rameur Concept2 PM5, WaterRower SmartRow et ergomètre FTMS en régates multijoueurs 2D en temps réel synchronisées avec votre montre Garmin Connect IQ. Duels 1v1 contre bots, salons privés et analyses statistiques complètes. Contact : contact@rowerrace.com.">
-  <meta name="robots" content="noindex, nofollow">
-  <meta name="keywords" content="aviron indoor, rameur connecte, Concept2 PM5, WaterRower SmartRow, Garmin Connect IQ, regate 2D, duel bot aviron, FTMS rowing, esport aviron, telemetrie watts allure 500m">
+  <meta name="description" content="Rower Race transforme vos séances sur rameur Concept2 PM5, WaterRower SmartRow et ergomètre FTMS en régates multijoueurs 2D en temps réel synchronisées avec votre montre Garmin Connect IQ. Accès invité direct sans inscription, invitations 1-clic par e-mail, mode cockpit et duels contre bots ou amis.">
+  <meta name="robots" content="index, follow">
+  <meta name="keywords" content="aviron indoor, rameur connecte, Concept2 PM5, WaterRower SmartRow, Garmin Connect IQ, regate 2D, duel bot aviron, duel ami aviron, FTMS rowing, esport aviron, telemetrie watts allure 500m, mode cockpit aviron">
   <meta name="author" content="Rower Race (contact@rowerrace.com)">
-  <link rel="canonical" href="https://rower2backend.onrender.com/">
+  <link rel="canonical" href="https://rowerrace.com/">
 
   <!-- Hreflang multilingue pour l'indexation internationale -->
-  <link rel="alternate" hreflang="fr" href="https://rower2backend.onrender.com/?lang=fr">
-  <link rel="alternate" hreflang="en" href="https://rower2backend.onrender.com/?lang=en">
-  <link rel="alternate" hreflang="de" href="https://rower2backend.onrender.com/?lang=de">
-  <link rel="alternate" hreflang="es" href="https://rower2backend.onrender.com/?lang=es">
-  <link rel="alternate" hreflang="it" href="https://rower2backend.onrender.com/?lang=it">
-  <link rel="alternate" hreflang="x-default" href="https://rower2backend.onrender.com/">
+  <link rel="alternate" hreflang="fr" href="https://rowerrace.com/?lang=fr">
+  <link rel="alternate" hreflang="en" href="https://rowerrace.com/?lang=en">
+  <link rel="alternate" hreflang="de" href="https://rowerrace.com/?lang=de">
+  <link rel="alternate" hreflang="es" href="https://rowerrace.com/?lang=es">
+  <link rel="alternate" hreflang="it" href="https://rowerrace.com/?lang=it">
+  <link rel="alternate" hreflang="pt" href="https://rowerrace.com/?lang=pt">
+  <link rel="alternate" hreflang="x-default" href="https://rowerrace.com/">
 
   <!-- Open Graph / Réseaux sociaux -->
   <meta property="og:type" content="website">
-  <meta property="og:title" content="Rower Race — Plateforme Aviron Indoor & Régates Connectées">
-  <meta property="og:description" content="Participez à des régates virtuelles en direct sur votre rameur (Concept2, WaterRower SmartRow, FTMS) avec votre montre Garmin Connect IQ.">
-  <meta property="og:url" content="https://rower2backend.onrender.com/">
+  <meta property="og:title" content="Rower Race — Plateforme Aviron Indoor, Télémétrie & Régates Connectées">
+  <meta property="og:description" content="Participez à des régates virtuelles 2D et duels en direct sur votre rameur (Concept2, WaterRower SmartRow, FTMS) avec votre montre Garmin Connect IQ. Accès invité immédiat sans inscription.">
+  <meta property="og:url" content="https://rowerrace.com/">
   <meta property="og:site_name" content="Rower Race">
   <meta property="og:locale" content="fr_FR">
 
   <!-- Twitter Card -->
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="Rower Race — Plateforme Aviron Indoor & Régates Connectées">
-  <meta name="twitter:description" content="Régates 2D multijoueurs en temps réel pour rameurs Concept2, WaterRower SmartRow et montres Garmin.">
+  <meta name="twitter:description" content="Régates 2D multijoueurs, mode cockpit télémétrique et duels connectés pour rameurs Concept2, WaterRower SmartRow et montres Garmin.">
 
   <!-- Données structurées JSON-LD pour les moteurs de recherche -->
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
-    "@type": "WebApplication",
-    "name": "Rower Race",
-    "url": "https://rower2backend.onrender.com/",
-    "applicationCategory": "SportsApplication",
-    "operatingSystem": "Web, Garmin Connect IQ",
-    "description": "Plateforme sportive connectée pour rameurs Concept2 PM5, WaterRower SmartRow et montres Garmin Connect IQ avec régates 2D multijoueurs en direct et duels 1v1 contre bots.",
-    "contactPoint": {
-      "@type": "ContactPoint",
-      "email": "contact@rowerrace.com",
-      "contactType": "customer support"
-    },
-    "offers": [
+    "@graph": [
       {
-        "@type": "Offer",
-        "name": "Offre Gratuite",
-        "price": "0",
-        "priceCurrency": "EUR",
-        "description": "Accès aux courses publiques, salons privés 2 coureurs jusqu'à 2 000m et historique 10 jours"
+        "@type": "WebApplication",
+        "@id": "https://rowerrace.com/#app",
+        "name": "Rower Race",
+        "url": "https://rowerrace.com/",
+        "applicationCategory": "SportsApplication",
+        "operatingSystem": "Web, Garmin Connect IQ",
+        "description": "Plateforme sportive connectée pour rameurs Concept2 PM5, WaterRower SmartRow, Bluetooth FTMS et montres Garmin Connect IQ avec régates 2D multijoueurs, mode cockpit, invitations par e-mail et duels contre bots ou amis.",
+        "contactPoint": {
+          "@type": "ContactPoint",
+          "email": "contact@rowerrace.com",
+          "contactType": "customer support"
+        },
+        "offers": [
+          {
+            "@type": "Offer",
+            "name": "Accès Gratuit & Invité",
+            "price": "0",
+            "priceCurrency": "EUR",
+            "description": "Accès direct sans inscription obligatoire, courses publiques, salons privés 2 coureurs jusqu'à 2 000m et historique 10 jours"
+          },
+          {
+            "@type": "Offer",
+            "name": "Offre Club",
+            "price": "5.99",
+            "priceCurrency": "EUR",
+            "description": "Salons privés jusqu'à 5 coureurs, courses jusqu'à 5 000m, 3 bots et historique illimité"
+          },
+          {
+            "@type": "Offer",
+            "name": "Offre Élite Pro",
+            "price": "8.99",
+            "priceCurrency": "EUR",
+            "description": "Salons privés jusqu'à 10 coureurs, courses jusqu'à 10 000m, 5 bots et historique illimité"
+          }
+        ]
       },
       {
-        "@type": "Offer",
-        "name": "Offre Club",
-        "price": "5.99",
-        "priceCurrency": "EUR",
-        "description": "Salons privés jusqu'à 5 coureurs, courses jusqu'à 5 000m, 3 bots et historique illimité"
-      },
-      {
-        "@type": "Offer",
-        "name": "Offre Élite Pro",
-        "price": "8.99",
-        "priceCurrency": "EUR",
-        "description": "Salons privés jusqu'à 10 coureurs, courses jusqu'à 10 000m, 5 bots et historique illimité"
+        "@type": "FAQPage",
+        "@id": "https://rowerrace.com/#faq",
+        "mainEntity": [
+          {
+            "@type": "Question",
+            "name": "Quels rameurs et montres connectées sont compatibles avec Rower Race ?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Rower Race est compatible avec les moniteurs Concept2 PM5, les poulies et capteurs WaterRower SmartRow, tous les rameurs Bluetooth au protocole FTMS (Fitness Machine Service), ainsi que les montres de sport Garmin via l'application Garmin Connect IQ."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Peut-on essayer Rower Race sans créer de compte ?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Oui, Rower Race propose un accès direct en Mode Invité. Vous pouvez lancer ou rejoindre une course immédiatement, appairer votre montre Garmin avec le code PIN et ramer sans avoir besoin de créer un compte à l'avance."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Comment inviter un ami ou lancer un duel ?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Vous pouvez créer un salon privé ou un duel 1v1 et inviter un ami en un clic via un lien de partage direct ou une invitation e-mail. Le lien configure automatiquement la course et le code PIN de la montre dès l'ouverture."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Quelles sont les formules et comment mes données sont-elles protégées ?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "L'accès de base est 100% gratuit avec 10 jours d'historique. Les formules Club (5,99 €/mois) et Élite Pro (8,99 €/mois) offrent des salons élargis et un historique illimité. Vos données de performance sont traitées conformément au RGPD avec droit à l'effacement en un clic."
+            }
+          }
+        ]
       }
     ]
   }

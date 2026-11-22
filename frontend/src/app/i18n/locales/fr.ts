@@ -52,7 +52,7 @@ export const fr: Record<string, string> = {
   'SEO_GUIDE_DESC': 'Consulter le guide complet aviron connecté, télémétrie et régates',
   'SEO_TAG': '🌐 ESPORT ROWING & GUIDE CONNECTÉ',
   'SEO_TITLE': 'Rower Race — Plateforme Aviron Indoor & Régates Multijoueur',
-  'SEO_LEAD': 'Transformez chaque séance sur rameur Concept2, WaterRower SmartRow ou ergomètre FTMS en une véritable compétition d\'aviron connectée synchronisée avec votre montre Garmin.',
+  'SEO_LEAD': 'Transformez chaque séance sur rameur Concept2, WaterRower SmartRow ou ergomètre FTMS en une véritable compétition d\'aviron connectée. Accès invité immédiat sans inscription, invitations 1-clic par email, mode cockpit et régates en direct synchronisés avec votre montre Garmin.',
   'WAKELOCK_ON': '🔆 Écran ON',
   'WAKELOCK_OFF': '🌙 Écran Veille',
 
@@ -114,6 +114,15 @@ export const fr: Record<string, string> = {
   'BTN_CLOSE': 'Fermer',
   'BTN_RETURN_HOME': 'Quitter',
   'FOOTER_RGPD': 'Conformité RGPD & Confidentialité : Zéro pistage, aucune donnée médicale stockée, pseudonymisation intégrale.',
+  'FOOTER_SUBSCRIPTIONS': 'Abonnements & Tarifs',
+  'FOOTER_STATISTICS': 'Espace Statistiques',
+  'FOOTER_RGPD_FULL': 'Données sportives et télémétrie traitées selon le RGPD (Art. 17 droit à l\'oubli). Contact officiel : contact@rowerrace.com.',
+  'MOB_NAV_REGATTA': 'Régate',
+  'MOB_NAV_COCKPIT': 'Cockpit',
+  'MOB_NAV_LOCKED': 'Verrouillé',
+  'MOB_NAV_ROOMS': 'Salons',
+  'MOB_NAV_SEASON': 'Saison',
+  'MOB_NAV_RACES': 'Courses',
   'SELECT_LANGUAGE': 'Langue',
 
   // Auth & Account Modal

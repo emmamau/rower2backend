@@ -52,7 +52,7 @@ export const it: Record<string, string> = {
   'SEO_GUIDE_DESC': 'Consulta la guida completa su canottaggio indoor, telemetria e regate',
   'SEO_TAG': '🌐 CANOTTAGGIO E-SPORT & GUIDA CONNESSA',
   'SEO_TITLE': 'Rower Race — Piattaforma Canottaggio Indoor & Regate Multigiocatore',
-  'SEO_LEAD': 'Trasforma ogni sessione sul remoergometro Concept2, WaterRower SmartRow o FTMS in una vera competizione di canottaggio connessa sincronizzata con il tuo orologio Garmin.',
+  'SEO_LEAD': 'Trasforma ogni sessione sul remoergometro Concept2, WaterRower SmartRow o FTMS in una vera competizione di canottaggio connessa. Accesso ospite immediato senza registrazione, inviti via email in 1 clic, modalità cockpit e regate live sincronizzate con il tuo orologio Garmin.',
   'WAKELOCK_ON': '🔆 Schermo ACCESO',
   'WAKELOCK_OFF': '🌙 Standby',
 
@@ -114,6 +114,15 @@ export const it: Record<string, string> = {
   'BTN_CLOSE': 'Chiudi',
   'BTN_RETURN_HOME': 'Esci',
   'FOOTER_RGPD': 'GDPR & Privacy: Nessun tracciamento, nessun dato medico archiviato, pseudonimizzazione totale.',
+  'FOOTER_SUBSCRIPTIONS': 'Abbonamenti e Tariffe',
+  'FOOTER_STATISTICS': 'Spazio Statistiche',
+  'FOOTER_RGPD_FULL': 'Dati sportivi e telemetria trattati ai sensi del GDPR (Art. 17 diritto all\'oblio). Contatto ufficiale: contact@rowerrace.com.',
+  'MOB_NAV_REGATTA': 'Regata',
+  'MOB_NAV_COCKPIT': 'Cockpit',
+  'MOB_NAV_LOCKED': 'Bloccato',
+  'MOB_NAV_ROOMS': 'Stanze',
+  'MOB_NAV_SEASON': 'Stagione',
+  'MOB_NAV_RACES': 'Gare',
   'SELECT_LANGUAGE': 'Lingua',
 
   // Auth & Account Modal

@@ -734,17 +734,18 @@ test('Garmin Watch: Aberrant jump filtering, baseline healing, and physiological
   assert.match(rowerDataModelMc, /\/\/ Bit 11: Remaining Time present \(uint16, seconds\)[\s\S]*?if \(\(flags & 0x0800\) != 0 && \(offset \+ 2\) <= size\) \{[\s\S]*?offset \+= 2;/);
 });
 
-test('robots.txt and meta noindex prevent SEO crawling of frontend', () => {
+test('robots.txt and meta robots configure SEO indexing for frontend and custom domain', () => {
   const robotsPath = path.join(__dirname, '../public/robots.txt');
   assert.ok(fs.existsSync(robotsPath), 'robots.txt must exist in public folder');
 
   const robotsContent = fs.readFileSync(robotsPath, 'utf8');
   assert.match(robotsContent, /User-agent:\s*\*/i, 'robots.txt must target all user agents');
-  assert.match(robotsContent, /Disallow:\s*\//i, 'robots.txt must disallow all root routes');
+  assert.match(robotsContent, /Allow:\s*\//i, 'robots.txt must allow root routes');
 
   const indexHtmlPath = path.join(__dirname, '../src/index.html');
   const indexHtml = fs.readFileSync(indexHtmlPath, 'utf8');
-  assert.match(indexHtml, /<meta\s+name=["']robots["']\s+content=["'][^"']*noindex[^"']*["']/i, 'index.html must have noindex meta tag');
+  assert.match(indexHtml, /<meta\s+name=["']robots["']\s+content=["'][^"']*index,\s*follow[^"']*["']/i, 'index.html must have index, follow meta tag');
+  assert.match(indexHtml, /https:\/\/rowerrace\.com/i, 'index.html must reference custom canonical domain');
 });
 
 test('Mobile & Tablet: Automatic Fullscreen on Cockpit or Regatta entry, and Floating Fullscreen button', () => {

@@ -52,7 +52,7 @@ export const de: Record<string, string> = {
   'SEO_GUIDE_DESC': 'Den vollständigen Leitfaden für Indoor-Rudern und Telemetrie lesen',
   'SEO_TAG': '🌐 E-SPORT RUDERN & VERNETZTER RATGEBER',
   'SEO_TITLE': 'Rower Race — Plattform für Indoor-Rudern & Mehrspieler-Regatten',
-  'SEO_LEAD': 'Verwandeln Sie jedes Training auf Concept2, WaterRower SmartRow oder FTMS Ergometern in einen echten vernetzten Ruderwettkampf synchronisiert mit Ihrer Garmin-Uhr.',
+  'SEO_LEAD': 'Verwandeln Sie jedes Training auf Concept2, WaterRower SmartRow oder FTMS Ergometern in einen echten vernetzten Ruderwettkampf. Sofortiger Gastzugang ohne Registrierung, 1-Klick-Einladungen per E-Mail, Cockpit-Modus und Live-Regatten synchronisiert mit Ihrer Garmin-Uhr.',
   'WAKELOCK_ON': '🔆 Display AN',
   'WAKELOCK_OFF': '🌙 Standby',
 
@@ -114,6 +114,15 @@ export const de: Record<string, string> = {
   'BTN_CLOSE': 'Schließen',
   'BTN_RETURN_HOME': 'Verlassen',
   'FOOTER_RGPD': 'DSGVO & Datenschutz: Kein Tracking, keine Gesundheitsdaten, vollständige Pseudonymisierung.',
+  'FOOTER_SUBSCRIPTIONS': 'Abos & Preise',
+  'FOOTER_STATISTICS': 'Statistikbereich',
+  'FOOTER_RGPD_FULL': 'Sport- und Telemetriedaten gemäß DSGVO verarbeitet (Art. 17 Recht auf Vergessenwerden). Offizieller Kontakt: contact@rowerrace.com.',
+  'MOB_NAV_REGATTA': 'Regatta',
+  'MOB_NAV_COCKPIT': 'Cockpit',
+  'MOB_NAV_LOCKED': 'Gesperrt',
+  'MOB_NAV_ROOMS': 'Räume',
+  'MOB_NAV_SEASON': 'Saison',
+  'MOB_NAV_RACES': 'Rennen',
   'SELECT_LANGUAGE': 'Sprache',
 
   // Auth & Account Modal

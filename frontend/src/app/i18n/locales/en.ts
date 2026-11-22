@@ -52,7 +52,7 @@ export const en: Record<string, string> = {
   'SEO_GUIDE_DESC': 'Read the complete connected rowing, telemetry and regattas guide',
   'SEO_TAG': '🌐 ESPORT ROWING & CONNECTED GUIDE',
   'SEO_TITLE': 'Rower Race — Indoor Rowing Platform & Multiplayer Regattas',
-  'SEO_LEAD': 'Transform every workout on your Concept2, WaterRower SmartRow or FTMS ergometer into a real connected rowing competition synced with your Garmin watch.',
+  'SEO_LEAD': 'Transform every workout on your Concept2, WaterRower SmartRow or FTMS ergometer into a real connected rowing competition. Instant guest access with no sign-up required, 1-click email invites, cockpit view and live regattas synced with your Garmin watch.',
   'WAKELOCK_ON': '🔆 Screen ON',
   'WAKELOCK_OFF': '🌙 Screen Sleep',
 
@@ -114,6 +114,15 @@ export const en: Record<string, string> = {
   'BTN_CLOSE': 'Close',
   'BTN_RETURN_HOME': 'Quit',
   'FOOTER_RGPD': 'GDPR Compliance & Privacy: Zero tracking, no medical data collected, total pseudonymization.',
+  'FOOTER_SUBSCRIPTIONS': 'Plans & Pricing',
+  'FOOTER_STATISTICS': 'Statistics Hub',
+  'FOOTER_RGPD_FULL': 'Sports performance & telemetry handled per GDPR (Art. 17 right to erasure). Official contact: contact@rowerrace.com.',
+  'MOB_NAV_REGATTA': 'Regatta',
+  'MOB_NAV_COCKPIT': 'Cockpit',
+  'MOB_NAV_LOCKED': 'Locked',
+  'MOB_NAV_ROOMS': 'Rooms',
+  'MOB_NAV_SEASON': 'Season',
+  'MOB_NAV_RACES': 'Races',
   'SELECT_LANGUAGE': 'Language',
 
   // Auth & Account Modal
