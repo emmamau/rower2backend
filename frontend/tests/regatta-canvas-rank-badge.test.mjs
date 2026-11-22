@@ -32,11 +32,11 @@ test('RegattaCanvasComponent: rank medal and remaining distance badge logic', ()
   assert.match(canvasContent, /🥈/, 'Must use silver medal 🥈 for 2nd place');
   assert.match(canvasContent, /🥉/, 'Must use bronze medal 🥉 for 3rd place');
 
-  // 4. Check that badge rendering is strictly scoped to connected user (isUser)
+  // 4. Check that badge rendering handles connected user (isUser) and opponents
   assert.match(
     canvasContent,
-    /if\s*\(\s*isUser\s*&&\s*\(this\.isRaceActive/s,
-    'Must only draw badge in front of boat for connected user (isUser) during active race'
+    /isUser\s*\?\s*\(this\.regattaPreferences\?\.myLaneMetrics/s,
+    'Must draw configurable badges for connected user (isUser) and opponents'
   );
 
   // 5. Check remaining distance calculation

@@ -1069,6 +1069,171 @@
             </div>
           </div>
 
+          <!-- 4. CONFIGURATION DES LIGNES D'EAU (Mon kayak, Concurrents, Incrustation Géante) -->
+          <div class="customizer-section lane-config-section">
+            <label class="customizer-section-title">
+              <span>🛶 {{ i18n.t('ACCOUNT_REGATTA_LANES_SECTION_TITLE') }}</span>
+            </label>
+
+            <!-- A. Mon Kayak (Ma Ligne d'eau) -->
+            <div class="lane-config-card">
+              <h4 class="lane-config-subtitle">🙋 {{ i18n.t('ACCOUNT_REGATTA_MY_LANE_TITLE') }}</h4>
+              <div class="lane-config-grid">
+                <div class="lane-config-field">
+                  <label class="field-label-sm">{{ i18n.t('ACCOUNT_REGATTA_MY_LANE_DATA1') }}</label>
+                  <select
+                    class="lane-select"
+                    [value]="myLaneMetrics[0]"
+                    (change)="setMyLaneMetric(0, $any($event.target).value)">
+                    @for (m of regattaMetricsCatalog; track m.key) {
+                      <option [value]="m.key">{{ m.icon }} {{ getRegattaMetricLabel(m.key) }}</option>
+                    }
+                  </select>
+                </div>
+                <div class="lane-config-field">
+                  <label class="field-label-sm">{{ i18n.t('ACCOUNT_REGATTA_MY_LANE_DATA2') }}</label>
+                  <select
+                    class="lane-select"
+                    [value]="myLaneMetrics[1]"
+                    (change)="setMyLaneMetric(1, $any($event.target).value)">
+                    @for (m of regattaMetricsCatalog; track m.key) {
+                      <option [value]="m.key">{{ m.icon }} {{ getRegattaMetricLabel(m.key) }}</option>
+                    }
+                  </select>
+                </div>
+              </div>
+
+              <!-- Placement des données joueur -->
+              <div class="lane-pos-row">
+                <span class="field-label-sm">{{ i18n.t('ACCOUNT_REGATTA_POS_LABEL') }} :</span>
+                <div class="lane-pos-pill-group">
+                  <button
+                    type="button"
+                    class="btn-pos-pill"
+                    [class.active]="myLanePosition === 'auto'"
+                    (click)="setMyLanePosition('auto')">
+                    🔄 {{ i18n.t('ACCOUNT_REGATTA_POS_AUTO') }}
+                  </button>
+                  <button
+                    type="button"
+                    class="btn-pos-pill"
+                    [class.active]="myLanePosition === 'front'"
+                    (click)="setMyLanePosition('front')">
+                    ➡️ {{ i18n.t('ACCOUNT_REGATTA_POS_FRONT') }}
+                  </button>
+                  <button
+                    type="button"
+                    class="btn-pos-pill"
+                    [class.active]="myLanePosition === 'back'"
+                    (click)="setMyLanePosition('back')">
+                    ⬅️ {{ i18n.t('ACCOUNT_REGATTA_POS_BACK') }}
+                  </button>
+                </div>
+              </div>
+
+              <!-- Encart VOUS + Login -->
+              <div class="lane-config-field" style="margin-top: 0.35rem;">
+                <label class="field-label-sm">🏷️ {{ i18n.t('ACCOUNT_REGATTA_MY_HEADER_METRIC') }}</label>
+                <select
+                  class="lane-select"
+                  [value]="myHeaderMetric"
+                  (change)="setMyHeaderMetric($any($event.target).value)">
+                  @for (m of regattaMetricsCatalog; track m.key) {
+                    <option [value]="m.key">{{ m.icon }} {{ getRegattaMetricLabel(m.key) }}</option>
+                  }
+                </select>
+              </div>
+            </div>
+
+            <!-- B. Kayaks Concurrents (Bots & Adversaires) -->
+            <div class="lane-config-card" style="margin-top: 0.55rem;">
+              <h4 class="lane-config-subtitle">👥 {{ i18n.t('ACCOUNT_REGATTA_OPPONENTS_SECTION_TITLE') }}</h4>
+              <div class="lane-config-grid">
+                <div class="lane-config-field">
+                  <label class="field-label-sm">{{ i18n.t('ACCOUNT_REGATTA_OPPONENTS_DATA1') }}</label>
+                  <select
+                    class="lane-select"
+                    [value]="opponentLaneMetrics[0]"
+                    (change)="setOpponentLaneMetric(0, $any($event.target).value)">
+                    @for (m of regattaMetricsCatalog; track m.key) {
+                      <option [value]="m.key">{{ m.icon }} {{ getRegattaMetricLabel(m.key) }}</option>
+                    }
+                  </select>
+                </div>
+                <div class="lane-config-field">
+                  <label class="field-label-sm">{{ i18n.t('ACCOUNT_REGATTA_OPPONENTS_DATA2') }}</label>
+                  <select
+                    class="lane-select"
+                    [value]="opponentLaneMetrics[1]"
+                    (change)="setOpponentLaneMetric(1, $any($event.target).value)">
+                    @for (m of regattaMetricsCatalog; track m.key) {
+                      <option [value]="m.key">{{ m.icon }} {{ getRegattaMetricLabel(m.key) }}</option>
+                    }
+                  </select>
+                </div>
+              </div>
+
+              <!-- Placement des données concurrents -->
+              <div class="lane-pos-row">
+                <span class="field-label-sm">{{ i18n.t('ACCOUNT_REGATTA_OPPONENTS_POS_LABEL') }} :</span>
+                <div class="lane-pos-pill-group">
+                  <button
+                    type="button"
+                    class="btn-pos-pill"
+                    [class.active]="opponentLanePosition === 'auto'"
+                    (click)="setOpponentLanePosition('auto')">
+                    🔄 {{ i18n.t('ACCOUNT_REGATTA_POS_AUTO') }}
+                  </button>
+                  <button
+                    type="button"
+                    class="btn-pos-pill"
+                    [class.active]="opponentLanePosition === 'front'"
+                    (click)="setOpponentLanePosition('front')">
+                    ➡️ {{ i18n.t('ACCOUNT_REGATTA_POS_FRONT') }}
+                  </button>
+                  <button
+                    type="button"
+                    class="btn-pos-pill"
+                    [class.active]="opponentLanePosition === 'back'"
+                    (click)="setOpponentLanePosition('back')">
+                    ⬅️ {{ i18n.t('ACCOUNT_REGATTA_POS_BACK') }}
+                  </button>
+                </div>
+              </div>
+
+              <!-- Encart Concurrents (Nom + Métrique) -->
+              <div class="lane-config-field" style="margin-top: 0.35rem;">
+                <label class="field-label-sm">🏷️ {{ i18n.t('ACCOUNT_REGATTA_OPPONENTS_HEADER_METRIC') }}</label>
+                <select
+                  class="lane-select"
+                  [value]="opponentHeaderMetric"
+                  (change)="setOpponentHeaderMetric($any($event.target).value)">
+                  @for (m of regattaMetricsCatalog; track m.key) {
+                    <option [value]="m.key">{{ m.icon }} {{ getRegattaMetricLabel(m.key) }}</option>
+                  }
+                </select>
+              </div>
+            </div>
+
+            <!-- C. Incrustation Géante Transparente (Watermark) -->
+            <div class="lane-config-card" style="margin-top: 0.55rem;">
+              <h4 class="lane-config-subtitle">✨ {{ i18n.t('ACCOUNT_REGATTA_WATERMARK_TITLE') }}</h4>
+              <p class="field-hint" style="margin: 0.15rem 0 0.4rem 0;">{{ i18n.t('ACCOUNT_REGATTA_WATERMARK_DESC') }}</p>
+              <div class="lane-config-field">
+                <label class="field-label-sm">{{ i18n.t('ACCOUNT_REGATTA_WATERMARK_METRIC') }}</label>
+                <select
+                  class="lane-select"
+                  [value]="watermarkMetric"
+                  (change)="setWatermarkMetric($any($event.target).value)">
+                  <option value="none">🚫 {{ i18n.t('REGATTA_METRIC_NAME_NONE') }}</option>
+                  @for (m of regattaMetricsCatalog; track m.key) {
+                    <option [value]="m.key">{{ m.icon }} {{ getRegattaMetricLabel(m.key) }}</option>
+                  }
+                </select>
+              </div>
+            </div>
+          </div>
+
           <!-- 4. Option du Compte à Rebours Flottant avant la course -->
           <div class="customizer-section timer-pref-section">
             <label class="customizer-section-title">

@@ -22,6 +22,7 @@ import {
   DEFAULT_KAYAK_CUSTOMIZATION,
   RegattaMetricKey,
   RegattaPreferences,
+  LaneDataPosition,
   RegattaMetricOption,
   REGATTA_METRICS_CATALOG,
   DEFAULT_REGATTA_PREFERENCES,
@@ -298,9 +299,37 @@ export class AppComponent implements OnInit, OnDestroy {
   readonly regattaZoomPresets: number[] = [1, 1.5, 2, 2.5, 3];
   regattaZoomLevel = DEFAULT_REGATTA_PREFERENCES.zoomLevel;
   selectedRegattaMetrics: RegattaMetricKey[] = [...DEFAULT_REGATTA_PREFERENCES.selectedMetrics];
+  myLaneMetrics: [RegattaMetricKey, RegattaMetricKey] = [...DEFAULT_REGATTA_PREFERENCES.myLaneMetrics];
+  myLanePosition: LaneDataPosition = DEFAULT_REGATTA_PREFERENCES.myLanePosition;
+  myHeaderMetric: RegattaMetricKey = DEFAULT_REGATTA_PREFERENCES.myHeaderMetric;
+  opponentLaneMetrics: [RegattaMetricKey, RegattaMetricKey] = [...DEFAULT_REGATTA_PREFERENCES.opponentLaneMetrics];
+  opponentLanePosition: LaneDataPosition = DEFAULT_REGATTA_PREFERENCES.opponentLanePosition;
+  opponentHeaderMetric: RegattaMetricKey = DEFAULT_REGATTA_PREFERENCES.opponentHeaderMetric;
+  watermarkMetric: RegattaMetricKey = DEFAULT_REGATTA_PREFERENCES.watermarkMetric;
   isSavingRegattaPreferences = false;
   regattaPreferencesFeedback = '';
   regattaPreferencesError = '';
+
+  get userRegattaPreferences(): RegattaPreferences {
+    return {
+      zoomLevel: this.regattaZoomLevel,
+      selectedMetrics: this.selectedRegattaMetrics,
+      myLaneMetrics: this.myLaneMetrics,
+      myLanePosition: this.myLanePosition,
+      myHeaderMetric: this.myHeaderMetric,
+      opponentLaneMetrics: this.opponentLaneMetrics,
+      opponentLanePosition: this.opponentLanePosition,
+      opponentHeaderMetric: this.opponentHeaderMetric,
+      watermarkMetric: this.watermarkMetric,
+    };
+  }
+
+  get currentRaceElapsedSeconds(): number {
+    if (this.myActivity?.elapsedTime && this.myActivity.elapsedTime > 0) {
+      return this.myActivity.elapsedTime;
+    }
+    return Math.max(0, (this.gameMaxDurationSeconds || 0) - (this.gameRemainingSeconds || 0));
+  }
 
   // Personnalisation du Kayak 2D
   customKayakHullColor = '#00e5ff';
@@ -451,6 +480,13 @@ export class AppComponent implements OnInit, OnDestroy {
     const prefs = sanitizeRegattaPreferences(user?.regattaPreferences || this.getLocalRegattaPreferences());
     this.regattaZoomLevel = prefs.zoomLevel;
     this.selectedRegattaMetrics = [...prefs.selectedMetrics];
+    this.myLaneMetrics = [...prefs.myLaneMetrics];
+    this.myLanePosition = prefs.myLanePosition;
+    this.myHeaderMetric = prefs.myHeaderMetric;
+    this.opponentLaneMetrics = [...prefs.opponentLaneMetrics];
+    this.opponentLanePosition = prefs.opponentLanePosition;
+    this.opponentHeaderMetric = prefs.opponentHeaderMetric;
+    this.watermarkMetric = prefs.watermarkMetric;
   }
 
   openRegattaSettings(): void {
@@ -512,6 +548,13 @@ export class AppComponent implements OnInit, OnDestroy {
   resetRegattaPreferencesDefault(): void {
     this.regattaZoomLevel = DEFAULT_REGATTA_PREFERENCES.zoomLevel;
     this.selectedRegattaMetrics = [...DEFAULT_REGATTA_PREFERENCES.selectedMetrics];
+    this.myLaneMetrics = [...DEFAULT_REGATTA_PREFERENCES.myLaneMetrics];
+    this.myLanePosition = DEFAULT_REGATTA_PREFERENCES.myLanePosition;
+    this.myHeaderMetric = DEFAULT_REGATTA_PREFERENCES.myHeaderMetric;
+    this.opponentLaneMetrics = [...DEFAULT_REGATTA_PREFERENCES.opponentLaneMetrics];
+    this.opponentLanePosition = DEFAULT_REGATTA_PREFERENCES.opponentLanePosition;
+    this.opponentHeaderMetric = DEFAULT_REGATTA_PREFERENCES.opponentHeaderMetric;
+    this.watermarkMetric = DEFAULT_REGATTA_PREFERENCES.watermarkMetric;
     this.regattaPreferencesError = '';
     this.regattaPreferencesFeedback = 'Paramètres par défaut restaurés.';
     this.cdr.markForCheck();
@@ -532,10 +575,7 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   private persistRegattaPreferencesSilent(): void {
-    const prefs = sanitizeRegattaPreferences({
-      zoomLevel: this.regattaZoomLevel,
-      selectedMetrics: this.selectedRegattaMetrics,
-    });
+    const prefs = sanitizeRegattaPreferences(this.userRegattaPreferences);
     try {
       localStorage.setItem('rower_regatta_preferences', JSON.stringify(prefs));
     } catch {}
@@ -558,10 +598,7 @@ export class AppComponent implements OnInit, OnDestroy {
       return;
     }
 
-    const prefs = sanitizeRegattaPreferences({
-      zoomLevel: this.regattaZoomLevel,
-      selectedMetrics: this.selectedRegattaMetrics,
-    });
+    const prefs = sanitizeRegattaPreferences(this.userRegattaPreferences);
 
     try {
       localStorage.setItem('rower_regatta_preferences', JSON.stringify(prefs));

@@ -367,6 +367,8 @@
       [myKayakCustomization]="currentKayakCustomization"
       [isRaceActive]="isRaceActive"
       [zoomLevel]="regattaZoomLevel"
+      [regattaPreferences]="regattaPreferences"
+      [raceElapsedTimeSeconds]="raceElapsedTimeSeconds"
       (zoomLevelChange)="setRegattaZoomRequest.emit($event)"
       (racerSelected)="spectatorSelect.emit($event)"
       (kayakClaimed)="kayakClaimed.emit($event)">

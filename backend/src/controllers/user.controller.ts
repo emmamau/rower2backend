@@ -56,9 +56,11 @@ const DEFAULT_KAYAK_CUSTOMIZATION: KayakCustomization = {
 };
 
 const VALID_REGATTA_METRICS: RegattaMetricKey[] = [
+  "chrono",
+  "power",
+  "spm",
   "speed",
   "pace",
-  "power",
   "position",
   "distToPrev",
   "distToLeader",
@@ -70,6 +72,7 @@ const VALID_REGATTA_METRICS: RegattaMetricKey[] = [
   "avgSpeed",
   "avgPower",
   "avgPace",
+  "none",
 ];
 
 const DEFAULT_REGATTA_METRICS: RegattaMetricKey[] = [
@@ -84,6 +87,13 @@ const DEFAULT_REGATTA_METRICS: RegattaMetricKey[] = [
 const DEFAULT_REGATTA_PREFERENCES: RegattaPreferences = {
   zoomLevel: 1,
   selectedMetrics: [...DEFAULT_REGATTA_METRICS],
+  myLaneMetrics: ["position", "distRemaining"],
+  myLanePosition: "auto",
+  myHeaderMetric: "distCovered",
+  opponentLaneMetrics: ["distRemaining", "pace"],
+  opponentLanePosition: "auto",
+  opponentHeaderMetric: "distCovered",
+  watermarkMetric: "chrono",
 };
 
 function sanitizeRegattaPreferences(prefs?: any): RegattaPreferences {
@@ -98,7 +108,7 @@ function sanitizeRegattaPreferences(prefs?: any): RegattaPreferences {
   if (Array.isArray(prefs?.selectedMetrics)) {
     for (const item of prefs.selectedMetrics) {
       const k = String(item || "").trim() as RegattaMetricKey;
-      if (validSet.has(k) && !uniqueMetrics.includes(k)) {
+      if (validSet.has(k) && k !== "none" && !uniqueMetrics.includes(k)) {
         uniqueMetrics.push(k);
       }
     }
@@ -115,9 +125,35 @@ function sanitizeRegattaPreferences(prefs?: any): RegattaPreferences {
     }
   }
 
+  const sanitizeMetricPair = (pair: any, fallback: [RegattaMetricKey, RegattaMetricKey]): [RegattaMetricKey, RegattaMetricKey] => {
+    if (!Array.isArray(pair) || pair.length < 2) return [...fallback];
+    const k1 = String(pair[0] || "").trim() as RegattaMetricKey;
+    const k2 = String(pair[1] || "").trim() as RegattaMetricKey;
+    const validK1 = validSet.has(k1) ? k1 : fallback[0];
+    const validK2 = validSet.has(k2) ? k2 : fallback[1];
+    return [validK1, validK2];
+  };
+
+  const sanitizePosition = (pos: any): "auto" | "front" | "back" => {
+    const s = String(pos || "").trim().toLowerCase();
+    return (s === "front" || s === "back" || s === "auto") ? s : "auto";
+  };
+
+  const sanitizeSingleMetric = (key: any, fallback: RegattaMetricKey): RegattaMetricKey => {
+    const s = String(key || "").trim() as RegattaMetricKey;
+    return validSet.has(s) ? s : fallback;
+  };
+
   return {
     zoomLevel,
     selectedMetrics: uniqueMetrics,
+    myLaneMetrics: sanitizeMetricPair(prefs?.myLaneMetrics, DEFAULT_REGATTA_PREFERENCES.myLaneMetrics || ["position", "distRemaining"]),
+    myLanePosition: sanitizePosition(prefs?.myLanePosition),
+    myHeaderMetric: sanitizeSingleMetric(prefs?.myHeaderMetric, DEFAULT_REGATTA_PREFERENCES.myHeaderMetric || "distCovered"),
+    opponentLaneMetrics: sanitizeMetricPair(prefs?.opponentLaneMetrics, DEFAULT_REGATTA_PREFERENCES.opponentLaneMetrics || ["distRemaining", "pace"]),
+    opponentLanePosition: sanitizePosition(prefs?.opponentLanePosition),
+    opponentHeaderMetric: sanitizeSingleMetric(prefs?.opponentHeaderMetric, DEFAULT_REGATTA_PREFERENCES.opponentHeaderMetric || "distCovered"),
+    watermarkMetric: sanitizeSingleMetric(prefs?.watermarkMetric, DEFAULT_REGATTA_PREFERENCES.watermarkMetric || "chrono"),
   };
 }
 
@@ -1491,6 +1527,13 @@ export const updateRegattaPreferences = async (req: Request, res: Response): Pro
     const cleanPreferences = sanitizeRegattaPreferences({
       zoomLevel: regattaPreferences.zoomLevel,
       selectedMetrics: filteredMetrics,
+      myLaneMetrics: regattaPreferences.myLaneMetrics,
+      myLanePosition: regattaPreferences.myLanePosition,
+      myHeaderMetric: regattaPreferences.myHeaderMetric,
+      opponentLaneMetrics: regattaPreferences.opponentLaneMetrics,
+      opponentLanePosition: regattaPreferences.opponentLanePosition,
+      opponentHeaderMetric: regattaPreferences.opponentHeaderMetric,
+      watermarkMetric: regattaPreferences.watermarkMetric,
     });
 
     const user = (await userStore.getUserById(cleanUserId)) || (await userStore.findUser(cleanUserId));

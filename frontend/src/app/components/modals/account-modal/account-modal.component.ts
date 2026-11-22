@@ -79,6 +79,13 @@ export class AccountModalComponent implements OnChanges, OnDestroy {
   @Input() regattaZoomLevel = 1;
   @Input() selectedRegattaMetrics: RegattaMetricKey[] = [];
   @Input() visibleRegattaMetrics: RegattaMetricKey[] = [];
+  @Input() myLaneMetrics: [RegattaMetricKey, RegattaMetricKey] = ['position', 'distRemaining'];
+  @Input() myLanePosition: 'auto' | 'front' | 'back' = 'auto';
+  @Input() myHeaderMetric: RegattaMetricKey = 'distCovered';
+  @Input() opponentLaneMetrics: [RegattaMetricKey, RegattaMetricKey] = ['distRemaining', 'pace'];
+  @Input() opponentLanePosition: 'auto' | 'front' | 'back' = 'auto';
+  @Input() opponentHeaderMetric: RegattaMetricKey = 'distCovered';
+  @Input() watermarkMetric: RegattaMetricKey = 'chrono';
   @Input() isSavingRegattaPreferences = false;
   @Input() regattaPreferencesFeedback = '';
   @Input() regattaPreferencesError = '';
@@ -150,6 +157,14 @@ export class AccountModalComponent implements OnChanges, OnDestroy {
   @Output() moveRegattaMetricRequest = new EventEmitter<{ index: number; direction: -1 | 1 }>();
   @Output() togglePrestartTimerPreferenceRequest = new EventEmitter<boolean>();
   @Output() saveRegattaPreferencesRequest = new EventEmitter<void>();
+
+  @Output() myLaneMetricsChange = new EventEmitter<[RegattaMetricKey, RegattaMetricKey]>();
+  @Output() myLanePositionChange = new EventEmitter<'auto' | 'front' | 'back'>();
+  @Output() myHeaderMetricChange = new EventEmitter<RegattaMetricKey>();
+  @Output() opponentLaneMetricsChange = new EventEmitter<[RegattaMetricKey, RegattaMetricKey]>();
+  @Output() opponentLanePositionChange = new EventEmitter<'auto' | 'front' | 'back'>();
+  @Output() opponentHeaderMetricChange = new EventEmitter<RegattaMetricKey>();
+  @Output() watermarkMetricChange = new EventEmitter<RegattaMetricKey>();
 
   @Output() regAcceptsDuelsChange = new EventEmitter<boolean>();
   @Output() regDuelStartTimeChange = new EventEmitter<string>();
@@ -241,6 +256,48 @@ export class AccountModalComponent implements OnChanges, OnDestroy {
 
   openRegattaSettings(): void {
     this.openRegattaSettingsRequest.emit();
+  }
+
+  setMyLaneMetric(index: 0 | 1, key: string): void {
+    const next: [RegattaMetricKey, RegattaMetricKey] = [...this.myLaneMetrics];
+    next[index] = key as RegattaMetricKey;
+    this.myLaneMetrics = next;
+    this.myLaneMetricsChange.emit(next);
+  }
+
+  setOpponentLaneMetric(index: 0 | 1, key: string): void {
+    const next: [RegattaMetricKey, RegattaMetricKey] = [...this.opponentLaneMetrics];
+    next[index] = key as RegattaMetricKey;
+    this.opponentLaneMetrics = next;
+    this.opponentLaneMetricsChange.emit(next);
+  }
+
+  setMyLanePosition(pos: 'auto' | 'front' | 'back'): void {
+    this.myLanePosition = pos;
+    this.myLanePositionChange.emit(pos);
+  }
+
+  setOpponentLanePosition(pos: 'auto' | 'front' | 'back'): void {
+    this.opponentLanePosition = pos;
+    this.opponentLanePositionChange.emit(pos);
+  }
+
+  setMyHeaderMetric(key: string): void {
+    const k = key as RegattaMetricKey;
+    this.myHeaderMetric = k;
+    this.myHeaderMetricChange.emit(k);
+  }
+
+  setOpponentHeaderMetric(key: string): void {
+    const k = key as RegattaMetricKey;
+    this.opponentHeaderMetric = k;
+    this.opponentHeaderMetricChange.emit(k);
+  }
+
+  setWatermarkMetric(key: string): void {
+    const k = key as RegattaMetricKey;
+    this.watermarkMetric = k;
+    this.watermarkMetricChange.emit(k);
   }
 
   saveKayakCustomization(): void {

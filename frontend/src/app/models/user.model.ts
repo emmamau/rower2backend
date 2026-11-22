@@ -62,11 +62,23 @@ export type RegattaMetricKey =
   | 'work'
   | 'avgSpeed'
   | 'avgPower'
-  | 'avgPace';
+  | 'avgPace'
+  | 'chrono'
+  | 'spm'
+  | 'none';
+
+export type LaneDataPosition = 'auto' | 'front' | 'back';
 
 export interface RegattaPreferences {
   zoomLevel: number;
   selectedMetrics: RegattaMetricKey[];
+  myLaneMetrics: [RegattaMetricKey, RegattaMetricKey];
+  myLanePosition: LaneDataPosition;
+  myHeaderMetric: RegattaMetricKey;
+  opponentLaneMetrics: [RegattaMetricKey, RegattaMetricKey];
+  opponentLanePosition: LaneDataPosition;
+  opponentHeaderMetric: RegattaMetricKey;
+  watermarkMetric: RegattaMetricKey;
 }
 
 export interface RegattaMetricOption {
@@ -79,9 +91,11 @@ export interface RegattaMetricOption {
 }
 
 export const REGATTA_METRICS_CATALOG: RegattaMetricOption[] = [
+  { key: 'chrono', label: 'Chrono', shortLabel: 'CHRONO', unit: '', icon: '⏱️', desc: 'Temps écoulé depuis le départ' },
+  { key: 'power', label: 'Puissance', shortLabel: 'PUISSANCE', unit: 'W', icon: '⚡', desc: 'Puissance instantanée développée en Watts' },
+  { key: 'spm', label: 'Cadence', shortLabel: 'SPM', unit: 'spm', icon: '🚣', desc: 'Cadence de coups de rame par minute' },
   { key: 'speed', label: 'Vitesse', shortLabel: 'VITESSE', unit: 'km/h', icon: '🚀', desc: 'Vitesse instantanée du kayak' },
   { key: 'pace', label: 'Allure', shortLabel: 'ALLURE /500M', unit: '/500m', icon: '⏱️', desc: 'Allure instantanée aux 500m' },
-  { key: 'power', label: 'Puissance', shortLabel: 'PUISSANCE', unit: 'W', icon: '⚡', desc: 'Puissance instantanée développée en Watts' },
   { key: 'position', label: 'Position', shortLabel: 'POSITION', unit: '', icon: '🏆', desc: 'Classement en direct dans la régate' },
   { key: 'distToPrev', label: 'Distance / joueur devant', shortLabel: 'ÉCART DEVANT', unit: 'm', icon: '⬆️', desc: 'Distance par rapport au joueur juste devant' },
   { key: 'distToLeader', label: 'Distance / premier', shortLabel: 'ÉCART 1ER', unit: 'm', icon: '👑', desc: 'Distance par rapport au leader de la course' },
@@ -109,6 +123,13 @@ export const DEFAULT_REGATTA_METRICS: RegattaMetricKey[] = [
 export const DEFAULT_REGATTA_PREFERENCES: RegattaPreferences = {
   zoomLevel: 1,
   selectedMetrics: [...DEFAULT_REGATTA_METRICS],
+  myLaneMetrics: ['position', 'distRemaining'],
+  myLanePosition: 'auto',
+  myHeaderMetric: 'distCovered',
+  opponentLaneMetrics: ['distRemaining', 'pace'],
+  opponentLanePosition: 'auto',
+  opponentHeaderMetric: 'distCovered',
+  watermarkMetric: 'chrono',
 };
 
 export function sanitizeRegattaPreferences(prefs?: any): RegattaPreferences {
@@ -117,13 +138,13 @@ export function sanitizeRegattaPreferences(prefs?: any): RegattaPreferences {
     ? Math.min(4, Math.max(1, Math.round(rawZoom * 2) / 2))
     : DEFAULT_REGATTA_PREFERENCES.zoomLevel;
 
-  const validSet = new Set<string>(VALID_REGATTA_METRIC_KEYS);
+  const validSet = new Set<string>([...VALID_REGATTA_METRIC_KEYS, 'none']);
   const uniqueMetrics: RegattaMetricKey[] = [];
 
   if (Array.isArray(prefs?.selectedMetrics)) {
     for (const item of prefs.selectedMetrics) {
       const k = String(item || '').trim() as RegattaMetricKey;
-      if (validSet.has(k) && !uniqueMetrics.includes(k)) {
+      if (validSet.has(k) && k !== 'none' && !uniqueMetrics.includes(k)) {
         uniqueMetrics.push(k);
       }
     }
@@ -140,9 +161,36 @@ export function sanitizeRegattaPreferences(prefs?: any): RegattaPreferences {
     }
   }
 
+  // Sanitize lane metrics helper
+  const sanitizeMetricPair = (pair: any, fallback: [RegattaMetricKey, RegattaMetricKey]): [RegattaMetricKey, RegattaMetricKey] => {
+    if (!Array.isArray(pair) || pair.length < 2) return [...fallback];
+    const k1 = String(pair[0] || '').trim() as RegattaMetricKey;
+    const k2 = String(pair[1] || '').trim() as RegattaMetricKey;
+    const validK1 = validSet.has(k1) ? k1 : fallback[0];
+    const validK2 = validSet.has(k2) ? k2 : fallback[1];
+    return [validK1, validK2];
+  };
+
+  const sanitizePosition = (pos: any): LaneDataPosition => {
+    const s = String(pos || '').trim().toLowerCase();
+    return (s === 'front' || s === 'back' || s === 'auto') ? s : 'auto';
+  };
+
+  const sanitizeSingleMetric = (key: any, fallback: RegattaMetricKey): RegattaMetricKey => {
+    const s = String(key || '').trim() as RegattaMetricKey;
+    return validSet.has(s) ? s : fallback;
+  };
+
   return {
     zoomLevel,
     selectedMetrics: uniqueMetrics,
+    myLaneMetrics: sanitizeMetricPair(prefs?.myLaneMetrics, DEFAULT_REGATTA_PREFERENCES.myLaneMetrics),
+    myLanePosition: sanitizePosition(prefs?.myLanePosition),
+    myHeaderMetric: sanitizeSingleMetric(prefs?.myHeaderMetric, DEFAULT_REGATTA_PREFERENCES.myHeaderMetric),
+    opponentLaneMetrics: sanitizeMetricPair(prefs?.opponentLaneMetrics, DEFAULT_REGATTA_PREFERENCES.opponentLaneMetrics),
+    opponentLanePosition: sanitizePosition(prefs?.opponentLanePosition),
+    opponentHeaderMetric: sanitizeSingleMetric(prefs?.opponentHeaderMetric, DEFAULT_REGATTA_PREFERENCES.opponentHeaderMetric),
+    watermarkMetric: sanitizeSingleMetric(prefs?.watermarkMetric, DEFAULT_REGATTA_PREFERENCES.watermarkMetric),
   };
 }
 

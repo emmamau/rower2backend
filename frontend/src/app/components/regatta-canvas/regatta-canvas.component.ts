@@ -14,7 +14,14 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { LiveRacerMetric } from '../../services/socket.service';
-import { KayakCustomization, sanitizeKayakCustomization, hexToRgba } from '../../models/user.model';
+import {
+  KayakCustomization,
+  sanitizeKayakCustomization,
+  hexToRgba,
+  RegattaPreferences,
+  RegattaMetricKey,
+  DEFAULT_REGATTA_PREFERENCES
+} from '../../models/user.model';
 import { I18nService } from '../../services/i18n.service';
 
 export { sanitizeKayakCustomization };
@@ -264,6 +271,8 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
   @Input() myKayakCustomization?: KayakCustomization;
   @Input() isRaceActive = false;
   @Input() zoomLevel = 1;
+  @Input() regattaPreferences?: RegattaPreferences;
+  @Input() raceElapsedTimeSeconds = 0;
   @Output() zoomLevelChange = new EventEmitter<number>();
   @Output() racerSelected = new EventEmitter<string>();
   @Output() kayakClaimed = new EventEmitter<string>();
@@ -577,6 +586,99 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
     return text;
   }
 
+  public formatMetricValue(key: RegattaMetricKey | undefined, boat: BoatRenderState): string {
+    if (!key || key === 'none') return '';
+    const target = this.targetDistance || 2000;
+    switch (key) {
+      case 'chrono': {
+        const totalSec = Math.max(0, Math.floor(this.raceElapsedTimeSeconds || 0));
+        const mins = Math.floor(totalSec / 60);
+        const secs = totalSec % 60;
+        return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+      }
+      case 'power': {
+        return `${Math.round(boat.watts || 0)}W`;
+      }
+      case 'spm': {
+        return `${Math.round(boat.spm || 0)} spm`;
+      }
+      case 'speed': {
+        if (boat.splitSec > 0 && boat.splitSec < 600) {
+          const kmh = (500 / boat.splitSec) * 3.6;
+          return `${kmh.toFixed(1)} km/h`;
+        }
+        return '0.0 km/h';
+      }
+      case 'pace': {
+        if (boat.splitSec > 0 && boat.splitSec < 600) {
+          const m = Math.floor(boat.splitSec / 60);
+          const s = Math.floor(boat.splitSec % 60);
+          return `${m}:${s < 10 ? '0' : ''}${s}/500m`;
+        }
+        return '--/500m';
+      }
+      case 'position': {
+        const r = this.getRacerRank(boat.userId);
+        if (!r) return '--';
+        return r.medal ? `${r.medal} ${r.label}` : r.label;
+      }
+      case 'distRemaining': {
+        const remainingDist = Math.max(0, Math.round(target - boat.targetPacketDist));
+        return remainingDist > 0 ? `${remainingDist}m` : (this.i18n.t('FINISH_ARRIVED') || 'Arrivé !');
+      }
+      case 'distCovered': {
+        return `${Math.round(boat.targetPacketDist)}m`;
+      }
+      case 'distToLeader': {
+        const leader = this.sortedLeaderboard[0];
+        if (!leader || leader.userId === boat.userId) return this.i18n.t('CANVAS_LEADER') || '1er';
+        const gapM = Math.max(0, Math.round((leader.dist || 0) - boat.targetPacketDist));
+        return gapM > 0 ? `-${gapM}m` : (this.i18n.t('CANVAS_LEADER') || '1er');
+      }
+      case 'distToPrev': {
+        const rankIdx = this.sortedLeaderboard.findIndex((b) => b.userId === boat.userId);
+        if (rankIdx <= 0) return 'Ldr';
+        const prev = this.sortedLeaderboard[rankIdx - 1];
+        const gap = Math.max(0, Math.round((prev.dist || 0) - boat.targetPacketDist));
+        return `-${gap}m`;
+      }
+      case 'distToNext': {
+        const rankIdx = this.sortedLeaderboard.findIndex((b) => b.userId === boat.userId);
+        if (rankIdx < 0 || rankIdx >= this.sortedLeaderboard.length - 1) return 'Fin';
+        const next = this.sortedLeaderboard[rankIdx + 1];
+        const gap = Math.max(0, Math.round(boat.targetPacketDist - (next.dist || 0)));
+        return `+${gap}m`;
+      }
+      case 'force': {
+        const forceN = Math.round((boat.watts || 0) * 1.5);
+        return `${forceN}N`;
+      }
+      case 'work': {
+        const workJ = Math.round((boat.watts || 0) * 2.2);
+        return `${workJ}J`;
+      }
+      case 'avgPower': {
+        return `${Math.round(boat.watts || 0)}W`;
+      }
+      case 'avgSpeed': {
+        if (boat.splitSec > 0 && boat.splitSec < 600) {
+          return `${((500 / boat.splitSec) * 3.6).toFixed(1)} km/h`;
+        }
+        return '0.0 km/h';
+      }
+      case 'avgPace': {
+        if (boat.splitSec > 0 && boat.splitSec < 600) {
+          const m = Math.floor(boat.splitSec / 60);
+          const s = Math.floor(boat.splitSec % 60);
+          return `${m}:${s < 10 ? '0' : ''}${s}`;
+        }
+        return '--';
+      }
+      default:
+        return '';
+    }
+  }
+
   public selectRacerToFollow(userId: string): void {
     this.racerSelected.emit(userId);
   }
@@ -853,8 +955,8 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
     // Classer par couloir actuel (0 = L1 en tête, 1 = L2, etc.)
     boatsList.sort((a, b) => a.dynamicLaneIndex - b.dynamicLaneIndex);
 
-    // Seuil de dépassement net (environ 10m / une longueur de coup de rame)
-    const OVERTAKE_THRESHOLD_M = 10;
+    // Seuil de dépassement net (5m d'écart minimum avant tout changement de ligne d'eau)
+    const OVERTAKE_THRESHOLD_M = 5;
 
     for (let i = boatsList.length - 2; i >= 0; i--) {
       const topBoat = boatsList[i];
@@ -1098,6 +1200,38 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
       ctx.stroke();
     }
 
+    // 3.5. Incrustation géante transparente (Watermark) sous le kayak au milieu de l'écran dans sa ligne d'eau
+    const watermarkKey = this.regattaPreferences?.watermarkMetric || 'chrono';
+    if (watermarkKey && watermarkKey !== 'none') {
+      const activeBoat = this.boatsMap.get(this.activeUserId);
+      if (activeBoat) {
+        const activeIdx = visibleBoats.findIndex((b) => b.userId === this.activeUserId);
+        if (activeIdx >= 0) {
+          const effectiveLaneIdx = zoom > 1
+            ? activeIdx
+            : (this.dynamicLaneMode
+                ? (activeBoat.currentLaneIndex !== undefined ? Math.min(boatCount - 1, Math.max(0, activeBoat.currentLaneIndex)) : activeIdx)
+                : Math.max(0, (activeBoat.assignedLane || activeBoat.lane || 1) - 1));
+          const watermarkY = topOffset + (effectiveLaneIdx + 0.5) * laneH - this.scrollY;
+          if (watermarkY >= topOffset - laneH * 0.5 && watermarkY <= h + laneH * 0.5) {
+            const val = this.formatMetricValue(watermarkKey, activeBoat);
+            if (val) {
+              ctx.save();
+              const watermarkFontPx = Math.min(Math.floor(laneH * 0.74), Math.max(16, Math.round(36 * fontScale)));
+              ctx.font = `900 ${watermarkFontPx}px monospace`;
+              ctx.textAlign = 'center';
+              ctx.textBaseline = 'middle';
+              ctx.fillStyle = 'rgba(0, 240, 255, 0.18)';
+              ctx.shadowColor = '#00f0ff';
+              ctx.shadowBlur = 6;
+              ctx.fillText(val, w * 0.5, watermarkY);
+              ctx.restore();
+            }
+          }
+        }
+      }
+    }
+
     // 4. Dessin des kayaks visibles avec texte agrandi au maximum selon le zoom
     const hullRx = (isCompact ? 14 : 18) * boatScale;
     const hullRy = Math.min(laneH * 0.24, (isCompact ? 4.5 : 5) * boatScale);
@@ -1300,26 +1434,42 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
       const labelFontPx = Math.min(Math.floor(laneH * 0.38), Math.max(10, Math.round(baseLabelPx * fontScale)));
 
       if (isUser || isFocused) {
-        // Flèche animée qui flotte au-dessus du bateau
+        // Encart au-dessus ou en-dessous : si ligne 1 (effectiveLaneIdx === 0) ou espace haut insuffisant, affiché en-dessous
+        const isBelow = effectiveLaneIdx === 0 || (y - 32 < topOffset);
         const arrowBounce = Math.sin(nowSec * 5.5) * 3;
-        const rawArrowY = y - (hullRy + 12 * boatScale) + arrowBounce;
-        const arrowY = Math.max(22, rawArrowY);
+        let arrowY = 0;
+        let by = 0;
+
         ctx.fillStyle = isUser ? '#00f0ff' : '#ffe600';
         ctx.beginPath();
-        ctx.moveTo(x, arrowY + 4 * boatScale);
-        ctx.lineTo(x - 4.5 * boatScale, arrowY - 3 * boatScale);
-        ctx.lineTo(x + 4.5 * boatScale, arrowY - 3 * boatScale);
-        ctx.closePath();
-        ctx.fill();
+        if (isBelow) {
+          arrowY = y + hullRy + 6 * boatScale + arrowBounce;
+          ctx.moveTo(x, arrowY);
+          ctx.lineTo(x - 4.5 * boatScale, arrowY + 7 * boatScale);
+          ctx.lineTo(x + 4.5 * boatScale, arrowY + 7 * boatScale);
+          ctx.closePath();
+          ctx.fill();
+          by = arrowY + 12 * boatScale + labelFontPx * 0.6;
+        } else {
+          const rawArrowY = y - (hullRy + 12 * boatScale) + arrowBounce;
+          arrowY = Math.max(topOffset + 12, rawArrowY);
+          ctx.moveTo(x, arrowY + 4 * boatScale);
+          ctx.lineTo(x - 4.5 * boatScale, arrowY - 3 * boatScale);
+          ctx.lineTo(x + 4.5 * boatScale, arrowY - 3 * boatScale);
+          ctx.closePath();
+          ctx.fill();
+          by = Math.max(topOffset + 14, arrowY - 14);
+        }
 
-        // Bannière avec pseudo en surbrillance (affiche la distance officielle exacte targetPacketDist)
-        const bannerLabel = `${isUser ? this.i18n.t('CANVAS_BADGE_YOU') : this.i18n.t('CANVAS_BADGE_FOLLOWING')} : ${shortName} · ${Math.round(boat.targetPacketDist)}m`;
+        // Bannière avec pseudo et métrique personnalisée (ou distance par défaut)
+        const myHeaderKey = this.regattaPreferences?.myHeaderMetric || 'distCovered';
+        const myHeaderVal = this.formatMetricValue(myHeaderKey, boat);
+        const bannerLabel = `${isUser ? this.i18n.t('CANVAS_BADGE_YOU') : this.i18n.t('CANVAS_BADGE_FOLLOWING')} : ${shortName}${myHeaderVal ? ' · ' + myHeaderVal : ''}`;
         ctx.font = `bold ${labelFontPx}px sans-serif`;
         const btw = ctx.measureText(bannerLabel).width;
         const boxPadX = Math.round(5 * Math.min(1.8, fontScale));
         const boxH = Math.round(labelFontPx + 6 * Math.min(1.6, fontScale));
         const bx = Math.max(6, Math.min(w - btw - boxPadX * 2 - 4, x - btw / 2));
-        const by = Math.max(14, arrowY - 14);
 
         // Fond bannière
         ctx.fillStyle = 'rgba(6, 15, 33, 0.92)';
@@ -1331,8 +1481,10 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
         ctx.fillStyle = isUser ? '#00f0ff' : '#ffe600';
         ctx.fillText(bannerLabel, bx, by);
       } else {
-        // Label standard (affiche la distance officielle exacte targetPacketDist) avec fond semi-transparent en zoom pour lisibilité maximale
-        const text = `${shortName} · ${Math.round(boat.targetPacketDist)}m`;
+        // Label standard pour concurrents avec métrique configurée (ou distance)
+        const oppHeaderKey = this.regattaPreferences?.opponentHeaderMetric || 'distCovered';
+        const oppHeaderVal = this.formatMetricValue(oppHeaderKey, boat);
+        const text = `${shortName}${oppHeaderVal ? ' · ' + oppHeaderVal : ''}`;
         ctx.font = `bold ${labelFontPx}px sans-serif`;
         const tw = ctx.measureText(text).width;
         const lx = Math.max(6, Math.min(w - tw - 8, x - tw / 2));
@@ -1347,74 +1499,78 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
       }
 
       // =========================================================================
-      // INDICATEUR DEVANT LE RAMEUR DU JOUEUR CONNECTÉ DANS SA LIGNE D'EAU
-      // Classement avec médaille (Or, Argent, Bronze si 1er, 2e, 3e) + Distance restante
-      // Police maximisée avec le zoom
+      // DONNÉES DE LIGNE D'EAU CONFIGURABLES : JOUEUR ET CONCURRENTS
+      // 2 métriques configurables placées devant ou derrière avec bascule automatique
       // =========================================================================
-      if (isUser && (this.isRaceActive || (boat.currentDisplayDist > 0 && boat.status !== 'finished'))) {
-        const rankInfo = this.getRacerRank(boat.userId);
-        const remainingDist = Math.max(0, Math.round((this.targetDistance || 2000) - boat.targetPacketDist));
-        const distLabel = remainingDist > 0 ? `${remainingDist}m` : (this.i18n.t('FINISH_ARRIVED') || 'Arrivé !');
+      if (this.isRaceActive || (boat.currentDisplayDist > 0 && boat.status !== 'finished') || boat.status === 'finished') {
+        const mKeys = isUser
+          ? (this.regattaPreferences?.myLaneMetrics || ['position', 'distRemaining'])
+          : (this.regattaPreferences?.opponentLaneMetrics || ['distRemaining', 'pace']);
+        const posPref = isUser
+          ? (this.regattaPreferences?.myLanePosition || 'auto')
+          : (this.regattaPreferences?.opponentLanePosition || 'auto');
 
-        let badgeText = '';
-        if (rankInfo) {
-          if (rankInfo.medal) {
-            badgeText = `${rankInfo.medal} ${rankInfo.label} · ${distLabel}`;
+        const val1 = this.formatMetricValue(mKeys[0], boat);
+        const val2 = this.formatMetricValue(mKeys[1], boat);
+        const badgeItems = [val1, val2].filter(Boolean);
+
+        if (badgeItems.length > 0) {
+          const badgeText = badgeItems.join(' · ');
+          const rankInfo = this.getRacerRank(boat.userId);
+          const badgeColor = isUser ? (rankInfo?.color || '#00f0ff') : 'rgba(0, 240, 255, 0.75)';
+          const badgeFontPx = Math.min(Math.floor(laneH * 0.42), Math.max(10, Math.round((isCompact ? 9.5 : 11.5) * fontScale)));
+          ctx.font = `bold ${badgeFontPx}px sans-serif`;
+          const badgeTextWidth = ctx.measureText(badgeText).width;
+          const padX = Math.round((isCompact ? 6 : 8) * Math.min(1.8, fontScale));
+          const badgeW = badgeTextWidth + padX * 2;
+          const badgeH = Math.min(laneH * 0.78, Math.max(16, Math.round(badgeFontPx + 8 * Math.min(1.6, fontScale))));
+
+          const gap = Math.round((isCompact ? 8 : 12) * boatScale);
+          const frontBadgeX = x + hullRx + gap;
+          const backBadgeX = x - hullRx - gap - badgeW;
+
+          let badgeX = frontBadgeX;
+          if (posPref === 'front') {
+            badgeX = (frontBadgeX + badgeW > w - 6) ? Math.max(4, backBadgeX) : frontBadgeX;
+          } else if (posPref === 'back') {
+            badgeX = (backBadgeX < 4) ? Math.min(w - badgeW - 6, frontBadgeX) : backBadgeX;
           } else {
-            badgeText = `${rankInfo.label} · ${distLabel}`;
+            // 'auto' : privilégier devant, basculer derrière si espace insuffisant
+            badgeX = (frontBadgeX + badgeW <= w - 6) ? frontBadgeX : Math.max(4, backBadgeX);
           }
-        } else {
-          badgeText = distLabel;
-        }
+          const badgeY = y - badgeH / 2;
 
-        const badgeColor = rankInfo?.color || '#00f0ff';
-        const badgeFontPx = Math.min(Math.floor(laneH * 0.42), Math.max(10, Math.round((isCompact ? 9.5 : 11.5) * fontScale)));
-        ctx.font = `bold ${badgeFontPx}px sans-serif`;
-        const badgeTextWidth = ctx.measureText(badgeText).width;
-        const padX = Math.round((isCompact ? 6 : 8) * Math.min(1.8, fontScale));
-        const badgeW = badgeTextWidth + padX * 2;
-        const badgeH = Math.min(laneH * 0.78, Math.max(16, Math.round(badgeFontPx + 8 * Math.min(1.6, fontScale))));
-
-        const gap = Math.round((isCompact ? 8 : 12) * boatScale);
-        const frontBadgeX = x + hullRx + gap;
-        let badgeX = frontBadgeX;
-
-        if (frontBadgeX + badgeW > w - 6) {
-          badgeX = x - hullRx - gap - badgeW;
-          if (badgeX < 4) {
-            badgeX = 4;
+          ctx.save();
+          ctx.fillStyle = isUser ? 'rgba(6, 15, 33, 0.92)' : 'rgba(6, 15, 33, 0.84)';
+          ctx.strokeStyle = badgeColor;
+          ctx.lineWidth = (isUser ? 1.4 : 1.0) * Math.min(1.5, boatScale);
+          if (isUser) {
+            ctx.shadowColor = badgeColor;
+            ctx.shadowBlur = (rankInfo?.rank && rankInfo.rank <= 3) ? 8 : 4;
           }
+
+          const radius = badgeH / 2;
+          if (typeof ctx.roundRect === 'function') {
+            ctx.beginPath();
+            ctx.roundRect(badgeX, badgeY, badgeW, badgeH, radius);
+            ctx.fill();
+            ctx.stroke();
+          } else {
+            ctx.beginPath();
+            ctx.rect(badgeX, badgeY, badgeW, badgeH);
+            ctx.fill();
+            ctx.stroke();
+          }
+          ctx.restore();
+
+          ctx.save();
+          ctx.fillStyle = '#ffffff';
+          ctx.font = `bold ${badgeFontPx}px sans-serif`;
+          ctx.textAlign = 'left';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(badgeText, badgeX + padX, y);
+          ctx.restore();
         }
-        const badgeY = y - badgeH / 2;
-
-        ctx.save();
-        ctx.fillStyle = 'rgba(6, 15, 33, 0.92)';
-        ctx.strokeStyle = badgeColor;
-        ctx.lineWidth = 1.4 * Math.min(1.5, boatScale);
-        ctx.shadowColor = badgeColor;
-        ctx.shadowBlur = (rankInfo?.rank && rankInfo.rank <= 3) ? 8 : 4;
-
-        const radius = badgeH / 2;
-        if (typeof ctx.roundRect === 'function') {
-          ctx.beginPath();
-          ctx.roundRect(badgeX, badgeY, badgeW, badgeH, radius);
-          ctx.fill();
-          ctx.stroke();
-        } else {
-          ctx.beginPath();
-          ctx.rect(badgeX, badgeY, badgeW, badgeH);
-          ctx.fill();
-          ctx.stroke();
-        }
-        ctx.restore();
-
-        ctx.save();
-        ctx.fillStyle = '#ffffff';
-        ctx.font = `bold ${badgeFontPx}px sans-serif`;
-        ctx.textAlign = 'left';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(badgeText, badgeX + padX, y);
-        ctx.restore();
       }
     });
     ctx.restore();

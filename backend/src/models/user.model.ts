@@ -23,11 +23,23 @@ export type RegattaMetricKey =
   | 'work'
   | 'avgSpeed'
   | 'avgPower'
-  | 'avgPace';
+  | 'avgPace'
+  | 'chrono'
+  | 'spm'
+  | 'none';
+
+export type LaneDataPosition = 'auto' | 'front' | 'back';
 
 export interface RegattaPreferences {
   zoomLevel: number;
   selectedMetrics: RegattaMetricKey[];
+  myLaneMetrics?: [RegattaMetricKey, RegattaMetricKey];
+  myLanePosition?: LaneDataPosition;
+  myHeaderMetric?: RegattaMetricKey;
+  opponentLaneMetrics?: [RegattaMetricKey, RegattaMetricKey];
+  opponentLanePosition?: LaneDataPosition;
+  opponentHeaderMetric?: RegattaMetricKey;
+  watermarkMetric?: RegattaMetricKey;
 }
 
 export interface DuelTimeWindow {

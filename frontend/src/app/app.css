@@ -8846,6 +8846,87 @@ app-cockpit-view {
   accent-color: var(--neon-cyan);
 }
 
+/* Lane Configuration Section */
+.lane-config-card {
+  background: rgba(10, 19, 38, 0.7);
+  border: 1px solid rgba(0, 240, 255, 0.2);
+  border-radius: 10px;
+  padding: 0.8rem 0.95rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.lane-config-subtitle {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #00f0ff;
+  margin: 0;
+}
+.lane-config-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.65rem;
+}
+.lane-config-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.field-label-sm {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #94a3b8;
+}
+.lane-select {
+  background: rgba(6, 13, 29, 0.9);
+  color: #f1f5f9;
+  border: 1px solid rgba(0, 240, 255, 0.35);
+  border-radius: 6px;
+  padding: 0.45rem 0.65rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  outline: none;
+  transition: all 0.2s ease;
+}
+.lane-select:focus {
+  border-color: #00f0ff;
+  box-shadow: 0 0 10px rgba(0, 240, 255, 0.4);
+}
+.lane-pos-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.2rem;
+}
+.lane-pos-pill-group {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+.btn-pos-pill {
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 20px;
+  color: #94a3b8;
+  padding: 0.25rem 0.65rem;
+  font-size: 0.74rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+.btn-pos-pill:hover {
+  border-color: #00f0ff;
+  color: #f1f5f9;
+}
+.btn-pos-pill.active {
+  background: rgba(0, 240, 255, 0.22);
+  border-color: #00f0ff;
+  color: #00f0ff;
+  box-shadow: 0 0 8px rgba(0, 240, 255, 0.35);
+}
+
 .customizer-section-title-row {
   display: flex;
   align-items: center;

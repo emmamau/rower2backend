@@ -41,11 +41,11 @@ test('RegattaCanvasComponent: dynamic lane ordering with 10m hysteresis and smoo
     'BoatRenderState must include currentLaneIndex: number'
   );
 
-  // 3. Check 10m overtaking threshold
+  // 3. Check 5m overtaking threshold
   assert.match(
     canvasContent,
-    /10/,
-    'Must include 10m hysteresis / overtaking threshold'
+    /OVERTAKE_THRESHOLD_M\s*=\s*5;/,
+    'Must include 5m hysteresis / overtaking threshold'
   );
 
   // 4. Check UI toggle button in template
@@ -189,9 +189,9 @@ test('Lane mode toggle button: collapses after 5s and expands again for 5s when 
   assert.equal(ctrl.isLaneModeCollapsed, true, 'Button must collapse again after 5000ms');
 });
 
-test('Dynamic Lane Overtake Simulation: 10m Hysteresis buffer prevents jitter and validates decisive passes', () => {
+test('Dynamic Lane Overtake Simulation: 5m Hysteresis buffer prevents jitter and validates decisive passes', () => {
   // Pure behavioral simulation of the hysteresis algorithm
-  const OVERTAKE_THRESHOLD = 10;
+  const OVERTAKE_THRESHOLD = 5;
 
   class BoatSim {
     constructor(userId, assignedLane, dist) {
@@ -227,38 +227,38 @@ test('Dynamic Lane Overtake Simulation: 10m Hysteresis buffer prevents jitter an
   assert.equal(boatA.dynamicLaneIndex, 0);
   assert.equal(boatB.dynamicLaneIndex, 1);
 
-  // Scenario 1: B advances to 505m (5m in front of A).
-  // 5m is LESS than the 10m threshold -> NO SWAP
+  // Scenario 1: B advances to 502m (2m in front of A).
+  // 2m is LESS than the 5m threshold -> NO SWAP
+  boatB.currentDisplayDist = 502;
+  updateDynamicLanes(boats);
+  assert.equal(boatA.dynamicLaneIndex, 0, 'Boat A must remain on Lane 0 when B leads by only 2m');
+  assert.equal(boatB.dynamicLaneIndex, 1, 'Boat B must remain on Lane 1 when leading by only 2m');
+
+  // Scenario 2: B advances to 504.9m (4.9m in front of A).
+  // Still strictly less than 5m -> NO SWAP
+  boatB.currentDisplayDist = 504.9;
+  updateDynamicLanes(boats);
+  assert.equal(boatA.dynamicLaneIndex, 0, 'No swap at 4.9m lead');
+  assert.equal(boatB.dynamicLaneIndex, 1, 'No swap at 4.9m lead');
+
+  // Scenario 3: B advances to 505m (5m in front of A: 505 >= 500 + 5).
+  // Decisive pass -> SWAP! B takes Lane 0, A takes Lane 1
   boatB.currentDisplayDist = 505;
   updateDynamicLanes(boats);
-  assert.equal(boatA.dynamicLaneIndex, 0, 'Boat A must remain on Lane 0 when B leads by only 5m');
-  assert.equal(boatB.dynamicLaneIndex, 1, 'Boat B must remain on Lane 1 when leading by only 5m');
-
-  // Scenario 2: B advances to 509.9m (9.9m in front of A).
-  // Still strictly less than 10m -> NO SWAP
-  boatB.currentDisplayDist = 509.9;
-  updateDynamicLanes(boats);
-  assert.equal(boatA.dynamicLaneIndex, 0, 'No swap at 9.9m lead');
-  assert.equal(boatB.dynamicLaneIndex, 1, 'No swap at 9.9m lead');
-
-  // Scenario 3: B advances to 510m (10m in front of A: 510 >= 500 + 10).
-  // Decisive pass -> SWAP! B takes Lane 0, A takes Lane 1
-  boatB.currentDisplayDist = 510;
-  updateDynamicLanes(boats);
-  assert.equal(boatB.dynamicLaneIndex, 0, 'Boat B takes Lane 0 once +10m lead achieved');
+  assert.equal(boatB.dynamicLaneIndex, 0, 'Boat B takes Lane 0 once +5m lead achieved');
   assert.equal(boatA.dynamicLaneIndex, 1, 'Boat A drops to Lane 1');
 
-  // Scenario 4: A accelerates to 515m (A is at 515m, B is at 510m -> A is 5m ahead of B).
-  // Hysteresis in reverse: A leads by 5m, but needs +10m (520m) to reclaim Lane 0 -> NO SWAP BACK
-  boatA.currentDisplayDist = 515;
+  // Scenario 4: A accelerates to 507m (A is at 507m, B is at 505m -> A is 2m ahead of B).
+  // Hysteresis in reverse: A leads by 2m, but needs +5m (510m) to reclaim Lane 0 -> NO SWAP BACK
+  boatA.currentDisplayDist = 507;
   updateDynamicLanes(boats);
-  assert.equal(boatB.dynamicLaneIndex, 0, 'Boat B retains Lane 0 when A leads by only 5m');
+  assert.equal(boatB.dynamicLaneIndex, 0, 'Boat B retains Lane 0 when A leads by only 2m');
   assert.equal(boatA.dynamicLaneIndex, 1, 'Boat A remains on Lane 1');
 
-  // Scenario 5: A reaches 520m (A is at 520m, B is at 510m -> 520 >= 510 + 10).
+  // Scenario 5: A reaches 510m (A is at 510m, B is at 505m -> 510 >= 505 + 5).
   // Decisive pass back -> SWAP BACK! A reclaims Lane 0, B drops to Lane 1
-  boatA.currentDisplayDist = 520;
+  boatA.currentDisplayDist = 510;
   updateDynamicLanes(boats);
-  assert.equal(boatA.dynamicLaneIndex, 0, 'Boat A reclaims Lane 0 when exceeding B by +10m');
+  assert.equal(boatA.dynamicLaneIndex, 0, 'Boat A reclaims Lane 0 when exceeding B by +5m');
   assert.equal(boatB.dynamicLaneIndex, 1, 'Boat B drops back to Lane 1');
 });

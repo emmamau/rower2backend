@@ -9,7 +9,8 @@ import {
   KayakCustomization,
   RegattaMetricKey,
   RegattaMetricOption,
-  REGATTA_METRICS_CATALOG
+  REGATTA_METRICS_CATALOG,
+  RegattaPreferences
 } from '../../models/user.model';
 import { RegattaCanvasComponent } from '../regatta-canvas/regatta-canvas.component';
 
@@ -51,6 +52,8 @@ export class RegattaViewComponent {
   @Input() isRaceActive = false;
   @Input() canStartRace = false;
   @Input() regattaZoomLevel = 1;
+  @Input() regattaPreferences?: RegattaPreferences;
+  @Input() raceElapsedTimeSeconds = 0;
   @Input() visibleRegattaMetrics: RegattaMetricKey[] = [];
   @Input() isPreStartCountdown = false;
   @Input() formattedGameRemaining = '55m 00s';
@@ -286,6 +289,9 @@ export class RegattaViewComponent {
       avgSpeed: 'METRIC_SHORT_AVGSPEED',
       avgPower: 'METRIC_SHORT_AVGPOWER',
       avgPace: 'METRIC_SHORT_AVGPACE',
+      chrono: 'METRIC_SHORT_CHRONO',
+      spm: 'METRIC_SHORT_SPM',
+      none: '',
     };
     const localizedLabel = this.i18n.t(shortLabelKeyMap[key]) || opt.shortLabel;
     const avgPrefix = this.i18n.t('RACE_AVG_PREFIX');
@@ -425,6 +431,30 @@ export class RegattaViewComponent {
           value: String(avgWatts),
           unit: 'W',
           sub: `${instPrefix} ${watts} W`,
+          isHighlight: false,
+        };
+      case 'chrono': {
+        const totalSec = Math.max(0, Math.floor(this.raceElapsedTimeSeconds || 0));
+        const mins = Math.floor(totalSec / 60);
+        const secs = totalSec % 60;
+        return {
+          key,
+          label: localizedLabel,
+          icon: opt.icon,
+          value: `${mins}:${secs < 10 ? '0' : ''}${secs}`,
+          unit: '',
+          sub: this.i18n.t('REGATTA_METRIC_NAME_CHRONO') || 'Chrono',
+          isHighlight: true,
+        };
+      }
+      case 'spm':
+        return {
+          key,
+          label: localizedLabel,
+          icon: opt.icon,
+          value: String(Math.round(spm)),
+          unit: 'spm',
+          sub: this.i18n.t('REGATTA_METRIC_NAME_SPM') || 'Cadence',
           isHighlight: false,
         };
       case 'avgPace':
