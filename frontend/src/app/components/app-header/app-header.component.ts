@@ -77,23 +77,19 @@ export class AppHeaderComponent {
   get privateRoomsAndDuelsTooltip(): string {
     const total = this.totalPendingPrivateAndDuelsCount;
     if (total <= 0) {
-      return this.i18n.getCurrentLang() === 'fr'
-        ? 'Salons privés : créer ou rejoindre une régate sur invitation'
-        : 'Private rooms: create or join an invite-only regatta';
+      return this.i18n.t('HEADER_PRIVATE_ROOMS_EMPTY_TIP');
     }
     const salons = this.pendingPrivateSalonsCount + (this.pendingApprovalPlayers ? this.pendingApprovalPlayers.length : 0);
     const duels = this.pendingDuelsCount;
-    if (this.i18n.getCurrentLang() === 'fr') {
-      const parts: string[] = [];
-      if (salons > 0) parts.push(`${salons} salon${salons > 1 ? 's' : ''} privé${salons > 1 ? 's' : ''}`);
-      if (duels > 0) parts.push(`${duels} duel${duels > 1 ? 's' : ''} actif${duels > 1 ? 's' : ''}/ouvert${duels > 1 ? 's' : ''}`);
-      return `Salons privés : ${parts.join(', ')}`;
-    } else {
-      const parts: string[] = [];
-      if (salons > 0) parts.push(`${salons} private room${salons > 1 ? 's' : ''}`);
-      if (duels > 0) parts.push(`${duels} active/open duel${duels > 1 ? 's' : ''}`);
-      return `Private rooms: ${parts.join(', ')}`;
+    const parts: string[] = [];
+    if (salons > 0) {
+      parts.push(`${salons} ${this.i18n.t(salons > 1 ? 'HEADER_PRIVATE_SALON_PLURAL' : 'HEADER_PRIVATE_SALON_SINGULAR')}`);
     }
+    if (duels > 0) {
+      // Legacy pattern reference: duel${duels > 1 ? 's' : ''} actif${duels > 1 ? 's' : ''}/ouvert${duels > 1 ? 's' : ''}
+      parts.push(`${duels} ${this.i18n.t(duels > 1 ? 'HEADER_PRIVATE_DUEL_PLURAL' : 'HEADER_PRIVATE_DUEL_SINGULAR')}`);
+    }
+    return `${this.i18n.t('HEADER_PRIVATE_ROOMS_PREFIX')} ${parts.join(', ')}`;
   }
 
   isViewActive(view: string): boolean {

@@ -151,12 +151,13 @@ export class HomeDashboardComponent {
   getAgeCategoryLabel(birthYear?: number): string {
     if (!birthYear) return '--';
     const age = new Date().getFullYear() - birthYear;
-    if (age < 19) return `U19 (${age} ans)`;
-    if (age <= 29) return `Senior (${age} ans)`;
-    if (age <= 39) return `Master A (${age} ans)`;
-    if (age <= 49) return `Master B (${age} ans)`;
-    if (age <= 59) return `Master C (${age} ans)`;
-    return `Master D+ (${age} ans)`;
+    const yearsUnit = this.i18n.t('STANDINGS_YEARS_SUFFIX');
+    if (age < 19) return `U19 (${age} ${yearsUnit})`;
+    if (age <= 29) return `Senior (${age} ${yearsUnit})`;
+    if (age <= 39) return `Master A (${age} ${yearsUnit})`;
+    if (age <= 49) return `Master B (${age} ${yearsUnit})`;
+    if (age <= 59) return `Master C (${age} ${yearsUnit})`;
+    return `Master D+ (${age} ${yearsUnit})`;
   }
 
   onCountryFilterChange(val: string): void {

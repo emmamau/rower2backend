@@ -675,3 +675,195 @@ test('Remaining modals (Account, UnifiedConfig, RaceHistory, Standings, Statisti
     }
   }
 });
+
+test('RowerService.updateProfile sends language preference to /api/v1/user/profile with fallback to /api/user/language', () => {
+  const rowerServicePath = path.resolve(__dirname, '../src/app/services/rower.service.ts');
+  const content = fs.readFileSync(rowerServicePath, 'utf8');
+
+  assert.match(content, /updateProfile\s*\(\s*profile:\s*\{[\s\S]*?language\?:\s*string/);
+  assert.match(content, /\/api\/v1\/user\/profile/);
+  assert.match(content, /catchError[\s\S]*?this\.updateUserLanguage\(profile\.language\)/);
+
+  // Runtime verification of HTTP PUT call via transpiled service with mocked HttpClient
+  const source = content;
+  const transpiled = ts.transpileModule(source, {
+    compilerOptions: {
+      module: ts.ModuleKind.CommonJS,
+      target: ts.ScriptTarget.ES2022,
+      experimentalDecorators: true,
+      esModuleInterop: true
+    }
+  }).outputText;
+
+  const putCalls = [];
+  const mod = { exports: {} };
+  const fakeHttp = {
+    put: (url, body, options) => {
+      putCalls.push({ url, body, options });
+      return { pipe: () => ({ subscribe: () => {} }) };
+    }
+  };
+  const localRequire = (specifier) => {
+    if (specifier === '@angular/core') return { Injectable: () => (t) => t };
+    if (specifier === '@angular/common/http') {
+      return {
+        HttpClient: class {},
+        HttpParams: class {},
+        HttpHeaders: class {
+          constructor(init) { this.init = init; }
+          set() { return this; }
+        }
+      };
+    }
+    if (specifier === 'rxjs') return { Observable: class {}, throwError: (fn) => fn() };
+    if (specifier === 'rxjs/operators') return { map: (fn) => fn, catchError: (fn) => fn };
+    if (specifier === '../../environments/environment') return { environment: { apiUrl: 'https://api.test' } };
+    if (specifier.startsWith('../models/')) return {};
+    throw new Error(`Unexpected import: ${specifier}`);
+  };
+  new vm.Script(
+    `(function(exports, require, module, window, localStorage) {\n${transpiled}\n})`
+  ).runInThisContext()(
+    mod.exports,
+    localRequire,
+    mod,
+    undefined,
+    {
+      getItem: (k) => (k === 'rower_auth_token' ? 'jwt_tok_123' : null)
+    }
+  );
+
+  const svc = new mod.exports.RowerService(fakeHttp);
+  svc.updateProfile({ language: 'de' });
+  assert.equal(putCalls.length, 1);
+  assert.equal(putCalls[0].url, 'https://api.test/api/v1/user/profile');
+  assert.deepEqual(putCalls[0].body, { language: 'de' });
+});
+
+test('app.ts synchronizes user profile language, activeSeoLang, countdowns, and localized error messages', () => {
+  const appTsPath = path.resolve(__dirname, '../src/app/app.ts');
+  const appTs = fs.readFileSync(appTsPath, 'utf8');
+
+  assert.match(appTs, /onLanguageSelectChange\(event:\s*Event\):\s*void[\s\S]*?changeLanguage\(lang\)/);
+  assert.match(appTs, /changeLanguage\(langCode:\s*string\):\s*void[\s\S]*?this\.i18n\.setLang\(lang\)/);
+  assert.match(appTs, /changeLanguage\(langCode:\s*string\):\s*void[\s\S]*?this\.syncSeoLanguage\(lang\)/);
+  assert.match(appTs, /changeLanguage\(langCode:\s*string\):\s*void[\s\S]*?this\.rowerService\.updateProfile\(\{\s*language:\s*lang\s*\}\)/);
+  assert.match(appTs, /applyUserLanguagePreference\(language\?:\s*string\):\s*void[\s\S]*?isSupportedLang\(language\)[\s\S]*?this\.i18n\.setLang\(language\)/);
+  assert.match(appTs, /loadUserProfile\(\)[\s\S]*?this\.applyUserLanguagePreference\(res\.user\.language\)/);
+  assert.match(appTs, /submitAccountLogin\(\)[\s\S]*?this\.applyUserLanguagePreference\(res\.user\.language\)/);
+  assert.match(appTs, /submitAccountRegister\(\)[\s\S]*?this\.applyUserLanguagePreference\(res\.user\.language\)/);
+  assert.match(appTs, /get formattedPreRaceCountdown\(\):\s*string\s*\{\s*return this\.i18n\.formatDetailedCountdown\(this\.countdownSeconds\);/);
+  assert.match(appTs, /this\.formattedGameRemaining = this\.i18n\.formatDetailedCountdown\(this\.gameRemainingSeconds\)/);
+  assert.match(appTs, /this\.subscriptionError = this\.i18n\.translateError\(/);
+  assert.match(appTs, /this\.adminConfigError = this\.i18n\.translateError\(/);
+  assert.match(appTs, /this\.pairingErrorMessage = this\.i18n\.translateError\(/);
+  assert.match(appTs, /this\.accountAuthError = this\.i18n\.translateError\(/);
+});
+
+test('AppHeaderComponent and HomeDashboardComponent localize all 6 languages and keep language selectors complete', () => {
+  const headerTsPath = path.resolve(__dirname, '../src/app/components/app-header/app-header.component.ts');
+  const headerHtmlPath = path.resolve(__dirname, '../src/app/components/app-header/app-header.component.html');
+  const homeTsPath = path.resolve(__dirname, '../src/app/components/home-dashboard/home-dashboard.component.ts');
+  const homeHtmlPath = path.resolve(__dirname, '../src/app/components/home-dashboard/home-dashboard.component.html');
+
+  const headerTs = fs.readFileSync(headerTsPath, 'utf8');
+  const headerHtml = fs.readFileSync(headerHtmlPath, 'utf8');
+  const homeTs = fs.readFileSync(homeTsPath, 'utf8');
+  const homeHtml = fs.readFileSync(homeHtmlPath, 'utf8');
+
+  assert.ok(headerTs.includes('public i18n: I18nService'), 'AppHeaderComponent must inject public i18n');
+  assert.ok(homeTs.includes('public i18n: I18nService'), 'HomeDashboardComponent must inject public i18n');
+
+  // Verify all 3 language selectors iterate over i18n.languages (all 6 languages with flag + label)
+  assert.equal((headerHtml.match(/@for \(item of i18n\.languages; track item\.code\)/g) || []).length, 3);
+  assert.equal((headerHtml.match(/\{\{ item\.flag \}\} \{\{ item\.label \}\}/g) || []).length, 3);
+
+  const headerKeys = [
+    'NAV_HOME', 'MODE_REGATTA', 'MODE_COCKPIT', 'HEADER_MANAGE_ACCOUNT_TIP',
+    'HEADER_GUEST_LABEL', 'HEADER_MY_KAYAK_LABEL', 'HEADER_CHOOSE_KAYAK_OPT',
+    'HEADER_CHANGE_LANG_TIP', 'HEADER_SELECT_LANG_ARIA', 'HEADER_ADMIN_SHORT',
+    'HEADER_SUBSCRIBER_TAG', 'HEADER_ACTIVE_ROOM_BADGE', 'HEADER_TIME_REMAINING_LABEL',
+    'HEADER_PAUSE_LABEL', 'HEADER_PAIR_WATCH_BTN', 'HEADER_PIN_PREFIX',
+    'HEADER_MY_ACCOUNT_BTN', 'HEADER_GUEST_SUB_HINT', 'HEADER_ADMINISTRATION_BTN',
+    'HEADER_STATS_BTN', 'HEADER_MY_SUB_BTN', 'HEADER_SUBS_BTN',
+    'HEADER_PUBLIC_SUSPENDED_TITLE', 'HEADER_PRIVATE_ROOMS_EMPTY_TIP',
+    'HEADER_PRIVATE_ROOMS_PREFIX', 'HEADER_PRIVATE_SALON_SINGULAR',
+    'HEADER_PRIVATE_SALON_PLURAL', 'HEADER_PRIVATE_DUEL_SINGULAR', 'HEADER_PRIVATE_DUEL_PLURAL'
+  ];
+  for (const key of headerKeys) {
+    assert.ok(headerHtml.includes(`'${key}'`) || headerTs.includes(`'${key}'`), `AppHeader must use key ${key}`);
+  }
+
+  const homeKeys = [
+    'HOME_WELCOME_ARIA', 'HOME_WELCOME_BACK', 'HOME_LAST_RACE_LABEL',
+    'HOME_NO_RACE_PREFIX', 'HOME_NO_RACE_CTA', 'HOME_PARTICIPATE_ACTION',
+    'HOME_WATCH_LINKED', 'HOME_WATCH_UNLINKED', 'HOME_VISITOR_TITLE', 'HOME_VISITOR_SUB',
+    'HOME_GARMIN_PAIR_TITLE', 'HOME_GARMIN_PAIR_DESC', 'HOME_REGEN_PIN_BTN',
+    'HOME_PIN_STEP_BEFORE', 'HOME_PIN_STEP_STRONG', 'HOME_PIN_STEP_AFTER',
+    'HOME_COUNTDOWN_TAG', 'HOME_WAITING_VALIDATION', 'HOME_MANUAL_KAYAK_TITLE',
+    'HOME_MANUAL_KAYAK_OPT', 'HOME_GRID_TITLE', 'HOME_GRID_TARGET',
+    'HOME_GRID_ENGAGED_COUNT', 'HOME_LIVE_RACE_BADGE', 'HOME_TOP3_LABEL',
+    'HOME_TOP3_WAITING', 'HOME_GRID_SUBDESC', 'HOME_MOBILE_STANDINGS_TITLE',
+    'HOME_MOBILE_HISTORY_TITLE', 'HOME_ROWERS_BADGE', 'HOME_REGATTAS_BADGE',
+    'HOME_UPDATED_AT', 'HOME_HIST_STOPPED_CANCELLED', 'STANDINGS_YEARS_SUFFIX'
+  ];
+  for (const key of homeKeys) {
+    assert.ok(homeHtml.includes(`'${key}'`) || homeTs.includes(`'${key}'`), `HomeDashboard must use key ${key}`);
+  }
+  assert.ok(homeHtml.includes('i18n.formatRankOrdinal('), 'HomeDashboard Top 3 podium must use formatRankOrdinal');
+
+  // Verify every new header/home key resolves non-empty across all 6 languages
+  const { service } = loadI18nServiceRuntime({ savedLang: 'fr' });
+  const allNewKeys = Array.from(new Set([...headerKeys, ...homeKeys]));
+  for (const key of allNewKeys) {
+    for (const lang of ['fr', 'en', 'de', 'es', 'it', 'pt']) {
+      service.setLang(lang);
+      const val = service.t(key);
+      assert.notEqual(val, key, `Key ${key} must resolve to a translated string in ${lang}`);
+      assert.ok(val.trim().length > 0, `Key ${key} must be non-empty in ${lang}`);
+    }
+  }
+
+  // Verify AppHeaderComponent privateRoomsAndDuelsTooltip switches cleanly across all 6 languages
+  const headerTranspiled = ts.transpileModule(headerTs, {
+    compilerOptions: {
+      module: ts.ModuleKind.CommonJS,
+      target: ts.ScriptTarget.ES2022,
+      experimentalDecorators: true,
+      esModuleInterop: true
+    }
+  }).outputText;
+  const headerMod = { exports: {} };
+  const headerRequire = (spec) => {
+    if (spec === '@angular/core') {
+      return {
+        Component: () => (t) => t,
+        Input: () => () => {},
+        Output: () => () => {},
+        EventEmitter: class {},
+        ViewEncapsulation: { None: 2 }
+      };
+    }
+    if (spec === '@angular/common' || spec === '@angular/forms' || spec.startsWith('../../') || spec.startsWith('../')) {
+      return {};
+    }
+    throw new Error(`Unexpected header import: ${spec}`);
+  };
+  new vm.Script(`(function(exports, require, module) {\n${headerTranspiled}\n})`).runInThisContext()(
+    headerMod.exports,
+    headerRequire,
+    headerMod
+  );
+  const headerComp = new headerMod.exports.AppHeaderComponent(service);
+  headerComp.totalPendingPrivateAndDuelsCount = 3;
+  headerComp.pendingPrivateSalonsCount = 1;
+  headerComp.pendingDuelsCount = 2;
+  const seenTooltips = new Set();
+  for (const lang of ['fr', 'en', 'de', 'es', 'it', 'pt']) {
+    service.setLang(lang);
+    const tip = headerComp.privateRoomsAndDuelsTooltip;
+    assert.ok(tip.includes('1 ') && tip.includes('2 '), `Tooltip in ${lang} must include salon and duel counts: ${tip}`);
+    seenTooltips.add(tip);
+  }
+  assert.equal(seenTooltips.size, 6, 'Tooltip must produce 6 distinct localized strings across the 6 languages');
+});

@@ -14,30 +14,30 @@
     <div
       class="pure-user-pill is-clickable"
       (click)="openAccountModal(isIdentified ? 'profile' : 'login')"
-      title="Gérer mon compte">
+      [title]="i18n.t('HEADER_MANAGE_ACCOUNT_TIP')">
       @if (isIdentified) {
         <span class="pure-league-badge" [title]="currentUserLeague.name">{{ currentUserLeague.badge }}</span>
         <span class="pure-user-name">{{ currentUser.name }}</span>
-        <span class="pure-user-lane-badge" *ngIf="myAssignedLane" title="Ligne d'eau assignée">Ligne {{ myAssignedLane }}</span>
+        <span class="pure-user-lane-badge" *ngIf="myAssignedLane" [title]="i18n.t('HEADER_ASSIGNED_LANE_TIP')">{{ i18n.t('CANVAS_LANE') }} {{ myAssignedLane }}</span>
       } @else {
-        <span class="pure-user-name">👤 {{ isUserAssociatedWithRace ? currentUser.name : 'Invité' }}</span>
+        <span class="pure-user-name">👤 {{ isUserAssociatedWithRace ? currentUser.name : i18n.t('HEADER_GUEST_LABEL') }}</span>
       }
     </div>
 
     <!-- Liste déroulante d'identification du kayak si joueur non connecté à un compte et sans montre appairée -->
     @if (canManualSelectPublicKayak && selectablePublicKayaks.length > 0) {
       <div class="pure-kayak-select-wrapper">
-        <label for="pure-kayak-select" class="pure-kayak-label" title="Identifier votre kayak dans la course publique">🛶 Mon kayak :</label>
+        <label for="pure-kayak-select" class="pure-kayak-label" [title]="i18n.t('HEADER_IDENTIFY_KAYAK_TIP')">🛶 {{ i18n.t('HEADER_MY_KAYAK_LABEL') }}</label>
         <select
           id="pure-kayak-select"
           class="spectator-select pure-kayak-select"
           [ngModel]="isUserAssociatedWithRace ? activeUserId : ''"
           (ngModelChange)="selectPublicKayak.emit($event)"
-          aria-label="Sélectionner votre kayak dans la course publique">
-          <option value="">-- Choisir mon kayak --</option>
+          [attr.aria-label]="i18n.t('REGATTA_SELECT_KAYAK_ARIA')">
+          <option value="">{{ i18n.t('HEADER_CHOOSE_KAYAK_OPT') }}</option>
           @for (k of selectablePublicKayaks; track k.userId) {
             <option [value]="k.userId">
-              🛶 Ligne {{ k.lane }} · {{ k.name }} ({{ k.dist }}m)
+              🛶 {{ i18n.t('CANVAS_LANE') }} {{ k.lane }} · {{ k.name }} ({{ k.dist }}m)
             </option>
           }
         </select>
@@ -46,13 +46,13 @@
 
     <!-- Sélecteur de langue épuré immédiatement à droite du User -->
     <div class="lang-dropdown-wrapper pure-lang-dropdown">
-      <label for="pure-lang-select" class="lang-icon" title="Changer de langue">🌐</label>
+      <label for="pure-lang-select" class="lang-icon" [title]="i18n.t('HEADER_CHANGE_LANG_TIP')">🌐</label>
       <select
         id="pure-lang-select"
         class="lang-select-input pure-lang-select"
         [value]="i18n.getCurrentLang()"
         (change)="languageChange.emit($event)"
-        aria-label="Sélectionner la langue">
+        [attr.aria-label]="i18n.t('HEADER_SELECT_LANG_ARIA')">
         @for (item of i18n.languages; track item.code) {
           <option [value]="item.code">
             {{ item.flag }} {{ item.label }} ({{ item.code.toUpperCase() }})
@@ -70,18 +70,18 @@
           type="button"
           class="btn-pure-nav btn-pure-stop"
           (click)="stopActiveRaceRequest.emit()"
-          title="Arrêter la course immédiatement et finaliser le classement">
+          [title]="i18n.t('RACE_STOP_TIP')">
           <span class="pure-icon" aria-hidden="true">🛑</span>
-          <span class="pure-label">Arrêter</span>
+          <span class="pure-label">{{ i18n.t('RACE_BTN_STOP') }}</span>
         </button>
       } @else if (canStartRace) {
         <button
           type="button"
           class="btn-pure-nav btn-pure-start"
           (click)="startActivePrivateRaceRequest.emit()"
-          title="Démarrer la course manuellement (compte à rebours de 15s)">
+          [title]="i18n.t('RACE_START_TIP')">
           <span class="pure-icon" aria-hidden="true">🚀</span>
-          <span class="pure-label">Démarrer</span>
+          <span class="pure-label">{{ i18n.t('RACE_BTN_START') }}</span>
         </button>
       }
     }
@@ -89,7 +89,7 @@
     <!-- Affichage du temps restant de course à droite dans la barre d'en-tête (notamment en mode paysage) -->
     <div class="pure-header-timer" *ngIf="!activePrivateRoom && siteView === 'regatta' && (isRaceActive || nextRaceInfo?.status === 'in_progress' || isPreStartCountdown)">
       <span class="pure-timer-badge" [class.is-running]="isRaceActive">
-        ⏱️ {{ isRaceActive ? (formattedGameRemaining ? ('Fin : ' + formattedGameRemaining) : 'Course en cours') : ('Départ : ' + formattedPreRaceCountdown) }}
+        ⏱️ {{ isRaceActive ? (formattedGameRemaining ? (i18n.t('REGATTA_END_PREFIX') + ' ' + formattedGameRemaining) : i18n.t('HOME_LIVE_RACE_BADGE')) : (i18n.t('REGATTA_START_PREFIX') + ' ' + formattedPreRaceCountdown) }}
       </span>
     </div>
 
@@ -98,9 +98,9 @@
       type="button"
       class="btn-pure-nav btn-pure-admin"
       (click)="openAdminDashboardRequest.emit()"
-      title="Administration">
+      [title]="i18n.t('HEADER_ADMINISTRATION_BTN')">
       <span class="pure-icon" aria-hidden="true">🛡️</span>
-      <span class="pure-label">Admin</span>
+      <span class="pure-label">{{ i18n.t('HEADER_ADMIN_SHORT') }}</span>
     </button>
     <span class="pure-screen-tag">
       {{ siteView === 'regatta' ? i18n.t('MODE_REGATTA') : i18n.t('MODE_COCKPIT') }}
@@ -149,7 +149,7 @@
       </div>
 
       <!-- Navigation modes d'affichage épurés -->
-      <nav class="home-nav-modes" role="navigation" aria-label="Modes du site">
+      <nav class="home-nav-modes" role="navigation" [attr.aria-label]="i18n.t('HEADER_SITE_MODES_ARIA')">
         <button
           type="button"
           class="btn-nav-mode btn-nav-home-only"
@@ -183,9 +183,9 @@
           class="btn-nav-mode btn-nav-admin"
           [class.active]="isAdminDashboardOpen"
           (click)="openAdminDashboardRequest.emit()"
-          title="Administration Plateforme">
+          [title]="i18n.t('HEADER_ADMIN_PLATFORM_TIP')">
           <span class="mode-icon">🛡️</span>
-          <span class="mode-txt">Admin</span>
+          <span class="mode-txt">{{ i18n.t('HEADER_ADMIN_SHORT') }}</span>
         </button>
       </nav>
 
@@ -197,14 +197,14 @@
               type="button"
               class="btn-line1-auth smartphone-auth-btn"
               (click)="openAccountModal(isIdentified ? 'profile' : 'login')"
-              title="Gérer mon compte et abonnement">
+              [title]="i18n.t('HEADER_MANAGE_ACCOUNT_TIP')">
               <span class="user-avatar-tag">{{ currentUser.name.slice(0, 2).toUpperCase() }}</span>
               <span class="user-league-badge-tag" [title]="currentUserLeague.name">{{ currentUserLeague.badge }}</span>
               <span class="user-name-tag">{{ currentUser.name }}</span>
               @if (isUserAdmin) {
-                <span class="role-tag is-admin">👑 Admin</span>
+                <span class="role-tag is-admin">👑 {{ i18n.t('HEADER_ADMIN_SHORT') }}</span>
               } @else if (isSubscriber) {
-                <span class="role-tag is-sub">⭐ Abonné</span>
+                <span class="role-tag is-sub">⭐ {{ i18n.t('HEADER_SUBSCRIBER_TAG') }}</span>
               }
             </button>
           } @else {
@@ -212,21 +212,21 @@
               type="button"
               class="btn-line1-auth guest-mode smartphone-auth-btn"
               (click)="openAccountModal('login')"
-              title="Connexion / S'inscrire">
+              [title]="i18n.t('HEADER_LOGIN_REGISTER_TIP')">
               <span class="user-avatar-tag">👤</span>
-              <span class="user-name-tag">Connexion</span>
+              <span class="user-name-tag">{{ i18n.t('ACCOUNT_TAB_LOGIN') }}</span>
             </button>
           }
         </div>
 
         <div class="lang-dropdown-wrapper smartphone-lang-dropdown">
-          <label for="smart-lang-select" class="lang-icon" title="Changer de langue">🌐</label>
+          <label for="smart-lang-select" class="lang-icon" [title]="i18n.t('HEADER_CHANGE_LANG_TIP')">🌐</label>
           <select
             id="smart-lang-select"
             class="lang-select-input"
             [value]="i18n.getCurrentLang()"
             (change)="languageChange.emit($event)"
-            title="Langue / Language">
+            [title]="i18n.t('SELECT_LANGUAGE')">
             @for (item of i18n.languages; track item.code) {
               <option [value]="item.code">
                 {{ item.flag }} {{ item.label }} ({{ item.code.toUpperCase() }})
@@ -243,7 +243,7 @@
           <div class="badge-title">
             @if (activePrivateRoom) {
               @if (isPrivateRoomCompleted) {
-                🏁 {{ activePrivateRoom.race.title }} · {{ i18n.t('RACE_FINISHED_ROOM_CLOSED') || 'Course terminée (Salon fermé)' }}
+                🏁 {{ activePrivateRoom.race.title }} · {{ i18n.t('RACE_FINISHED_ROOM_CLOSED') }}
               } @else {
                 🔒 {{ i18n.t('PRIVATE_ROOM_BADGE') }} · {{ activePrivateRoom.race.title }} ({{ activePrivateRoom.race.targetDistance }}M)
               }
@@ -254,15 +254,15 @@
           <div class="badge-timer">
             @if (activePrivateRoom && !isPrivateRoomCompleted) {
               <div class="timer-display-box is-private-room-badge">
-                <span class="timer-digits">🔒 Salon actif</span>
+                <span class="timer-digits">🔒 {{ i18n.t('HEADER_ACTIVE_ROOM_BADGE') }}</span>
               </div>
             } @else {
               <div class="timer-display-box" [class.is-running]="nextRaceInfo.status === 'in_progress'" [class.is-completed]="isPrivateRoomCompleted">
                 @if (isPrivateRoomCompleted) {
-                  <span class="timer-digits race-finished-badge">🏁 Course terminée</span>
+                  <span class="timer-digits race-finished-badge">{{ i18n.t('RACE_STOPPED_FINISHED') }}</span>
                 } @else {
-                  <span class="timer-label-sub" *ngIf="nextRaceInfo.status === 'in_progress'">⏱️ Temps restant : </span>
-                  <span class="timer-label-sub" *ngIf="nextRaceInfo.status === 'post_race_pause'">⏸️ Pause : </span>
+                  <span class="timer-label-sub" *ngIf="nextRaceInfo.status === 'in_progress'">⏱️ {{ i18n.t('HEADER_TIME_REMAINING_LABEL') }} </span>
+                  <span class="timer-label-sub" *ngIf="nextRaceInfo.status === 'post_race_pause'">⏸️ {{ i18n.t('HEADER_PAUSE_LABEL') }} </span>
                   <span class="timer-digits">
                     {{ nextRaceInfo.status === 'in_progress' ? formattedGameRemaining : formattedPreRaceCountdown }}
                   </span>
@@ -275,15 +275,15 @@
                 type="button"
                 class="btn-leave-room-header"
                 (click)="leaveCompletedRoomRequest.emit()"
-                title="Quitter le salon et revenir aux courses publiques">
-                🚪 Quitter le salon
+                [title]="i18n.t('HEADER_LEAVE_ROOM_PUBLIC_TIP')">
+                {{ i18n.t('BTN_LEAVE_ROOM_TO_PUBLIC') }}
               </button>
               <button
                 type="button"
                 class="btn-view-ranking-header"
                 (click)="openRaceLeaderboardRequest.emit(activePrivateRoom.race.id)"
-                title="Voir le classement officiel de la course">
-                🏆 Classement
+                [title]="i18n.t('HEADER_VIEW_RANKING_TIP')">
+                🏆 {{ i18n.t('HEADER_RANKING_SHORT') }}
               </button>
             }
 
@@ -302,7 +302,7 @@
               [attr.aria-label]="isFullscreen ? i18n.t('FULLSCREEN_EXIT') : i18n.t('FULLSCREEN_ENTER')"
               [attr.aria-pressed]="isFullscreen">
               <span class="fullscreen-icon" aria-hidden="true">{{ isFullscreen ? '✕' : '⛶' }}</span>
-              <span class="fullscreen-label">{{ isFullscreen ? (i18n.t('FULLSCREEN_EXIT_LABEL') || 'Quitter') : (i18n.t('TOGGLE_FULLSCREEN') || 'Plein Écran') }}</span>
+              <span class="fullscreen-label">{{ isFullscreen ? i18n.t('FULLSCREEN_EXIT_LABEL') : i18n.t('TOGGLE_FULLSCREEN') }}</span>
             </button>
           </div>
 
@@ -315,16 +315,16 @@
                   class="btn-timer-pair"
                   [disabled]="isGeneratingPairingCode"
                   (click)="generateGarminPairingCode()"
-                  title="Lier votre montre Garmin (Connect IQ) pour la course">
+                  [title]="i18n.t('HEADER_PAIR_WATCH_TIP')">
                   <span class="pair-icon">⌚</span>
-                  <span class="pair-text">{{ isGeneratingPairingCode ? 'Génération...' : 'Lier ma montre Garmin' }}</span>
+                  <span class="pair-text">{{ isGeneratingPairingCode ? i18n.t('GENERATING') : i18n.t('HEADER_PAIR_WATCH_BTN') }}</span>
                 </button>
               } @else {
                 <div
                   class="timer-pairing-code-pill"
                   (click)="openWatchGuidanceAndPair()"
-                  title="Toucher pour voir les étapes de saisie du PIN sur votre montre">
-                  <span class="pair-code-tag">PIN Garmin :</span>
+                  [title]="i18n.t('HEADER_PIN_TAP_TIP')">
+                  <span class="pair-code-tag">{{ i18n.t('HEADER_PIN_PREFIX') }}</span><!-- PIN Garmin : -->
                   <strong class="pair-code-num">{{ pairingCode }}</strong>
                   <span class="pair-code-timer">⏱️ {{ formattedPairingCountdown }}</span>
                   <span class="pair-code-help-icon" aria-hidden="true">ℹ️</span>
@@ -344,14 +344,14 @@
               type="button"
               class="btn-line1-auth"
               (click)="openAccountModal(isIdentified ? 'profile' : 'login')"
-              title="Gérer mon compte et abonnement">
+              [title]="i18n.t('HEADER_MANAGE_ACCOUNT_TIP')">
               <span class="user-avatar-tag">{{ currentUser.name.slice(0, 2).toUpperCase() }}</span>
               <span class="user-league-badge-tag" [title]="currentUserLeague.name">{{ currentUserLeague.badge }}</span>
               <span class="user-name-tag">{{ currentUser.name }}</span>
               @if (isUserAdmin) {
-                <span class="role-tag is-admin">👑 Admin</span>
+                <span class="role-tag is-admin">👑 {{ i18n.t('HEADER_ADMIN_SHORT') }}</span>
               } @else if (isSubscriber) {
-                <span class="role-tag is-sub">⭐ Abonné</span>
+                <span class="role-tag is-sub">⭐ {{ i18n.t('HEADER_SUBSCRIBER_TAG') }}</span>
               }
             </button>
           } @else {
@@ -359,9 +359,9 @@
               type="button"
               class="btn-line1-auth guest-mode"
               (click)="openAccountModal('login')"
-              title="Connexion / S'inscrire">
+              [title]="i18n.t('HEADER_LOGIN_REGISTER_TIP')">
               <span class="user-avatar-tag">👤</span>
-              <span class="user-name-tag">Connexion</span>
+              <span class="user-name-tag">{{ i18n.t('ACCOUNT_TAB_LOGIN') }}</span>
             </button>
           }
         </div>
@@ -370,13 +370,13 @@
 
     <!-- Liste déroulante des langues discrète (Desktop / Tablette) -->
     <div class="lang-dropdown-wrapper desktop-only-lang">
-      <label for="header-lang-select" class="lang-icon" title="Changer de langue">🌐</label>
+      <label for="header-lang-select" class="lang-icon" [title]="i18n.t('HEADER_CHANGE_LANG_TIP')">🌐</label>
       <select
         id="header-lang-select"
         class="lang-select-input"
         [value]="i18n.getCurrentLang()"
         (change)="languageChange.emit($event)"
-        title="Langue / Language">
+        [title]="i18n.t('SELECT_LANGUAGE')">
         @for (item of i18n.languages; track item.code) {
           <option [value]="item.code">
             {{ item.flag }} {{ item.label }} ({{ item.code.toUpperCase() }})
@@ -401,9 +401,9 @@
               <span class="user-league-badge-tag" [title]="currentUserLeague.name">{{ currentUserLeague.badge }}</span>
               {{ currentUser.name }}
               @if (isUserAdmin) {
-                <span class="badge-role-tag is-admin" title="Administratrice">👑 Admin</span>
+                <span class="badge-role-tag is-admin" [title]="i18n.t('HEADER_ADMIN_ROLE_TITLE')">👑 {{ i18n.t('HEADER_ADMIN_SHORT') }}</span>
               } @else if (isSubscriber) {
-                <span class="badge-role-tag is-sub" title="Abonné(e)">⭐ Abonné</span>
+                <span class="badge-role-tag is-sub" [title]="i18n.t('HEADER_SUBSCRIBER_TAG')">⭐ {{ i18n.t('HEADER_SUBSCRIBER_TAG') }}</span>
               }
             </div>
             <div class="player-code">
@@ -415,7 +415,7 @@
               type="button"
               class="btn-hud btn-connect"
               (click)="$event.stopPropagation(); openAccountModal(isIdentified ? 'profile' : 'login')">
-              {{ isIdentified ? 'Mon Compte' : 'Connexion' }}
+              {{ isIdentified ? i18n.t('HEADER_MY_ACCOUNT_BTN') : i18n.t('ACCOUNT_TAB_LOGIN') }}
             </button>
           </div>
         </div>
@@ -423,16 +423,16 @@
         <!-- Zone profil invité épurée : pseudo invité modifiable au clic tant que non connecté -->
         <div class="guest-hero-pill">
           <span class="guest-avatar-icon">👤</span>
-          <div class="guest-pill-text is-clickable" (click)="editGuestPseudoRequest.emit()" title="Cliquer pour modifier votre pseudo invité temporaire">
+          <div class="guest-pill-text is-clickable" (click)="editGuestPseudoRequest.emit()" [title]="i18n.t('HEADER_GUEST_EDIT_TIP')">
             <span class="guest-pill-name">{{ currentUser.name }} <span class="guest-edit-icon" aria-hidden="true">✏️</span></span>
-            <span class="guest-pill-sub">Mode Invité (cliquer pour changer)</span>
+            <span class="guest-pill-sub">{{ i18n.t('HEADER_GUEST_SUB_HINT') }}</span>
           </div>
           <button
             type="button"
             class="btn-hud btn-connect-compact"
             (click)="openAccountModal('login')"
-            title="Créer un compte ou souscrire un abonnement">
-            Connexion / S'inscrire
+            [title]="i18n.t('HEADER_GUEST_AUTH_TIP')">
+            {{ i18n.t('HEADER_LOGIN_REGISTER_TIP') }}
           </button>
         </div>
       }
@@ -443,8 +443,8 @@
         type="button"
         class="btn-hud btn-admin-backoffice is-admin"
         (click)="openAdminDashboardRequest.emit()"
-        title="🛡️ Ouvrir le tableau de bord d'administration de la plateforme">
-        🛡️ Administration
+        [title]="i18n.t('HEADER_ADMIN_OPEN_TIP')">
+        🛡️ {{ i18n.t('HEADER_ADMINISTRATION_BTN') }}
       </button>
 
       <!-- Boutons Salons Privés -->
@@ -467,9 +467,9 @@
         type="button"
         class="btn-hud btn-stats"
         (click)="openStatisticsModal()"
-        title="Consulter vos statistiques et analyses de courses détaillées (Illimité pour les abonnés, 10 jours en compte gratuit)">
+        [title]="i18n.t('HEADER_STATS_TIP')">
         <span class="btn-icon">📊</span>
-        Statistiques
+        {{ i18n.t('HEADER_STATS_BTN') }}
       </button>
 
       <!-- Bouton Abonnements -->
@@ -477,9 +477,9 @@
         type="button"
         class="btn-hud btn-pricing"
         (click)="openSubscriptionModal()"
-        title="Offres et abonnements Club & Élite Pro">
+        [title]="i18n.t('HEADER_SUBS_TIP')">
         <span class="btn-icon">⭐</span>
-        {{ isSubscriber ? 'Mon Abonnement' : 'Abonnements' }}
+        {{ isSubscriber ? i18n.t('HEADER_MY_SUB_BTN') : i18n.t('HEADER_SUBS_BTN') }}
       </button>
 
       <!-- Bouton dédié Organisateur : Démarrer la course en attente / Arrêter la course en cours -->
@@ -489,16 +489,16 @@
             type="button"
             class="btn-hud btn-stop-race"
             (click)="stopActiveRaceRequest.emit()"
-            title="Arrêter la course immédiatement et établir le classement officiel selon les positions réelles">
-            🛑 Arrêter la course
+            [title]="i18n.t('RACE_STOP_TIP')">
+            {{ i18n.t('BTN_STOP_MANUAL') }}
           </button>
         } @else if (canStartRace) {
           <button
             type="button"
             class="btn-hud btn-start-race"
             (click)="startActivePrivateRaceRequest.emit()"
-            title="Démarrer la course manuellement (compte à rebours de 15s)">
-            🚀 Démarrer la course
+            [title]="i18n.t('RACE_START_TIP')">
+            {{ i18n.t('BTN_START_MANUAL') }}
           </button>
         }
       }
@@ -510,7 +510,7 @@
 <div class="public-races-suspended-banner" *ngIf="isPublicRaceSuspended">
   <div class="banner-content">
     <span class="banner-icon">⚠️</span>
-    <span class="banner-text"><strong>Information :</strong> Les courses publiques sont actuellement suspendues par l'administration. Les courses en cours se terminent normalement et les salons privés restent disponibles.</span>
+    <span class="banner-text"><strong>{{ i18n.t('HEADER_PUBLIC_SUSPENDED_TITLE') }}</strong> {{ i18n.t('BANNER_PUBLIC_SUSPENDED') }}</span>
   </div>
 </div>
 

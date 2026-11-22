@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams, HttpHeaders } from '@angular/common/http';
-import { Observable } from 'rxjs';
-import { map } from 'rxjs/operators';
+import { Observable, throwError } from 'rxjs';
+import { map, catchError } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
 import {
   RowerData,
@@ -533,6 +533,17 @@ export class RowerService {
       `${this.apiUrl}/api/user/language`,
       { language },
       { headers: this.getAuthHeaders() }
+    );
+  }
+
+  // Mise à jour générique du profil utilisateur (ex: langue préférée)
+  updateProfile(profile: { language?: string; [key: string]: any }): Observable<{ success: boolean; message?: string; language?: string; user?: UserProfile }> {
+    return this.http.put<{ success: boolean; message?: string; language?: string; user?: UserProfile }>(
+      `${this.apiUrl}/api/v1/user/profile`,
+      profile,
+      { headers: this.getAuthHeaders() }
+    ).pipe(
+      catchError((err) => profile.language ? this.updateUserLanguage(profile.language) : throwError(() => err))
     );
   }
 

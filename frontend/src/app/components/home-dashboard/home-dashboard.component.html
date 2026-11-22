@@ -1,12 +1,12 @@
 <!-- 2.1 BANNIÈRE D'ACCUEIL & STATUT MATÉRIEL EN UN COUP D'ŒIL -->
-<section class="home-welcome-banner" *ngIf="!isMobileFullscreenOnly" aria-label="Accueil et statut matériel">
+<section class="home-welcome-banner" *ngIf="!isMobileFullscreenOnly" [attr.aria-label]="i18n.t('HOME_WELCOME_ARIA')">
   @if (isRegisteredUser || isSubscriber || isUserAdmin) {
     <div class="welcome-banner-card is-connected">
       <!-- Médaille & Salutation -->
       <div class="welcome-inline-user">
         <span class="welcome-league-badge" [title]="currentUserLeague.name">{{ currentUserLeague.badge }}</span>
         <span class="welcome-greeting-text">
-          Ravi de vous revoir, <strong class="welcome-user-name">{{ currentUser.name }}</strong>
+          {{ i18n.t('HOME_WELCOME_BACK') }} <strong class="welcome-user-name">{{ currentUser.name }}</strong><!-- Ravi de vous revoir, {{ currentUser.name }} -->
         </span>
       </div>
 
@@ -14,8 +14,8 @@
 
       <!-- Ligue & Points -->
       <div class="welcome-inline-league">
-        <span class="welcome-league-tag">Ligue {{ currentUserLeague.name }}</span>
-        <span class="welcome-points-tag">({{ currentUser.points || 0 }} pts)</span>
+        <span class="welcome-league-tag">{{ i18n.t('LEAGUE_PREFIX') }} {{ currentUserLeague.name }}</span>
+        <span class="welcome-points-tag">({{ currentUser.points || 0 }} {{ i18n.t('POINTS') }})</span>
       </div>
 
       <span class="welcome-inline-divider" aria-hidden="true">|</span>
@@ -23,9 +23,9 @@
       <!-- Résultat dernière course OU Invitation -->
       <div class="welcome-inline-race">
         @if (lastRaceSummary.hasRaced) {
-          <div class="welcome-race-pill is-completed" [title]="lastRaceSummary.date ? ('Course du ' + (lastRaceSummary.date | date:'short')) : 'Dernier résultat enregistré'">
+          <div class="welcome-race-pill is-completed" [title]="lastRaceSummary.date ? i18n.t('HOME_LAST_RACE_TIP_DATE', { date: (lastRaceSummary.date | date:'short') || '' }) : i18n.t('HOME_LAST_RACE_TIP_DEFAULT')">
             <span class="pill-icon">🏁</span>
-            <span class="pill-label" *ngIf="!isSmartphone">Dernière course :</span>
+            <span class="pill-label" *ngIf="!isSmartphone">{{ i18n.t('HOME_LAST_RACE_LABEL') }}</span><!-- <span *ngIf="!isSmartphone">Dernière course</span> -->
             <span class="pill-date" *ngIf="lastRaceSummary.date">{{ lastRaceSummary.dateFormatted || (lastRaceSummary.date | date:'dd/MM/yyyy') }}</span>
             <span class="pill-divider" *ngIf="lastRaceSummary.date" aria-hidden="true">·</span>
             <strong class="pill-rank">{{ lastRaceSummary.rankDisplay }}</strong>
@@ -37,10 +37,10 @@
           <div
             class="welcome-race-pill is-invite is-clickable"
             (click)="scrollToNextRace()"
-            title="Vous n'avez pas encore terminé de course — Cliquez pour rejoindre le prochain départ !">
+            [title]="i18n.t('HOME_NO_RACE_TIP')">
             <span class="pill-icon">🚣</span>
-            <span class="pill-label">Aucune course terminée · <em>Prenez votre 1ᵉʳ départ !</em></span>
-            <span class="pill-action-tag">Participer &rarr;</span>
+            <span class="pill-label">{{ i18n.t('HOME_NO_RACE_PREFIX') }} <em>{{ i18n.t('HOME_NO_RACE_CTA') }}</em></span><!-- Prenez votre 1ᵉʳ départ ! -->
+            <span class="pill-action-tag">{{ i18n.t('HOME_PARTICIPATE_ACTION') }} &rarr;</span>
           </div>
         }
       </div>
@@ -50,15 +50,15 @@
         @if (isPaired || isWatchConfirmed) {
           <div class="hardware-status-pill is-linked compact">
             <span class="hw-status-dot dot-green"></span>
-            <span class="hw-status-label">Montre Garmin liée</span>
+            <span class="hw-status-label">{{ i18n.t('HOME_WATCH_LINKED') }}</span><!-- Montre Garmin liée -->
           </div>
         } @else {
           <div
             class="hardware-status-pill is-unlinked compact"
             (click)="scrollToGarminPairing()"
-            title="Montre non liée — Saisissez un code PIN d'appairage ci-dessous">
+            [title]="i18n.t('HOME_WATCH_UNLINKED_TIP')">
             <span class="hw-status-dot dot-amber"></span>
-            <span class="hw-status-label">Montre non liée</span>
+            <span class="hw-status-label">{{ i18n.t('HOME_WATCH_UNLINKED') }}</span><!-- Montre non liée -->
           </div>
         }
       </div>
@@ -68,23 +68,23 @@
       <div class="welcome-left">
         <span class="welcome-icon">🚣</span>
         <div class="welcome-texts">
-          <h2 class="welcome-title">Prêt à ramer ? Rejoignez une course ou lancez un entraînement libre en quelques secondes</h2>
-          <span class="welcome-sub">Synchronisation directe Garmin Connect IQ · Concept2 PM5 · WaterRower SmartRow · FTMS</span>
+          <h2 class="welcome-title">{{ i18n.t('HOME_VISITOR_TITLE') }}</h2><!-- Prêt à ramer ? Rejoignez une course ou lancez un entraînement libre en quelques secondes -->
+          <span class="welcome-sub">{{ i18n.t('HOME_VISITOR_SUB') }}</span>
         </div>
       </div>
       <div class="welcome-right">
         @if (isPaired || isWatchConfirmed) {
           <div class="hardware-status-pill is-linked">
             <span class="hw-status-dot dot-green"></span>
-            <span class="hw-status-label">Montre Garmin liée</span>
+            <span class="hw-status-label">{{ i18n.t('HOME_WATCH_LINKED') }}</span><!-- Montre Garmin liée -->
           </div>
         } @else {
           <div
             class="hardware-status-pill is-unlinked"
             (click)="scrollToGarminPairing()"
-            title="Montre non liée — Saisissez un code PIN d'appairage ci-dessous">
+            [title]="i18n.t('HOME_WATCH_UNLINKED_TIP')">
             <span class="hw-status-dot dot-amber"></span>
-            <span class="hw-status-label">Montre non liée</span>
+            <span class="hw-status-label">{{ i18n.t('HOME_WATCH_UNLINKED') }}</span><!-- Montre non liée -->
           </div>
         }
       </div>
@@ -110,18 +110,18 @@
 </div>
 
 <!-- ZONE D'APPAIRAGE GARMIN MODERNE (CODE WEB -> MONTRE, VISIBLE SI NON APPAIRÉE) -->
-<section id="garmin-pairing-section" class="garmin-pairing-section" *ngIf="!isMobileFullscreenOnly && !isPaired" aria-label="Appairage Montre Garmin Connect IQ">
+<section id="garmin-pairing-section" class="garmin-pairing-section" *ngIf="!isMobileFullscreenOnly && !isPaired" [attr.aria-label]="i18n.t('HOME_GARMIN_PAIR_ARIA')">
   <div class="pairing-cyber-card">
     <div class="cyber-header-row">
       <div class="cyber-info-cluster">
         <span class="cyber-icon">⌚</span>
         <div class="cyber-titles">
           <div class="cyber-title-badge-row">
-            <h3 class="cyber-card-title">Liaison Montre Garmin (Connect IQ)</h3>
-            <span class="cyber-status-badge unlinked">Montre non liée</span>
+            <h3 class="cyber-card-title">{{ i18n.t('HOME_GARMIN_PAIR_TITLE') }}</h3>
+            <span class="cyber-status-badge unlinked">{{ i18n.t('HOME_WATCH_UNLINKED') }}</span>
           </div>
           <p class="cyber-card-desc">
-            Générez un code PIN temporaire ci-dessous et saisissez-le sur votre montre Garmin pour transmettre vos métriques en direct.
+            {{ i18n.t('HOME_GARMIN_PAIR_DESC') }}<!-- Générez un code PIN temporaire ci-dessous et saisissez-le sur votre montre Garmin -->
           </p>
         </div>
       </div>
@@ -133,7 +133,7 @@
           [disabled]="isGeneratingPairingCode"
           (click)="generateGarminPairingCode()">
           <span class="btn-icon">⚡</span>
-          {{ pairingCode ? 'Regénérer un code PIN' : 'Lier ma montre Garmin' }}
+          {{ pairingCode ? i18n.t('HOME_REGEN_PIN_BTN') : i18n.t('HEADER_PAIR_WATCH_BTN') }}
         </button>
       </div>
     </div>
@@ -143,20 +143,20 @@
       <div class="cyber-code-stage">
         <div class="code-instruction-banner">
           <span class="step-num">1</span>
-          <span>Sur votre montre Garmin, sélectionnez <strong>« Entrer un code »</strong> (ou « Entrer un code PIN ») et saisissez votre code PIN : <strong>[{{ pairingCode }}]</strong></span>
+          <span>{{ i18n.t('HOME_PIN_STEP_BEFORE') }} <strong>{{ i18n.t('HOME_PIN_STEP_STRONG') }}</strong> {{ i18n.t('HOME_PIN_STEP_AFTER') }} <strong>[{{ pairingCode }}]</strong><!-- sélectionnez <strong>« Entrer un code »</strong> (ou « Entrer un code PIN ») et saisissez votre code PIN --></span>
         </div>
 
         <div class="code-digits-wrapper">
           <div class="code-display-box">
-            <span class="code-sub-tag">VOTRE CODE PIN D'APPAIRAGE :</span>
+            <span class="code-sub-tag">{{ i18n.t('GUIDE_PIN_LABEL') }} :<!-- VOTRE CODE PIN D'APPAIRAGE --></span>
             <div class="code-glow-digits">{{ pairingCode }}</div>
-            <span class="code-helper-text">Sur votre montre Garmin, sélectionnez « Entrer un code » (ou « Entrer un code PIN ») et saisissez : [{{ pairingCode }}]</span>
+            <span class="code-helper-text">{{ i18n.t('HOME_PIN_HELPER', { code: pairingCode }) }}</span>
           </div>
 
           <div class="code-timer-box">
-            <span class="timer-sub-tag">COMPTE À REBOURS</span>
+            <span class="timer-sub-tag">{{ i18n.t('HOME_COUNTDOWN_TAG') }}</span>
             <div class="timer-digits-glow">{{ formattedPairingCountdown }}</div>
-            <span class="timer-pulse-sub">Validation en attente...</span>
+            <span class="timer-pulse-sub">{{ i18n.t('HOME_WAITING_VALIDATION') }}</span>
           </div>
         </div>
       </div>
@@ -167,17 +167,17 @@
       <div class="spectator-camera-bar" style="margin-block-start: 12px; border-radius: 10px;">
         <div class="spectator-label-group">
           <span class="cam-icon">🛶</span>
-          <span class="cam-title">Sélectionner votre kayak en course publique (sans compte ni montre liée) :</span>
+          <span class="cam-title">{{ i18n.t('HOME_MANUAL_KAYAK_TITLE') }}</span>
         </div>
         <div class="spectator-dropdown-wrap">
           <select
             class="spectator-select"
-            aria-label="Sélectionner mon kayak dans la course publique"
+            [attr.aria-label]="i18n.t('REGATTA_SELECT_KAYAK_ARIA')"
             [ngModel]="claimedRacerUserId || ''"
             (ngModelChange)="selectPublicKayak.emit($event)">
-            <option value="">-- Choisir mon kayak dans la liste --</option>
+            <option value="">{{ i18n.t('HOME_MANUAL_KAYAK_OPT') }}</option>
             <option *ngFor="let k of selectablePublicKayaks" [value]="k.userId">
-              🛶 {{ k.userName }} (Ligne {{ k.lane }} · {{ k.netDistance }}m · {{ k.lastPower }}W)
+              🛶 {{ k.userName }} ({{ i18n.t('CANVAS_LANE') }} {{ k.lane }} · {{ k.netDistance }}m · {{ k.lastPower }}W)
             </option>
           </select>
         </div>
@@ -195,42 +195,42 @@
 </section>
 
 <!-- VUE 2D AU-DESSUS DES CLASSEMENTS ET HISTORIQUES AVEC LES LIGNES D'EAU OÙ LES JOUEURS SONT ENGAGÉS -->
-<section class="lobby-regatta-preview-section" *ngIf="!isSmartphone && !isMobileFullscreenOnly" aria-label="Grille de départ et lignes d'eau engagées">
+<section class="lobby-regatta-preview-section" *ngIf="!isSmartphone && !isMobileFullscreenOnly" [attr.aria-label]="i18n.t('HOME_GRID_ARIA')">
   <div class="lobby-preview-card">
     <div class="panel-header">
       <div class="panel-title-group">
         <span class="panel-icon">🛶</span>
-        <h3 class="panel-title">Grille de Départ — Lignes d'eau engagées</h3>
+        <h3 class="panel-title">{{ i18n.t('HOME_GRID_TITLE') }}</h3>
       </div>
       <div class="preview-badges-cluster">
-        <span class="panel-badge-target">🎯 Objectif : {{ nextRaceInfo?.race?.targetDistance || 2000 }} m</span>
-        <span class="panel-badge">{{ liveMetricsList.length }} Rameurs engagés</span>
+        <span class="panel-badge-target">🎯 {{ i18n.t('HOME_GRID_TARGET', { dist: nextRaceInfo?.race?.targetDistance || 2000 }) }}</span>
+        <span class="panel-badge">{{ i18n.t('HOME_GRID_ENGAGED_COUNT', { count: liveMetricsList.length }) }}</span>
       </div>
     </div>
 
     <!-- BANNIÈRE OFFICIELLE : COURSE EN COURS AVEC TOP 3 ET DURÉE RESTANTE DANS LE HAUT DU TABLEAU DES RAMEURS ENGAGÉS -->
     <div class="lobby-live-race-banner" *ngIf="isRaceActive || nextRaceInfo?.status === 'in_progress'">
       <div class="live-banner-headline">
-        <span class="live-pulse-badge">🔴 Course en cours</span>
-        <span class="live-remaining-timer">⏱️ Temps restant : <strong>{{ formattedGameRemaining }}</strong></span>
+        <span class="live-pulse-badge">🔴 {{ i18n.t('HOME_LIVE_RACE_BADGE') }}</span><!-- 🔴 Course en cours -->
+        <span class="live-remaining-timer">⏱️ {{ i18n.t('HEADER_TIME_REMAINING_LABEL') }} <strong>{{ formattedGameRemaining }}</strong></span>
       </div>
       <div class="live-top3-strip">
-        <span class="live-top3-label">🏆 Top 3 en tête :</span>
+        <span class="live-top3-label">🏆 {{ i18n.t('HOME_TOP3_LABEL') }}</span>
         <div class="live-top3-pills" *ngIf="topThreeLiveRacers.length > 0; else noTop3Yet">
           <span class="top3-pill" *ngFor="let racer of topThreeLiveRacers; let idx = index" [class.gold]="idx === 0" [class.silver]="idx === 1" [class.bronze]="idx === 2">
-            <span class="top3-medal">{{ idx === 0 ? '🥇 1er' : (idx === 1 ? '🥈 2e' : '🥉 3e') }}</span>
+            <span class="top3-medal">{{ idx === 0 ? '🥇' : (idx === 1 ? '🥈' : '🥉') }} {{ i18n.formatRankOrdinal(idx + 1) }}</span>
             <strong class="top3-name">{{ racer.name }}</strong>
             <span class="top3-dist">({{ racer.dist }} m)</span>
           </span>
         </div>
         <ng-template #noTop3Yet>
-          <span class="top3-waiting">Course lancée, acquisition de la télémétrie...</span>
+          <span class="top3-waiting">{{ i18n.t('HOME_TOP3_WAITING') }}</span>
         </ng-template>
       </div>
     </div>
 
     <p class="panel-subdesc">
-      Visualisez en direct chaque rameur et bot sur sa ligne d'eau (L1, L2, L3...) prêt pour le départ de la régate.
+      {{ i18n.t('HOME_GRID_SUBDESC') }}
     </p>
 
     <div class="canvas-display-card">
@@ -247,14 +247,14 @@
     </div>
 
     <!-- BANNIÈRE ÉGALITÉ SPORTIVE CONCEPT2 (POSITIONNÉE EN DESSOUS DE LA PRÉSENTATION DE LA RÉGATE) -->
-    <div class="concept2-fairness-banner lobby-fairness-banner">
+    <div class="concept2-fairness-banner lobby-fairness-banner" [attr.aria-label]="i18n.t('FAIRNESS_ARIA')">
       <div class="fairness-content">
         <span class="fairness-icon">⚖️</span>
         <div class="fairness-text">
-          <strong>Égalité sportive garantie :</strong>
+          <strong>{{ i18n.t('FAIRNESS_TITLE') }}</strong>
           <span>
-            Les données FTMS de distance variant selon les modèles de rameurs, la distance parcourue est calculée en temps réel selon l'algorithme officiel Concept2 basé sur votre puissance en Watts (<span class="code-math">v = (Watts / 2.80)<sup>1/3</sup></span>).
-            Cette distance normalisée garantit une parfaite équité sportive entre tous les compétiteurs et peut légèrement différer de celle affichée sur votre console de rameur.
+            {{ i18n.t('FAIRNESS_DESC_BEFORE') }} (<span class="code-math">v = (Watts / 2.80)<sup>1/3</sup></span>).
+            {{ i18n.t('FAIRNESS_DESC_AFTER') }}
           </span>
         </div>
       </div>
@@ -263,13 +263,13 @@
 </section>
 
 <!-- LIENS SMARTPHONE POUR AFFICHER LE CLASSEMENT ET L'HISTORIQUE (LISIBILITÉ MOBILE) -->
-<section class="smartphone-table-links" *ngIf="!isMobileFullscreenOnly" aria-label="Liens Classement et Historique">
+<section class="smartphone-table-links" *ngIf="!isMobileFullscreenOnly" [attr.aria-label]="i18n.t('HOME_MOBILE_LINKS_ARIA')">
   <button type="button" class="btn-mobile-table-link link-standings" (click)="openStandingsModal()">
     <div class="mobile-link-left">
       <span class="link-icon">🏅</span>
       <div class="link-text">
-        <strong>Classement Général</strong>
-        <span>{{ generalLeaderboard.length }} rameurs classés · Consulter</span>
+        <strong>{{ i18n.t('HOME_MOBILE_STANDINGS_TITLE') }}</strong>
+        <span>{{ i18n.t('HOME_MOBILE_STANDINGS_SUB', { count: generalLeaderboard.length }) }}</span>
       </div>
     </div>
     <span class="link-arrow">→</span>
@@ -279,8 +279,8 @@
     <div class="mobile-link-left">
       <span class="link-icon">🏆</span>
       <div class="link-text">
-        <strong>Historique des Régates</strong>
-        <span>{{ raceHistory.length }} courses archivées · Consulter</span>
+        <strong>{{ i18n.t('HOME_MOBILE_HISTORY_TITLE') }}</strong>
+        <span>{{ i18n.t('HOME_MOBILE_HISTORY_SUB', { count: raceHistory.length }) }}</span>
       </div>
     </div>
     <span class="link-arrow">→</span>
@@ -288,7 +288,7 @@
 </section>
 
 <!-- DEUX VUES RÉPARTIES SUR LA TOTALITÉ DE LA LARGEUR DE L'ÉCRAN AVEC ASCENSEUR -->
-<section class="dual-standings-history-container" *ngIf="!isMobileFullscreenOnly" aria-label="Classement et Historique">
+<section class="dual-standings-history-container" *ngIf="!isMobileFullscreenOnly" [attr.aria-label]="i18n.t('HOME_DUAL_SECTION_ARIA')">
   <!-- VUE 1 : CLASSEMENT GÉNÉRAL AVEC ASCENSEUR -->
   <div class="dual-panel-card panel-standings">
     <div class="panel-header">
@@ -296,41 +296,41 @@
         <span class="panel-icon">🏅</span>
         <h3 class="panel-title">{{ i18n.t('MODAL_STANDINGS_TITLE') }}</h3>
       </div>
-      <span class="panel-badge">{{ generalLeaderboard.length }} Rameurs</span>
-      <span class="panel-updated" *ngIf="lastHomeRefreshAt">Mis à jour {{ lastHomeRefreshAt | date:'HH:mm:ss' }}</span>
+      <span class="panel-badge">{{ i18n.t('HOME_ROWERS_BADGE', { count: generalLeaderboard.length }) }}</span>
+      <span class="panel-updated" *ngIf="lastHomeRefreshAt">{{ i18n.t('HOME_UPDATED_AT') }} {{ lastHomeRefreshAt | date:'HH:mm:ss' }}</span>
     </div>
     <p class="panel-subdesc">{{ i18n.t('MODAL_STANDINGS_DESC') }}</p>
 
     <!-- Filtres Pays, Sexe et Catégorie d'âge -->
     <div class="leaderboard-filters-bar">
       <div class="filter-group">
-        <label for="filter-country-p">🌍 Pays :</label>
+        <label for="filter-country-p">🌍 {{ i18n.t('STANDINGS_FILTER_COUNTRY') }}</label>
         <select id="filter-country-p" [ngModel]="leaderboardCountryFilter" (ngModelChange)="onCountryFilterChange($event)">
-          <option value="all">Tous les pays</option>
+          <option value="all">{{ i18n.t('STANDINGS_OPT_ALL_COUNTRIES') }}</option>
           <option *ngFor="let c of availableLeaderboardCountries" [value]="c">
             {{ getCountryFlag(c) }} {{ c }}
           </option>
         </select>
       </div>
       <div class="filter-group">
-        <label for="filter-gender-p">⚧ Sexe :</label>
+        <label for="filter-gender-p">⚧ {{ i18n.t('STANDINGS_FILTER_GENDER') }}</label>
         <select id="filter-gender-p" [ngModel]="leaderboardGenderFilter" (ngModelChange)="onGenderFilterChange($event)">
-          <option value="all">Tous</option>
-          <option value="M">Hommes (M)</option>
-          <option value="F">Femmes (F)</option>
-          <option value="Autre">Autre</option>
+          <option value="all">{{ i18n.t('STANDINGS_OPT_ALL_M') }}</option>
+          <option value="M">{{ i18n.t('STANDINGS_GENDER_MEN') }}</option>
+          <option value="F">{{ i18n.t('STANDINGS_GENDER_WOMEN') }}</option>
+          <option value="Autre">{{ i18n.t('FIELD_GENDER_OTHER') }}</option>
         </select>
       </div>
       <div class="filter-group">
-        <label for="filter-age-p">🎂 Catégorie :</label>
+        <label for="filter-age-p">🎂 {{ i18n.t('STANDINGS_FILTER_CATEGORY') }}</label>
         <select id="filter-age-p" [ngModel]="leaderboardAgeCategoryFilter" (ngModelChange)="onAgeFilterChange($event)">
-          <option value="all">Toutes</option>
-          <option value="U19">U19 (-19 ans)</option>
-          <option value="19-29">19-29 ans (Senior)</option>
-          <option value="30-39">30-39 ans (Master A)</option>
-          <option value="40-49">40-49 ans (Master B)</option>
-          <option value="50-59">50-59 ans (Master C)</option>
-          <option value="60+">60+ ans (Master D+)</option>
+          <option value="all">{{ i18n.t('STANDINGS_OPT_ALL_F') }}</option>
+          <option value="U19">{{ i18n.t('STANDINGS_CAT_U19') }}</option>
+          <option value="19-29">{{ i18n.t('STANDINGS_CAT_SENIOR') }}</option>
+          <option value="30-39">{{ i18n.t('STANDINGS_CAT_MASTER_A') }}</option>
+          <option value="40-49">{{ i18n.t('STANDINGS_CAT_MASTER_B') }}</option>
+          <option value="50-59">{{ i18n.t('STANDINGS_CAT_MASTER_C') }}</option>
+          <option value="60+">{{ i18n.t('STANDINGS_CAT_MASTER_D') }}</option>
         </select>
       </div>
       <button
@@ -338,7 +338,7 @@
         type="button"
         class="btn-reset-filters"
         (click)="resetLeaderboardFiltersRequest.emit()">
-        ✕ Réinitialiser
+        ✕ {{ i18n.t('STANDINGS_BTN_RESET') }}
       </button>
     </div>
 
@@ -353,14 +353,14 @@
           <tr>
             <th scope="col">{{ i18n.t('COL_POSITION').toUpperCase() }}</th>
             <th scope="col">{{ i18n.t('COL_NAME').toUpperCase() }}</th>
-            <th scope="col">PAYS</th>
-            <th scope="col">CATÉGORIE</th>
+            <th scope="col">{{ i18n.t('STANDINGS_COL_COUNTRY') }}</th>
+            <th scope="col">{{ i18n.t('STANDINGS_COL_CATEGORY') }}</th>
             <th scope="col">{{ i18n.t('COL_POINTS').toUpperCase() }}</th>
             <th scope="col">{{ i18n.t('COL_RACES').toUpperCase() }}</th>
             <th scope="col">{{ i18n.t('COL_WINS').toUpperCase() }}</th>
             <th scope="col">{{ i18n.t('COL_PODIUMS').toUpperCase() }}</th>
-            <th scope="col">RECORD</th>
-            <th scope="col">DUEL</th>
+            <th scope="col">{{ i18n.t('STANDINGS_COL_RECORD') }}</th>
+            <th scope="col">{{ i18n.t('STANDINGS_COL_DUEL') }}</th>
           </tr>
         </thead>
         <tbody>
@@ -389,18 +389,18 @@
                     type="button"
                     class="btn-challenge-player"
                     (click)="challengePlayerRequest.emit(player.login || player.id)">
-                    ⚔️ Défier
+                    ⚔️ {{ i18n.t('STANDINGS_BTN_CHALLENGE') }}
                   </button>
                 } @else if ((player.login || player.id) === activeUserId) {
-                  <span class="duel-self-tag">Moi</span>
+                  <span class="duel-self-tag">{{ i18n.t('STANDINGS_TAG_SELF') }}</span>
                 } @else {
-                  <span class="duel-unavailable-tag">Indispo</span>
+                  <span class="duel-unavailable-tag">{{ i18n.t('STANDINGS_TAG_UNAVAILABLE') }}</span>
                 }
               </td>
             </tr>
           } @empty {
             <tr class="empty-row">
-              <td colspan="10" class="text-center">Aucun coureur ne correspond aux critères sélectionnés.</td>
+              <td colspan="10" class="text-center">{{ i18n.t('STANDINGS_GENERAL_EMPTY') }}</td>
             </tr>
           }
         </tbody>
@@ -415,15 +415,15 @@
         <span class="panel-icon">🏆</span>
         <h3 class="panel-title">{{ i18n.t('MODAL_HISTORY_TITLE') }}</h3>
       </div>
-      <span class="panel-badge">{{ raceHistory.length }} Régates</span>
-      <span class="panel-updated" *ngIf="lastHomeRefreshAt">Mis à jour {{ lastHomeRefreshAt | date:'HH:mm:ss' }}</span>
+      <span class="panel-badge">{{ i18n.t('HOME_REGATTAS_BADGE', { count: raceHistory.length }) }}</span>
+      <span class="panel-updated" *ngIf="lastHomeRefreshAt">{{ i18n.t('HOME_UPDATED_AT') }} {{ lastHomeRefreshAt | date:'HH:mm:ss' }}</span>
     </div>
     <p class="panel-subdesc">{{ i18n.t('MODAL_HISTORY_DESC') }}</p>
 
     <div class="scroll-elevator-container" tabindex="0">
       <div class="history-list">
         @for (item of raceHistory; track item.race.id) {
-          <div class="history-race-item is-clickable" (click)="openRaceLeaderboardRequest.emit(item.race.id)" title="Cliquez pour consulter le classement complet de cette course">
+          <div class="history-race-item is-clickable" (click)="openRaceLeaderboardRequest.emit(item.race.id)" [title]="i18n.t('HIST_CLICK_DETAILS_TIP')">
             <div class="race-item-header">
               <span class="race-tag">🏁 {{ i18n.t('RACE_AT') }} {{ item.race.startTime ? (item.race.startTime | date:'short') : '' }}</span>
               <span class="race-details">
@@ -431,7 +431,7 @@
                 {{ i18n.t('STATUS') }}: {{ item.race.status }}
               </span>
               <span class="race-status-tag" [class.tag-cancelled]="item.race.status === 'cancelled'">
-                {{ item.race.status === 'cancelled' ? 'Arrêtée / Annulée' : 'Terminée' }}
+                {{ item.race.status === 'cancelled' ? i18n.t('HOME_HIST_STOPPED_CANCELLED') : i18n.t('HIST_STATUS_FINISHED') }}
               </span>
             </div>
 
@@ -440,19 +440,19 @@
                 <div class="podium-mini-item" [class.abandoned]="p.status === 'abandoned'">
                   <span class="mini-rank">{{ p.status === 'abandoned' ? '❌' : (pIdx === 0 ? '🥇' : (pIdx === 1 ? '🥈' : '🥉')) }}</span>
                   <span class="mini-name">{{ p.userName || p.userId }}</span>
-                  <span class="mini-dist">{{ p.status === 'abandoned' ? 'Abandonné' : (p.netDistance + ' m') }}</span>
+                  <span class="mini-dist">{{ p.status === 'abandoned' ? i18n.t('HIST_ABANDONED') : (p.netDistance + ' m') }}</span>
                 </div>
               }
             </div>
             <div class="no-podium" *ngIf="item.podium.length === 0">
-              Aucun participant n'a pris le départ de cette course.
+              {{ i18n.t('HIST_NO_PARTICIPANTS') }}
             </div>
             <div class="history-item-footer">
-              <span class="btn-history-view-details">📊 Consulter le classement complet &rarr;</span>
+              <span class="btn-history-view-details">📊 {{ i18n.t('HIST_VIEW_FULL_LINK') }} &rarr;</span>
             </div>
           </div>
         } @empty {
-          <div class="empty-notice">Aucune course précédente enregistrée.</div>
+          <div class="empty-notice">{{ i18n.t('HIST_EMPTY') }}</div>
         }
       </div>
     </div>

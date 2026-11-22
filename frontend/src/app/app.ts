@@ -400,7 +400,7 @@ export class AppComponent implements OnInit, OnDestroy {
       },
       error: (err) => {
         this.isSavingKayak = false;
-        this.accountAuthError = err.error?.message || 'Erreur lors de la sauvegarde du kayak.';
+        this.accountAuthError = this.i18n.translateError(err.error?.message ? err : 'ERR_KAYAK_SAVE');
         this.cdr.markForCheck();
       }
     });
@@ -467,7 +467,7 @@ export class AppComponent implements OnInit, OnDestroy {
     const idx = this.selectedRegattaMetrics.indexOf(key);
     if (idx >= 0) {
       if (this.selectedRegattaMetrics.length <= 3) {
-        this.regattaPreferencesError = 'Au minimum 3 données doivent rester sélectionnées pour le confort de lecture en zoom maximal.';
+        this.regattaPreferencesError = this.i18n.translateError('ERR_REGATTA_MIN_METRICS');
         this.cdr.markForCheck();
         return;
       }
@@ -533,7 +533,7 @@ export class AppComponent implements OnInit, OnDestroy {
 
   saveRegattaPreferences(): void {
     if (this.selectedRegattaMetrics.length < 3) {
-      this.regattaPreferencesError = 'Veuillez sélectionner au minimum 3 données à afficher sous les lignes d’eau.';
+      this.regattaPreferencesError = this.i18n.translateError('ERR_REGATTA_MIN_METRICS');
       this.cdr.markForCheck();
       return;
     }
@@ -574,7 +574,7 @@ export class AppComponent implements OnInit, OnDestroy {
       },
       error: (err) => {
         this.isSavingRegattaPreferences = false;
-        this.regattaPreferencesError = err.error?.message || 'Erreur lors de la sauvegarde des préférences.';
+        this.regattaPreferencesError = this.i18n.translateError(err.error?.message ? err : 'ERR_PREFS_SAVE');
         this.cdr.markForCheck();
       },
     });
@@ -614,14 +614,14 @@ export class AppComponent implements OnInit, OnDestroy {
   saveDuelPreferences(): void {
     const targetUserId = this.currentUser?.login || this.currentUser?.id || this.activeUserId;
     if (!targetUserId || !this.isRegisteredUser) {
-      this.duelPreferencesError = 'Veuillez vous connecter avec votre compte abonné pour enregistrer vos disponibilités.';
+      this.duelPreferencesError = this.i18n.translateError('ERR_DUEL_LOGIN_REQUIRED');
       return;
     }
 
     const startTime = this.duelAvailableStartTime || '08:00';
     const endTime = this.duelAvailableEndTime || '22:00';
     if (endTime <= startTime) {
-      this.duelPreferencesError = 'L\'heure de fin de plage horaire doit être postérieure à l\'heure de début.';
+      this.duelPreferencesError = this.i18n.translateError('ERR_DUEL_TIME_RANGE');
       return;
     }
 
@@ -652,7 +652,7 @@ export class AppComponent implements OnInit, OnDestroy {
       },
       error: (err) => {
         this.isSavingDuelPreferences = false;
-        this.duelPreferencesError = err?.error?.message || 'Erreur lors de la sauvegarde des préférences de duel.';
+        this.duelPreferencesError = this.i18n.translateError(err?.error?.message ? err : 'ERR_PREFS_SAVE');
         this.cdr.markForCheck();
       },
     });
@@ -978,6 +978,7 @@ export class AppComponent implements OnInit, OnDestroy {
     this.apiUrl = this.rowerService.getApiUrl();
     this.customApiUrlInput = this.apiUrl;
     this.wakeLockSupported = this.wakeLockService.isSupported();
+    this.formattedGameRemaining = this.i18n.formatDetailedCountdown(this.gameRemainingSeconds);
 
     // Initialize or load stored user code and login
     const storedUserId = typeof localStorage !== 'undefined' ? localStorage.getItem('rower_user_id') : null;
@@ -1066,7 +1067,7 @@ export class AppComponent implements OnInit, OnDestroy {
           const cleanUrl = window.location.pathname + (window.location.hash || '');
           window.history.replaceState({}, '', cleanUrl || '/');
         } else if (subscriptionParam === 'canceled') {
-          this.subscriptionError = "Le paiement de votre abonnement Stripe a été interrompu.";
+          this.subscriptionError = this.i18n.translateError('ERR_STRIPE_INTERRUPTED');
           this.isSubscriptionModalOpen = true;
           const cleanUrl = window.location.pathname + (window.location.hash || '');
           window.history.replaceState({}, '', cleanUrl || '/');
@@ -1119,7 +1120,7 @@ export class AppComponent implements OnInit, OnDestroy {
                   this.setSiteView('home');
                   this.userExplicitlyNavigatedHome = true;
                   this.openAccountModal('register');
-                  this.accountAuthError = 'Invitation expirée ou introuvable';
+                  this.accountAuthError = this.i18n.translateError('Invitation expirée ou introuvable');
                 }
               }
               this.cdr.markForCheck();
@@ -1131,7 +1132,7 @@ export class AppComponent implements OnInit, OnDestroy {
                 this.setSiteView('home');
                 this.userExplicitlyNavigatedHome = true;
                 this.openAccountModal('register');
-                this.accountAuthError = 'Invitation expirée ou introuvable';
+                this.accountAuthError = this.i18n.translateError('Invitation expirée ou introuvable');
               }
               this.cdr.markForCheck();
             }
@@ -1332,9 +1333,7 @@ export class AppComponent implements OnInit, OnDestroy {
           this.countdownSeconds = raceData.secondsRemaining;
           this.gameRemainingSeconds = raceData.remainingSeconds !== undefined ? raceData.remainingSeconds : 3300;
           this.gameMaxDurationSeconds = raceData.maxDurationSeconds || 3300;
-          const remMin = Math.floor(this.gameRemainingSeconds / 60);
-          const remSec = this.gameRemainingSeconds % 60;
-          this.formattedGameRemaining = `${remMin}m ${remSec < 10 ? '0' : ''}${remSec}s`;
+          this.formattedGameRemaining = this.i18n.formatDetailedCountdown(this.gameRemainingSeconds);
           this.configTargetDistance = raceData.race.targetDistance;
           this.configIntervalMinutes = raceData.race.intervalMinutes;
 
@@ -1569,10 +1568,7 @@ export class AppComponent implements OnInit, OnDestroy {
         this.syncRegattaPreferencesFromUser(res.user);
         this.syncDuelPreferencesFromUser(res.user);
         this.refreshPendingPrivateAndDuels();
-        if (res.user.language) {
-          this.i18n.setLang(res.user.language as SupportedLang);
-          this.syncSeoLanguage(res.user.language);
-        }
+        this.applyUserLanguagePreference(res.user.language);
         this.autoResolveMyPublicKayak();
         this.cdr.markForCheck();
       }
@@ -2216,7 +2212,7 @@ export class AppComponent implements OnInit, OnDestroy {
 
   submitAccountLogin(): void {
     if (!this.loginAccountInput.trim() || !this.passwordAccountInput.trim()) {
-      this.accountAuthError = 'Veuillez saisir votre login et votre mot de passe.';
+      this.accountAuthError = this.i18n.translateError('ERR_LOGIN_REQUIRED');
       return;
     }
 
@@ -2259,10 +2255,7 @@ export class AppComponent implements OnInit, OnDestroy {
           this.syncKayakCustomizationFromUser(res.user);
           this.syncRegattaPreferencesFromUser(res.user);
           this.syncDuelPreferencesFromUser(res.user);
-          if (res.user.language) {
-            this.i18n.setLang(res.user.language as SupportedLang);
-            this.syncSeoLanguage(res.user.language);
-          }
+          this.applyUserLanguagePreference(res.user.language);
 
           try {
             localStorage.setItem('rower_user_id', userLogin);
@@ -2307,13 +2300,13 @@ export class AppComponent implements OnInit, OnDestroy {
             this.cdr.markForCheck();
           }, 500);
         } else {
-          this.accountAuthError = res.message || 'Identifiants invalides.';
+          this.accountAuthError = this.i18n.translateError(res.message || 'ERR_INVALID_CREDENTIALS');
         }
         this.cdr.markForCheck();
       },
       error: (err) => {
         this.isAccountSubmitting = false;
-        this.accountAuthError = err.error?.message || 'Erreur lors de la connexion. Vérifiez vos identifiants.';
+        this.accountAuthError = this.i18n.translateError(err.error?.message ? err : 'ERR_INVALID_CREDENTIALS');
         this.cdr.markForCheck();
       }
     });
@@ -2332,17 +2325,17 @@ export class AppComponent implements OnInit, OnDestroy {
       !this.regPassword.trim() ||
       !finalPays
     ) {
-      this.accountAuthError = 'Tous les champs obligatoires (nom, prénom, année, sexe, pays, login, email, mot de passe) doivent être renseignés.';
+      this.accountAuthError = this.i18n.translateError('ERR_REQUIRED_FIELDS');
       return;
     }
 
     if (!this.isPasswordPolicySatisfied(this.regPassword)) {
-      this.accountAuthError = 'Le mot de passe doit comporter au moins 8 caractères, dont une majuscule, une minuscule, un chiffre et un caractère spécial (!@#$%^&*(),.?":{}|<>).';
+      this.accountAuthError = this.i18n.translateError('ERR_PASSWORD_POLICY');
       return;
     }
 
     if (this.regPassword !== this.regPasswordConfirm) {
-      this.accountAuthError = 'Les deux mots de passe ne correspondent pas. Veuillez vérifier votre saisie.';
+      this.accountAuthError = this.i18n.translateError('ERR_PASSWORDS_DONT_MATCH');
       return;
     }
 
@@ -2397,10 +2390,7 @@ export class AppComponent implements OnInit, OnDestroy {
           this.userLoginInput = res.user.name || userLogin;
           this.syncRegattaPreferencesFromUser(res.user);
           this.syncDuelPreferencesFromUser(res.user);
-          if (res.user.language) {
-            this.i18n.setLang(res.user.language as SupportedLang);
-            this.syncSeoLanguage(res.user.language);
-          }
+          this.applyUserLanguagePreference(res.user.language);
 
           try {
             localStorage.setItem('rower_user_id', userLogin);
@@ -2454,13 +2444,13 @@ export class AppComponent implements OnInit, OnDestroy {
             this.cdr.markForCheck();
           }, 1200);
         } else {
-          this.accountAuthError = res.message || 'Erreur lors de la création du compte.';
+          this.accountAuthError = this.i18n.translateError(res.message || 'ERR_GENERIC');
         }
         this.cdr.markForCheck();
       },
       error: (err) => {
         this.isAccountSubmitting = false;
-        this.accountAuthError = err.error?.message || 'Erreur lors de l’inscription.';
+        this.accountAuthError = this.i18n.translateError(err.error?.message ? err : 'ERR_GENERIC');
         this.cdr.markForCheck();
       }
     });
@@ -2468,7 +2458,7 @@ export class AppComponent implements OnInit, OnDestroy {
 
   submitForgotPassword(): void {
     if (!this.forgotEmailOrLogin.trim()) {
-      this.accountAuthError = 'Veuillez saisir votre email ou login.';
+      this.accountAuthError = this.i18n.translateError('ERR_FORGOT_REQUIRED');
       return;
     }
 
@@ -2485,7 +2475,7 @@ export class AppComponent implements OnInit, OnDestroy {
       },
       error: (err) => {
         this.isAccountSubmitting = false;
-        this.accountAuthError = err.error?.message || 'Erreur lors de la demande de réinitialisation.';
+        this.accountAuthError = this.i18n.translateError(err.error?.message ? err : 'ERR_GENERIC');
         this.cdr.markForCheck();
       }
     });
@@ -2493,12 +2483,12 @@ export class AppComponent implements OnInit, OnDestroy {
 
   submitResetPassword(): void {
     if (!this.resetToken.trim() || !this.resetNewPassword.trim()) {
-      this.accountAuthError = 'Veuillez fournir le jeton et un nouveau mot de passe.';
+      this.accountAuthError = this.i18n.translateError('ERR_RESET_REQUIRED');
       return;
     }
 
     if (!this.isPasswordPolicySatisfied(this.resetNewPassword)) {
-      this.accountAuthError = 'Le mot de passe doit comporter au moins 8 caractères, dont une majuscule, une minuscule, un chiffre et un caractère spécial (!@#$%^&*(),.?":{}|<>).';
+      this.accountAuthError = this.i18n.translateError('ERR_PASSWORD_POLICY');
       return;
     }
 
@@ -2517,7 +2507,7 @@ export class AppComponent implements OnInit, OnDestroy {
       },
       error: (err) => {
         this.isAccountSubmitting = false;
-        this.accountAuthError = err.error?.message || 'Jeton invalide ou expiré.';
+        this.accountAuthError = this.i18n.translateError(err.error?.message ? err : 'ERR_TOKEN_INVALID');
         this.cdr.markForCheck();
       }
     });
@@ -2625,18 +2615,7 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   get formattedPreRaceCountdown(): string {
-    const s = Math.max(0, Math.floor(this.countdownSeconds));
-    const days = Math.floor(s / 86400);
-    const hours = Math.floor((s % 86400) / 3600);
-    const m = Math.floor((s % 3600) / 60);
-    const sec = s % 60;
-    if (days > 0) {
-      return `${days}j ${hours}h ${m}m ${sec < 10 ? '0' : ''}${sec}s`;
-    }
-    if (hours > 0) {
-      return `${hours}h ${m}m ${sec < 10 ? '0' : ''}${sec}s`;
-    }
-    return `${m}m ${sec < 10 ? '0' : ''}${sec}s`;
+    return this.i18n.formatDetailedCountdown(this.countdownSeconds);
   }
 
   get canStopRace(): boolean {
@@ -2776,10 +2755,25 @@ export class AppComponent implements OnInit, OnDestroy {
     this.cdr.markForCheck();
   }
 
+  private isSupportedLang(lang: string): lang is SupportedLang {
+    return ['fr', 'en', 'de', 'es', 'it', 'pt'].includes(lang);
+  }
+
+  private applyUserLanguagePreference(language?: string): void {
+    if (!language || !this.isSupportedLang(language)) {
+      return;
+    }
+    if (this.i18n.getCurrentLang() !== language) {
+      this.i18n.setLang(language);
+    }
+    this.syncSeoLanguage(language);
+    this.formattedGameRemaining = this.i18n.formatDetailedCountdown(this.gameRemainingSeconds);
+  }
+
   onLanguageSelectChange(event: Event): void {
-    const select = event.target as HTMLSelectElement;
-    if (select && select.value) {
-      this.changeLanguage(select.value);
+    const lang = (event.target as HTMLSelectElement)?.value as SupportedLang;
+    if (lang) {
+      this.changeLanguage(lang);
     }
   }
 
@@ -2836,11 +2830,15 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   changeLanguage(langCode: string): void {
-    this.i18n.setLang(langCode as SupportedLang);
-    this.syncSeoLanguage(langCode);
+    if (!this.isSupportedLang(langCode)) return;
+    const lang = langCode as SupportedLang;
+    this.i18n.setLang(lang);
+    this.syncSeoLanguage(lang);
+    this.formattedGameRemaining = this.i18n.formatDetailedCountdown(this.gameRemainingSeconds);
     const hasAuthToken = typeof localStorage !== 'undefined' && Boolean(localStorage.getItem('rower_auth_token'));
-    if (this.currentUser && (this.currentUser.email || this.currentUser.login || hasAuthToken)) {
-      this.rowerService.updateUserLanguage(langCode).subscribe({
+    if (this.currentUser && (this.isIdentified || this.currentUser.email || this.currentUser.login || hasAuthToken)) {
+      this.currentUser.language = lang;
+      this.rowerService.updateProfile({ language: lang }).subscribe({
         next: () => {},
         error: () => {}
       });
@@ -3477,7 +3475,7 @@ export class AppComponent implements OnInit, OnDestroy {
       },
       error: (err) => {
         this.isDeletingAccount = false;
-        this.deleteAccountError = err?.error?.message || "Erreur lors de la suppression du compte.";
+        this.deleteAccountError = this.i18n.translateError(err?.error?.message ? err : 'ERR_DELETE_ACCOUNT');
         this.cdr.markForCheck();
       }
     });
@@ -4044,13 +4042,13 @@ export class AppComponent implements OnInit, OnDestroy {
             this.myRank = myEntry.position;
           }
         } else {
-          this.raceLeaderboardError = 'Impossible de charger le classement de cette régate.';
+          this.raceLeaderboardError = this.i18n.translateError('ERR_LEADERBOARD_LOAD');
         }
         this.cdr.markForCheck();
       },
       error: (err) => {
         this.isLoadingRaceLeaderboard = false;
-        this.raceLeaderboardError = err?.error?.message || 'Erreur lors du chargement du classement.';
+        this.raceLeaderboardError = this.i18n.translateError(err?.error?.message ? err : 'ERR_LEADERBOARD_LOAD');
         this.cdr.markForCheck();
       }
     });
@@ -4181,13 +4179,13 @@ export class AppComponent implements OnInit, OnDestroy {
 
   subscribeToTier(tierId: string): void {
     if (!this.activeUserId) {
-      this.subscriptionError = "Veuillez vous connecter pour souscrire un abonnement.";
+      this.subscriptionError = this.i18n.translateError('ERR_SUB_LOGIN_REQUIRED');
       this.cdr.markForCheck();
       return;
     }
 
     if (!this.isTierActive(tierId)) {
-      this.subscriptionError = "Cette offre d'abonnement est actuellement désactivée par l'administrateur.";
+      this.subscriptionError = this.i18n.translateError('ERR_SUB_DISABLED');
       this.cdr.markForCheck();
       return;
     }
@@ -4208,7 +4206,7 @@ export class AppComponent implements OnInit, OnDestroy {
       },
       error: (err) => {
         this.subscriptionLoading = false;
-        this.subscriptionError = err.error?.message || "Erreur lors de l'accès au paiement sécurisé.";
+        this.subscriptionError = this.i18n.translateError(err.error?.message ? err : 'ERR_SUB_CHECKOUT');
         this.cdr.markForCheck();
       }
     });
@@ -4263,7 +4261,7 @@ export class AppComponent implements OnInit, OnDestroy {
       },
       error: (err) => {
         this.isAdminConfigSubmitting = false;
-        this.adminConfigError = err.error?.message || 'Erreur lors de la sauvegarde.';
+        this.adminConfigError = this.i18n.translateError(err.error?.message ? err : 'ERR_ADMIN_SAVE');
         this.cdr.markForCheck();
       }
     });
@@ -4297,13 +4295,13 @@ export class AppComponent implements OnInit, OnDestroy {
           this.startPairingCountdown();
           this.startPairingStatusPolling(res.pairingCode);
         } else {
-          this.pairingErrorMessage = "Erreur lors de la génération du code d'appairage.";
+          this.pairingErrorMessage = this.i18n.translateError('ERR_PAIRING_GEN');
         }
         this.cdr.markForCheck();
       },
       error: (err) => {
         this.isGeneratingPairingCode = false;
-        this.pairingErrorMessage = err?.error?.message || "Impossible de contacter le serveur d'appairage.";
+        this.pairingErrorMessage = this.i18n.translateError(err?.error?.message ? err : 'ERR_PAIRING_SERVER');
         this.cdr.markForCheck();
       }
     });
@@ -4327,7 +4325,7 @@ export class AppComponent implements OnInit, OnDestroy {
           this.pairingStatusPollSub = undefined;
         }
         this.pairingCode = '';
-        this.pairingErrorMessage = "Le code d'appairage a expiré. Veuillez en générer un nouveau.";
+        this.pairingErrorMessage = this.i18n.translateError('ERR_PAIRING_EXPIRED');
         this.cdr.markForCheck();
       }
     });
@@ -4345,7 +4343,7 @@ export class AppComponent implements OnInit, OnDestroy {
           this.onWatchPairedSuccess(res.deviceToken, res.userId);
         } else if (res && res.status === 'expired') {
           this.pairingCode = '';
-          this.pairingErrorMessage = "Le code d'appairage a expiré.";
+          this.pairingErrorMessage = this.i18n.translateError('ERR_PAIRING_EXPIRED');
           if (this.pairingStatusPollSub) {
             this.pairingStatusPollSub.unsubscribe();
             this.pairingStatusPollSub = undefined;
@@ -4654,10 +4652,7 @@ export class AppComponent implements OnInit, OnDestroy {
           this.syncKayakCustomizationFromUser(res.user);
           this.syncRegattaPreferencesFromUser(res.user);
           this.syncDuelPreferencesFromUser(res.user);
-          if (res.user.language) {
-            this.i18n.setLang(res.user.language as any);
-            this.syncSeoLanguage(res.user.language);
-          }
+          this.applyUserLanguagePreference(res.user.language);
 
           try {
             localStorage.setItem('rower_user_id', userLogin);
@@ -4678,13 +4673,13 @@ export class AppComponent implements OnInit, OnDestroy {
 
           this.launchRegattaFromSplash();
         } else {
-          this.invitationAuthError = res.message || 'Identifiants incorrects.';
+          this.invitationAuthError = this.i18n.translateError(res.message || 'ERR_INVALID_CREDENTIALS');
         }
         this.cdr.markForCheck();
       },
       error: (err) => {
         this.isInvitationSubmitting = false;
-        this.invitationAuthError = err?.error?.message || err?.error?.error || 'Erreur lors de la connexion. Vérifiez vos identifiants.';
+        this.invitationAuthError = this.i18n.translateError(err?.error?.message || err?.error?.error || 'ERR_INVALID_CREDENTIALS');
         this.cdr.markForCheck();
       }
     });
@@ -4743,13 +4738,13 @@ export class AppComponent implements OnInit, OnDestroy {
 
           this.launchRegattaFromSplash();
         } else {
-          this.invitationAuthError = res.message || "Erreur lors de l'inscription.";
+          this.invitationAuthError = this.i18n.translateError(res.message || 'ERR_GENERIC');
         }
         this.cdr.markForCheck();
       },
       error: (err) => {
         this.isInvitationSubmitting = false;
-        this.invitationAuthError = err?.error?.message || err?.error?.error || "Erreur lors de l'inscription. Ce pseudo ou cet email est peut-être déjà utilisé.";
+        this.invitationAuthError = this.i18n.translateError(err?.error?.message || err?.error?.error || 'ERR_GENERIC');
         this.cdr.markForCheck();
       }
     });
@@ -5411,9 +5406,7 @@ export class AppComponent implements OnInit, OnDestroy {
             if (data.remainingSeconds !== undefined) {
               this.gameRemainingSeconds = data.remainingSeconds;
               this.gameMaxDurationSeconds = data.maxDurationSeconds || this.gameMaxDurationSeconds;
-              const remMin = Math.floor(this.gameRemainingSeconds / 60);
-              const remSec = this.gameRemainingSeconds % 60;
-              this.formattedGameRemaining = `${remMin}m ${remSec < 10 ? '0' : ''}${remSec}s`;
+              this.formattedGameRemaining = this.i18n.formatDetailedCountdown(this.gameRemainingSeconds);
             }
             if (typeof data.secondsRemaining === 'number' && data.secondsRemaining > 0 && !data.waitingForHost) {
               this.countdownSeconds = data.secondsRemaining;
@@ -5540,9 +5533,7 @@ export class AppComponent implements OnInit, OnDestroy {
         this.cdr.markForCheck();
       } else if (isRunning && this.gameRemainingSeconds > 0) {
         this.gameRemainingSeconds--;
-        const remMin = Math.floor(this.gameRemainingSeconds / 60);
-        const remSec = this.gameRemainingSeconds % 60;
-        this.formattedGameRemaining = `${remMin}m ${remSec < 10 ? '0' : ''}${remSec}s`;
+        this.formattedGameRemaining = this.i18n.formatDetailedCountdown(this.gameRemainingSeconds);
         if (this.myActivity && this.nextRaceInfo?.status === 'in_progress') {
           this.myActivity.elapsedTime = Math.max(0, this.gameMaxDurationSeconds - this.gameRemainingSeconds);
         }
@@ -5829,9 +5820,7 @@ export class AppComponent implements OnInit, OnDestroy {
     if (room.remainingSeconds !== undefined) {
       this.gameRemainingSeconds = room.remainingSeconds;
       this.gameMaxDurationSeconds = room.maxDurationSeconds || this.gameMaxDurationSeconds;
-      const remMin = Math.floor(this.gameRemainingSeconds / 60);
-      const remSec = this.gameRemainingSeconds % 60;
-      this.formattedGameRemaining = `${remMin}m ${remSec < 10 ? '0' : ''}${remSec}s`;
+      this.formattedGameRemaining = this.i18n.formatDetailedCountdown(this.gameRemainingSeconds);
     }
 
     const code = room.code || room.race?.code;
