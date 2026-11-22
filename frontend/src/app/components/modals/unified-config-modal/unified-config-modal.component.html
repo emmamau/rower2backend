@@ -139,7 +139,7 @@
       @else if (isSubscriber) {
         @if (activePrivateRoom && isOrganizerOfActiveRoom) {
           <p class="modal-desc">
-            {{ i18n.t('CFG_SUB_ROOM_DESC', { room: activePrivateRoom.race.title || activePrivateRoom.code }) }}
+            {{ i18n.t('CFG_SUB_ROOM_DESC', { room: activePrivateRoom.race.title || activePrivateRoom.code || '' }) }}
           </p>
           <div class="modal-form">
             <div class="form-group">
