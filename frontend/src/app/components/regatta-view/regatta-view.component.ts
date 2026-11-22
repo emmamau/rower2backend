@@ -138,9 +138,10 @@ export class RegattaViewComponent {
   }
 
   formatRacerGap(racer: LiveRacerMetric, leader: LiveRacerMetric): string {
-    if (!leader || racer.userId === leader.userId) return 'Leader';
+    const leaderLabel = this.i18n.t('CANVAS_LEADER') || 'Leader';
+    if (!leader || racer.userId === leader.userId) return leaderLabel;
     const distDiff = Math.round((leader.dist || 0) - (racer.dist || 0));
-    if (distDiff <= 0) return 'Leader';
+    if (distDiff <= 0) return leaderLabel;
     let label = `-${distDiff}m`;
     if (racer.split && racer.split > 0 && racer.split < 600) {
       const secDiff = ((distDiff * racer.split) / 500).toFixed(1);
@@ -193,101 +194,126 @@ export class RegattaViewComponent {
     const handleLengthM = Math.min(1.35, Math.max(0.80, (136 - 1.2 * spm) / 100));
     const forceNewtons = workJoules > 0 && handleLengthM > 0 ? Math.round(workJoules / handleLengthM) : 0;
 
+    const shortLabelKeyMap: Record<RegattaMetricKey, string> = {
+      speed: 'METRIC_SHORT_SPEED',
+      pace: 'METRIC_SHORT_PACE',
+      power: 'METRIC_SHORT_POWER',
+      position: 'METRIC_SHORT_POSITION',
+      distToPrev: 'METRIC_SHORT_DISTTOPREV',
+      distToLeader: 'METRIC_SHORT_DISTTOLEADER',
+      distToNext: 'METRIC_SHORT_DISTTONEXT',
+      distRemaining: 'METRIC_SHORT_DISTREMAINING',
+      distCovered: 'METRIC_SHORT_DISTCOVERED',
+      force: 'METRIC_SHORT_FORCE',
+      work: 'METRIC_SHORT_WORK',
+      avgSpeed: 'METRIC_SHORT_AVGSPEED',
+      avgPower: 'METRIC_SHORT_AVGPOWER',
+      avgPace: 'METRIC_SHORT_AVGPACE',
+    };
+    const localizedLabel = this.i18n.t(shortLabelKeyMap[key]) || opt.shortLabel;
+    const avgPrefix = this.i18n.t('RACE_AVG_PREFIX');
+    const instPrefix = this.i18n.t('RACE_INST_PREFIX');
+    const leaderLabel = this.i18n.t('CANVAS_LEADER') || 'Leader';
+
     switch (key) {
       case 'speed':
         return {
           key,
-          label: opt.shortLabel,
+          label: localizedLabel,
           icon: opt.icon,
           value: instSpeedKmh.toFixed(1),
           unit: 'km/h',
-          sub: `Moy: ${avgSpeedKmh.toFixed(1)} km/h`,
+          sub: `${avgPrefix} ${avgSpeedKmh.toFixed(1)} km/h`,
           isHighlight: false,
         };
       case 'pace':
         return {
           key,
-          label: opt.shortLabel,
+          label: localizedLabel,
           icon: opt.icon,
           value: this.formatPace(paceSec),
           unit: '/500m',
-          sub: `Moy: ${this.formatPace(avgPaceSec)}`,
+          sub: `${avgPrefix} ${this.formatPace(avgPaceSec)}`,
           isHighlight: false,
         };
       case 'power':
         return {
           key,
-          label: opt.shortLabel,
+          label: localizedLabel,
           icon: opt.icon,
           value: String(watts),
           unit: 'W',
-          sub: `Moy: ${avgWatts} W`,
+          sub: `${avgPrefix} ${avgWatts} W`,
           isHighlight: true,
         };
       case 'position':
         return {
           key,
-          label: opt.shortLabel,
+          label: localizedLabel,
           icon: opt.icon,
           value: this.myRank ? `#${this.myRank}` : '--',
           unit: `/${this.totalActiveRacers || 1}`,
-          sub: this.myRank === 1 ? '🥇 En tête' : (this.myRank ? `-${this.distToLeader}m du 1er` : 'Classement'),
+          sub: this.myRank === 1
+            ? this.i18n.t('METRIC_IN_LEAD')
+            : (this.myRank
+              ? this.i18n.t('METRIC_GAP_FIRST_FMT', { dist: this.distToLeader })
+              : this.i18n.t('METRIC_RANKING')),
           isHighlight: true,
         };
       case 'distToPrev':
         return {
           key,
-          label: opt.shortLabel,
+          label: localizedLabel,
           icon: opt.icon,
-          value: this.myRank === 1 ? 'Leader' : (this.myRank && this.myRank > 1 ? `-${this.distToPrev}` : '--'),
+          value: this.myRank === 1 ? leaderLabel : (this.myRank && this.myRank > 1 ? `-${this.distToPrev}` : '--'),
           unit: this.myRank && this.myRank > 1 ? 'm' : '',
-          sub: 'Joueur devant',
+          sub: this.i18n.t('GAP_PREV'),
           isHighlight: false,
         };
       case 'distToLeader':
         return {
           key,
-          label: opt.shortLabel,
+          label: localizedLabel,
           icon: opt.icon,
-          value: this.myRank === 1 ? 'Leader' : (this.myRank && this.myRank > 1 ? `-${this.distToLeader}` : '--'),
+          value: this.myRank === 1 ? leaderLabel : (this.myRank && this.myRank > 1 ? `-${this.distToLeader}` : '--'),
           unit: this.myRank && this.myRank > 1 ? 'm' : '',
-          sub: 'Écart 1er',
+          sub: this.i18n.t('GAP_FIRST'),
           isHighlight: false,
         };
       case 'distToNext':
         return {
           key,
-          label: opt.shortLabel,
+          label: localizedLabel,
           icon: opt.icon,
           value: this.myRank && this.myRank < this.totalActiveRacers ? `+${this.distToNext}` : '--',
           unit: this.myRank && this.myRank < this.totalActiveRacers ? 'm' : '',
-          sub: 'Joueur derrière',
+          sub: this.i18n.t('GAP_NEXT'),
           isHighlight: false,
         };
       case 'distRemaining':
         return {
           key,
-          label: opt.shortLabel,
+          label: localizedLabel,
           icon: opt.icon,
           value: String(remDist),
           unit: 'm',
-          sub: `Objectif ${this.activeTargetDistance}m`,
+          sub: `${this.i18n.t('RACE_TARGET_PREFIX')} ${this.activeTargetDistance}m`,
           isHighlight: false,
         };
       case 'distCovered':
         return {
           key,
-          label: opt.shortLabel,
+          label: localizedLabel,
           icon: opt.icon,
           value: String(netDist),
           unit: 'm',
-          sub: `${this.myProgressPercent}% effectué`,
+          sub: this.i18n.t('METRIC_PCT_DONE', { pct: this.myProgressPercent }),
           isHighlight: false,
         };
       case 'force':
         return {
           key,
-          label: opt.shortLabel,
+          label: localizedLabel,
           icon: opt.icon,
           value: String(forceNewtons),
           unit: 'N',
@@ -297,42 +323,42 @@ export class RegattaViewComponent {
       case 'work':
         return {
           key,
-          label: opt.shortLabel,
+          label: localizedLabel,
           icon: opt.icon,
           value: String(workJoules),
           unit: 'J',
-          sub: 'Par coup de rame',
+          sub: this.i18n.t('METRIC_PER_STROKE'),
           isHighlight: false,
         };
       case 'avgSpeed':
         return {
           key,
-          label: opt.shortLabel,
+          label: localizedLabel,
           icon: opt.icon,
           value: avgSpeedKmh.toFixed(1),
           unit: 'km/h',
-          sub: `Inst: ${instSpeedKmh.toFixed(1)} km/h`,
+          sub: `${instPrefix} ${instSpeedKmh.toFixed(1)} km/h`,
           isHighlight: false,
         };
       case 'avgPower':
         return {
           key,
-          label: opt.shortLabel,
+          label: localizedLabel,
           icon: opt.icon,
           value: String(avgWatts),
           unit: 'W',
-          sub: `Inst: ${watts} W`,
+          sub: `${instPrefix} ${watts} W`,
           isHighlight: false,
         };
       case 'avgPace':
       default:
         return {
           key,
-          label: opt.shortLabel,
+          label: localizedLabel,
           icon: opt.icon,
           value: this.formatPace(avgPaceSec),
           unit: '/500m',
-          sub: `Inst: ${this.formatPace(paceSec)}`,
+          sub: `${instPrefix} ${this.formatPace(paceSec)}`,
           isHighlight: false,
         };
     }

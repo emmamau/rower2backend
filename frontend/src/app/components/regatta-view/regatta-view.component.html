@@ -5,11 +5,11 @@
 </div>
 
 <!-- BANNIÈRE DE FÉLICITATIONS FIN DE COURSE ET CLASSEMENT GÉNÉRAL COMPLET -->
-<section class="finish-celebration-banner" *ngIf="isPostRaceDisplayActive" role="region" aria-label="Félicitations de fin de course">
+<section class="finish-celebration-banner" *ngIf="isPostRaceDisplayActive" role="region" [attr.aria-label]="i18n.t('RACE_FINISH_ARIA')">
   <div class="finish-celebration-card" [class.podium-gold]="myRank === 1" [class.podium-silver]="myRank === 2" [class.podium-bronze]="myRank === 3">
     <div class="finish-badge-header">
       <span class="finish-confetti">{{ isRaceStoppedByOrganizer ? '🛑' : '🎉' }}</span>
-      <h2 class="finish-title">{{ isRaceStoppedByOrganizer ? 'COURSE ARRÊTÉE - CLASSEMENT OFFICIEL' : 'BRAVO ! COURSE TERMINÉE !' }}</h2>
+      <h2 class="finish-title">{{ isRaceStoppedByOrganizer ? i18n.t('RACE_STOPPED_OFFICIAL_TITLE') : i18n.t('RACE_FINISHED_BRAVO_TITLE') }}</h2>
       <span class="finish-confetti">{{ isRaceStoppedByOrganizer ? '🛑' : '🎉' }}</span>
     </div>
 
@@ -17,29 +17,29 @@
       <span class="podium-medal-huge">{{ myPodiumMedal.icon }}</span>
       <div class="podium-medal-text">
         <span class="podium-medal-badge">{{ myPodiumMedal.label.toUpperCase() }}</span>
-        <span class="podium-medal-sub">Félicitations pour votre podium !</span>
+        <span class="podium-medal-sub">{{ i18n.t('RACE_PODIUM_CONGRATS') }}</span>
       </div>
     </div>
 
     <div class="finish-stats-grid">
       <div class="finish-stat-box highlight">
-        <span class="f-lbl">CLASSEMENT</span>
+        <span class="f-lbl">{{ i18n.t('RACE_STAT_RANKING') }}</span>
         <span class="f-val">#{{ myRank || 1 }}</span>
       </div>
       <div class="finish-stat-box">
-        <span class="f-lbl">TEMPS OFFICIEL</span>
+        <span class="f-lbl">{{ i18n.t('RACE_STAT_OFFICIAL_TIME') }}</span>
         <span class="f-val">{{ formatTime(myActivity?.elapsedTime) }}</span>
       </div>
       <div class="finish-stat-box">
-        <span class="f-lbl">DISTANCE</span>
+        <span class="f-lbl">{{ i18n.t('DISTANCE').toUpperCase() }}</span>
         <span class="f-val">{{ formatDist(myActivity?.netDistance || activeTargetDistance) }}</span>
       </div>
       <div class="finish-stat-box">
-        <span class="f-lbl">ALLURE MOYENNE</span>
+        <span class="f-lbl">{{ i18n.t('RACE_STAT_AVG_PACE') }}</span>
         <span class="f-val">{{ formatPace(myActivity?.avgPace) }}</span>
       </div>
       <div class="finish-stat-box">
-        <span class="f-lbl">PUISSANCE MOY.</span>
+        <span class="f-lbl">{{ i18n.t('RACE_STAT_AVG_POWER') }}</span>
         <span class="f-val">{{ myActivity?.avgPower || 0 }} W</span>
       </div>
     </div>
@@ -53,8 +53,8 @@
           type="button"
           class="btn-open-full-leaderboard"
           (click)="openCurrentRaceLeaderboardRequest.emit()"
-          title="Afficher le tableau officiel complet">
-          📊 Voir Détails Complets
+          [title]="i18n.t('RACE_VIEW_FULL_TABLE_TIP')">
+          📊 {{ i18n.t('RACE_VIEW_FULL_DETAILS') }}
         </button>
       </div>
 
@@ -62,12 +62,12 @@
         <table class="race-leaderboard-table compact-finish-table">
           <thead>
             <tr>
-              <th>Rang</th>
-              <th>Coureur</th>
-              <th>Chrono</th>
-              <th>Allure</th>
-              <th>Écart</th>
-              <th>Points</th>
+              <th>{{ i18n.t('RANK') }}</th>
+              <th>{{ i18n.t('RACER') }}</th>
+              <th>{{ i18n.t('TIME_LABEL') }}</th>
+              <th>{{ i18n.t('PACE') }}</th>
+              <th>{{ i18n.t('RACE_COL_GAP') }}</th>
+              <th>{{ i18n.t('RACE_COL_POINTS') }}</th>
             </tr>
           </thead>
           <tbody>
@@ -82,9 +82,9 @@
                   <td class="col-user">
                     <div class="user-cell">
                       <span class="user-league-badge" *ngIf="entry.league" [title]="entry.league.name">{{ entry.league.badge }}</span>
-                      <span class="bot-indicator" *ngIf="entry.isBot" title="Robot / IA">🤖</span>
+                      <span class="bot-indicator" *ngIf="entry.isBot" [title]="i18n.t('RACE_BOT_TIP')">🤖</span>
                       <strong class="user-name">{{ entry.userName }}</strong>
-                      <span class="badge-estimated" *ngIf="entry.isEstimated" title="Temps estimé par extrapolation d'allure">⏱️ Estimé</span>
+                      <span class="badge-estimated" *ngIf="entry.isEstimated" [title]="i18n.t('RACE_ESTIMATED_TIP')">⏱️ {{ i18n.t('RACE_ESTIMATED_BADGE') }}</span>
                     </div>
                   </td>
                   <td class="col-time font-mono">{{ entry.formattedDuration || entry.chrono || '--' }}</td>
@@ -125,7 +125,7 @@
         type="button"
         class="btn-finish-home"
         (click)="returnToHomeAfterRaceRequest.emit()"
-        title="Quitter la course et revenir à la page d'accueil">
+        [title]="i18n.t('RACE_RETURN_HOME_TIP')">
         {{ i18n.t('BTN_RETURN_HOME') }}
       </button>
       <button
@@ -133,8 +133,8 @@
         type="button"
         class="btn-open-full-leaderboard"
         (click)="openCurrentRaceLeaderboardRequest.emit()"
-        title="Afficher la modale détaillée">
-        📊 Détails complets du classement
+        [title]="i18n.t('RACE_VIEW_FULL_MODAL_TIP')">
+        📊 {{ i18n.t('RACE_FULL_RANKING_DETAILS') }}
       </button>
     </div>
   </div>
@@ -145,69 +145,69 @@
   @if (canManualSelectPublicKayak) {
     <div class="spectator-label-group">
       <span class="cam-icon">🛶</span>
-      <span class="cam-title">Sélectionner mon kayak :</span>
+      <span class="cam-title">{{ i18n.t('REGATTA_SELECT_KAYAK_LABEL') }}</span>
     </div>
     <div class="spectator-dropdown-wrap">
       <select
         class="spectator-select"
         [ngModel]="isUserAssociatedWithRace ? activeUserId : ''"
         (ngModelChange)="selectPublicKayak.emit($event)"
-        aria-label="Sélectionner votre kayak dans la course publique">
-        <option value="">-- Identifier mon kayak dans la course --</option>
+        [attr.aria-label]="i18n.t('REGATTA_SELECT_KAYAK_ARIA')">
+        <option value="">{{ i18n.t('REGATTA_SELECT_KAYAK_OPTION') }}</option>
         @for (k of selectablePublicKayaks; track k.userId) {
           <option [value]="k.userId">
-            🛶 Ligne {{ k.lane }} · {{ k.name }} ({{ k.dist }}m)
+            🛶 {{ i18n.t('CANVAS_LANE') }} {{ k.lane }} · {{ k.name }} ({{ k.dist }}m)
           </option>
         }
       </select>
     </div>
   } @else if (!activePrivateRoom) {
     <span class="spectator-tip">
-      🔗 Kayak lié automatiquement : <strong>{{ currentUser.name }}</strong>
+      🔗 {{ i18n.t('REGATTA_LINKED_KAYAK') }} <strong>{{ currentUser.name }}</strong>
       @if (myAssignedLane) {
-        <span>(Ligne {{ myAssignedLane }})</span>
+        <span>({{ i18n.t('CANVAS_LANE') }} {{ myAssignedLane }})</span>
       }
     </span>
   }
   <div class="spectator-label-group">
     <span class="cam-icon">🎥</span>
-    <span class="cam-title">Suivi Bateau / Focus :</span>
+    <span class="cam-title">{{ i18n.t('REGATTA_FOLLOW_BOAT_LABEL') }}</span>
   </div>
   <div class="spectator-dropdown-wrap">
     <select
       class="spectator-select"
       [ngModel]="selectedSpectatorUserId"
       (ngModelChange)="spectatorSelect.emit($event)">
-      <option value="">🎯 Mon Bateau (Focus principal)</option>
+      <option value="">{{ i18n.t('REGATTA_MY_BOAT_FOCUS') }}</option>
       <option *ngFor="let racer of racers" [value]="racer.userId">
         🚣 {{ racer.userName || racer.userId }} ({{ racer.netDistance || 0 }}m · {{ racer.lastPower || 0 }}W)
       </option>
     </select>
   </div>
   <span class="spectator-tip" *ngIf="selectedSpectatorUserId">
-    Caméra centrée sur {{ selectedSpectatorRacerName }}
+    {{ i18n.t('REGATTA_CAMERA_CENTERED', { name: selectedSpectatorRacerName }) }}
   </span>
 </div>
 
 <!-- BARRE D'ACTION RAPIDE VUE RÉGATE : BASCULE ACCUEIL, COCKPIT, CLASSEMENT, ZOOM X3 & PARAMÉTRAGE DONNÉES -->
-<aside class="regatta-quick-nav-bar" role="toolbar" aria-label="Navigation rapide et zoom régate">
+<aside class="regatta-quick-nav-bar" role="toolbar" [attr.aria-label]="i18n.t('REGATTA_QUICK_NAV_ARIA')">
   <button
     type="button"
     class="btn-cockpit-quick btn-quick-home"
     (click)="setSiteView('home')"
-    title="Retour à l'accueil"
-    aria-label="Accueil">
+    [title]="i18n.t('REGATTA_HOME_TIP')"
+    [attr.aria-label]="i18n.t('NAV_HOME')">
     <span class="btn-quick-icon">🏠</span>
-    <span class="btn-quick-label">Accueil</span>
+    <span class="btn-quick-label">{{ i18n.t('NAV_HOME') }}</span>
   </button>
   <button
     type="button"
     class="btn-cockpit-quick btn-quick-cockpit"
     (click)="setSiteView('cockpit')"
-    title="Bascule instantanée vers le Cockpit (données pures)"
-    aria-label="Mode Cockpit">
+    [title]="i18n.t('REGATTA_COCKPIT_TIP')"
+    [attr.aria-label]="i18n.t('MODE_COCKPIT')">
     <span class="btn-quick-icon">📱</span>
-    <span class="btn-quick-label">Cockpit</span>
+    <span class="btn-quick-label">{{ i18n.t('RACE_SHORT_COCKPIT') }}</span>
   </button>
 
   <!-- Bouton classement placé au-dessus du plan d'eau -->
@@ -216,10 +216,10 @@
     class="btn-cockpit-quick btn-quick-ranking"
     [class.active]="isRegattaLeaderboardOpen"
     (click)="toggleRegattaLeaderboard()"
-    title="Afficher/Masquer le classement en direct"
-    aria-label="Classement">
+    [title]="i18n.t('REGATTA_RANKING_TIP')"
+    [attr.aria-label]="i18n.t('RACE_SHORT_RANKING')">
     <span class="btn-quick-icon">🏆</span>
-    <span class="btn-quick-label">Classement</span>
+    <span class="btn-quick-label">{{ i18n.t('RACE_SHORT_RANKING') }}</span>
   </button>
 
   <!-- BOUTON DÉPART / ARRÊT DÉDIÉ ORGANISATEUR DANS LA BARRE RAPIDE RÉGATE -->
@@ -229,43 +229,43 @@
         type="button"
         class="btn-cockpit-quick btn-quick-stop-race"
         (click)="stopActiveRaceRequest.emit()"
-        title="Arrêter la course immédiatement et finaliser le classement officiel">
+        [title]="i18n.t('RACE_STOP_TIP')">
         <span class="btn-quick-icon">🛑</span>
-        <span class="btn-quick-label">Arrêter</span>
+        <span class="btn-quick-label">{{ i18n.t('RACE_BTN_STOP') }}</span>
       </button>
     } @else if (canStartRace) {
       <button
         type="button"
         class="btn-cockpit-quick btn-quick-start-race"
         (click)="startActivePrivateRaceRequest.emit()"
-        title="Démarrer la course manuellement (compte à rebours de 15s)">
+        [title]="i18n.t('RACE_START_TIP')">
         <span class="btn-quick-icon">🚀</span>
-        <span class="btn-quick-label">Démarrer</span>
+        <span class="btn-quick-label">{{ i18n.t('RACE_BTN_START') }}</span>
       </button>
     }
   }
 
   <!-- Contrôle direct du Zoom (x1 à x3) dans la barre rapide de régate -->
-  <div class="regatta-quick-zoom-group" role="group" aria-label="Zoom lignes d'eau et données">
+  <div class="regatta-quick-zoom-group" role="group" [attr.aria-label]="i18n.t('REGATTA_ZOOM_ARIA')">
     <button
       type="button"
       class="btn-cockpit-quick btn-quick-zoom"
       [disabled]="regattaZoomLevel <= 1"
       (click)="stepRegattaZoomRequest.emit(-0.5)"
-      title="Réduire le zoom"
-      aria-label="Zoom moins">
+      [title]="i18n.t('REGATTA_ZOOM_OUT_TIP')"
+      [attr.aria-label]="i18n.t('REGATTA_ZOOM_OUT_TIP')">
       🔍 −
     </button>
     <span class="quick-zoom-indicator" [class.is-zoomed]="regattaZoomLevel > 1">
-      <span class="zoom-prefix">Zoom </span>x{{ regattaZoomLevel }}
+      <span class="zoom-prefix">{{ i18n.t('REGATTA_ZOOM_PREFIX') }} </span>x{{ regattaZoomLevel }}
     </span>
     <button
       type="button"
       class="btn-cockpit-quick btn-quick-zoom"
       [disabled]="regattaZoomLevel >= 3"
       (click)="stepRegattaZoomRequest.emit(0.5)"
-      title="Augmenter le zoom jusqu'à x3 (texte maximisé, 3 kayaks et 3 données)"
-      aria-label="Zoom plus">
+      [title]="i18n.t('REGATTA_ZOOM_IN_TIP')"
+      [attr.aria-label]="i18n.t('REGATTA_ZOOM_IN_TIP')">
       +
     </button>
   </div>
@@ -274,16 +274,16 @@
     type="button"
     class="btn-cockpit-quick btn-quick-prefs"
     (click)="openRegattaSettingsRequest.emit()"
-    title="Configurer les données affichées sous les lignes d'eau dans votre profil"
-    aria-label="Données télémétrie">
+    [title]="i18n.t('REGATTA_DATA_SETTINGS_TIP')"
+    [attr.aria-label]="i18n.t('REGATTA_DATA_BTN_ARIA')">
     <span class="btn-quick-icon">⚙️</span>
-    <span class="btn-quick-label">Données ({{ visibleRegattaMetrics.length }})</span>
+    <span class="btn-quick-label">{{ i18n.t('REGATTA_DATA_BTN', { count: visibleRegattaMetrics.length }) }}</span>
   </button>
 
   <!-- TEMPS RESTANT DE COURSE EN MODE PAYSAGE / RÉGATE À DROITE -->
   <div class="regatta-nav-timer" *ngIf="!activePrivateRoom && (isRaceActive || nextRaceInfo?.status === 'in_progress' || isPreStartCountdown)" role="status" aria-live="polite">
     <span class="nav-timer-pill" [class.is-running]="isRaceActive">
-      ⏱️ {{ isRaceActive ? (formattedGameRemaining ? ('Fin : ' + formattedGameRemaining) : 'Course en cours') : ('Départ : ' + formattedPreRaceCountdown) }}
+      ⏱️ {{ isRaceActive ? (formattedGameRemaining ? (i18n.t('REGATTA_END_PREFIX') + ' ' + formattedGameRemaining) : i18n.t('RACE_IN_PROGRESS')) : (i18n.t('REGATTA_START_PREFIX') + ' ' + formattedPreRaceCountdown) }}
     </span>
   </div>
 </aside>
@@ -315,11 +315,11 @@
       (pointerup)="regattaLeaderboardPointerUp.emit($event)"
       (pointercancel)="regattaLeaderboardPointerUp.emit($event)"
       role="region"
-      aria-label="Classement en direct de la régate">
+      [attr.aria-label]="i18n.t('REGATTA_LIVE_RANKING_ARIA')">
       <div
         class="regatta-lead-header draggable-handle"
         (pointerdown)="regattaLeaderboardPointerDown.emit($event)"
-        title="Glisser pour déplacer le classement">
+        [title]="i18n.t('REGATTA_DRAG_RANKING_TIP')">
         <span class="regatta-lead-title">
           🏆 {{ i18n.t('LEADERBOARD') || 'Classement en direct' }} ({{ sortedLiveMetrics.length }})
         </span>
@@ -328,8 +328,8 @@
           class="btn-close-lead"
           (pointerdown)="$event.stopPropagation()"
           (click)="closeRegattaLeaderboardRequest.emit(); $event.stopPropagation()"
-          title="Fermer le classement"
-          aria-label="Fermer">✕</button>
+          [title]="i18n.t('BTN_CLOSE')"
+          [attr.aria-label]="i18n.t('BTN_CLOSE')">✕</button>
       </div>
       <div class="regatta-lead-body" *ngIf="sortedLiveMetrics.length > 0">
         <div
@@ -338,13 +338,13 @@
           [class.active-player]="racer.userId === activeUserId"
           [class.focused-racer]="racer.userId === selectedSpectatorUserId"
           (click)="spectatorSelect.emit(racer.userId)"
-          title="Cliquer pour centrer la caméra sur ce concurrent">
+          [title]="i18n.t('REGATTA_CLICK_FOCUS_TIP')">
           <span class="mini-lead-rank">{{ rank + 1 }}</span>
           <span
             class="ble-state-dot"
             [class.is-ready]="racer.ready !== false && racer.connectionState !== 'CONNECTED'"
             [class.is-waiting]="racer.ready === false || racer.connectionState === 'CONNECTED'"
-            [title]="(racer.ready === false || racer.connectionState === 'CONNECTED') ? 'En attente du rameur' : 'Rameur prêt'"></span>
+            [title]="(racer.ready === false || racer.connectionState === 'CONNECTED') ? i18n.t('REGATTA_ROWER_WAITING') : i18n.t('REGATTA_ROWER_READY')"></span>
           <span class="mini-lead-name">{{ racer.name }}</span>
           <span class="mini-lead-dist">{{ Math.round(racer.dist) }}m</span>
           <span class="mini-lead-gap" [class.leader]="rank === 0">
@@ -353,7 +353,7 @@
         </div>
       </div>
       <div class="regatta-lead-empty" *ngIf="sortedLiveMetrics.length === 0">
-        En attente des rameurs...
+        {{ i18n.t('REGATTA_WAITING_ROWERS') }}
       </div>
     </div>
   </div>
@@ -365,7 +365,7 @@
   [attr.data-zoom]="regattaZoomLevel"
   [style.--regatta-zoom]="regattaZoomLevel"
   [style.--regatta-cols]="visibleRegattaMetrics.length"
-  aria-label="Données de course configurables sous les lignes d'eau">
+  [attr.aria-label]="i18n.t('REGATTA_HUD_ARIA')">
   <div class="regatta-hud-grid" [style.grid-template-columns]="'repeat(' + visibleRegattaMetrics.length + ', minmax(0, 1fr))'">
     @for (metricKey of visibleRegattaMetrics; track metricKey) {
       @let metric = getRegattaMetricDisplay(metricKey);
@@ -388,14 +388,14 @@
 </section>
 
 <!-- BANNIÈRE ÉGALITÉ SPORTIVE CONCEPT2 (POSITIONNÉE EN DESSOUS DE LA PRÉSENTATION DE LA RÉGATE) -->
-<aside class="concept2-fairness-banner regatta-fairness-banner" aria-label="Égalité sportive Concept2">
+<aside class="concept2-fairness-banner regatta-fairness-banner" [attr.aria-label]="i18n.t('FAIRNESS_ARIA')">
   <div class="fairness-content">
     <span class="fairness-icon">⚖️</span>
     <div class="fairness-text">
-      <strong>Égalité sportive garantie :</strong>
+      <strong>{{ i18n.t('FAIRNESS_TITLE') }}</strong>
       <span>
-        Les données FTMS de distance variant selon les modèles de rameurs, la distance parcourue est calculée en temps réel selon l'algorithme officiel Concept2 basé sur votre puissance en Watts (<span class="code-math">v = (Watts / 2.80)<sup>1/3</sup></span>).
-        Cette distance normalisée garantit une parfaite équité sportive entre tous les compétiteurs et peut légèrement différer de celle affichée sur votre console de rameur.
+        {{ i18n.t('FAIRNESS_DESC_BEFORE') }} (<span class="code-math">v = (Watts / 2.80)<sup>1/3</sup></span>).
+        {{ i18n.t('FAIRNESS_DESC_AFTER') }}
       </span>
     </div>
   </div>

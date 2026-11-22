@@ -431,3 +431,143 @@ test('AdminDashboardComponent uses I18nService for headers, tabs, forms, modals,
     }
   }
 });
+
+test('RegattaCanvasComponent, RaceOverlaysComponent, RegattaViewComponent and CockpitViewComponent use I18nService across all 6 languages', () => {
+  const canvasTs = fs.readFileSync(
+    path.resolve(__dirname, '../src/app/components/regatta-canvas/regatta-canvas.component.ts'),
+    'utf8'
+  );
+  const overlaysHtml = fs.readFileSync(
+    path.resolve(__dirname, '../src/app/components/race-overlays/race-overlays.component.html'),
+    'utf8'
+  );
+  const overlaysTs = fs.readFileSync(
+    path.resolve(__dirname, '../src/app/components/race-overlays/race-overlays.component.ts'),
+    'utf8'
+  );
+  const regattaHtml = fs.readFileSync(
+    path.resolve(__dirname, '../src/app/components/regatta-view/regatta-view.component.html'),
+    'utf8'
+  );
+  const regattaTs = fs.readFileSync(
+    path.resolve(__dirname, '../src/app/components/regatta-view/regatta-view.component.ts'),
+    'utf8'
+  );
+  const cockpitHtml = fs.readFileSync(
+    path.resolve(__dirname, '../src/app/components/cockpit-view/cockpit-view.component.html'),
+    'utf8'
+  );
+  const cockpitTs = fs.readFileSync(
+    path.resolve(__dirname, '../src/app/components/cockpit-view/cockpit-view.component.ts'),
+    'utf8'
+  );
+
+  for (const [name, ts] of [
+    ['RegattaCanvasComponent', canvasTs],
+    ['RaceOverlaysComponent', overlaysTs],
+    ['RegattaViewComponent', regattaTs],
+    ['CockpitViewComponent', cockpitTs],
+  ]) {
+    assert.ok(ts.includes('public i18n: I18nService'), `${name} must inject public i18n: I18nService`);
+  }
+
+  // Canvas 2D i18n assertions
+  assert.ok(canvasTs.includes('this.i18n.formatRankOrdinal('), 'RegattaCanvasComponent must use formatRankOrdinal for rank badges');
+  const canvasKeys = [
+    'CANVAS_WAITING', 'CANVAS_LANE', 'FINISH_ARRIVED',
+    'CANVAS_DYNAMIC_LANES', 'CANVAS_FIXED_LANES',
+    'CANVAS_DYNAMIC_MODE_TIP', 'CANVAS_FIXED_MODE_TIP',
+    'CANVAS_CLAIM_MY_KAYAK', 'CANVAS_FOLLOW_KAYAK',
+    'CANVAS_LEADER', 'CANVAS_BADGE_YOU', 'CANVAS_BADGE_FOLLOWING'
+  ];
+  for (const key of canvasKeys) {
+    assert.ok(canvasTs.includes(`'${key}'`), `RegattaCanvasComponent must reference i18n key ${key}`);
+  }
+
+  // Overlays i18n assertions
+  assert.match(overlaysHtml, /BRAVO\s*!/, 'RaceOverlays must preserve BRAVO ! contract');
+  const overlayKeys = [
+    'OVERLAY_FINISH_CELEBRATION_ARIA', 'OVERLAY_BRAVO_TITLE', 'FINISH_CROSSED',
+    'OVERLAY_DISMISS_ROTATE_TIP', 'OVERLAY_CONNECTED_LABEL', 'OVERLAY_WATCH_PAIRING_BADGE',
+    'OVERLAY_ROOM_PIN_LABEL', 'OVERLAY_LOGIN_FORM_TITLE', 'OVERLAY_EMAIL_PLACEHOLDER',
+    'OVERLAY_LOGIN_AND_JOIN', 'OVERLAY_REGISTER_BADGE', 'OVERLAY_REGISTER_FORM_TITLE',
+    'OVERLAY_PUBLIC_PSEUDO_LABEL', 'OVERLAY_PSEUDO_PLACEHOLDER', 'OVERLAY_EMAIL_LABEL',
+    'OVERLAY_PWD_MIN6_PLACEHOLDER', 'OVERLAY_REGISTER_AND_JOIN', 'OVERLAY_FULL_REGISTER_LINK',
+    'OVERLAY_DRAG_TIMER_TIP', 'OVERLAY_DRAG_HANDLE', 'OVERLAY_RECENTER_TIMER_TIP',
+    'OVERLAY_RECENTER_BTN', 'OVERLAY_CLOSE_TIMER_TIP', 'OVERLAY_PRESTART_SUB',
+    'OVERLAY_PENDING_PLAYERS', 'OVERLAY_BTN_APPROVE', 'OVERLAY_BTN_REJECT',
+    'OVERLAY_PIN_ARIA', 'OVERLAY_WATCH_PIN_BADGE', 'OVERLAY_WATCH_PIN_DESC',
+    'OVERLAY_WATCH_PIN_AUTO_HIDE'
+  ];
+  for (const key of overlayKeys) {
+    assert.ok(overlaysHtml.includes(`i18n.t('${key}'`), `RaceOverlays HTML must reference i18n.t('${key}')`);
+  }
+
+  // RegattaView i18n assertions
+  const regattaHtmlKeys = [
+    'RACE_FINISH_ARIA', 'RACE_STOPPED_OFFICIAL_TITLE', 'RACE_FINISHED_BRAVO_TITLE',
+    'RACE_PODIUM_CONGRATS', 'RACE_STAT_RANKING', 'RACE_STAT_OFFICIAL_TIME',
+    'RACE_STAT_AVG_PACE', 'RACE_STAT_AVG_POWER', 'RACE_VIEW_FULL_TABLE_TIP',
+    'RACE_VIEW_FULL_DETAILS', 'RACE_COL_GAP', 'RACE_COL_POINTS', 'RACE_BOT_TIP',
+    'RACE_ESTIMATED_TIP', 'RACE_ESTIMATED_BADGE', 'RACE_RETURN_HOME_TIP',
+    'RACE_VIEW_FULL_MODAL_TIP', 'RACE_FULL_RANKING_DETAILS', 'RACE_SHORT_COCKPIT',
+    'RACE_SHORT_RANKING', 'RACE_BTN_STOP', 'RACE_BTN_START', 'RACE_STOP_TIP',
+    'RACE_START_TIP', 'REGATTA_SELECT_KAYAK_LABEL', 'REGATTA_SELECT_KAYAK_ARIA',
+    'REGATTA_SELECT_KAYAK_OPTION', 'REGATTA_LINKED_KAYAK', 'REGATTA_FOLLOW_BOAT_LABEL',
+    'REGATTA_MY_BOAT_FOCUS', 'REGATTA_CAMERA_CENTERED', 'REGATTA_QUICK_NAV_ARIA',
+    'REGATTA_HOME_TIP', 'REGATTA_COCKPIT_TIP', 'REGATTA_RANKING_TIP',
+    'REGATTA_ZOOM_ARIA', 'REGATTA_ZOOM_OUT_TIP', 'REGATTA_ZOOM_PREFIX',
+    'REGATTA_ZOOM_IN_TIP', 'REGATTA_DATA_SETTINGS_TIP', 'REGATTA_DATA_BTN_ARIA',
+    'REGATTA_DATA_BTN', 'REGATTA_END_PREFIX', 'REGATTA_START_PREFIX',
+    'REGATTA_LIVE_RANKING_ARIA', 'REGATTA_DRAG_RANKING_TIP', 'REGATTA_CLICK_FOCUS_TIP',
+    'REGATTA_ROWER_WAITING', 'REGATTA_ROWER_READY', 'REGATTA_WAITING_ROWERS',
+    'REGATTA_HUD_ARIA', 'FAIRNESS_ARIA', 'FAIRNESS_TITLE',
+    'FAIRNESS_DESC_BEFORE', 'FAIRNESS_DESC_AFTER'
+  ];
+  for (const key of regattaHtmlKeys) {
+    assert.ok(regattaHtml.includes(`i18n.t('${key}'`), `RegattaView HTML must reference i18n.t('${key}')`);
+  }
+
+  const regattaTsKeys = [
+    'CANVAS_LEADER', 'RACE_AVG_PREFIX', 'RACE_INST_PREFIX', 'RACE_TARGET_PREFIX',
+    'METRIC_SHORT_SPEED', 'METRIC_SHORT_PACE', 'METRIC_SHORT_POWER', 'METRIC_SHORT_POSITION',
+    'METRIC_SHORT_DISTTOPREV', 'METRIC_SHORT_DISTTOLEADER', 'METRIC_SHORT_DISTTONEXT',
+    'METRIC_SHORT_DISTREMAINING', 'METRIC_SHORT_DISTCOVERED', 'METRIC_SHORT_FORCE',
+    'METRIC_SHORT_WORK', 'METRIC_SHORT_AVGSPEED', 'METRIC_SHORT_AVGPOWER', 'METRIC_SHORT_AVGPACE',
+    'METRIC_IN_LEAD', 'METRIC_GAP_FIRST_FMT', 'METRIC_RANKING', 'METRIC_PCT_DONE', 'METRIC_PER_STROKE'
+  ];
+  for (const key of regattaTsKeys) {
+    assert.ok(regattaTs.includes(`'${key}'`), `RegattaView TS must reference i18n key '${key}'`);
+  }
+
+  // CockpitView i18n assertions
+  const cockpitHtmlKeys = [
+    'COCKPIT_TOGGLE_LEAD_TIP', 'COCKPIT_LINK_WATCH_ARIA', 'COCKPIT_LINK_WATCH_TITLE',
+    'COCKPIT_LINK_WATCH_SUB', 'COCKPIT_PIN_PREFIX', 'COCKPIT_PAIR_BTN',
+    'COCKPIT_PIN_INSTRUCTION', 'COCKPIT_MY_KAYAK_LABEL', 'COCKPIT_SELECT_KAYAK_ARIA',
+    'COCKPIT_IDENTIFY_KAYAK_OPT', 'COCKPIT_LINKED_KAYAK', 'COCKPIT_RACER_TELEMETRY_LABEL',
+    'COCKPIT_MY_COCKPIT_OPT', 'COCKPIT_SHOWING_GAUGES', 'COCKPIT_PROGRESS_ARIA',
+    'COCKPIT_QUICK_NAV_ARIA', 'COCKPIT_REGATTA_TIP', 'RACE_SHORT_REGATTA',
+    'COCKPIT_RACE_ABANDONED', 'COCKPIT_START_DIST_PREFIX', 'COCKPIT_TOTAL_STROKES',
+    'COCKPIT_AVG_PACE_LABEL', 'COCKPIT_AVG_SPEED_TITLE', 'COCKPIT_HR_CALORIES_TITLE',
+    'COCKPIT_CALORIES_LABEL', 'RACE_PAUSE_PREFIX', 'RACE_ENDS_IN_PREFIX'
+  ];
+  for (const key of cockpitHtmlKeys) {
+    assert.ok(cockpitHtml.includes(`i18n.t('${key}'`), `CockpitView HTML must reference i18n.t('${key}')`);
+  }
+  assert.ok(cockpitTs.includes("'CANVAS_LEADER'"), 'CockpitView TS formatRacerGap must use CANVAS_LEADER');
+
+  // Verify every referenced key resolves non-empty across all 6 languages
+  const allCheckedKeys = Array.from(new Set([
+    ...canvasKeys, ...overlayKeys, ...regattaHtmlKeys, ...regattaTsKeys, ...cockpitHtmlKeys
+  ]));
+  const { service } = loadI18nServiceRuntime({ savedLang: 'fr' });
+  for (const key of allCheckedKeys) {
+    for (const lang of ['fr', 'en', 'de', 'es', 'it', 'pt']) {
+      service.setLang(lang);
+      const val = service.t(key);
+      assert.notEqual(val, key, `Key ${key} must resolve to a translated string in ${lang}`);
+      assert.ok(val.trim().length > 0, `Key ${key} must be non-empty in ${lang}`);
+    }
+  }
+});

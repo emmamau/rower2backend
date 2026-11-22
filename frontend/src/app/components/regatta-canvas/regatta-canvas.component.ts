@@ -62,9 +62,9 @@ interface BoatRenderState {
           class="lane-mode-toggle"
           [class.is-collapsed]="isLaneModeCollapsed"
           (click)="toggleLaneMode()"
-          [title]="dynamicLaneMode ? (i18n.getCurrentLang() === 'fr' ? 'Mode dynamique actif : les kayaks changent de ligne selon le classement (seuil 10m). Cliquer pour passer en mode fixe.' : 'Dynamic mode active: kayaks change lanes based on ranking. Click to switch to fixed mode.') : (i18n.getCurrentLang() === 'fr' ? 'Mode fixe actif : les couloirs assignés restent fixes. Cliquer pour passer en mode dynamique.' : 'Fixed mode active: assigned lanes stay fixed. Click to switch to dynamic mode.')">
+          [title]="dynamicLaneMode ? i18n.t('CANVAS_DYNAMIC_MODE_TIP') : i18n.t('CANVAS_FIXED_MODE_TIP')">
           <span class="mode-icon">{{ dynamicLaneMode ? '⚡' : '⚓' }}</span>
-          <span class="mode-label">{{ dynamicLaneMode ? (i18n.getCurrentLang() === 'fr' ? 'Lignes dynamiques' : 'Dynamic lanes') : (i18n.getCurrentLang() === 'fr' ? 'Lignes fixes' : 'Fixed lanes') }}</span>
+          <span class="mode-label">{{ dynamicLaneMode ? i18n.t('CANVAS_DYNAMIC_LANES') : i18n.t('CANVAS_FIXED_LANES') }}</span>
         </button>
       </div>
 
@@ -81,13 +81,13 @@ interface BoatRenderState {
             class="btn-claim-me"
             *ngIf="canClaimBoat(selectedKayakForClaim)"
             (click)="claimSelectedKayak(selectedKayakForClaim.userId)">
-            ★ C'est mon kayak
+            {{ i18n.t('CANVAS_CLAIM_MY_KAYAK') }}
           </button>
           <button
             type="button"
             class="btn-spectate"
             (click)="selectRacerToFollow(selectedKayakForClaim.userId); selectedKayakForClaim = null;">
-            👁 Suivre
+            {{ i18n.t('CANVAS_FOLLOW_KAYAK') }}
           </button>
           <button
             type="button"
@@ -420,8 +420,7 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
     if (!rank) {
       return total > 0 ? `-- / ${total}` : '--';
     }
-    const suffix = rank === 1 ? 'er' : 'e';
-    return `${rank}${suffix} / ${total}`;
+    return `${this.i18n.formatRankOrdinal(rank)} / ${total}`;
   }
 
   public getRacerRank(userId: string): { rank: number; medal: string | null; label: string; color: string } | null {
@@ -442,20 +441,17 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
     if (rankIndex < 0) return null;
     const rank = rankIndex + 1;
     let medal: string | null = null;
-    let label = `${rank}e`;
+    const label = this.i18n.formatRankOrdinal(rank);
     let color = '#00f0ff';
 
     if (rank === 1) {
       medal = '🥇';
-      label = '1er';
       color = '#ffd700';
     } else if (rank === 2) {
       medal = '🥈';
-      label = '2e';
       color = '#e2e8f0';
     } else if (rank === 3) {
       medal = '🥉';
-      label = '3e';
       color = '#cd7f32';
     }
 
@@ -561,12 +557,12 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
   };
 
   public formatGap(racer: LiveRacerMetric, leader: LiveRacerMetric): string {
-    if (!racer || !leader || racer.userId === leader.userId) return 'Leader';
+    if (!racer || !leader || racer.userId === leader.userId) return this.i18n.t('CANVAS_LEADER');
     const leaderDist = Number(leader.dist);
     const racerDist = Number(racer.dist);
     if (!Number.isFinite(leaderDist) || !Number.isFinite(racerDist)) return '--';
     const distDiff = Math.round(leaderDist - racerDist);
-    if (distDiff <= 0) return 'Leader';
+    if (distDiff <= 0) return this.i18n.t('CANVAS_LEADER');
     let text = `-${distDiff}m`;
     const split = Number(racer.split);
     if (Number.isFinite(split) && split > 0 && split < 600) {
@@ -1068,7 +1064,9 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
       const displayLaneNum = (zoom > 1 || this.dynamicLaneMode)
         ? (startIndex + l + 1)
         : (l + 1);
-      const laneLabel = isCompact ? `L${displayLaneNum}` : `${this.i18n.t('CANVAS_LANE')} ${displayLaneNum}`;
+      const laneLabel = isCompact
+        ? (startIndex === 0 ? `L${l + 1}` : `L${displayLaneNum}`)
+        : `${this.i18n.t('CANVAS_LANE')} ${displayLaneNum}`;
       ctx.font = `bold ${Math.max(9, laneFontPx)}px monospace`;
       ctx.fillStyle = boatInLane?.userId === this.activeUserId ? '#00f0ff' : 'rgba(0, 240, 255, 0.72)';
       ctx.fillText(laneLabel, Math.round(12 + 4 * boatScale), laneY + Math.round(laneFontPx * 0.35));
@@ -1297,7 +1295,7 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
         ctx.fill();
 
         // Bannière avec pseudo en surbrillance (affiche la distance officielle exacte targetPacketDist)
-        const bannerLabel = `${isUser ? '★ VOUS' : '👁 SUIVI'} : ${shortName} · ${Math.round(boat.targetPacketDist)}m`;
+        const bannerLabel = `${isUser ? this.i18n.t('CANVAS_BADGE_YOU') : this.i18n.t('CANVAS_BADGE_FOLLOWING')} : ${shortName} · ${Math.round(boat.targetPacketDist)}m`;
         ctx.font = `bold ${labelFontPx}px sans-serif`;
         const btw = ctx.measureText(bannerLabel).width;
         const boxPadX = Math.round(5 * Math.min(1.8, fontScale));
@@ -1338,7 +1336,7 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
       if (isUser && (this.isRaceActive || (boat.currentDisplayDist > 0 && boat.status !== 'finished'))) {
         const rankInfo = this.getRacerRank(boat.userId);
         const remainingDist = Math.max(0, Math.round((this.targetDistance || 2000) - boat.targetPacketDist));
-        const distLabel = remainingDist > 0 ? `${remainingDist}m` : 'Arrivé !';
+        const distLabel = remainingDist > 0 ? `${remainingDist}m` : (this.i18n.t('FINISH_ARRIVED') || 'Arrivé !');
 
         let badgeText = '';
         if (rankInfo) {

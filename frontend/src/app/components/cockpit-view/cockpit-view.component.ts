@@ -142,9 +142,10 @@ export class CockpitViewComponent {
   }
 
   formatRacerGap(racer: LiveRacerMetric, leader: LiveRacerMetric): string {
-    if (!leader || racer.userId === leader.userId) return 'Leader';
+    const leaderLabel = this.i18n.t('CANVAS_LEADER') || 'Leader';
+    if (!leader || racer.userId === leader.userId) return leaderLabel;
     const distDiff = Math.round((leader.dist || 0) - (racer.dist || 0));
-    if (distDiff <= 0) return 'Leader';
+    if (distDiff <= 0) return leaderLabel;
     let label = `-${distDiff}m`;
     if (racer.split && racer.split > 0 && racer.split < 600) {
       const secDiff = ((distDiff * racer.split) / 500).toFixed(1);

@@ -12,7 +12,7 @@
   *ngIf="showFinishCelebration"
   role="dialog"
   aria-modal="true"
-  aria-label="Célébration d'arrivée">
+  [attr.aria-label]="i18n.t('OVERLAY_FINISH_CELEBRATION_ARIA')">
   <div class="fireworks-canvas-backdrop" aria-hidden="true">
     <div class="firework-burst burst-1"></div>
     <div class="firework-burst burst-2"></div>
@@ -23,8 +23,9 @@
   </div>
   <div class="celebration-center-content">
     <div class="celebration-trophy-icon">🏆</div>
-    <h2 class="celebration-bravo-title">BRAVO !</h2>
-    <p class="celebration-bravo-subtitle">Ligne d'arrivée franchie</p>
+    <!-- BRAVO ! -->
+    <h2 class="celebration-bravo-title">{{ i18n.t('OVERLAY_BRAVO_TITLE') || 'BRAVO !' }}</h2>
+    <p class="celebration-bravo-subtitle">{{ i18n.t('FINISH_CROSSED') }}</p>
   </div>
 </aside>
 
@@ -46,8 +47,8 @@
       type="button"
       class="btn-dismiss-rotate"
       (click)="dismissOrientationNotice()"
-      title="Fermer l'avertissement"
-      aria-label="Fermer">✕</button>
+      [title]="i18n.t('OVERLAY_DISMISS_ROTATE_TIP')"
+      [attr.aria-label]="i18n.t('BTN_CLOSE')">✕</button>
   </div>
 </aside>
 
@@ -96,7 +97,7 @@
     <!-- CAS 1 : JOUEUR DÉJÀ CONNECTÉ -->
     <ng-container *ngIf="isIdentified">
       <div class="invite-connected-user-pill">
-        <span>👤 Connecté :</span> <strong>{{ currentUserName }}</strong>
+        <span>👤 {{ i18n.t('OVERLAY_CONNECTED_LABEL') }}</span> <strong>{{ currentUserName }}</strong>
       </div>
       <p class="regatta-launch-text">
         {{ i18n.t('REGATTA_LAUNCH_DESC') }}
@@ -180,13 +181,13 @@
           <button type="button" class="btn-subscreen-back" (click)="goToInvitationStep('choice')">
             {{ i18n.t('INVITE_BTN_BACK') }}
           </button>
-          <span class="subscreen-badge">⌚ Appairage Montre</span>
+          <span class="subscreen-badge">⌚ {{ i18n.t('OVERLAY_WATCH_PAIRING_BADGE') }}</span>
         </div>
 
         <h3 class="invite-pairing-title">{{ i18n.t('INVITE_PIN_WATCH_HEADING') }}</h3>
         
         <div class="invite-pin-display-box">
-          <span class="invite-pin-label">CODE PIN DU SALON</span>
+          <span class="invite-pin-label">{{ i18n.t('OVERLAY_ROOM_PIN_LABEL') }}</span>
           <div class="invite-pin-digits font-mono">
             {{ activeFullscreenPinCode || activePrivateRoom?.pinCode || activePrivateRoom?.race?.pinCode || '----' }}
           </div>
@@ -228,10 +229,10 @@
           <button type="button" class="btn-subscreen-back" (click)="goToInvitationStep('choice')">
             {{ i18n.t('INVITE_BTN_BACK') }}
           </button>
-          <span class="subscreen-badge">🔑 Connexion</span>
+          <span class="subscreen-badge">🔑 {{ i18n.t('ACCOUNT_TAB_LOGIN') }}</span>
         </div>
 
-        <h3 class="invite-form-title">Connexion à votre compte</h3>
+        <h3 class="invite-form-title">{{ i18n.t('OVERLAY_LOGIN_FORM_TITLE') }}</h3>
         
         <div class="invite-auth-error" *ngIf="invitationAuthError">
           ⚠️ {{ invitationAuthError }}
@@ -239,19 +240,19 @@
 
         <form (ngSubmit)="onQuickLogin()" class="invite-quick-form">
           <div class="form-group-field">
-            <label for="invQuickLogin">Email ou Identifiant</label>
+            <label for="invQuickLogin">{{ i18n.t('LOGIN_LABEL_ID') }}</label>
             <input
               id="invQuickLogin"
               type="text"
               name="quickLoginInput"
               [(ngModel)]="quickLoginInput"
-              placeholder="votre.email@exemple.com"
+              [placeholder]="i18n.t('OVERLAY_EMAIL_PLACEHOLDER')"
               required
               autocomplete="username">
           </div>
 
           <div class="form-group-field">
-            <label for="invQuickPass">Mot de passe</label>
+            <label for="invQuickPass">{{ i18n.t('LOGIN_LABEL_PWD') }}</label>
             <input
               id="invQuickPass"
               type="password"
@@ -266,14 +267,14 @@
             type="submit"
             class="btn-regatta-launch-action"
             [disabled]="isInvitationSubmitting">
-            {{ isInvitationSubmitting ? 'Connexion en cours...' : 'Se connecter & Rejoindre' }}
+            {{ isInvitationSubmitting ? i18n.t('ACCOUNT_LOGGING_IN') : i18n.t('OVERLAY_LOGIN_AND_JOIN') }}
           </button>
 
           <button
             type="button"
             class="btn-open-full-modal"
             (click)="openAccountModal('login')">
-            Mot de passe oublié ?
+            {{ i18n.t('LOGIN_BTN_FORGOT') }}
           </button>
         </form>
       </div>
@@ -284,10 +285,10 @@
           <button type="button" class="btn-subscreen-back" (click)="goToInvitationStep('choice')">
             {{ i18n.t('INVITE_BTN_BACK') }}
           </button>
-          <span class="subscreen-badge">📝 Inscription</span>
+          <span class="subscreen-badge">📝 {{ i18n.t('OVERLAY_REGISTER_BADGE') }}</span>
         </div>
 
-        <h3 class="invite-form-title">Créer votre compte joueur</h3>
+        <h3 class="invite-form-title">{{ i18n.t('OVERLAY_REGISTER_FORM_TITLE') }}</h3>
 
         <div class="invite-auth-error" *ngIf="invitationAuthError">
           ⚠️ {{ invitationAuthError }}
@@ -295,38 +296,38 @@
 
         <form (ngSubmit)="onQuickRegister()" class="invite-quick-form">
           <div class="form-group-field">
-            <label for="invRegPseudo">Pseudo public de course</label>
+            <label for="invRegPseudo">{{ i18n.t('OVERLAY_PUBLIC_PSEUDO_LABEL') }}</label>
             <input
               id="invRegPseudo"
               type="text"
               name="quickRegLogin"
               [(ngModel)]="quickRegLogin"
-              placeholder="Ex: RameurExpress"
+              [placeholder]="i18n.t('OVERLAY_PSEUDO_PLACEHOLDER')"
               required
               maxlength="30"
               autocomplete="nickname">
           </div>
 
           <div class="form-group-field">
-            <label for="invRegEmail">Adresse email</label>
+            <label for="invRegEmail">{{ i18n.t('OVERLAY_EMAIL_LABEL') }}</label>
             <input
               id="invRegEmail"
               type="email"
               name="quickRegEmail"
               [(ngModel)]="quickRegEmail"
-              placeholder="votre.email@exemple.com"
+              [placeholder]="i18n.t('OVERLAY_EMAIL_PLACEHOLDER')"
               required
               autocomplete="email">
           </div>
 
           <div class="form-group-field">
-            <label for="invRegPass">Mot de passe</label>
+            <label for="invRegPass">{{ i18n.t('LOGIN_LABEL_PWD') }}</label>
             <input
               id="invRegPass"
               type="password"
               name="quickRegPassword"
               [(ngModel)]="quickRegPassword"
-              placeholder="Minimum 6 caractères"
+              [placeholder]="i18n.t('OVERLAY_PWD_MIN6_PLACEHOLDER')"
               required
               autocomplete="new-password">
           </div>
@@ -335,14 +336,14 @@
             type="submit"
             class="btn-regatta-launch-action"
             [disabled]="isInvitationSubmitting">
-            {{ isInvitationSubmitting ? 'Création en cours...' : 'Créer mon compte & Rejoindre' }}
+            {{ isInvitationSubmitting ? i18n.t('ACCOUNT_CREATING') : i18n.t('OVERLAY_REGISTER_AND_JOIN') }}
           </button>
 
           <button
             type="button"
             class="btn-open-full-modal"
             (click)="openAccountModal('register')">
-            Formulaire d'inscription détaillé
+            {{ i18n.t('OVERLAY_FULL_REGISTER_LINK') }}
           </button>
         </form>
       </div>
@@ -371,31 +372,31 @@
     (pointermove)="timerPointerMove.emit($event)"
     (pointerup)="timerPointerUp.emit($event)"
     (pointercancel)="timerPointerUp.emit($event)"
-    title="Glissez pour déplacer le compte à rebours où vous le souhaitez">
+    [title]="i18n.t('OVERLAY_DRAG_TIMER_TIP')">
     <div class="prestart-drag-bar">
-      <span class="prestart-drag-handle">⋮⋮ Glisser</span>
+      <span class="prestart-drag-handle">⋮⋮ {{ i18n.t('OVERLAY_DRAG_HANDLE') }}</span>
       <div class="prestart-drag-actions">
         <button
           *ngIf="timerPosition"
           type="button"
           class="btn-reset-timer-pos"
           (click)="resetTimerPos.emit($event)"
-          title="Recentrer le compte à rebours">
-          ↺ Recentrer
+          [title]="i18n.t('OVERLAY_RECENTER_TIMER_TIP')">
+          ↺ {{ i18n.t('OVERLAY_RECENTER_BTN') }}
         </button>
         <button
           type="button"
           class="btn-close-timer-popup"
           (click)="dismissPrestartTimer.emit($event)"
-          title="Fermer définitivement ce compte à rebours flottant"
-          aria-label="Fermer définitivement">
+          [title]="i18n.t('OVERLAY_CLOSE_TIMER_TIP')"
+          [attr.aria-label]="i18n.t('BTN_CLOSE')">
           ✕
         </button>
       </div>
     </div>
-    <div class="prestart-countdown-badge">⏱️ DÉPART DANS</div>
+    <div class="prestart-countdown-badge">⏱️ {{ i18n.t('COUNTDOWN_TITLE') }}</div>
     <div class="prestart-countdown-number">{{ formattedPreRaceCountdown }}</div>
-    <div class="prestart-countdown-sub">Tenez-vous prêts sur vos rameurs !</div>
+    <div class="prestart-countdown-sub">{{ i18n.t('OVERLAY_PRESTART_SUB') }}</div>
   </div>
 </div>
 
@@ -404,12 +405,12 @@
   <div class="pending-banner-content">
     <span class="pending-banner-icon">🔔</span>
     <div class="pending-banner-text">
-      <strong>{{ pendingApprovalPlayers.length }} joueur(s) en attente de validation :</strong>
+      <strong>{{ i18n.t('OVERLAY_PENDING_PLAYERS', { count: pendingApprovalPlayers.length }) }}</strong>
       <span *ngFor="let p of pendingApprovalPlayers" class="pending-user-pill">
-        <span class="pending-pill-name">{{ p.userName || 'Rameur' }}</span>
+        <span class="pending-pill-name">{{ p.userName || i18n.t('RACER') }}</span>
         <span class="pending-pill-id">[{{ p.userId }}]</span>
-        <button type="button" class="btn-banner-approve" (click)="approvePlayer.emit(p.userId)">✓ Valider</button>
-        <button type="button" class="btn-banner-reject" (click)="rejectPlayer.emit(p.userId)">✕ Refuser</button>
+        <button type="button" class="btn-banner-approve" (click)="approvePlayer.emit(p.userId)">{{ i18n.t('OVERLAY_BTN_APPROVE') }}</button>
+        <button type="button" class="btn-banner-reject" (click)="rejectPlayer.emit(p.userId)">{{ i18n.t('OVERLAY_BTN_REJECT') }}</button>
       </span>
     </div>
   </div>
@@ -421,20 +422,20 @@
   *ngIf="shouldShowSmartphonePinOverlay && activeFullscreenPinCode"
   role="dialog"
   aria-modal="true"
-  aria-label="Code PIN de connexion">
+  [attr.aria-label]="i18n.t('OVERLAY_PIN_ARIA')">
   <div class="smartphone-fullscreen-pin-card">
     <div class="sf-pin-badge">
       <span class="sf-pin-icon">⌚</span>
-      <span class="sf-pin-label">CODE PIN MONTRE GARMIN</span>
+      <span class="sf-pin-label">{{ i18n.t('OVERLAY_WATCH_PIN_BADGE') }}</span>
     </div>
     <div class="sf-pin-digits" aria-live="polite">
       {{ activeFullscreenPinCode }}
     </div>
     <p class="sf-pin-instruction">
-      Entrez ce code sur votre montre pour rejoindre votre ligne d'eau.
+      {{ i18n.t('OVERLAY_WATCH_PIN_DESC') }}
     </p>
     <div class="sf-pin-subinfo">
-      <span>⏱️ Disparaît dès connexion ou départ de la course</span>
+      <span>⏱️ {{ i18n.t('OVERLAY_WATCH_PIN_AUTO_HIDE') }}</span>
       <span *ngIf="formattedPairingCountdown && formattedPairingCountdown !== '00:00'"> · {{ formattedPairingCountdown }}</span>
     </div>
   </div>
