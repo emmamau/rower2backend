@@ -3728,6 +3728,14 @@ select:autofill:focus {
     flex-wrap: wrap;
     white-space: normal;
   }
+  /* En vision smartphone, suppression du libellé "Dernière course :" pour ne laisser que le drapeau d'arrivée */
+  .welcome-race-pill.is-completed .pill-label {
+    display: none !important;
+  }
+  .welcome-race-pill {
+    max-width: 100%;
+    flex-wrap: wrap;
+  }
   .welcome-banner-card .welcome-inline-hardware {
     width: 100%;
     margin-left: 0;

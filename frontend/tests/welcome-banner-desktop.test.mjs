@@ -71,6 +71,18 @@ test('Last race banner display: HTML renders date, rank, duration, and distance'
   assert.match(html, /pill-details/, 'HTML should have .pill-details');
   assert.match(html, /lastRaceSummary\.timeFormatted/, 'HTML should display duration via timeFormatted');
   assert.match(html, /lastRaceSummary\.distance/, 'HTML should display distance');
+
+  // Must have flag icon
+  assert.match(html, /🏁/, 'HTML should display the finish flag icon');
+  // Must condition pill-label on smartphone
+  assert.match(html, /\*ngIf="!isSmartphone"[^>]*>Dernière course/, 'HTML should suppress Dernière course label on smartphone');
+});
+
+test('Last race banner smartphone responsive CSS: hides pill-label on smartphone', () => {
+  const css = fs.readFileSync(appCssPath, 'utf8');
+
+  // Under @media (max-width: 768px), .welcome-race-pill.is-completed .pill-label must be display: none
+  assert.match(css, /\.welcome-race-pill\.is-completed\s+\.pill-label\s*\{[^}]*display:\s*none\s*!important/s, 'CSS should hide .pill-label on smartphone');
 });
 
 test('Last race getter: filters only finished races and extracts date, rank, duration, and distance', () => {
