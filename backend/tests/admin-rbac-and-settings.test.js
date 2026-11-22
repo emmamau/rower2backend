@@ -648,3 +648,178 @@ test("9. User Custom Room Quotas: Admin modification and enforcement on limits &
     await ctx.close();
   }
 });
+
+test("10. Admin User Details & Secure User Deletion with Cascade", async () => {
+  const ctx = await createTestServer();
+  try {
+    const adminUser = await userStore.createUser({
+      id: "admin_user_delete_test",
+      login: "Admin_Delete_Test",
+      email: "admin_del_test@example.com",
+      role: "ADMIN",
+      isAdmin: true,
+    });
+    const adminToken = JwtService.sign({
+      userId: adminUser.id,
+      login: adminUser.login,
+      role: "ADMIN",
+      isAdmin: true,
+    });
+
+    const userToDelete = await userStore.createUser({
+      id: "user_to_be_deleted",
+      login: "RowToDelete",
+      email: "delete_me@example.com",
+      name: "Rower To Delete",
+      subscriptionTier: "free",
+      role: "USER",
+    });
+
+    // 10.1 Détails utilisateur
+    const detailsRes = await fetch(`${ctx.baseUrl}/api/admin/users/${userToDelete.id}/details`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    assert.equal(detailsRes.status, 200);
+    const detailsData = await detailsRes.json();
+    assert.equal(detailsData.success, true);
+    assert.equal(detailsData.user.id, "user_to_be_deleted");
+    assert.equal(detailsData.user.email, "delete_me@example.com");
+
+    // 10.2 Création d'un salon hébergé par cet utilisateur
+    const salon = raceManager.createPrivateRace({
+      hostUserId: userToDelete.id,
+      hostUserName: userToDelete.name,
+      targetDistance: 1000,
+      title: "Salon de suppression",
+    });
+    assert.ok(salon && salon.code);
+    assert.ok(raceManager.findPrivateRace(salon.code));
+
+    // 10.3 Sécurité : interdire à un admin de se supprimer lui-même
+    const selfDeleteRes = await fetch(`${ctx.baseUrl}/api/admin/users/admin_user_delete_test`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    assert.equal(selfDeleteRes.status, 400);
+
+    // 10.4 Suppression de l'utilisateur avec cascade (fermeture du salon, suppression en base/store)
+    const deleteRes = await fetch(`${ctx.baseUrl}/api/admin/users/${userToDelete.id}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    assert.equal(deleteRes.status, 200);
+    const deleteData = await deleteRes.json();
+    assert.equal(deleteData.success, true);
+
+    // Le salon de l'utilisateur doit être fermé
+    const salonAfter = raceManager.findPrivateRace(salon.code);
+    assert.equal(salonAfter, null, "Le salon de l'utilisateur supprimé doit avoir été clôturé");
+
+    // L'utilisateur ne doit plus exister
+    const userAfter = await userStore.findUser(userToDelete.id);
+    assert.equal(userAfter, null, "L'utilisateur supprimé ne doit plus exister dans le store");
+  } finally {
+    await ctx.close();
+  }
+});
+
+test("11. Admin Room Management: List Active, Terminate & Purge", async () => {
+  const ctx = await createTestServer();
+  try {
+    const adminUser = await userStore.createUser({
+      id: "admin_room_mgr",
+      login: "Admin_Room_Mgr",
+      email: "admin_room_mgr@example.com",
+      role: "ADMIN",
+      isAdmin: true,
+    });
+    const adminToken = JwtService.sign({
+      userId: adminUser.id,
+      login: adminUser.login,
+      role: "ADMIN",
+      isAdmin: true,
+    });
+
+    const room1 = raceManager.createPrivateRace({
+      hostUserId: "test_host_1",
+      hostUserName: "Host 1",
+      targetDistance: 2000,
+      title: "Salon Admin 1",
+    });
+
+    // 11.1 Récupération des salons actifs
+    const activeRes = await fetch(`${ctx.baseUrl}/api/admin/rooms/active`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    assert.equal(activeRes.status, 200);
+    const activeData = await activeRes.json();
+    assert.equal(activeData.success, true);
+    assert.ok(Array.isArray(activeData.rooms));
+    const foundRoom = activeData.rooms.find((r) => r.code === room1.code);
+    assert.ok(foundRoom, "Le salon créé doit être listé dans les salons actifs");
+    assert.equal(foundRoom.targetDistance, 2000);
+
+    // 11.2 Clôture forcée par l'admin
+    const terminateRes = await fetch(`${ctx.baseUrl}/api/admin/rooms/${room1.code}/terminate`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    assert.equal(terminateRes.status, 200);
+    const terminateData = await terminateRes.json();
+    assert.equal(terminateData.success, true);
+    assert.equal(raceManager.findPrivateRace(room1.code), null, "Le salon doit être fermé après clôture");
+
+    // 11.3 Purge des salons inactifs
+    const purgeRes = await fetch(`${ctx.baseUrl}/api/admin/rooms/purge-inactive`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    assert.equal(purgeRes.status, 200);
+    const purgeData = await purgeRes.json();
+    assert.equal(purgeData.success, true);
+    assert.ok(typeof purgeData.purgedCount === "number");
+  } finally {
+    await ctx.close();
+  }
+});
+
+test("12. Admin System Supervision & League Cycle Trigger", async () => {
+  const ctx = await createTestServer();
+  try {
+    const adminUser = await userStore.createUser({
+      id: "admin_supervision",
+      login: "Admin_Supervision",
+      email: "admin_supervision@example.com",
+      role: "ADMIN",
+      isAdmin: true,
+    });
+    const adminToken = JwtService.sign({
+      userId: adminUser.id,
+      login: adminUser.login,
+      role: "ADMIN",
+      isAdmin: true,
+    });
+
+    // 12.1 Métriques système
+    const metricsRes = await fetch(`${ctx.baseUrl}/api/admin/system/metrics`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    assert.equal(metricsRes.status, 200);
+    const metricsData = await metricsRes.json();
+    assert.equal(metricsData.success, true);
+    assert.ok(metricsData.metrics.memory);
+    assert.ok(metricsData.metrics.sockets);
+    assert.ok(metricsData.metrics.rooms);
+
+    // 12.2 Déclenchement maintenance des ligues
+    const leagueRes = await fetch(`${ctx.baseUrl}/api/admin/system/trigger-league-cycle`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    assert.equal(leagueRes.status, 200);
+    const leagueData = await leagueRes.json();
+    assert.equal(leagueData.success, true);
+  } finally {
+    await ctx.close();
+  }
+});

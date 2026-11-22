@@ -2204,6 +2204,40 @@ export class RaceManager {
     });
   }
 
+  public getAllActivePrivateRaces(): RaceState[] {
+    const list: RaceState[] = [];
+    for (const race of this.privateRacesById.values()) {
+      if (race.status === "ABANDONED" || race.status === "CANCELLED") continue;
+      list.push(race);
+    }
+    return list.sort((a, b) => {
+      const ta = a.createdAt ? a.createdAt.getTime() : 0;
+      const tb = b.createdAt ? b.createdAt.getTime() : 0;
+      return tb - ta;
+    });
+  }
+
+  public purgeInactivePrivateRaces(maxAgeMinutes: number = 60): number {
+    const now = Date.now();
+    let purged = 0;
+    for (const race of Array.from(this.privateRacesById.values())) {
+      const ageMs = race.createdAt ? now - race.createdAt.getTime() : 0;
+      const humanCount = race.participants ? Array.from(race.participants.values()).filter(p => !p.userId.startsWith("bot_")).length : 0;
+      
+      // Si la course est abandonnée, terminée, ou en LOBBY depuis plus de maxAgeMinutes avec 0 participant actif
+      if (
+        race.status === "ABANDONED" ||
+        race.status === "CANCELLED" ||
+        race.status === "COMPLETED" ||
+        (race.status === "LOBBY" && (ageMs > maxAgeMinutes * 60 * 1000 || humanCount === 0 && ageMs > 15 * 60 * 1000))
+      ) {
+        this.removePrivateRaceInternal(race);
+        purged++;
+      }
+    }
+    return purged;
+  }
+
   /**
    * Trouve la course privée ou le duel actif pour un utilisateur ou sa montre (deviceToken).
    * Renvoie uniquement les courses non terminées (statut non COMPLETED, STOPPED, CANCELLED, ABANDONED)

@@ -5,6 +5,9 @@ import {
   AdminService,
   AdminPublicRaceSettings,
   AdminUserItem,
+  AdminUserDetailsResponse,
+  AdminActiveRoomItem,
+  AdminSystemMetricsResponse,
   SubscriptionPlanItem
 } from '../../services/admin.service';
 import { I18nService } from '../../services/i18n.service';
@@ -19,7 +22,7 @@ import { I18nService } from '../../services/i18n.service';
 export class AdminDashboardComponent implements OnInit {
   @Output() close = new EventEmitter<void>();
 
-  activeTab: 'public' | 'users' | 'plans' = 'public';
+  activeTab: 'public' | 'users' | 'rooms' | 'plans' | 'system' = 'public';
 
   // Feedback notifications
   feedbackMessage = '';
@@ -69,7 +72,24 @@ export class AdminDashboardComponent implements OnInit {
   isQuotaModalOpen = false;
   isSavingQuotas = false;
 
-  // Onglet 3 : Offres & Quotas
+  // Modale Fiche Utilisateur Détaillée
+  selectedUserDetail: AdminUserDetailsResponse['user'] | null = null;
+  isSelectedUserModalOpen = false;
+  isLoadingUserDetails = false;
+
+  // Modale Suppression Utilisateur
+  userToDelete: AdminUserItem | null = null;
+  isDeleteUserModalOpen = false;
+  isDeletingUser = false;
+
+  // Onglet 3 : Salons
+  activeRoomsList: AdminActiveRoomItem[] = [];
+  roomsHistoryList: any[] = [];
+  isLoadingRooms = false;
+  isTerminatingRoom = false;
+  isPurgingRooms = false;
+
+  // Onglet 4 : Offres & Quotas
   plansList: SubscriptionPlanItem[] = [];
   isLoadingPlans = false;
   isPlanModalOpen = false;
@@ -90,6 +110,11 @@ export class AdminDashboardComponent implements OnInit {
   };
   isEditingExistingPlan = false;
 
+  // Onglet 5 : Supervision & Système
+  systemMetrics: AdminSystemMetricsResponse['metrics'] | null = null;
+  isLoadingMetrics = false;
+  isTriggeringLeague = false;
+
   constructor(
     private adminService: AdminService,
     private cdr: ChangeDetectorRef,
@@ -101,7 +126,7 @@ export class AdminDashboardComponent implements OnInit {
     this.loadPlans();
   }
 
-  setTab(tab: 'public' | 'users' | 'plans'): void {
+  setTab(tab: 'public' | 'users' | 'rooms' | 'plans' | 'system'): void {
     this.activeTab = tab;
     this.clearMessages();
     if (tab === 'public') {
@@ -111,8 +136,12 @@ export class AdminDashboardComponent implements OnInit {
         this.loadPlans();
       }
       this.loadUsers(1);
+    } else if (tab === 'rooms') {
+      this.loadRooms();
     } else if (tab === 'plans') {
       this.loadPlans();
+    } else if (tab === 'system') {
+      this.loadSystemMetrics();
     }
   }
 
@@ -390,6 +419,78 @@ export class AdminDashboardComponent implements OnInit {
     });
   }
 
+  // ---------------------------------------------------------------------------
+  // Fiche Utilisateur Détaillée & Suppression
+  // ---------------------------------------------------------------------------
+
+  openUserDetailsModal(user: AdminUserItem): void {
+    this.selectedUserDetail = null;
+    this.isLoadingUserDetails = true;
+    this.isSelectedUserModalOpen = true;
+    this.clearMessages();
+
+    this.adminService.getUserDetails(user.id).subscribe({
+      next: (res) => {
+        this.isLoadingUserDetails = false;
+        if (res.success && res.user) {
+          this.selectedUserDetail = res.user;
+        }
+        this.cdr.markForCheck();
+      },
+      error: (err) => {
+        this.isLoadingUserDetails = false;
+        this.errorMessage = this.formatAdminError(err, 'ADMIN_ERR_LOAD_USER_DETAILS');
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  closeUserDetailsModal(): void {
+    this.isSelectedUserModalOpen = false;
+    this.selectedUserDetail = null;
+  }
+
+  openDeleteUserModal(user: AdminUserItem): void {
+    this.userToDelete = user;
+    this.isDeleteUserModalOpen = true;
+    this.clearMessages();
+  }
+
+  closeDeleteUserModal(): void {
+    this.isDeleteUserModalOpen = false;
+    this.userToDelete = null;
+    this.isDeletingUser = false;
+  }
+
+  confirmDeleteUser(): void {
+    if (!this.userToDelete) return;
+    const target = this.userToDelete;
+    this.isDeletingUser = true;
+    this.clearMessages();
+
+    this.adminService.deleteUser(target.id).subscribe({
+      next: (res) => {
+        this.isDeletingUser = false;
+        if (res.success) {
+          this.feedbackMessage = res.message || this.i18n.t('ADMIN_USER_DELETE_SUCCESS');
+          this.usersList = this.usersList.filter(u => u.id !== target.id);
+          this.totalUsers = Math.max(0, this.totalUsers - 1);
+          if (this.selectedUserDetail?.id === target.id) {
+            this.closeUserDetailsModal();
+          }
+        }
+        this.closeDeleteUserModal();
+        this.cdr.markForCheck();
+      },
+      error: (err) => {
+        this.isDeletingUser = false;
+        this.errorMessage = this.formatAdminError(err, 'ADMIN_ERR_DELETE_USER');
+        this.closeDeleteUserModal();
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
   getDefaultConcurrent(tier?: string): number {
     const t = (tier || 'free').toLowerCase();
     if (t === 'premium' || t === 'pro' || t === 'elite_pro') return 5;
@@ -556,6 +657,128 @@ export class AdminDashboardComponent implements OnInit {
       },
       error: (err) => {
         this.errorMessage = this.formatAdminError(err, 'ADMIN_ERR_TOGGLE_PLAN');
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Salons (Supervision temps réel & Historique)
+  // ---------------------------------------------------------------------------
+
+  loadRooms(): void {
+    this.isLoadingRooms = true;
+    this.clearMessages();
+
+    this.adminService.getActiveRooms().subscribe({
+      next: (res) => {
+        this.isLoadingRooms = false;
+        if (res.success) {
+          this.activeRoomsList = res.rooms || [];
+        }
+        this.cdr.markForCheck();
+      },
+      error: (err) => {
+        this.isLoadingRooms = false;
+        this.errorMessage = this.formatAdminError(err, 'ADMIN_ERR_LOAD_ROOMS');
+        this.cdr.markForCheck();
+      }
+    });
+
+    this.adminService.getRoomsHistory(20).subscribe({
+      next: (res) => {
+        if (res.success) {
+          this.roomsHistoryList = res.rooms || [];
+        }
+        this.cdr.markForCheck();
+      },
+      error: () => {}
+    });
+  }
+
+  terminateRoom(room: AdminActiveRoomItem): void {
+    const code = room.code || room.id;
+    if (!code) return;
+    this.isTerminatingRoom = true;
+    this.clearMessages();
+
+    this.adminService.terminateRoom(code).subscribe({
+      next: (res) => {
+        this.isTerminatingRoom = false;
+        if (res.success) {
+          this.feedbackMessage = res.message;
+          this.activeRoomsList = this.activeRoomsList.filter(r => r.code !== code && r.id !== code);
+        }
+        this.cdr.markForCheck();
+      },
+      error: (err) => {
+        this.isTerminatingRoom = false;
+        this.errorMessage = this.formatAdminError(err, 'ADMIN_ERR_TERMINATE_ROOM');
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  purgeInactiveRooms(): void {
+    this.isPurgingRooms = true;
+    this.clearMessages();
+
+    this.adminService.purgeInactiveRooms().subscribe({
+      next: (res) => {
+        this.isPurgingRooms = false;
+        if (res.success) {
+          this.feedbackMessage = res.message;
+          this.loadRooms();
+        }
+        this.cdr.markForCheck();
+      },
+      error: (err) => {
+        this.isPurgingRooms = false;
+        this.errorMessage = this.formatAdminError(err, 'ADMIN_ERR_PURGE_ROOMS');
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Supervision Globale & Système
+  // ---------------------------------------------------------------------------
+
+  loadSystemMetrics(): void {
+    this.isLoadingMetrics = true;
+    this.clearMessages();
+
+    this.adminService.getSystemMetrics().subscribe({
+      next: (res) => {
+        this.isLoadingMetrics = false;
+        if (res.success && res.metrics) {
+          this.systemMetrics = res.metrics;
+        }
+        this.cdr.markForCheck();
+      },
+      error: (err) => {
+        this.isLoadingMetrics = false;
+        this.errorMessage = this.formatAdminError(err, 'ADMIN_ERR_LOAD_METRICS');
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  triggerLeagueCycle(): void {
+    this.isTriggeringLeague = true;
+    this.clearMessages();
+
+    this.adminService.triggerLeagueCycle().subscribe({
+      next: (res) => {
+        this.isTriggeringLeague = false;
+        if (res.success) {
+          this.feedbackMessage = res.message;
+        }
+        this.cdr.markForCheck();
+      },
+      error: (err) => {
+        this.isTriggeringLeague = false;
+        this.errorMessage = this.formatAdminError(err, 'ADMIN_ERR_TRIGGER_LEAGUE');
         this.cdr.markForCheck();
       }
     });

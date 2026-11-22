@@ -38,6 +38,101 @@ export interface AdminUsersResponse {
   users: AdminUserItem[];
 }
 
+export interface AdminUserDetailsResponse {
+  success: boolean;
+  user: AdminUserItem & {
+    firstName?: string;
+    lastName?: string;
+    birthYear?: number;
+    gender?: string;
+    country?: string;
+    language?: string;
+    subscriptionStatus?: string;
+    watchUserId?: string;
+    watchModel?: string;
+    rowerModel?: string;
+    isConfirmed?: boolean;
+    totalWins?: number;
+    podiums?: number;
+    totalCareerPoints?: number;
+    bestRank?: number;
+    lastRank?: number;
+    duelsWon?: number;
+    duelsLost?: number;
+    duelsDrawn?: number;
+    duelPoints?: number;
+    activitiesCount?: number;
+    activeRoomsCount?: number;
+    pairingInfo?: {
+      deviceToken?: string;
+      watchUserId?: string;
+      model?: string;
+      pairedAt?: string;
+    } | null;
+  };
+}
+
+export interface AdminActiveRoomParticipant {
+  userId: string;
+  userName: string;
+  lane?: number;
+  isBot: boolean;
+  ready: boolean;
+  connectionState?: string;
+}
+
+export interface AdminActiveRoomItem {
+  id: string;
+  code?: string;
+  pin?: string;
+  title?: string;
+  status: string;
+  hostUserId?: string;
+  hostUserName?: string;
+  targetDistance: number;
+  maxParticipants: number;
+  gameMode?: string;
+  startMode?: string;
+  scheduledStartTime?: string;
+  participantsCount: number;
+  humansCount: number;
+  botsCount: number;
+  participants: AdminActiveRoomParticipant[];
+  createdAt?: string;
+  startedAt?: string;
+}
+
+export interface AdminActiveRoomsResponse {
+  success: boolean;
+  total: number;
+  rooms: AdminActiveRoomItem[];
+}
+
+export interface AdminSystemMetricsResponse {
+  success: boolean;
+  metrics: {
+    uptimeSeconds: number;
+    nodeVersion: string;
+    dbStatus: string;
+    memory: {
+      heapUsedMb: number;
+      heapTotalMb: number;
+      rssMb: number;
+    };
+    sockets: {
+      connectedSockets: number;
+      onlineUsersCount: number;
+      onlineUsers: string[];
+    };
+    rooms: {
+      activePrivateRoomsCount: number;
+      isPublicRaceEnabled: boolean;
+      currentPublicRaceId: string | null;
+      currentPublicRaceStatus: string;
+    };
+  };
+}
+
 export interface SubscriptionPlanItem {
   id?: number;
   code: string;
@@ -162,8 +257,76 @@ export class AdminService {
     );
   }
 
+  getUserDetails(userId: string): Observable<AdminUserDetailsResponse> {
+    return this.http.get<AdminUserDetailsResponse>(
+      `${this.apiUrl}/api/admin/users/${encodeURIComponent(userId)}/details`,
+      { headers: this.getAuthHeaders() }
+    );
+  }
+
+  deleteUser(userId: string): Observable<{ success: boolean; message: string; deletedUserId: string }> {
+    return this.http.delete<{ success: boolean; message: string; deletedUserId: string }>(
+      `${this.apiUrl}/api/admin/users/${encodeURIComponent(userId)}`,
+      { headers: this.getAuthHeaders() }
+    );
+  }
+
   // ---------------------------------------------------------------------------
-  // 3. Offres & Quotas
+  // 3. Gestion des Salons
+  // ---------------------------------------------------------------------------
+
+  getActiveRooms(): Observable<AdminActiveRoomsResponse> {
+    return this.http.get<AdminActiveRoomsResponse>(
+      `${this.apiUrl}/api/admin/rooms/active`,
+      { headers: this.getAuthHeaders() }
+    );
+  }
+
+  terminateRoom(code: string): Observable<{ success: boolean; message: string; raceId: string }> {
+    return this.http.post<{ success: boolean; message: string; raceId: string }>(
+      `${this.apiUrl}/api/admin/rooms/${encodeURIComponent(code)}/terminate`,
+      {},
+      { headers: this.getAuthHeaders() }
+    );
+  }
+
+  purgeInactiveRooms(): Observable<{ success: boolean; message: string; purgedCount: number }> {
+    return this.http.post<{ success: boolean; message: string; purgedCount: number }>(
+      `${this.apiUrl}/api/admin/rooms/purge-inactive`,
+      {},
+      { headers: this.getAuthHeaders() }
+    );
+  }
+
+  getRoomsHistory(limit: number = 30): Observable<{ success: boolean; rooms: any[] }> {
+    let params = new HttpParams().set('limit', limit.toString());
+    return this.http.get<{ success: boolean; rooms: any[] }>(
+      `${this.apiUrl}/api/admin/rooms/history`,
+      { headers: this.getAuthHeaders(), params }
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // 4. Supervision Globale & Système
+  // ---------------------------------------------------------------------------
+
+  getSystemMetrics(): Observable<AdminSystemMetricsResponse> {
+    return this.http.get<AdminSystemMetricsResponse>(
+      `${this.apiUrl}/api/admin/system/metrics`,
+      { headers: this.getAuthHeaders() }
+    );
+  }
+
+  triggerLeagueCycle(): Observable<{ success: boolean; message: string }> {
+    return this.http.post<{ success: boolean; message: string }>(
+      `${this.apiUrl}/api/admin/system/trigger-league-cycle`,
+      {},
+      { headers: this.getAuthHeaders() }
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // 5. Offres & Quotas
   // ---------------------------------------------------------------------------
 
   getPlans(): Observable<{ success: boolean; plans: SubscriptionPlanItem[] }> {

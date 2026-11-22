@@ -129,6 +129,18 @@ export class SocketGateway {
     }
   }
 
+  public getConnectedSocketsCount(): number {
+    return this.io?.sockets?.sockets?.size || 0;
+  }
+
+  public getOnlineUsers(): string[] {
+    return Array.from(this.userSockets.keys());
+  }
+
+  public getOnlineUsersCount(): number {
+    return this.userSockets.size;
+  }
+
   public broadcastLeaderboard(raceId: string, leaderboard: LiveRacerMetric[]): void {
     if (!this.io) return;
     const payload: LeaderboardUpdatePayload = {

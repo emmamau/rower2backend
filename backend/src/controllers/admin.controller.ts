@@ -3,13 +3,18 @@ import { Op } from "sequelize";
 import db from "../models";
 import raceManager from "../services/race-manager.service";
 import socketGateway from "../websocket/socket.gateway";
-import { hashPassword } from "../services/auth.service";
+import { hashPassword, isEmmaAdminUser } from "../services/auth.service";
 import subscriptionPlanService from "../services/subscription-plan.service";
 import userStore from "../services/user-store.service";
+import { ensureCurrentWeek } from "../services/league-db.service";
 
 const Users = db.users;
 const PublicRaceSettings = db.publicRaceSettings;
 const SubscriptionPlans = db.subscriptionPlans;
+const Races = db.races;
+const Activities = db.activities;
+const Pairings = db.pairings;
+const DuelChallenges = db.duelChallenges;
 
 function sanitizeAdminUser(user: any): Record<string, any> {
   const plain = typeof user.toJSON === "function" ? user.toJSON() : { ...user };
@@ -627,8 +632,429 @@ export class AdminController {
     }
   }
 
+  public static async getUserDetails(req: Request, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+      const targetId = String(id).trim();
+
+      let user: any = null;
+      try {
+        user = await Users.findByPk(targetId);
+        if (!user) {
+          user = await Users.findOne({ where: { login: targetId } });
+        }
+      } catch {}
+      if (!user) {
+        user = await userStore.findUser(targetId);
+      }
+
+      if (!user) {
+        res.status(404).json({ success: false, message: "Utilisateur introuvable." });
+        return;
+      }
+
+      const sanitized = sanitizeAdminUser(user);
+      const uid = String(user.id || targetId);
+      const ulogin = String(user.login || "");
+
+      // Comptage activités
+      let activitiesCount = 0;
+      try {
+        if (Activities) {
+          activitiesCount = await Activities.count({
+            where: {
+              [Op.or]: [{ userId: uid }, ...(ulogin ? [{ userId: ulogin }] : [])],
+            },
+          });
+        }
+      } catch {
+        activitiesCount = sanitized.totalRaces || 0;
+      }
+
+      // Salons actifs hébergés par cet utilisateur
+      const activeRooms = raceManager.getAllActivePrivateRaces().filter(
+        (r) => r.hostUserId === uid || r.hostUserId === ulogin || r.originalHostUserId === uid || r.originalHostUserId === ulogin
+      );
+
+      // Informations d'appairage montre Garmin
+      let pairingInfo: any = null;
+      try {
+        if (Pairings) {
+          const p = await Pairings.findOne({
+            where: {
+              [Op.or]: [{ userId: uid }, ...(ulogin ? [{ userId: ulogin }] : [])],
+            },
+          });
+          if (p) pairingInfo = typeof p.toJSON === "function" ? p.toJSON() : p;
+        }
+      } catch {}
+
+      res.status(200).json({
+        success: true,
+        user: {
+          ...sanitized,
+          activitiesCount,
+          activeRoomsCount: activeRooms.length,
+          pairingInfo: pairingInfo ? {
+            deviceToken: pairingInfo.deviceToken,
+            watchUserId: pairingInfo.watchUserId,
+            model: pairingInfo.model,
+            pairedAt: pairingInfo.createdAt,
+          } : null,
+        },
+      });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      res.status(500).json({ success: false, message: `Erreur récupération détails utilisateur: ${message}` });
+    }
+  }
+
+  public static async deleteUser(req: Request, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+      const targetId = String(id).trim();
+      const currentAdmin = (req as any).adminUser;
+
+      // Sécurité : interdire à un administrateur de se supprimer lui-même
+      if (currentAdmin && (currentAdmin.id === targetId || currentAdmin.login?.toLowerCase() === targetId.toLowerCase())) {
+        res.status(400).json({
+          success: false,
+          message: "Action interdite : vous ne pouvez pas supprimer votre propre compte administrateur.",
+        });
+        return;
+      }
+
+      let user: any = null;
+      try {
+        user = await Users.findByPk(targetId);
+        if (!user) {
+          user = await Users.findOne({ where: { login: targetId } });
+        }
+      } catch {}
+      if (!user) {
+        user = await userStore.findUser(targetId);
+      }
+
+      if (!user) {
+        res.status(404).json({ success: false, message: "Utilisateur introuvable." });
+        return;
+      }
+
+      const targetUserId = String(user.id || (typeof user.get === "function" ? user.get("id") : targetId));
+      const targetLogin = String(user.login || (typeof user.get === "function" ? user.get("login") : targetId));
+      const targetRole = String(user.role || (user.isAdmin ? "ADMIN" : "USER")).toUpperCase();
+
+      if (isEmmaAdminUser(targetUserId, user.name) || isEmmaAdminUser(targetLogin, user.name)) {
+        res.status(400).json({
+          success: false,
+          message: "Action interdite : le compte d'administration principal ne peut pas être supprimé.",
+        });
+        return;
+      }
+
+      // Si on supprime un compte ADMIN, s'assurer qu'il reste au moins un autre administrateur actif
+      if (targetRole === "ADMIN") {
+        let activeAdminsCount = 0;
+        try {
+          const dbCount = await Users.count({
+            where: {
+              role: "ADMIN",
+              isRevoked: false,
+              id: { [Op.ne]: targetUserId } as any,
+            } as any,
+          });
+          activeAdminsCount = Number(dbCount);
+        } catch {
+          const allUsers = await userStore.getAllUsers();
+          const otherAdmins = allUsers.filter(
+            (u) =>
+              u.id !== targetUserId &&
+              u.login !== targetUserId &&
+              (u.role === "ADMIN" || u.isAdmin) &&
+              !Boolean(u.isRevoked || (u as any).is_revoked)
+          );
+          activeAdminsCount = otherAdmins.length;
+        }
+
+        if (activeAdminsCount < 1) {
+          res.status(400).json({
+            success: false,
+            message: "Impossible de supprimer le dernier administrateur actif de la plateforme.",
+          });
+          return;
+        }
+      }
+
+      // Nettoyage en cascade 1 : Fermer les salons actifs créés par cet utilisateur
+      const allActiveRooms = raceManager.getAllActivePrivateRaces();
+      for (const room of allActiveRooms) {
+        if (
+          room.hostUserId === targetUserId ||
+          room.hostUserId === targetLogin ||
+          room.originalHostUserId === targetUserId ||
+          room.originalHostUserId === targetLogin
+        ) {
+          try {
+            raceManager.closePrivateRace(room.code || room.id, undefined, true);
+          } catch {}
+        }
+      }
+
+      // Nettoyage en cascade 2 : Déconnexion immédiate de toutes les sockets actives
+      socketGateway.disconnectUser(targetUserId);
+      if (targetLogin && targetLogin !== targetUserId) {
+        socketGateway.disconnectUser(targetLogin);
+      }
+
+      // Nettoyage en cascade 3 : Suppression des appairages montre
+      try {
+        if (Pairings) {
+          await Pairings.destroy({
+            where: {
+              [Op.or]: [
+                { userId: targetUserId },
+                ...(targetLogin ? [{ userId: targetLogin }] : []),
+              ],
+            },
+          });
+        }
+      } catch {}
+
+      // Nettoyage en cascade 4 : Suppression des duels en attente
+      try {
+        if (DuelChallenges) {
+          await DuelChallenges.destroy({
+            where: {
+              [Op.or]: [
+                { challengerUserId: targetUserId },
+                { challengedUserId: targetUserId },
+                ...(targetLogin ? [{ challengerLogin: targetLogin }, { challengedLogin: targetLogin }] : []),
+              ],
+            },
+          });
+        }
+      } catch {}
+
+      // Nettoyage en cascade 5 : Suppression du compte en base et store mémoire
+      try {
+        await userStore.deleteUser(targetUserId);
+        if (targetLogin && targetLogin !== targetUserId) {
+          await userStore.deleteUser(targetLogin);
+        }
+      } catch {}
+
+      try {
+        await Users.destroy({
+          where: {
+            [Op.or]: [
+              { id: targetUserId },
+              ...(targetLogin ? [{ login: targetLogin }] : []),
+            ],
+          },
+        });
+      } catch {}
+
+      res.status(200).json({
+        success: true,
+        message: `L'utilisateur ${targetLogin || targetUserId} a été définitivement supprimé.`,
+        deletedUserId: targetUserId,
+      });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      res.status(500).json({ success: false, message: `Erreur suppression utilisateur: ${message}` });
+    }
+  }
+
   // ---------------------------------------------------------------------------
-  // 3. Gestion des Offres & Quotas
+  // 3. Gestion des Salons (Privés & Historiques)
+  // ---------------------------------------------------------------------------
+
+  public static async getActiveRooms(_req: Request, res: Response): Promise<void> {
+    try {
+      const races = raceManager.getAllActivePrivateRaces();
+      const serialized = races.map((r) => {
+        const participantsList = r.participants
+          ? Array.from(r.participants.values()).map((p) => {
+              const isBot = Boolean(p.userId.startsWith("bot_") || p.userName?.toLowerCase().startsWith("bot"));
+              return {
+                userId: p.userId,
+                userName: p.guestName || p.userName || p.userId,
+                lane: p.lane,
+                isBot,
+                ready: Boolean(p.ready),
+                connectionState: p.connectionState,
+              };
+            })
+          : [];
+
+        const botsCount = participantsList.filter((p) => p.isBot).length;
+        const humansCount = participantsList.filter((p) => !p.isBot).length;
+
+        return {
+          id: r.id,
+          code: r.code,
+          pin: r.pinCode,
+          title: r.title,
+          status: r.status,
+          hostUserId: r.hostUserId,
+          hostUserName: r.hostUserName,
+          targetDistance: r.targetDistance,
+          maxParticipants: r.maxParticipants,
+          gameMode: r.gameMode || "multi",
+          startMode: r.startMode,
+          scheduledStartTime: r.scheduledStartTime,
+          participantsCount: participantsList.length,
+          humansCount,
+          botsCount,
+          participants: participantsList,
+          createdAt: r.createdAt,
+          startedAt: r.startedAt,
+        };
+      });
+
+      res.status(200).json({
+        success: true,
+        total: serialized.length,
+        rooms: serialized,
+      });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      res.status(500).json({ success: false, message: `Erreur récupération salons actifs: ${message}` });
+    }
+  }
+
+  public static async terminateRoom(req: Request, res: Response): Promise<void> {
+    try {
+      const { code } = req.params;
+      const targetCode = String(code || "").trim();
+
+      if (!targetCode) {
+        res.status(400).json({ success: false, message: "Code ou identifiant de salon requis." });
+        return;
+      }
+
+      const result = raceManager.closePrivateRace(targetCode, undefined, true);
+      if ("error" in result) {
+        res.status(result.statusCode || 400).json({ success: false, message: result.error });
+        return;
+      }
+
+      res.status(200).json({
+        success: true,
+        message: `Le salon '${targetCode}' a été clôturé avec succès par l'administrateur.`,
+        raceId: result.raceId,
+      });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      res.status(500).json({ success: false, message: `Erreur fermeture salon: ${message}` });
+    }
+  }
+
+  public static async purgeInactiveRooms(_req: Request, res: Response): Promise<void> {
+    try {
+      const purgedCount = raceManager.purgeInactivePrivateRaces(30);
+      res.status(200).json({
+        success: true,
+        message: `${purgedCount} salon(s) inactif(s) ou orphelin(s) purgé(s) avec succès.`,
+        purgedCount,
+      });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      res.status(500).json({ success: false, message: `Erreur purge des salons: ${message}` });
+    }
+  }
+
+  public static async getRoomsHistory(req: Request, res: Response): Promise<void> {
+    try {
+      const limit = Math.max(1, Math.min(100, parseInt(String(req.query.limit || 30), 10)));
+      let history: any[] = [];
+      try {
+        if (Races) {
+          history = await Races.findAll({
+            where: {
+              [Op.or]: [
+                { id: { [Op.like]: "PRIV_%" } },
+                { hostUserId: { [Op.ne]: null } as any },
+              ],
+            },
+            order: [["createdAt", "DESC"]],
+            limit,
+          });
+        }
+      } catch {}
+
+      res.status(200).json({
+        success: true,
+        rooms: history.map((h) => (typeof h.toJSON === "function" ? h.toJSON() : h)),
+      });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      res.status(500).json({ success: false, message: `Erreur historique des salons: ${message}` });
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // 4. Supervision Globale & Système
+  // ---------------------------------------------------------------------------
+
+  public static async getSystemMetrics(_req: Request, res: Response): Promise<void> {
+    try {
+      const mem = process.memoryUsage();
+      const onlineUsersList = socketGateway.getOnlineUsers();
+      const activeRooms = raceManager.getAllActivePrivateRaces();
+
+      let dbConnected = true;
+      try {
+        await db.sequelize.authenticate();
+      } catch {
+        dbConnected = false;
+      }
+
+      res.status(200).json({
+        success: true,
+        metrics: {
+          uptimeSeconds: Math.round(process.uptime()),
+          nodeVersion: process.version,
+          dbStatus: dbConnected ? "connected" : "offline_fallback",
+          memory: {
+            heapUsedMb: Math.round(mem.heapUsed / 1024 / 1024),
+            heapTotalMb: Math.round(mem.heapTotal / 1024 / 1024),
+            rssMb: Math.round(mem.rss / 1024 / 1024),
+          },
+          sockets: {
+            connectedSockets: socketGateway.getConnectedSocketsCount(),
+            onlineUsersCount: socketGateway.getOnlineUsersCount(),
+            onlineUsers: onlineUsersList,
+          },
+          rooms: {
+            activePrivateRoomsCount: activeRooms.length,
+            isPublicRaceEnabled: raceManager.isPublicRaceEnabled,
+            currentPublicRaceId: raceManager.getCurrentPublicRace()?.id || null,
+            currentPublicRaceStatus: raceManager.getCurrentPublicRace()?.status || (raceManager.isPublicRaceEnabled ? "LOBBY" : "SUSPENDED"),
+          },
+        },
+      });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      res.status(500).json({ success: false, message: `Erreur métriques système: ${message}` });
+    }
+  }
+
+  public static async triggerLeagueCycle(_req: Request, res: Response): Promise<void> {
+    try {
+      await ensureCurrentWeek();
+      res.status(200).json({
+        success: true,
+        message: "Cycle hebdomadaire des ligues vérifié et synchronisé avec succès.",
+      });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      res.status(500).json({ success: false, message: `Erreur synchronisation ligues: ${message}` });
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // 5. Gestion des Offres & Quotas
   // ---------------------------------------------------------------------------
 
   public static async getPlans(_req: Request, res: Response): Promise<void> {

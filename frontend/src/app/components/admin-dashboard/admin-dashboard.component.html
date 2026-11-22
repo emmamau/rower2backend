@@ -26,10 +26,24 @@
     </button>
     <button
       class="tab-btn"
+      [class.active]="activeTab === 'rooms'"
+      (click)="setTab('rooms')"
+    >
+      🚣 {{ i18n.t('ADMIN_TAB_ROOMS') }}
+    </button>
+    <button
+      class="tab-btn"
       [class.active]="activeTab === 'plans'"
       (click)="setTab('plans')"
     >
       💎 {{ i18n.t('ADMIN_TAB_PLANS') }}
+    </button>
+    <button
+      class="tab-btn"
+      [class.active]="activeTab === 'system'"
+      (click)="setTab('system')"
+    >
+      ⚡ {{ i18n.t('ADMIN_TAB_SYSTEM') }}
     </button>
   </nav>
 
@@ -263,6 +277,13 @@
               <td>
                 <div class="action-buttons">
                   <button
+                    class="btn-action btn-action-details"
+                    (click)="openUserDetailsModal(u)"
+                    title="Voir la fiche détaillée du rameur"
+                  >
+                    📇 {{ i18n.t('ADMIN_USERS_BTN_DETAILS') }}
+                  </button>
+                  <button
                     class="btn-action"
                     [ngClass]="u.isRevoked ? 'btn-action-restore' : 'btn-action-revoke'"
                     (click)="openRevokeModal(u)"
@@ -281,6 +302,13 @@
                     [title]="i18n.t('ADMIN_USERS_ROOMS_TIP')"
                   >
                     🏟️ {{ i18n.t('ADMIN_USERS_BTN_ROOMS') }}
+                  </button>
+                  <button
+                    class="btn-action btn-action-delete"
+                    (click)="openDeleteUserModal(u)"
+                    title="Supprimer définitivement ce compte"
+                  >
+                    🗑️ {{ i18n.t('ADMIN_USERS_BTN_DELETE') }}
                   </button>
                 </div>
               </td>
@@ -317,7 +345,136 @@
     </section>
 
     <!-- ===================================================================== -->
-    <!-- ONGLET 3 : OFFRES & QUOTAS -->
+    <!-- ONGLET 3 : SALONS -->
+    <!-- ===================================================================== -->
+    <section *ngIf="activeTab === 'rooms'">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
+        <div>
+          <h3 class="card-title" style="margin: 0;">🚣 {{ i18n.t('ADMIN_ROOMS_TITLE') }}</h3>
+          <p style="margin: 4px 0 0 0; color: #94a3b8; font-size: 0.85rem;">{{ i18n.t('ADMIN_ROOMS_SUBTITLE') }}</p>
+        </div>
+        <div style="display: flex; gap: 10px;">
+          <button class="btn-action btn-action-pwd" (click)="loadRooms()" [disabled]="isLoadingRooms">
+            🔄 {{ i18n.t('ADMIN_ROOMS_BTN_REFRESH') }}
+          </button>
+          <button class="btn-action btn-action-revoke" (click)="purgeInactiveRooms()" [disabled]="isPurgingRooms">
+            🧹 {{ isPurgingRooms ? i18n.t('ADMIN_ROOMS_PURGING') : i18n.t('ADMIN_ROOMS_BTN_PURGE') }}
+          </button>
+        </div>
+      </div>
+
+      <!-- Salons Privés Actifs -->
+      <div class="card" style="margin-bottom: 24px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+          <h4 style="margin: 0; color: #38bdf8; font-size: 1rem;">
+            ⚡ {{ i18n.t('ADMIN_ROOMS_ACTIVE_COUNT', { count: activeRoomsList.length }) }}
+          </h4>
+        </div>
+
+        <div class="table-responsive">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>{{ i18n.t('ADMIN_ROOMS_COL_CODE') }}</th>
+                <th>{{ i18n.t('ADMIN_ROOMS_COL_PIN') }}</th>
+                <th>{{ i18n.t('ADMIN_ROOMS_COL_TITLE') }}</th>
+                <th>{{ i18n.t('ADMIN_ROOMS_COL_HOST') }}</th>
+                <th>{{ i18n.t('ADMIN_ROOMS_COL_PARTICIPANTS') }}</th>
+                <th>{{ i18n.t('ADMIN_ROOMS_COL_STATUS') }}</th>
+                <th>{{ i18n.t('ADMIN_ROOMS_COL_ACTIONS') }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let room of activeRoomsList">
+                <td>
+                  <strong style="color: #00f0ff; letter-spacing: 0.5px;">{{ room.code || room.id }}</strong>
+                </td>
+                <td>
+                  <span class="table-badge" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; font-family: monospace;">
+                    {{ room.pin || '-' }}
+                  </span>
+                </td>
+                <td>
+                  <div>{{ room.title || 'Salon Privé' }}</div>
+                  <small style="color: #64748b;">{{ room.targetDistance }}m ({{ room.gameMode || 'multi' }})</small>
+                </td>
+                <td>
+                  <div>{{ room.hostUserName || room.hostUserId || 'Anonyme' }}</div>
+                </td>
+                <td>
+                  <span class="quota-pill">
+                    👤 {{ room.humansCount }} humains | 🤖 {{ room.botsCount }} bots
+                  </span>
+                </td>
+                <td>
+                  <span class="table-badge" [ngClass]="room.status === 'RUNNING' ? 'badge-status-active' : 'badge-status-revoked'">
+                    {{ room.status }}
+                  </span>
+                </td>
+                <td>
+                  <button
+                    class="btn-action btn-action-revoke"
+                    (click)="terminateRoom(room)"
+                    [disabled]="isTerminatingRoom"
+                    title="Clôturer immédiatement ce salon"
+                  >
+                    ⛔ {{ i18n.t('ADMIN_ROOMS_BTN_TERMINATE') }}
+                  </button>
+                </td>
+              </tr>
+              <tr *ngIf="activeRoomsList.length === 0">
+                <td colspan="7" style="text-align: center; color: #94a3b8; padding: 24px;">
+                  {{ isLoadingRooms ? i18n.t('ADMIN_USERS_LOADING') : i18n.t('ADMIN_ROOMS_NO_ACTIVE') }}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Historique des Salons Récents -->
+      <div class="card">
+        <h4 style="margin: 0 0 12px 0; color: #94a3b8; font-size: 0.95rem;">
+          📜 {{ i18n.t('ADMIN_ROOMS_HISTORY_TITLE') }}
+        </h4>
+        <div class="table-responsive">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>{{ i18n.t('ADMIN_ROOMS_COL_TITLE') }}</th>
+                <th>{{ i18n.t('ADMIN_ROOMS_COL_HOST') }}</th>
+                <th>Participants</th>
+                <th>{{ i18n.t('ADMIN_ROOMS_COL_STATUS') }}</th>
+                <th>Date</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let h of roomsHistoryList">
+                <td><small style="font-family: monospace; color: #64748b;">{{ h.id }}</small></td>
+                <td>{{ h.title || 'Course' }} ({{ h.targetDistance }}m)</td>
+                <td>{{ h.hostUserId || '-' }}</td>
+                <td>{{ h.totalParticipants || 0 }}</td>
+                <td>
+                  <span class="table-badge" style="background: rgba(255, 255, 255, 0.08); color: #cbd5e1;">
+                    {{ h.status }}
+                  </span>
+                </td>
+                <td><small style="color: #64748b;">{{ h.createdAt | date:'short' }}</small></td>
+              </tr>
+              <tr *ngIf="roomsHistoryList.length === 0">
+                <td colspan="6" style="text-align: center; color: #94a3b8; padding: 18px;">
+                  {{ i18n.t('ADMIN_ROOMS_HIST_EMPTY') }}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================================================================== -->
+    <!-- ONGLET 4 : OFFRES & QUOTAS -->
     <!-- ===================================================================== -->
     <section *ngIf="activeTab === 'plans'">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
@@ -398,6 +555,89 @@
               ✏️ {{ i18n.t('ADMIN_PLANS_BTN_EDIT_QUOTAS') }}
             </button>
           </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================================================================== -->
+    <!-- ONGLET 5 : SUPERVISION & SYSTÈME -->
+    <!-- ===================================================================== -->
+    <section *ngIf="activeTab === 'system'">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
+        <div>
+          <h3 class="card-title" style="margin: 0;">⚡ {{ i18n.t('ADMIN_SYS_TITLE') }}</h3>
+          <p style="margin: 4px 0 0 0; color: #94a3b8; font-size: 0.85rem;">{{ i18n.t('ADMIN_SYS_SUBTITLE') }}</p>
+        </div>
+        <button class="btn-action btn-action-pwd" (click)="loadSystemMetrics()" [disabled]="isLoadingMetrics">
+          🔄 {{ i18n.t('ADMIN_SYS_BTN_REFRESH') }}
+        </button>
+      </div>
+
+      <!-- Métriques Cartes -->
+      <div class="metrics-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 24px;">
+        <div class="metric-card">
+          <div class="metric-icon">👥</div>
+          <div class="metric-value">{{ systemMetrics?.sockets?.onlineUsersCount || 0 }}</div>
+          <div class="metric-label">{{ i18n.t('ADMIN_SYS_CARD_ONLINE') }}</div>
+        </div>
+
+        <div class="metric-card">
+          <div class="metric-icon">🔌</div>
+          <div class="metric-value">{{ systemMetrics?.sockets?.connectedSockets || 0 }}</div>
+          <div class="metric-label">{{ i18n.t('ADMIN_SYS_CARD_SOCKETS') }}</div>
+        </div>
+
+        <div class="metric-card">
+          <div class="metric-icon">🚣</div>
+          <div class="metric-value">{{ systemMetrics?.rooms?.activePrivateRoomsCount || 0 }}</div>
+          <div class="metric-label">{{ i18n.t('ADMIN_SYS_CARD_ROOMS') }}</div>
+        </div>
+
+        <div class="metric-card">
+          <div class="metric-icon">🧠</div>
+          <div class="metric-value">{{ systemMetrics?.memory?.heapUsedMb || 0 }} <small style="font-size: 0.8rem;">/ {{ systemMetrics?.memory?.heapTotalMb || 0 }} MB</small></div>
+          <div class="metric-label">{{ i18n.t('ADMIN_SYS_CARD_MEMORY') }}</div>
+        </div>
+
+        <div class="metric-card">
+          <div class="metric-icon">⏱️</div>
+          <div class="metric-value">{{ systemMetrics?.uptimeSeconds || 0 }}s</div>
+          <div class="metric-label">{{ i18n.t('ADMIN_SYS_CARD_UPTIME') }}</div>
+        </div>
+
+        <div class="metric-card">
+          <div class="metric-icon">🗄️</div>
+          <div class="metric-value" style="font-size: 1.1rem; padding-top: 6px;">
+            <span [style.color]="systemMetrics?.dbStatus === 'connected' ? '#34d399' : '#f87171'">
+              {{ systemMetrics?.dbStatus === 'connected' ? i18n.t('ADMIN_SYS_DB_OK') : i18n.t('ADMIN_SYS_DB_FALLBACK') }}
+            </span>
+          </div>
+          <div class="metric-label">{{ i18n.t('ADMIN_SYS_CARD_DB') }}</div>
+        </div>
+      </div>
+
+      <!-- Actions de Maintenance -->
+      <div class="card">
+        <h4 style="margin: 0 0 16px 0; color: #f8fafc; font-size: 1.05rem;">
+          🛠️ {{ i18n.t('ADMIN_SYS_MAINTENANCE_TITLE') }}
+        </h4>
+        <div style="display: flex; flex-wrap: wrap; gap: 16px;">
+          <button
+            class="btn-submit"
+            style="background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%); font-size: 0.9rem; padding: 10px 20px;"
+            (click)="triggerLeagueCycle()"
+            [disabled]="isTriggeringLeague"
+          >
+            🏆 {{ isTriggeringLeague ? i18n.t('ADMIN_SYS_LEAGUE_SYNCING') : i18n.t('ADMIN_SYS_BTN_LEAGUE_CYCLE') }}
+          </button>
+          <button
+            class="btn-action btn-action-revoke"
+            style="font-size: 0.9rem; padding: 10px 20px;"
+            (click)="purgeInactiveRooms()"
+            [disabled]="isPurgingRooms"
+          >
+            🧹 {{ isPurgingRooms ? i18n.t('ADMIN_ROOMS_PURGING') : i18n.t('ADMIN_ROOMS_BTN_PURGE') }}
+          </button>
         </div>
       </div>
     </section>
@@ -668,6 +908,216 @@
       <div class="modal-actions">
         <button class="btn-close" (click)="closePlanModal()">{{ i18n.t('ADMIN_MODAL_CANCEL') }}</button>
         <button class="btn-submit" (click)="savePlan()">{{ i18n.t('ADMIN_PLAN_BTN_SAVE') }}</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modale Fiche Utilisateur Détaillée -->
+  <div class="modal-overlay" *ngIf="isSelectedUserModalOpen">
+    <div class="modal-dialog user-details-modal" style="max-width: 780px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <h3 class="modal-title" style="margin: 0;">📇 {{ i18n.t('ADMIN_USER_DETAILS_TITLE') }}</h3>
+        <button class="btn-close" (click)="closeUserDetailsModal()">✕</button>
+      </div>
+
+      <div *ngIf="isLoadingUserDetails" style="text-align: center; padding: 40px; color: #94a3b8;">
+        {{ i18n.t('ADMIN_USERS_LOADING') }}
+      </div>
+
+      <div *ngIf="!isLoadingUserDetails && selectedUserDetail" class="user-details-content">
+        <!-- Section 1 : Identité & Contact -->
+        <div class="details-section">
+          <h4 class="details-section-title">👤 {{ i18n.t('ADMIN_DETAILS_SEC_IDENTITY') }}</h4>
+          <div class="details-grid">
+            <div class="detail-item">
+              <span class="detail-label">{{ i18n.t('ADMIN_DETAILS_LOGIN') }}</span>
+              <strong class="detail-val" style="color: #00f0ff;">{{ selectedUserDetail.login || selectedUserDetail.id }}</strong>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">{{ i18n.t('ADMIN_DETAILS_NAME') }}</span>
+              <span class="detail-val">{{ selectedUserDetail.name }}</span>
+            </div>
+            <div class="detail-item" *ngIf="selectedUserDetail.firstName || selectedUserDetail.lastName">
+              <span class="detail-label">{{ i18n.t('ADMIN_DETAILS_FULLNAME') }}</span>
+              <span class="detail-val">{{ selectedUserDetail.firstName }} {{ selectedUserDetail.lastName }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">{{ i18n.t('ADMIN_DETAILS_EMAIL') }}</span>
+              <span class="detail-val">{{ selectedUserDetail.email || '-' }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">{{ i18n.t('ADMIN_DETAILS_COUNTRY') }}</span>
+              <span class="detail-val">{{ selectedUserDetail.country || '-' }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">{{ i18n.t('ADMIN_DETAILS_LANG') }}</span>
+              <span class="detail-val" style="text-transform: uppercase;">{{ selectedUserDetail.language || 'fr' }}</span>
+            </div>
+            <div class="detail-item" *ngIf="selectedUserDetail.birthYear">
+              <span class="detail-label">{{ i18n.t('ADMIN_DETAILS_BIRTH') }}</span>
+              <span class="detail-val">{{ selectedUserDetail.birthYear }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">{{ i18n.t('ADMIN_DETAILS_CREATED') }}</span>
+              <span class="detail-val">{{ selectedUserDetail.createdAt ? (selectedUserDetail.createdAt | date:'mediumDate') : '-' }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 2 : Appairage Garmin & Matériel -->
+        <div class="details-section">
+          <h4 class="details-section-title">⌚ {{ i18n.t('ADMIN_DETAILS_SEC_GARMIN') }}</h4>
+          <div class="details-grid">
+            <div class="detail-item">
+              <span class="detail-label">{{ i18n.t('ADMIN_DETAILS_WATCH') }}</span>
+              <span class="detail-val" style="color: #38bdf8;">{{ selectedUserDetail.watchModel || selectedUserDetail.pairingInfo?.model || '-' }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">{{ i18n.t('ADMIN_DETAILS_ROWER') }}</span>
+              <span class="detail-val">{{ selectedUserDetail.rowerModel || '-' }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">{{ i18n.t('ADMIN_DETAILS_CONFIRMED') }}</span>
+              <span class="detail-val" [style.color]="selectedUserDetail.isConfirmed ? '#34d399' : '#f87171'">
+                {{ selectedUserDetail.isConfirmed ? i18n.t('ADMIN_DETAILS_YES') : i18n.t('ADMIN_DETAILS_NO') }}
+              </span>
+            </div>
+            <div class="detail-item" *ngIf="selectedUserDetail.pairingInfo">
+              <span class="detail-label">Token Montre :</span>
+              <code style="font-size: 0.75rem; color: #94a3b8;">{{ selectedUserDetail.pairingInfo.deviceToken }}</code>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 3 : Formule d'Abonnement & Quotas -->
+        <div class="details-section">
+          <h4 class="details-section-title">💎 {{ i18n.t('ADMIN_DETAILS_SEC_SUBSCRIPTION') }}</h4>
+          <div class="details-grid">
+            <div class="detail-item">
+              <span class="detail-label">{{ i18n.t('ADMIN_DETAILS_TIER') }}</span>
+              <span class="table-badge badge-tier-{{ selectedUserDetail.subscriptionTier || 'free' }}">
+                {{ selectedUserDetail.subscriptionTier || 'free' }}
+              </span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">{{ i18n.t('ADMIN_DETAILS_STATUS') }}</span>
+              <span class="detail-val">{{ selectedUserDetail.subscriptionStatus || 'none' }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Salons en parallèle (Max) :</span>
+              <span class="detail-val">
+                {{ selectedUserDetail.customConcurrentRooms !== null ? selectedUserDetail.customConcurrentRooms : getDefaultConcurrent(selectedUserDetail.subscriptionTier) }}
+                <small *ngIf="selectedUserDetail.customConcurrentRooms !== null" style="color: #38bdf8;">(personnalisé)</small>
+              </span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Salons par semaine (Max) :</span>
+              <span class="detail-val">
+                {{ selectedUserDetail.customWeeklyRooms !== null ? selectedUserDetail.customWeeklyRooms : getDefaultWeekly(selectedUserDetail.subscriptionTier) }}
+                <small *ngIf="selectedUserDetail.customWeeklyRooms !== null" style="color: #38bdf8;">(personnalisé)</small>
+              </span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">{{ i18n.t('ADMIN_DETAILS_ACTIVE_ROOMS_HOSTED') }}</span>
+              <strong style="color: #34d399;">{{ selectedUserDetail.activeRoomsCount || 0 }}</strong>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 4 : Performances, Ligue & Duels -->
+        <div class="details-section">
+          <h4 class="details-section-title">🏆 {{ i18n.t('ADMIN_DETAILS_SEC_PERF') }}</h4>
+          <div class="details-grid">
+            <div class="detail-item">
+              <span class="detail-label">{{ i18n.t('ADMIN_DETAILS_LEAGUE') }}</span>
+              <span class="table-badge" style="background: rgba(255, 215, 0, 0.15); color: #ffd700;">
+                {{ selectedUserDetail.currentLeague || 'BRONZE' }}
+              </span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">{{ i18n.t('ADMIN_DETAILS_CAREER_POINTS') }}</span>
+              <strong style="color: #f1f5f9;">{{ selectedUserDetail.totalCareerPoints || 0 }} pts</strong>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">{{ i18n.t('ADMIN_DETAILS_TOTAL_RACES') }}</span>
+              <span class="detail-val">{{ selectedUserDetail.totalRaces || 0 }} ({{ selectedUserDetail.activitiesCount || 0 }} activités)</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">{{ i18n.t('ADMIN_DETAILS_WINS') }} / {{ i18n.t('ADMIN_DETAILS_PODIUMS') }}</span>
+              <span class="detail-val">🥇 {{ selectedUserDetail.totalWins || 0 }} / 🏅 {{ selectedUserDetail.podiums || 0 }}</span>
+            </div>
+            <div class="detail-item" style="grid-column: span 2;">
+              <span class="detail-label">{{ i18n.t('ADMIN_DETAILS_DUELS') }}</span>
+              <span class="detail-val">
+                {{ i18n.t('ADMIN_DETAILS_DUELS_RECORD', {
+                  won: selectedUserDetail.duelsWon || 0,
+                  lost: selectedUserDetail.duelsLost || 0,
+                  drawn: selectedUserDetail.duelsDrawn || 0,
+                  pts: selectedUserDetail.duelPoints || 0
+                }) }}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Actions Rapides -->
+        <div class="modal-actions" style="margin-top: 24px; padding-top: 16px; border-top: 1px solid rgba(255, 255, 255, 0.08); justify-content: space-between;">
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <button class="btn-action btn-action-pwd" (click)="openPasswordModal(selectedUserDetail)">
+              🔑 {{ i18n.t('ADMIN_USERS_BTN_PWD') }}
+            </button>
+            <button class="btn-action btn-action-quota" (click)="openQuotaModal(selectedUserDetail)">
+              🏟️ {{ i18n.t('ADMIN_USERS_BTN_ROOMS') }}
+            </button>
+            <button
+              class="btn-action"
+              [ngClass]="selectedUserDetail.isRevoked ? 'btn-action-restore' : 'btn-action-revoke'"
+              (click)="openRevokeModal(selectedUserDetail)"
+            >
+              {{ selectedUserDetail.isRevoked ? i18n.t('ADMIN_USERS_BTN_RESTORE') : i18n.t('ADMIN_USERS_BTN_REVOKE') }}
+            </button>
+            <button class="btn-action btn-action-delete" (click)="openDeleteUserModal(selectedUserDetail)">
+              🗑️ {{ i18n.t('ADMIN_USERS_BTN_DELETE') }}
+            </button>
+          </div>
+          <button class="btn-close" (click)="closeUserDetailsModal()">{{ i18n.t('BTN_CLOSE') }}</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modale Suppression Définitive Utilisateur -->
+  <div class="modal-overlay" *ngIf="isDeleteUserModalOpen">
+    <div class="modal-dialog" style="max-width: 520px; border-color: rgba(239, 68, 68, 0.4);">
+      <h3 class="modal-title" style="color: #f87171;">🗑️ {{ i18n.t('ADMIN_DELETE_TITLE') }}</h3>
+
+      <div class="alert-banner alert-error" style="margin: 16px 0; font-size: 0.85rem; line-height: 1.5;">
+        ⚠️ {{ i18n.t('ADMIN_DELETE_WARNING') }}
+      </div>
+
+      <p style="color: #cbd5e1; font-size: 0.95rem;">
+        {{ i18n.t('ADMIN_DELETE_CONFIRM_MSG', { user: userToDelete?.login || userToDelete?.name || '' }) }}
+      </p>
+
+      <div style="background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 8px; padding: 12px; margin-bottom: 20px; font-size: 0.85rem;">
+        <div>Login : <strong style="color: #f1f5f9;">{{ userToDelete?.login || userToDelete?.id }}</strong></div>
+        <div>Nom : <strong style="color: #f1f5f9;">{{ userToDelete?.name }}</strong></div>
+        <div>Email : <strong style="color: #94a3b8;">{{ userToDelete?.email || '-' }}</strong></div>
+        <div>Rôle : <strong style="color: #38bdf8;">{{ userToDelete?.role }}</strong></div>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn-close" (click)="closeDeleteUserModal()" [disabled]="isDeletingUser">
+          {{ i18n.t('ADMIN_MODAL_CANCEL') }}
+        </button>
+        <button
+          class="btn-action btn-action-revoke"
+          style="padding: 10px 20px; font-weight: 700;"
+          (click)="confirmDeleteUser()"
+          [disabled]="isDeletingUser"
+        >
+          {{ isDeletingUser ? i18n.t('ADMIN_DELETE_DELETING') : i18n.t('ADMIN_DELETE_BTN_CONFIRM') }}
+        </button>
       </div>
     </div>
   </div>

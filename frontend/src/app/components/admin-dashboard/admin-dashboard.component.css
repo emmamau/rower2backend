@@ -621,6 +621,134 @@
   max-width: 190px;
 }
 
+.btn-action-details {
+  background: rgba(14, 165, 233, 0.15);
+  color: #38bdf8;
+  border-color: rgba(14, 165, 233, 0.3);
+}
+
+.btn-action-details:hover {
+  background: rgba(14, 165, 233, 0.3);
+  color: #7dd3fc;
+}
+
+.btn-action-delete {
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+.btn-action-delete:hover {
+  background: rgba(239, 68, 68, 0.35);
+  color: #fca5a5;
+}
+
+/* System Metric Cards */
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.metric-card {
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  transition: transform 0.2s, border-color 0.2s;
+}
+
+.metric-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(0, 240, 255, 0.3);
+}
+
+.metric-icon {
+  font-size: 1.5rem;
+  margin-bottom: 8px;
+}
+
+.metric-value {
+  font-size: 1.7rem;
+  font-weight: 700;
+  color: #00f0ff;
+  line-height: 1.2;
+}
+
+.metric-label {
+  font-size: 0.85rem;
+  color: #94a3b8;
+  margin-top: 4px;
+}
+
+/* User Details Modal & Sections */
+.user-details-content {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-height: 75vh;
+  overflow-y: auto;
+  padding-right: 6px;
+}
+
+.details-section {
+  background: rgba(15, 23, 42, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 16px;
+}
+
+.details-section-title {
+  margin: 0 0 12px 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #38bdf8;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  padding-bottom: 8px;
+}
+
+.details-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.detail-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.detail-label {
+  font-size: 0.75rem;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.detail-val {
+  font-size: 0.9rem;
+  color: #f1f5f9;
+}
+
+.badge-tier-free {
+  background: rgba(148, 163, 184, 0.15);
+  color: #94a3b8;
+}
+
+.badge-tier-intermediate, .badge-tier-standard, .badge-tier-club {
+  background: rgba(56, 189, 248, 0.15);
+  color: #38bdf8;
+}
+
+.badge-tier-premium, .badge-tier-pro, .badge-tier-elite_pro {
+  background: rgba(255, 0, 85, 0.15);
+  color: #ff0055;
+}
+
 @media (max-width: 640px) {
   .admin-header {
     padding: 12px 14px;

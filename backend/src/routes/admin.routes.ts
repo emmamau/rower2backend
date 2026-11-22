@@ -15,13 +15,25 @@ export default (app: Application): void => {
 
   // 2. Gestion des utilisateurs
   router.get("/users", AdminController.getUsers);
+  router.get("/users/:id/details", AdminController.getUserDetails);
+  router.delete("/users/:id", AdminController.deleteUser);
   router.patch("/users/:id/revoke", AdminController.revokeUser);
   router.patch("/users/:id/password", AdminController.resetUserPassword);
   router.patch("/users/:id/role", AdminController.updateUserRole);
   router.patch("/users/:id/plan", AdminController.updateUserPlan);
   router.patch("/users/:id/room-quotas", AdminController.updateUserRoomQuotas);
 
-  // 3. Gestion des offres & quotas
+  // 3. Gestion des salons (privés & historiques)
+  router.get("/rooms/active", AdminController.getActiveRooms);
+  router.post("/rooms/:code/terminate", AdminController.terminateRoom);
+  router.post("/rooms/purge-inactive", AdminController.purgeInactiveRooms);
+  router.get("/rooms/history", AdminController.getRoomsHistory);
+
+  // 4. Supervision globale & Système
+  router.get("/system/metrics", AdminController.getSystemMetrics);
+  router.post("/system/trigger-league-cycle", AdminController.triggerLeagueCycle);
+
+  // 5. Gestion des offres & quotas
   router.get("/plans", AdminController.getPlans);
   router.post("/plans", AdminController.createPlan);
   router.put("/plans/:id", AdminController.updatePlan);
