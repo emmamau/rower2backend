@@ -1180,7 +1180,21 @@ export class RaceManager {
     const ttlMs = 24 * 60 * 60 * 1000;
 
     for (const race of Array.from(this.privateRacesById.values())) {
-      if (race.createdAt && now.getTime() - race.createdAt.getTime() > ttlMs) {
+      // 1. Si la course est terminée ou clôturée, conservation 24h après la fin pour consultation
+      if (["COMPLETED", "STOPPED", "CANCELLED", "ABANDONED"].includes(race.status)) {
+        const finishedAt = race.endedAt || race.createdAt || now;
+        if (now.getTime() - finishedAt.getTime() > ttlMs) {
+          this.removePrivateRaceInternal(race);
+        }
+        continue;
+      }
+
+      // 2. Si la course est programmée ou en attente : conservation jusqu'à 24h après l'heure prévue (ou 24h après création)
+      const referenceTime = (race.startMode === "scheduled" && race.scheduledStartTime && race.scheduledStartTime > (race.createdAt || now))
+        ? race.scheduledStartTime
+        : (race.createdAt || now);
+
+      if (now.getTime() - referenceTime.getTime() > ttlMs) {
         this.removePrivateRaceInternal(race);
         continue;
       }
@@ -2970,6 +2984,20 @@ export class RaceManager {
     }
 
     const now = new Date();
+
+    if (!options.reset && race.startMode === "scheduled" && race.scheduledStartTime) {
+      const scheduledMs = race.scheduledStartTime.getTime();
+      const earliestStartMs = scheduledMs - 5 * 60 * 1000; // Déverrouillage 5 minutes avant
+      if (now.getTime() < earliestStartMs) {
+        const diffMs = earliestStartMs - now.getTime();
+        const diffMin = Math.ceil(diffMs / 60000);
+        return {
+          error: `Ce salon est programmé pour ${race.scheduledStartTime.toLocaleString('fr-FR')}. Le démarrage est verrouillé jusqu'à 5 minutes avant l'épreuve (dans ${diffMin} min).`,
+          statusCode: 403
+        };
+      }
+    }
+
     if (options.reset) {
       race.status = "LOBBY";
       race.autoStart = false;
@@ -3134,14 +3162,15 @@ export class RaceManager {
     const remainingParticipants = race.participants ? race.participants.size : 0;
     race.totalParticipants = remainingParticipants;
 
-    // Si plus aucun joueur humain présent dans le salon privé
-    if (remainingParticipants === 0) {
-      this.removePrivateRaceInternal(race, "ABANDONED");
-      socketGateway.broadcastRaceStatus(race.id, "ABANDONED", { reason: "all_players_left", roomClosed: true });
+    // L'ouverture d'un salon privé pour le consulter ne doit pas le supprimer.
+    // Un salon en attente (LOBBY) ou programmé reste ouvert même si 0 participant est connecté.
+    // Seul un salon dont la course est terminée (COMPLETED) ou sur action explicite de l'organisateur (closePrivateRace) est détruit.
+    if (remainingParticipants === 0 && race.status === "COMPLETED") {
+      this.removePrivateRaceInternal(race);
       return { success: true, roomClosed: true, remainingParticipants: 0 };
     }
 
-    // Si d'autres participants restent
+    // Si d'autres participants restent ou si le salon reste ouvert en attente
     socketGateway.broadcastPrivateRoomUpdate(race.id, {
       type: "PARTICIPANT_LEFT",
       userId: cleanUserId,

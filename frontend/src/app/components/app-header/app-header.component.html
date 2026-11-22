@@ -79,7 +79,7 @@
           type="button"
           class="btn-pure-nav btn-pure-start"
           (click)="startActivePrivateRaceRequest.emit()"
-          title="Démarrer la course manuellement (compte à rebours de 10s)">
+          title="Démarrer la course manuellement (compte à rebours de 15s)">
           <span class="pure-icon" aria-hidden="true">🚀</span>
           <span class="pure-label">Démarrer</span>
         </button>
@@ -87,7 +87,7 @@
     }
 
     <!-- Affichage du temps restant de course à droite dans la barre d'en-tête (notamment en mode paysage) -->
-    <div class="pure-header-timer" *ngIf="siteView === 'regatta' && (isRaceActive || nextRaceInfo?.status === 'in_progress' || isPreStartCountdown)">
+    <div class="pure-header-timer" *ngIf="!activePrivateRoom && siteView === 'regatta' && (isRaceActive || nextRaceInfo?.status === 'in_progress' || isPreStartCountdown)">
       <span class="pure-timer-badge" [class.is-running]="isRaceActive">
         ⏱️ {{ isRaceActive ? (formattedGameRemaining ? ('Fin : ' + formattedGameRemaining) : 'Course en cours') : ('Départ : ' + formattedPreRaceCountdown) }}
       </span>
@@ -252,17 +252,23 @@
             }
           </div>
           <div class="badge-timer">
-            <div class="timer-display-box" [class.is-running]="nextRaceInfo.status === 'in_progress'" [class.is-completed]="isPrivateRoomCompleted">
-              @if (isPrivateRoomCompleted) {
-                <span class="timer-digits race-finished-badge">🏁 Course terminée</span>
-              } @else {
-                <span class="timer-label-sub" *ngIf="nextRaceInfo.status === 'in_progress'">⏱️ Temps restant : </span>
-                <span class="timer-label-sub" *ngIf="nextRaceInfo.status === 'post_race_pause'">⏸️ Pause : </span>
-                <span class="timer-digits">
-                  {{ activePrivateRoom ? waitingStatusText : (nextRaceInfo.status === 'in_progress' ? formattedGameRemaining : formattedPreRaceCountdown) }}
-                </span>
-              }
-            </div>
+            @if (activePrivateRoom && !isPrivateRoomCompleted) {
+              <div class="timer-display-box is-private-room-badge">
+                <span class="timer-digits">🔒 Salon actif</span>
+              </div>
+            } @else {
+              <div class="timer-display-box" [class.is-running]="nextRaceInfo.status === 'in_progress'" [class.is-completed]="isPrivateRoomCompleted">
+                @if (isPrivateRoomCompleted) {
+                  <span class="timer-digits race-finished-badge">🏁 Course terminée</span>
+                } @else {
+                  <span class="timer-label-sub" *ngIf="nextRaceInfo.status === 'in_progress'">⏱️ Temps restant : </span>
+                  <span class="timer-label-sub" *ngIf="nextRaceInfo.status === 'post_race_pause'">⏸️ Pause : </span>
+                  <span class="timer-digits">
+                    {{ nextRaceInfo.status === 'in_progress' ? formattedGameRemaining : formattedPreRaceCountdown }}
+                  </span>
+                }
+              </div>
+            }
 
             @if (isPrivateRoomCompleted && activePrivateRoom) {
               <button
@@ -491,7 +497,7 @@
             type="button"
             class="btn-hud btn-start-race"
             (click)="startActivePrivateRaceRequest.emit()"
-            title="Démarrer la course manuellement (compte à rebours de 10s)">
+            title="Démarrer la course manuellement (compte à rebours de 15s)">
             🚀 Démarrer la course
           </button>
         }

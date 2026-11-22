@@ -2644,9 +2644,25 @@ export class AppComponent implements OnInit, OnDestroy {
     return this.isUserAdmin || this.isOrganizerOfActiveRoom;
   }
 
+  get isPrivateRoomStartLocked(): boolean {
+    if (!this.activePrivateRoom) return false;
+    const race = this.activePrivateRoom.race || this.activePrivateRoom;
+    const startMode = race.startMode || (this.activePrivateRoom as any).startMode;
+    const scheduledTime = race.scheduledStartTime || (this.activePrivateRoom as any).scheduledStartTime;
+    if (startMode === 'scheduled' && scheduledTime) {
+      const startMs = new Date(scheduledTime).getTime();
+      if (Number.isFinite(startMs)) {
+        const unlockMs = startMs - 5 * 60 * 1000;
+        return Date.now() < unlockMs;
+      }
+    }
+    return false;
+  }
+
   get canStartRace(): boolean {
     if (this.isRaceActive) return false;
     if (!this.activePrivateRoom) return false;
+    if (this.isPrivateRoomStartLocked) return false;
     if (!this.isOrganizerOfActiveRoom && !this.isUserAdmin) return false;
     const st = String(this.activePrivateRoom.status || this.activePrivateRoom.race?.status || '').toLowerCase();
     return st === 'waiting' || st === 'countdown' || st === 'lobby';
@@ -2662,11 +2678,11 @@ export class AppComponent implements OnInit, OnDestroy {
     if (!identifier) return;
 
     // Basculer immédiatement sur smartphone / web vers la vue régate en paysage plein écran lors du geste utilisateur
-    this.onPrivateRaceStartTriggered({ countdownSeconds: 10 });
+    this.onPrivateRaceStartTriggered({ countdownSeconds: 15 });
 
     this.rowerService.startOrResetPrivateRace(identifier, {
       hostUserId: this.activeUserId,
-      countdownSeconds: 10
+      countdownSeconds: 15
     }).subscribe({
       next: (res) => {
         this.cdr.markForCheck();

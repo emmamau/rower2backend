@@ -15,6 +15,8 @@
           <span class="priv-status-chip priv-status-chip-sm" [class.in-progress]="activeRoom.status === 'in_progress'" [class.is-completed]="isRoomCompleted">
             @if (isRoomCompleted) {
               🏁 {{ i18n.t('RACE_FINISHED_ROOM_CLOSED') || 'Course terminée' }}
+            } @else if (activeRoomScheduledStartTime) {
+              📅 {{ activeRoomScheduledDateDisplay }} · ⏱️ {{ activeRoom.formattedCountdown }}
             } @else if (activeRoom.waitingForHost) {
               ⏳ {{ (isSoloRoom || isBotDuelRoom) ? '1er coup de rame' : 'En attente' }}
             } @else {
@@ -74,6 +76,8 @@
           <span class="priv-status-chip" [class.in-progress]="activeRoom.status === 'in_progress'" [class.is-completed]="isRoomCompleted">
             @if (isRoomCompleted) {
               🏁 {{ i18n.t('RACE_FINISHED_ROOM_CLOSED') || 'Course terminée (Salon fermé)' }}
+            } @else if (activeRoomScheduledStartTime) {
+              📅 {{ activeRoomScheduledDateDisplay }} · ⏱️ {{ activeRoom.formattedCountdown }}
             } @else if (activeRoom.waitingForHost) {
               ⏳ {{ (isSoloRoom || isBotDuelRoom) ? 'Donnez votre 1er coup de rame pour démarrer' : isDuel1v1Room ? 'En attente des 2 joueurs (départ auto 15s)' : i18n.t('STATUS_WAITING_HOST') }}
             } @else {
@@ -266,8 +270,8 @@
             <button
               type="button"
               class="priv-btn priv-btn-launch"
-              [disabled]="isActionBusy"
-              title="La course démarre quand vous commencez à ramer"
+              [disabled]="isActionBusy || isStartLocked"
+              [title]="isStartLocked ? startLockTooltip : 'La course démarre quand vous commencez à ramer'"
               (click)="triggerStartOnFirstStroke()">
               🚣 Au premier coup de rame
             </button>
@@ -275,48 +279,14 @@
         }
 
         @if (canManageActiveRoom) {
-          @if (!isBotDuelRoom && !isSoloRoom) {
-            @if (activeRoom.status === 'countdown' || activeRoom.status === 'waiting') {
-              <button
-                type="button"
-                class="priv-btn priv-btn-launch"
-                [disabled]="isActionBusy"
-                title="Lancer le compte à rebours de 10s"
-                (click)="triggerStart(10)">
-                {{ i18n.t('BTN_START_10S') }}
-              </button>
-              <button
-                type="button"
-                class="priv-btn priv-btn-yellow"
-                [disabled]="isActionBusy || !areAllParticipantsReady"
-                (click)="triggerStart(3)">
-                {{ i18n.t('BTN_START_3S') }}
-              </button>
-            } @else if (activeRoom.status === 'in_progress' || activeRoom.status === 'running') {
-              <button
-                type="button"
-                class="priv-btn priv-btn-danger"
-                [disabled]="isActionBusy"
-                title="Arrêter la course immédiatement"
-                (click)="stopActiveRace()">
-                🛑 Arrêter la course
-              </button>
-            }
-          } @else if (isSoloRoom && !isFirstStrokeMode && (activeRoom.status === 'countdown' || activeRoom.status === 'waiting')) {
+          @if (activeRoom.status === 'countdown' || activeRoom.status === 'waiting') {
             <button
               type="button"
               class="priv-btn priv-btn-launch"
-              [disabled]="isActionBusy"
-              title="Lancer le compte à rebours de 10s"
-              (click)="triggerStart(10)">
-              {{ i18n.t('BTN_START_10S') }}
-            </button>
-            <button
-              type="button"
-              class="priv-btn priv-btn-yellow"
-              [disabled]="isActionBusy"
-              (click)="triggerStart(3)">
-              {{ i18n.t('BTN_START_3S') }}
+              [disabled]="isActionBusy || isStartLocked"
+              [title]="startLockTooltip"
+              (click)="triggerStart(15)">
+              🚀 Démarrer (15s)
             </button>
           } @else if (activeRoom.status === 'in_progress' || activeRoom.status === 'running') {
             <button
@@ -1446,26 +1416,18 @@
                 <button
                   type="button"
                   class="priv-btn priv-btn-launch"
-                  [disabled]="isActionBusy"
-                  title="Lancer le compte à rebours de 10s"
-                  (click)="triggerStart(10)">
-                  {{ i18n.t('BTN_START_10S') }}
-                </button>
-                <button
-                  type="button"
-                  class="priv-btn priv-btn-yellow"
-                  [disabled]="isActionBusy || !areAllParticipantsReady"
-                  [title]="!areAllParticipantsReady ? 'En attente de la connexion BLE du rameur de tous les joueurs' : ''"
-                  (click)="triggerStart(3)">
-                  {{ i18n.t('BTN_START_3S') }}
+                  [disabled]="isActionBusy || isStartLocked"
+                  [title]="startLockTooltip"
+                  (click)="triggerStart(15)">
+                  🚀 Démarrer (15s)
                 </button>
                 @if (isBotDuelRoom || isSoloRoom) {
                   <button
                     type="button"
                     class="priv-btn priv-btn-launch"
                     [class.is-selected]="isFirstStrokeMode"
-                    [disabled]="isActionBusy"
-                    title="La course démarre quand vous commencez à ramer"
+                    [disabled]="isActionBusy || isStartLocked"
+                    [title]="isStartLocked ? startLockTooltip : 'La course démarre quand vous commencez à ramer'"
                     (click)="triggerStartOnFirstStroke()">
                     🚣 Au premier coup de rame{{ isFirstStrokeMode ? ' ✓' : '' }}
                   </button>
@@ -1584,6 +1546,9 @@
                       <span>Code: <code>{{ salon.code }}</code></span>
                       @if (salon.pinCode) {
                         <span>PIN Garmin: <strong>{{ salon.pinCode }}</strong></span>
+                      }
+                      @if (isSalonScheduled(salon)) {
+                        <span class="priv-schedule-chip">{{ getSalonScheduledDisplay(salon) }}</span>
                       }
                       @if (liveRoomsMap.get(salon.id); as live) {
                         <span>👥 {{ live.totalParticipants }} / {{ live.race.maxParticipants || 8 }}</span>

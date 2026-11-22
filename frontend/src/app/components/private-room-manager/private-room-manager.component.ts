@@ -924,6 +924,103 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
     });
   }
 
+  get activeRoomScheduledStartTime(): string | undefined {
+    if (!this.activeRoom) return undefined;
+    const race = this.activeRoom.race || this.activeRoom;
+    const startMode = race.startMode || (this.activeRoom as any).startMode;
+    if (startMode !== 'scheduled') return undefined;
+    return race.scheduledStartTime || (this.activeRoom as any).scheduledStartTime;
+  }
+
+  get activeRoomScheduledDateDisplay(): string {
+    const time = this.activeRoomScheduledStartTime;
+    if (!time) return '';
+    return this.formatSalonDateTime(time);
+  }
+
+  formatSalonDateTime(isoOrDate: string | Date | undefined): string {
+    if (!isoOrDate) return '';
+    try {
+      const d = new Date(isoOrDate);
+      if (!Number.isFinite(d.getTime())) return '';
+      const tz = this.selectedTimezone || 'Europe/Paris';
+      const dtf = new Intl.DateTimeFormat('fr-FR', {
+        weekday: 'short',
+        day: 'numeric',
+        month: 'short',
+        hour: '2-digit',
+        minute: '2-digit',
+        timeZone: tz
+      });
+      return dtf.format(d);
+    } catch {
+      return String(isoOrDate);
+    }
+  }
+
+  getSalonScheduledDisplay(salon: SavedPrivateSalon): string {
+    const live = this.liveRoomsMap.get(salon.id);
+    const time = live?.race?.scheduledStartTime || (live as any)?.scheduledStartTime || salon.scheduledStartTime;
+    if (!time) return '';
+    const dateFormatted = this.formatSalonDateTime(time);
+    const d = new Date(time);
+    const ms = d.getTime() - Date.now();
+    if (ms <= 0) {
+      return `📅 ${dateFormatted} (Départ imminent)`;
+    }
+    const diffHours = Math.floor(ms / (1000 * 60 * 60));
+    const diffMinutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
+    let inText = '';
+    if (diffHours >= 24) {
+      const days = Math.floor(diffHours / 24);
+      const remHours = diffHours % 24;
+      inText = `dans ${days}j ${remHours}h`;
+    } else if (diffHours > 0) {
+      inText = `dans ${diffHours}h ${diffMinutes}m`;
+    } else {
+      inText = `dans ${diffMinutes}m`;
+    }
+    return `📅 ${dateFormatted} (${inText})`;
+  }
+
+  isSalonScheduled(salon: SavedPrivateSalon): boolean {
+    const live = this.liveRoomsMap.get(salon.id);
+    const startMode = live?.race?.startMode || (live as any)?.startMode || salon.startMode;
+    const time = live?.race?.scheduledStartTime || (live as any)?.scheduledStartTime || salon.scheduledStartTime;
+    return startMode === 'scheduled' || Boolean(time);
+  }
+
+  get isStartLocked(): boolean {
+    if (!this.activeRoom) return false;
+    const race = this.activeRoom.race || this.activeRoom;
+    const startMode = race.startMode || (this.activeRoom as any).startMode;
+    const scheduledTime = race.scheduledStartTime || (this.activeRoom as any).scheduledStartTime;
+    if (startMode === 'scheduled' && scheduledTime) {
+      const startMs = new Date(scheduledTime).getTime();
+      if (Number.isFinite(startMs)) {
+        const unlockMs = startMs - 5 * 60 * 1000;
+        return Date.now() < unlockMs;
+      }
+    }
+    return false;
+  }
+
+  get startLockTooltip(): string {
+    if (!this.activeRoom) return '';
+    if (this.isStartLocked) {
+      const race = this.activeRoom.race || this.activeRoom;
+      const scheduledTime = race.scheduledStartTime || (this.activeRoom as any).scheduledStartTime;
+      if (scheduledTime) {
+        const d = new Date(scheduledTime);
+        const unlockDate = new Date(d.getTime() - 5 * 60 * 1000);
+        const timeStr = unlockDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        return `Salon programmé : démarrage déverrouillé 5 min avant l'horaire (à partir de ${timeStr})`;
+      }
+      return `Salon programmé : démarrage verrouillé jusqu'à 5 min avant l'horaire prévu`;
+    }
+    return 'Lancer le compte à rebours de 15s';
+  }
+
   selectDistancePreset(dist: number): void {
     if (!this.isUserAdmin && dist > this.maxDistanceAllowed) {
       this.createGeneralError = `Distance ${dist}m non autorisée avec votre offre (${this.quotaInfo?.tierName || 'Actuelle'} : max ${this.maxDistanceAllowed}m). Surclassez votre abonnement pour y accéder.`;
@@ -1376,8 +1473,11 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
             this.activeTab = 'share';
             this.cdr.markForCheck();
           },
-          error: () => {
-            this.removeSavedSalonLocal(salon.id);
+          error: (getErr) => {
+            // Ne supprimer que si le serveur confirme l'inexistence (404/410)
+            if (getErr?.status === 404 || getErr?.status === 410) {
+              this.removeSavedSalonLocal(salon.id);
+            }
             this.joinError = this.i18n.t('JOIN_ERR_NOT_FOUND');
             this.cdr.markForCheck();
           }
@@ -1388,9 +1488,12 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
           this.joinError = err?.error?.error || "Salon complet - quota atteint";
         } else if (err?.status === 403) {
           this.joinError = err?.error?.error || "Accès refusé pour ce salon";
-        } else {
+        } else if (err?.status === 404 || err?.status === 410) {
           this.removeSavedSalonLocal(salon.id);
           this.joinError = err?.error?.error || this.i18n.t('JOIN_ERR_NOT_FOUND');
+        } else {
+          // Erreur réseau ou temporaire : on ne supprime PAS le salon sauvegardé
+          this.joinError = err?.error?.error || "Impossible de joindre le salon pour le moment.";
         }
         this.cdr.markForCheck();
       }
@@ -1583,6 +1686,9 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
 
   closeAndRevokeActiveRoom(): void {
     if (!this.activeRoom || this.isActionBusy) return;
+    const confirmed = typeof window !== 'undefined' ? window.confirm('Voulez-vous vraiment supprimer définitivement ce salon privé ?') : true;
+    if (!confirmed) return;
+
     const raceId = this.activeRoom.race.id;
     const identifier = this.activeRoomCode || raceId;
     this.isActionBusy = true;
@@ -1621,6 +1727,11 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
   removeOrCloseSavedSalon(salon: SavedPrivateSalon, event: Event): void {
     event.stopPropagation();
     if (salon.isHost || this.isUserAdmin) {
+      const confirmed = typeof window !== 'undefined'
+        ? window.confirm(`Voulez-vous vraiment supprimer définitivement le salon « ${salon.title} » ?`)
+        : true;
+      if (!confirmed) return;
+
       this.rowerService.closePrivateRace(salon.code, this.activeUserId).subscribe({
         next: () => {
           this.removeSavedSalonLocal(salon.id);
@@ -1867,6 +1978,9 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
       forceHost ??
       Boolean(payload.race.hostUserId && payload.race.hostUserId === this.activeUserId);
 
+    const startMode = payload.race?.startMode || payload.startMode;
+    const scheduledStartTime = payload.race?.scheduledStartTime || payload.scheduledStartTime;
+
     const entry: SavedPrivateSalon = {
       id: payload.race.id,
       code,
@@ -1874,7 +1988,9 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
       title: payload.race.title,
       targetDistance: payload.race.targetDistance,
       isHost,
-      savedAt: new Date().toISOString()
+      savedAt: new Date().toISOString(),
+      startMode: startMode === 'scheduled' ? 'scheduled' : 'manual',
+      scheduledStartTime: scheduledStartTime ? String(scheduledStartTime) : undefined
     };
 
     const existingIdx = this.savedSalons.findIndex((s) => s.id === entry.id);

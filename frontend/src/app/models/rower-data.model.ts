@@ -178,6 +178,8 @@ export interface SavedPrivateSalon {
   targetDistance: number;
   isHost: boolean;
   savedAt: string;
+  startMode?: 'manual' | 'scheduled';
+  scheduledStartTime?: string;
 }
 
 export interface LeaderboardResponse {

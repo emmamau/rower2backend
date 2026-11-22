@@ -886,6 +886,19 @@
   color: #00f0ff;
 }
 
+.priv-schedule-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  font-weight: 600;
+  font-size: 0.72rem;
+}
+
 .priv-empty-rooms {
   padding: 1rem;
   border-radius: 10px;

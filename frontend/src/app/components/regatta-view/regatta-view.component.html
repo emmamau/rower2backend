@@ -238,7 +238,7 @@
         type="button"
         class="btn-cockpit-quick btn-quick-start-race"
         (click)="startActivePrivateRaceRequest.emit()"
-        title="Démarrer la course manuellement (compte à rebours de 10s)">
+        title="Démarrer la course manuellement (compte à rebours de 15s)">
         <span class="btn-quick-icon">🚀</span>
         <span class="btn-quick-label">Démarrer</span>
       </button>
@@ -281,7 +281,7 @@
   </button>
 
   <!-- TEMPS RESTANT DE COURSE EN MODE PAYSAGE / RÉGATE À DROITE -->
-  <div class="regatta-nav-timer" *ngIf="isRaceActive || nextRaceInfo?.status === 'in_progress' || isPreStartCountdown" role="status" aria-live="polite">
+  <div class="regatta-nav-timer" *ngIf="!activePrivateRoom && (isRaceActive || nextRaceInfo?.status === 'in_progress' || isPreStartCountdown)" role="status" aria-live="polite">
     <span class="nav-timer-pill" [class.is-running]="isRaceActive">
       ⏱️ {{ isRaceActive ? (formattedGameRemaining ? ('Fin : ' + formattedGameRemaining) : 'Course en cours') : ('Départ : ' + formattedPreRaceCountdown) }}
     </span>
