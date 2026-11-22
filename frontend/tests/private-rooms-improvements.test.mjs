@@ -46,9 +46,19 @@ test('2. RowerService & PrivateRoomManager allow deleting refused, cancelled, or
   assert.match(managerTs, /deleteDuel\(challenge:\s*DuelChallenge\):\s*void/);
   assert.match(managerTs, /this\.rowerService\.deleteDuelChallenge/);
 
-  // HTML displays delete button for REFUSED, CANCELLED, or EXPIRED duels
+  // HTML displays delete button with cross for REFUSED, CANCELLED, or EXPIRED duels
   assert.match(managerHtml, /\(click\)="deleteDuel\(d\)"/);
-  assert.match(managerHtml, /🗑️ Supprimer/);
+  assert.match(managerHtml, /✕/);
+
+  // PrivateRoomManagerComponent defines copyDuelSalonUrl and removeOrCancelDuel
+  assert.match(managerTs, /copyDuelSalonUrl\(\s*challenge:\s*DuelChallenge/);
+  assert.match(managerTs, /removeOrCancelDuel\(\s*challenge:\s*DuelChallenge/);
+
+  // HTML provides Open, Copy URL and Cross options on duels matching saved salons
+  assert.match(managerHtml, /\(click\)="openDuelSalon\(d\)"/);
+  assert.match(managerHtml, /\(click\)="copyDuelSalonUrl\(d,\s*\$event\)"/);
+  assert.match(managerHtml, /\(click\)="removeOrCancelDuel\(d,\s*true\)"/);
+  assert.match(managerHtml, /\(click\)="removeOrCancelDuel\(d,\s*false\)"/);
 });
 
 test('3. app.ts refreshPendingPrivateAndDuels counts active/open private rooms and PENDING + ACCEPTED duels', () => {

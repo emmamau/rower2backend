@@ -1637,36 +1637,41 @@
                           (click)="respondToDuel(d, 'accept')">
                           ✅ Accepter
                         </button>
-                        <button
-                          type="button"
-                          class="priv-btn-mini priv-btn-mini-danger"
-                          [disabled]="duelActionBusyId === d.id"
-                          (click)="respondToDuel(d, 'refuse')">
-                          ❌ Refuser
-                        </button>
-                      } @else if (d.status === 'ACCEPTED') {
+                      }
+                      @if (d.status === 'PENDING' || d.status === 'ACCEPTED') {
                         <button
                           type="button"
                           class="priv-btn-mini priv-btn-mini-primary"
+                          [disabled]="duelActionBusyId === d.id"
                           (click)="openDuelSalon(d)">
-                          🚪 Ouvrir
+                          {{ i18n.t('BTN_OPEN_ROOM') }}
                         </button>
+                      }
+                      @if (d.roomCode) {
+                        <button
+                          type="button"
+                          class="priv-btn-mini"
+                          (click)="copyDuelSalonUrl(d, $event)">
+                          {{ i18n.t('BTN_COPY_URL') }}
+                        </button>
+                      }
+                      @if (d.status === 'PENDING' || d.status === 'ACCEPTED') {
                         <button
                           type="button"
                           class="priv-btn-mini priv-btn-mini-danger"
                           [disabled]="duelActionBusyId === d.id"
-                          [title]="isDuelWithin24h(d.slotStart) ? 'Attention : moins de 24h avant le créneau = forfait (-10 pts)' : 'Annuler et libérer le créneau'"
-                          (click)="cancelDuel(d)">
-                          {{ isDuelWithin24h(d.slotStart) ? '⚠️ Forfait (-10 pts)' : '🚫 Annuler' }}
+                          (click)="removeOrCancelDuel(d, true)"
+                          [title]="d.status === 'PENDING' ? 'Refuser le défi' : (isDuelWithin24h(d.slotStart) ? 'Attention : forfait (-10 pts)' : 'Annuler le duel')">
+                          ✕
                         </button>
-                      } @else if (d.status === 'REFUSED' || d.status === 'CANCELLED' || d.status === 'EXPIRED') {
+                      } @else {
                         <button
                           type="button"
                           class="priv-btn-mini priv-btn-mini-danger"
                           [disabled]="duelActionBusyId === d.id"
                           (click)="deleteDuel(d)"
                           title="Supprimer ce duel de la liste">
-                          🗑️ Supprimer
+                          ✕
                         </button>
                       }
                     </div>
@@ -1708,12 +1713,21 @@
                           {{ resendingDuelInviteId === d.id ? 'Envoi...' : '🔄 Relancer l\'invitation' }}
                         </button>
                       }
-                      @if (d.status === 'ACCEPTED') {
+                      @if (d.status === 'PENDING' || d.status === 'ACCEPTED') {
                         <button
                           type="button"
                           class="priv-btn-mini priv-btn-mini-primary"
+                          [disabled]="duelActionBusyId === d.id"
                           (click)="openDuelSalon(d)">
-                          🚪 Ouvrir
+                          {{ i18n.t('BTN_OPEN_ROOM') }}
+                        </button>
+                      }
+                      @if (d.roomCode) {
+                        <button
+                          type="button"
+                          class="priv-btn-mini"
+                          (click)="copyDuelSalonUrl(d, $event)">
+                          {{ i18n.t('BTN_COPY_URL') }}
                         </button>
                       }
                       @if (d.status === 'PENDING' || d.status === 'ACCEPTED') {
@@ -1721,18 +1735,18 @@
                           type="button"
                           class="priv-btn-mini priv-btn-mini-danger"
                           [disabled]="duelActionBusyId === d.id"
-                          (click)="cancelDuel(d)">
-                          {{ d.status === 'ACCEPTED' && isDuelWithin24h(d.slotStart) ? '⚠️ Forfait (-10 pts)' : '🚫 Annuler' }}
+                          (click)="removeOrCancelDuel(d, false)"
+                          [title]="d.status === 'ACCEPTED' && isDuelWithin24h(d.slotStart) ? 'Attention : forfait (-10 pts)' : 'Annuler le défi'">
+                          ✕
                         </button>
-                      }
-                      @if (d.status === 'REFUSED' || d.status === 'CANCELLED' || d.status === 'EXPIRED') {
+                      } @else {
                         <button
                           type="button"
                           class="priv-btn-mini priv-btn-mini-danger"
                           [disabled]="duelActionBusyId === d.id"
                           (click)="deleteDuel(d)"
                           title="Supprimer ce défi de la liste">
-                          🗑️ Supprimer
+                          ✕
                         </button>
                       }
                     </div>

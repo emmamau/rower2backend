@@ -2383,6 +2383,26 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
     }
   }
 
+  async copyDuelSalonUrl(challenge: DuelChallenge, event: Event): Promise<void> {
+    event.stopPropagation();
+    const code = challenge.roomCode || challenge.roomId;
+    if (!code) return;
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const url = buildShareableRoomUrl(origin, code);
+    await this.copyText(url);
+  }
+
+  removeOrCancelDuel(challenge: DuelChallenge, isReceived = false): void {
+    if (!challenge) return;
+    if (challenge.status === 'PENDING' && isReceived) {
+      this.respondToDuel(challenge, 'refuse');
+    } else if (challenge.status === 'PENDING' || challenge.status === 'ACCEPTED') {
+      this.cancelDuel(challenge);
+    } else {
+      this.deleteDuel(challenge);
+    }
+  }
+
   openDuelSalon(challenge: DuelChallenge): void {
     const code = challenge.roomCode || challenge.roomId;
     if (!code) return;

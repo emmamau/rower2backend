@@ -1171,9 +1171,15 @@ export class DuelService {
       return { error: "Défi introuvable.", statusCode: 404 };
     }
 
-    if (challenge.status !== "REFUSED" && challenge.status !== "CANCELLED" && challenge.status !== "EXPIRED") {
+    if (
+      challenge.status !== "REFUSED" &&
+      challenge.status !== "CANCELLED" &&
+      challenge.status !== "EXPIRED" &&
+      challenge.status !== "COMPLETED" &&
+      challenge.status !== "FORFEIT"
+    ) {
       return {
-        error: `Seuls les duels refusés, annulés ou expirés peuvent être supprimés (statut actuel : '${challenge.status}').`,
+        error: `Seuls les duels terminés, refusés, annulés ou expirés peuvent être supprimés (statut actuel : '${challenge.status}').`,
         statusCode: 400,
       };
     }
