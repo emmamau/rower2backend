@@ -35,4 +35,14 @@ export class SubscriptionModalComponent {
     if (!tier) return false;
     return tier.isActive === true;
   }
+
+  hasPaidTierActive(): boolean {
+    if (this.isTierActive('intermediate') || this.isTierActive('premium')) {
+      return true;
+    }
+    return (this.subscriptionTiers || []).some((t: any) => {
+      const code = String(t.code || t.id || '').toLowerCase().trim();
+      return code !== 'free' && t.isActive === true;
+    });
+  }
 }

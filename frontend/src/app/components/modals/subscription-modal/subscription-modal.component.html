@@ -4,7 +4,7 @@
     <div class="modal-header-row">
       <div class="modal-title-with-badge">
         <h3>🛶 {{ i18n.t('SUB_TITLE') }}</h3>
-        <span class="badge-role-tag is-sub">{{ i18n.t('SUB_SECURE_BADGE') }}</span>
+        <span class="badge-role-tag is-sub" *ngIf="hasPaidTierActive()">{{ i18n.t('SUB_SECURE_BADGE') }}</span>
       </div>
       <button type="button" class="btn-close" (click)="closeSubscriptionModalRequest.emit()">✕</button>
     </div>

@@ -1217,17 +1217,35 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
             const val = this.formatMetricValue(watermarkKey, activeBoat);
             if (val) {
               ctx.save();
-              // Agrandissement au maximum de la hauteur de ligne d'eau (90-95%) avec contrôle de largeur
-              const maxFontByHeight = Math.floor(laneH * 0.92);
-              const maxFontByWidth = Math.floor((w * 0.88) / Math.max(1, val.length * 0.62));
-              const watermarkFontPx = Math.max(18, Math.min(maxFontByHeight, maxFontByWidth));
+              // Agrandissement maximal pour occuper véritablement tout l'espace vertical du couloir (94-98% de laneH)
+              // En canvas 2D, la hauteur visible (cap-height) des chiffres représente ~72% de fontPx.
+              // On dimensionne donc fontPx pour que la hauteur réelle remplisse tout le couloir.
+              const baseFontPx = Math.max(24, Math.floor(laneH * 1.32));
+              ctx.font = `900 ${baseFontPx}px "Exo 2", monospace, sans-serif`;
+              const m = ctx.measureText(val);
+              const glyphAscent = m.actualBoundingBoxAscent || (baseFontPx * 0.72);
+              const glyphDescent = m.actualBoundingBoxDescent || 0;
+              const actualGlyphH = Math.max(10, glyphAscent + glyphDescent);
+              const textWidth = Math.max(10, m.width);
+
+              // Occupe 96% de la hauteur du couloir tout en garantissant qu'elle ne déborde pas sur la largeur
+              const scaleH = (laneH * 0.96) / actualGlyphH;
+              const maxW = w * 0.92;
+              const scaleW = textWidth * scaleH > maxW ? maxW / textWidth : scaleH;
+              const finalScale = Math.min(scaleH, scaleW);
+              const watermarkFontPx = Math.max(18, Math.round(baseFontPx * finalScale));
+
               ctx.font = `900 ${watermarkFontPx}px "Exo 2", monospace, sans-serif`;
               ctx.textAlign = 'center';
               ctx.textBaseline = 'middle';
-              ctx.fillStyle = 'rgba(0, 240, 255, 0.22)';
+              ctx.fillStyle = 'rgba(0, 240, 255, 0.28)';
               ctx.shadowColor = '#00f0ff';
-              ctx.shadowBlur = 10;
-              ctx.fillText(val, Math.round(w * 0.5), Math.round(watermarkY));
+              ctx.shadowBlur = 12;
+
+              // Centrage vertical et horizontal au millimètre près dans le couloir
+              const finalCenterX = Math.round(w * 0.5);
+              const finalCenterY = Math.round(watermarkY);
+              ctx.fillText(val, finalCenterX, finalCenterY);
               ctx.restore();
             }
           }

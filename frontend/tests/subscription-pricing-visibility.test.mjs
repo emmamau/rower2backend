@@ -66,13 +66,27 @@ test('Subscription Modal: displays pricing only when active, hides pricing by de
   assert.equal(simulateIsTierActive(inactiveTiers, 'intermediate'), false);
   assert.equal(simulateIsTierActive(inactiveTiers, 'premium'), false);
 
-  // When tier isActive is true: true
-  const activeTiers = [
-    { id: 'free', isActive: true },
-    { id: 'intermediate', isActive: true },
-    { id: 'premium', isActive: true }
-  ];
-  assert.equal(simulateIsTierActive(activeTiers, 'free'), true);
-  assert.equal(simulateIsTierActive(activeTiers, 'intermediate'), true);
-  assert.equal(simulateIsTierActive(activeTiers, 'premium'), true);
+  // 4. Verify secure badge is hidden when no paid tier is active
+  assert.match(
+    html,
+    /\*ngIf="hasPaidTierActive\(\)"[^>]*>\{\{\s*i18n\.t\('SUB_SECURE_BADGE'\)\s*\}\}/,
+    'SUB_SECURE_BADGE must be conditioned on hasPaidTierActive()'
+  );
+
+  function simulateHasPaidTierActive(subscriptionTiers) {
+    const isTierActive = (tierId) => simulateIsTierActive(subscriptionTiers, tierId);
+    if (isTierActive('intermediate') || isTierActive('premium')) return true;
+    return (subscriptionTiers || []).some((t) => {
+      const code = String(t.code || t.id || '').toLowerCase().trim();
+      return code !== 'free' && t.isActive === true;
+    });
+  }
+
+  // When no tiers: false
+  assert.equal(simulateHasPaidTierActive([]), false);
+  // When only free is active: false
+  assert.equal(simulateHasPaidTierActive([{ id: 'free', isActive: true }, { id: 'intermediate', isActive: false }]), false);
+  // When paid tier is active: true
+  assert.equal(simulateHasPaidTierActive([{ id: 'free', isActive: true }, { id: 'intermediate', isActive: true }]), true);
+  assert.equal(simulateHasPaidTierActive([{ id: 'premium', isActive: true }]), true);
 });
