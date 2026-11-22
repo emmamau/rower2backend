@@ -33,7 +33,10 @@ export default (app: Application): void => {
   router.get("/system/metrics", AdminController.getSystemMetrics);
   router.post("/system/trigger-league-cycle", AdminController.triggerLeagueCycle);
 
-  // 5. Gestion des offres & quotas
+  // 5. Statistiques & Analyse Plateforme
+  router.get("/stats", AdminController.getPlatformStats);
+
+  // 6. Gestion des offres & quotas
   router.get("/plans", AdminController.getPlans);
   router.post("/plans", AdminController.createPlan);
   router.put("/plans/:id", AdminController.updatePlan);

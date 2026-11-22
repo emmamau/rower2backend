@@ -8,7 +8,9 @@ import {
   AdminUserDetailsResponse,
   AdminActiveRoomItem,
   AdminSystemMetricsResponse,
-  SubscriptionPlanItem
+  SubscriptionPlanItem,
+  AdminStatsResponse,
+  AdminStatsTimelineItem
 } from '../../services/admin.service';
 import { I18nService } from '../../services/i18n.service';
 
@@ -22,11 +24,18 @@ import { I18nService } from '../../services/i18n.service';
 export class AdminDashboardComponent implements OnInit {
   @Output() close = new EventEmitter<void>();
 
-  activeTab: 'public' | 'users' | 'rooms' | 'plans' | 'system' = 'public';
+  activeTab: 'public' | 'users' | 'rooms' | 'plans' | 'system' | 'stats' = 'public';
 
   // Feedback notifications
   feedbackMessage = '';
   errorMessage = '';
+
+  // Onglet 6 : Statistiques & Analyse
+  statsPeriod: 'day' | 'week' | 'month' = 'day';
+  statsLimit = 30;
+  isLoadingStats = false;
+  statsData: AdminStatsResponse | null = null;
+  statsActiveMetric: 'all' | 'users' | 'subscribers' | 'races' | 'duels' | 'distance' = 'all';
 
   // Onglet 1 : Courses Publiques
   publicSettings: AdminPublicRaceSettings = {
@@ -126,7 +135,7 @@ export class AdminDashboardComponent implements OnInit {
     this.loadPlans();
   }
 
-  setTab(tab: 'public' | 'users' | 'rooms' | 'plans' | 'system'): void {
+  setTab(tab: 'public' | 'users' | 'rooms' | 'plans' | 'system' | 'stats'): void {
     this.activeTab = tab;
     this.clearMessages();
     if (tab === 'public') {
@@ -142,6 +151,8 @@ export class AdminDashboardComponent implements OnInit {
       this.loadPlans();
     } else if (tab === 'system') {
       this.loadSystemMetrics();
+    } else if (tab === 'stats') {
+      this.loadStats();
     }
   }
 
@@ -782,5 +793,108 @@ export class AdminDashboardComponent implements OnInit {
         this.cdr.markForCheck();
       }
     });
+  }
+
+  // ---------------------------------------------------------------------------
+  // 6. Statistiques & Analyse de la Plateforme
+  // ---------------------------------------------------------------------------
+
+  loadStats(): void {
+    this.isLoadingStats = true;
+    this.clearMessages();
+
+    this.adminService.getPlatformStats(this.statsPeriod, this.statsLimit).subscribe({
+      next: (res) => {
+        this.isLoadingStats = false;
+        if (res.success) {
+          this.statsData = res;
+        }
+        this.cdr.markForCheck();
+      },
+      error: (err) => {
+        this.isLoadingStats = false;
+        this.errorMessage = this.formatAdminError(err, 'ADMIN_ERR_LOAD_STATS');
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  setStatsPeriod(period: 'day' | 'week' | 'month'): void {
+    if (this.statsPeriod === period && this.statsData) return;
+    this.statsPeriod = period;
+    this.statsLimit = period === 'day' ? 30 : 12;
+    this.loadStats();
+  }
+
+  getMaxTimelineValue(metricKey: keyof AdminStatsTimelineItem): number {
+    if (!this.statsData || !this.statsData.timeline.length) return 1;
+    let max = 0;
+    for (const item of this.statsData.timeline) {
+      const val = Number(item[metricKey] || 0);
+      if (val > max) max = val;
+    }
+    return max > 0 ? max : 1;
+  }
+
+  getBarHeightPercent(val: number, max: number): number {
+    if (!val || val <= 0) return 4;
+    const pct = Math.round((val / max) * 100);
+    return Math.max(6, Math.min(100, pct));
+  }
+
+  exportStatsCsv(): void {
+    if (!this.statsData || !this.statsData.timeline.length) return;
+    const header = [
+      'Période',
+      'Date_Début',
+      'Date_Fin',
+      'Nouveaux_Utilisateurs',
+      'Nouveaux_Abonnés_Payants',
+      'Courses_Publiques',
+      'Salons_Privés',
+      'Duels_Terminés',
+      'Participants',
+      'Distance_Km'
+    ].join(';');
+
+    const rows = this.statsData.timeline.map((item) =>
+      [
+        `"${item.label}"`,
+        `"${item.startDate}"`,
+        `"${item.endDate}"`,
+        item.newUsers,
+        item.newSubscribers,
+        item.publicRaces,
+        item.privateRooms,
+        item.duelsCompleted,
+        item.participants,
+        item.distanceKm
+      ].join(';')
+    );
+
+    const csvContent = '\uFEFF' + [header, ...rows].join('\r\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `rowerrace-stats-${this.statsPeriod}-${Date.now()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
+
+  exportStatsJson(): void {
+    if (!this.statsData) return;
+    const jsonString = JSON.stringify(this.statsData, null, 2);
+    const blob = new Blob([jsonString], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `rowerrace-stats-${this.statsPeriod}-${Date.now()}.json`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   }
 }

@@ -1236,6 +1236,292 @@ export class AdminController {
       res.status(500).json({ success: false, message: `Erreur bascule offre: ${message}` });
     }
   }
+
+  // ---------------------------------------------------------------------------
+  // 6. Statistiques & Analyse de la Plateforme (Jour, Semaine, Mois)
+  // ---------------------------------------------------------------------------
+
+  public static async getPlatformStats(req: Request, res: Response): Promise<void> {
+    try {
+      const period = String(req.query.period || "day").toLowerCase(); // 'day' | 'week' | 'month'
+      const requestedLimit = parseInt(String(req.query.limit || ""), 10);
+      const defaultLimit = period === "month" ? 12 : (period === "week" ? 12 : 30);
+      const limit = Math.max(1, Math.min(90, isNaN(requestedLimit) ? defaultLimit : requestedLimit));
+
+      // 1. Récupération des données en base avec fallback mémoire
+      let allUsers: any[] = [];
+      try {
+        if (Users) {
+          allUsers = await Users.findAll();
+        }
+      } catch {}
+      if (!allUsers || allUsers.length === 0) {
+        allUsers = await userStore.getAllUsers();
+      }
+
+      let allRaces: any[] = [];
+      try {
+        if (Races) {
+          allRaces = await Races.findAll();
+        }
+      } catch {}
+
+      let allDuels: any[] = [];
+      try {
+        if (DuelChallenges) {
+          allDuels = await DuelChallenges.findAll();
+        }
+      } catch {}
+
+      let allActivities: any[] = [];
+      try {
+        if (Activities) {
+          allActivities = await Activities.findAll();
+        }
+      } catch {}
+
+      // Normalisation des objets
+      const usersList = allUsers.map((u) => (typeof u.toJSON === "function" ? u.toJSON() : u));
+      const racesList = allRaces.map((r) => (typeof r.toJSON === "function" ? r.toJSON() : r));
+      const duelsList = allDuels.map((d) => (typeof d.toJSON === "function" ? d.toJSON() : d));
+      const activitiesList = allActivities.map((a) => (typeof a.toJSON === "function" ? a.toJSON() : a));
+
+      // KPI Globaux
+      const totalUsers = usersList.length;
+      const activeUsers = usersList.filter((u) => !(u.isRevoked || u.is_revoked)).length;
+
+      const freeCount = usersList.filter((u) => {
+        const tier = (u.subscriptionTier || u.subscription_tier || "free").toLowerCase();
+        return tier === "free";
+      }).length;
+      const intermediateCount = usersList.filter((u) => {
+        const tier = (u.subscriptionTier || u.subscription_tier || "").toLowerCase();
+        return tier === "intermediate" || tier === "club" || tier === "standard";
+      }).length;
+      const premiumCount = usersList.filter((u) => {
+        const tier = (u.subscriptionTier || u.subscription_tier || "").toLowerCase();
+        return tier === "premium" || tier === "pro" || tier === "elite_pro";
+      }).length;
+      const paidSubscribersCount = intermediateCount + premiumCount;
+      const paidSubscribersRatio = totalUsers > 0 ? Math.round((paidSubscribersCount / totalUsers) * 1000) / 10 : 0;
+
+      const publicRacesCount = racesList.filter((r) => !r.id?.startsWith("PRIV_") && !r.hostUserId).length;
+      const privateRoomsCount = racesList.filter((r) => r.id?.startsWith("PRIV_") || r.hostUserId).length;
+      const totalRacesCount = racesList.length;
+
+      const totalDuelsCompleted = duelsList.filter((d) => (d.status || "").toUpperCase() === "COMPLETED").length;
+      const totalDuelsTotal = duelsList.length;
+
+      let totalDistanceMeters = 0;
+      let totalParticipantsCount = 0;
+      for (const act of activitiesList) {
+        if (!act.isBot) {
+          totalParticipantsCount++;
+          const dist = Number(act.netDistance || act.currentDistance || act.targetDistance || 0);
+          totalDistanceMeters += dist;
+        }
+      }
+      const totalDistanceKm = Math.round(totalDistanceMeters / 1000);
+
+      // 2. Découpage chronologique en tranches
+      const now = new Date();
+      interface Bucket {
+        key: string;
+        label: string;
+        startDate: Date;
+        endDate: Date;
+        newUsers: number;
+        newSubscribers: number;
+        publicRaces: number;
+        privateRooms: number;
+        duelsCompleted: number;
+        participants: number;
+        distanceMeters: number;
+        distanceKm: number;
+      }
+
+      const buckets: Bucket[] = [];
+
+      if (period === "month") {
+        for (let i = limit - 1; i >= 0; i--) {
+          const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+          const start = new Date(d.getFullYear(), d.getMonth(), 1, 0, 0, 0, 0);
+          const end = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59, 999);
+          const yyyy = start.getFullYear();
+          const mm = String(start.getMonth() + 1).padStart(2, "0");
+          const key = `${yyyy}-${mm}`;
+          const monthNames = ["Janv.", "Févr.", "Mars", "Avr.", "Mai", "Juin", "Juil.", "Août", "Sept.", "Oct.", "Nov.", "Déc."];
+          const label = `${monthNames[start.getMonth()]} ${yyyy}`;
+          buckets.push({
+            key,
+            label,
+            startDate: start,
+            endDate: end,
+            newUsers: 0,
+            newSubscribers: 0,
+            publicRaces: 0,
+            privateRooms: 0,
+            duelsCompleted: 0,
+            participants: 0,
+            distanceMeters: 0,
+            distanceKm: 0,
+          });
+        }
+      } else if (period === "week") {
+        for (let i = limit - 1; i >= 0; i--) {
+          const currentDay = new Date(now.getTime() - i * 7 * 24 * 60 * 60 * 1000);
+          const dayOfWeek = currentDay.getDay();
+          const diffToMonday = (dayOfWeek + 6) % 7;
+          const start = new Date(currentDay);
+          start.setDate(currentDay.getDate() - diffToMonday);
+          start.setHours(0, 0, 0, 0);
+          const end = new Date(start);
+          end.setDate(start.getDate() + 6);
+          end.setHours(23, 59, 59, 999);
+
+          const startDayStr = String(start.getDate()).padStart(2, "0");
+          const startMonthStr = String(start.getMonth() + 1).padStart(2, "0");
+          const key = `${start.getFullYear()}-W${startMonthStr}-${startDayStr}`;
+          const label = `Sem. ${startDayStr}/${startMonthStr}`;
+          buckets.push({
+            key,
+            label,
+            startDate: start,
+            endDate: end,
+            newUsers: 0,
+            newSubscribers: 0,
+            publicRaces: 0,
+            privateRooms: 0,
+            duelsCompleted: 0,
+            participants: 0,
+            distanceMeters: 0,
+            distanceKm: 0,
+          });
+        }
+      } else {
+        // 'day'
+        for (let i = limit - 1; i >= 0; i--) {
+          const d = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
+          const start = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
+          const end = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
+          const yyyy = start.getFullYear();
+          const mm = String(start.getMonth() + 1).padStart(2, "0");
+          const dd = String(d.getDate()).padStart(2, "0");
+          const key = `${yyyy}-${mm}-${dd}`;
+          const label = `${dd}/${mm}`;
+          buckets.push({
+            key,
+            label,
+            startDate: start,
+            endDate: end,
+            newUsers: 0,
+            newSubscribers: 0,
+            publicRaces: 0,
+            privateRooms: 0,
+            duelsCompleted: 0,
+            participants: 0,
+            distanceMeters: 0,
+            distanceKm: 0,
+          });
+        }
+      }
+
+      function getBucket(dateVal: any): Bucket | undefined {
+        if (!dateVal) return undefined;
+        const d = new Date(dateVal);
+        if (isNaN(d.getTime())) return undefined;
+        return buckets.find((b) => d >= b.startDate && d <= b.endDate);
+      }
+
+      for (const u of usersList) {
+        const b = getBucket(u.createdAt || u.created_at);
+        if (b) {
+          b.newUsers++;
+          const tier = (u.subscriptionTier || u.subscription_tier || "free").toLowerCase();
+          if (tier !== "free") {
+            b.newSubscribers++;
+          }
+        }
+      }
+
+      for (const r of racesList) {
+        const b = getBucket(r.createdAt || r.startTime);
+        if (b) {
+          if (r.id?.startsWith("PRIV_") || r.hostUserId) {
+            b.privateRooms++;
+          } else {
+            b.publicRaces++;
+          }
+        }
+      }
+
+      for (const d of duelsList) {
+        const b = getBucket(d.createdAt || d.slotStart);
+        if (b) {
+          if ((d.status || "").toUpperCase() === "COMPLETED") {
+            b.duelsCompleted++;
+          }
+        }
+      }
+
+      for (const act of activitiesList) {
+        const b = getBucket(act.createdAt || act.finishedAt);
+        if (b) {
+          if (!act.isBot) {
+            b.participants++;
+            const dist = Number(act.netDistance || act.currentDistance || act.targetDistance || 0);
+            b.distanceMeters += dist;
+          }
+        }
+      }
+
+      for (const b of buckets) {
+        b.distanceKm = Math.round(b.distanceMeters / 1000);
+      }
+
+      res.status(200).json({
+        success: true,
+        period,
+        limit,
+        global: {
+          totalUsers,
+          activeUsers,
+          paidSubscribersCount,
+          paidSubscribersRatio,
+          subscribersBreakdown: {
+            free: freeCount,
+            intermediate: intermediateCount,
+            premium: premiumCount,
+          },
+          totalRacesCount,
+          publicRacesCount,
+          privateRoomsCount,
+          totalDuelsCompleted,
+          totalDuelsTotal,
+          totalParticipantsCount,
+          totalDistanceMeters,
+          totalDistanceKm,
+        },
+        timeline: buckets.map((b) => ({
+          key: b.key,
+          label: b.label,
+          startDate: b.startDate.toISOString(),
+          endDate: b.endDate.toISOString(),
+          newUsers: b.newUsers,
+          newSubscribers: b.newSubscribers,
+          publicRaces: b.publicRaces,
+          privateRooms: b.privateRooms,
+          duelsCompleted: b.duelsCompleted,
+          participants: b.participants,
+          distanceMeters: b.distanceMeters,
+          distanceKm: b.distanceKm,
+        })),
+      });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      res.status(500).json({ success: false, message: `Erreur statistiques: ${message}` });
+    }
+  }
 }
 
 export default AdminController;

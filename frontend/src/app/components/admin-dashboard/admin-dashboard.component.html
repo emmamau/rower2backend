@@ -40,6 +40,13 @@
     </button>
     <button
       class="tab-btn"
+      [class.active]="activeTab === 'stats'"
+      (click)="setTab('stats')"
+    >
+      📊 {{ i18n.t('ADMIN_TAB_STATS') }}
+    </button>
+    <button
+      class="tab-btn"
       [class.active]="activeTab === 'system'"
       (click)="setTab('system')"
     >
@@ -638,6 +645,306 @@
           >
             🧹 {{ isPurgingRooms ? i18n.t('ADMIN_ROOMS_PURGING') : i18n.t('ADMIN_ROOMS_BTN_PURGE') }}
           </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================================================================== -->
+    <!-- ONGLET 6 : STATISTIQUES & ANALYTICS -->
+    <!-- ===================================================================== -->
+    <section *ngIf="activeTab === 'stats'">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
+        <div>
+          <h3 class="card-title" style="margin: 0;">📊 {{ i18n.t('ADMIN_STATS_TITLE') }}</h3>
+          <p style="margin: 4px 0 0 0; color: #94a3b8; font-size: 0.85rem;">
+            {{ i18n.t('ADMIN_STATS_SUBTITLE') }}
+          </p>
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+          <button
+            class="btn-action"
+            style="background: rgba(14, 165, 233, 0.15); color: #38bdf8; border-color: rgba(14, 165, 233, 0.3); padding: 8px 14px;"
+            (click)="loadStats()"
+            [disabled]="isLoadingStats"
+          >
+            🔄 {{ isLoadingStats ? i18n.t('ADMIN_STATS_LOADING') : i18n.t('ADMIN_STATS_BTN_REFRESH') }}
+          </button>
+          <button
+            class="btn-action"
+            style="background: rgba(16, 185, 129, 0.15); color: #34d399; border-color: rgba(16, 185, 129, 0.3); padding: 8px 14px;"
+            (click)="exportStatsCsv()"
+            [disabled]="!statsData?.timeline?.length"
+          >
+            📥 {{ i18n.t('ADMIN_STATS_BTN_CSV') }}
+          </button>
+          <button
+            class="btn-action"
+            style="background: rgba(168, 85, 247, 0.15); color: #c084fc; border-color: rgba(168, 85, 247, 0.3); padding: 8px 14px;"
+            (click)="exportStatsJson()"
+            [disabled]="!statsData"
+          >
+            💾 {{ i18n.t('ADMIN_STATS_BTN_JSON') }}
+          </button>
+        </div>
+      </div>
+
+      <!-- KPI Globaux -->
+      <div class="metrics-grid" style="margin-bottom: 24px;">
+        <div class="metric-card">
+          <div class="metric-icon">👥</div>
+          <div class="metric-value">{{ statsData?.global?.totalUsers || 0 }}</div>
+          <div class="metric-label">{{ i18n.t('ADMIN_STATS_CARD_USERS') }}</div>
+          <div style="font-size: 0.75rem; color: #34d399; margin-top: 4px;">
+            ● {{ statsData?.global?.activeUsers || 0 }} {{ i18n.t('ADMIN_STATS_ACTIVE_USERS') }}
+          </div>
+        </div>
+
+        <div class="metric-card">
+          <div class="metric-icon">💎</div>
+          <div class="metric-value">{{ statsData?.global?.paidSubscribersCount || 0 }}</div>
+          <div class="metric-label">{{ i18n.t('ADMIN_STATS_CARD_SUBSCRIBERS') }}</div>
+          <div style="font-size: 0.75rem; color: #a855f7; margin-top: 4px;">
+            {{ statsData?.global?.paidSubscribersRatio || 0 }}% {{ i18n.t('ADMIN_STATS_SUB_RATIO') }}
+            ({{ statsData?.global?.subscribersBreakdown?.intermediate || 0 }} Club / {{ statsData?.global?.subscribersBreakdown?.premium || 0 }} Pro)
+          </div>
+        </div>
+
+        <div class="metric-card">
+          <div class="metric-icon">🏁</div>
+          <div class="metric-value">{{ statsData?.global?.totalRacesCount || 0 }}</div>
+          <div class="metric-label">{{ i18n.t('ADMIN_STATS_CARD_RACES') }}</div>
+          <div style="font-size: 0.75rem; color: #38bdf8; margin-top: 4px;">
+            {{ statsData?.global?.publicRacesCount || 0 }} {{ i18n.t('ADMIN_STATS_PUBLIC_SHORT') }} · {{ statsData?.global?.privateRoomsCount || 0 }} {{ i18n.t('ADMIN_STATS_ROOMS_SHORT') }}
+          </div>
+        </div>
+
+        <div class="metric-card">
+          <div class="metric-icon">⚔️</div>
+          <div class="metric-value">{{ statsData?.global?.totalDuelsCompleted || 0 }}</div>
+          <div class="metric-label">{{ i18n.t('ADMIN_STATS_CARD_DUELS') }}</div>
+          <div style="font-size: 0.75rem; color: #f59e0b; margin-top: 4px;">
+            {{ statsData?.global?.totalDuelsTotal || 0 }} {{ i18n.t('ADMIN_STATS_DUELS_TOTAL') }}
+          </div>
+        </div>
+
+        <div class="metric-card">
+          <div class="metric-icon">🚣</div>
+          <div class="metric-value">{{ statsData?.global?.totalParticipantsCount || 0 }}</div>
+          <div class="metric-label">{{ i18n.t('ADMIN_STATS_CARD_PARTICIPANTS') }}</div>
+          <div style="font-size: 0.75rem; color: #94a3b8; margin-top: 4px;">
+            {{ i18n.t('ADMIN_STATS_PARTICIPANTS_SUB') }}
+          </div>
+        </div>
+
+        <div class="metric-card">
+          <div class="metric-icon">📏</div>
+          <div class="metric-value">{{ statsData?.global?.totalDistanceKm || 0 }} <small style="font-size: 0.85rem;">km</small></div>
+          <div class="metric-label">{{ i18n.t('ADMIN_STATS_CARD_DISTANCE') }}</div>
+          <div style="font-size: 0.75rem; color: #00f0ff; margin-top: 4px;">
+            {{ statsData?.global?.totalDistanceMeters || 0 }} m
+          </div>
+        </div>
+      </div>
+
+      <!-- Barre de contrôle de granularité -->
+      <div class="stats-controls-bar">
+        <div class="stats-period-selector">
+          <button
+            class="btn-period"
+            [class.active]="statsPeriod === 'day'"
+            (click)="setStatsPeriod('day')"
+          >
+            {{ i18n.t('ADMIN_STATS_BTN_DAY') }} (30j)
+          </button>
+          <button
+            class="btn-period"
+            [class.active]="statsPeriod === 'week'"
+            (click)="setStatsPeriod('week')"
+          >
+            {{ i18n.t('ADMIN_STATS_BTN_WEEK') }} (12s)
+          </button>
+          <button
+            class="btn-period"
+            [class.active]="statsPeriod === 'month'"
+            (click)="setStatsPeriod('month')"
+          >
+            {{ i18n.t('ADMIN_STATS_BTN_MONTH') }} (12m)
+          </button>
+        </div>
+
+        <!-- Filtre métrique pour le graphique -->
+        <div class="stats-metric-pills">
+          <button
+            class="metric-pill"
+            [class.active]="statsActiveMetric === 'all'"
+            (click)="statsActiveMetric = 'all'"
+          >
+            {{ i18n.t('ADMIN_STATS_FILTER_ALL') }}
+          </button>
+          <button
+            class="metric-pill pill-users"
+            [class.active]="statsActiveMetric === 'users'"
+            (click)="statsActiveMetric = 'users'"
+          >
+            👥 {{ i18n.t('ADMIN_STATS_FILTER_USERS') }}
+          </button>
+          <button
+            class="metric-pill pill-subs"
+            [class.active]="statsActiveMetric === 'subscribers'"
+            (click)="statsActiveMetric = 'subscribers'"
+          >
+            💎 {{ i18n.t('ADMIN_STATS_FILTER_SUBS') }}
+          </button>
+          <button
+            class="metric-pill pill-races"
+            [class.active]="statsActiveMetric === 'races'"
+            (click)="statsActiveMetric = 'races'"
+          >
+            🏁 {{ i18n.t('ADMIN_STATS_FILTER_RACES') }}
+          </button>
+          <button
+            class="metric-pill pill-duels"
+            [class.active]="statsActiveMetric === 'duels'"
+            (click)="statsActiveMetric = 'duels'"
+          >
+            ⚔️ {{ i18n.t('ADMIN_STATS_FILTER_DUELS') }}
+          </button>
+          <button
+            class="metric-pill pill-dist"
+            [class.active]="statsActiveMetric === 'distance'"
+            (click)="statsActiveMetric = 'distance'"
+          >
+            📏 {{ i18n.t('ADMIN_STATS_FILTER_DIST') }}
+          </button>
+        </div>
+      </div>
+
+      <!-- Graphique d'évolution visuel -->
+      <div class="card" style="margin-bottom: 24px; padding: 20px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 8px;">
+          <h4 style="margin: 0; color: #f8fafc; font-size: 1rem;">
+            📈 {{ i18n.t('ADMIN_STATS_CHART_TITLE') }}
+          </h4>
+          <div class="chart-legend">
+            <span class="legend-item" *ngIf="statsActiveMetric === 'all' || statsActiveMetric === 'users'">
+              <span class="legend-color" style="background: #38bdf8;"></span> {{ i18n.t('ADMIN_STATS_LEGEND_USERS') }}
+            </span>
+            <span class="legend-item" *ngIf="statsActiveMetric === 'all' || statsActiveMetric === 'subscribers'">
+              <span class="legend-color" style="background: #a855f7;"></span> {{ i18n.t('ADMIN_STATS_LEGEND_SUBS') }}
+            </span>
+            <span class="legend-item" *ngIf="statsActiveMetric === 'all' || statsActiveMetric === 'races'">
+              <span class="legend-color" style="background: #34d399;"></span> {{ i18n.t('ADMIN_STATS_LEGEND_RACES') }}
+            </span>
+            <span class="legend-item" *ngIf="statsActiveMetric === 'all' || statsActiveMetric === 'duels'">
+              <span class="legend-color" style="background: #f59e0b;"></span> {{ i18n.t('ADMIN_STATS_LEGEND_DUELS') }}
+            </span>
+            <span class="legend-item" *ngIf="statsActiveMetric === 'all' || statsActiveMetric === 'distance'">
+              <span class="legend-color" style="background: #00f0ff;"></span> {{ i18n.t('ADMIN_STATS_LEGEND_DIST') }}
+            </span>
+          </div>
+        </div>
+
+        <div class="chart-bars-container" *ngIf="statsData?.timeline?.length">
+          <div class="chart-column" *ngFor="let item of statsData?.timeline">
+            <div class="bars-group">
+              <!-- Barre Utilisateurs -->
+              <div
+                *ngIf="statsActiveMetric === 'all' || statsActiveMetric === 'users'"
+                class="bar-item bar-users"
+                [style.height.%]="getBarHeightPercent(item.newUsers, getMaxTimelineValue('newUsers'))"
+                [title]="item.label + ' : ' + item.newUsers + ' ' + i18n.t('ADMIN_STATS_FILTER_USERS')"
+              ></div>
+              <!-- Barre Abonnements -->
+              <div
+                *ngIf="statsActiveMetric === 'all' || statsActiveMetric === 'subscribers'"
+                class="bar-item bar-subs"
+                [style.height.%]="getBarHeightPercent(item.newSubscribers, getMaxTimelineValue('newSubscribers'))"
+                [title]="item.label + ' : ' + item.newSubscribers + ' ' + i18n.t('ADMIN_STATS_FILTER_SUBS')"
+              ></div>
+              <!-- Barre Courses -->
+              <div
+                *ngIf="statsActiveMetric === 'all' || statsActiveMetric === 'races'"
+                class="bar-item bar-races"
+                [style.height.%]="getBarHeightPercent(item.publicRaces + item.privateRooms, getMaxTimelineValue('publicRaces') + getMaxTimelineValue('privateRooms'))"
+                [title]="item.label + ' : ' + (item.publicRaces + item.privateRooms) + ' ' + i18n.t('ADMIN_STATS_FILTER_RACES')"
+              ></div>
+              <!-- Barre Duels -->
+              <div
+                *ngIf="statsActiveMetric === 'all' || statsActiveMetric === 'duels'"
+                class="bar-item bar-duels"
+                [style.height.%]="getBarHeightPercent(item.duelsCompleted, getMaxTimelineValue('duelsCompleted'))"
+                [title]="item.label + ' : ' + item.duelsCompleted + ' ' + i18n.t('ADMIN_STATS_FILTER_DUELS')"
+              ></div>
+              <!-- Barre Distance -->
+              <div
+                *ngIf="statsActiveMetric === 'all' || statsActiveMetric === 'distance'"
+                class="bar-item bar-dist"
+                [style.height.%]="getBarHeightPercent(item.distanceKm, getMaxTimelineValue('distanceKm'))"
+                [title]="item.label + ' : ' + item.distanceKm + ' km'"
+              ></div>
+            </div>
+            <div class="chart-label">{{ item.label }}</div>
+          </div>
+        </div>
+
+        <div *ngIf="!statsData?.timeline?.length" style="text-align: center; color: #94a3b8; padding: 30px;">
+          {{ isLoadingStats ? i18n.t('ADMIN_STATS_LOADING') : i18n.t('ADMIN_STATS_EMPTY') }}
+        </div>
+      </div>
+
+      <!-- Tableau Chronologique Détaillé -->
+      <div class="card" style="padding: 20px;">
+        <h4 style="margin: 0 0 16px 0; color: #f8fafc; font-size: 1rem;">
+          📋 {{ i18n.t('ADMIN_STATS_TABLE_TITLE') }}
+        </h4>
+
+        <div class="table-responsive table-users-container">
+          <table class="admin-table table-users-sticky">
+            <thead>
+              <tr>
+                <th class="col-sticky-account">{{ i18n.t('ADMIN_STATS_COL_PERIOD') }}</th>
+                <th>{{ i18n.t('ADMIN_STATS_COL_NEW_USERS') }}</th>
+                <th>{{ i18n.t('ADMIN_STATS_COL_NEW_SUBS') }}</th>
+                <th>{{ i18n.t('ADMIN_STATS_COL_PUBLIC_RACES') }}</th>
+                <th>{{ i18n.t('ADMIN_STATS_COL_PRIVATE_ROOMS') }}</th>
+                <th>{{ i18n.t('ADMIN_STATS_COL_DUELS') }}</th>
+                <th>{{ i18n.t('ADMIN_STATS_COL_PARTICIPANTS') }}</th>
+                <th class="col-sticky-actions">{{ i18n.t('ADMIN_STATS_COL_DISTANCE') }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let row of statsData?.timeline">
+                <td class="col-sticky-account">
+                  <strong>{{ row.label }}</strong>
+                  <div style="font-size: 0.72rem; color: #64748b;">{{ row.key }}</div>
+                </td>
+                <td>
+                  <span class="table-badge" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8;">
+                    +{{ row.newUsers }}
+                  </span>
+                </td>
+                <td>
+                  <span class="table-badge" style="background: rgba(168, 85, 247, 0.15); color: #c084fc;">
+                    +{{ row.newSubscribers }}
+                  </span>
+                </td>
+                <td>{{ row.publicRaces }}</td>
+                <td>{{ row.privateRooms }}</td>
+                <td>{{ row.duelsCompleted }}</td>
+                <td>{{ row.participants }}</td>
+                <td class="col-sticky-actions">
+                  <span style="font-weight: 700; color: #00f0ff;">
+                    {{ row.distanceKm }} km
+                  </span>
+                </td>
+              </tr>
+              <tr *ngIf="!statsData?.timeline?.length">
+                <td colspan="8" style="text-align: center; color: #94a3b8; padding: 24px;">
+                  {{ isLoadingStats ? i18n.t('ADMIN_STATS_LOADING') : i18n.t('ADMIN_STATS_EMPTY') }}
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
     </section>

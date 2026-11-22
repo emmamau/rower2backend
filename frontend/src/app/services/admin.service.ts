@@ -133,6 +133,49 @@ export interface AdminSystemMetricsResponse {
   };
 }
 
+export interface AdminStatsTimelineItem {
+  key: string;
+  label: string;
+  startDate: string;
+  endDate: string;
+  newUsers: number;
+  newSubscribers: number;
+  publicRaces: number;
+  privateRooms: number;
+  duelsCompleted: number;
+  participants: number;
+  distanceMeters: number;
+  distanceKm: number;
+}
+
+export interface AdminStatsGlobalKPIs {
+  totalUsers: number;
+  activeUsers: number;
+  paidSubscribersCount: number;
+  paidSubscribersRatio: number;
+  subscribersBreakdown: {
+    free: number;
+    intermediate: number;
+    premium: number;
+  };
+  totalRacesCount: number;
+  publicRacesCount: number;
+  privateRoomsCount: number;
+  totalDuelsCompleted: number;
+  totalDuelsTotal: number;
+  totalParticipantsCount: number;
+  totalDistanceMeters: number;
+  totalDistanceKm: number;
+}
+
+export interface AdminStatsResponse {
+  success: boolean;
+  period: 'day' | 'week' | 'month';
+  limit: number;
+  global: AdminStatsGlobalKPIs;
+  timeline: AdminStatsTimelineItem[];
+}
+
 export interface SubscriptionPlanItem {
   id?: number;
   code: string;
@@ -363,6 +406,21 @@ export class AdminService {
   deletePlan(planId: number | string): Observable<{ success: boolean; message: string }> {
     return this.http.delete<{ success: boolean; message: string }>(
       `${this.apiUrl}/api/admin/plans/${planId}`,
+      { headers: this.getAuthHeaders() }
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // 6. Statistiques & Analyse Plateforme
+  // ---------------------------------------------------------------------------
+
+  getPlatformStats(period: 'day' | 'week' | 'month' = 'day', limit?: number): Observable<AdminStatsResponse> {
+    let params = `?period=${period}`;
+    if (limit) {
+      params += `&limit=${limit}`;
+    }
+    return this.http.get<AdminStatsResponse>(
+      `${this.apiUrl}/api/admin/stats${params}`,
       { headers: this.getAuthHeaders() }
     );
   }

@@ -823,3 +823,81 @@ test("12. Admin System Supervision & League Cycle Trigger", async () => {
     await ctx.close();
   }
 });
+
+test("13. Admin Platform Statistics & Timeline Aggregations", async () => {
+  const ctx = await createTestServer();
+  try {
+    const adminUser = await userStore.createUser({
+      id: "admin_analytics",
+      login: "Admin_Analytics",
+      email: "admin_analytics@example.com",
+      role: "ADMIN",
+      isAdmin: true,
+    });
+    const adminToken = JwtService.sign({
+      userId: adminUser.id,
+      login: adminUser.login,
+      role: "ADMIN",
+      isAdmin: true,
+    });
+
+    const normalUser = await userStore.createUser({
+      id: "user_normal_stats",
+      login: "User_Normal_Stats",
+      email: "user_normal_stats@example.com",
+      role: "USER",
+      isAdmin: false,
+    });
+    const userToken = JwtService.sign({
+      userId: normalUser.id,
+      login: normalUser.login,
+      role: "USER",
+      isAdmin: false,
+    });
+
+    // 13.1 Vérification de la protection RBAC
+    const forbiddenRes = await fetch(`${ctx.baseUrl}/api/admin/stats`, {
+      headers: { Authorization: `Bearer ${userToken}` },
+    });
+    assert.equal(forbiddenRes.status, 403, "Un utilisateur standard doit recevoir 403");
+
+    // 13.2 Statistiques par jour (défaut)
+    const statsDayRes = await fetch(`${ctx.baseUrl}/api/admin/stats?period=day&limit=14`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    assert.equal(statsDayRes.status, 200);
+    const statsDayData = await statsDayRes.json();
+    assert.equal(statsDayData.success, true);
+    assert.equal(statsDayData.period, "day");
+    assert.equal(statsDayData.limit, 14);
+    assert.ok(statsDayData.global);
+    assert.ok(typeof statsDayData.global.totalUsers === "number");
+    assert.ok(typeof statsDayData.global.paidSubscribersCount === "number");
+    assert.ok(typeof statsDayData.global.totalRacesCount === "number");
+    assert.ok(typeof statsDayData.global.totalDistanceKm === "number");
+    assert.ok(Array.isArray(statsDayData.timeline));
+    assert.equal(statsDayData.timeline.length, 14);
+    assert.ok(statsDayData.timeline[0].key);
+    assert.ok(statsDayData.timeline[0].label);
+
+    // 13.3 Statistiques par semaine
+    const statsWeekRes = await fetch(`${ctx.baseUrl}/api/admin/stats?period=week&limit=8`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    assert.equal(statsWeekRes.status, 200);
+    const statsWeekData = await statsWeekRes.json();
+    assert.equal(statsWeekData.period, "week");
+    assert.equal(statsWeekData.timeline.length, 8);
+
+    // 13.4 Statistiques par mois
+    const statsMonthRes = await fetch(`${ctx.baseUrl}/api/admin/stats?period=month&limit=6`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    assert.equal(statsMonthRes.status, 200);
+    const statsMonthData = await statsMonthRes.json();
+    assert.equal(statsMonthData.period, "month");
+    assert.equal(statsMonthData.timeline.length, 6);
+  } finally {
+    await ctx.close();
+  }
+});
