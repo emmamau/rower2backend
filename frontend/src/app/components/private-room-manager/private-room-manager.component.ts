@@ -422,6 +422,20 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
   }
 
   ngOnChanges(changes: SimpleChanges): void {
+    if (changes['activeUserId'] || changes['isRegisteredUser']) {
+      this.savedSalons = [];
+      this.receivedDuelChallenges = [];
+      this.sentDuelChallenges = [];
+      this.liveRoomsMap.clear();
+      this.loadSavedSalonsFromStorage();
+      this.refreshRoomLimits();
+      if (this.isOpen) {
+        this.refreshMyRooms();
+        this.refreshMyDuels();
+      }
+      this.cdr.markForCheck();
+    }
+
     if (changes['activeRoom']) {
       if (this.activeRoom?.race?.code) {
         this.rememberSalon(this.activeRoom);
@@ -1173,6 +1187,14 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
 
   get pendingReceivedDuelsCount(): number {
     return (this.receivedDuelChallenges || []).filter(d => d.status === 'PENDING').length;
+  }
+
+  get pendingReceivedDuelChallenges(): DuelChallenge[] {
+    return (this.receivedDuelChallenges || []).filter(d => d.status === 'PENDING');
+  }
+
+  get activeCreatedDuelsCount(): number {
+    return (this.sentDuelChallenges || []).filter(d => d.status === 'PENDING' || d.status === 'ACCEPTED').length;
   }
 
   get totalDuelsCount(): number {
@@ -2061,13 +2083,30 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
     this.persistSavedSalons();
   }
 
+  private getSavedSalonsStorageKey(): string {
+    const uid = (this.activeUserId || '').trim().toLowerCase();
+    if (uid && this.isRegisteredUser) {
+      return `rower_saved_private_salons_${uid}`;
+    }
+    return 'rower_saved_private_salons_guest';
+  }
+
   private loadSavedSalonsFromStorage(): void {
     try {
-      const raw = localStorage.getItem(SAVED_SALONS_STORAGE_KEY);
-      if (!raw) return;
+      if (typeof localStorage !== 'undefined') {
+        localStorage.removeItem(SAVED_SALONS_STORAGE_KEY);
+      }
+      const key = this.getSavedSalonsStorageKey();
+      const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(key) : null;
+      if (!raw) {
+        this.savedSalons = [];
+        return;
+      }
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed)) {
         this.savedSalons = parsed.filter((item) => item && item.id && item.code);
+      } else {
+        this.savedSalons = [];
       }
     } catch {
       this.savedSalons = [];
@@ -2076,7 +2115,9 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
 
   private persistSavedSalons(): void {
     try {
-      localStorage.setItem(SAVED_SALONS_STORAGE_KEY, JSON.stringify(this.savedSalons));
+      if (typeof localStorage === 'undefined') return;
+      const key = this.getSavedSalonsStorageKey();
+      localStorage.setItem(key, JSON.stringify(this.savedSalons));
     } catch {
       // Ignore storage quota errors
     }
@@ -2297,6 +2338,15 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
         }
         this.refreshMyDuels();
         this.refreshMyRooms();
+        const duelCode = res?.challenge?.roomCode || challenge.roomCode;
+        if (action === 'accept' && duelCode) {
+          this.rowerService.getPrivateRace(duelCode).subscribe({
+            next: (room) => {
+              this.rememberSalon(room, false);
+              this.refreshMyRooms();
+            }
+          });
+        }
         if (action === 'refuse' && this.activeRoom) {
           setTimeout(() => {
             this.leaveToPublicRace();

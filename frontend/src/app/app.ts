@@ -2832,6 +2832,8 @@ export class AppComponent implements OnInit, OnDestroy {
       localStorage.removeItem('rower_is_paired');
       localStorage.removeItem('rower_watch_confirmed');
       localStorage.removeItem('rower_device_token');
+      localStorage.removeItem('rower_saved_private_salons');
+      localStorage.removeItem('rower_saved_private_salons_guest');
     } catch {}
 
     this.isAdminDashboardOpen = false;
@@ -4845,6 +4847,8 @@ export class AppComponent implements OnInit, OnDestroy {
       localStorage.removeItem('rower_is_paired');
       localStorage.removeItem('rower_watch_confirmed');
       localStorage.removeItem('rower_device_token');
+      localStorage.removeItem('rower_saved_private_salons');
+      localStorage.removeItem('rower_saved_private_salons_guest');
     } catch {}
 
     this.cdr.markForCheck();

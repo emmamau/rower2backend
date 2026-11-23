@@ -421,8 +421,6 @@
         {{ i18n.t('TAB_DUELS') }}
         @if (pendingReceivedDuelsCount > 0) {
           <span class="priv-tab-count priv-tab-badge-urgent">{{ pendingReceivedDuelsCount }}</span>
-        } @else if (totalDuelsCount > 0) {
-          <span class="priv-tab-count">{{ totalDuelsCount }}</span>
         }
       </button>
     </div>
@@ -1619,10 +1617,10 @@
               <p class="priv-error-msg" role="alert">⚠️ {{ duelManageError }}</p>
             }
 
-            @if (receivedDuelChallenges.length > 0) {
+            @if (pendingReceivedDuelChallenges.length > 0) {
               <div class="priv-duel-group">
-                <h5 class="priv-duel-subtitle">📥 Défis reçus</h5>
-                @for (d of receivedDuelChallenges; track d.id) {
+                <h5 class="priv-duel-subtitle">📥 Défis reçus nécessitant votre choix ({{ pendingReceivedDuelChallenges.length }})</h5>
+                @for (d of pendingReceivedDuelChallenges; track d.id) {
                   <div class="priv-saved-item priv-duel-item">
                     <div class="priv-saved-info">
                       <div class="priv-saved-top">
@@ -1635,37 +1633,24 @@
                         @if (d.roomCode) {
                           <span>Salon: <code>{{ d.roomCode }}</code></span>
                         }
-                        @if (d.status === 'PENDING') {
-                          <span>⏳ Expire le {{ d.expiresAt | date:'short' }}</span>
-                        }
+                        <span>⏳ Expire le {{ d.expiresAt | date:'short' }}</span>
                       </div>
                     </div>
                     <div class="priv-saved-actions">
-                      @if (d.status === 'PENDING') {
-                        <button
-                          type="button"
-                          class="priv-btn-mini priv-btn-mini-primary"
-                          [disabled]="duelActionBusyId === d.id"
-                          (click)="respondToDuel(d, 'accept')">
-                          ✅ Accepter
-                        </button>
-                        <button
-                          type="button"
-                          class="priv-btn-mini priv-btn-mini-danger"
-                          [disabled]="duelActionBusyId === d.id"
-                          (click)="respondToDuel(d, 'refuse')">
-                          ❌ Refuser
-                        </button>
-                      }
-                      @if (d.status === 'PENDING' || d.status === 'ACCEPTED') {
-                        <button
-                          type="button"
-                          class="priv-btn-mini priv-btn-mini-primary"
-                          [disabled]="duelActionBusyId === d.id"
-                          (click)="openDuelSalon(d)">
-                          {{ i18n.t('BTN_OPEN_ROOM') }}
-                        </button>
-                      }
+                      <button
+                        type="button"
+                        class="priv-btn-mini priv-btn-mini-primary"
+                        [disabled]="duelActionBusyId === d.id"
+                        (click)="respondToDuel(d, 'accept')">
+                        ✅ Accepter
+                      </button>
+                      <button
+                        type="button"
+                        class="priv-btn-mini priv-btn-mini-danger"
+                        [disabled]="duelActionBusyId === d.id"
+                        (click)="respondToDuel(d, 'refuse')">
+                        ❌ Refuser
+                      </button>
                       @if (d.roomCode) {
                         <button
                           type="button"
@@ -1674,118 +1659,35 @@
                           {{ i18n.t('BTN_COPY_URL') }}
                         </button>
                       }
-                      @if (d.status === 'PENDING' || d.status === 'ACCEPTED') {
-                        <button
-                          type="button"
-                          class="priv-btn-mini priv-btn-mini-danger"
-                          [disabled]="duelActionBusyId === d.id"
-                          (click)="removeOrCancelDuel(d, true)"
-                          [title]="d.status === 'PENDING' ? 'Refuser le défi' : (isDuelWithin24h(d.slotStart) ? 'Attention : forfait (-10 pts)' : 'Annuler le duel')">
-                          ✕
-                        </button>
-                      } @else {
-                        <button
-                          type="button"
-                          class="priv-btn-mini priv-btn-mini-danger"
-                          [disabled]="duelActionBusyId === d.id"
-                          (click)="deleteDuel(d)"
-                          title="Supprimer ce duel de la liste">
-                          ✕
-                        </button>
-                      }
                     </div>
                   </div>
                 }
               </div>
-            }
-
-            @if (sentDuelChallenges.length > 0) {
-              <div class="priv-duel-group">
-                <h5 class="priv-duel-subtitle">📤 Défis envoyés</h5>
-                @for (d of sentDuelChallenges; track d.id) {
-                  <div class="priv-saved-item priv-duel-item">
-                    <div class="priv-saved-info">
-                      <div class="priv-saved-top">
-                        <span class="priv-role-chip">{{ getDuelStatusLabel(d.status) }}</span>
-                        @if (d.challengedEmail && !d.challengedUserId) {
-                          <strong>Invité : {{ d.challengedEmail }}</strong>
-                          <span class="priv-meta-chip priv-chip-pending-reg">📩 En attente d'inscription</span>
-                        } @else {
-                          <strong>Contre {{ d.challengedName }} (&#64;{{ d.challengedLogin }})</strong>
-                        }
-                        <span class="priv-meta-chip">{{ d.targetDistance }}m</span>
-                      </div>
-                      <div class="priv-saved-codes">
-                        <span>📅 {{ d.slotStart | date:'short' }} → {{ d.slotEnd | date:'shortTime' }}</span>
-                        @if (d.roomCode) {
-                          <span>Code: <code>{{ d.roomCode }}</code></span>
-                        }
-                      </div>
-                    </div>
-                    <div class="priv-saved-actions">
-                      @if (d.challengedEmail && !d.challengedUserId && d.status === 'PENDING') {
-                        <button
-                          type="button"
-                          class="priv-btn priv-btn-xs priv-btn-outline"
-                          [disabled]="resendingDuelInviteId === d.id"
-                          (click)="resendDuelInvite(d)">
-                          {{ resendingDuelInviteId === d.id ? 'Envoi...' : '🔄 Relancer l\'invitation' }}
-                        </button>
-                      }
-                      @if (d.status === 'PENDING' || d.status === 'ACCEPTED') {
-                        <button
-                          type="button"
-                          class="priv-btn-mini priv-btn-mini-primary"
-                          [disabled]="duelActionBusyId === d.id"
-                          (click)="openDuelSalon(d)">
-                          {{ i18n.t('BTN_OPEN_ROOM') }}
-                        </button>
-                      }
-                      @if (d.roomCode) {
-                        <button
-                          type="button"
-                          class="priv-btn-mini"
-                          (click)="copyDuelSalonUrl(d, $event)">
-                          {{ i18n.t('BTN_COPY_URL') }}
-                        </button>
-                      }
-                      @if (d.status === 'PENDING' || d.status === 'ACCEPTED') {
-                        <button
-                          type="button"
-                          class="priv-btn-mini priv-btn-mini-danger"
-                          [disabled]="duelActionBusyId === d.id"
-                          (click)="removeOrCancelDuel(d, false)"
-                          [title]="d.status === 'ACCEPTED' && isDuelWithin24h(d.slotStart) ? 'Attention : forfait (-10 pts)' : 'Annuler le défi'">
-                          ✕
-                        </button>
-                      } @else {
-                        <button
-                          type="button"
-                          class="priv-btn-mini priv-btn-mini-danger"
-                          [disabled]="duelActionBusyId === d.id"
-                          (click)="deleteDuel(d)"
-                          title="Supprimer ce défi de la liste">
-                          ✕
-                        </button>
-                      }
-                    </div>
-                  </div>
-                }
+            } @else {
+              <div class="priv-empty-rooms priv-duel-empty">
+                ✨ Aucun défi en attente d'un choix de votre part.
               </div>
             }
 
-            @if (receivedDuelChallenges.length === 0 && sentDuelChallenges.length === 0 && !isLoadingDuelChallenges) {
-              <div class="priv-empty-rooms">
-                <p>Aucun défi en duel reçu ou envoyé pour le moment.</p>
-                <button
-                  type="button"
-                  class="priv-btn priv-btn-cyan"
-                  style="margin-top: 0.75rem;"
-                  (click)="switchTab('create'); selectGameMode('duel_1v1')">
-                  ⚔️ Lancer un nouveau défi
-                </button>
+            <div class="priv-duel-sent-notice">
+              <div class="priv-duel-notice-content">
+                <span class="priv-duel-notice-icon">ℹ️</span>
+                <div class="priv-duel-notice-text">
+                  <strong>Vos duels créés sont accessibles dans l'onglet « Mes salons »</strong>
+                  @if (activeCreatedDuelsCount > 0) {
+                    <p>Vous avez {{ activeCreatedDuelsCount }} duel{{ activeCreatedDuelsCount > 1 ? 's' : '' }} créé{{ activeCreatedDuelsCount > 1 ? 's' : '' }} en cours ou planifié{{ activeCreatedDuelsCount > 1 ? 's' : '' }}.</p>
+                  } @else {
+                    <p>Lorsque vous lancez un défi ci-dessus, son salon dédié y est automatiquement enregistré.</p>
+                  }
+                </div>
               </div>
-            }
+              <button
+                type="button"
+                class="priv-btn-mini priv-btn-mini-primary priv-duel-notice-btn"
+                (click)="switchTab('join')">
+                Voir Mes Salons →
+              </button>
+            </div>
           </div>
         }
       </div>
