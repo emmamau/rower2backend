@@ -1132,7 +1132,7 @@
   }
 
   .priv-dialog-shell {
-    padding: 1rem 1rem calc(1.25rem + env(safe-area-inset-bottom, 0px));
+    padding: 1rem 1rem calc(3.5rem + env(safe-area-inset-bottom, 20px));
   }
 
   .priv-tab-btn {

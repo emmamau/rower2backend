@@ -2393,34 +2393,60 @@ select:autofill:focus {
 }
 
 @media (max-width: 640px) {
-  .modal-overlay { align-items: flex-end; padding: 0; }
+  .modal-overlay,
   .modal-overlay:has(.modal-account) {
-    align-items: flex-end;
-    padding: 0;
+    align-items: flex-end !important;
+    padding: 0 !important;
   }
   .modal-card,
-  .modal-large {
-    inline-size: 100%;
-    max-inline-size: 100%;
-    max-block-size: min(88dvh, calc(100dvh - var(--safe-top, 0px) - 1.25rem));
-    border-radius: 20px 20px 0 0;
-    border-inline: none;
-    border-bottom: none;
-    padding: 1.15rem max(1rem, var(--safe-right)) calc(3rem + var(--safe-bottom, 16px)) max(1rem, var(--safe-left));
+  .modal-large,
+  .modal-account,
+  .modal-pricing,
+  .modal-statistics,
+  .modal-admin-cfg,
+  .modal-bot-duel,
+  .modal-race-leaderboard {
+    inline-size: 100% !important;
+    max-inline-size: 100% !important;
+    width: 100% !important;
+    max-block-size: min(90dvh, calc(100dvh - var(--safe-top, 0px) - 1rem)) !important;
+    border-radius: 20px 20px 0 0 !important;
+    border-inline: none !important;
+    border-bottom: none !important;
+    margin: 0 !important;
+    padding: 1.15rem max(1rem, var(--safe-right)) calc(2.5rem + var(--safe-bottom, 20px)) max(1rem, var(--safe-left)) !important;
     -webkit-overflow-scrolling: touch;
     overscroll-behavior-y: contain;
+    box-sizing: border-box;
   }
   .modal-card.modal-account {
-    border-radius: 18px 18px 0 0;
-    border: 2px solid var(--neon-cyan);
-    border-bottom: none;
-    margin-top: 0;
-    max-block-size: min(88dvh, calc(100dvh - var(--safe-top, 0px) - 1.25rem));
-    padding: 1.15rem max(1rem, var(--safe-right)) calc(3.5rem + var(--safe-bottom, 16px)) max(1rem, var(--safe-left));
+    border: 2px solid var(--neon-cyan) !important;
+    border-bottom: none !important;
   }
-  .modal-buttons {
-    padding-bottom: 1.25rem;
-    margin-bottom: 0.5rem;
+
+  /* Suppression de tout défilement imbriqué sur smartphone (défilement unique & fluide) */
+  .modal-form-scrollable {
+    max-height: none !important;
+    overflow-y: visible !important;
+    overflow-x: hidden !important;
+    padding-right: 0 !important;
+    scrollbar-gutter: auto !important;
+  }
+  .legal-content {
+    max-block-size: none !important;
+    overflow-y: visible !important;
+    padding-right: 0 !important;
+  }
+
+  /* Dégagement bas garanti pour tous les boutons d'action (compte, duels, salons, stats, etc.) */
+  .modal-buttons,
+  .modal-footer-actions,
+  .weekly-summary-actions {
+    padding-bottom: calc(2.5rem + var(--safe-bottom, 20px)) !important;
+    margin-bottom: 1.5rem !important;
+  }
+  .pricing-messages {
+    margin-bottom: calc(3rem + var(--safe-bottom, 20px)) !important;
   }
 }
 
