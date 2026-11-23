@@ -1790,7 +1790,8 @@ body.app-pseudo-fullscreen .game-container {
   justify-content: center;
   padding: 1rem;
   z-index: 200;
-  overflow: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   touch-action: pan-y !important;
 }
 
@@ -1806,7 +1807,6 @@ body.app-pseudo-fullscreen .game-container {
   max-height: 90dvh;
   overflow-y: auto;
   overflow-x: hidden;
-  overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
   touch-action: pan-y !important;
   box-sizing: border-box;
@@ -2400,6 +2400,7 @@ select:autofill:focus {
   .modal-overlay,
   .modal-overlay:has(.modal-account) {
     align-items: flex-end !important;
+    justify-content: center !important;
     padding: 0 !important;
     overflow: hidden !important;
     touch-action: pan-y !important;
@@ -2422,13 +2423,14 @@ select:autofill:focus {
     overflow-y: auto !important;
     overflow-x: hidden !important;
     -webkit-overflow-scrolling: touch !important;
-    overscroll-behavior-y: contain;
+    overscroll-behavior: auto !important;
+    overscroll-behavior-y: auto !important;
     touch-action: pan-y !important;
     border-radius: 20px 20px 0 0 !important;
     border-inline: none !important;
     border-bottom: none !important;
     margin: 0 !important;
-    padding: 1.15rem max(1rem, var(--safe-right)) calc(2.5rem + var(--safe-bottom, 20px)) max(1rem, var(--safe-left)) !important;
+    padding: 1.15rem max(1rem, var(--safe-right)) calc(3rem + var(--safe-bottom, 20px)) max(1rem, var(--safe-left)) !important;
     box-sizing: border-box !important;
   }
   .modal-card.modal-account {
@@ -2436,22 +2438,33 @@ select:autofill:focus {
     border-bottom: none !important;
   }
 
-  /* Suppression de tout défilement imbriqué sur smartphone (défilement unique & fluide) */
-  .modal-form-scrollable {
+  /* Force le défilement fluide unique sur le conteneur parent .modal-card sans aucun scroll interne bloquant */
+  .modal-form-scrollable,
+  .modal-card .modal-form-scrollable,
+  .modal-card .modal-form,
+  .modal-card form,
+  .modal-card div.modal-form,
+  .legal-content,
+  .modal-card .legal-content {
     max-height: none !important;
+    max-block-size: none !important;
+    overflow: visible !important;
+    overflow-x: visible !important;
     overflow-y: visible !important;
-    overflow-x: hidden !important;
+    overscroll-behavior: auto !important;
+    overscroll-behavior-y: auto !important;
     padding-right: 0 !important;
     scrollbar-gutter: auto !important;
     touch-action: pan-y !important;
   }
   .modal-form {
+    overflow: visible !important;
+    overflow-x: visible !important;
+    overflow-y: visible !important;
     touch-action: pan-y !important;
   }
-  .legal-content {
-    max-block-size: none !important;
-    overflow-y: visible !important;
-    padding-right: 0 !important;
+
+  .modal-card * {
     touch-action: pan-y !important;
   }
 
@@ -2459,8 +2472,21 @@ select:autofill:focus {
   .modal-buttons,
   .modal-footer-actions,
   .weekly-summary-actions {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 0.75rem !important;
     padding-bottom: calc(2.5rem + var(--safe-bottom, 20px)) !important;
     margin-bottom: 1.5rem !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+  .modal-buttons .btn-primary,
+  .modal-buttons .btn-secondary,
+  .modal-footer-actions .btn-primary,
+  .modal-footer-actions .btn-secondary {
+    width: 100% !important;
+    flex: 1 1 auto !important;
+    min-block-size: 48px !important;
   }
   .pricing-messages {
     margin-bottom: calc(3rem + var(--safe-bottom, 20px)) !important;
@@ -2602,7 +2628,7 @@ select:autofill:focus {
 .modal-form-scrollable {
   max-height: 65vh;
   overflow-y: auto;
-  overflow-x: hidden !important;
+  overflow-x: hidden;
   overscroll-behavior: contain;
   scrollbar-gutter: stable;
   padding-right: 0.35rem;
@@ -10360,6 +10386,9 @@ app-cockpit-view {
   justify-content: center;
   padding: 1.25rem;
   animation: regattaLaunchFadeIn 0.25s ease-out;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y !important;
 }
 
 @keyframes regattaLaunchFadeIn {
@@ -10377,6 +10406,41 @@ app-cockpit-view {
   padding: 2.25rem 1.75rem;
   text-align: center;
   position: relative;
+  max-height: 90vh;
+  max-height: 90dvh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y !important;
+  box-sizing: border-box;
+}
+
+@media (max-width: 640px) {
+  .regatta-launch-overlay {
+    align-items: flex-end !important;
+    padding: 0 !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    touch-action: pan-y !important;
+  }
+  .regatta-launch-card {
+    max-width: 100% !important;
+    width: 100% !important;
+    border-radius: 20px 20px 0 0 !important;
+    border-inline: none !important;
+    border-bottom: none !important;
+    max-height: 88vh !important;
+    max-height: 88dvh !important;
+    padding: 1.5rem 1.2rem calc(3rem + var(--safe-bottom, 20px)) !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    -webkit-overflow-scrolling: touch !important;
+    touch-action: pan-y !important;
+    overscroll-behavior: auto !important;
+  }
+  .regatta-launch-card * {
+    touch-action: pan-y !important;
+  }
 }
 
 .regatta-launch-logo {
