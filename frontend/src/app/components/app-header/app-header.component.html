@@ -428,7 +428,8 @@
             class="btn-hud btn-connect-compact"
             (click)="openAccountModal('login')"
             [title]="i18n.t('HEADER_GUEST_AUTH_TIP')">
-            {{ i18n.t('HEADER_LOGIN_REGISTER_TIP') }}
+            <span class="auth-btn-full">{{ i18n.t('HEADER_LOGIN_REGISTER_TIP') }}</span>
+            <span class="auth-btn-short">{{ i18n.t('ACCOUNT_TAB_LOGIN') }}</span>
           </button>
         </div>
       }

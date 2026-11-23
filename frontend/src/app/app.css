@@ -1804,6 +1804,7 @@ body.app-pseudo-fullscreen .game-container {
   overflow-y: auto;
   overflow-x: hidden;
   overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
   box-sizing: border-box;
 }
 .modal-large { inline-size: min(94dvw, 680px); }
@@ -2394,24 +2395,32 @@ select:autofill:focus {
 @media (max-width: 640px) {
   .modal-overlay { align-items: flex-end; padding: 0; }
   .modal-overlay:has(.modal-account) {
-    align-items: flex-start;
-    padding: max(0.75rem, var(--safe-top)) 0.5rem calc(0.75rem + var(--safe-bottom));
+    align-items: flex-end;
+    padding: 0;
   }
   .modal-card,
   .modal-large {
     inline-size: 100%;
     max-inline-size: 100%;
-    max-block-size: 90dvh;
+    max-block-size: min(88dvh, calc(100dvh - var(--safe-top, 0px) - 1.25rem));
     border-radius: 20px 20px 0 0;
     border-inline: none;
     border-bottom: none;
-    padding: 1.15rem max(1rem, var(--safe-right)) calc(1.25rem + var(--safe-bottom)) max(1rem, var(--safe-left));
+    padding: 1.15rem max(1rem, var(--safe-right)) calc(3rem + var(--safe-bottom, 16px)) max(1rem, var(--safe-left));
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
   }
   .modal-card.modal-account {
-    border-radius: 16px;
+    border-radius: 18px 18px 0 0;
     border: 2px solid var(--neon-cyan);
-    margin-top: 0.5rem;
-    max-block-size: calc(92dvh - var(--safe-top));
+    border-bottom: none;
+    margin-top: 0;
+    max-block-size: min(88dvh, calc(100dvh - var(--safe-top, 0px) - 1.25rem));
+    padding: 1.15rem max(1rem, var(--safe-right)) calc(3.5rem + var(--safe-bottom, 16px)) max(1rem, var(--safe-left));
+  }
+  .modal-buttons {
+    padding-bottom: 1.25rem;
+    margin-bottom: 0.5rem;
   }
 }
 
@@ -3832,6 +3841,39 @@ select:autofill:focus {
   .user-nav-cluster .guest-hero-pill {
     inline-size: 100%;
   }
+  .guest-hero-pill {
+    padding: 0.4rem 0.65rem;
+    gap: 0.5rem;
+    box-sizing: border-box;
+  }
+  .guest-pill-text {
+    min-width: 0;
+    flex: 1 1 auto;
+    overflow: hidden;
+  }
+  .guest-pill-name {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 0.82rem;
+  }
+  .guest-pill-sub {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 0.68rem;
+  }
+  .btn-connect-compact {
+    font-size: 0.76rem;
+    padding: 0.35rem 0.6rem;
+    flex-shrink: 0;
+  }
+  .btn-connect-compact .auth-btn-full {
+    display: none;
+  }
+  .btn-connect-compact .auth-btn-short {
+    display: inline;
+  }
   .user-nav-cluster .btn-config-unified {
     flex: 1 1 100%;
     text-align: center;
@@ -4641,6 +4683,36 @@ select:autofill:focus {
 .guest-pill-sub {
   font-size: 0.72rem;
   color: #94a3b8;
+}
+.btn-connect-compact {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 240, 255, 0.12);
+  border: 1px solid rgba(0, 240, 255, 0.5);
+  color: var(--neon-cyan);
+  font-family: var(--font-race), monospace;
+  font-size: 0.82rem;
+  font-weight: 700;
+  padding: 0.4rem 0.8rem;
+  border-radius: 8px;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  margin-left: auto;
+  transition: all 0.2s ease;
+}
+.btn-connect-compact:hover {
+  background: rgba(0, 240, 255, 0.25);
+  border-color: var(--neon-cyan);
+  box-shadow: 0 0 12px rgba(0, 240, 255, 0.4);
+  transform: translateY(-1px);
+}
+.btn-connect-compact .auth-btn-short {
+  display: none;
+}
+.btn-connect-compact .auth-btn-full {
+  display: inline;
 }
 
 /* Section d'appairage Garmin moderne et esport (Code Web -> Montre) */
