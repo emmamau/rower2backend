@@ -57,3 +57,33 @@ test('3. app.ts activatePrivateRoom hydrates liveMetricsList with room participa
     'activatePrivateRoom doit synchroniser immédiatement les participants du salon sur leurs lignes d eau au ponton de départ'
   );
 });
+
+test('4. onGarminPaired checks isPinMatch and isDeviceMatch to avoid dropping PIN events when already paired', () => {
+  const appTs = fs.readFileSync(path.join(frontendAppDir, 'app.ts'), 'utf8');
+
+  assert.match(
+    appTs,
+    /isPinMatch\s*=\s*Boolean\([\s\S]*?incomingPin[\s\S]*?currentPin/,
+    'onGarminPaired doit calculer isPinMatch'
+  );
+  assert.match(
+    appTs,
+    /if\s*\(!this\.isPaired\s*\|\|\s*data\.userId === currentId\s*\|\|\s*isMyTicket\s*\|\|\s*isPinMatch\s*\|\|\s*isDeviceMatch\)/,
+    'onGarminPaired doit accepter l événement si le code PIN ou le device correspond même si isPaired est vrai'
+  );
+});
+
+test('5. pollActiveRaceSource preserves participant with pinValidated in duel and private rooms', () => {
+  const appTs = fs.readFileSync(path.join(frontendAppDir, 'app.ts'), 'utf8');
+
+  assert.match(
+    appTs,
+    /pinValidated[\s\S]*?connectionState === 'READY'/,
+    'pollActiveRaceSource doit vérifier pinValidated pour ne pas filtrer le participant sur l eau'
+  );
+  assert.match(
+    appTs,
+    /installKayakOnWaterLane[\s\S]*?pinValidated:\s*true/,
+    'installKayakOnWaterLane doit définir pinValidated: true'
+  );
+});

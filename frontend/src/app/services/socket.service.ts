@@ -17,6 +17,7 @@ export interface LiveRacerMetric {
   status: string;
   elapsedTime?: number;
   ready?: boolean;
+  pinValidated?: boolean;
   connectionState?: 'CONNECTED' | 'READY';
   isBot?: boolean;
   isPaired?: boolean;
@@ -77,6 +78,9 @@ export class SocketService {
     lane?: number;
     raceId?: string;
     roomCode?: string;
+    pinCode?: string;
+    code?: string;
+    ticketPin?: string;
     socketId?: string;
   }>();
 
@@ -140,6 +144,10 @@ export class SocketService {
           guestName: data.playerName,
           lane: data.lane,
           raceId: data.roomId,
+          roomCode: data.roomCode,
+          pinCode: data.pinCode,
+          code: data.code,
+          ticketPin: data.code,
           socketId: data.socketId
         });
       }
@@ -195,6 +203,9 @@ export class SocketService {
     lane?: number;
     raceId?: string;
     roomCode?: string;
+    pinCode?: string;
+    code?: string;
+    ticketPin?: string;
     socketId?: string;
   }> {
     return this.garminPairedSubject.asObservable();

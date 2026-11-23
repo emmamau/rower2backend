@@ -124,11 +124,18 @@ test('Saisie du code PIN sur la montre définit le salon par défaut et assigne 
     assert.ok(sessionClaimedEvents.length >= 2, 'session_claimed doit être diffusé pour chaque saisie de code PIN');
     assert.equal(sessionClaimedEvents[0].data.lane, 1);
     assert.equal(sessionClaimedEvents[0].data.roomId, race.id);
+    assert.equal(sessionClaimedEvents[0].data.code, pin);
+    assert.equal(sessionClaimedEvents[0].data.roomCode, race.code);
     assert.equal(sessionClaimedEvents[1].data.lane, 2);
     assert.equal(sessionClaimedEvents[1].data.roomId, race.id);
 
     const roomUpdates = capturedBroadcasts.filter(b => b.event === 'private_room_update' && b.data?.type === 'PARTICIPANT_JOINED');
     assert.ok(roomUpdates.length >= 2, 'PARTICIPANT_JOINED doit être diffusé pour installer le kayak');
+    assert.equal(roomUpdates[0].data.pinValidated, true, 'pinValidated doit être vrai dans PARTICIPANT_JOINED');
+
+    // 4. Vérifier que les participants possèdent pinValidated = true
+    assert.equal(race.participants.get(data1.userId)?.pinValidated, true, 'L hôte doit avoir pinValidated = true');
+    assert.equal(race.participants.get(data2.userId)?.pinValidated, true, 'L invité doit avoir pinValidated = true');
   } finally {
     socketGateway.broadcast = originalBroadcast;
     socketGateway.broadcastPrivateRoomUpdate = originalBroadcastPrivateRoomUpdate;

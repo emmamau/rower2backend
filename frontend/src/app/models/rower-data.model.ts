@@ -44,6 +44,7 @@ export interface PrivateRoomParticipant {
   joinedAt: string;
   lane?: number;
   ready?: boolean;
+  pinValidated?: boolean;
   connectionState?: 'CONNECTED' | 'READY';
   isBot?: boolean;
   isPaired?: boolean;

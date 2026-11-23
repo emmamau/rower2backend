@@ -294,6 +294,7 @@ export class SessionService {
           p.lane = lane;
           p.ready = false;
           p.connectionState = "CONNECTED";
+          p.pinValidated = true;
           p.deviceToken = deviceToken;
           if (ticket?.socketId) p.socketId = ticket.socketId;
           race.participants.set(userId, p);
@@ -390,6 +391,7 @@ export class SessionService {
             botLane: race.isBotDuel ? 2 : undefined,
             raceId: race.id,
             ready: false,
+            pinValidated: true,
             connectionState: "CONNECTED",
             isBotDuel: Boolean(race.isBotDuel),
             isDuel1v1: Boolean(race.isDuel1v1),
@@ -508,6 +510,12 @@ export class SessionService {
             deviceToken,
             bypassApproval: true,
           });
+          if (race.participants && race.participants.has(targetUserId)) {
+            const p = race.participants.get(targetUserId)!;
+            p.pinValidated = true;
+            p.deviceToken = deviceToken;
+            race.participants.set(targetUserId, p);
+          }
         }
       }
     }
@@ -536,6 +544,12 @@ export class SessionService {
             deviceToken,
             bypassApproval: true,
           });
+          if (race.participants && race.participants.has(targetUserId)) {
+            const p = race.participants.get(targetUserId)!;
+            p.pinValidated = true;
+            p.deviceToken = deviceToken;
+            race.participants.set(targetUserId, p);
+          }
         }
       }
     }

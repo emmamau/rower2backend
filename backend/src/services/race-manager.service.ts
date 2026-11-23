@@ -2610,6 +2610,11 @@ export class RaceManager {
     } else if (alreadyApproved) {
       const existing = race.participants.get(cleanUserId);
       assignedLane = existing?.lane || 1;
+      if (existing) {
+        if (options?.viaPin) existing.pinValidated = true;
+        if (options?.deviceToken) existing.deviceToken = options.deviceToken;
+        if (options?.socketId) existing.socketId = options.socketId;
+      }
     } else {
       const usedLanes = new Set<number>();
       for (const p of race.participants.values()) {
@@ -2659,6 +2664,7 @@ export class RaceManager {
       country,
       lane: assignedLane,
       ready: isReady,
+      pinValidated: Boolean(options?.viaPin),
       connectionState,
       socketId: options?.socketId,
       deviceToken: options?.deviceToken

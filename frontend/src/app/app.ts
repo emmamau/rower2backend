@@ -1658,8 +1658,10 @@ export class AppComponent implements OnInit, OnDestroy {
             if (roomParts && roomParts.length > 0 && (!this.isRaceActive || isRaceWaitingOrCountdown)) {
               for (const p of roomParts) {
                 if (!p.userId) continue;
+                const isMe = p.userId === this.activeUserId;
+                const isUserValidated = Boolean(p.ready || p.pinValidated || p.connectionState === 'READY' || (isMe && (this.isPaired || this.isWatchConfirmed)));
                 // En mode duel 1v1, un kayak n'apparaît sur le plan d'eau QUE lorsque le joueur a validé son code PIN sur sa montre
-                if (isDuelRoom && !p.ready && !p.pinValidated && p.connectionState !== 'READY' && (p.netDistance || 0) <= 0) {
+                if (isDuelRoom && !isUserValidated && (p.netDistance || 0) <= 0) {
                   continue;
                 }
                 if (!activeList.some(r => r.userId === p.userId)) {
@@ -1680,10 +1682,29 @@ export class AppComponent implements OnInit, OnDestroy {
             }
             if (isDuelRoom) {
               activeList = activeList.filter(r => {
+                const isMe = r.userId === this.activeUserId;
                 const partInfo = roomParts.find((p: any) => p.userId === r.userId);
-                const hasValidatedPin = Boolean(partInfo?.ready || partInfo?.pinValidated || partInfo?.connectionState === 'READY');
+                const hasValidatedPin = Boolean(partInfo?.ready || partInfo?.pinValidated || partInfo?.connectionState === 'READY' || (isMe && (this.isPaired || this.isWatchConfirmed)));
                 return hasValidatedPin || (r.netDistance || 0) > 0 || (r.lastPower || 0) > 0;
               });
+            }
+            // S'assurer que le kayak du joueur local reste positionné sur sa ligne d'eau attribuée
+            if (this.activeUserId && !activeList.some(r => r.userId === this.activeUserId) && (!this.isRaceActive || isRaceWaitingOrCountdown)) {
+              const myMetric = this.liveMetricsList.find(m => m.userId === this.activeUserId);
+              if (myMetric) {
+                activeList.push({
+                  userId: myMetric.userId,
+                  userName: myMetric.name,
+                  netDistance: myMetric.dist || 0,
+                  currentDistance: myMetric.dist || 0,
+                  lane: myMetric.lane || this.myAssignedLane || 1,
+                  status: myMetric.status || 'waiting',
+                  lastPower: myMetric.watts || 0,
+                  lastStrokeRate: myMetric.spm || 0,
+                  lastPace: myMetric.split || 120,
+                  kayak: myMetric.kayak
+                } as any);
+              }
             }
             this.liveMetricsList = activeList.map((r, idx) => {
               const isMe = r.userId === this.activeUserId;
@@ -4847,8 +4868,9 @@ export class AppComponent implements OnInit, OnDestroy {
       spm: 0,
       heartRate: undefined,
       status: isRaceActive ? 'in_progress' : 'waiting',
-      ready: false,
-      connectionState: 'CONNECTED',
+      ready: true,
+      pinValidated: true,
+      connectionState: 'READY',
       isBot: false,
       isPaired: true,
       kayak: racerKayak
@@ -5842,11 +5864,18 @@ export class AppComponent implements OnInit, OnDestroy {
       const mySocketId = this.socketService.getSocketId();
       const assignedLaneVal = Number(update?.['lane'] || 0);
       const updateHostId = update?.['hostUserId'] ? String(update['hostUserId']) : '';
+      const incomingPin = String(update?.['ticketPin'] || update?.['pinCode'] || update?.['code'] || '').toUpperCase();
+      const currentPin = String(this.activeFullscreenPinCode || this.pairingCode || this.activePrivateRoom?.pinCode || this.activePrivateRoom?.race?.pinCode || this.activePrivateRoom?.code || this.activePrivateRoom?.race?.code || '').toUpperCase();
+      const isPinMatch = Boolean(incomingPin && currentPin && (incomingPin === currentPin || currentPin.includes(incomingPin) || incomingPin.includes(currentPin)));
+      const isDeviceMatch = Boolean(update?.['deviceToken'] && this.deviceToken && update['deviceToken'] === this.deviceToken);
+
       const isMyGuestTicketClaim = Boolean(
-        update?.['ticketClaimed'] &&
+        (update?.['ticketClaimed'] || isPinMatch || isDeviceMatch) &&
         ((mySocketId && update?.['socketId'] === mySocketId) ||
           (update.userId && update.userId === currentActiveId) ||
-          (this.activePrivateRoom && (this.activePrivateRoom.race?.id === update.raceId || this.activePrivateRoom.code === update.raceId)))
+          (this.activePrivateRoom && (this.activePrivateRoom.race?.id === update.raceId || this.activePrivateRoom.code === update.raceId)) ||
+          isPinMatch ||
+          isDeviceMatch)
       );
       const isMyRoomJoin = Boolean(
         update &&
@@ -5854,7 +5883,9 @@ export class AppComponent implements OnInit, OnDestroy {
         (isMyGuestTicketClaim ||
           (update.userId && (update.userId === currentActiveId || update.userId === this.currentUser?.id)) ||
           (updateHostId && (updateHostId === currentActiveId || updateHostId === this.currentUser?.id)) ||
-          (this.activePrivateRoom && (this.activePrivateRoom.race?.id === update.raceId || this.activePrivateRoom.code === update.raceId)))
+          (this.activePrivateRoom && (this.activePrivateRoom.race?.id === update.raceId || this.activePrivateRoom.code === update.raceId)) ||
+          isPinMatch ||
+          isDeviceMatch)
       );
 
       if (isMyGuestTicketClaim) {
@@ -5964,19 +5995,28 @@ export class AppComponent implements OnInit, OnDestroy {
         const currentId = this.activeUserId || this.currentUser?.id || this.guestSessionId;
         const mySocketId = this.socketService.getSocketId();
         const claimedRoomId = data.raceId || (data as any).roomId;
+        const incomingPin = String((data as any).code || (data as any).pinCode || (data as any).ticketPin || '').toUpperCase();
+        const currentPin = String(this.activeFullscreenPinCode || this.pairingCode || this.activePrivateRoom?.pinCode || this.activePrivateRoom?.race?.pinCode || this.activePrivateRoom?.code || this.activePrivateRoom?.race?.code || '').toUpperCase();
+        const isPinMatch = Boolean(incomingPin && currentPin && (incomingPin === currentPin || currentPin.includes(incomingPin) || incomingPin.includes(currentPin)));
+        const isDeviceMatch = Boolean(data.deviceToken && this.deviceToken && data.deviceToken === this.deviceToken);
         const isMyTicket = Boolean(
           (data.ticketClaimed || (data as any).ticketPin || data.roomCode) &&
           ((mySocketId && data.socketId === mySocketId) ||
            (this.activePrivateRoom && (this.activePrivateRoom.race?.id === claimedRoomId || this.activePrivateRoom.code === data.roomCode)) ||
-           (data.userId && data.userId === currentId))
+           (data.userId && data.userId === currentId) ||
+           isPinMatch ||
+           isDeviceMatch)
         );
-        if (!this.isPaired || data.userId === currentId || isMyTicket) {
+        if (!this.isPaired || data.userId === currentId || isMyTicket || isPinMatch || isDeviceMatch) {
           this.onWatchPairedSuccess(data.deviceToken, data.userId);
-          if (claimedRoomId) {
+          const claimedTarget = claimedRoomId || data.roomCode;
+          if (claimedTarget) {
             this.isPrivateRoomPreview = false;
             try {
               if (typeof localStorage !== 'undefined') {
-                localStorage.setItem('rower_active_private_room_id', claimedRoomId);
+                if (claimedRoomId) {
+                  localStorage.setItem('rower_active_private_room_id', claimedRoomId);
+                }
                 const codeToSave = data.roomCode || this.activePrivateRoom?.code || this.activePrivateRoom?.race?.code;
                 if (codeToSave) {
                   localStorage.setItem('rower_active_private_room_code', codeToSave);
@@ -6006,7 +6046,7 @@ export class AppComponent implements OnInit, OnDestroy {
                     this.userLoginInput = data.guestName;
                   }
                   this.activatePrivateRoom(room, false, false);
-                  this.installKayakOnWaterLane(data.lane || (room as any).lane || this.myAssignedLane, data.userId, data.guestName, claimedRoomId);
+                  this.installKayakOnWaterLane(data.lane || (room as any).lane || this.myAssignedLane, data.userId, data.guestName, claimedRoomId || room.race?.id);
                 }
               });
             }
@@ -6275,17 +6315,34 @@ export class AppComponent implements OnInit, OnDestroy {
             this.activatePrivateRoom(active, false, false);
             this.cdr.markForCheck();
           } else {
-            if (this.activePrivateRoom) {
-              this.activePrivateRoom = null;
-              this.updateDocumentTitle();
-            }
-            try {
-              if (typeof localStorage !== 'undefined') {
-                localStorage.removeItem('rower_active_private_room_id');
-                localStorage.removeItem('rower_active_private_room_code');
+            this.rowerService.getPrivateRace(storedRoomId).pipe(
+              catchError(() => of(null))
+            ).subscribe((directRoom: any) => {
+              if (
+                directRoom &&
+                directRoom.race?.id &&
+                directRoom.status !== 'COMPLETED' &&
+                directRoom.status !== 'finished' &&
+                directRoom.status !== 'STOPPED' &&
+                directRoom.status !== 'CANCELLED' &&
+                directRoom.status !== 'ABANDONED'
+              ) {
+                this.activatePrivateRoom(directRoom, false, false);
+                this.cdr.markForCheck();
+              } else {
+                if (this.activePrivateRoom) {
+                  this.activePrivateRoom = null;
+                  this.updateDocumentTitle();
+                }
+                try {
+                  if (typeof localStorage !== 'undefined') {
+                    localStorage.removeItem('rower_active_private_room_id');
+                    localStorage.removeItem('rower_active_private_room_code');
+                  }
+                } catch {}
+                this.initGameLoop();
               }
-            } catch {}
-            this.initGameLoop();
+            });
           }
         });
         return;
