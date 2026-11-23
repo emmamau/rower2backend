@@ -244,11 +244,18 @@ export class SessionService {
             } else {
               userId = `guest_${cleanCode.toLowerCase()}`;
             }
-          } else if (race.hostUserId && race.hostUserId !== "anonymous" && !race.participants?.has(race.hostUserId)) {
-            userId = race.hostUserId;
-            guestName = race.hostUserName || guestName;
+          } else if (race.hostUserId && race.hostUserId !== "anonymous") {
+            const hostPart = race.participants?.get(race.hostUserId);
+            if (!hostPart || !hostPart.deviceToken) {
+              userId = race.hostUserId;
+              guestName = race.hostUserName || guestName;
+            } else {
+              const guestSuffix = (race.participants?.size || 0) + 1;
+              userId = `guest_${cleanCode.toLowerCase()}_${guestSuffix}`;
+            }
           } else {
-            userId = `guest_${cleanCode.toLowerCase()}`;
+            const guestSuffix = (race.participants?.size || 0) + 1;
+            userId = `guest_${cleanCode.toLowerCase()}_${guestSuffix}`;
           }
         }
 
@@ -394,6 +401,21 @@ export class SessionService {
             countdownSeconds: secondsRemaining,
             lobbyEndsAt: race.lobbyEndsAt ? race.lobbyEndsAt.toISOString() : undefined,
             waitingStatusMessage,
+          });
+
+          socketGateway.broadcast("session_claimed", {
+            code: cleanCode,
+            type: "room_pin",
+            mode: "room",
+            userId,
+            playerName: guestName,
+            lane,
+            roomId: race.id,
+            deviceId: cleanDeviceId,
+            deviceToken,
+            socketId: ticket?.socketId,
+            roomCode: race.code,
+            pinCode: race.pinCode,
           });
         } catch {}
 

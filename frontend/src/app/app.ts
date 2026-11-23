@@ -4816,6 +4816,78 @@ export class AppComponent implements OnInit, OnDestroy {
     this.cdr.markForCheck();
   }
 
+  public installKayakOnWaterLane(laneNumber: number, userId?: string, playerName?: string, roomId?: string): void {
+    const assigned = Number(laneNumber) || this.myAssignedLane || 1;
+    this.myAssignedLane = assigned;
+
+    const targetUserId = userId || this.activeUserId || this.currentUser?.id || this.guestSessionId;
+    if (targetUserId) {
+      this.activeUserId = targetUserId;
+      this.claimedRacerUserId = targetUserId;
+    }
+
+    const displayName = playerName || this.currentUser?.name || targetUserId || `Kayakiste L${assigned}`;
+    if (displayName) {
+      this.currentUser.name = displayName;
+      this.userLoginInput = displayName;
+    }
+
+    const racerKayak = this.committedKayakCustomization || this.currentKayakCustomization;
+    const isRaceActive = Boolean(this.isRaceActive || this.activePrivateRoom?.race?.status === 'RUNNING');
+
+    // Mettre à jour ou insérer dans liveMetricsList pour affichage immédiat sur le plan d'eau
+    const existingIndex = this.liveMetricsList.findIndex(m => m.userId === targetUserId || m.lane === assigned);
+    const metricEntry: LiveRacerMetric = {
+      lane: assigned,
+      userId: targetUserId,
+      name: displayName,
+      dist: 0,
+      split: 120,
+      watts: 0,
+      spm: 0,
+      heartRate: undefined,
+      status: isRaceActive ? 'in_progress' : 'waiting',
+      ready: false,
+      connectionState: 'CONNECTED',
+      isBot: false,
+      isPaired: true,
+      kayak: racerKayak
+    };
+
+    if (existingIndex >= 0) {
+      this.liveMetricsList[existingIndex] = {
+        ...this.liveMetricsList[existingIndex],
+        ...metricEntry
+      };
+      this.liveMetricsList = [...this.liveMetricsList];
+    } else {
+      this.liveMetricsList = [...this.liveMetricsList, metricEntry];
+    }
+
+    // Persistance du salon par défaut
+    if (roomId) {
+      try {
+        if (typeof localStorage !== 'undefined') {
+          localStorage.setItem('rower_active_private_room_id', roomId);
+          const roomCode = this.activePrivateRoom?.code || this.activePrivateRoom?.race?.code;
+          if (roomCode) {
+            localStorage.setItem('rower_active_private_room_code', roomCode);
+          }
+        }
+      } catch {}
+    }
+
+    // Basculer immédiatement sur la vue régate et fermer les overlays
+    this.isPrivateModalOpen = false;
+    this.isPrivateRoomPreview = false;
+    this.setSiteView('regatta');
+
+    // Toast de confirmation avec numéro de ligne attribuée
+    this.triggerFinishToast(`Kayak installé sur la ligne ${assigned} (${displayName})`);
+
+    this.cdr.markForCheck();
+  }
+
   resetGarminPairing(): void {
     const tokenToRevoke = this.deviceToken;
     const userToRevoke = this.activeUserId || this.guestSessionId;
@@ -5811,8 +5883,7 @@ export class AppComponent implements OnInit, OnDestroy {
         if (assignedLaneVal > 0) {
           this.myAssignedLane = assignedLaneVal;
         }
-        this.isPrivateModalOpen = false;
-        this.setSiteView('regatta');
+        this.installKayakOnWaterLane(assignedLaneVal || this.myAssignedLane, update.userId, String(update?.['guestName'] || update.userName), update.raceId);
       }
 
       if (isMyRoomJoin) {
@@ -5833,10 +5904,13 @@ export class AppComponent implements OnInit, OnDestroy {
             next: (room: PrivateRacePayload) => {
               (room as any).lane = assignedLaneVal || this.myAssignedLane;
               this.activatePrivateRoom(room, false);
+              this.installKayakOnWaterLane(assignedLaneVal || (room as any).lane || this.myAssignedLane, update.userId, String(update?.['guestName'] || update.userName), update.raceId);
               this.setSiteView('regatta');
               this.cdr.markForCheck();
             }
           });
+        } else {
+          this.installKayakOnWaterLane(assignedLaneVal || this.myAssignedLane, update.userId, String(update?.['guestName'] || update.userName), update.raceId);
         }
       }
 
@@ -5917,9 +5991,7 @@ export class AppComponent implements OnInit, OnDestroy {
               if (data.lane) {
                 this.myAssignedLane = data.lane;
               }
-              this.isPrivateModalOpen = false;
-              this.setSiteView('regatta');
-              this.cdr.markForCheck();
+              this.installKayakOnWaterLane(data.lane || this.myAssignedLane, data.userId, data.guestName, claimedRoomId);
             } else {
               // Si la page web était restée sur la course publique, la saisie du PIN sur la montre bascule vers le salon
               const targetCode = data.roomCode || claimedRoomId;
@@ -5934,9 +6006,7 @@ export class AppComponent implements OnInit, OnDestroy {
                     this.userLoginInput = data.guestName;
                   }
                   this.activatePrivateRoom(room, false, false);
-                  this.isPrivateModalOpen = false;
-                  this.setSiteView('regatta');
-                  this.cdr.markForCheck();
+                  this.installKayakOnWaterLane(data.lane || (room as any).lane || this.myAssignedLane, data.userId, data.guestName, claimedRoomId);
                 }
               });
             }
@@ -6432,6 +6502,37 @@ export class AppComponent implements OnInit, OnDestroy {
 
     this.updateDocumentTitle();
     this.syncSocketRoom(room.race.id);
+
+    // Synchroniser immédiatement les participants du salon sur leurs lignes d'eau au ponton de départ
+    const roomParts = room?.race?.participants || [];
+    if (Array.isArray(roomParts) && roomParts.length > 0) {
+      for (const p of roomParts) {
+        if (!p.userId) continue;
+        const pLane = Number(p.lane) || (this.liveMetricsList.length + 1);
+        if (!this.liveMetricsList.some(m => m.userId === p.userId || m.lane === pLane)) {
+          const isMe = p.userId === this.activeUserId;
+          const pKayak = (isMe && this.committedKayakCustomization)
+            ? this.committedKayakCustomization
+            : p.kayak;
+          this.liveMetricsList.push({
+            lane: pLane,
+            userId: p.userId,
+            name: (p as any).name || p.userName || p.userId,
+            dist: 0,
+            split: 120,
+            watts: 0,
+            spm: 0,
+            ready: p.ready !== false,
+            connectionState: p.connectionState || 'CONNECTED',
+            kayak: pKayak,
+            status: room.race?.status === 'RUNNING' ? 'in_progress' : 'waiting',
+            isBot: Boolean(p.isBot),
+            isPaired: Boolean(p.isPaired || p.deviceToken || isMe)
+          } as any);
+        }
+      }
+      this.liveMetricsList = [...this.liveMetricsList];
+    }
 
     this.pendingRegattaLaunch = false;
     this.isRegattaLaunchSplashOpen = false;

@@ -47,6 +47,7 @@ export interface PrivateRoomParticipant {
   connectionState?: 'CONNECTED' | 'READY';
   isBot?: boolean;
   isPaired?: boolean;
+  deviceToken?: string;
   kayak?: KayakCustomization;
 }
 

@@ -414,6 +414,21 @@ export class GarminController {
         waitingStatusMessage
       });
 
+      socketGateway.broadcast("session_claimed", {
+        code: rawPin,
+        type: "room_pin",
+        mode: "room",
+        userId,
+        playerName: guestName,
+        lane: assignedLane,
+        roomId: race.id,
+        deviceId,
+        deviceToken: paired.deviceToken,
+        socketId,
+        roomCode: race.code,
+        pinCode: race.pinCode,
+      });
+
       const timing = raceManager.getRaceTiming(race, new Date());
       const waitingForHost = race.status === "LOBBY" && !race.autoStart;
       const secondsRemaining = (!waitingForHost && (race.status === "LOBBY" || race.status === "COUNTDOWN"))
