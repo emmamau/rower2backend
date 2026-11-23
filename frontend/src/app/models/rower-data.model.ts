@@ -104,6 +104,10 @@ export interface NextRaceInfo {
   };
   code?: string;
   pinCode?: string;
+  isDuel1v1?: boolean;
+  isBotDuel?: boolean;
+  isSolo?: boolean;
+  gameMode?: 'solo' | 'bot_duel' | 'duel_1v1' | 'multi';
   duelChallenge?: DuelChallenge;
   inviteUrl?: string;
   secondsRemaining: number;
@@ -168,6 +172,10 @@ export interface PrivateRacePayload extends NextRaceInfo {
   raceId?: string;
   lane?: number;
   approvalStatus?: 'approved' | 'pending' | 'rejected';
+  isDuel1v1?: boolean;
+  isBotDuel?: boolean;
+  isSolo?: boolean;
+  gameMode?: 'solo' | 'bot_duel' | 'duel_1v1' | 'multi';
 }
 
 export interface SavedPrivateSalon {
