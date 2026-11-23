@@ -5791,8 +5791,8 @@ app-cockpit-view {
 
 /* Smartphone Portrait: Stretch 2D Regatta canvas to fill available viewport height when salon banner is collapsed */
 @media (orientation: portrait) and (max-width: 768px) {
-  .game-container.rigid-viewport,
-  .game-container.mobile-fullscreen-view {
+  .game-container.rigid-viewport:not(:has(app-regatta-view)),
+  .game-container.mobile-fullscreen-view:not(:has(app-regatta-view)) {
     padding: 0.25rem !important;
   }
   .regatta-quick-nav-bar {
@@ -5807,6 +5807,9 @@ app-cockpit-view {
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none !important;
     margin-bottom: 0.25rem !important;
+    padding-left: max(8px, env(safe-area-inset-left, 0px)) !important;
+    padding-right: max(8px, env(safe-area-inset-right, 0px)) !important;
+    box-sizing: border-box !important;
   }
   .regatta-quick-nav-bar::-webkit-scrollbar {
     display: none !important;
@@ -5845,6 +5848,13 @@ app-cockpit-view {
     flex: 1 1 0 !important;
     min-height: 220px !important;
   }
+  .game-container.rigid-viewport .canvas-wrapper,
+  .game-container.mobile-fullscreen-view .canvas-wrapper {
+    border-radius: 0 !important;
+    border-left: none !important;
+    border-right: none !important;
+    width: 100% !important;
+  }
   .regatta-canvas-section {
     order: 2 !important;
   }
@@ -5852,6 +5862,10 @@ app-cockpit-view {
     order: 3 !important;
     flex: 0 0 auto !important;
     margin-block: 0.2rem !important;
+    padding-left: max(6px, env(safe-area-inset-left, 0px)) !important;
+    padding-right: max(6px, env(safe-area-inset-right, 0px)) !important;
+    box-sizing: border-box !important;
+    width: 100% !important;
   }
   .regatta-hud-grid {
     grid-template-columns: repeat(min(3, var(--regatta-cols, 3)), minmax(0, 1fr)) !important;
@@ -7032,7 +7046,7 @@ app-cockpit-view {
     flex-direction: column !important;
     overflow: hidden !important;
     width: 100% !important;
-    height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 22px) !important;
+    height: 100% !important;
   }
 
   app-regatta-view {
@@ -7054,6 +7068,9 @@ app-cockpit-view {
     width: 100% !important;
     margin: 1px 0 !important;
     gap: 4px !important;
+    padding-left: max(8px, env(safe-area-inset-left, 0px)) !important;
+    padding-right: max(8px, env(safe-area-inset-right, 0px)) !important;
+    box-sizing: border-box !important;
   }
   .regatta-quick-nav-bar .regatta-nav-timer {
     margin-left: auto !important;
@@ -7081,6 +7098,13 @@ app-cockpit-view {
     flex-direction: column !important;
     overflow: hidden !important;
   }
+  .regatta-canvas-section .canvas-wrapper {
+    border-radius: 0 !important;
+    border-left: none !important;
+    border-right: none !important;
+    width: 100% !important;
+    height: 100% !important;
+  }
 
   /* Compacter la barre de données/télémétrie en bandeau ultra-fin (en dessous des lignes d'eau) */
   .regatta-unified-hud {
@@ -7088,6 +7112,10 @@ app-cockpit-view {
     flex: 0 0 auto !important;
     margin: 1px 0 !important;
     padding: 1px 2px !important;
+    padding-left: max(6px, env(safe-area-inset-left, 0px)) !important;
+    padding-right: max(6px, env(safe-area-inset-right, 0px)) !important;
+    box-sizing: border-box !important;
+    width: 100% !important;
     background: rgba(6, 13, 29, 0.92) !important;
     border-radius: 4px !important;
     border: 1px solid rgba(0, 240, 255, 0.25) !important;
@@ -8324,8 +8352,11 @@ app-cockpit-view {
     display: flex !important;
     position: relative !important;
     padding: 0.25rem 0.5rem !important;
+    padding-left: max(8px, env(safe-area-inset-left, 0px)) !important;
+    padding-right: max(8px, env(safe-area-inset-right, 0px)) !important;
     margin-block: 0.15rem 0.25rem !important;
     font-size: 0.8rem !important;
+    box-sizing: border-box !important;
   }
 }
 
@@ -8341,13 +8372,10 @@ app-cockpit-view {
     padding: 0 !important;
   }
 
-  /* Conteneur principal plein écran rigide en mode Cockpit & Régate portrait */
+  /* Conteneur principal plein écran rigide en mode Cockpit portrait */
   .game-container:has(.cockpit-hud),
   .game-container.pure-screen-active:has(.cockpit-hud),
-  .game-container.rigid-viewport:has(.cockpit-hud),
-  .game-container:has(app-regatta-view),
-  .game-container.pure-screen-active:has(app-regatta-view),
-  .game-container.rigid-viewport:has(app-regatta-view) {
+  .game-container.rigid-viewport:has(.cockpit-hud) {
     position: fixed !important;
     inset: 0 !important;
     width: 100vw !important;
@@ -8367,8 +8395,33 @@ app-cockpit-view {
     box-sizing: border-box !important;
   }
 
-  /* En mode Cockpit smartphone, le header pure-screen est masqué car la bascule se fait directement via la barre de progression */
-  .game-container:has(.cockpit-hud) .pure-screen-header {
+  /* Vue Régate portrait smartphone : pleine immersion bord-à-bord (zéro marge latérale pour le plan d'eau) */
+  .game-container:has(app-regatta-view),
+  .game-container.pure-screen-active:has(app-regatta-view),
+  .game-container.rigid-viewport:has(app-regatta-view) {
+    position: fixed !important;
+    inset: 0 !important;
+    width: 100vw !important;
+    height: 100dvh !important;
+    max-height: 100dvh !important;
+    overflow: hidden !important;
+    overscroll-behavior: none !important;
+    touch-action: none !important;
+    padding-top: max(2px, env(safe-area-inset-top, 0px)) !important;
+    padding-bottom: max(4px, env(safe-area-inset-bottom, 0px)) !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    margin: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: flex-start !important;
+    box-sizing: border-box !important;
+  }
+
+  /* En mode Cockpit et Régate smartphone, le header pure-screen est masqué pour libérer 100% de la hauteur utile */
+  .game-container:has(.cockpit-hud) .pure-screen-header,
+  .game-container:has(app-regatta-view) .pure-screen-header,
+  .game-container.mobile-fullscreen-view:has(app-regatta-view) .pure-screen-header {
     display: none !important;
   }
 
@@ -8563,13 +8616,10 @@ app-cockpit-view {
    OPTIMISATION COCKPIT EN PAYSAGE (ELIMINATION DE L'ESPACE HAUT & VUE ZERO-SCROLL)
    ========================================================================== */
 @media (max-width: 950px) and (orientation: landscape) {
-  /* Conteneur calé au plus près du bord supérieur en paysage */
+  /* Conteneur calé au plus près du bord supérieur en paysage (Cockpit) */
   .game-container:has(.cockpit-hud),
   .game-container.pure-screen-active:has(.cockpit-hud),
-  .game-container.rigid-viewport:has(.cockpit-hud),
-  .game-container:has(app-regatta-view),
-  .game-container.pure-screen-active:has(app-regatta-view),
-  .game-container.rigid-viewport:has(app-regatta-view) {
+  .game-container.rigid-viewport:has(.cockpit-hud) {
     padding-top: max(2px, env(safe-area-inset-top, 0px)) !important;
     padding-bottom: max(2px, env(safe-area-inset-bottom, 0px)) !important;
     padding-left: max(6px, env(safe-area-inset-left, 0px)) !important;
@@ -8577,8 +8627,21 @@ app-cockpit-view {
     justify-content: flex-start !important;
   }
 
-  /* En cockpit paysage, masquer le header pour supprimer le vide au-dessus de la barre de distance */
-  .game-container:has(.cockpit-hud) .pure-screen-header {
+  /* Vue Régate paysage smartphone : immersion totale bord-à-bord sous l'objectif photo */
+  .game-container:has(app-regatta-view),
+  .game-container.pure-screen-active:has(app-regatta-view),
+  .game-container.rigid-viewport:has(app-regatta-view) {
+    padding-top: max(2px, env(safe-area-inset-top, 0px)) !important;
+    padding-bottom: max(2px, env(safe-area-inset-bottom, 0px)) !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    justify-content: flex-start !important;
+  }
+
+  /* En cockpit et régate paysage, masquer le header pour supprimer le vide au-dessus */
+  .game-container:has(.cockpit-hud) .pure-screen-header,
+  .game-container:has(app-regatta-view) .pure-screen-header,
+  .game-container.mobile-fullscreen-view:has(app-regatta-view) .pure-screen-header {
     display: none !important;
   }
 

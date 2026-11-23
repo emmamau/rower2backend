@@ -129,8 +129,8 @@ interface BoatRenderState {
     }
     .canvas-top-left-controls {
       position: absolute;
-      top: 10px;
-      left: 10px;
+      top: max(10px, env(safe-area-inset-top, 0px));
+      left: max(10px, env(safe-area-inset-left, 0px));
       z-index: 15;
       display: inline-flex;
       align-items: center;
@@ -174,8 +174,8 @@ interface BoatRenderState {
     }
     @media (max-width: 520px) {
       .canvas-top-left-controls {
-        top: 6px;
-        left: 6px;
+        top: max(6px, env(safe-area-inset-top, 0px));
+        left: max(6px, env(safe-area-inset-left, 0px));
         gap: 4px;
       }
       .lane-mode-toggle {
