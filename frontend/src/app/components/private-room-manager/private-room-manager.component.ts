@@ -657,6 +657,121 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
     return Boolean(this.activeRoom?.race?.isDuel1v1 || (this.activeRoom as any)?.isDuel1v1);
   }
 
+  formatPlayerDisplay(name?: string, login?: string, email?: string): string {
+    const cleanName = (name || '').trim();
+    const cleanLogin = (login || '').trim();
+    const cleanEmail = (email || '').trim();
+
+    if (cleanName && cleanLogin && cleanName.toLowerCase() !== cleanLogin.toLowerCase()) {
+      return `${cleanName} (@${cleanLogin})`;
+    }
+    if (cleanName) return cleanName;
+    if (cleanLogin) return `@${cleanLogin}`;
+    if (cleanEmail) return `Invité : ${cleanEmail}`;
+    return 'Adversaire';
+  }
+
+  getDuelOpponentDisplay(source: any): string {
+    if (!source) return 'Adversaire';
+
+    const uid = (this.activeUserId || '').trim().toLowerCase();
+    const uname = (this.activeUserName || '').trim().toLowerCase();
+
+    const ch = source.duelChallenge || (source.race as any)?.duelChallenge || source;
+
+    const challengerUserId = (ch.challengerUserId || source.challengerUserId || '').trim().toLowerCase();
+    const challengerLogin = (ch.challengerLogin || source.challengerLogin || '').trim();
+    const challengerName = (ch.challengerName || source.challengerName || '').trim();
+
+    const challengedUserId = (ch.challengedUserId || source.challengedUserId || '').trim().toLowerCase();
+    const challengedLogin = (ch.challengedLogin || source.challengedLogin || '').trim();
+    const challengedName = (ch.challengedName || source.challengedName || '').trim();
+    const challengedEmail = (ch.challengedEmail || source.opponentEmail || '').trim();
+
+    const isChallenger = (challengerUserId && challengerUserId === uid) ||
+                         (challengerLogin && (challengerLogin.toLowerCase() === uid || challengerLogin.toLowerCase() === uname));
+
+    const isChallenged = (challengedUserId && challengedUserId === uid) ||
+                         (challengedLogin && (challengedLogin.toLowerCase() === uid || challengedLogin.toLowerCase() === uname));
+
+    if (isChallenger) {
+      return this.formatPlayerDisplay(challengedName, challengedLogin, challengedEmail);
+    } else if (isChallenged) {
+      return this.formatPlayerDisplay(challengerName, challengerLogin);
+    } else if (challengerName || challengerLogin || challengedName || challengedLogin) {
+      const p1 = this.formatPlayerDisplay(challengerName, challengerLogin);
+      const p2 = this.formatPlayerDisplay(challengedName, challengedLogin, challengedEmail);
+      return `${p1} vs ${p2}`;
+    }
+
+    if (source.opponentName || source.opponentLogin || source.opponentEmail) {
+      return this.formatPlayerDisplay(source.opponentName, source.opponentLogin, source.opponentEmail);
+    }
+
+    return 'Adversaire';
+  }
+
+  get activeDuelOpponentDisplay(): string {
+    if (!this.activeRoom) return '';
+    return this.getDuelOpponentDisplay(this.activeRoom);
+  }
+
+  get activeDuelBannerTitle(): string {
+    if (!this.activeRoom) return '';
+    const opp = this.activeDuelOpponentDisplay;
+    if (opp.includes(' vs ')) {
+      return `⚔️ Duel : ${opp}`;
+    }
+    return `⚔️ Duel contre ${opp}`;
+  }
+
+  isSalonDuel(salon: SavedPrivateSalon): boolean {
+    if (salon.isDuel1v1) return true;
+    const code = (salon.code || '').trim().toLowerCase();
+    const id = (salon.id || '').trim();
+    const all = [...this.receivedDuelChallenges, ...this.sentDuelChallenges];
+    return all.some(d =>
+      (d.roomCode && d.roomCode.toLowerCase() === code) ||
+      (d.roomId && d.roomId === id)
+    );
+  }
+
+  getSalonDuelTitle(salon: SavedPrivateSalon): string {
+    const opp = this.getDuelOpponentDisplay(salon);
+    if (opp.includes(' vs ')) {
+      return `Duel : ${opp}`;
+    }
+    return `Contre ${opp}`;
+  }
+
+  getSalonDuelStatusChip(salon: SavedPrivateSalon): { label: string; isAccepted: boolean; isPending: boolean } | null {
+    let status = salon.duelStatus;
+    if (!status) {
+      const code = (salon.code || '').trim().toLowerCase();
+      const id = (salon.id || '').trim();
+      const all = [...this.receivedDuelChallenges, ...this.sentDuelChallenges];
+      const match = all.find(d =>
+        (d.roomCode && d.roomCode.toLowerCase() === code) ||
+        (d.roomId && d.roomId === id)
+      );
+      if (match) status = match.status;
+    }
+    if (!status) return null;
+    if (status === 'ACCEPTED') {
+      return { label: '🔒 Confirmé', isAccepted: true, isPending: false };
+    }
+    if (status === 'PENDING') {
+      return { label: '⏳ En attente', isAccepted: false, isPending: true };
+    }
+    if (status === 'REFUSED') {
+      return { label: '❌ Refusé', isAccepted: false, isPending: false };
+    }
+    if (status === 'EXPIRED') {
+      return { label: '⌛ Expiré', isAccepted: false, isPending: false };
+    }
+    return null;
+  }
+
   get activeDuelChallenge(): DuelChallenge | null {
     const roomChallenge = this.activeRoom?.duelChallenge || (this.activeRoom?.race as any)?.duelChallenge;
     if (roomChallenge) return roomChallenge;
@@ -2052,6 +2167,26 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
     const startMode = payload.race?.startMode || payload.startMode;
     const scheduledStartTime = payload.race?.scheduledStartTime || payload.scheduledStartTime;
 
+    const isDuel = Boolean(
+      payload.isDuel1v1 ||
+      payload.race?.isDuel1v1 ||
+      (payload as any)?.gameMode === 'duel_1v1' ||
+      (payload.race as any)?.gameMode === 'duel_1v1' ||
+      payload.duelChallenge ||
+      (payload.race as any)?.duelChallenge
+    );
+
+    const codeNorm = code.trim().toLowerCase();
+    const idNorm = payload.race.id.trim();
+    const allDuels = [...this.receivedDuelChallenges, ...this.sentDuelChallenges];
+    const challenge: DuelChallenge | null =
+      payload.duelChallenge ||
+      (payload.race as any)?.duelChallenge ||
+      allDuels.find(d =>
+        (d.roomCode && d.roomCode.toLowerCase() === codeNorm) ||
+        (d.roomId && d.roomId === idNorm)
+      ) || null;
+
     const entry: SavedPrivateSalon = {
       id: payload.race.id,
       code,
@@ -2061,10 +2196,19 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
       isHost,
       savedAt: new Date().toISOString(),
       startMode: startMode === 'scheduled' ? 'scheduled' : 'manual',
-      scheduledStartTime: scheduledStartTime ? String(scheduledStartTime) : undefined
+      scheduledStartTime: scheduledStartTime ? String(scheduledStartTime) : undefined,
+      isDuel1v1: isDuel || Boolean(challenge),
+      duelStatus: challenge?.status,
+      challengerUserId: challenge?.challengerUserId,
+      challengerName: challenge?.challengerName,
+      challengerLogin: challenge?.challengerLogin,
+      challengedUserId: challenge?.challengedUserId,
+      challengedName: challenge?.challengedName,
+      challengedLogin: challenge?.challengedLogin,
+      opponentEmail: challenge?.challengedEmail
     };
 
-    const existingIdx = this.savedSalons.findIndex((s) => s.id === entry.id);
+    const existingIdx = this.savedSalons.findIndex((s) => s.id === entry.id || (s.code && s.code.toLowerCase() === codeNorm));
     if (existingIdx >= 0) {
       this.savedSalons[existingIdx] = {
         ...this.savedSalons[existingIdx],
@@ -2308,6 +2452,7 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
           this.receivedDuelChallenges = res.received || [];
           this.sentDuelChallenges = res.sent || [];
           this.blockedDuelSlots = res.blockedSlots || [];
+          this.syncDuelsToSavedSalons();
         }
         this.cdr.markForCheck();
       },
@@ -2316,6 +2461,63 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
         this.cdr.markForCheck();
       }
     });
+  }
+
+  private syncDuelsToSavedSalons(): void {
+    const all = [...this.receivedDuelChallenges, ...this.sentDuelChallenges];
+    if (all.length === 0) return;
+
+    let hasChanges = false;
+    for (const d of all) {
+      if (!d.roomCode && !d.roomId) continue;
+      if (!['PENDING', 'ACCEPTED'].includes(d.status)) continue;
+
+      const codeNorm = (d.roomCode || '').trim().toLowerCase();
+      const idNorm = (d.roomId || '').trim();
+
+      const existingIdx = this.savedSalons.findIndex(s =>
+        (idNorm && s.id === idNorm) ||
+        (codeNorm && s.code && s.code.toLowerCase() === codeNorm)
+      );
+
+      const isHost = d.challengerUserId === this.activeUserId;
+      const entry: SavedPrivateSalon = {
+        id: idNorm || d.id,
+        code: d.roomCode || d.roomId || '',
+        pinCode: d.roomPin,
+        title: d.title || 'Duel 1v1',
+        targetDistance: d.targetDistance || 2000,
+        isHost,
+        savedAt: d.createdAt || new Date().toISOString(),
+        startMode: 'scheduled',
+        scheduledStartTime: d.slotStart ? String(d.slotStart) : undefined,
+        isDuel1v1: true,
+        duelStatus: d.status,
+        challengerUserId: d.challengerUserId,
+        challengerName: d.challengerName,
+        challengerLogin: d.challengerLogin,
+        challengedUserId: d.challengedUserId,
+        challengedName: d.challengedName,
+        challengedLogin: d.challengedLogin,
+        opponentEmail: d.challengedEmail
+      };
+
+      if (existingIdx >= 0) {
+        this.savedSalons[existingIdx] = {
+          ...this.savedSalons[existingIdx],
+          ...entry,
+          isHost: this.savedSalons[existingIdx].isHost || isHost
+        };
+        hasChanges = true;
+      } else {
+        this.savedSalons = [entry, ...this.savedSalons].slice(0, 15);
+        hasChanges = true;
+      }
+    }
+
+    if (hasChanges) {
+      this.persistSavedSalons();
+    }
   }
 
   respondToDuel(challenge: DuelChallenge, action: 'accept' | 'refuse'): void {

@@ -9,6 +9,11 @@
       <div class="priv-collapsed-strip">
         <div class="priv-collapsed-left">
           <span class="priv-pill-lock priv-pill-lock-sm">🔒</span>
+          @if (isDuel1v1Room && activeDuelOpponentDisplay) {
+            <span class="priv-collapsed-duel-tag" title="Duel en direct">
+              ⚔️ vs <strong>{{ activeDuelOpponentDisplay }}</strong>
+            </span>
+          }
           <span class="priv-collapsed-pin" (click)="copyText(activeRoomPin)" title="Toucher pour copier le PIN">
             ⌚ PIN : <strong>{{ activeRoomPin || '----' }}</strong>
           </span>
@@ -58,10 +63,15 @@
       <div class="priv-banner-top">
         <div class="priv-banner-identity">
           <span class="priv-pill-lock">🔒 {{ i18n.t('PRIVATE_ROOM_BADGE') }}</span>
-          <span class="priv-role-chip" [class.is-host]="canManageActiveRoom">
-            {{ canManageActiveRoom ? i18n.t('HOST_TAG') : i18n.t('GUEST_TAG') }}
-          </span>
-          <h2 class="priv-banner-title">{{ activeRoom.race.title }}</h2>
+          @if (isDuel1v1Room) {
+            <span class="priv-role-chip is-duel-chip">⚔️ Duel 1v1</span>
+            <h2 class="priv-banner-title">{{ activeDuelBannerTitle }}</h2>
+          } @else {
+            <span class="priv-role-chip" [class.is-host]="canManageActiveRoom">
+              {{ canManageActiveRoom ? i18n.t('HOST_TAG') : i18n.t('GUEST_TAG') }}
+            </span>
+            <h2 class="priv-banner-title">{{ activeRoom.race.title }}</h2>
+          }
           <span class="priv-meta-chip">🏁 {{ activeRoom.race.targetDistance }}m</span>
           <span class="priv-meta-chip">
             👥 {{ activeRacersCount }} / {{ activeRoom.race.maxParticipants || 8 }}
@@ -174,7 +184,7 @@
           } @else if (activeDuelChallenge.status === 'ACCEPTED') {
             <div class="priv-duel-salon-content">
               <p class="priv-duel-salon-sub is-accepted-text">
-                🔒 <strong>Duel confirmé !</strong> Le créneau est verrouillé pour {{ activeDuelChallenge.challengerName }} et {{ activeDuelChallenge.challengedName }}. Donnez votre premier coup de rame ou connectez votre montre Garmin pour démarrer.
+                🔒 <strong>Duel confirmé contre {{ activeDuelOpponentDisplay }} !</strong> Le créneau est verrouillé pour {{ activeDuelChallenge.challengerName }} et {{ activeDuelChallenge.challengedName }}. Donnez votre premier coup de rame ou connectez votre montre Garmin pour démarrer.
               </p>
             </div>
           } @else if (activeDuelChallenge.status === 'REFUSED') {
@@ -1525,13 +1535,24 @@
               @for (salon of savedSalons; track salon.id) {
                 <div
                   class="priv-saved-item"
-                  [class.is-current]="activeRoom?.race?.id === salon.id">
+                  [class.is-current]="activeRoom?.race?.id === salon.id"
+                  [class.is-duel]="isSalonDuel(salon)">
                   <div class="priv-saved-info">
                     <div class="priv-saved-top">
-                      <span class="priv-role-chip" [class.is-host]="salon.isHost">
-                        {{ salon.isHost ? i18n.t('HOST_TAG') : i18n.t('GUEST_TAG') }}
-                      </span>
-                      <strong class="priv-saved-name">{{ salon.title }}</strong>
+                      @if (isSalonDuel(salon)) {
+                        <span class="priv-role-chip is-duel-chip">⚔️ Duel 1v1</span>
+                        <strong class="priv-saved-name">{{ getSalonDuelTitle(salon) }}</strong>
+                        @if (getSalonDuelStatusChip(salon); as statusChip) {
+                          <span class="priv-duel-status-pill" [class.is-accepted]="statusChip.isAccepted" [class.is-pending]="statusChip.isPending">
+                            {{ statusChip.label }}
+                          </span>
+                        }
+                      } @else {
+                        <span class="priv-role-chip" [class.is-host]="salon.isHost">
+                          {{ salon.isHost ? i18n.t('HOST_TAG') : i18n.t('GUEST_TAG') }}
+                        </span>
+                        <strong class="priv-saved-name">{{ salon.title }}</strong>
+                      }
                       <span class="priv-meta-chip">{{ salon.targetDistance }}m</span>
                     </div>
                     <div class="priv-saved-codes">

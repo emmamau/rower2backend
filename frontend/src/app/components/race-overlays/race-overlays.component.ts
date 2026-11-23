@@ -39,6 +39,7 @@ export class RaceOverlaysComponent implements OnChanges {
 
   // Nouveaux états d'authentification et d'invitation mobile-first
   @Input() isIdentified = false;
+  @Input() currentUserId = '';
   @Input() currentUserName = '';
   @Input() isPaired = false;
   @Input() invitationEmail = '';
@@ -127,6 +128,71 @@ export class RaceOverlaysComponent implements OnChanges {
 
   dismissRegattaLaunchSplash(): void {
     this.dismissRegattaSplash.emit();
+  }
+
+  get isDuel1v1(): boolean {
+    return Boolean(
+      this.activePrivateRoom?.isDuel1v1 ||
+      this.activePrivateRoom?.race?.isDuel1v1 ||
+      (this.activePrivateRoom as any)?.gameMode === 'duel_1v1' ||
+      (this.activePrivateRoom?.race as any)?.gameMode === 'duel_1v1'
+    );
+  }
+
+  get activeDuelChallenge(): any {
+    return this.activePrivateRoom?.duelChallenge || (this.activePrivateRoom?.race as any)?.duelChallenge || null;
+  }
+
+  get duelLaunchTitle(): string {
+    if (!this.isDuel1v1) return '';
+    const ch = this.activeDuelChallenge;
+    if (!ch) return '⚔️ Duel 1v1';
+
+    const uid = (this.currentUserId || '').trim().toLowerCase();
+    const uname = (this.currentUserName || '').trim().toLowerCase();
+
+    const challengerUserId = (ch.challengerUserId || '').trim().toLowerCase();
+    const challengerLogin = (ch.challengerLogin || '').trim();
+    const challengerName = (ch.challengerName || '').trim();
+
+    const challengedUserId = (ch.challengedUserId || '').trim().toLowerCase();
+    const challengedLogin = (ch.challengedLogin || '').trim();
+    const challengedName = (ch.challengedName || '').trim();
+    const challengedEmail = (ch.challengedEmail || '').trim();
+
+    const isChallenger = (challengerUserId && challengerUserId === uid) ||
+                         (challengerLogin && (challengerLogin.toLowerCase() === uid || challengerLogin.toLowerCase() === uname));
+
+    const isChallenged = (challengedUserId && challengedUserId === uid) ||
+                         (challengedLogin && (challengedLogin.toLowerCase() === uid || challengedLogin.toLowerCase() === uname));
+
+    if (isChallenger) {
+      const opp = this.formatPlayerDisplay(challengedName, challengedLogin, challengedEmail);
+      return `⚔️ Duel contre ${opp}`;
+    } else if (isChallenged) {
+      const opp = this.formatPlayerDisplay(challengerName, challengerLogin);
+      return `⚔️ Duel contre ${opp}`;
+    } else if (challengerName || challengerLogin || challengedName || challengedLogin) {
+      const p1 = this.formatPlayerDisplay(challengerName, challengerLogin);
+      const p2 = this.formatPlayerDisplay(challengedName, challengedLogin, challengedEmail);
+      return `⚔️ Duel : ${p1} vs ${p2}`;
+    }
+
+    return '⚔️ Duel 1v1';
+  }
+
+  private formatPlayerDisplay(name?: string, login?: string, email?: string): string {
+    const cleanName = (name || '').trim();
+    const cleanLogin = (login || '').trim();
+    const cleanEmail = (email || '').trim();
+
+    if (cleanName && cleanLogin && cleanName.toLowerCase() !== cleanLogin.toLowerCase()) {
+      return `${cleanName} (@${cleanLogin})`;
+    }
+    if (cleanName) return cleanName;
+    if (cleanLogin) return `@${cleanLogin}`;
+    if (cleanEmail) return `Invité : ${cleanEmail}`;
+    return 'Adversaire';
   }
 
   onTimerPointerDown(event: PointerEvent): void {

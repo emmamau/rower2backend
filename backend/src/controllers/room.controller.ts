@@ -90,8 +90,8 @@ export class RoomController {
 
       // 2. Recherche du salon privé (avec réhydratation automatique si salon de duel persistant)
       let race = raceManager.findPrivateRace(rawCode);
+      let challenge: any = await duelService.getChallengeByRoom(rawCode);
       if (!race) {
-        const challenge = await duelService.getChallengeByRoom(rawCode);
         if (challenge && (challenge.status === "PENDING" || challenge.status === "ACCEPTED")) {
           race = raceManager.restoreDuelRaceFromChallenge(challenge);
         }
@@ -103,6 +103,34 @@ export class RoomController {
           message: "Salon introuvable ou expiré"
         });
         return;
+      }
+
+      let duelChallengeInfo: any = null;
+      if (race.isDuel1v1) {
+        if (!challenge) {
+          challenge = await duelService.getChallengeByRoom(race.id || race.code || "");
+        }
+        if (challenge) {
+          duelChallengeInfo = {
+            id: challenge.id,
+            status: challenge.status,
+            challengerUserId: challenge.challengerUserId,
+            challengerLogin: challenge.challengerLogin,
+            challengerName: challenge.challengerName,
+            challengedUserId: challenge.challengedUserId,
+            challengedLogin: challenge.challengedLogin,
+            challengedName: challenge.challengedName,
+            challengedEmail: challenge.challengedEmail,
+            slotStart: challenge.slotStart,
+            slotEnd: challenge.slotEnd,
+            timezone: challenge.timezone,
+            targetDistance: challenge.targetDistance,
+            expiresAt: challenge.expiresAt,
+            roomId: challenge.roomId,
+            roomCode: challenge.roomCode,
+            roomPin: challenge.roomPin,
+          };
+        }
       }
 
       // 1. Rejeter tout PIN/salon terminé
@@ -242,6 +270,7 @@ export class RoomController {
           requiredLeague: race.requiredLeague,
           isBotDuel: race.isBotDuel,
           isDuel1v1: race.isDuel1v1,
+          duelChallenge: duelChallengeInfo,
           isSolo: race.isSolo,
           botStartMode: race.botStartMode,
           scheduledStartTime: race.scheduledStartTime,
@@ -367,6 +396,7 @@ export class RoomController {
         connectionState: joinResult.connectionState || (joinResult.ready === false ? "CONNECTED" : "READY"),
         isBotDuel: Boolean(race.isBotDuel),
         isDuel1v1: Boolean(race.isDuel1v1),
+        duelChallenge: duelChallengeInfo,
         isSolo: Boolean(race.isSolo),
         gameMode: race.gameMode || (race.isSolo ? "solo" : race.isBotDuel ? "bot_duel" : race.isDuel1v1 ? "duel_1v1" : "multi"),
         startMode: race.startMode || "manual",
@@ -395,6 +425,7 @@ export class RoomController {
         connectionState: joinResult.connectionState || (joinResult.ready === false ? "CONNECTED" : "READY"),
         isBotDuel: Boolean(race.isBotDuel),
         isDuel1v1: Boolean(race.isDuel1v1),
+        duelChallenge: duelChallengeInfo,
         isSolo: Boolean(race.isSolo),
         gameMode: race.gameMode || (race.isSolo ? "solo" : race.isBotDuel ? "bot_duel" : race.isDuel1v1 ? "duel_1v1" : "multi"),
         hasBots: Boolean(race.hasBots || race.isBotDuel),

@@ -86,12 +86,15 @@
     </div>
 
     <div class="regatta-launch-badge">
-      <span>🚣 {{ i18n.t('MODE_REGATTA') }}</span>
+      <span *ngIf="isDuel1v1; else normalRegattaBadge">⚔️ Duel 1v1</span>
+      <ng-template #normalRegattaBadge>
+        <span>🚣 {{ i18n.t('MODE_REGATTA') }}</span>
+      </ng-template>
       <span *ngIf="activePrivateRoom?.race?.targetDistance" class="launch-dist-tag">{{ activePrivateRoom?.race?.targetDistance }}m</span>
     </div>
 
     <h2 id="regatta-launch-title" class="regatta-launch-heading">
-      {{ activePrivateRoom?.race?.title || i18n.t('REGATTA_LAUNCH_TITLE') }}
+      {{ duelLaunchTitle || activePrivateRoom?.race?.title || i18n.t('REGATTA_LAUNCH_TITLE') }}
     </h2>
 
     <!-- Avertissement In-App Browser (Email WebView) pour basculer vers Safari ou Chrome -->

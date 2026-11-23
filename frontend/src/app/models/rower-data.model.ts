@@ -180,6 +180,17 @@ export interface SavedPrivateSalon {
   savedAt: string;
   startMode?: 'manual' | 'scheduled';
   scheduledStartTime?: string;
+  isDuel1v1?: boolean;
+  opponentName?: string;
+  opponentLogin?: string;
+  opponentEmail?: string;
+  duelStatus?: string;
+  challengerUserId?: string;
+  challengerName?: string;
+  challengerLogin?: string;
+  challengedUserId?: string;
+  challengedName?: string;
+  challengedLogin?: string;
 }
 
 export interface LeaderboardResponse {
