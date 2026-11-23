@@ -2430,7 +2430,7 @@ select:autofill:focus {
     border-inline: none !important;
     border-bottom: none !important;
     margin: 0 !important;
-    padding: 1.15rem max(1rem, var(--safe-right)) calc(3rem + var(--safe-bottom, 20px)) max(1rem, var(--safe-left)) !important;
+    padding: 1.15rem max(1rem, var(--safe-right)) calc(1rem + var(--safe-bottom, 12px)) max(1rem, var(--safe-left)) !important;
     box-sizing: border-box !important;
   }
   .modal-card.modal-account {
@@ -2468,15 +2468,15 @@ select:autofill:focus {
     touch-action: pan-y !important;
   }
 
-  /* Dégagement bas garanti pour tous les boutons d'action (compte, duels, salons, stats, etc.) */
+  /* Dégagement bas optimisé pour les boutons d'action (compte, duels, salons, stats, etc.) */
   .modal-buttons,
   .modal-footer-actions,
   .weekly-summary-actions {
     display: flex !important;
     flex-direction: column !important;
     gap: 0.75rem !important;
-    padding-bottom: calc(2.5rem + var(--safe-bottom, 20px)) !important;
-    margin-bottom: 1.5rem !important;
+    padding-bottom: 0 !important;
+    margin-bottom: 0.5rem !important;
     width: 100% !important;
     box-sizing: border-box !important;
   }
@@ -2489,7 +2489,7 @@ select:autofill:focus {
     min-block-size: 48px !important;
   }
   .pricing-messages {
-    margin-bottom: calc(3rem + var(--safe-bottom, 20px)) !important;
+    margin-bottom: 0.75rem !important;
   }
 }
 
@@ -10431,7 +10431,7 @@ app-cockpit-view {
     border-bottom: none !important;
     max-height: 88vh !important;
     max-height: 88dvh !important;
-    padding: 1.5rem 1.2rem calc(3rem + var(--safe-bottom, 20px)) !important;
+    padding: 1.5rem 1.2rem calc(1rem + var(--safe-bottom, 12px)) !important;
     overflow-y: auto !important;
     overflow-x: hidden !important;
     -webkit-overflow-scrolling: touch !important;
