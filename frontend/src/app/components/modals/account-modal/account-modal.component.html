@@ -1,7 +1,7 @@
 <!-- 1. USER ACCOUNT & SUBSCRIBER MANAGEMENT MODAL -->
 @if (isAccountModalOpen || isLoginModalOpen) {
-  <div class="modal-overlay">
-    <div class="modal-card modal-account" (click)="$event.stopPropagation()">
+  <div class="modal-overlay" (pointerdown)="$event.stopPropagation()" (pointermove)="$event.stopPropagation()">
+    <div class="modal-card modal-account" (click)="$event.stopPropagation()" (pointerdown)="$event.stopPropagation()" (pointermove)="$event.stopPropagation()">
       <div class="modal-header-row">
         <div class="modal-title-with-badge">
           <h3>{{ i18n.t('ACCOUNT_TITLE') }}</h3>
