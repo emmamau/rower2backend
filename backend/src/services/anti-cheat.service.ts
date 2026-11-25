@@ -193,7 +193,7 @@ export class AntiCheatService {
           const raceId = req.body?.raceId || req.query?.raceId;
           const userId = req.body?.userId || deviceId;
           if (raceId && userId) {
-            raceManager.setParticipantStatus(String(raceId), String(userId), "DNF");
+            raceManager.leavePrivateRace(String(raceId), String(userId));
           }
         } catch {}
       }
