@@ -709,22 +709,6 @@ export class RoomController {
         return;
       }
 
-      const race = raceManager.findPrivateRace(code) || raceManager.getRaceById(code);
-      if (race) {
-        const cleanUid = String(userId).trim();
-        const p = race.participants?.get(cleanUid);
-        if (p) {
-          p.hasLeft = true;
-        }
-        const pendingP = race.pendingParticipants?.get(cleanUid);
-        if (pendingP) {
-          pendingP.hasLeft = true;
-        }
-        if (race.hostUserId === cleanUid || race.originalHostUserId === cleanUid) {
-          (race as any).hostHasLeft = true;
-        }
-      }
-
       const outcome = raceManager.leavePrivateRace(code, String(userId));
       if ("error" in outcome) {
         res.status(outcome.statusCode).json({

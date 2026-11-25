@@ -108,6 +108,7 @@ export interface RaceState {
   participants?: Map<string, PrivateParticipantInfo>;
   pendingParticipants?: Map<string, PrivateParticipantInfo>;
   rejectedParticipants?: Set<string>;
+  hostHasLeft?: boolean;
 }
 
 export function formatTimezoneAbbr(date: Date, timeZone: string): string {
@@ -1112,6 +1113,9 @@ export class RaceManager {
 
               if (ageMs > this.inactivityAbandonMs) {
                 console.log(`[RaceManager] Rupture de flux / inactivité détectée pour ${uid} (${Math.round(ageMs / 1000)}s > ${Math.round(this.inactivityAbandonMs / 1000)}s). Marquage Abandon (DNF).`);
+                if (participant) {
+                  participant.status = "abandoned";
+                }
                 await row.update({ status: "abandoned", isDnf: true, speed: 0, powerWatts: 0, strokeRate: 0 } as any);
                 userStore.recordActivity({
                   id: row.get("id"),
@@ -1316,6 +1320,9 @@ export class RaceManager {
 
               if (ageMs > this.inactivityAbandonMs) {
                 console.log(`[RaceManager] Rupture de flux / inactivité détectée pour ${uid} (${Math.round(ageMs / 1000)}s > ${Math.round(this.inactivityAbandonMs / 1000)}s). Marquage Abandon (DNF).`);
+                if (participant) {
+                  participant.status = "abandoned";
+                }
                 await row.update({ status: "abandoned", isDnf: true, speed: 0, powerWatts: 0, strokeRate: 0 } as any);
                 userStore.recordActivity({
                   id: row.get("id"),
@@ -1392,7 +1399,7 @@ export class RaceManager {
     }
   }
 
-  private async finishPrivateRace(race: RaceState, reason: string): Promise<void> {
+  public async finishPrivateRace(race: RaceState, reason: string): Promise<void> {
     if (race.status === "COMPLETED" || race.status === "STOPPED" || race.status === "CANCELLED") return;
     const isStopped = reason === "organizer_stopped" || reason === "stopped";
     const isCancelled = reason === "cancelled" || reason === "aborted";
@@ -1446,8 +1453,15 @@ export class RaceManager {
         }
       } catch {}
     }
-    this.removePrivateRaceInternal(race, race.status);
-    socketGateway.broadcastRaceStatus(race.id, race.status, { reason, ranking, roomClosed: true });
+    if (race.status !== "COMPLETED") {
+      this.removePrivateRaceInternal(race, race.status);
+      socketGateway.broadcastRaceStatus(race.id, race.status, { reason, ranking, roomClosed: true });
+    } else {
+      if (race.pinCode) {
+        this.pinToRaceMap.delete(race.pinCode.toUpperCase());
+      }
+      socketGateway.broadcastRaceStatus(race.id, "COMPLETED", { reason, ranking, roomClosed: false });
+    }
   }
 
   /**
@@ -2495,7 +2509,7 @@ export class RaceManager {
           continue;
         }
       } else if (isHost) {
-        if ((race as any).hostHasLeft === true) {
+        if (race.hostHasLeft === true) {
           continue;
         }
       }
@@ -2513,8 +2527,8 @@ export class RaceManager {
 
         if (race.status === "COMPLETED") {
           completedRaces.push(race);
-        } else if (diffMs <= 15 * 60 * 1000) {
-          // Imminente (dans <= 15 min ou déjà passée)
+        } else if (diffMs >= -15 * 60 * 1000 && diffMs <= 15 * 60 * 1000) {
+          // Imminente (dans <= 15 min ou jusqu'à 15 min après l'heure si encore en LOBBY)
           scheduledUpcomingRaces.push({ race, scheduledMs });
         }
         continue;
@@ -2538,9 +2552,9 @@ export class RaceManager {
       return runningRaces[0];
     }
 
-    // Priorité 2 : Course programmée imminente (triée par heure de départ la plus proche)
+    // Priorité 2 : Course programmée imminente (triée par heure de départ la plus proche de maintenant)
     if (scheduledUpcomingRaces.length > 0) {
-      scheduledUpcomingRaces.sort((a, b) => a.scheduledMs - b.scheduledMs);
+      scheduledUpcomingRaces.sort((a, b) => Math.abs(a.scheduledMs - nowMs) - Math.abs(b.scheduledMs - nowMs));
       return scheduledUpcomingRaces[0].race;
     }
 
@@ -3466,7 +3480,7 @@ export class RaceManager {
       pendingP.hasLeft = true;
     }
     if (race.hostUserId === cleanUserId || race.originalHostUserId === cleanUserId) {
-      (race as any).hostHasLeft = true;
+      race.hostHasLeft = true;
     }
 
     if (race.status === "COMPLETED") {

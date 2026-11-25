@@ -172,3 +172,31 @@ test('5. API GET /api/v1/races/my-active returns enriched activeRoom with isAwai
     await close();
   }
 });
+
+test('6. When a private race finishes (COMPLETED), findActiveRaceForUser still returns it until leavePrivateRace is called', async () => {
+  const userId = 'user_finish_private_e2e';
+  const race = raceManager.createPrivateRace({
+    title: 'Course Finie Directe E2E',
+    targetDistance: 500,
+    hostUserId: 'host_e2e_tester',
+    hostUserName: 'HostE2E',
+  });
+  raceManager.joinPrivateRace(race.id, userId, 'RacerE2E', 'FR', { viaPin: true, bypassApproval: true });
+
+  // Appel direct à finishPrivateRace
+  await raceManager.finishPrivateRace(race, 'completed');
+  assert.equal(race.status, 'COMPLETED');
+
+  // Toujours actif pour l'athlète
+  const activeBeforeLeave = raceManager.findActiveRaceForUser(userId);
+  assert.ok(activeBeforeLeave, 'La course finie doit rester la course par défaut en RAM');
+  assert.equal(activeBeforeLeave.id, race.id);
+
+  // Le participant quitte le salon
+  const leaveOutcome = raceManager.leavePrivateRace(race.id, userId);
+  assert.ok(leaveOutcome);
+
+  // N'est plus actif
+  const activeAfterLeave = raceManager.findActiveRaceForUser(userId);
+  assert.equal(activeAfterLeave, null, 'Après leavePrivateRace, le salon ne doit plus être actif');
+});
