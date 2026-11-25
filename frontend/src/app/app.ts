@@ -1618,6 +1618,10 @@ export class AppComponent implements OnInit, OnDestroy {
       this.duelEventSub.unsubscribe();
       this.duelEventSub = undefined;
     }
+    if (this.dnfAutoExitTimer) {
+      clearTimeout(this.dnfAutoExitTimer);
+      this.dnfAutoExitTimer = null;
+    }
     if (this.joinedSocketRaceId) {
       this.socketService.leaveRaceRoom(this.joinedSocketRaceId);
       this.joinedSocketRaceId = null;
