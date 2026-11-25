@@ -3279,10 +3279,6 @@ export class AppComponent implements OnInit, OnDestroy {
   setSiteView(view: 'home' | 'regatta' | 'cockpit'): void {
     this.siteView = view;
     if (view === 'home') {
-      if (view === 'home' && this.activePrivateRoom) {
-        this.exitPrivateRoomToPublic(true);
-        this.initGameLoop();
-      }
       this.isPrivateBannerCollapsed = false;
       this.homeRefresh$.next();
     }
@@ -5729,7 +5725,7 @@ export class AppComponent implements OnInit, OnDestroy {
         if (isPrivateTarget && this.activePrivateRoom?.race) {
           this.activePrivateRoom.race.status = 'COUNTDOWN';
           this.activePrivateRoom.status = 'COUNTDOWN';
-          if (this.isSmartphone || this.isMobileOrTablet) {
+          if ((this.isSmartphone || this.isMobileOrTablet) && !this.userExplicitlyNavigatedHome) {
             this.isPrivateModalOpen = false;
             if (this.siteView !== 'regatta') {
               this.setSiteView('regatta');
@@ -5761,11 +5757,13 @@ export class AppComponent implements OnInit, OnDestroy {
         if (isPrivateTarget && this.activePrivateRoom?.race) {
           this.activePrivateRoom.race.status = 'RUNNING';
           this.activePrivateRoom.status = 'RUNNING';
-          this.setSiteView('regatta');
-          if (this.isSmartphone || this.isMobileOrTablet) {
-            this.isPrivateModalOpen = false;
-            this.enterFullscreen().catch(() => {});
-            this.lockLandscape().catch(() => {});
+          if (!this.userExplicitlyNavigatedHome) {
+            this.setSiteView('regatta');
+            if (this.isSmartphone || this.isMobileOrTablet) {
+              this.isPrivateModalOpen = false;
+              this.enterFullscreen().catch(() => {});
+              this.lockLandscape().catch(() => {});
+            }
           }
         }
         if (isPublicTarget && this.nextRaceInfo) {

@@ -92,8 +92,8 @@
   }
 </section>
 
-<!-- BANNIÈRE RAPIDE COURSE EN COURS DEPUIS L'ACCUEIL (SUPPRIMÉE : NON AFFICHÉE SUR UN SALON PRIVÉ NI POUR UNE COURSE PROGRAMMÉE NON ENCORE ATTEINTE) -->
-<div class="home-active-race-callout" *ngIf="false">
+<!-- BANNIÈRE RAPIDE COURSE EN COURS DEPUIS L'ACCUEIL -->
+<div class="home-active-race-callout" *ngIf="isRaceActive || nextRaceInfo?.status === 'in_progress'">
   <div class="callout-left">
     <span class="callout-pulse">🔴</span>
     <strong>{{ i18n.t('RACE_IN_PROGRESS') }}</strong>
