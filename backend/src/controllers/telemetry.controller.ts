@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { Op } from "sequelize";
 import db from "../models";
-import raceManager, { RaceManager, RaceState, getWaitingStatusMessage } from "../services/race-manager.service";
+import raceManager, { RaceManager, RaceState, PrivateParticipantInfo, getWaitingStatusMessage } from "../services/race-manager.service";
 import socketGateway, { LiveRacerMetric } from "../websocket/socket.gateway";
 import { TelemetryValidator } from "../services/telemetry-validator.service";
 import { isEmmaAdminUser } from "../services/auth.service";
@@ -1424,7 +1424,41 @@ export class TelemetryController {
       }
 
       const payload = await buildPrivateRacePayload(race);
-      res.status(200).json({ activeRoom: payload });
+
+      // Déterminer si le joueur a déjà une ligne d'eau avec montre appairée / engagée
+      const cleanUid = userId ? String(userId).trim() : "";
+      const cleanTok = deviceToken ? String(deviceToken).trim() : "";
+      let playerParticipant: PrivateParticipantInfo | null = null;
+      if (race.participants) {
+        for (const [pUserId, p] of race.participants.entries()) {
+          if (cleanUid && (pUserId === cleanUid || p.userId === cleanUid)) {
+            playerParticipant = p;
+            break;
+          }
+          if (cleanTok && p.deviceToken === cleanTok) {
+            playerParticipant = p;
+            break;
+          }
+        }
+      }
+
+      const isWaterLaneAssigned = Boolean(
+        playerParticipant &&
+        playerParticipant.lane !== undefined &&
+        playerParticipant.lane > 0 &&
+        (playerParticipant.isPaired || playerParticipant.deviceToken || playerParticipant.deviceId)
+      );
+
+      const isAwaitingWatchPin = !isWaterLaneAssigned;
+      const activeRoom = {
+        ...payload,
+        isDefaultRace: true,
+        isAwaitingWatchPin,
+        hasPlayerJoinedWaterLane: isWaterLaneAssigned,
+        pinCode: race.pinCode || race.code || payload.pinCode || payload.code
+      };
+
+      res.status(200).json({ activeRoom });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       res.status(500).json({ error: "Erreur recherche course active: " + message });

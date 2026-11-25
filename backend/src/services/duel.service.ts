@@ -200,6 +200,21 @@ export class DuelService {
     this.resendCooldowns.clear();
   }
 
+  public getUpcomingChallengesForUser(userId: string): StoredDuelChallenge[] {
+    const clean = String(userId || "").trim();
+    if (!clean) return [];
+    const results: StoredDuelChallenge[] = [];
+    for (const c of this.inMemoryChallenges.values()) {
+      if (
+        (c.status === "PENDING" || c.status === "ACCEPTED") &&
+        (c.challengerUserId === clean || c.challengedUserId === clean)
+      ) {
+        results.push(c);
+      }
+    }
+    return results;
+  }
+
   public async persistChallenge(challenge: StoredDuelChallenge): Promise<void> {
     this.inMemoryChallenges.set(challenge.id, challenge);
     try {

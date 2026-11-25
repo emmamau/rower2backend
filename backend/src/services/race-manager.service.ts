@@ -35,6 +35,8 @@ export interface PrivateParticipantInfo {
   lastElapsedSec?: number;
   isPaired?: boolean;
   kayak?: KayakCustomization;
+  hasLeft?: boolean;
+  status?: string;
 }
 
 let _pairingService: any = null;
@@ -2399,19 +2401,53 @@ export class RaceManager {
 
   /**
    * Trouve la course privée ou le duel actif pour un utilisateur ou sa montre (deviceToken).
-   * Renvoie uniquement les courses non terminées (statut non COMPLETED, STOPPED, CANCELLED, ABANDONED)
-   * et où le participant n'a pas abandonné.
+   * Renvoie :
+   * 1. Une course en cours (RUNNING ou COUNTDOWN) où l'utilisateur n'a pas abandonné ni quitté.
+   * 2. Une course programmée imminente (départ <= 15 min ou déjà ouverte) où l'utilisateur est présent (hôte ou inscrit).
+   *    Si plusieurs courses sont éligibles, priorité au départ le plus proche chronologiquement.
+   * 3. Une course ouverte (LOBBY).
+   * 4. Une course terminée (COMPLETED) tant que le joueur n'a pas quitté le salon (hasLeft !== true) et n'a pas abandonné.
    */
   public findActiveRaceForUser(userId?: string, deviceToken?: string): RaceState | null {
     const cleanUserId = userId ? String(userId).trim() : "";
     const cleanToken = deviceToken ? String(deviceToken).trim() : "";
     if (!cleanUserId && !cleanToken) return null;
 
+    // Tentative de restauration d'un duel imminent non encore en RAM
+    if (cleanUserId) {
+      try {
+        const duelSvc = require("./duel.service").default;
+        if (duelSvc && typeof duelSvc.getUpcomingChallengesForUser === "function") {
+          const upcomingChallenges = duelSvc.getUpcomingChallengesForUser(cleanUserId);
+          const nowMs = Date.now();
+          for (const ch of upcomingChallenges) {
+            if (ch.roomId && !this.privateRacesById.has(ch.roomId)) {
+              const startMs = new Date(ch.slotStart).getTime();
+              const endMs = new Date(ch.slotEnd).getTime();
+              if (Number.isFinite(startMs) && Number.isFinite(endMs) && nowMs <= endMs) {
+                const diffMs = startMs - nowMs;
+                if (diffMs <= 15 * 60 * 1000) {
+                  this.restoreDuelRaceFromChallenge(ch);
+                }
+              }
+            }
+          }
+        }
+      } catch {}
+    }
+
     const races = Array.from(this.privateRacesById.values());
+    const nowMs = Date.now();
+
+    // Catégories de courses
+    const runningRaces: RaceState[] = [];
+    const scheduledUpcomingRaces: { race: RaceState; scheduledMs: number }[] = [];
+    const openLobbyRaces: RaceState[] = [];
+    const completedRaces: RaceState[] = [];
+
     for (let i = races.length - 1; i >= 0; i--) {
       const race = races[i];
       if (
-        race.status === "COMPLETED" ||
         race.status === "STOPPED" ||
         race.status === "CANCELLED" ||
         race.status === "ABANDONED"
@@ -2419,34 +2455,105 @@ export class RaceManager {
         continue;
       }
 
-      // 1. Recherche parmi les participants inscrits ou en attente
+      // Recherche du participant associé à cet utilisateur ou token
+      let participant: PrivateParticipantInfo | null = null;
       if (race.participants) {
         for (const [pUserId, p] of race.participants.entries()) {
           if (cleanUserId && (pUserId === cleanUserId || p.userId === cleanUserId)) {
-            return race;
+            participant = p;
+            break;
           }
           if (cleanToken && p.deviceToken === cleanToken) {
-            return race;
+            participant = p;
+            break;
           }
         }
       }
 
-      if (race.pendingParticipants) {
+      if (!participant && race.pendingParticipants) {
         for (const [pUserId, p] of race.pendingParticipants.entries()) {
           if (cleanUserId && (pUserId === cleanUserId || p.userId === cleanUserId)) {
-            return race;
+            participant = p;
+            break;
           }
           if (cleanToken && p.deviceToken === cleanToken) {
-            return race;
+            participant = p;
+            break;
           }
         }
       }
 
-      // 2. Recherche si l'utilisateur est l'hôte créateur du salon
-      if (cleanUserId && (race.hostUserId === cleanUserId || race.originalHostUserId === cleanUserId)) {
-        return race;
+      const isHost = Boolean(cleanUserId && (race.hostUserId === cleanUserId || race.originalHostUserId === cleanUserId));
+
+      if (!participant && !isHost) {
+        continue;
+      }
+
+      // Si le participant ou l'hôte a déjà quitté ou abandonné
+      if (participant) {
+        if (participant.hasLeft === true || participant.status === "abandoned") {
+          continue;
+        }
+      } else if (isHost) {
+        if ((race as any).hostHasLeft === true) {
+          continue;
+        }
+      }
+
+      // 1. Course en direct
+      if (race.status === "RUNNING" || race.status === "COUNTDOWN") {
+        runningRaces.push(race);
+        continue;
+      }
+
+      // 2. Course programmée (startMode === 'scheduled')
+      if (race.startMode === "scheduled" && race.scheduledStartTime) {
+        const scheduledMs = new Date(race.scheduledStartTime).getTime();
+        const diffMs = scheduledMs - nowMs;
+
+        if (race.status === "COMPLETED") {
+          completedRaces.push(race);
+        } else if (diffMs <= 15 * 60 * 1000) {
+          // Imminente (dans <= 15 min ou déjà passée)
+          scheduledUpcomingRaces.push({ race, scheduledMs });
+        }
+        continue;
+      }
+
+      // 3. Course terminée
+      if (race.status === "COMPLETED") {
+        completedRaces.push(race);
+        continue;
+      }
+
+      // 4. Salon ouvert (LOBBY)
+      if (race.status === "LOBBY") {
+        openLobbyRaces.push(race);
+        continue;
       }
     }
+
+    // Priorité 1 : Course en direct
+    if (runningRaces.length > 0) {
+      return runningRaces[0];
+    }
+
+    // Priorité 2 : Course programmée imminente (triée par heure de départ la plus proche)
+    if (scheduledUpcomingRaces.length > 0) {
+      scheduledUpcomingRaces.sort((a, b) => a.scheduledMs - b.scheduledMs);
+      return scheduledUpcomingRaces[0].race;
+    }
+
+    // Priorité 3 : Salon ouvert (LOBBY)
+    if (openLobbyRaces.length > 0) {
+      return openLobbyRaces[0];
+    }
+
+    // Priorité 4 : Course terminée non quittée
+    if (completedRaces.length > 0) {
+      return completedRaces[0];
+    }
+
     return null;
   }
 
@@ -3350,6 +3457,38 @@ export class RaceManager {
 
     const cleanUserId = String(userId || "").trim();
 
+    const p = race.participants?.get(cleanUserId);
+    if (p) {
+      p.hasLeft = true;
+    }
+    const pendingP = race.pendingParticipants?.get(cleanUserId);
+    if (pendingP) {
+      pendingP.hasLeft = true;
+    }
+    if (race.hostUserId === cleanUserId || race.originalHostUserId === cleanUserId) {
+      (race as any).hostHasLeft = true;
+    }
+
+    if (race.status === "COMPLETED") {
+      const remainingParticipants = race.participants
+        ? Array.from(race.participants.values()).filter((part) => !part.hasLeft).length
+        : 0;
+      race.totalParticipants = remainingParticipants;
+
+      if (!isPublic && remainingParticipants === 0) {
+        this.removePrivateRaceInternal(race);
+        return { success: true, roomClosed: true, remainingParticipants: 0 };
+      }
+
+      socketGateway.broadcastPrivateRoomUpdate(race.id, {
+        type: "PARTICIPANT_LEFT",
+        userId: cleanUserId,
+        remainingParticipants
+      });
+
+      return { success: true, roomClosed: false, remainingParticipants };
+    }
+
     if (race.participants) {
       race.participants.delete(cleanUserId);
     }
@@ -3377,14 +3516,6 @@ export class RaceManager {
 
     const remainingParticipants = race.participants ? race.participants.size : 0;
     race.totalParticipants = remainingParticipants;
-
-    // L'ouverture d'un salon privé pour le consulter ne doit pas le supprimer.
-    // Un salon en attente (LOBBY) ou programmé reste ouvert même si 0 participant est connecté.
-    // Seul un salon dont la course est terminée (COMPLETED) ou sur action explicite de l'organisateur (closePrivateRace) est détruit.
-    if (!isPublic && remainingParticipants === 0 && race.status === "COMPLETED") {
-      this.removePrivateRaceInternal(race);
-      return { success: true, roomClosed: true, remainingParticipants: 0 };
-    }
 
     // Si d'autres participants restent ou si le salon reste ouvert en attente
     socketGateway.broadcastPrivateRoomUpdate(race.id, {
