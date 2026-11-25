@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Simulateur de Charge - 30 Montres Garmin FTMS</title>
+  <style>
+    :root {
+      --bg-dark: #0b1120;
+      --card-bg: #151f32;
+      --card-border: #233554;
+      --accent-blue: #38bdf8;
+      --accent-green: #22c55e;
+      --accent-yellow: #f59e0b;
+      --accent-red: #ef4444;
+      --accent-purple: #a855f7;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+    body { background-color: var(--bg-dark); color: var(--text-main); min-height: 100vh; padding: 20px; }
+
+    header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid var(--card-border); }
+    .header-title h1 { font-size: 24px; font-weight: 700; color: var(--accent-blue); display: flex; align-items: center; gap: 10px; }
+    .header-title p { font-size: 13px; color: var(--text-muted); margin-top: 4px; }
+    .backend-config { display: flex; align-items: center; gap: 8px; background: var(--card-bg); padding: 8px 12px; border-radius: 8px; border: 1px solid var(--card-border); }
+    .backend-config input { background: #0b1120; border: 1px solid var(--card-border); color: #fff; padding: 6px 10px; border-radius: 6px; font-size: 13px; width: 220px; }
+
+    .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px; }
+    .kpi-card { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 10px; padding: 15px; display: flex; flex-direction: column; justify-content: center; position: relative; overflow: hidden; }
+    .kpi-card::before { content: ""; position: absolute; top: 0; left: 0; width: 4px; height: 100%; }
+    .kpi-card.blue::before { background: var(--accent-blue); }
+    .kpi-card.green::before { background: var(--accent-green); }
+    .kpi-card.yellow::before { background: var(--accent-yellow); }
+    .kpi-card.purple::before { background: var(--accent-purple); }
+    .kpi-title { font-size: 12px; font-weight: 600; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.5px; }
+    .kpi-value { font-size: 28px; font-weight: 800; margin: 4px 0; color: #fff; }
+    .kpi-sub { font-size: 12px; color: var(--text-muted); }
+
+    .control-toolbar { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 12px; padding: 16px; margin-bottom: 25px; display: flex; flex-direction: column; gap: 14px; }
+    .toolbar-row { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+    .btn { background: #1e293b; color: #fff; border: 1px solid var(--card-border); padding: 8px 14px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 6px; }
+    .btn:hover { background: #334155; border-color: var(--accent-blue); }
+    .btn-primary { background: #0284c7; border-color: #38bdf8; }
+    .btn-primary:hover { background: #0369a1; }
+    .btn-success { background: #15803d; border-color: #22c55e; }
+    .btn-success:hover { background: #166534; }
+    .btn-danger { background: #b91c1c; border-color: #ef4444; }
+    .btn-danger:hover { background: #991b1b; }
+    .btn-warning { background: #d97706; border-color: #f59e0b; color: #000; font-weight: 700; }
+    .btn-warning:hover { background: #b45309; }
+    .input-pin { background: #0b1120; border: 1px solid var(--card-border); color: #fff; padding: 8px 10px; border-radius: 6px; font-size: 14px; font-weight: bold; width: 110px; text-transform: uppercase; text-align: center; letter-spacing: 2px; }
+    select.input-select { background: #0b1120; border: 1px solid var(--card-border); color: #fff; padding: 8px 12px; border-radius: 6px; font-size: 13px; }
+
+    /* Water Regatta View */
+    .regatta-view { background: #061126; border: 1px solid #1e3a5f; border-radius: 12px; padding: 16px; margin-bottom: 25px; }
+    .regatta-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    .regatta-header h2 { font-size: 16px; font-weight: 700; color: var(--accent-blue); }
+    .regatta-dock { max-height: 280px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding-right: 6px; }
+    .lane-track { display: flex; align-items: center; gap: 10px; background: rgba(15, 23, 42, 0.7); padding: 4px 10px; border-radius: 6px; border: 1px solid #172554; }
+    .lane-num { width: 32px; font-size: 12px; font-weight: 700; color: #60a5fa; }
+    .lane-name { width: 130px; font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .lane-bar-container { flex: 1; height: 18px; background: #0f172a; border-radius: 4px; overflow: hidden; position: relative; border: 1px solid #1e293b; }
+    .lane-bar { height: 100%; background: linear-gradient(90deg, #0284c7, #38bdf8); width: 0%; transition: width 0.4s ease; border-radius: 3px; }
+    .lane-bar.finished { background: linear-gradient(90deg, #15803d, #22c55e); }
+    .lane-stats { width: 180px; text-align: right; font-size: 11px; font-family: monospace; color: var(--text-muted); }
+
+    /* Watch Cards Grid */
+    .watches-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
+    .watch-card { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 10px; padding: 14px; display: flex; flex-direction: column; gap: 10px; transition: border-color 0.2s; position: relative; }
+    .watch-card.running { border-color: #0284c7; box-shadow: 0 0 10px rgba(2, 132, 199, 0.2); }
+    .watch-card.finished { border-color: #22c55e; }
+    .card-head { display: flex; justify-content: space-between; align-items: center; }
+    .card-id { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 700; }
+    .card-status { font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 4px; text-transform: uppercase; }
+    .status-idle { background: #334155; color: #cbd5e1; }
+    .status-lobby { background: #854d0e; color: #fef08a; }
+    .status-running { background: #0369a1; color: #bae6fd; animation: pulse 1.5s infinite; }
+    .status-finished { background: #166534; color: #bbf7d0; }
+
+    .user-pill { font-size: 12px; background: #0f172a; padding: 4px 8px; border-radius: 4px; border: 1px solid var(--card-border); display: flex; justify-content: space-between; align-items: center; }
+    .user-pill .unpaired { color: #f87171; }
+    .user-pill .paired { color: #4ade80; font-weight: 600; }
+
+    .telemetry-gauges { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; background: #0b1120; padding: 8px; border-radius: 6px; border: 1px solid #1e293b; text-align: center; }
+    .gauge-val { font-size: 16px; font-weight: 800; font-family: monospace; color: #fff; }
+    .gauge-lbl { font-size: 10px; color: var(--text-muted); text-transform: uppercase; }
+
+    .pace-slider-wrap { display: flex; flex-direction: column; gap: 4px; }
+    .pace-slider-head { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-muted); }
+    .pace-slider-head span strong { color: var(--accent-blue); font-size: 12px; font-family: monospace; }
+    .pace-slider { width: 100%; accent-color: var(--accent-blue); cursor: pointer; }
+
+    .action-row { display: flex; gap: 6px; align-items: center; margin-top: 4px; }
+    .action-row input { flex: 1; padding: 5px 8px; font-size: 12px; background: #0b1120; border: 1px solid var(--card-border); color: #fff; border-radius: 4px; text-transform: uppercase; text-align: center; }
+    .action-row .btn { padding: 5px 10px; font-size: 11px; }
+
+    .diag-footer { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-muted); border-top: 1px solid #1e293b; padding-top: 6px; margin-top: 2px; }
+    .diag-err { color: #f87171; font-weight: 600; }
+
+    @keyframes pulse {
+      0% { opacity: 0.8; }
+      50% { opacity: 1; filter: drop-shadow(0 0 5px #38bdf8); }
+      100% { opacity: 0.8; }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="header-title">
+      <h1>🚣 Simulateur de Charge Garmin FTMS</h1>
+      <p>Simulateur 30 montres virtuelles Concept2 • Validation biomécanique • Tests de charge</p>
+    </div>
+    <div class="backend-config">
+      <label style="font-size: 12px; color: var(--text-muted);">Backend :</label>
+      <input type="text" id="backendUrl" value="http://localhost:3000">
+      <button class="btn btn-primary" onclick="updateBackendUrl()">Appliquer</button>
+    </div>
+  </header>
+
+  <!-- KPI Top Stats -->
+  <div class="kpi-grid">
+    <div class="kpi-card blue">
+      <div class="kpi-title">Débit Télémétrie</div>
+      <div class="kpi-value" id="kpiRps">0.0 <span style="font-size:16px;">req/s</span></div>
+      <div class="kpi-sub" id="kpiTotalReq">0 requêtes au total</div>
+    </div>
+    <div class="kpi-card green">
+      <div class="kpi-title">Latence Serveur p95</div>
+      <div class="kpi-value" id="kpiP95">0 <span style="font-size:16px;">ms</span></div>
+      <div class="kpi-sub" id="kpiRttSub">Moy: 0 ms • Min: 0 • Max: 0</div>
+    </div>
+    <div class="kpi-card yellow">
+      <div class="kpi-title">Réponses HTTP</div>
+      <div class="kpi-value" id="kpiHttp200">0 <span style="font-size:16px; color:#22c55e;">200 OK</span></div>
+      <div class="kpi-sub" id="kpiErrors">429: 0 • 500: 0 • Autres: 0</div>
+    </div>
+    <div class="kpi-card purple">
+      <div class="kpi-title">Flotte en Course</div>
+      <div class="kpi-value" id="kpiRacing">0 <span style="font-size:16px;">/ 30</span></div>
+      <div class="kpi-sub" id="kpiPairedCount">0 montres appairées</div>
+    </div>
+  </div>
+
+  <!-- Action Toolbar -->
+  <div class="control-toolbar">
+    <div class="toolbar-row">
+      <button class="btn btn-warning" onclick="seedTestUsers()">⚡ 1-Clic : Initialiser 30 comptes & pré-appairer</button>
+      <div style="border-left: 1px solid var(--card-border); height: 26px; margin: 0 5px;"></div>
+      <input type="text" id="bulkPin" class="input-pin" placeholder="PIN SALON" maxlength="6">
+      <button class="btn btn-primary" onclick="bulkEngagePin()">Engager sélection PIN</button>
+      <button class="btn btn-primary" onclick="bulkJoinPublic()">Course Publique (Tous)</button>
+      <div style="border-left: 1px solid var(--card-border); height: 26px; margin: 0 5px;"></div>
+      <select id="bulkProfile" class="input-select">
+        <option value="peloton">Profil : Peloton Complet (1:38 à 2:22)</option>
+        <option value="elite">Profil : Élite (1:35 - 350W)</option>
+        <option value="advanced">Profil : Avancé (1:50 - 250W)</option>
+        <option value="intermediate">Profil : Intermédiaire (2:05 - 180W)</option>
+        <option value="recreational">Profil : Loisir (2:20 - 135W)</option>
+      </select>
+      <button class="btn" onclick="bulkApplyProfile()">Appliquer Allure</button>
+    </div>
+    <div class="toolbar-row">
+      <button class="btn" onclick="toggleSelectAll()">Tout cocher / Décocher</button>
+      <button class="btn btn-success" onclick="startSimulation()">▶ Démarrer la Télémétrie</button>
+      <button class="btn btn-danger" onclick="stopSimulation()">⏸ Stopper Tout</button>
+      <button class="btn" onclick="resetSimulation()">🔄 Réinitialiser Distances</button>
+    </div>
+  </div>
+
+  <!-- Realtime 2D Water Regatta Dock -->
+  <div class="regatta-view">
+    <div class="regatta-header">
+      <h2>🏆 Bassin de Course & Classement Direct (2000 m)</h2>
+      <span id="regattaStatus" style="font-size: 12px; color: var(--accent-blue);">En attente de départ</span>
+    </div>
+    <div class="regatta-dock" id="regattaDock">
+      <!-- Generated via JS -->
+    </div>
+  </div>
+
+  <!-- 30 Watches Grid -->
+  <div class="watches-grid" id="watchesGrid">
+    <!-- Generated via JS -->
+  </div>
+
+  <script>
+    let watchesState = [];
+    let selectedWatchIds = new Set();
+    let isUpdating = false;
+
+    async function fetchState() {
+      try {
+        const res = await fetch("/api/state");
+        if (!res.ok) return;
+        const data = await res.json();
+        watchesState = data.watches || [];
+        updateMetrics(data.metrics || {});
+        renderRegatta(watchesState);
+        renderWatchCards(watchesState);
+      } catch (e) {
+        console.error("Fetch state error:", e);
+      }
+    }
+
+    function updateMetrics(m) {
+      document.getElementById("kpiRps").innerHTML = `${(m.throughput_rps || 0).toFixed(1)} <span style="font-size:16px;">req/s</span>`;
+      document.getElementById("kpiTotalReq").innerText = `${m.total_requests || 0} requêtes au total`;
+      document.getElementById("kpiP95").innerHTML = `${Math.round(m.rtt_p95_ms || 0)} <span style="font-size:16px;">ms</span>`;
+      document.getElementById("kpiRttSub").innerText = `Moy: ${Math.round(m.rtt_avg_ms || 0)} ms • Min: ${Math.round(m.rtt_min_ms || 0)} • Max: ${Math.round(m.rtt_max_ms || 0)}`;
+      document.getElementById("kpiHttp200").innerHTML = `${m.status_200 || 0} <span style="font-size:16px; color:#22c55e;">200 OK</span>`;
+      document.getElementById("kpiErrors").innerText = `429: ${m.status_429 || 0} • 500: ${m.status_500 || 0} • Autres: ${m.status_other || 0}`;
+
+      const racingCount = watchesState.filter(w => w.race_status === "RUNNING").length;
+      const pairedCount = watchesState.filter(w => w.is_paired).length;
+      document.getElementById("kpiRacing").innerHTML = `${racingCount} <span style="font-size:16px;">/ ${watchesState.length}</span>`;
+      document.getElementById("kpiPairedCount").innerText = `${pairedCount} montres appairées`;
+    }
+
+    function formatTime(sec) {
+      const m = Math.floor(sec / 60);
+      const s = Math.floor(sec % 60);
+      return `${m}:${s.toString().padStart(2, "0")}`;
+    }
+
+    function formatSplit(sec) {
+      const m = Math.floor(sec / 60);
+      const s = Math.floor(sec % 60);
+      const dec = Math.floor((sec % 1) * 10);
+      return `${m}:${s.toString().padStart(2, "0")}.${dec}`;
+    }
+
+    function renderRegatta(watches) {
+      const dock = document.getElementById("regattaDock");
+      const sorted = [...watches].sort((a, b) => b.current_distance - a.current_distance);
+
+      dock.innerHTML = sorted.map((w, idx) => {
+        const pct = Math.min(100, (w.current_distance / Math.max(1, w.target_distance)) * 100);
+        const isFin = w.race_status === "FINISHED" || pct >= 100;
+        return `
+          <div class="lane-track">
+            <div class="lane-num">#${idx + 1}</div>
+            <div class="lane-name">${w.user_name || w.device_id}</div>
+            <div class="lane-bar-container">
+              <div class="lane-bar ${isFin ? 'finished' : ''}" style="width: ${pct}%"></div>
+            </div>
+            <div class="lane-stats">
+              ${Math.round(w.current_distance)}m / ${w.target_distance}m • ${formatSplit(w.current_split)}
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    function renderWatchCards(watches) {
+      const grid = document.getElementById("watchesGrid");
+      // Render without destroying active input focus
+      const activeEl = document.activeElement;
+      const activeId = activeEl ? activeEl.id : null;
+
+      grid.innerHTML = watches.map(w => {
+        const isChecked = selectedWatchIds.has(w.id);
+        const statusClass = `status-${w.race_status.toLowerCase()}`;
+        return `
+          <div class="watch-card ${w.race_status.toLowerCase()}" id="card-${w.id}">
+            <div class="card-head">
+              <div class="card-id">
+                <input type="checkbox" onchange="toggleWatchSelect(${w.id})" ${isChecked ? 'checked' : ''}>
+                <span>#${w.id} ${w.device_id}</span>
+              </div>
+              <span class="card-status ${statusClass}">${w.race_status}</span>
+            </div>
+
+            <div style="font-size: 11px; color: var(--text-muted);">${w.watch_model} • ${w.rower_model}</div>
+
+            <div class="user-pill">
+              <span>Compte :</span>
+              ${w.is_paired
+                ? `<span class="paired">✓ ${w.user_name} (${w.user_id})</span>`
+                : `<span class="unpaired">Non appairé</span>`}
+            </div>
+
+            ${!w.is_paired ? `
+              <div class="action-row">
+                <input type="text" id="pairPin-${w.id}" placeholder="PIN 6-CARACT" maxlength="6">
+                <button class="btn btn-primary" onclick="pairWatch(${w.id})">Appairer</button>
+              </div>
+            ` : ''}
+
+            <div class="telemetry-gauges">
+              <div>
+                <div class="gauge-val">${Math.round(w.current_distance)}m</div>
+                <div class="gauge-lbl">Distance</div>
+              </div>
+              <div>
+                <div class="gauge-val">${formatSplit(w.current_split)}</div>
+                <div class="gauge-lbl">/500m</div>
+              </div>
+              <div>
+                <div class="gauge-val">${w.current_power}W</div>
+                <div class="gauge-lbl">Puissance</div>
+              </div>
+              <div>
+                <div class="gauge-val">${w.current_hr}</div>
+                <div class="gauge-lbl">BPM</div>
+              </div>
+            </div>
+
+            <div class="pace-slider-wrap">
+              <div class="pace-slider-head">
+                <span>Allure cible</span>
+                <span><strong>${formatSplit(w.target_split)}</strong> (${w.target_power}W • ${w.current_spm.toFixed(1)} SPM)</span>
+              </div>
+              <input type="range" class="pace-slider" min="85" max="160" step="1" value="${Math.round(w.target_split)}" onchange="updateWatchPace(${w.id}, this.value)">
+            </div>
+
+            <div class="action-row">
+              <input type="text" id="racePin-${w.id}" placeholder="${w.race_pin || 'PIN SALON'}" maxlength="6" value="${w.race_pin || ''}">
+              <button class="btn" onclick="engageWatchPin(${w.id})">Engager</button>
+              <button class="btn btn-primary" onclick="joinPublicWatch(${w.id})">Publique</button>
+            </div>
+
+            <div class="diag-footer">
+              <span>HTTP: <strong>${w.last_http_code || '-'}</strong> (${w.last_rtt_ms ? Math.round(w.last_rtt_ms) + 'ms' : '-'})</span>
+              <span class="${w.error_message ? 'diag-err' : ''}">${w.error_message || 'OK'}</span>
+            </div>
+          </div>
+        `;
+      }).join("");
+
+      if (activeId) {
+        const el = document.getElementById(activeId);
+        if (el) el.focus();
+      }
+    }
+
+    function toggleWatchSelect(id) {
+      if (selectedWatchIds.has(id)) selectedWatchIds.delete(id);
+      else selectedWatchIds.add(id);
+    }
+
+    function toggleSelectAll() {
+      if (selectedWatchIds.size === watchesState.length) {
+        selectedWatchIds.clear();
+      } else {
+        watchesState.forEach(w => selectedWatchIds.add(w.id));
+      }
+      renderWatchCards(watchesState);
+    }
+
+    function getSelectedOrAll() {
+      if (selectedWatchIds.size > 0) return Array.from(selectedWatchIds);
+      return watchesState.map(w => w.id);
+    }
+
+    async function updateBackendUrl() {
+      const url = document.getElementById("backendUrl").value.trim();
+      await fetch("/api/config/backend-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ backend_url: url })
+      });
+      alert("URL Backend mise à jour !");
+      fetchState();
+    }
+
+    async function pairWatch(id) {
+      const pin = (document.getElementById(`pairPin-${id}`)?.value || "").trim();
+      if (!pin) return alert("Veuillez saisir le code PIN d'appairage à 6 caractères.");
+      const res = await fetch(`/api/watches/${id}/pair`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pin })
+      });
+      const data = await res.json();
+      alert(data.message || (data.success ? "Appairé !" : "Erreur"));
+      fetchState();
+    }
+
+    async function engageWatchPin(id) {
+      const pin = (document.getElementById(`racePin-${id}`)?.value || "").trim();
+      if (!pin) return alert("Veuillez saisir le code PIN de course (5 caractères).");
+      const res = await fetch(`/api/watches/${id}/engage`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pin })
+      });
+      const data = await res.json();
+      alert(data.message || "Engagé !");
+      fetchState();
+    }
+
+    async function joinPublicWatch(id) {
+      const res = await fetch(`/api/watches/${id}/join-public`, { method: "POST" });
+      const data = await res.json();
+      alert(data.message || "Engagé course publique !");
+      fetchState();
+    }
+
+    async function updateWatchPace(id, splitVal) {
+      await fetch(`/api/watches/${id}/pace`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ split_sec: parseFloat(splitVal) })
+      });
+      fetchState();
+    }
+
+    async function seedTestUsers() {
+      if (!confirm("Voulez-vous générer 30 utilisateurs de test et les appairer automatiquement aux 30 montres ?")) return;
+      const res = await fetch("/api/seed-users", { method: "POST" });
+      const data = await res.json();
+      alert(data.message || "Initialisation terminée !");
+      fetchState();
+    }
+
+    async function bulkEngagePin() {
+      const pin = document.getElementById("bulkPin").value.trim();
+      if (!pin) return alert("Veuillez saisir le code PIN à appliquer aux montres sélectionnées.");
+      const ids = getSelectedOrAll();
+      const res = await fetch("/api/bulk/engage", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ watch_ids: ids, pin })
+      });
+      const data = await res.json();
+      alert(data.message || "Sélection engagée !");
+      fetchState();
+    }
+
+    async function bulkJoinPublic() {
+      const ids = getSelectedOrAll();
+      const res = await fetch("/api/bulk/join-public", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ watch_ids: ids })
+      });
+      const data = await res.json();
+      alert(data.message || "Engagés sur la course publique !");
+      fetchState();
+    }
+
+    async function bulkApplyProfile() {
+      const profile = document.getElementById("bulkProfile").value;
+      const ids = getSelectedOrAll();
+      await fetch("/api/bulk/pace", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ watch_ids: ids, profile })
+      });
+      fetchState();
+    }
+
+    async function startSimulation() {
+      const ids = getSelectedOrAll();
+      await fetch("/api/bulk/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ watch_ids: ids })
+      });
+      fetchState();
+    }
+
+    async function stopSimulation() {
+      await fetch("/api/bulk/stop", { method: "POST" });
+      fetchState();
+    }
+
+    async function resetSimulation() {
+      const ids = getSelectedOrAll();
+      await fetch("/api/bulk/reset", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ watch_ids: ids })
+      });
+      fetchState();
+    }
+
+    // Polling 1s
+    setInterval(fetchState, 1000);
+    fetchState();
+  </script>
+</body>
+</html>
