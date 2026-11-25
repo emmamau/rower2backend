@@ -10,7 +10,8 @@ import {
   AdminSystemMetricsResponse,
   SubscriptionPlanItem,
   AdminStatsResponse,
-  AdminStatsTimelineItem
+  AdminStatsTimelineItem,
+  AntiCheatStatusResponse
 } from '../../services/admin.service';
 import { I18nService } from '../../services/i18n.service';
 
@@ -24,11 +25,18 @@ import { I18nService } from '../../services/i18n.service';
 export class AdminDashboardComponent implements OnInit {
   @Output() close = new EventEmitter<void>();
 
-  activeTab: 'public' | 'users' | 'rooms' | 'plans' | 'system' | 'stats' = 'public';
+  activeTab: 'public' | 'users' | 'rooms' | 'plans' | 'system' | 'stats' | 'anticheat' = 'public';
 
   // Feedback notifications
   feedbackMessage = '';
   errorMessage = '';
+
+  // Onglet 7 : Anti-Triche & Mode Tests de Charge
+  antiCheatStatus: AntiCheatStatusResponse | null = null;
+  loadTestDurationMinutes: number = 120;
+  isOpeningLoadTest: boolean = false;
+  isTogglingAntiCheat: boolean = false;
+  copiedKeyNotice: boolean = false;
 
   // Onglet 6 : Statistiques & Analyse
   statsPeriod: 'day' | 'week' | 'month' = 'day';
@@ -142,7 +150,7 @@ export class AdminDashboardComponent implements OnInit {
     this.loadPlans();
   }
 
-  setTab(tab: 'public' | 'users' | 'rooms' | 'plans' | 'system' | 'stats'): void {
+  setTab(tab: 'public' | 'users' | 'rooms' | 'plans' | 'system' | 'stats' | 'anticheat'): void {
     this.activeTab = tab;
     this.clearMessages();
     if (tab === 'public') {
@@ -160,7 +168,82 @@ export class AdminDashboardComponent implements OnInit {
       this.loadSystemMetrics();
     } else if (tab === 'stats') {
       this.loadStats();
+    } else if (tab === 'anticheat') {
+      this.loadAntiCheatStatus();
     }
+  }
+
+  loadAntiCheatStatus(): void {
+    this.adminService.getAntiCheatStatus().subscribe({
+      next: (res) => {
+        this.antiCheatStatus = res;
+      },
+      error: (err) => {
+        this.errorMessage = this.formatAdminError(err, 'Erreur lors du chargement du statut anti-triche');
+      }
+    });
+  }
+
+  toggleAntiCheatMode(enabled: boolean): void {
+    this.isTogglingAntiCheat = true;
+    this.adminService.toggleAntiCheat(enabled).subscribe({
+      next: (res) => {
+        this.antiCheatStatus = res;
+        this.feedbackMessage = res.message || 'Statut anti-triche mis à jour.';
+        this.isTogglingAntiCheat = false;
+      },
+      error: (err) => {
+        this.errorMessage = this.formatAdminError(err, 'Erreur lors de la bascule anti-triche');
+        this.isTogglingAntiCheat = false;
+      }
+    });
+  }
+
+  openLoadTestSession(): void {
+    this.isOpeningLoadTest = true;
+    this.adminService.openLoadTest(this.loadTestDurationMinutes).subscribe({
+      next: (res) => {
+        this.antiCheatStatus = res;
+        this.feedbackMessage = res.message || 'Mode tests de charge ouvert avec succès.';
+        this.isOpeningLoadTest = false;
+      },
+      error: (err) => {
+        this.errorMessage = this.formatAdminError(err, 'Erreur lors de l\'ouverture des tests de charge');
+        this.isOpeningLoadTest = false;
+      }
+    });
+  }
+
+  closeLoadTestSession(): void {
+    this.adminService.closeLoadTest().subscribe({
+      next: (res) => {
+        this.antiCheatStatus = res;
+        this.feedbackMessage = 'Mode tests de charge fermé. Bouclier anti-triche réarmé.';
+      },
+      error: (err) => {
+        this.errorMessage = this.formatAdminError(err, 'Erreur lors de la fermeture des tests de charge');
+      }
+    });
+  }
+
+  copyLoadTestKey(): void {
+    if (this.antiCheatStatus?.loadTestKey) {
+      navigator.clipboard.writeText(this.antiCheatStatus.loadTestKey);
+      this.copiedKeyNotice = true;
+      setTimeout(() => { this.copiedKeyNotice = false; }, 3000);
+    }
+  }
+
+  resetAntiCheatStats(): void {
+    this.adminService.resetAntiCheatStats().subscribe({
+      next: (res) => {
+        this.antiCheatStatus = res;
+        this.feedbackMessage = 'Statistiques et journal anti-triche réinitialisés.';
+      },
+      error: (err) => {
+        this.errorMessage = this.formatAdminError(err, 'Erreur réinitialisation anti-triche');
+      }
+    });
   }
 
   clearMessages(): void {

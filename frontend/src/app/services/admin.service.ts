@@ -434,4 +434,67 @@ export class AdminService {
       { headers: this.getAuthHeaders() }
     );
   }
+
+  // ---------------------------------------------------------------------------
+  // 7. Gestion de l'Anti-Triche & Mode Tests de Charge
+  // ---------------------------------------------------------------------------
+
+  getAntiCheatStatus(): Observable<AntiCheatStatusResponse> {
+    return this.http.get<AntiCheatStatusResponse>(
+      `${this.apiUrl}/api/admin/anti-cheat/status`,
+      { headers: this.getAuthHeaders() }
+    );
+  }
+
+  openLoadTest(durationMinutes: number = 120, customKey?: string): Observable<AntiCheatStatusResponse> {
+    return this.http.post<AntiCheatStatusResponse>(
+      `${this.apiUrl}/api/admin/anti-cheat/open-load-test`,
+      { durationMinutes, customKey },
+      { headers: this.getAuthHeaders() }
+    );
+  }
+
+  closeLoadTest(): Observable<AntiCheatStatusResponse> {
+    return this.http.post<AntiCheatStatusResponse>(
+      `${this.apiUrl}/api/admin/anti-cheat/close-load-test`,
+      {},
+      { headers: this.getAuthHeaders() }
+    );
+  }
+
+  toggleAntiCheat(enabled: boolean): Observable<AntiCheatStatusResponse> {
+    return this.http.post<AntiCheatStatusResponse>(
+      `${this.apiUrl}/api/admin/anti-cheat/toggle`,
+      { enabled },
+      { headers: this.getAuthHeaders() }
+    );
+  }
+
+  resetAntiCheatStats(): Observable<AntiCheatStatusResponse> {
+    return this.http.post<AntiCheatStatusResponse>(
+      `${this.apiUrl}/api/admin/anti-cheat/reset-stats`,
+      {},
+      { headers: this.getAuthHeaders() }
+    );
+  }
+}
+
+export interface BlockedAttemptLog {
+  timestamp: string;
+  ip: string;
+  path: string;
+  deviceId?: string;
+  reason: string;
+}
+
+export interface AntiCheatStatusResponse {
+  success: boolean;
+  message?: string;
+  antiCheatEnabled: boolean;
+  loadTestModeEnabled: boolean;
+  loadTestExpiresAt: string | null;
+  loadTestRemainingMinutes: number;
+  loadTestKey: string | null;
+  blockedAttemptsCount: number;
+  recentBlocked: BlockedAttemptLog[];
 }

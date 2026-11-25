@@ -52,6 +52,13 @@
     >
       ⚡ {{ i18n.t('ADMIN_TAB_SYSTEM') }}
     </button>
+    <button
+      class="tab-btn"
+      [class.active]="activeTab === 'anticheat'"
+      (click)="setTab('anticheat')"
+    >
+      🛡️ Anti-Triche & Charge
+    </button>
   </nav>
 
   <!-- Corps de l'onglet actif -->
@@ -991,6 +998,168 @@
               <tr *ngIf="!statsData?.timeline?.length">
                 <td colspan="8" style="text-align: center; color: #94a3b8; padding: 24px;">
                   {{ isLoadingStats ? i18n.t('ADMIN_STATS_LOADING') : i18n.t('ADMIN_STATS_EMPTY') }}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================================================================== -->
+    <!-- ONGLET 7 : ANTI-TRICHE & TESTS DE CHARGE -->
+    <!-- ===================================================================== -->
+    <section *ngIf="activeTab === 'anticheat'">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
+        <div>
+          <h3 class="card-title" style="margin: 0;">🛡️ Bouclier Anti-Triche & Tests de Charge</h3>
+          <p style="margin: 4px 0 0 0; color: #94a3b8; font-size: 0.85rem;">
+            Sécurisation des courses en production contre les scripts et dérogation temporaire pour les tests de charge.
+          </p>
+        </div>
+        <button class="btn-action btn-action-pwd" (click)="loadAntiCheatStatus()">
+          🔄 Actualiser
+        </button>
+      </div>
+
+      <!-- État Principal du Bouclier -->
+      <div class="card" style="margin-bottom: 24px; border-left: 4px solid #38bdf8;" [style.border-left-color]="antiCheatStatus?.antiCheatEnabled ? (antiCheatStatus?.loadTestModeEnabled ? '#f59e0b' : '#10b981') : '#ef4444'">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+          <div>
+            <div style="font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px; color: #94a3b8; margin-bottom: 4px;">
+              État Actuel du Système
+            </div>
+            <div style="font-size: 1.3rem; font-weight: 800; display: flex; align-items: center; gap: 10px;">
+              <span *ngIf="antiCheatStatus?.antiCheatEnabled && !antiCheatStatus?.loadTestModeEnabled" style="color: #34d399;">
+                🟢 Bouclier Actif — Production Sécurisée
+              </span>
+              <span *ngIf="antiCheatStatus?.antiCheatEnabled && antiCheatStatus?.loadTestModeEnabled" style="color: #fbbf24;">
+                🟠 Mode Tests de Charge Ouvert (Bouclier Allégé)
+              </span>
+              <span *ngIf="!antiCheatStatus?.antiCheatEnabled" style="color: #f87171;">
+                ⚠️ Bouclier Désactivé — Mode Permissif (Tous flux acceptés)
+              </span>
+            </div>
+            <p style="margin: 6px 0 0 0; font-size: 0.85rem; color: #cbd5e1;">
+              <span *ngIf="antiCheatStatus?.antiCheatEnabled && !antiCheatStatus?.loadTestModeEnabled">
+                Les montres doivent obligatoirement fournir une signature officielle Garmin Connect IQ (HMAC). Tout script tiers est rejeté (HTTP 403).
+              </span>
+              <span *ngIf="antiCheatStatus?.antiCheatEnabled && antiCheatStatus?.loadTestModeEnabled">
+                Le simulateur de charge est autorisé via sa clé secrète. Fermeture automatique dans <strong>{{ antiCheatStatus?.loadTestRemainingMinutes }} min</strong>.
+              </span>
+              <span *ngIf="!antiCheatStatus?.antiCheatEnabled">
+                Aucune signature matérielle n'est exigée. Recommandé uniquement pour le développement local.
+              </span>
+            </p>
+          </div>
+
+          <div style="display: flex; gap: 10px; align-items: center;">
+            <button
+              class="btn-action"
+              [style.background]="antiCheatStatus?.antiCheatEnabled ? 'rgba(239, 68, 68, 0.15)' : 'rgba(16, 185, 129, 0.15)'"
+              [style.color]="antiCheatStatus?.antiCheatEnabled ? '#f87171' : '#34d399'"
+              [style.border-color]="antiCheatStatus?.antiCheatEnabled ? 'rgba(239, 68, 68, 0.3)' : 'rgba(16, 185, 129, 0.3)'"
+              (click)="toggleAntiCheatMode(!antiCheatStatus?.antiCheatEnabled)"
+              [disabled]="isTogglingAntiCheat"
+            >
+              {{ antiCheatStatus?.antiCheatEnabled ? 'Désactiver le Bouclier' : 'Activer le Bouclier' }}
+            </button>
+          </div>
+        </div>
+
+        <!-- Clé de Test de Charge si ouvert -->
+        <div *ngIf="antiCheatStatus?.loadTestModeEnabled" style="margin-top: 18px; padding: 14px; background: rgba(15, 23, 42, 0.8); border: 1px dashed #f59e0b; border-radius: 8px;">
+          <div style="font-size: 0.85rem; color: #fbbf24; font-weight: 700; margin-bottom: 6px;">
+            🔑 Clé de Test de Charge Secrète (à renseigner dans le simulateur) :
+          </div>
+          <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+            <code style="background: #020617; padding: 8px 14px; font-size: 1.1rem; color: #38bdf8; border-radius: 6px; font-weight: 700; border: 1px solid #1e293b; letter-spacing: 1px;">
+              {{ antiCheatStatus?.loadTestKey }}
+            </code>
+            <button class="btn-action" style="padding: 8px 14px;" (click)="copyLoadTestKey()">
+              📋 {{ copiedKeyNotice ? 'Copié !' : 'Copier la clé' }}
+            </button>
+            <span style="font-size: 0.8rem; color: #94a3b8;">
+              Transmettez cette clé dans l'en-tête <code>x-load-test-key</code> ou dans le dashboard web du simulateur.
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Contrôles d'Ouverture / Fermeture des Tests de Charge -->
+      <div class="card" style="margin-bottom: 24px;">
+        <h4 style="margin: 0 0 16px 0; color: #f8fafc; font-size: 1.05rem;">
+          ⚙️ Gestion des Sessions de Test de Charge
+        </h4>
+
+        <div *ngIf="!antiCheatStatus?.loadTestModeEnabled" style="display: flex; align-items: center; gap: 14px; flex-wrap: wrap;">
+          <label style="font-size: 0.9rem; color: #cbd5e1;">Durée d'autorisation :</label>
+          <select [(ngModel)]="loadTestDurationMinutes" class="select-control" style="background: #0f172a; color: #fff; border: 1px solid #334155; padding: 8px 12px; border-radius: 6px;">
+            <option [value]="30">30 minutes</option>
+            <option [value]="60">1 heure</option>
+            <option [value]="120">2 heures (recommandé)</option>
+            <option [value]="240">4 heures</option>
+            <option [value]="480">8 heures</option>
+          </select>
+          <button
+            class="btn-submit"
+            style="background: linear-gradient(135deg, #d97706 0%, #b45309 100%); font-size: 0.9rem; padding: 10px 20px; border: none; border-radius: 8px; font-weight: 700; cursor: pointer;"
+            (click)="openLoadTestSession()"
+            [disabled]="isOpeningLoadTest"
+          >
+            🚀 Ouvrir une session de test de charge
+          </button>
+        </div>
+
+        <div *ngIf="antiCheatStatus?.loadTestModeEnabled" style="display: flex; align-items: center; gap: 14px; flex-wrap: wrap;">
+          <button
+            class="btn-action btn-action-revoke"
+            style="font-size: 0.9rem; padding: 10px 20px;"
+            (click)="closeLoadTestSession()"
+          >
+            🔒 Fermer la session & Réarmer le bouclier immédiatement
+          </button>
+        </div>
+      </div>
+
+      <!-- Métriques de Sécurité & Journal des Rejets -->
+      <div class="card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
+          <div>
+            <h4 style="margin: 0; color: #f8fafc; font-size: 1.05rem;">
+              🚨 Journal des Tentatives de Scripts Bloquées
+            </h4>
+            <span style="font-size: 0.85rem; color: #f87171; font-weight: 700;">
+              {{ antiCheatStatus?.blockedAttemptsCount || 0 }} tentative(s) rejetée(s) au total (HTTP 403)
+            </span>
+          </div>
+          <button class="btn-action" style="font-size: 0.8rem; padding: 6px 12px;" (click)="resetAntiCheatStats()">
+            🧹 Réinitialiser le journal
+          </button>
+        </div>
+
+        <div class="table-responsive">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Date / Heure</th>
+                <th>Adresse IP</th>
+                <th>Route</th>
+                <th>Appareil (deviceId)</th>
+                <th>Motif du Rejet</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let b of antiCheatStatus?.recentBlocked">
+                <td style="font-family: monospace; font-size: 0.8rem; color: #cbd5e1;">{{ b.timestamp | date:'dd/MM/yyyy HH:mm:ss' }}</td>
+                <td style="font-family: monospace; font-size: 0.8rem; color: #94a3b8;">{{ b.ip }}</td>
+                <td style="font-family: monospace; font-size: 0.8rem; color: #38bdf8;">{{ b.path }}</td>
+                <td style="font-weight: 700; color: #f59e0b;">{{ b.deviceId || '—' }}</td>
+                <td style="color: #f87171; font-size: 0.85rem;">{{ b.reason }}</td>
+              </tr>
+              <tr *ngIf="!antiCheatStatus?.recentBlocked?.length">
+                <td colspan="5" style="text-align: center; color: #94a3b8; padding: 24px;">
+                  Aucune tentative suspecte enregistrée. La plateforme est saine.
                 </td>
               </tr>
             </tbody>

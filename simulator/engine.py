@@ -78,6 +78,15 @@ class SimulationEngine:
             await self.session.close()
             self.session = None
 
+    def _get_headers(self, watch: Optional[VirtualWatch] = None) -> Dict[str, str]:
+        headers = {"Content-Type": "application/json"}
+        if watch and watch.device_token:
+            headers["Authorization"] = f"Bearer {watch.device_token}"
+            headers["x-device-token"] = watch.device_token
+        if self.store.load_test_key:
+            headers["x-load-test-key"] = self.store.load_test_key
+        return headers
+
     async def pair_watch_pin(self, watch_id: int, pairing_pin: str) -> Dict[str, Any]:
         """Validates 6-character pairing code with backend POST /api/garmin/pair"""
         await self.init_session()
@@ -91,10 +100,11 @@ class SimulationEngine:
             "pairingCode": clean_pin,
             "deviceId": watch.device_id
         }
+        headers = self._get_headers(watch)
 
         try:
             start_t = time.perf_counter()
-            async with self.session.post(url, json=payload) as resp:
+            async with self.session.post(url, json=payload, headers=headers) as resp:
                 rtt_ms = (time.perf_counter() - start_t) * 1000
                 data = await resp.json()
                 self.metrics.record_request(resp.status, rtt_ms)
@@ -135,10 +145,7 @@ class SimulationEngine:
         if watch.device_token:
             payload["deviceToken"] = watch.device_token
 
-        headers = {"Content-Type": "application/json"}
-        if watch.device_token:
-            headers["Authorization"] = f"Bearer {watch.device_token}"
-            headers["x-device-token"] = watch.device_token
+        headers = self._get_headers(watch)
 
         try:
             start_t = time.perf_counter()
@@ -221,9 +228,7 @@ class SimulationEngine:
         if watch.device_token:
             payload["deviceToken"] = watch.device_token
 
-        headers = {"Content-Type": "application/json"}
-        if watch.device_token:
-            headers["Authorization"] = f"Bearer {watch.device_token}"
+        headers = self._get_headers(watch)
 
         try:
             start_t = time.perf_counter()
@@ -433,10 +438,7 @@ class SimulationEngine:
             "rowerModel": watch.rower_model,
         }
 
-        headers = {"Content-Type": "application/json"}
-        if watch.device_token:
-            headers["Authorization"] = f"Bearer {watch.device_token}"
-            headers["x-device-token"] = watch.device_token
+        headers = self._get_headers(watch)
 
         try:
             start_t = time.perf_counter()
@@ -460,6 +462,8 @@ class SimulationEngine:
                                 watch.is_simulating = False
                     except Exception:
                         pass
+                elif resp.status == 403:
+                    watch.error_message = "Anti-Triche Bloqué (403)"
                 elif resp.status == 429:
                     watch.error_message = "Rate Limited (429)"
                 else:

@@ -80,7 +80,8 @@ class RestSyncManager {
         var options = {
             :method => Communications.HTTP_REQUEST_METHOD_POST,
             :headers => {
-                "Content-Type" => Communications.REQUEST_CONTENT_TYPE_JSON
+                "Content-Type" => Communications.REQUEST_CONTENT_TYPE_JSON,
+                "x-garmin-signature" => "CIQ_OFFICIAL_ROWER_V1"
             },
             :responseType => Communications.HTTP_RESPONSE_CONTENT_TYPE_JSON
         };
@@ -113,7 +114,8 @@ class RestSyncManager {
         var options = {
             :method => Communications.HTTP_REQUEST_METHOD_POST,
             :headers => {
-                "Content-Type" => Communications.REQUEST_CONTENT_TYPE_JSON
+                "Content-Type" => Communications.REQUEST_CONTENT_TYPE_JSON,
+                "x-garmin-signature" => "CIQ_OFFICIAL_ROWER_V1"
             },
             :responseType => Communications.HTTP_RESPONSE_CONTENT_TYPE_JSON
         };
@@ -156,7 +158,8 @@ class RestSyncManager {
         var options = {
             :method => Communications.HTTP_REQUEST_METHOD_POST,
             :headers => {
-                "Content-Type" => Communications.REQUEST_CONTENT_TYPE_JSON
+                "Content-Type" => Communications.REQUEST_CONTENT_TYPE_JSON,
+                "x-garmin-signature" => "CIQ_OFFICIAL_ROWER_V1"
             },
             :responseType => Communications.HTTP_RESPONSE_CONTENT_TYPE_JSON
         };
@@ -194,7 +197,8 @@ class RestSyncManager {
         var options = {
             :method => Communications.HTTP_REQUEST_METHOD_POST,
             :headers => {
-                "Content-Type" => Communications.REQUEST_CONTENT_TYPE_JSON
+                "Content-Type" => Communications.REQUEST_CONTENT_TYPE_JSON,
+                "x-garmin-signature" => "CIQ_OFFICIAL_ROWER_V1"
             },
             :responseType => Communications.HTTP_RESPONSE_CONTENT_TYPE_JSON
         };
@@ -323,7 +327,8 @@ class RestSyncManager {
         payload.put("watchModel", UserManager.getWatchModel());
 
         var headers = {
-            "Content-Type" => Communications.REQUEST_CONTENT_TYPE_JSON
+            "Content-Type" => Communications.REQUEST_CONTENT_TYPE_JSON,
+            "x-garmin-signature" => "CIQ_OFFICIAL_ROWER_V1"
         };
         if (devToken != null && (devToken as String).length() > 0) {
             headers.put("Authorization", "Bearer " + (devToken as String));
@@ -403,7 +408,8 @@ class RestSyncManager {
         var options = {
             :method => Communications.HTTP_REQUEST_METHOD_POST,
             :headers => {
-                "Content-Type" => Communications.REQUEST_CONTENT_TYPE_JSON
+                "Content-Type" => Communications.REQUEST_CONTENT_TYPE_JSON,
+                "x-garmin-signature" => "CIQ_OFFICIAL_ROWER_V1"
             },
             :responseType => Communications.HTTP_RESPONSE_CONTENT_TYPE_JSON
         };
@@ -496,7 +502,8 @@ class RestSyncManager {
         var options = {
             :method => Communications.HTTP_REQUEST_METHOD_POST,
             :headers => {
-                "Content-Type" => Communications.REQUEST_CONTENT_TYPE_JSON
+                "Content-Type" => Communications.REQUEST_CONTENT_TYPE_JSON,
+                "x-garmin-signature" => "CIQ_OFFICIAL_ROWER_V1"
             },
             :responseType => Communications.HTTP_RESPONSE_CONTENT_TYPE_JSON
         };
@@ -550,7 +557,8 @@ class RestSyncManager {
         }
 
         var headers = {
-            "Content-Type" => Communications.REQUEST_CONTENT_TYPE_JSON
+            "Content-Type" => Communications.REQUEST_CONTENT_TYPE_JSON,
+            "x-garmin-signature" => "CIQ_OFFICIAL_ROWER_V1"
         };
         if (devToken != null && (devToken as String).length() > 0) {
             headers.put("Authorization", "Bearer " + (devToken as String));
@@ -606,7 +614,8 @@ class RestSyncManager {
         }
 
         var headers = {
-            "Content-Type" => Communications.REQUEST_CONTENT_TYPE_JSON
+            "Content-Type" => Communications.REQUEST_CONTENT_TYPE_JSON,
+            "x-garmin-signature" => "CIQ_OFFICIAL_ROWER_V1"
         };
         if (devToken != null && (devToken as String).length() > 0) {
             headers.put("Authorization", "Bearer " + (devToken as String));
@@ -680,7 +689,8 @@ class RestSyncManager {
         }
 
         var headers = {
-            "Content-Type" => Communications.REQUEST_CONTENT_TYPE_JSON
+            "Content-Type" => Communications.REQUEST_CONTENT_TYPE_JSON,
+            "x-garmin-signature" => "CIQ_OFFICIAL_ROWER_V1"
         };
         if (devToken != null && (devToken as String).length() > 0) {
             headers.put("Authorization", "Bearer " + (devToken as String));

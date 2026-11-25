@@ -7,6 +7,7 @@ import { hashPassword, isEmmaAdminUser } from "../services/auth.service";
 import subscriptionPlanService from "../services/subscription-plan.service";
 import userStore from "../services/user-store.service";
 import { ensureCurrentWeek } from "../services/league-db.service";
+import antiCheatService from "../services/anti-cheat.service";
 
 const Users = db.users;
 const PublicRaceSettings = db.publicRaceSettings;
@@ -1605,6 +1606,66 @@ export class AdminController {
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       res.status(500).json({ success: false, message: `Erreur statistiques: ${message}` });
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // 7. Gestion de l'Anti-Triche & Mode Tests de Charge
+  // ---------------------------------------------------------------------------
+  public static async getAntiCheatStatus(_req: Request, res: Response): Promise<void> {
+    try {
+      const status = antiCheatService.getStatus();
+      res.status(200).json({ success: true, ...status });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      res.status(500).json({ success: false, message: `Erreur statut anti-triche: ${message}` });
+    }
+  }
+
+  public static async openLoadTest(req: Request, res: Response): Promise<void> {
+    try {
+      const durationMinutes = req.body?.durationMinutes !== undefined ? Number(req.body.durationMinutes) : 120;
+      const customKey = req.body?.customKey ? String(req.body.customKey) : undefined;
+      const status = antiCheatService.openLoadTest(durationMinutes, customKey);
+      res.status(200).json({ success: true, message: `Mode tests de charge ouvert pour ${durationMinutes} minutes.`, ...status });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      res.status(500).json({ success: false, message: `Erreur ouverture test de charge: ${message}` });
+    }
+  }
+
+  public static async closeLoadTest(_req: Request, res: Response): Promise<void> {
+    try {
+      const status = antiCheatService.closeLoadTest();
+      res.status(200).json({ success: true, message: "Mode tests de charge fermé. Bouclier anti-triche réarmé.", ...status });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      res.status(500).json({ success: false, message: `Erreur fermeture test de charge: ${message}` });
+    }
+  }
+
+  public static async toggleAntiCheat(req: Request, res: Response): Promise<void> {
+    try {
+      const enabled = Boolean(req.body?.enabled);
+      const status = antiCheatService.toggleAntiCheat(enabled);
+      res.status(200).json({
+        success: true,
+        message: enabled ? "Bouclier anti-triche activé avec succès." : "Bouclier anti-triche désactivé (mode permissif).",
+        ...status
+      });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      res.status(500).json({ success: false, message: `Erreur bascule anti-triche: ${message}` });
+    }
+  }
+
+  public static async resetAntiCheatStats(_req: Request, res: Response): Promise<void> {
+    try {
+      const status = antiCheatService.resetStats();
+      res.status(200).json({ success: true, message: "Statistiques et journal anti-triche réinitialisés.", ...status });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      res.status(500).json({ success: false, message: `Erreur réinitialisation anti-triche: ${message}` });
     }
   }
 }

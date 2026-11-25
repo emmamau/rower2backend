@@ -1,5 +1,6 @@
 import { Application, Router } from "express";
 import raceController from "../controllers/race.controller";
+import { verifyAntiCheat } from "../middleware/anti-cheat.middleware";
 
 export default (app: Application): void => {
   const router = Router();
@@ -7,8 +8,8 @@ export default (app: Application): void => {
   // GET /api/race/next (Prochaine course planifiée avec décompte)
   router.get("/next", raceController.getNextRace);
 
-  // POST /api/race/join (Rejoindre la prochaine course et lancer l'attente)
-  router.post("/join", raceController.joinRace);
+  // POST /api/race/join (Rejoindre la prochaine course et lancer l'attente avec vérification Anti-Triche)
+  router.post("/join", verifyAntiCheat, raceController.joinRace);
 
   // GET /api/race/history (Historique des résultats des précédentes courses)
   router.get("/history", raceController.getRaceHistory);

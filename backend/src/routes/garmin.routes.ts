@@ -2,6 +2,7 @@ import { Application, Router } from "express";
 import GarminController from "../controllers/garmin.controller";
 import TelemetryController from "../controllers/telemetry.controller";
 import { verifyDeviceToken } from "../middleware/device-auth.middleware";
+import { verifyAntiCheat } from "../middleware/anti-cheat.middleware";
 
 export default (app: Application): void => {
   const router = Router();
@@ -11,7 +12,7 @@ export default (app: Application): void => {
   router.post("/pairing-code", GarminController.generatePairingCode);
 
   // POST /api/garmin/pair (Validation du code saisi sur la montre et remise du deviceToken)
-  router.post("/pair", GarminController.pairWatch);
+  router.post("/pair", verifyAntiCheat, GarminController.pairWatch);
 
   // GET /api/garmin/pairing-status (Détection de la validation par le web)
   router.get("/pairing-status", GarminController.getPairingStatus);
@@ -24,15 +25,15 @@ export default (app: Application): void => {
   router.get("/status", GarminController.getDeviceStatus);
 
   // POST /api/garmin/claim-ticket (Parcours 2 : Validation atomique du Ticket Invité 5 caractères)
-  router.post("/claim-ticket", GarminController.claimTicket);
+  router.post("/claim-ticket", verifyAntiCheat, GarminController.claimTicket);
 
-  // 2. Envoi des données d'activité avec middleware /boost sécurisé par deviceToken
-  router.post("/boost", verifyDeviceToken, TelemetryController.ingestTelemetry);
+  // 2. Envoi des données d'activité avec middleware /boost sécurisé par deviceToken et vérification Anti-Triche
+  router.post("/boost", verifyAntiCheat, verifyDeviceToken, TelemetryController.ingestTelemetry);
 
   app.use("/api/garmin", router);
 
   // Routes globales /boost de premier niveau conformes à la spécification
-  app.post("/boost", verifyDeviceToken, TelemetryController.ingestTelemetry);
-  app.post("/api/boost", verifyDeviceToken, TelemetryController.ingestTelemetry);
-  app.post("/api/v1/boost", verifyDeviceToken, TelemetryController.ingestTelemetry);
+  app.post("/boost", verifyAntiCheat, verifyDeviceToken, TelemetryController.ingestTelemetry);
+  app.post("/api/boost", verifyAntiCheat, verifyDeviceToken, TelemetryController.ingestTelemetry);
+  app.post("/api/v1/boost", verifyAntiCheat, verifyDeviceToken, TelemetryController.ingestTelemetry);
 };

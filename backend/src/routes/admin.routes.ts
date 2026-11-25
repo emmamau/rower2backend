@@ -44,5 +44,12 @@ export default (app: Application): void => {
   router.patch("/plans/:id/toggle", AdminController.togglePlan);
   router.delete("/plans/:id", AdminController.deletePlan);
 
+  // 7. Gestion de l'Anti-Triche & Mode Tests de Charge
+  router.get("/anti-cheat/status", AdminController.getAntiCheatStatus);
+  router.post("/anti-cheat/open-load-test", AdminController.openLoadTest);
+  router.post("/anti-cheat/close-load-test", AdminController.closeLoadTest);
+  router.post("/anti-cheat/toggle", AdminController.toggleAntiCheat);
+  router.post("/anti-cheat/reset-stats", AdminController.resetAntiCheatStats);
+
   app.use("/api/admin", router);
 };

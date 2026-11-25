@@ -44,6 +44,9 @@ app.add_middleware(
 class BackendUrlRequest(BaseModel):
     backend_url: str
 
+class LoadTestKeyRequest(BaseModel):
+    load_test_key: str
+
 class PinRequest(BaseModel):
     pin: str
 
@@ -78,6 +81,7 @@ async def serve_dashboard():
 async def get_state():
     return {
         "backend_url": store.backend_url,
+        "load_test_key": store.load_test_key,
         "metrics": engine.metrics.get_stats(),
         "watches": [w.to_dict() for w in store.get_all_watches()],
     }
@@ -87,6 +91,12 @@ async def update_backend_url(req: BackendUrlRequest):
     store.backend_url = req.backend_url.rstrip("/")
     store.save()
     return {"success": True, "backend_url": store.backend_url}
+
+@app.post("/api/config/load-test-key")
+async def update_load_test_key(req: LoadTestKeyRequest):
+    store.load_test_key = req.load_test_key.strip()
+    store.save()
+    return {"success": True, "load_test_key": store.load_test_key}
 
 @app.post("/api/watches/{watch_id}/pair")
 async def pair_watch(watch_id: int, req: PinRequest):

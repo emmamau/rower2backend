@@ -173,6 +173,7 @@ class SimulatorStore:
         self.count = count
         self.filepath = filepath
         self.backend_url: str = "http://localhost:3000"
+        self.load_test_key: Optional[str] = None
         self.watches: Dict[int, VirtualWatch] = {i: VirtualWatch(i) for i in range(1, count + 1)}
         self.load()
 
@@ -210,6 +211,7 @@ class SimulatorStore:
         try:
             data = {
                 "backend_url": self.backend_url,
+                "load_test_key": self.load_test_key,
                 "watches": {
                     str(w.id): {
                         "user_id": w.user_id,
@@ -241,6 +243,8 @@ class SimulatorStore:
                 data = json.load(f)
             if "backend_url" in data and data["backend_url"]:
                 self.backend_url = data["backend_url"]
+            if "load_test_key" in data:
+                self.load_test_key = data["load_test_key"]
             saved_watches = data.get("watches", {})
             for str_id, w_data in saved_watches.items():
                 w_id = int(str_id)

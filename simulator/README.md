@@ -61,6 +61,12 @@ Puis ouvrez votre navigateur sur : **[http://localhost:8080](http://localhost:80
 2. Cliquez sur **`Course Publique (Tous)`**.
 3. Les montres interrogent le backend pour récupérer l'identifiant de la course horaire et s'enregistrent sur la grille de départ.
 
+### D. Tests de Charge en Production (Bouclier Anti-Triche Actif)
+1. Rendez-vous dans le **Dashboard Admin** (`/admin`), onglet **`🛡️ Anti-Triche & Charge`**.
+2. Cliquez sur **`🚀 Ouvrir une session de test de charge (2 heures)`** : une clé secrète (ex: `LTK-7F9B1E4A`) est générée.
+3. Copiez cette clé et collez-la dans le champ **`🔑 Clé Test Admin`** de l'agent web du simulateur (`http://localhost:8080`), puis cliquez sur **`Définir Clé`**.
+4. Toutes les requêtes du simulateur seront acceptées par le backend. Dès l'expiration du délai (ou par clic sur *Réarmer le bouclier*), tout script non autorisé sera immédiatement bloqué (HTTP 403).
+
 ---
 
 ## ⚡ Modélisation Biomécanique Réaliste (Indiscernable d'un Vrai Joueur)

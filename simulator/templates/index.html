@@ -98,6 +98,41 @@
     .diag-footer { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-muted); border-top: 1px solid #1e293b; padding-top: 6px; margin-top: 2px; }
     .diag-err { color: #f87171; font-weight: 600; }
 
+    /* Toast notifications */
+    #toastContainer {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      pointer-events: none;
+    }
+    .toast {
+      background: #1e293b;
+      color: #fff;
+      padding: 12px 18px;
+      border-radius: 8px;
+      border: 1px solid var(--card-border);
+      box-shadow: 0 4px 14px rgba(0,0,0,0.6);
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      opacity: 0;
+      transform: translateY(-10px);
+      transition: all 0.3s ease;
+      pointer-events: auto;
+    }
+    .toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    .toast.success { border-color: var(--accent-green); background: #064e3b; color: #a7f3d0; }
+    .toast.error { border-color: var(--accent-red); background: #7f1d1d; color: #fecaca; }
+    .toast.info { border-color: var(--accent-blue); background: #0c4a6e; color: #bae6fd; }
+
     @keyframes pulse {
       0% { opacity: 0.8; }
       50% { opacity: 1; filter: drop-shadow(0 0 5px #38bdf8); }
@@ -112,10 +147,17 @@
       <h1>🚣 Simulateur de Charge Garmin FTMS</h1>
       <p>Simulateur 30 montres virtuelles Concept2 • Validation biomécanique • Tests de charge</p>
     </div>
-    <div class="backend-config">
-      <label style="font-size: 12px; color: var(--text-muted);">Backend :</label>
-      <input type="text" id="backendUrl" value="http://localhost:3000">
-      <button class="btn btn-primary" onclick="updateBackendUrl()">Appliquer</button>
+    <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+      <div class="backend-config">
+        <label style="font-size: 12px; color: var(--text-muted);">Backend :</label>
+        <input type="text" id="backendUrl" value="http://localhost:3000">
+        <button class="btn btn-primary" onclick="updateBackendUrl()">Appliquer</button>
+      </div>
+      <div class="backend-config">
+        <label style="font-size: 12px; color: var(--accent-yellow);">🔑 Clé Test Admin :</label>
+        <input type="text" id="loadTestKey" placeholder="Ex: LTK-7F9B1E4A" style="width: 150px; text-transform: uppercase;">
+        <button class="btn btn-warning" onclick="updateLoadTestKey()">Définir Clé</button>
+      </div>
     </div>
   </header>
 
@@ -196,6 +238,9 @@
         if (!res.ok) return;
         const data = await res.json();
         watchesState = data.watches || [];
+        if (data.load_test_key && !document.getElementById("loadTestKey").value) {
+          document.getElementById("loadTestKey").value = data.load_test_key;
+        }
         updateMetrics(data.metrics || {});
         renderRegatta(watchesState);
         renderWatchCards(watchesState);
@@ -362,6 +407,17 @@
         body: JSON.stringify({ backend_url: url })
       });
       alert("URL Backend mise à jour !");
+      fetchState();
+    }
+
+    async function updateLoadTestKey() {
+      const key = document.getElementById("loadTestKey").value.trim().toUpperCase();
+      await fetch("/api/config/load-test-key", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ load_test_key: key })
+      });
+      alert(key ? `Clé de test ${key} enregistrée !` : "Clé de test effacée.");
       fetchState();
     }
 
