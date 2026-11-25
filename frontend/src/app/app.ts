@@ -1391,89 +1391,110 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
-    if (typeof window !== 'undefined' && window.location.search) {
+    if (typeof window !== 'undefined') {
       try {
-        const urlParams = new URLSearchParams(window.location.search);
-        const incomingResetToken = urlParams.get('resetToken') || urlParams.get('token');
+        const isResetPasswordPath = window.location.pathname === '/reset-password' || window.location.pathname.startsWith('/reset-password');
+        const urlParams = window.location.search ? new URLSearchParams(window.location.search) : null;
+        const incomingResetToken = urlParams ? (urlParams.get('resetToken') || urlParams.get('token')) : null;
+
         if (incomingResetToken) {
           this.resetToken = incomingResetToken.trim();
           this.showResetFields = true;
           this.setSiteView('home');
+          this.userExplicitlyNavigatedHome = true;
           this.openAccountModal('forgot');
           const cleanUrl = window.location.pathname + (window.location.hash || '');
           window.history.replaceState({}, '', cleanUrl || '/');
+        } else if (isResetPasswordPath) {
+          this.setSiteView('home');
+          this.userExplicitlyNavigatedHome = true;
+          this.showResetFields = false;
+          this.openAccountModal('forgot');
         }
 
-        const subscriptionParam = urlParams.get('subscription');
-        if (subscriptionParam === 'success') {
-          const rawTier = (urlParams.get('tier') || 'Club').toLowerCase();
-          const tierLabel = rawTier === 'premium' ? 'Élite Pro' : 'Club';
-          this.subscriptionSuccessMessage = `Félicitations ! Votre abonnement ${tierLabel} est désormais actif. Profitez de vos nouveaux avantages !`;
-          this.isSubscriptionModalOpen = true;
-          this.loadUserProfile();
-          const cleanUrl = window.location.pathname + (window.location.hash || '');
-          window.history.replaceState({}, '', cleanUrl || '/');
-        } else if (subscriptionParam === 'canceled') {
-          this.subscriptionError = this.i18n.translateError('ERR_STRIPE_INTERRUPTED');
-          this.isSubscriptionModalOpen = true;
-          const cleanUrl = window.location.pathname + (window.location.hash || '');
-          window.history.replaceState({}, '', cleanUrl || '/');
-        }
-
-        const duelChallengeParam = urlParams.get('duelChallenge');
-        if (duelChallengeParam) {
-          const cleanChallengeId = duelChallengeParam.trim();
-          this.pendingDuelChallengeId = cleanChallengeId;
-          this.handleIncomingDuelChallenge(cleanChallengeId);
-        }
-
-        const duelInviteToken = urlParams.get('duelInviteToken') || urlParams.get('inviteToken');
-        const inviteEmail = urlParams.get('email');
-        if (duelInviteToken) {
-          const cleanInviteToken = duelInviteToken.trim();
-          this.pendingDuelInviteToken = cleanInviteToken;
-          if (inviteEmail && inviteEmail.trim()) {
-            this.pendingRegistrationEmail = inviteEmail.trim();
-            this.regEmail = inviteEmail.trim();
+        if (urlParams) {
+          const subscriptionParam = urlParams.get('subscription');
+          if (subscriptionParam === 'success') {
+            const rawTier = (urlParams.get('tier') || 'Club').toLowerCase();
+            const tierLabel = rawTier === 'premium' ? 'Élite Pro' : 'Club';
+            this.subscriptionSuccessMessage = `Félicitations ! Votre abonnement ${tierLabel} est désormais actif. Profitez de vos nouveaux avantages !`;
+            this.isSubscriptionModalOpen = true;
+            this.loadUserProfile();
+            const cleanUrl = window.location.pathname + (window.location.hash || '');
+            window.history.replaceState({}, '', cleanUrl || '/');
+          } else if (subscriptionParam === 'canceled') {
+            this.subscriptionError = this.i18n.translateError('ERR_STRIPE_INTERRUPTED');
+            this.isSubscriptionModalOpen = true;
+            const cleanUrl = window.location.pathname + (window.location.hash || '');
+            window.history.replaceState({}, '', cleanUrl || '/');
           }
-          this.rowerService.getDuelInviteInfo(cleanInviteToken).subscribe({
-            next: (res) => {
-              if (res?.success && res.challenge) {
-                const challengerLabel = res.challenge.challengerName || res.challenge.challengerLogin || 'un rameur';
-                const resolvedEmail = (inviteEmail || res.challenge.challengedEmail || '').trim();
-                if (resolvedEmail) {
-                  this.pendingRegistrationEmail = resolvedEmail;
-                  this.regEmail = resolvedEmail;
-                }
-                this.setSiteView('home');
-                this.userExplicitlyNavigatedHome = true;
-                if (res.challenge.roomCode && !window.location.pathname.startsWith('/r/')) {
-                  const targetUrl = `/r/${encodeURIComponent(res.challenge.roomCode)}?duelInviteToken=${encodeURIComponent(cleanInviteToken)}${resolvedEmail ? `&email=${encodeURIComponent(resolvedEmail)}` : ''}`;
-                  try {
-                    window.history.replaceState({ roomCode: res.challenge.roomCode }, '', targetUrl);
-                  } catch {}
-                  this.resolveRoomFromCurrentUrl();
-                }
-                if (this.isIdentified) {
-                  this.refreshPendingPrivateAndDuels();
-                  if (res.challenge.roomCode) {
-                    this.rowerService.getPrivateRace(res.challenge.roomCode).subscribe((room) => {
-                      (room as any).duelChallenge = res.challenge;
-                      this.activatePrivateRoom(room, false, true);
-                      this.setSiteView('home');
-                      this.userExplicitlyNavigatedHome = true;
-                      this.isPrivateModalOpen = true;
-                      this.privateModalTab = 'share';
-                      this.cdr.markForCheck();
-                    });
+
+          const duelChallengeParam = urlParams.get('duelChallenge');
+          if (duelChallengeParam) {
+            const cleanChallengeId = duelChallengeParam.trim();
+            this.pendingDuelChallengeId = cleanChallengeId;
+            this.handleIncomingDuelChallenge(cleanChallengeId);
+          }
+
+          const duelInviteToken = urlParams.get('duelInviteToken') || urlParams.get('inviteToken');
+          const inviteEmail = urlParams.get('email');
+          if (duelInviteToken) {
+            const cleanInviteToken = duelInviteToken.trim();
+            this.pendingDuelInviteToken = cleanInviteToken;
+            if (inviteEmail && inviteEmail.trim()) {
+              this.pendingRegistrationEmail = inviteEmail.trim();
+              this.regEmail = inviteEmail.trim();
+            }
+            this.rowerService.getDuelInviteInfo(cleanInviteToken).subscribe({
+              next: (res) => {
+                if (res?.success && res.challenge) {
+                  const challengerLabel = res.challenge.challengerName || res.challenge.challengerLogin || 'un rameur';
+                  const resolvedEmail = (inviteEmail || res.challenge.challengedEmail || '').trim();
+                  if (resolvedEmail) {
+                    this.pendingRegistrationEmail = resolvedEmail;
+                    this.regEmail = resolvedEmail;
+                  }
+                  this.setSiteView('home');
+                  this.userExplicitlyNavigatedHome = true;
+                  if (res.challenge.roomCode && !window.location.pathname.startsWith('/r/')) {
+                    const targetUrl = `/r/${encodeURIComponent(res.challenge.roomCode)}?duelInviteToken=${encodeURIComponent(cleanInviteToken)}${resolvedEmail ? `&email=${encodeURIComponent(resolvedEmail)}` : ''}`;
+                    try {
+                      window.history.replaceState({ roomCode: res.challenge.roomCode }, '', targetUrl);
+                    } catch {}
+                    this.resolveRoomFromCurrentUrl();
+                  }
+                  if (this.isIdentified) {
+                    this.refreshPendingPrivateAndDuels();
+                    if (res.challenge.roomCode) {
+                      this.rowerService.getPrivateRace(res.challenge.roomCode).subscribe((room) => {
+                        (room as any).duelChallenge = res.challenge;
+                        this.activatePrivateRoom(room, false, true);
+                        this.setSiteView('home');
+                        this.userExplicitlyNavigatedHome = true;
+                        this.isPrivateModalOpen = true;
+                        this.privateModalTab = 'share';
+                        this.cdr.markForCheck();
+                      });
+                    } else {
+                      this.triggerFinishToast(`⚔️ Défi 1v1 de ${challengerLabel} (${res.challenge.targetDistance || 2000}m).`);
+                    }
                   } else {
-                    this.triggerFinishToast(`⚔️ Défi 1v1 de ${challengerLabel} (${res.challenge.targetDistance || 2000}m).`);
+                    this.accountAuthSuccess = `⚔️ Défi 1v1 de ${challengerLabel} (${res.challenge.targetDistance || 2000}m) ! Créez votre compte gratuit pour le relever.`;
+                    this.openAccountModal('register');
                   }
                 } else {
-                  this.accountAuthSuccess = `⚔️ Défi 1v1 de ${challengerLabel} (${res.challenge.targetDistance || 2000}m) ! Créez votre compte gratuit pour le relever.`;
-                  this.openAccountModal('register');
+                  this.pendingDuelInviteToken = '';
+                  this.triggerFinishToast('⚠️ Invitation expirée ou introuvable');
+                  if (!this.isIdentified) {
+                    this.setSiteView('home');
+                    this.userExplicitlyNavigatedHome = true;
+                    this.openAccountModal('register');
+                    this.accountAuthError = this.i18n.translateError('Invitation expirée ou introuvable');
+                  }
                 }
-              } else {
+                this.cdr.markForCheck();
+              },
+              error: () => {
                 this.pendingDuelInviteToken = '';
                 this.triggerFinishToast('⚠️ Invitation expirée ou introuvable');
                 if (!this.isIdentified) {
@@ -1482,21 +1503,10 @@ export class AppComponent implements OnInit, OnDestroy {
                   this.openAccountModal('register');
                   this.accountAuthError = this.i18n.translateError('Invitation expirée ou introuvable');
                 }
+                this.cdr.markForCheck();
               }
-              this.cdr.markForCheck();
-            },
-            error: () => {
-              this.pendingDuelInviteToken = '';
-              this.triggerFinishToast('⚠️ Invitation expirée ou introuvable');
-              if (!this.isIdentified) {
-                this.setSiteView('home');
-                this.userExplicitlyNavigatedHome = true;
-                this.openAccountModal('register');
-                this.accountAuthError = this.i18n.translateError('Invitation expirée ou introuvable');
-              }
-              this.cdr.markForCheck();
-            }
-          });
+            });
+          }
         }
       } catch (err) {
         console.warn('[Init] Erreur analyse paramètre resetToken URL:', err);
@@ -1509,7 +1519,7 @@ export class AppComponent implements OnInit, OnDestroy {
         try { window.history.replaceState({}, '', '/'); } catch {}
       }
     }
-    if (typeof window !== 'undefined' && (window.location.pathname === '/login' || window.location.pathname.startsWith('/login/'))) {
+    if (typeof window !== 'undefined' && (window.location.pathname === '/login' || window.location.pathname.startsWith('/login/')) && !this.resetToken && !this.showResetFields) {
       this.setSiteView('home');
       this.userExplicitlyNavigatedHome = true;
       this.openAccountModal('login');
@@ -2732,7 +2742,7 @@ export class AppComponent implements OnInit, OnDestroy {
             this.closeAccountModal();
             this.setSiteView('home');
             this.userExplicitlyNavigatedHome = true;
-            if (typeof window !== 'undefined' && (window.location.pathname === '/login' || window.location.pathname.startsWith('/login/'))) {
+            if (typeof window !== 'undefined' && (window.location.pathname === '/login' || window.location.pathname.startsWith('/login/')) && !this.resetToken && !this.showResetFields) {
               try { window.history.replaceState({}, '', '/'); } catch {}
             }
             if (this.pendingDuelChallengeId) {
@@ -6515,6 +6525,10 @@ export class AppComponent implements OnInit, OnDestroy {
     }
 
     if (!extracted) {
+      if (this.showResetFields || this.resetToken || (typeof window !== 'undefined' && (window.location.pathname === '/reset-password' || window.location.pathname.startsWith('/reset-password')))) {
+        // En cours de réinitialisation de mot de passe : maintenir la vue accueil et la modale active sans basculer sur la régate
+        return;
+      }
       this.rowerService.getMyActiveRace(this.activeUserId, this.deviceToken).pipe(
         catchError(() => of({ activeRoom: null }))
       ).subscribe((res) => {

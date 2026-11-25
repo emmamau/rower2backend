@@ -10,6 +10,10 @@ export const routes: Routes = [
     loadComponent: () => import('./app').then((m) => m.AppComponent)
   },
   {
+    path: 'reset-password',
+    loadComponent: () => import('./app').then((m) => m.AppComponent)
+  },
+  {
     path: 'admin',
     loadComponent: () => import('./components/admin-dashboard/admin-dashboard.component').then((m) => m.AdminDashboardComponent)
   },
