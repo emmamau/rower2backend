@@ -5355,7 +5355,10 @@ body.rigid-viewport {
 /* Mobile & Tablet Fullscreen Minimalist View & Rigid Viewport */
 .game-container.rigid-viewport,
 .game-container.mobile-fullscreen-view {
-  padding: 0.25rem !important;
+  padding-top: max(2px, env(safe-area-inset-top, 0px)) !important;
+  padding-bottom: max(4px, env(safe-area-inset-bottom, 0px)) !important;
+  padding-left: max(4px, env(safe-area-inset-left, 0px)) !important;
+  padding-right: max(4px, env(safe-area-inset-right, 0px)) !important;
   margin: 0 !important;
   width: 100vw !important;
   max-width: 100vw !important;
@@ -5375,6 +5378,8 @@ body.rigid-viewport {
 .game-container.rigid-viewport .smartphone-table-links,
 .game-container.rigid-viewport .lobby-regatta-preview-section,
 .game-container.rigid-viewport .concept2-fairness-banner,
+.game-container.rigid-viewport .regatta-fairness-banner,
+.game-container.rigid-viewport .spectator-camera-bar,
 .game-container.rigid-viewport .regatta-user-summary,
 .game-container.rigid-viewport .watch-auth-strip,
 .game-container.rigid-viewport .mobile-bottom-nav,
@@ -5384,6 +5389,8 @@ body.rigid-viewport {
 .game-container.mobile-fullscreen-view .smartphone-table-links,
 .game-container.mobile-fullscreen-view .lobby-regatta-preview-section,
 .game-container.mobile-fullscreen-view .concept2-fairness-banner,
+.game-container.mobile-fullscreen-view .regatta-fairness-banner,
+.game-container.mobile-fullscreen-view .spectator-camera-bar,
 .game-container.mobile-fullscreen-view .regatta-user-summary,
 .game-container.mobile-fullscreen-view .watch-auth-strip,
 .game-container.mobile-fullscreen-view .mobile-bottom-nav,
@@ -5818,34 +5825,37 @@ app-cockpit-view {
 
 .game-container.rigid-viewport .regatta-canvas-section,
 .game-container.mobile-fullscreen-view .regatta-canvas-section,
-.game-container.pure-screen-active.priv-banner-collapsed .regatta-canvas-section {
+.game-container.pure-screen-active .regatta-canvas-section {
   flex: 1 1 0 !important;
-  min-height: 0;
+  min-height: 0 !important;
   max-height: none !important;
   display: flex;
   flex-direction: column;
   height: 100%;
   margin: 0;
+  overflow: hidden !important;
 }
 
 .game-container.rigid-viewport .canvas-display-card,
 .game-container.mobile-fullscreen-view .canvas-display-card,
-.game-container.priv-banner-collapsed .canvas-display-card {
+.game-container.pure-screen-active .canvas-display-card {
   flex: 1 1 0 !important;
-  min-height: 0;
+  min-height: 0 !important;
   display: flex;
   flex-direction: column;
   height: 100%;
+  overflow: hidden !important;
 }
 
 .game-container.rigid-viewport app-regatta-canvas,
 .game-container.mobile-fullscreen-view app-regatta-canvas,
-.game-container.priv-banner-collapsed app-regatta-canvas {
+.game-container.pure-screen-active app-regatta-canvas {
   flex: 1 1 0 !important;
-  min-height: 0;
+  min-height: 0 !important;
   height: 100%;
   display: flex;
   flex-direction: column;
+  overflow: hidden !important;
 }
 
 /* Smartphone Landscape: Ultra-compact unified Regatta + Telemetry */
@@ -7112,7 +7122,7 @@ app-cockpit-view {
   border: 1px solid rgba(0, 240, 255, 0.45);
 }
 
-@media (max-height: 500px) and (orientation: landscape) {
+@media (max-height: 650px) and (orientation: landscape), (max-width: 1150px) and (orientation: landscape) {
   html.rigid-viewport, body.rigid-viewport {
     overflow: hidden !important;
     height: 100% !important;
@@ -7129,7 +7139,7 @@ app-cockpit-view {
     max-height: 100dvh !important;
     overflow: hidden !important;
     padding-top: max(2px, env(safe-area-inset-top, 0px)) !important;
-    padding-bottom: max(2px, env(safe-area-inset-bottom, 0px)) !important;
+    padding-bottom: max(4px, env(safe-area-inset-bottom, 0px)) !important;
     padding-left: max(4px, env(safe-area-inset-left, 0px)) !important;
     padding-right: max(4px, env(safe-area-inset-right, 0px)) !important;
     margin: 0 !important;
@@ -7256,6 +7266,7 @@ app-cockpit-view {
     padding: 1px 2px !important;
     padding-left: max(6px, env(safe-area-inset-left, 0px)) !important;
     padding-right: max(6px, env(safe-area-inset-right, 0px)) !important;
+    padding-bottom: max(4px, env(safe-area-inset-bottom, 0px)) !important;
     box-sizing: border-box !important;
     width: 100% !important;
     background: rgba(6, 13, 29, 0.92) !important;
@@ -7268,18 +7279,19 @@ app-cockpit-view {
     gap: 2px !important;
   }
   .hud-mini-card {
-    padding: 2px 4px !important;
+    padding: 2px 3px !important;
     display: flex !important;
     flex-direction: column !important;
     align-items: center !important;
     justify-content: center !important;
-    min-height: 28px !important;
+    min-height: 24px !important;
+    max-height: 38px !important;
     background: rgba(10, 25, 47, 0.88) !important;
     border: 1px solid rgba(0, 240, 255, 0.35) !important;
     border-radius: 4px !important;
   }
   .hud-mini-card .hm-lbl {
-    font-size: calc(0.55rem * (1 + (var(--regatta-zoom, 1) - 1) * 0.28)) !important;
+    font-size: 0.58rem !important;
     line-height: 1 !important;
     text-transform: uppercase !important;
     opacity: 0.9 !important;
@@ -7287,8 +7299,8 @@ app-cockpit-view {
     letter-spacing: 0.5px !important;
   }
   .hud-mini-card .hm-val {
-    font-size: calc(1.02rem * (1 + (var(--regatta-zoom, 1) - 1) * 0.42)) !important;
-    line-height: 1.1 !important;
+    font-size: 0.98rem !important;
+    line-height: 1.05 !important;
     font-weight: 900 !important;
     margin: 0 !important;
     color: #ffffff !important;
@@ -7298,13 +7310,14 @@ app-cockpit-view {
     text-shadow: 0 0 8px rgba(0, 240, 255, 0.6) !important;
   }
   .hud-mini-card .hm-unit {
-    font-size: calc(0.55rem * (1 + (var(--regatta-zoom, 1) - 1) * 0.30)) !important;
+    font-size: 0.58rem !important;
   }
   .hud-mini-card .hm-sub {
     display: none !important;
   }
 
   /* Éléments masqués pour dédier 100% de la hauteur utile au plan d'eau */
+  .game-container.pure-screen-active .pure-screen-header,
   .game-container.pure-screen-active .spectator-camera-bar,
   .game-container.pure-screen-active .regatta-user-summary,
   .game-container.pure-screen-active .concept2-fairness-banner,
@@ -8757,7 +8770,7 @@ app-cockpit-view {
 /* ==========================================================================
    OPTIMISATION COCKPIT EN PAYSAGE (ELIMINATION DE L'ESPACE HAUT & VUE ZERO-SCROLL)
    ========================================================================== */
-@media (max-width: 950px) and (orientation: landscape) {
+@media (max-width: 1150px) and (orientation: landscape), (max-height: 650px) and (orientation: landscape) {
   /* Conteneur calé au plus près du bord supérieur en paysage (Cockpit) */
   .game-container:has(.cockpit-hud),
   .game-container.pure-screen-active:has(.cockpit-hud),

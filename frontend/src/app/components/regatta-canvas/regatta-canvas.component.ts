@@ -197,12 +197,12 @@ interface BoatRenderState {
     canvas:active {
       cursor: grabbing;
     }
-    @media (max-width: 768px), (max-height: 600px) and (orientation: landscape) {
+    @media (max-width: 768px), (max-height: 650px) and (orientation: landscape), (max-width: 1150px) and (orientation: landscape) {
       .canvas-wrapper {
         block-size: 100% !important;
         height: 100% !important;
         flex: 1 1 0 !important;
-        min-height: 180px !important;
+        min-height: 0 !important;
         border-radius: 8px;
         margin: 0 !important;
       }
@@ -470,13 +470,14 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
   ngAfterViewInit(): void {
     const canvas = this.canvasRef.nativeElement;
     this.ctx = canvas.getContext('2d');
-    this.resizeCanvas();
+    this.scheduleMultiStageResize();
 
     if (typeof ResizeObserver !== 'undefined') {
       this.resizeObserver = new ResizeObserver(() => this.resizeCanvas());
       this.resizeObserver.observe(this.wrapperRef.nativeElement);
     }
     window.addEventListener('resize', this.onResize);
+    window.addEventListener('orientationchange', this.onOrientationChange);
     canvas.addEventListener('wheel', this.onCanvasWheel, { passive: false });
     this.startRenderLoop();
   }
@@ -510,6 +511,7 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
       this.resizeObserver = null;
     }
     window.removeEventListener('resize', this.onResize);
+    window.removeEventListener('orientationchange', this.onOrientationChange);
     const canvas = this.canvasRef?.nativeElement;
     if (canvas) {
       canvas.removeEventListener('wheel', this.onCanvasWheel);
@@ -773,6 +775,20 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
     this.resizeCanvas();
   };
 
+  private onOrientationChange = () => {
+    this.scheduleMultiStageResize();
+  };
+
+  private scheduleMultiStageResize(): void {
+    this.resizeCanvas();
+    if (typeof window !== 'undefined') {
+      try { window.requestAnimationFrame(() => this.resizeCanvas()); } catch {}
+      setTimeout(() => this.resizeCanvas(), 100);
+      setTimeout(() => this.resizeCanvas(), 250);
+      setTimeout(() => this.resizeCanvas(), 500);
+    }
+  }
+
   private resizeCanvas(): void {
     const wrapper = this.wrapperRef?.nativeElement;
     const canvas = this.canvasRef?.nativeElement;
@@ -780,19 +796,29 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
 
     const maxAssigned = Array.from(this.boatsMap.values()).reduce((max, b) => Math.max(max, b.assignedLane || b.lane || 1), this.boatsMap.size);
     const boatCount = Math.max(1, Math.max(this.boatsMap.size, maxAssigned));
-    const isSmallLandscape = typeof window !== 'undefined' && window.innerHeight <= 500 && window.innerWidth > window.innerHeight;
+    const isLandscape = typeof window !== 'undefined' && (
+      window.innerWidth > window.innerHeight ||
+      Boolean(window.screen?.orientation && String(window.screen.orientation.type).includes('landscape'))
+    );
+    const isConstrainedHeight = typeof window !== 'undefined' && (
+      window.innerHeight <= 650 ||
+      (typeof screen !== 'undefined' && Math.min(screen.width || 0, screen.height || 0) <= 650)
+    );
+    const isInPureRegattaMode = Boolean(wrapper?.closest?.('.game-container.pure-screen-active, .game-container.rigid-viewport, .game-container.mobile-fullscreen-view'));
+    const isSmallLandscape = (isLandscape && isConstrainedHeight) || isInPureRegattaMode;
+
     if (wrapper) {
       if (isSmallLandscape) {
         wrapper.style.minHeight = '0px';
       } else {
-        const dynamicMinHeight = Math.max(200, Math.min(600, 40 + boatCount * 32));
+        const dynamicMinHeight = Math.max(160, Math.min(600, 40 + boatCount * 32));
         wrapper.style.minHeight = `${dynamicMinHeight}px`;
       }
     }
 
     const dpr = typeof window !== 'undefined' ? Math.min(window.devicePixelRatio || 1, 2.5) : 1;
     const width = Math.max(260, wrapper?.clientWidth || 900);
-    const height = Math.max(isSmallLandscape ? 80 : 200, wrapper?.clientHeight || (isSmallLandscape ? 120 : 260));
+    const height = Math.max(isSmallLandscape ? 60 : 160, wrapper?.clientHeight || (isSmallLandscape ? 100 : 260));
 
     this.cssWidth = width;
     this.cssHeight = height;

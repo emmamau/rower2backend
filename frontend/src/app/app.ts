@@ -1092,10 +1092,33 @@ export class AppComponent implements OnInit, OnDestroy {
       const best = this.detectTerminalViewMode();
       if (this.activeViewMode !== best) {
         this.activeViewMode = best;
-        this.cdr.markForCheck();
       }
     }
+    this.cdr.markForCheck();
   };
+
+  /**
+   * Déclenche une synchronisation de mise en page échelonnée (0ms, 120ms, 300ms, 550ms)
+   * pour absorber le délai d'animation de rotation d'écran et de masquage des barres système
+   * sur smartphone lors du passage en plein écran.
+   */
+  triggerMultiStageLayoutResync(): void {
+    const resync = () => {
+      this.clampCurrentCockpitPosition();
+      this.syncRigidViewport();
+      this.cdr.markForCheck();
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('resize'));
+      }
+    };
+    resync();
+    if (typeof window !== 'undefined') {
+      try { window.requestAnimationFrame(() => resync()); } catch {}
+      setTimeout(resync, 120);
+      setTimeout(resync, 300);
+      setTimeout(resync, 550);
+    }
+  }
   isFullscreen = false;
   fullscreenSupported = false;
   isPseudoFullscreen = false;
@@ -1152,16 +1175,14 @@ export class AppComponent implements OnInit, OnDestroy {
     if (this.isMobileFullscreenOnly && !this.userOverrodeViewMode) {
       this.activeViewMode = 'cockpit';
     }
-    this.syncRigidViewport();
-    this.cdr.markForCheck();
+    this.triggerMultiStageLayoutResync();
   };
 
   private readonly fullscreenErrorListener = () => {
     this.isPseudoFullscreen = true;
     this.syncPseudoFullscreenClass();
     this.isFullscreen = true;
-    this.syncRigidViewport();
-    this.cdr.markForCheck();
+    this.triggerMultiStageLayoutResync();
   };
 
   private readonly escapeKeyFullscreenHandler = (event: KeyboardEvent) => {
@@ -3290,6 +3311,7 @@ export class AppComponent implements OnInit, OnDestroy {
         this.enterFullscreen().catch(() => {});
       }
       this.startImmersionAutoFade();
+      this.triggerMultiStageLayoutResync();
     } else if (view === 'cockpit') {
       this.userOverrodeViewMode = true;
       this.activeViewMode = 'cockpit';
@@ -3298,6 +3320,7 @@ export class AppComponent implements OnInit, OnDestroy {
         this.enterFullscreen().catch(() => {});
       }
       this.startImmersionAutoFade();
+      this.triggerMultiStageLayoutResync();
     } else {
       this.userExplicitlyNavigatedHome = true;
       this.isImmersionControlsVisible = true;
@@ -5025,9 +5048,7 @@ export class AppComponent implements OnInit, OnDestroy {
         this.lockLandscape().catch(() => {});
       }
       this.enableScreenWakeLock();
-      this.clampCurrentCockpitPosition();
-      this.syncRigidViewport();
-      this.cdr.markForCheck();
+      this.triggerMultiStageLayoutResync();
     }
   }
 
@@ -5053,9 +5074,7 @@ export class AppComponent implements OnInit, OnDestroy {
       this.syncPseudoFullscreenClass();
       this.isFullscreen = this.checkIsFullscreen();
       this.isImmersionControlsVisible = true;
-      this.clampCurrentCockpitPosition();
-      this.syncRigidViewport();
-      this.cdr.markForCheck();
+      this.triggerMultiStageLayoutResync();
     }
   }
 
@@ -5082,6 +5101,7 @@ export class AppComponent implements OnInit, OnDestroy {
         // Ignorer silencieusement si non supporté ou bloqué par le navigateur
       }
     }
+    this.triggerMultiStageLayoutResync();
   }
 
   /**
