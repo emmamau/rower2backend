@@ -8,6 +8,8 @@ export interface PublicRaceSettingsAttributes {
   maxPlayers: number;
   botCount: number;
   interRaceDelaySec: number;
+  overtakeThresholdM: number;
+  inactivityAbandonSec: number;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -52,6 +54,16 @@ export default (sequelize: Sequelize, _DataTypesInstance: typeof DataTypes): Pub
         type: DataTypes.INTEGER,
         field: "inter_race_delay_sec",
         defaultValue: 120,
+      },
+      overtakeThresholdM: {
+        type: DataTypes.INTEGER,
+        field: "overtake_threshold_m",
+        defaultValue: 5,
+      },
+      inactivityAbandonSec: {
+        type: DataTypes.INTEGER,
+        field: "inactivity_abandon_sec",
+        defaultValue: 60,
       },
     },
     {

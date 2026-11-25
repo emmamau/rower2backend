@@ -44,7 +44,9 @@ export class AdminDashboardComponent implements OnInit {
     maxDurationSec: 600,
     maxPlayers: 6,
     botCount: 2,
-    interRaceDelaySec: 120
+    interRaceDelaySec: 120,
+    overtakeThresholdM: 5,
+    inactivityAbandonSec: 60
   };
   isPublicLoading = false;
   isPublicSubmitting = false;

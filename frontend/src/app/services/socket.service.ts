@@ -69,6 +69,7 @@ export class SocketService {
   private statusSubject = new Subject<{ raceId: string; status: string; details?: any }>();
   private privateRoomUpdateSubject = new Subject<PrivateRoomUpdatePayload>();
   private duelEventSubject = new Subject<DuelSocketEventPayload>();
+  private settingsUpdatedSubject = new Subject<{ overtakeThresholdM?: number; inactivityAbandonSec?: number }>();
   private garminPairedSubject = new Subject<{
     userId: string;
     deviceId?: string;
@@ -116,6 +117,10 @@ export class SocketService {
 
     this.socket.on('race:private_update', (data: PrivateRoomUpdatePayload) => {
       this.privateRoomUpdateSubject.next(data);
+    });
+
+    this.socket.on('settings:updated', (data: any) => {
+      this.settingsUpdatedSubject.next(data);
     });
 
     this.socket.on('duel:challenge_received', (data: any) => {
@@ -188,6 +193,10 @@ export class SocketService {
 
   public onDuelEvent(): Observable<DuelSocketEventPayload> {
     return this.duelEventSubject.asObservable();
+  }
+
+  public onSettingsUpdated(): Observable<{ overtakeThresholdM?: number; inactivityAbandonSec?: number }> {
+    return this.settingsUpdatedSubject.asObservable();
   }
 
   public getSocketId(): string | undefined {

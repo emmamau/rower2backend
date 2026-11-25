@@ -11,6 +11,8 @@ export interface AdminPublicRaceSettings {
   maxPlayers: number;
   botCount: number;
   interRaceDelaySec: number;
+  overtakeThresholdM?: number;
+  inactivityAbandonSec?: number;
 }
 
 export interface AdminUserItem {

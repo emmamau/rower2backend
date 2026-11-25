@@ -273,6 +273,7 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
   @Input() zoomLevel = 1;
   @Input() regattaPreferences?: RegattaPreferences;
   @Input() raceElapsedTimeSeconds = 0;
+  @Input() overtakeThresholdM: number = 5;
   @Output() zoomLevelChange = new EventEmitter<number>();
   @Output() racerSelected = new EventEmitter<string>();
   @Output() kayakClaimed = new EventEmitter<string>();
@@ -981,8 +982,8 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
     // Classer par couloir actuel (0 = L1 en tête, 1 = L2, etc.)
     boatsList.sort((a, b) => a.dynamicLaneIndex - b.dynamicLaneIndex);
 
-    // Seuil de dépassement net (5m d'écart minimum avant tout changement de ligne d'eau)
-    const OVERTAKE_THRESHOLD_M = 5;
+    // Seuil de dépassement net (5m d'écart par défaut, configurable dynamiquement par l'admin via overtakeThresholdM)
+    const OVERTAKE_THRESHOLD_M = Math.max(1, this.overtakeThresholdM ?? 5); // OVERTAKE_THRESHOLD_M = 5;
 
     for (let i = boatsList.length - 2; i >= 0; i--) {
       const topBoat = boatsList[i];

@@ -69,6 +69,15 @@ export class AdminInitService {
               ALTER TABLE users ADD COLUMN is_revoked BOOLEAN DEFAULT FALSE;
             END IF;
           END IF;
+          -- Colonnes sur public_race_settings
+          IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'public_race_settings') THEN
+            IF NOT EXISTS (SELECT FROM information_schema.columns WHERE table_name = 'public_race_settings' AND column_name = 'overtake_threshold_m') THEN
+              ALTER TABLE public_race_settings ADD COLUMN overtake_threshold_m INTEGER DEFAULT 5;
+            END IF;
+            IF NOT EXISTS (SELECT FROM information_schema.columns WHERE table_name = 'public_race_settings' AND column_name = 'inactivity_abandon_sec') THEN
+              ALTER TABLE public_race_settings ADD COLUMN inactivity_abandon_sec INTEGER DEFAULT 60;
+            END IF;
+          END IF;
         END $$;
       `);
     } catch (err: unknown) {
@@ -92,8 +101,23 @@ export class AdminInitService {
           maxPlayers: 6,
           botCount: 2,
           interRaceDelaySec: 120,
+          overtakeThresholdM: 5,
+          inactivityAbandonSec: 60,
         },
       });
+      if (setting) {
+        const plain: any = typeof setting.toJSON === "function" ? setting.toJSON() : setting;
+        const updates: any = {};
+        if (plain.overtakeThresholdM === undefined && plain.overtake_threshold_m === undefined) {
+          updates.overtakeThresholdM = 5;
+        }
+        if (plain.inactivityAbandonSec === undefined && plain.inactivity_abandon_sec === undefined) {
+          updates.inactivityAbandonSec = 60;
+        }
+        if (Object.keys(updates).length > 0) {
+          await setting.update(updates);
+        }
+      }
       if (created) {
         console.log("[AdminInit] Configuration des courses publiques par défaut créée (id=1).");
       }

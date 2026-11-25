@@ -187,10 +187,14 @@ export async function buildPublicRacePayload(): Promise<any> {
     status: apiStatus,
     totalParticipants: count,
     participants: participantsList,
+    overtakeThresholdM: raceManager.overtakeThresholdM,
+    inactivityAbandonSec: Math.round(raceManager.inactivityAbandonMs / 1000),
   };
 
   return {
     race,
+    overtakeThresholdM: raceManager.overtakeThresholdM,
+    inactivityAbandonSec: Math.round(raceManager.inactivityAbandonMs / 1000),
     secondsRemaining: isPostRacePause ? pauseRemaining : timing.secondsUntilStart,
     remainingSeconds: isPostRacePause ? pauseRemaining : timing.remainingSeconds,
     elapsedSeconds: timing.elapsedSeconds,

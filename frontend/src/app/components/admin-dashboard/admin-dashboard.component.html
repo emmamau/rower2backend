@@ -163,6 +163,47 @@
             </div>
           </div>
 
+          <!-- Section Règles de course & arbitrage -->
+          <div class="arbitrage-section" style="margin-top: 24px; padding-top: 18px; border-top: 1px solid rgba(0, 240, 255, 0.2);">
+            <h4 class="card-subtitle" style="margin-bottom: 12px; color: #00f0ff; font-size: 0.95rem;">
+              ⚖️ {{ i18n.t('ADMIN_SECTION_ARBITRAGE') }}
+            </h4>
+            <div class="form-grid">
+              <div class="form-group">
+                <label>{{ i18n.t('ADMIN_OVERTAKE_THRESHOLD_LABEL') }}</label>
+                <input
+                  type="number"
+                  class="form-input"
+                  name="overtakeThresholdM"
+                  [(ngModel)]="publicSettings.overtakeThresholdM"
+                  min="1"
+                  max="50"
+                  step="1"
+                  required
+                />
+                <small class="form-help-text" style="color: #94a3b8; font-size: 0.78rem; margin-top: 4px; display: block;">
+                  {{ i18n.t('ADMIN_OVERTAKE_THRESHOLD_DESC') }}
+                </small>
+              </div>
+              <div class="form-group">
+                <label>{{ i18n.t('ADMIN_INACTIVITY_ABANDON_LABEL') }}</label>
+                <input
+                  type="number"
+                  class="form-input"
+                  name="inactivityAbandonSec"
+                  [(ngModel)]="publicSettings.inactivityAbandonSec"
+                  min="15"
+                  max="600"
+                  step="5"
+                  required
+                />
+                <small class="form-help-text" style="color: #94a3b8; font-size: 0.78rem; margin-top: 4px; display: block;">
+                  {{ i18n.t('ADMIN_INACTIVITY_ABANDON_DESC') }}
+                </small>
+              </div>
+            </div>
+          </div>
+
           <button
             type="submit"
             class="btn-submit"

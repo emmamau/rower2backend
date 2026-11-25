@@ -5727,6 +5727,24 @@ export class AppComponent implements OnInit, OnDestroy {
         return;
       }
 
+    this.socketService.onSettingsUpdated().subscribe((cfg) => {
+      if (cfg && cfg.overtakeThresholdM) {
+        if (this.nextRaceInfo) {
+          (this.nextRaceInfo as any).overtakeThresholdM = cfg.overtakeThresholdM;
+          if (this.nextRaceInfo.race) {
+            (this.nextRaceInfo.race as any).overtakeThresholdM = cfg.overtakeThresholdM;
+          }
+        }
+        if (this.activePrivateRoom) {
+          (this.activePrivateRoom as any).overtakeThresholdM = cfg.overtakeThresholdM;
+          if (this.activePrivateRoom.race) {
+            (this.activePrivateRoom.race as any).overtakeThresholdM = cfg.overtakeThresholdM;
+          }
+        }
+        this.cdr.markForCheck();
+      }
+    });
+
       const isPrivateTarget = Boolean(
         this.activePrivateRoom &&
         (update.raceId === this.activePrivateRoom.race?.id || update.raceId === this.activePrivateRoom.code)

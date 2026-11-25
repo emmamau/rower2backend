@@ -308,6 +308,10 @@ export class RaceManager {
   private static readonly HUMAN_INACTIVE_MS = 5 * 60 * 1000;
   /** Un coureur n'ayant plus ramé (inactivité / rupture) depuis 1 minute (60s) est considéré comme ayant abandonné (DNF). */
   public static readonly INACTIVITY_ABANDON_MS = 60 * 1000;
+  /** Délai d'inactivité avant abandon (configurable dynamiquement par l'admin). */
+  public inactivityAbandonMs: number = 60 * 1000;
+  /** Distance minimale de dépassement pour le changement d'eau (configurable dynamiquement par l'admin). */
+  public overtakeThresholdM: number = 5;
 
   private static instance: RaceManager;
   private currentPublicRace: RaceState | null = null;
@@ -361,6 +365,15 @@ export class RaceManager {
           this.publicMaxPlayers = Number(plain.maxPlayers ?? plain.max_players ?? 6);
           this.publicBotCount = Number(plain.botCount ?? plain.bot_count ?? 2);
           this.publicInterRaceDelaySec = Number(plain.interRaceDelaySec ?? plain.inter_race_delay_sec ?? 120);
+
+          const customOvertake = Number(plain.overtakeThresholdM ?? plain.overtake_threshold_m ?? 5);
+          if (!isNaN(customOvertake) && customOvertake >= 1 && customOvertake <= 50) {
+            this.overtakeThresholdM = customOvertake;
+          }
+          const customInactivity = Number(plain.inactivityAbandonSec ?? plain.inactivity_abandon_sec ?? 60);
+          if (!isNaN(customInactivity) && customInactivity >= 15 && customInactivity <= 600) {
+            this.inactivityAbandonMs = customInactivity * 1000;
+          }
 
           this.adminPublicRaceConfig.targetDistance = this.publicRaceDistanceM;
           this.adminPublicRaceConfig.maxParticipants = this.publicMaxPlayers;
@@ -1095,8 +1108,8 @@ export class RaceManager {
               const baselineMs = Math.max(lastRowedMs, updatedAtMs, startMs);
               const ageMs = now.getTime() - baselineMs;
 
-              if (ageMs > RaceManager.INACTIVITY_ABANDON_MS) {
-                console.log(`[RaceManager] Rupture de flux / inactivité détectée pour ${uid} (${Math.round(ageMs / 1000)}s > 60s). Marquage Abandon (DNF).`);
+              if (ageMs > this.inactivityAbandonMs) {
+                console.log(`[RaceManager] Rupture de flux / inactivité détectée pour ${uid} (${Math.round(ageMs / 1000)}s > ${Math.round(this.inactivityAbandonMs / 1000)}s). Marquage Abandon (DNF).`);
                 await row.update({ status: "abandoned", isDnf: true, speed: 0, powerWatts: 0, strokeRate: 0 } as any);
                 userStore.recordActivity({
                   id: row.get("id"),
@@ -1299,8 +1312,8 @@ export class RaceManager {
               const baselineMs = Math.max(lastRowedMs, updatedAtMs, startMs);
               const ageMs = now.getTime() - baselineMs;
 
-              if (ageMs > RaceManager.INACTIVITY_ABANDON_MS) {
-                console.log(`[RaceManager] Rupture de flux / inactivité détectée pour ${uid} (${Math.round(ageMs / 1000)}s > 60s). Marquage Abandon (DNF).`);
+              if (ageMs > this.inactivityAbandonMs) {
+                console.log(`[RaceManager] Rupture de flux / inactivité détectée pour ${uid} (${Math.round(ageMs / 1000)}s > ${Math.round(this.inactivityAbandonMs / 1000)}s). Marquage Abandon (DNF).`);
                 await row.update({ status: "abandoned", isDnf: true, speed: 0, powerWatts: 0, strokeRate: 0 } as any);
                 userStore.recordActivity({
                   id: row.get("id"),

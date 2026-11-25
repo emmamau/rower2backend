@@ -67,6 +67,10 @@ export class RegattaViewComponent {
   @Input() distToNext = 0;
   @Input() myProgressPercent = 0;
 
+  get effectiveOvertakeThresholdM(): number {
+    return (this.nextRaceInfo as any)?.overtakeThresholdM ?? (this.nextRaceInfo as any)?.race?.overtakeThresholdM ?? (this.activePrivateRoom as any)?.overtakeThresholdM ?? (this.activePrivateRoom as any)?.race?.overtakeThresholdM ?? 5;
+  }
+
   @Output() openCurrentRaceLeaderboardRequest = new EventEmitter<void>();
   @Output() returnToHomeAfterRaceRequest = new EventEmitter<void>();
   @Output() selectPublicKayak = new EventEmitter<string>();

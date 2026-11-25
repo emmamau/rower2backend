@@ -50,6 +50,15 @@ export class AdminController {
         maxPlayers: raceManager.publicMaxPlayers,
         botCount: raceManager.publicBotCount,
         interRaceDelaySec: raceManager.publicInterRaceDelaySec,
+        overtakeThresholdM: raceManager.overtakeThresholdM,
+        inactivityAbandonSec: Math.round(raceManager.inactivityAbandonMs / 1000),
+      };
+    } else {
+      const plain = typeof (setting as any).toJSON === "function" ? (setting as any).toJSON() : setting;
+      setting = {
+        ...plain,
+        overtakeThresholdM: Number(plain.overtakeThresholdM ?? plain.overtake_threshold_m ?? raceManager.overtakeThresholdM ?? 5),
+        inactivityAbandonSec: Number(plain.inactivityAbandonSec ?? plain.inactivity_abandon_sec ?? Math.round((raceManager.inactivityAbandonMs || 60000) / 1000)),
       };
     }
 
@@ -77,11 +86,33 @@ export class AdminController {
         botCount,
         inter_race_delay_sec,
         interRaceDelaySec,
+        overtake_threshold_m,
+        overtakeThresholdM,
+        inactivity_abandon_sec,
+        inactivityAbandonSec,
         is_enabled,
         isEnabled,
       } = req.body || {};
 
       const updates: any = {};
+      if (overtake_threshold_m !== undefined || overtakeThresholdM !== undefined) {
+        const val = Number(overtake_threshold_m ?? overtakeThresholdM);
+        if (isNaN(val) || val < 1 || val > 50) {
+          res.status(400).json({ success: false, message: "La distance de dépassement doit être comprise entre 1 et 50 mètres." });
+          return;
+        }
+        updates.overtakeThresholdM = val;
+        raceManager.overtakeThresholdM = val;
+      }
+      if (inactivity_abandon_sec !== undefined || inactivityAbandonSec !== undefined) {
+        const val = Number(inactivity_abandon_sec ?? inactivityAbandonSec);
+        if (isNaN(val) || val < 15 || val > 600) {
+          res.status(400).json({ success: false, message: "Le délai d'inactivité avant abandon doit être compris entre 15 et 600 secondes." });
+          return;
+        }
+        updates.inactivityAbandonSec = val;
+        raceManager.inactivityAbandonMs = val * 1000;
+      }
       if (race_distance_m !== undefined || raceDistanceM !== undefined) {
         updates.raceDistanceM = Math.max(200, Math.min(50000, Number(race_distance_m ?? raceDistanceM)));
         raceManager.publicRaceDistanceM = updates.raceDistanceM;
@@ -117,12 +148,24 @@ export class AdminController {
         const [found] = await PublicRaceSettings.findOrCreate({ where: { id: 1 }, defaults: { id: 1, ...updates } });
         await found.update(updates);
         row = found;
+        await raceManager.loadPublicRaceSettingsFromDb();
+        socketGateway.broadcast("settings:updated", {
+          overtakeThresholdM: raceManager.overtakeThresholdM,
+          inactivityAbandonSec: Math.round(raceManager.inactivityAbandonMs / 1000),
+        });
       } catch {}
+
+      const plainRow = row && typeof row.toJSON === "function" ? row.toJSON() : { id: 1, ...updates };
+      const returnedSettings = {
+        ...plainRow,
+        overtakeThresholdM: Number(plainRow.overtakeThresholdM ?? plainRow.overtake_threshold_m ?? raceManager.overtakeThresholdM ?? 5),
+        inactivityAbandonSec: Number(plainRow.inactivityAbandonSec ?? plainRow.inactivity_abandon_sec ?? Math.round((raceManager.inactivityAbandonMs || 60000) / 1000)),
+      };
 
       res.status(200).json({
         success: true,
         message: "Paramètres des courses publiques mis à jour et appliqués dynamiquement à chaud.",
-        settings: row && typeof row.toJSON === "function" ? row.toJSON() : { id: 1, ...updates },
+        settings: returnedSettings,
       });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
