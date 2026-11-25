@@ -174,6 +174,7 @@ class SimulatorStore:
         self.filepath = filepath
         self.backend_url: str = "http://localhost:3000"
         self.load_test_key: Optional[str] = None
+        self.spoof_garmin_signature: bool = False
         self.watches: Dict[int, VirtualWatch] = {i: VirtualWatch(i) for i in range(1, count + 1)}
         self.load()
 
@@ -212,6 +213,7 @@ class SimulatorStore:
             data = {
                 "backend_url": self.backend_url,
                 "load_test_key": self.load_test_key,
+                "spoof_garmin_signature": self.spoof_garmin_signature,
                 "watches": {
                     str(w.id): {
                         "user_id": w.user_id,
@@ -245,6 +247,8 @@ class SimulatorStore:
                 self.backend_url = data["backend_url"]
             if "load_test_key" in data:
                 self.load_test_key = data["load_test_key"]
+            if "spoof_garmin_signature" in data:
+                self.spoof_garmin_signature = bool(data["spoof_garmin_signature"])
             saved_watches = data.get("watches", {})
             for str_id, w_data in saved_watches.items():
                 w_id = int(str_id)

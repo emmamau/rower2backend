@@ -160,6 +160,13 @@
         <input type="text" id="loadTestKey" placeholder="Ex: LTK-7F9B1E4A" style="width: 150px; text-transform: uppercase;" oninput="this.value=this.value.toUpperCase()" onkeydown="if(event.key==='Enter') updateLoadTestKey()">
         <button class="btn btn-warning" onclick="updateLoadTestKey()">Définir Clé</button>
       </div>
+      <div class="backend-config" style="display: flex; align-items: center; gap: 8px;">
+        <label style="font-size: 12px; color: var(--accent-blue); display: flex; align-items: center; gap: 6px; cursor: pointer; user-select: none;">
+          <input type="checkbox" id="spoofSignatureToggle" onchange="toggleSpoofSignature(this.checked)" style="cursor: pointer; width: 16px; height: 16px; accent-color: var(--accent-blue);">
+          <span>🛡️ Camouflage Montre Officielle (CIQ)</span>
+        </label>
+        <span id="spoofSignatureBadge" style="font-size: 11px; padding: 2px 8px; border-radius: 4px; font-weight: 700; background: #334155; color: #94a3b8;">DÉSACTIVÉ (Mode Script)</span>
+      </div>
     </div>
   </header>
 
@@ -257,6 +264,13 @@
         const ltkInput = document.getElementById("loadTestKey");
         if (data.load_test_key && ltkInput && !ltkInput.value && document.activeElement !== ltkInput) {
           ltkInput.value = data.load_test_key;
+        }
+        if (data.spoof_garmin_signature !== undefined) {
+          const spoofToggle = document.getElementById("spoofSignatureToggle");
+          if (spoofToggle && document.activeElement !== spoofToggle) {
+            spoofToggle.checked = Boolean(data.spoof_garmin_signature);
+          }
+          updateSpoofBadge(data.spoof_garmin_signature);
         }
         updateMetrics(data.metrics || {});
         renderRegatta(watchesState);
@@ -554,6 +568,40 @@
           body: JSON.stringify({ load_test_key: key })
         });
         showToast(key ? `Clé de test ${key} enregistrée !` : "Clé de test effacée.", "success");
+        fetchState();
+      } catch (e) {
+        showToast("Erreur: " + e.message, "error");
+      }
+    }
+
+    function updateSpoofBadge(active) {
+      const badge = document.getElementById("spoofSignatureBadge");
+      if (!badge) return;
+      if (active) {
+        badge.textContent = "ACTIF (Montre simulée)";
+        badge.style.background = "#14532d";
+        badge.style.color = "#86efac";
+      } else {
+        badge.textContent = "DÉSACTIVÉ (Mode Script)";
+        badge.style.background = "#334155";
+        badge.style.color = "#94a3b8";
+      }
+    }
+
+    async function toggleSpoofSignature(checked) {
+      updateSpoofBadge(checked);
+      try {
+        await fetch("/api/config/spoof-signature", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ spoof_garmin_signature: checked })
+        });
+        showToast(
+          checked
+            ? "🛡️ Camouflage Garmin activé : les requêtes passent comme des montres officielles."
+            : "⚠️ Camouflage désactivé : les requêtes sont détectables par l'Anti-Triche (HTTP 403).",
+          checked ? "success" : "info"
+        );
         fetchState();
       } catch (e) {
         showToast("Erreur: " + e.message, "error");

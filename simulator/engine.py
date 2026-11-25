@@ -79,10 +79,10 @@ class SimulationEngine:
             self.session = None
 
     def _get_headers(self, watch: Optional[VirtualWatch] = None) -> Dict[str, str]:
-        headers = {
-            "Content-Type": "application/json",
-            "x-garmin-signature": "CIQ_OFFICIAL_ROWER_V1"
-        }
+        headers = {"Content-Type": "application/json"}
+        # Mode camouflage Garmin opt-in : si activé, le simulateur se fait passer pour une montre officielle
+        if self.store.spoof_garmin_signature:
+            headers["x-garmin-signature"] = "CIQ_OFFICIAL_ROWER_V1"
         if watch:
             headers["x-device-id"] = watch.device_id
             if watch.device_token:

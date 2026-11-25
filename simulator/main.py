@@ -47,6 +47,9 @@ class BackendUrlRequest(BaseModel):
 class LoadTestKeyRequest(BaseModel):
     load_test_key: str
 
+class SpoofSignatureRequest(BaseModel):
+    spoof_garmin_signature: bool
+
 class PinRequest(BaseModel):
     pin: str
 
@@ -82,6 +85,7 @@ async def get_state():
     return {
         "backend_url": store.backend_url,
         "load_test_key": store.load_test_key,
+        "spoof_garmin_signature": store.spoof_garmin_signature,
         "metrics": engine.metrics.get_stats(),
         "watches": [w.to_dict() for w in store.get_all_watches()],
     }
@@ -97,6 +101,12 @@ async def update_load_test_key(req: LoadTestKeyRequest):
     store.load_test_key = req.load_test_key.strip()
     store.save()
     return {"success": True, "load_test_key": store.load_test_key}
+
+@app.post("/api/config/spoof-signature")
+async def update_spoof_signature(req: SpoofSignatureRequest):
+    store.spoof_garmin_signature = req.spoof_garmin_signature
+    store.save()
+    return {"success": True, "spoof_garmin_signature": store.spoof_garmin_signature}
 
 @app.post("/api/watches/{watch_id}/pair")
 async def pair_watch(watch_id: int, req: PinRequest):

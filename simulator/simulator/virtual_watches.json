@@ -1,16 +1,17 @@
 {
   "backend_url": "https://rower-api-service.onrender.com",
-  "load_test_key": null,
+  "load_test_key": "",
+  "spoof_garmin_signature": true,
   "watches": {
     "1": {
       "user_id": "sim1",
       "user_name": "sim1",
       "device_token": "7c934ccb-31db-426a-8f16-18bc6cc4b2d0",
       "is_paired": true,
-      "target_split": 160.0,
+      "target_split": 160.3,
       "target_power": 85,
-      "race_pin": null,
-      "race_id": "RACE_20261125170021",
+      "race_pin": "CYUI7",
+      "race_id": "PRIV_tckumekfo",
       "target_distance": 2000
     },
     "2": {
@@ -20,8 +21,8 @@
       "is_paired": true,
       "target_split": 103.0,
       "target_power": 320,
-      "race_pin": null,
-      "race_id": "PUBLIC",
+      "race_pin": "CYUI7",
+      "race_id": "PRIV_tckumekfo",
       "target_distance": 2000
     },
     "3": {
@@ -32,7 +33,7 @@
       "target_split": 88.0,
       "target_power": 514,
       "race_pin": null,
-      "race_id": "RACE_20261125170021",
+      "race_id": "RACE_20261125182126",
       "target_distance": 2000
     },
     "4": {
