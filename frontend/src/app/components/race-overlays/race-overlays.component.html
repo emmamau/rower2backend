@@ -443,7 +443,7 @@
 <!-- SMARTPHONE FULLSCREEN PIN OVERLAY (AFFICHE LE CODE PIN EN GROS AU MILIEU DE L'ÉCRAN TANT QUE NON CONNECTÉ À UNE LIGNE D'EAU) -->
 <aside
   class="smartphone-fullscreen-pin-overlay"
-  *ngIf="shouldShowSmartphonePinOverlay && activeFullscreenPinCode"
+  *ngIf="shouldShowSmartphonePinOverlay && activeFullscreenPinCode && !shouldShowWatchPinInvitationOverlay"
   role="dialog"
   aria-modal="true"
   [attr.aria-label]="i18n.t('OVERLAY_PIN_ARIA')">
@@ -461,6 +461,58 @@
     <div class="sf-pin-subinfo">
       <span>⏱️ {{ i18n.t('OVERLAY_WATCH_PIN_AUTO_HIDE') }}</span>
       <span *ngIf="formattedPairingCountdown && formattedPairingCountdown !== '00:00'"> · {{ formattedPairingCountdown }}</span>
+    </div>
+  </div>
+</aside>
+
+<!-- WATCH PIN INVITATION OVERLAY (ENCART COURSE PAR DÉFAUT / REGATTA) -->
+<aside
+  class="watch-pin-invitation-overlay"
+  *ngIf="shouldShowWatchPinInvitationOverlay && !isAnyModalOpen"
+  role="dialog"
+  aria-modal="true"
+  [attr.aria-label]="i18n.t('OVERLAY_PIN_ARIA') || 'Code PIN Montre Garmin'">
+  <div class="watch-pin-invitation-backdrop" (click)="dismissWatchPinPrompt()"></div>
+  <div class="watch-pin-card">
+    <button
+      type="button"
+      class="btn-close-watch-pin"
+      (click)="dismissWatchPinPrompt()"
+      [title]="i18n.t('BTN_CLOSE') || 'Fermer / Réduire'"
+      [attr.aria-label]="i18n.t('BTN_CLOSE') || 'Fermer'">
+      ✕
+    </button>
+
+    <div class="watch-pin-badge">
+      <span class="watch-pin-icon" aria-hidden="true">⌚</span>
+      <span class="watch-pin-badge-text">{{ i18n.t('OVERLAY_WATCH_PIN_BADGE') || 'CODE PIN MONTRE GARMIN' }}</span>
+    </div>
+
+    <div class="watch-pin-digits-container">
+      <div class="watch-pin-digits font-mono" aria-live="polite">
+        {{ displayWatchPin }}
+      </div>
+      <button
+        type="button"
+        class="btn-copy-pin"
+        (click)="onCopyWatchPin()"
+        [title]="i18n.t('BTN_COPY') || 'Copier le code PIN'"
+        [attr.aria-label]="i18n.t('BTN_COPY') || 'Copier'">
+        {{ isPinCopied ? '✓' : '📋' }}
+      </button>
+    </div>
+
+    <p class="watch-pin-instruction">
+      {{ i18n.t('OVERLAY_WATCH_PIN_DESC') || 'Entrez ce code sur votre montre pour rejoindre votre ligne d\'eau.' }}
+    </p>
+
+    <div class="watch-pin-subinfo">
+      <span class="watch-pin-countdown" *ngIf="formattedPreRaceCountdown && formattedPreRaceCountdown !== '0m 00s'">
+        ⏱️ {{ i18n.t('COUNTDOWN_TITLE') || 'Départ' }} : {{ formattedPreRaceCountdown }}
+      </span>
+      <span class="watch-pin-waiting" *ngIf="!formattedPreRaceCountdown || formattedPreRaceCountdown === '0m 00s'">
+        <span class="pulse-dot"></span> {{ i18n.t('OVERLAY_WATCH_PIN_AUTO_HIDE') || 'Disparaît dès connexion ou départ de la course' }}
+      </span>
     </div>
   </div>
 </aside>

@@ -11,6 +11,7 @@ export type InvitationOverlayStep = 'choice' | 'guest-pairing' | 'login' | 'regi
   standalone: true,
   imports: [CommonModule, FormsModule],
   templateUrl: './race-overlays.component.html',
+  styleUrls: ['./race-overlays.component.css'],
   encapsulation: ViewEncapsulation.None
 })
 export class RaceOverlaysComponent implements OnChanges {
@@ -36,6 +37,15 @@ export class RaceOverlaysComponent implements OnChanges {
   @Input() shouldShowSmartphonePinOverlay = false;
   @Input() activeFullscreenPinCode = '';
   @Input() formattedPairingCountdown = '';
+
+  // Course par défaut & Encart invitation montre Garmin
+  @Input() isAwaitingWatchPin = false;
+  @Input() activeRoomPin = '';
+  @Input() hasPlayerJoinedWaterLane = false;
+  @Output() copyActivePin = new EventEmitter<void>();
+  @Output() dismissWatchPinOverlay = new EventEmitter<void>();
+  isWatchPinDismissed = false;
+  isPinCopied = false;
 
   // Nouveaux états d'authentification et d'invitation mobile-first
   @Input() isIdentified = false;
@@ -79,6 +89,11 @@ export class RaceOverlaysComponent implements OnChanges {
   constructor(public i18n: I18nService) {}
 
   ngOnChanges(changes: SimpleChanges): void {
+    if (changes['isAwaitingWatchPin']) {
+      if (changes['isAwaitingWatchPin'].currentValue) {
+        this.isWatchPinDismissed = false;
+      }
+    }
     if (changes['invitationEmail'] && this.invitationEmail) {
       if (!this.quickLoginInput) {
         this.quickLoginInput = this.invitationEmail;
@@ -87,6 +102,33 @@ export class RaceOverlaysComponent implements OnChanges {
         this.quickRegEmail = this.invitationEmail;
       }
     }
+  }
+
+  get shouldShowWatchPinInvitationOverlay(): boolean {
+    if (this.isWatchPinDismissed) return false;
+    if (this.hasPlayerJoinedWaterLane) return false;
+    if (!this.isAwaitingWatchPin) return false;
+    return true;
+  }
+
+  get displayWatchPin(): string {
+    return this.activeRoomPin || this.activeFullscreenPinCode || this.activePrivateRoom?.pinCode || this.activePrivateRoom?.race?.pinCode || '----';
+  }
+
+  onCopyWatchPin(): void {
+    const pin = this.displayWatchPin;
+    if (pin && pin !== '----' && typeof navigator !== 'undefined' && navigator.clipboard) {
+      navigator.clipboard.writeText(pin).then(() => {
+        this.isPinCopied = true;
+        setTimeout(() => { this.isPinCopied = false; }, 2000);
+      }).catch(() => {});
+    }
+    this.copyActivePin.emit();
+  }
+
+  dismissWatchPinPrompt(): void {
+    this.isWatchPinDismissed = true;
+    this.dismissWatchPinOverlay.emit();
   }
 
   goToInvitationStep(step: InvitationOverlayStep): void {

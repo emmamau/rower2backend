@@ -1,0 +1,196 @@
+/* =========================================================================
+   WATCH PIN INVITATION OVERLAY (DEFAULT RACE & REGATTA VIEW PROMPT)
+   ========================================================================= */
+
+.watch-pin-invitation-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 99998;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+  animation: watchPinFadeIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.watch-pin-invitation-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(6, 13, 29, 0.72);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+@keyframes watchPinFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.watch-pin-card {
+  position: relative;
+  z-index: 1;
+  background: linear-gradient(145deg, rgba(15, 23, 42, 0.94), rgba(6, 13, 29, 0.98));
+  border: 2px solid rgba(0, 240, 255, 0.65);
+  box-shadow: 0 0 50px rgba(0, 240, 255, 0.35), 0 25px 60px rgba(0, 0, 0, 0.85);
+  border-radius: 24px;
+  padding: 2rem 2.8rem;
+  text-align: center;
+  max-width: min(92vw, 520px);
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.btn-close-watch-pin {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #94a3b8;
+  font-size: 1rem;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-close-watch-pin:hover {
+  background: rgba(239, 68, 68, 0.25);
+  border-color: rgba(239, 68, 68, 0.6);
+  color: #ef4444;
+  transform: scale(1.08);
+}
+
+.watch-pin-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.45rem 1.1rem;
+  border-radius: 999px;
+  background: rgba(0, 240, 255, 0.15);
+  border: 1px solid rgba(0, 240, 255, 0.5);
+  color: #00f0ff;
+  font-weight: 800;
+  font-size: 0.9rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.watch-pin-badge .watch-pin-icon {
+  font-size: 1.25rem;
+}
+
+.watch-pin-digits-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  background: rgba(0, 240, 255, 0.06);
+  border: 1px solid rgba(0, 240, 255, 0.25);
+  border-radius: 16px;
+  padding: 0.6rem 1.4rem;
+  margin: 0.25rem 0;
+  width: 100%;
+}
+
+.watch-pin-digits {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: clamp(2.8rem, 9vw, 4.2rem);
+  font-weight: 900;
+  letter-spacing: 0.28em;
+  text-indent: 0.28em;
+  color: #00f0ff;
+  text-shadow: 0 0 25px rgba(0, 240, 255, 0.65), 0 0 50px rgba(0, 240, 255, 0.35);
+  line-height: 1.15;
+  user-select: text;
+}
+
+.btn-copy-pin {
+  background: rgba(0, 240, 255, 0.12);
+  border: 1px solid rgba(0, 240, 255, 0.35);
+  color: #00f0ff;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  font-size: 1.1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.btn-copy-pin:hover {
+  background: rgba(0, 240, 255, 0.25);
+  border-color: #00f0ff;
+  transform: scale(1.05);
+}
+
+.watch-pin-instruction {
+  color: #f1f5f9;
+  font-size: 1.05rem;
+  font-weight: 600;
+  margin: 0;
+  max-width: 420px;
+  line-height: 1.45;
+}
+
+.watch-pin-subinfo {
+  color: #94a3b8;
+  font-size: 0.85rem;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.watch-pin-waiting {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.pulse-dot {
+  width: 8px;
+  height: 8px;
+  background-color: #00f0ff;
+  border-radius: 50%;
+  animation: pulseDot 1.6s infinite ease-in-out;
+}
+
+@keyframes pulseDot {
+  0% { transform: scale(0.9); opacity: 0.5; box-shadow: 0 0 0 0 rgba(0, 240, 255, 0.7); }
+  70% { transform: scale(1.2); opacity: 1; box-shadow: 0 0 0 6px rgba(0, 240, 255, 0); }
+  100% { transform: scale(0.9); opacity: 0.5; box-shadow: 0 0 0 0 rgba(0, 240, 255, 0); }
+}
+
+@media (max-width: 600px) {
+  .watch-pin-card {
+    padding: 1.4rem 1.6rem;
+    border-radius: 18px;
+    gap: 0.75rem;
+  }
+  .watch-pin-digits {
+    font-size: clamp(2.2rem, 10vw, 3.2rem);
+    letter-spacing: 0.2em;
+    text-indent: 0.2em;
+  }
+  .watch-pin-instruction {
+    font-size: 0.92rem;
+  }
+}

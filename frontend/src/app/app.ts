@@ -4859,7 +4859,11 @@ export class AppComponent implements OnInit, OnDestroy {
           if (active.lane) {
             this.myAssignedLane = active.lane;
           }
+          const wasAwaitingWatchPin = this.isAwaitingWatchPin;
           this.isAwaitingWatchPin = Boolean(active.isAwaitingWatchPin);
+          if (this.isAwaitingWatchPin && !wasAwaitingWatchPin) {
+            this.playDiscreteNotificationChime();
+          }
           try {
             if (typeof localStorage !== 'undefined') {
               localStorage.setItem('rower_active_private_room_id', active.race.id);
@@ -4950,9 +4954,47 @@ export class AppComponent implements OnInit, OnDestroy {
     this.setSiteView('regatta');
 
     // Toast de confirmation avec numéro de ligne attribuée
-    this.triggerFinishToast(`Kayak installé sur la ligne ${assigned} (${displayName})`);
+    this.triggerFinishToast(`Kayak installé sur la ligne ${assigned} — Prêt pour le départ !`);
 
     this.cdr.markForCheck();
+  }
+
+  playDiscreteNotificationChime(): void {
+    try {
+      if (typeof window === 'undefined') return;
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const now = ctx.currentTime;
+
+      const osc1 = ctx.createOscillator();
+      const osc2 = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc1.type = 'sine';
+      osc1.frequency.setValueAtTime(587.33, now);
+      osc1.frequency.exponentialRampToValueAtTime(880, now + 0.15);
+
+      osc2.type = 'triangle';
+      osc2.frequency.setValueAtTime(880, now + 0.15);
+
+      gain.gain.setValueAtTime(0.001, now);
+      gain.gain.exponentialRampToValueAtTime(0.12, now + 0.04);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
+
+      osc1.connect(gain);
+      osc2.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc1.start(now);
+      osc1.stop(now + 0.2);
+      osc2.start(now + 0.15);
+      osc2.stop(now + 0.45);
+
+      setTimeout(() => {
+        ctx.close().catch(() => {});
+      }, 600);
+    } catch {}
   }
 
   resetGarminPairing(): void {
@@ -6380,7 +6422,11 @@ export class AppComponent implements OnInit, OnDestroy {
           if (active.lane) {
             this.myAssignedLane = active.lane;
           }
+          const wasAwaitingWatchPin = this.isAwaitingWatchPin;
           this.isAwaitingWatchPin = Boolean(active.isAwaitingWatchPin);
+          if (this.isAwaitingWatchPin && !wasAwaitingWatchPin) {
+            this.playDiscreteNotificationChime();
+          }
           try {
             if (typeof localStorage !== 'undefined') {
               localStorage.setItem('rower_active_private_room_id', active.race.id);
