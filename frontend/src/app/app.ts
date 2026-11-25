@@ -1067,6 +1067,7 @@ export class AppComponent implements OnInit, OnDestroy {
   // Private Salons state
   activePrivateRoom: PrivateRacePayload | null = null;
   isPrivateRoomCompleted = false;
+  isAwaitingWatchPin = false;
   isPrivateModalOpen = false;
   privateModalTab: PrivateModalTab = 'create';
   privateUrlError = '';
@@ -4841,13 +4842,37 @@ export class AppComponent implements OnInit, OnDestroy {
         if (
           active &&
           active.race?.id &&
-          active.status !== 'COMPLETED' &&
-          active.status !== 'finished' &&
           active.status !== 'STOPPED' &&
           active.status !== 'CANCELLED' &&
-          active.status !== 'ABANDONED'
+          active.status !== 'ABANDONED' &&
+          active.race?.status !== 'CANCELLED' &&
+          active.race?.status !== 'ABANDONED'
         ) {
+          const isCompleted =
+            active.race?.status === 'COMPLETED' ||
+            active.status === 'COMPLETED' ||
+            active.status === 'finished';
+          if (isCompleted) {
+            this.isPrivateRoomCompleted = true;
+            this.isPostRaceRankingActive = true;
+          }
+          if (active.lane) {
+            this.myAssignedLane = active.lane;
+          }
+          this.isAwaitingWatchPin = Boolean(active.isAwaitingWatchPin);
+          try {
+            if (typeof localStorage !== 'undefined') {
+              localStorage.setItem('rower_active_private_room_id', active.race.id);
+              if (active.code || active.race?.code) {
+                localStorage.setItem('rower_active_private_room_code', (active.code || active.race?.code || ''));
+              }
+            }
+          } catch {}
           this.activatePrivateRoom(active, false);
+          this.setSiteView('regatta');
+          if (isCompleted && active.race?.id) {
+            this.openRaceLeaderboard(active.race.id);
+          }
           this.cdr.markForCheck();
         }
       });
@@ -4919,6 +4944,7 @@ export class AppComponent implements OnInit, OnDestroy {
     }
 
     // Basculer immédiatement sur la vue régate et fermer les overlays
+    this.isAwaitingWatchPin = false;
     this.isPrivateModalOpen = false;
     this.isPrivateRoomPreview = false;
     this.setSiteView('regatta');
@@ -6330,65 +6356,59 @@ export class AppComponent implements OnInit, OnDestroy {
     }
 
     if (!extracted) {
-      const storedRoomId = typeof localStorage !== 'undefined' ? localStorage.getItem('rower_active_private_room_id') : null;
-
-      // Ne restaurer automatiquement un salon privé au rechargement QUE si le PIN a été validé sur la montre
-      if (storedRoomId) {
-        this.rowerService.getMyActiveRace(this.activeUserId, this.deviceToken).pipe(
-          catchError(() => of({ activeRoom: null }))
-        ).subscribe((res) => {
-          const active = res?.activeRoom;
-          if (
-            active &&
-            active.race?.id &&
-            active.race.id === storedRoomId &&
-            active.status !== 'COMPLETED' &&
-            active.status !== 'finished' &&
-            active.status !== 'STOPPED' &&
-            active.status !== 'CANCELLED' &&
-            active.status !== 'ABANDONED'
-          ) {
-            this.activatePrivateRoom(active, false, false);
-            this.cdr.markForCheck();
-          } else {
-            this.rowerService.getPrivateRace(storedRoomId).pipe(
-              catchError(() => of(null))
-            ).subscribe((directRoom: any) => {
-              if (
-                directRoom &&
-                directRoom.race?.id &&
-                directRoom.status !== 'COMPLETED' &&
-                directRoom.status !== 'finished' &&
-                directRoom.status !== 'STOPPED' &&
-                directRoom.status !== 'CANCELLED' &&
-                directRoom.status !== 'ABANDONED'
-              ) {
-                this.activatePrivateRoom(directRoom, false, false);
-                this.cdr.markForCheck();
-              } else {
-                if (this.activePrivateRoom) {
-                  this.activePrivateRoom = null;
-                  this.updateDocumentTitle();
-                }
-                try {
-                  if (typeof localStorage !== 'undefined') {
-                    localStorage.removeItem('rower_active_private_room_id');
-                    localStorage.removeItem('rower_active_private_room_code');
-                  }
-                } catch {}
-                this.initGameLoop();
-              }
-            });
+      this.rowerService.getMyActiveRace(this.activeUserId, this.deviceToken).pipe(
+        catchError(() => of({ activeRoom: null }))
+      ).subscribe((res) => {
+        const active = res?.activeRoom;
+        if (
+          active &&
+          active.race?.id &&
+          active.status !== 'STOPPED' &&
+          active.status !== 'CANCELLED' &&
+          active.status !== 'ABANDONED' &&
+          active.race?.status !== 'CANCELLED' &&
+          active.race?.status !== 'ABANDONED'
+        ) {
+          const isCompleted =
+            active.race?.status === 'COMPLETED' ||
+            active.status === 'COMPLETED' ||
+            active.status === 'finished';
+          if (isCompleted) {
+            this.isPrivateRoomCompleted = true;
+            this.isPostRaceRankingActive = true;
           }
-        });
-        return;
-      }
-
-      if (this.activePrivateRoom) {
-        this.activePrivateRoom = null;
-        this.updateDocumentTitle();
-      }
-      this.initGameLoop();
+          if (active.lane) {
+            this.myAssignedLane = active.lane;
+          }
+          this.isAwaitingWatchPin = Boolean(active.isAwaitingWatchPin);
+          try {
+            if (typeof localStorage !== 'undefined') {
+              localStorage.setItem('rower_active_private_room_id', active.race.id);
+              if (active.code || active.race?.code) {
+                localStorage.setItem('rower_active_private_room_code', (active.code || active.race?.code || ''));
+              }
+            }
+          } catch {}
+          this.activatePrivateRoom(active, false, false);
+          this.setSiteView('regatta');
+          if (isCompleted && active.race?.id) {
+            this.openRaceLeaderboard(active.race.id);
+          }
+          this.cdr.markForCheck();
+        } else {
+          if (this.activePrivateRoom) {
+            this.activePrivateRoom = null;
+            this.updateDocumentTitle();
+          }
+          try {
+            if (typeof localStorage !== 'undefined') {
+              localStorage.removeItem('rower_active_private_room_id');
+              localStorage.removeItem('rower_active_private_room_code');
+            }
+          } catch {}
+          this.initGameLoop();
+        }
+      });
       return;
     }
 
@@ -6657,6 +6677,7 @@ export class AppComponent implements OnInit, OnDestroy {
     }
     this.activePrivateRoom = null;
     this.isPrivateRoomCompleted = false;
+    this.isAwaitingWatchPin = false;
     this.isRegattaLaunchSplashOpen = false;
     this.pendingRegattaLaunch = false;
     this.racers = [];

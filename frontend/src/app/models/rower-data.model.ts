@@ -178,6 +178,10 @@ export interface PrivateRacePayload extends NextRaceInfo {
   isBotDuel?: boolean;
   isSolo?: boolean;
   gameMode?: 'solo' | 'bot_duel' | 'duel_1v1' | 'multi';
+  isDefaultRace?: boolean;
+  isAwaitingWatchPin?: boolean;
+  hasPlayerJoinedWaterLane?: boolean;
+  pinCode?: string;
 }
 
 export interface SavedPrivateSalon {
