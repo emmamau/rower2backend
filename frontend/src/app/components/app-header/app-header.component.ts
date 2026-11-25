@@ -12,6 +12,7 @@ import { PrivateModalTab } from '../private-room-manager/private-room-manager.co
   standalone: true,
   imports: [CommonModule, FormsModule],
   templateUrl: './app-header.component.html',
+  styleUrls: ['./app-header.component.css'],
   encapsulation: ViewEncapsulation.None
 })
 export class AppHeaderComponent {
@@ -37,6 +38,8 @@ export class AppHeaderComponent {
   @Input() formattedPreRaceCountdown = '0m 00s';
   @Input() isAdminDashboardOpen = false;
   @Input() activePrivateRoom: PrivateRacePayload | null = null;
+  @Input() hasActivePrivateRoom = false;
+  @Input() isPublicRacePreview = false;
   @Input() isPrivateRoomCompleted = false;
   @Input() waitingStatusText = '';
   @Input() activeRacersCount = 0;
@@ -72,6 +75,7 @@ export class AppHeaderComponent {
   @Output() openStatisticsModalRequest = new EventEmitter<void>();
   @Output() openSubscriptionModalRequest = new EventEmitter<void>();
   @Output() openBotDuelModalRequest = new EventEmitter<void>();
+  @Output() togglePublicRacePreviewRequest = new EventEmitter<void>();
 
   constructor(public i18n: I18nService) {}
 
@@ -167,5 +171,9 @@ export class AppHeaderComponent {
 
   openBotDuelModal(): void {
     this.openBotDuelModalRequest.emit();
+  }
+
+  togglePublicRacePreview(): void {
+    this.togglePublicRacePreviewRequest.emit();
   }
 }

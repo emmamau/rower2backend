@@ -65,6 +65,20 @@
     (rejectPlayer)="rejectPendingPlayer($event)">
   </app-race-overlays>
 
+  <!-- Toast récapitulatif DNF (Abandon de course) -->
+  <div class="dnf-summary-toast" *ngIf="activeDnfSummary" role="alert">
+    <div class="dnf-toast-content">
+      <span class="dnf-toast-icon">🛑</span>
+      <span class="dnf-toast-text">{{ activeDnfSummary.formattedText }}</span>
+      <button
+        type="button"
+        class="btn-dnf-exit-public"
+        (click)="dismissDnfAndExitToPublic()">
+        Retour aux courses publiques
+      </button>
+    </div>
+  </div>
+
   <!-- 2. EN-TÊTES DE NAVIGATION (Pure Screen Header & HUD Header) -->
   <app-header
     [siteView]="siteView"
@@ -89,6 +103,8 @@
     [formattedPreRaceCountdown]="formattedPreRaceCountdown"
     [isAdminDashboardOpen]="isAdminDashboardOpen"
     [activePrivateRoom]="activePrivateRoom"
+    [hasActivePrivateRoom]="Boolean(activePrivateRoom)"
+    [isPublicRacePreview]="isPublicRacePreview"
     [isPrivateRoomCompleted]="isPrivateRoomCompleted"
     [waitingStatusText]="getWaitingStatusText()"
     [activeRacersCount]="activeRacersCount"
@@ -115,6 +131,7 @@
     (leaveCompletedRoomRequest)="leaveCompletedPrivateRoom()"
     (openRaceLeaderboardRequest)="openRaceLeaderboard($event)"
     (toggleFullscreenRequest)="toggleFullscreen()"
+    (togglePublicRacePreviewRequest)="togglePublicRacePreview()"
     (generateGarminPairingCodeRequest)="generateGarminPairingCode()"
     (openWatchGuidanceRequest)="openWatchGuidanceAndPair()"
     (editGuestPseudoRequest)="editGuestPseudo()"

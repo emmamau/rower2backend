@@ -1,0 +1,101 @@
+/* Styles pour le composant AppHeader */
+
+/* Bouton Aperçu public dans le header épuré */
+.btn-pure-nav.btn-pure-public-preview {
+  background: rgba(0, 240, 255, 0.12);
+  border: 1px solid rgba(0, 240, 255, 0.4);
+  color: #00f0ff;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.2s ease;
+}
+
+.btn-pure-nav.btn-pure-public-preview:hover {
+  background: rgba(0, 240, 255, 0.25);
+  border-color: #00f0ff;
+  box-shadow: 0 0 8px rgba(0, 240, 255, 0.3);
+}
+
+.btn-pure-nav.btn-pure-public-preview.active {
+  background: rgba(255, 230, 0, 0.15);
+  border-color: #ffe600;
+  color: #ffe600;
+}
+
+/* Bouton Aperçu public dans le header HUD */
+.btn-hud.btn-public-preview {
+  background: rgba(0, 240, 255, 0.12);
+  border: 1px solid rgba(0, 240, 255, 0.35);
+  color: #00f0ff;
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+}
+
+.btn-hud.btn-public-preview:hover {
+  background: rgba(0, 240, 255, 0.22);
+  border-color: #00f0ff;
+}
+
+.btn-hud.btn-public-preview.active-preview {
+  background: rgba(255, 230, 0, 0.15);
+  border-color: #ffe600;
+  color: #ffe600;
+}
+
+/* Bandeau flottant de rappel de l'aperçu public */
+.public-preview-banner {
+  width: 100%;
+  background: linear-gradient(90deg, rgba(8, 14, 30, 0.95), rgba(0, 50, 80, 0.95), rgba(8, 14, 30, 0.95));
+  border-bottom: 1px solid rgba(0, 240, 255, 0.5);
+  padding: 6px 16px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+  z-index: 1000;
+}
+
+.public-preview-banner-content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.banner-preview-text {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #00f0ff;
+}
+
+.btn-banner-return-salon {
+  background: linear-gradient(135deg, #ffe600, #ffaa00);
+  color: #080e1e;
+  border: none;
+  border-radius: 6px;
+  padding: 5px 14px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.btn-banner-return-salon:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 0 10px rgba(255, 230, 0, 0.5);
+}

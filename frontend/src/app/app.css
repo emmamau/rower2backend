@@ -11491,5 +11491,57 @@ app-cockpit-view {
   }
 }
 
+/* Toast / Overlay récapitulatif DNF (Abandon de course) */
+.dnf-summary-toast {
+  position: fixed;
+  top: 75px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(16, 22, 38, 0.96);
+  border: 2px solid #ff0055;
+  box-shadow: 0 4px 20px rgba(255, 0, 85, 0.45);
+  border-radius: 8px;
+  padding: 12px 20px;
+  z-index: 1050;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  animation: fadeInDown 0.3s ease;
+}
+
+.dnf-toast-content {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.dnf-toast-icon {
+  font-size: 1.4rem;
+}
+
+.dnf-toast-text {
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.btn-dnf-exit-public {
+  background: #ff0055;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 14px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-dnf-exit-public:hover {
+  background: #ff3377;
+  box-shadow: 0 0 10px rgba(255, 0, 85, 0.6);
+}
+
+
 
 

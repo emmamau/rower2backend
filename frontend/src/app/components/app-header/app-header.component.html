@@ -114,6 +114,19 @@
       }
     }
 
+    <!-- Bouton Aperçu public lorsque dans un salon privé -->
+    @if (hasActivePrivateRoom || !!activePrivateRoom) {
+      <button
+        type="button"
+        class="btn-pure-nav btn-pure-public-preview"
+        [class.active]="isPublicRacePreview"
+        (click)="togglePublicRacePreview()"
+        [title]="isPublicRacePreview ? (i18n.t('HEADER_RETURN_SALON_TIP') || 'Revenir à mon salon') : (i18n.t('HEADER_PUBLIC_PREVIEW_TIP') || 'Aperçu temporaire de la course publique')">
+        <span class="pure-icon" aria-hidden="true">{{ isPublicRacePreview ? '↩️' : '👁️' }}</span>
+        <span class="pure-label">{{ isPublicRacePreview ? (i18n.t('HEADER_RETURN_SALON_BTN') || 'Revenir à mon salon') : (i18n.t('HEADER_PUBLIC_PREVIEW_BTN') || 'Aperçu public') }}</span>
+      </button>
+    }
+
     <!-- Affichage du temps restant de course à droite dans la barre d'en-tête (notamment en mode paysage) -->
     <div class="pure-header-timer" *ngIf="!activePrivateRoom && siteView === 'regatta' && (isRaceActive || nextRaceInfo?.status === 'in_progress' || isPreStartCountdown)">
       <span class="pure-timer-badge" [class.is-running]="isRaceActive">
@@ -459,6 +472,19 @@
         </span>
       </button>
 
+      <!-- Bouton Aperçu public lorsque dans un salon privé -->
+      @if (hasActivePrivateRoom || !!activePrivateRoom) {
+        <button
+          type="button"
+          class="btn-hud btn-public-preview"
+          [class.active-preview]="isPublicRacePreview"
+          (click)="togglePublicRacePreview()"
+          [title]="isPublicRacePreview ? (i18n.t('HEADER_RETURN_SALON_TIP') || 'Revenir à mon salon') : (i18n.t('HEADER_PUBLIC_PREVIEW_TIP') || 'Aperçu temporaire de la course publique')">
+          <span class="btn-icon">{{ isPublicRacePreview ? '↩️' : '👁️' }}</span>
+          {{ isPublicRacePreview ? (i18n.t('HEADER_RETURN_SALON_BTN') || 'Revenir à mon salon') : (i18n.t('HEADER_PUBLIC_PREVIEW_BTN') || 'Aperçu public') }}
+        </button>
+      }
+
       <!-- Bouton Espace Statistiques & Analyses (Remonté à droite du bouton salons privés pour les joueurs identifiés) -->
       <button
         *ngIf="isIdentified"
@@ -503,6 +529,19 @@
     </div>
   </div>
 </header>
+
+<!-- Bandeau de rappel mode aperçu course publique -->
+<div class="public-preview-banner" *ngIf="isPublicRacePreview && (hasActivePrivateRoom || !!activePrivateRoom)">
+  <div class="public-preview-banner-content">
+    <span class="banner-preview-text">👁️ {{ i18n.t('BANNER_PUBLIC_PREVIEW_TEXT') || 'Aperçu de la course publique en mode spectateur' }}</span>
+    <button
+      type="button"
+      class="btn-banner-return-salon"
+      (click)="togglePublicRacePreview()">
+      ↩️ {{ i18n.t('HEADER_RETURN_SALON_BTN') || 'Revenir à mon salon' }}
+    </button>
+  </div>
+</div>
 
 <!-- Bannière d'information si les courses publiques sont suspendues -->
 <div class="public-races-suspended-banner" *ngIf="isPublicRaceSuspended">

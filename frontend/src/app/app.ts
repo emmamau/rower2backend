@@ -82,6 +82,7 @@ import { LegalTermsModalComponent } from './components/modals/legal-terms-modal/
 })
 export class AppComponent implements OnInit, OnDestroy {
   protected Math = Math;
+  protected Boolean = Boolean;
 
   // Administration de la plateforme & statut des courses publiques
   isAdminDashboardOpen = false;
@@ -234,6 +235,118 @@ export class AppComponent implements OnInit, OnDestroy {
   pendingPrivateSalonsCount = 0;
   pendingDuelsCount = 0;
   isPrivateRoomPreview = false;
+  isPublicRacePreview = false;
+  activeDnfSummary: { distance: number; formattedText: string } | null = null;
+  private dnfAutoExitTimer: any = null;
+
+  togglePublicRacePreview(): void {
+    if (!this.activePrivateRoom) return;
+    this.isPublicRacePreview = !this.isPublicRacePreview;
+    if (this.isPublicRacePreview) {
+      this.rowerService.getNextRace().subscribe({
+        next: (raceData) => {
+          if (raceData) {
+            this.nextRaceInfo = raceData;
+            this.syncSocketRoom(raceData.race.id);
+            this.cdr.markForCheck();
+          }
+        },
+        error: () => {}
+      });
+    } else {
+      this.nextRaceInfo = this.activePrivateRoom;
+      if (this.activePrivateRoom.race?.id) {
+        this.syncSocketRoom(this.activePrivateRoom.race.id);
+      }
+      this.cdr.markForCheck();
+    }
+  }
+
+  abandonActiveRace(): void {
+    const currentDistance = Math.round((this.myActivity as any)?.dist || this.myActivity?.netDistance || this.myActivity?.currentDistance || 0);
+    const hasLane = Boolean(this.myAssignedLane) || this.isUserAssociatedWithRace;
+    const isStarted = this.isRaceActive ||
+      (this.nextRaceInfo?.status === 'in_progress') ||
+      (this.nextRaceInfo?.race?.status === 'RUNNING') ||
+      (this.activePrivateRoom?.status === 'in_progress') ||
+      (this.activePrivateRoom?.race?.status === 'RUNNING');
+
+    if (this.myActivity) {
+      if (isStarted) {
+        this.myActivity.status = 'abandoned';
+      } else {
+        this.myActivity = null;
+      }
+    }
+    const myRacer = this.racers.find(r => r.userId === this.activeUserId);
+    if (myRacer) {
+      myRacer.status = 'abandoned';
+    }
+
+    this.activeDnfSummary = {
+      distance: currentDistance,
+      formattedText: `Course abandonnée (DNF) · Distance: ${currentDistance} m`
+    };
+
+    if (this.dnfAutoExitTimer) {
+      clearTimeout(this.dnfAutoExitTimer);
+    }
+    this.dnfAutoExitTimer = setTimeout(() => {
+      this.dismissDnfAndExitToPublic();
+    }, 5000);
+
+    this.cdr.markForCheck();
+  }
+
+  confirmAbandonRace(): void {
+    const confirmed = typeof window !== 'undefined'
+      ? window.confirm('Êtes-vous sûr de vouloir abandonner la course et libérer votre couloir ?')
+      : true;
+    if (confirmed) {
+      this.abandonActiveRace();
+    }
+  }
+
+  dismissDnfAndExitToPublic(): void {
+    if (this.dnfAutoExitTimer) {
+      clearTimeout(this.dnfAutoExitTimer);
+      this.dnfAutoExitTimer = null;
+    }
+    this.activeDnfSummary = null;
+    if (this.activePrivateRoom) {
+      const roomIdent = this.activePrivateRoom.race?.id || this.activePrivateRoom.code;
+      if (roomIdent && this.activeUserId) {
+        this.rowerService.leaveRoom(roomIdent, this.activeUserId).subscribe({
+          next: () => {},
+          error: (err) => console.warn('Could not notify leaveRoom to backend in dismissDnfAndExitToPublic:', err)
+        });
+      }
+    } else {
+      const currentRaceId = this.nextRaceInfo?.race?.id;
+      if (currentRaceId && this.activeUserId) {
+        this.rowerService.leaveRoom(currentRaceId, this.activeUserId).subscribe({
+          next: () => {},
+          error: (err) => console.warn('Could not notify leave public race to backend:', err)
+        });
+      }
+    }
+    this.myAssignedLane = null as any;
+    this.selectedSpectatorUserId = '';
+    this.selectedCockpitPlayerId = '';
+    if (!this.isIdentified && !this.isPaired) {
+      this.activeUserId = 'guest';
+    }
+    try {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.removeItem('rower_active_private_room_id');
+        localStorage.removeItem('rower_active_private_room_code');
+      }
+    } catch {}
+    this.exitPrivateRoomToPublic(true);
+    this.initGameLoop();
+    this.setSiteView('home');
+    this.cdr.markForCheck();
+  }
 
   get activeRoomPin(): string {
     return this.activePrivateRoom?.pinCode || this.activePrivateRoom?.race?.pinCode || '';
@@ -5515,7 +5628,7 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   private pollActiveRaceSource(): Observable<NextRaceInfo | null> {
-    if (this.activePrivateRoom) {
+    if (this.activePrivateRoom && !this.isPublicRacePreview) {
       if (
         this.isPrivateRoomCompleted ||
         this.activePrivateRoom.status === 'COMPLETED' ||
@@ -6710,8 +6823,9 @@ export class AppComponent implements OnInit, OnDestroy {
     this.cdr.markForCheck();
   }
 
-  private exitPrivateRoomToPublic(resetUrl: boolean, notFoundMessage?: string): void {
+  exitPrivateRoomToPublic(resetUrl: boolean, notFoundMessage?: string): void {
     this.isPrivateRoomPreview = false;
+    this.isPublicRacePreview = false;
     if (this.activePrivateRoom) {
       const roomIdent = this.activePrivateRoom.race?.id || this.activePrivateRoom.code;
       if (roomIdent && this.activeUserId) {
