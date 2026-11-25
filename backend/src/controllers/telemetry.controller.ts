@@ -537,10 +537,12 @@ export class TelemetryController {
       if (!falseStartDetected && targetDist > 0 && body.status !== "abandoned") {
         const finishSnapMargin = Math.max(15, Math.ceil(c2Speed * 3));
         const inProgressFinishMargin = Math.max(3, Math.ceil(c2Speed));
+        const raceIsClosing = Boolean(matchedRace && (matchedRace.status === "COMPLETED" || matchedRace.status === "STOPPED"));
         if (
           wasAlreadyFinished ||
           (clientReportsFinished && (effectiveDistance >= targetDist - finishSnapMargin || (validatedWatchDistance >= targetDist && validation.isValid))) ||
-          (validatedWatchDistance >= targetDist && validation.isValid && effectiveDistance >= targetDist - inProgressFinishMargin)
+          (validatedWatchDistance >= targetDist && validation.isValid && effectiveDistance >= targetDist - inProgressFinishMargin) ||
+          (raceIsClosing && (effectiveDistance >= targetDist - 5 || validatedWatchDistance >= targetDist - 5))
         ) {
           effectiveDistance = targetDist;
           exactDistance = targetDist;

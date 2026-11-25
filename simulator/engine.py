@@ -415,6 +415,9 @@ class SimulationEngine:
         url = f"{self.store.backend_url}/api/garmin/boost"
         now_ms = int(time.time() * 1000)
 
+        # Si le statut est finished ou si la montre a atteint la distance cible, forcer la distance exacte
+        send_dist = float(watch.target_distance) if (status == "finished" or watch.current_distance >= watch.target_distance) else watch.current_distance
+
         payload = {
             "raceId": watch.race_id or "PUBLIC",
             "userId": watch.user_id or watch.device_id,
@@ -424,7 +427,7 @@ class SimulationEngine:
             "seq": watch.stroke_count,
             "timestamp": now_ms,
             "elapsedTime": round(watch.elapsed_time),
-            "currentDistance": round(watch.current_distance),
+            "currentDistance": round(send_dist),
             "instantPower": round(watch.current_power),
             "instantPace": round(watch.current_split),
             "strokeRate": round(watch.current_spm, 1),
@@ -432,7 +435,7 @@ class SimulationEngine:
             "status": status,
             "targetDistance": watch.target_distance,
             "metrics": {
-                "distanceM": round(watch.current_distance),
+                "distanceM": round(send_dist),
                 "splitSec": round(watch.current_split),
                 "powerWatts": round(watch.current_power),
                 "strokeRate": round(watch.current_spm, 1),
@@ -461,10 +464,18 @@ class SimulationEngine:
                         server_st = data.get("status")
                         if server_st == "RUNNING" and watch.race_status in ("LOBBY", "COUNTDOWN"):
                             watch.race_status = "RUNNING"
-                        elif server_st == "COMPLETED" or data.get("isFinished"):
-                            if watch.current_distance >= watch.target_distance - 5:
-                                watch.race_status = "FINISHED"
-                                watch.is_simulating = False
+
+                        # Synchronisation bidirectionnelle avec la distance officielle normalisée du serveur
+                        server_dist = data.get("normDistM")
+                        if server_dist is not None and isinstance(server_dist, (int, float)):
+                            if server_dist > watch.current_distance:
+                                watch.current_distance = float(server_dist)
+
+                        # Si le serveur confirme que le coureur a fini OU si la montre a atteint l'objectif
+                        if data.get("isFinished") or watch.current_distance >= watch.target_distance:
+                            watch.current_distance = float(watch.target_distance)
+                            watch.race_status = "FINISHED"
+                            watch.is_simulating = False
                     except Exception:
                         pass
                 elif resp.status == 403:

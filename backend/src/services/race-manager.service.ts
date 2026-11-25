@@ -1397,6 +1397,28 @@ export class RaceManager {
     race.status = isStopped ? "STOPPED" : (isCancelled ? "CANCELLED" : "COMPLETED");
     race.endedAt = new Date();
     let ranking: RaceRankingEntry[] = [];
+
+    // Sauvegarde d'équité : tout rameur actif à moins de 5m de la ligne d'arrivée au moment de la clôture
+    // est promu automatiquement au statut "finished" avec la distance cible exacte.
+    if (!isStopped && !isCancelled && race.targetDistance > 0) {
+      const snapThreshold = Math.max(0, race.targetDistance - 5);
+      const closeActivities = userStore.findActivitiesByRaceId(race.id).filter(
+        (a: any) => ["in_progress", "waiting", "paused"].includes(a.status) && Number(a.netDistance || a.currentDistance || 0) >= snapThreshold
+      );
+      for (const a of closeActivities) {
+        a.status = "finished";
+        a.netDistance = race.targetDistance;
+        a.currentDistance = race.targetDistance;
+        a.progressPercent = 100;
+        try {
+          await Activities.update(
+            { status: "finished", netDistance: race.targetDistance, currentDistance: race.targetDistance, progressPercent: 100 },
+            { where: { id: a.id } }
+          );
+        } catch {}
+      }
+    }
+
     userStore.updateActivitiesWhere(race.id, ["in_progress", "waiting", "paused"], { status: "out_of_time" });
     try {
       await Activities.update(
@@ -1673,6 +1695,29 @@ export class RaceManager {
     }
 
     let ranking: RaceRankingEntry[] = [];
+
+    // Sauvegarde d'équité : tout rameur actif à moins de 5m de la ligne d'arrivée au moment de la clôture
+    // est promu automatiquement au statut "finished" avec la distance cible exacte.
+    const targetDist = managed?.targetDistance || 2000;
+    if (!isStopped && !isCancelled && targetDist > 0) {
+      const snapThreshold = Math.max(0, targetDist - 5);
+      const closeActivities = userStore.findActivitiesByRaceId(raceId).filter(
+        (a: any) => ["in_progress", "waiting", "paused"].includes(a.status) && Number(a.netDistance || a.currentDistance || 0) >= snapThreshold
+      );
+      for (const a of closeActivities) {
+        a.status = "finished";
+        a.netDistance = targetDist;
+        a.currentDistance = targetDist;
+        a.progressPercent = 100;
+        try {
+          await Activities.update(
+            { status: "finished", netDistance: targetDist, currentDistance: targetDist, progressPercent: 100 },
+            { where: { id: a.id } }
+          );
+        } catch {}
+      }
+    }
+
     userStore.updateActivitiesWhere(raceId, ["in_progress", "waiting", "paused"], { status: "out_of_time" });
     try {
       await Activities.update(
