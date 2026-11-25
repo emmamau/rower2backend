@@ -977,6 +977,79 @@ function testSmartRowAutoRecoverWatchdog(logger as Logger) as Boolean {
     return true;
 }
 
+//! Regression test 32: T-3s countdown trigger executes soft BLE pre-warm without disconnecting
+(:test)
+function testCountdownAt3SecondsPreparesBleWakeup(logger as Logger) as Boolean {
+    var model = new RowerDataModel();
+    var view = new RowerView(model);
+    var del = new BleDelegate(model);
+    del.setView(view);
+
+    model.connectionState = RowerDataModel.STATE_CONNECTED_SMARTROW;
+    Test.assertEqual(true, model.isConnected());
+
+    // Call prepareForRaceStart() - fails before implementation
+    del.prepareForRaceStart();
+
+    // Must remain connected! Must NOT drop to STATE_SCANNING or STATE_DISCONNECTED
+    Test.assertEqual(true, model.isConnected());
+    Test.assertEqual(RowerDataModel.STATE_CONNECTED_SMARTROW, model.connectionState);
+    Test.assertEqual(0, del.getSecondsWithoutData());
+    Test.assertEqual(true, del.isRaceBlePrewarmed());
+
+    return true;
+}
+
+//! Regression test 33: onOneSecondTick automatically executes prepareForRaceStart when countdown hits 3
+(:test)
+function testCountdownTickAt3SecondsAutoPreparesBle(logger as Logger) as Boolean {
+    var model = new RowerDataModel();
+    var view = new RowerView(model);
+    var del = new BleDelegate(model);
+    del.setView(view);
+
+    model.connectionState = RowerDataModel.STATE_CONNECTED_SMARTROW;
+    view.setAppState(RowerView.STATE_LOBBY);
+    view.setLobbyInfo(4, 1, 2000);
+
+    Test.assertEqual(false, del.isRaceBlePrewarmed());
+
+    // Tick: 4 -> 3
+    del.onOneSecondTick();
+
+    Test.assertEqual(3, view.getCountdown());
+    Test.assertEqual(true, del.isRaceBlePrewarmed());
+    Test.assertEqual(true, model.isConnected());
+
+    return true;
+}
+
+//! Regression test 34: Active race start hot-retry dispatches wake pings on initial ticks until data arrives
+(:test)
+function testRaceStartHotRetryDispatchesWakePings(logger as Logger) as Boolean {
+    var model = new RowerDataModel();
+    var view = new RowerView(model);
+    var del = new BleDelegate(model);
+    del.setView(view);
+
+    model.connectionState = RowerDataModel.STATE_CONNECTED_SMARTROW;
+    del.launchRaceFromWaiting();
+
+    Test.assertEqual(RowerView.STATE_RACING, view.getAppState());
+    Test.assertEqual(false, del.isRaceBlePrewarmed()); // Reset on race start
+
+    // T+1 tick with no rower movement yet
+    del.onOneSecondTick();
+    Test.assertEqual(true, model.isConnected());
+
+    // Once watts or movement arrives, hot-retry settles cleanly
+    model.instantPower = 200;
+    del.onOneSecondTick();
+    Test.assertEqual(200, model.instantPower);
+
+    return true;
+}
+
 
 
 

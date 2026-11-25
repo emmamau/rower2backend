@@ -72,6 +72,8 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
     private var _srChallengeRequested as Boolean = false;
     private var _srRxBuffer as String = "";
     private var _srV3LockTicks as Number = 0;
+    private var _isRaceBlePrewarmed as Boolean = false;
+    private var _raceStartWatchdogSec as Number = 0;
 
     // Race & FIT Session State
     private var _session as ActivityRecording.Session?;
@@ -179,6 +181,8 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
 
     public function startScan() as Void {
         _isManualDisconnect = false;
+        _isRaceBlePrewarmed = false;
+        _raceStartWatchdogSec = 0;
         _bleWriteBusy = false;
         _bleBusyTicks = 0;
         _cccdSubscribed = false;
@@ -779,7 +783,9 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
         // Crucial: if bytes 1..5 are 0x40..0x49, pulley is STILL V3-locked! Set _srHandshakeState = 2!
         if (isSmartRowV3LockedFrame(value)) {
             _srHandshakeState = 2;
-            if (!_srChallengeRequested) {
+            _srV3LockTicks += 1;
+            // Anti-deadlock: si la poulie est verrouillée, réessayer le challenge '#' si non demandé ou si verrouillée depuis >= 2 ticks
+            if (!_srChallengeRequested || (_srV3LockTicks >= 2 && _srPacketQueue.size() == 0 && !_bleWriteBusy)) {
                 _srChallengeRequested = true;
                 sendSmartRowPacket([0x23]b);
             }
@@ -908,14 +914,12 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
                     if (_secondsWithoutData >= 2 && (_secondsWithoutData % 2 == 0) && _srPacketQueue.size() == 0 && !_bleWriteBusy) {
                         sendSmartRowWakePing();
                     }
-                    if (_secondsWithoutData >= 6 && (_secondsWithoutData % 4 == 0) && _srPacketQueue.size() == 0 && !_bleWriteBusy) {
-                        sendSmartRowPacket([0x56, 0x40, 0x0D]b);
-                    }
                 }
 
                 // Déblocage automatique SmartRow : si connecté mais aucune donnée reçue au bout de 12s
-                // avant le début de séance (aucun coup de rame ni distance enregistrée)
-                if (_secondsWithoutData >= 12 && !_model.hasStartedRowing && _model.strokeCount == 0 && _model.totalDistance == 0) {
+                // avant le début de séance (aucun coup de rame ni distance enregistrée), sauf si compte à rebours en cours
+                var isCdActive = (_view != null && (_view as RowerView).getCountdown() <= 15 && (_view as RowerView).getCountdown() > 0);
+                if (!isCdActive && _secondsWithoutData >= 12 && !_model.hasStartedRowing && _model.strokeCount == 0 && _model.totalDistance == 0) {
                     _secondsWithoutData = 0;
                     System.println("SmartRow watchdog: 12s sans donnees, relance automatique du BLE...");
                     if (_view != null) {
@@ -945,6 +949,41 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
         return _secondsWithoutData;
     }
 
+    //! Pré-réveil doux et transparent à T-3s avant le départ (aucun unpair, réarmement instantané)
+    public function prepareForRaceStart() as Void {
+        if (_isRaceBlePrewarmed) {
+            return;
+        }
+        _isRaceBlePrewarmed = true;
+        _secondsWithoutData = 0;
+        _bleWriteBusy = false;
+        _bleBusyTicks = 0;
+        _srPacketQueue = [] as Array<ByteArray>;
+        _srRxBuffer = "";
+        _srChallengeRequested = false;
+
+        if (_model.connectionState == RowerDataModel.STATE_CONNECTED_SMARTROW) {
+            sendSmartRowWakePing();
+        } else if (_model.connectionState == RowerDataModel.STATE_CONNECTED_FTMS) {
+            if (_ftmsCtrlChar != null) {
+                try {
+                    _bleWriteBusy = true;
+                    _bleBusyTicks = 0;
+                    (_ftmsCtrlChar as BluetoothLowEnergy.Characteristic).requestWrite([0x07]b, {:writeType => BluetoothLowEnergy.WRITE_TYPE_DEFAULT});
+                } catch (e) {
+                    _bleWriteBusy = false;
+                }
+            }
+        }
+        if (!_cccdSubscribed && _activeDataChar != null && !_bleWriteBusy) {
+            enableDataNotifications();
+        }
+    }
+
+    public function isRaceBlePrewarmed() as Boolean {
+        return _isRaceBlePrewarmed;
+    }
+
     // =========================================================================
     // 2. UNIFIED 1HZ TICK, RACE ORCHESTRATION & TELEMETRY SYNC
     // =========================================================================
@@ -965,6 +1004,26 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
             // Write 1Hz continuous telemetry to .FIT activity file
             if (_activityStatus.equals("in_progress") && _session != null && (_session as ActivityRecording.Session).isRecording()) {
                 populateFitRecordFields();
+            }
+
+            // Hot-retry automatique au départ de course : si en STATE_RACING mais aucune donnée sur les 3 premières secondes
+            if (_activityStatus.equals("in_progress") && _model.strokeRate == 0 && _model.instantPower == 0 && _model.totalDistance == 0) {
+                _raceStartWatchdogSec += 1;
+                if (_raceStartWatchdogSec <= 3 && !_bleWriteBusy) {
+                    if (_model.connectionState == RowerDataModel.STATE_CONNECTED_SMARTROW) {
+                        sendSmartRowWakePing();
+                    } else if (_model.connectionState == RowerDataModel.STATE_CONNECTED_FTMS && _ftmsCtrlChar != null) {
+                        try {
+                            _bleWriteBusy = true;
+                            _bleBusyTicks = 0;
+                            (_ftmsCtrlChar as BluetoothLowEnergy.Characteristic).requestWrite([0x07]b, {:writeType => BluetoothLowEnergy.WRITE_TYPE_DEFAULT});
+                        } catch (e) {
+                            _bleWriteBusy = false;
+                        }
+                    }
+                }
+            } else {
+                _raceStartWatchdogSec = 0;
             }
 
             if (_isFalseStartPenalized) {
@@ -1056,6 +1115,7 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
 
             if (cd <= 3 && cd > 0) {
                 _isWaitingForReadyOrHost = false;
+                prepareForRaceStart();
                 if (state != RowerView.STATE_COUNTDOWN_5S) {
                     view.set5sCountdown(cd);
                     view.setAppState(RowerView.STATE_COUNTDOWN_5S);
@@ -1068,6 +1128,8 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
                 if (cd <= 0) {
                     handleRaceStartTrigger(view, isRowing);
                 }
+            } else if (cd > 3) {
+                _isRaceBlePrewarmed = false;
             }
         }
 
@@ -1809,9 +1871,24 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
         _finishWaitTicks = 0;
         _pendingStrokeSync = false;
         _lastFallbackSendSec = _tickCounter;
+        _isRaceBlePrewarmed = false;
+        _raceStartWatchdogSec = 0;
 
         // Tare model cleanly
         _model.startWorkout();
+
+        // Réveil immédiat de la poulie / rameur au départ pour garantir l'arrivée des données dès le 1er coup
+        if (_model.connectionState == RowerDataModel.STATE_CONNECTED_SMARTROW) {
+            sendSmartRowWakePing();
+        } else if (_model.connectionState == RowerDataModel.STATE_CONNECTED_FTMS && _ftmsCtrlChar != null && !_bleWriteBusy) {
+            try {
+                _bleWriteBusy = true;
+                _bleBusyTicks = 0;
+                (_ftmsCtrlChar as BluetoothLowEnergy.Characteristic).requestWrite([0x07]b, {:writeType => BluetoothLowEnergy.WRITE_TYPE_DEFAULT});
+            } catch (e) {
+                _bleWriteBusy = false;
+            }
+        }
 
         if (_activityId.length() == 0 || _raceMode.equals("solo")) {
             var nowSec = Time.now().value();

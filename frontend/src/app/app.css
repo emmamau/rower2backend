@@ -5902,17 +5902,24 @@ app-cockpit-view {
     gap: 0.25rem !important;
   }
   .hud-mini-card {
-    padding: 0.2rem 0.35rem !important;
+    padding: calc(2px + (var(--regatta-zoom, 1) - 1) * 1.5px) calc(3px + (var(--regatta-zoom, 1) - 1) * 3px) !important;
+    min-height: calc(26px + (var(--regatta-zoom, 1) - 1) * 7px) !important;
+    max-height: calc(38px + (var(--regatta-zoom, 1) - 1) * 6px) !important;
   }
   .hud-mini-card .hm-lbl {
-    font-size: calc(0.6rem * (1 + (var(--regatta-zoom, 1) - 1) * 0.22)) !important;
+    font-size: calc(0.58rem + (var(--regatta-zoom, 1) - 1) * 0.07rem) !important;
   }
   .hud-mini-card .hm-val {
-    font-size: calc(0.95rem * (1 + (var(--regatta-zoom, 1) - 1) * 0.35)) !important;
+    font-size: calc(0.98rem + (var(--regatta-zoom, 1) - 1) * 0.28rem) !important;
+    line-height: 1.05 !important;
+    font-weight: 900 !important;
     margin-block: 0.05rem !important;
   }
+  .hud-mini-card .hm-unit {
+    font-size: calc(0.58rem + (var(--regatta-zoom, 1) - 1) * 0.08rem) !important;
+  }
   .hud-mini-card .hm-sub {
-    font-size: calc(0.6rem * (1 + (var(--regatta-zoom, 1) - 1) * 0.18)) !important;
+    display: none !important;
   }
   .spectator-camera-bar,
   .regatta-user-summary,
@@ -7279,19 +7286,20 @@ app-cockpit-view {
     gap: 2px !important;
   }
   .hud-mini-card {
-    padding: 2px 3px !important;
+    padding: calc(2px + (var(--regatta-zoom, 1) - 1) * 1.5px) calc(3px + (var(--regatta-zoom, 1) - 1) * 3px) !important;
     display: flex !important;
     flex-direction: column !important;
     align-items: center !important;
     justify-content: center !important;
-    min-height: 24px !important;
-    max-height: 38px !important;
+    min-height: calc(26px + (var(--regatta-zoom, 1) - 1) * 7px) !important;
+    max-height: calc(38px + (var(--regatta-zoom, 1) - 1) * 6px) !important;
     background: rgba(10, 25, 47, 0.88) !important;
     border: 1px solid rgba(0, 240, 255, 0.35) !important;
     border-radius: 4px !important;
+    transition: all 0.2s ease;
   }
   .hud-mini-card .hm-lbl {
-    font-size: 0.58rem !important;
+    font-size: calc(0.58rem + (var(--regatta-zoom, 1) - 1) * 0.07rem) !important;
     line-height: 1 !important;
     text-transform: uppercase !important;
     opacity: 0.9 !important;
@@ -7299,7 +7307,7 @@ app-cockpit-view {
     letter-spacing: 0.5px !important;
   }
   .hud-mini-card .hm-val {
-    font-size: 0.98rem !important;
+    font-size: calc(0.98rem + (var(--regatta-zoom, 1) - 1) * 0.28rem) !important;
     line-height: 1.05 !important;
     font-weight: 900 !important;
     margin: 0 !important;
@@ -7310,7 +7318,7 @@ app-cockpit-view {
     text-shadow: 0 0 8px rgba(0, 240, 255, 0.6) !important;
   }
   .hud-mini-card .hm-unit {
-    font-size: 0.58rem !important;
+    font-size: calc(0.58rem + (var(--regatta-zoom, 1) - 1) * 0.08rem) !important;
   }
   .hud-mini-card .hm-sub {
     display: none !important;
@@ -10064,26 +10072,29 @@ app-cockpit-view {
 }
 
 .regatta-under-canvas-hud .hud-mini-card {
-  padding: calc(0.45rem * (1 + (var(--regatta-zoom, 1) - 1) * 0.25)) calc(0.65rem * (1 + (var(--regatta-zoom, 1) - 1) * 0.25));
+  padding: calc(0.35rem + (var(--regatta-zoom, 1) - 1) * 0.12rem) calc(0.5rem + (var(--regatta-zoom, 1) - 1) * 0.2rem);
+  min-height: calc(30px + (var(--regatta-zoom, 1) - 1) * 8px);
+  max-height: calc(46px + (var(--regatta-zoom, 1) - 1) * 8px);
   transition: all 0.2s ease;
 }
 
 .regatta-under-canvas-hud .hud-mini-card .hm-lbl {
-  font-size: calc(0.68rem * (1 + (var(--regatta-zoom, 1) - 1) * 0.30));
+  font-size: calc(0.64rem + (var(--regatta-zoom, 1) - 1) * 0.08rem);
   letter-spacing: 0.6px;
 }
 
 .regatta-under-canvas-hud .hud-mini-card .hm-val {
-  font-size: calc(1.18rem * (1 + (var(--regatta-zoom, 1) - 1) * 0.48));
+  font-size: calc(1.10rem + (var(--regatta-zoom, 1) - 1) * 0.32rem);
   line-height: 1.12;
+  font-weight: 900;
 }
 
 .regatta-under-canvas-hud .hud-mini-card .hm-unit {
-  font-size: calc(0.72rem * (1 + (var(--regatta-zoom, 1) - 1) * 0.35));
+  font-size: calc(0.68rem + (var(--regatta-zoom, 1) - 1) * 0.08rem);
 }
 
 .regatta-under-canvas-hud .hud-mini-card .hm-sub {
-  font-size: calc(0.68rem * (1 + (var(--regatta-zoom, 1) - 1) * 0.25));
+  font-size: calc(0.62rem + (var(--regatta-zoom, 1) - 1) * 0.06rem);
 }
 
 .regatta-quick-zoom-group {
