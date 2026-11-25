@@ -1472,7 +1472,7 @@ export class RaceManager {
     const intervalMin = delayMinutes || this.adminPublicRaceConfig.lobbyWaitMinutes || config.raceIntervalMinutes || 15;
     const lobbyEndsAt = new Date(now.getTime() + intervalMin * 60 * 1000);
     let raceId = `RACE_${lobbyEndsAt.toISOString().replace(/[-:T.]/g, "").slice(0, 14)}`;
-    if (this.currentPublicRace && this.currentPublicRace.id === raceId) {
+    if ((this.currentPublicRace && this.currentPublicRace.id === raceId) || this.getRaceById(raceId)) {
       raceId = `${raceId}_${Math.floor(Math.random() * 900 + 100)}`;
     }
     const pin = this.generateUniquePinCode();
@@ -1531,6 +1531,100 @@ export class RaceManager {
     console.log(`[RaceManager] New Public Race scheduled: ${raceId} | PIN: ${pin} | Target: ${targetDistance}m | Lobby until: ${lobbyEndsAt.toISOString()}`);
     socketGateway.broadcastRaceStatus(raceId, "LOBBY", { lobbyEndsAt });
     return this.currentPublicRace;
+  }
+
+  /**
+   * Arrêt d'urgence de la course publique en direct par l'administrateur :
+   * - Arrête immédiatement tous les participants
+   * - Annule les activités sans aucun classement ni attribution de points
+   * - Vide la course de ses participants
+   * - Clôture la course en base (statut 'stopped')
+   * - Redémarre un nouveau cycle avec un nouveau salon d'attente (lobby)
+   */
+  public async abortAndResetPublicRace(reason: string = "admin_stopped"): Promise<{
+    success: boolean;
+    oldRaceId: string | null;
+    newRace: RaceState | null;
+  }> {
+    const oldRace = this.currentPublicRace;
+    const oldRaceId = oldRace?.id || null;
+
+    if (oldRace) {
+      console.log(`[RaceManager] Arrêt immédiat de la course publique ${oldRaceId} par l'administrateur (${reason}).`);
+      oldRace.status = "STOPPED";
+      oldRace.endedAt = new Date();
+      delete oldRace.pauseEndsAt;
+      oldRace.finalRanking = [];
+
+      // Annuler les activités en mémoire et en DB sans attribuer de points
+      userStore.updateActivitiesWhere(oldRace.id, ["in_progress", "waiting", "paused"], {
+        status: "abandoned",
+        isDnf: true,
+        lastPower: 0,
+        lastStrokeRate: 0,
+      });
+
+      try {
+        await Activities.update(
+          { status: "abandoned", isDnf: true, lastPower: 0, lastStrokeRate: 0 },
+          {
+            where: {
+              activityId: oldRace.id,
+              status: { [Op.in]: ["in_progress", "waiting", "paused"] }
+            }
+          }
+        );
+      } catch (err) {
+        console.error(`[RaceManager] Erreur annulation activités DB pour ${oldRace.id}:`, err);
+      }
+
+      try {
+        await Races.update({ status: "stopped" }, { where: { id: oldRace.id } });
+      } catch (err) {
+        console.error(`[RaceManager] Erreur mise à jour statut course DB pour ${oldRace.id}:`, err);
+      }
+
+      if (oldRace.pinCode) {
+        this.pinToRaceMap.delete(oldRace.pinCode);
+      }
+
+      // Vider tous les participants
+      if (oldRace.participants) {
+        oldRace.participants.clear();
+      }
+
+      // Diffuser l'arrêt immédiat sans classement
+      socketGateway.broadcastRaceStatus(oldRace.id, "STOPPED", {
+        reason: "admin_stopped_public",
+        message: "Course arrêtée par l'administrateur. Aucun classement n'est retenu.",
+        hasRanking: false,
+        ranking: [],
+        pauseSeconds: 0,
+        isPublic: true
+      });
+
+      socketGateway.broadcast("race:public_stopped", {
+        raceId: oldRace.id,
+        message: "Course arrêtée par l'administrateur. Aucun classement n'est retenu.",
+        timestamp: Date.now()
+      });
+    }
+
+    this.currentPublicRace = null;
+    let newRace: RaceState | null = null;
+    if (this.isPublicRaceEnabled) {
+      newRace = await this.initNextPublicRace();
+      if (newRace && oldRaceId && newRace.id === oldRaceId) {
+        newRace.id = `${newRace.id}_${Math.floor(Math.random() * 900 + 100)}`;
+      }
+      console.log(`[RaceManager] Nouveau cycle de course publique relancé : ${newRace?.id} (lobby jusqu'à ${newRace?.lobbyEndsAt?.toISOString()})`);
+    }
+
+    return {
+      success: true,
+      oldRaceId,
+      newRace
+    };
   }
 
   public notifyPlayerJoinedPublic(userId: string, userName?: string, deviceId?: string, deviceToken?: string, isPaired?: boolean): void {

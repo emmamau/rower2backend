@@ -91,13 +91,24 @@
             </span>
           </p>
         </div>
-        <button
-          class="btn-master-toggle"
-          [ngClass]="publicSettings.isEnabled ? 'btn-suspend' : 'btn-activate'"
-          (click)="toggleMasterPublicRaces()"
-        >
-          {{ publicSettings.isEnabled ? i18n.t('ADMIN_PUBLIC_BTN_SUSPEND') : i18n.t('ADMIN_PUBLIC_BTN_ACTIVATE') }}
-        </button>
+        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+          <button
+            type="button"
+            class="btn-master-toggle"
+            style="background: linear-gradient(135deg, #ef4444, #b91c1c); border-color: #f87171;"
+            (click)="abortAndResetPublicRace()"
+            [disabled]="isAbortingPublicRace"
+          >
+            {{ isAbortingPublicRace ? ('⏳ ' + i18n.t('ADMIN_PUBLIC_ABORTING')) : ('🛑 ' + i18n.t('ADMIN_PUBLIC_BTN_ABORT')) }}
+          </button>
+          <button
+            class="btn-master-toggle"
+            [ngClass]="publicSettings.isEnabled ? 'btn-suspend' : 'btn-activate'"
+            (click)="toggleMasterPublicRaces()"
+          >
+            {{ publicSettings.isEnabled ? i18n.t('ADMIN_PUBLIC_BTN_SUSPEND') : i18n.t('ADMIN_PUBLIC_BTN_ACTIVATE') }}
+          </button>
+        </div>
       </div>
 
       <!-- Formulaire de Configuration -->

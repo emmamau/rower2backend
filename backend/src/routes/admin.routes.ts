@@ -12,6 +12,7 @@ export default (app: Application): void => {
   router.get("/public-races/settings", AdminController.getPublicRaceSettings);
   router.put("/public-races/settings", AdminController.updatePublicRaceSettings);
   router.post("/public-races/toggle", AdminController.togglePublicRaces);
+  router.post("/public-races/abort-and-reset", AdminController.abortAndResetPublicRace);
 
   // 2. Gestion des utilisateurs
   router.get("/users", AdminController.getUsers);

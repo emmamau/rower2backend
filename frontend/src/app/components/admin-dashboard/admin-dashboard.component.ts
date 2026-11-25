@@ -58,6 +58,7 @@ export class AdminDashboardComponent implements OnInit {
   };
   isPublicLoading = false;
   isPublicSubmitting = false;
+  isAbortingPublicRace = false;
 
   // Onglet 2 : Utilisateurs
   usersList: AdminUserItem[] = [];
@@ -317,6 +318,32 @@ export class AdminDashboardComponent implements OnInit {
       },
       error: (err) => {
         this.errorMessage = this.formatAdminError(err, 'ADMIN_ERR_TOGGLE_PUBLIC');
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  abortAndResetPublicRace(): void {
+    const confirmed = window.confirm(
+      this.i18n.t('ADMIN_PUBLIC_ABORT_CONFIRM') ||
+      "Voulez-vous vraiment arrêter la course publique en cours ? Tous les participants seront immédiatement arrêtés, aucun classement ne sera retenu et un nouveau cycle sera relancé."
+    );
+    if (!confirmed) return;
+
+    this.isAbortingPublicRace = true;
+    this.clearMessages();
+    this.adminService.abortAndResetPublicRace().subscribe({
+      next: (res) => {
+        this.isAbortingPublicRace = false;
+        if (res.success) {
+          this.feedbackMessage = `✓ ${res.message}`;
+          this.loadPublicSettings();
+        }
+        this.cdr.markForCheck();
+      },
+      error: (err) => {
+        this.isAbortingPublicRace = false;
+        this.errorMessage = this.formatAdminError(err, 'ADMIN_ERR_ABORT_PUBLIC');
         this.cdr.markForCheck();
       }
     });

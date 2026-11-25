@@ -21,7 +21,7 @@ const Users = db.users;
 function mapRaceStatusToApi(status: RaceState["status"]): string {
   if (status === "RUNNING") return "in_progress";
   if (status === "COMPLETED") return "finished";
-  if (status === "ABANDONED") return "cancelled";
+  if (status === "ABANDONED" || status === "STOPPED" || status === "CANCELLED") return "cancelled";
   return "waiting";
 }
 

@@ -199,6 +199,21 @@ export class AdminController {
     }
   }
 
+  public static async abortAndResetPublicRace(_req: Request, res: Response): Promise<void> {
+    try {
+      const result = await raceManager.abortAndResetPublicRace("admin_dashboard_stopped");
+      res.status(200).json({
+        success: true,
+        message: "La course publique a été arrêtée immédiatement. Aucun classement n'a été retenu. Un nouveau cycle a été initialisé.",
+        oldRaceId: result.oldRaceId,
+        newRace: result.newRace,
+      });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      res.status(500).json({ success: false, message: `Erreur arrêt course publique: ${message}` });
+    }
+  }
+
   // ---------------------------------------------------------------------------
   // 2. Gestion des Utilisateurs
   // ---------------------------------------------------------------------------

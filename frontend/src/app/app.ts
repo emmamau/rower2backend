@@ -3126,6 +3126,10 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   get canStopRace(): boolean {
+    if (!this.activePrivateRoom && this.isUserAdmin && this.nextRaceInfo?.race) {
+      const st = String(this.nextRaceInfo.race.status || this.nextRaceInfo.status || '').toUpperCase();
+      return st === 'LOBBY' || st === 'WAITING' || st === 'COUNTDOWN' || st === 'RUNNING' || st === 'IN_PROGRESS';
+    }
     if (!this.isRaceActive) return false;
     return this.isUserAdmin || this.isOrganizerOfActiveRoom;
   }
@@ -3190,8 +3194,11 @@ export class AppComponent implements OnInit, OnDestroy {
 
   stopActiveRace(): void {
     if (!this.canStopRace || !this.nextRaceInfo) return;
+    const isPublic = !this.activePrivateRoom;
     const confirmed = window.confirm(
-      "Voulez-vous vraiment arrêter la course en cours ? Le classement officiel final sera immédiatement établi selon la position des coureurs."
+      isPublic
+        ? "Voulez-vous vraiment arrêter la course publique en cours ? Tous les participants seront immédiatement arrêtés, aucun classement ne sera retenu et un nouveau cycle sera relancé."
+        : "Voulez-vous vraiment arrêter la course en cours ? Le classement officiel final sera immédiatement établi selon la position des coureurs."
     );
     if (!confirmed) return;
     const raceId = this.nextRaceInfo.race?.id;
@@ -3199,33 +3206,41 @@ export class AppComponent implements OnInit, OnDestroy {
 
     this.rowerService.stopRace(raceId, this.activeUserId).subscribe({
       next: (res) => {
-        this.isPostRaceRankingActive = true;
-        this.isPrivateRoomCompleted = true;
-        if (this.nextRaceInfo) {
-          this.nextRaceInfo.status = 'finished';
-          (this.nextRaceInfo as any).stopReason = 'organizer_stopped';
-          if (this.nextRaceInfo.race) {
-            this.nextRaceInfo.race.status = 'COMPLETED';
-            (this.nextRaceInfo.race as any).stopReason = 'organizer_stopped';
+        if (isPublic) {
+          this.isPostRaceRankingActive = false;
+          this.selectedRaceLeaderboard = [];
+          this.myActivity = null;
+          this.triggerFinishToast("🛑 Course arrêtée par l'administrateur. Aucun classement n'a été établi.");
+          this.loadNextRaceInfo();
+        } else {
+          this.isPostRaceRankingActive = true;
+          this.isPrivateRoomCompleted = true;
+          if (this.nextRaceInfo) {
+            this.nextRaceInfo.status = 'finished';
+            (this.nextRaceInfo as any).stopReason = 'organizer_stopped';
+            if (this.nextRaceInfo.race) {
+              this.nextRaceInfo.race.status = 'COMPLETED';
+              (this.nextRaceInfo.race as any).stopReason = 'organizer_stopped';
+            }
           }
-        }
-        if (this.activePrivateRoom) {
-          this.activePrivateRoom.status = 'COMPLETED';
-          (this.activePrivateRoom as any).stopReason = 'organizer_stopped';
-          if (this.activePrivateRoom.race) {
-            this.activePrivateRoom.race.status = 'COMPLETED';
-            (this.activePrivateRoom.race as any).stopReason = 'organizer_stopped';
+          if (this.activePrivateRoom) {
+            this.activePrivateRoom.status = 'COMPLETED';
+            (this.activePrivateRoom as any).stopReason = 'organizer_stopped';
+            if (this.activePrivateRoom.race) {
+              this.activePrivateRoom.race.status = 'COMPLETED';
+              (this.activePrivateRoom.race as any).stopReason = 'organizer_stopped';
+            }
           }
+          if (res.ranking && res.ranking.length > 0) {
+            this.selectedRaceLeaderboard = res.ranking;
+          }
+          this.openRaceLeaderboard(raceId);
+          this.triggerFinishToast("🛑 Course arrêtée ! Le classement officiel est affiché.");
         }
-        if (res.ranking && res.ranking.length > 0) {
-          this.selectedRaceLeaderboard = res.ranking;
-        }
-        this.openRaceLeaderboard(raceId);
-        this.triggerFinishToast("🛑 Course arrêtée ! Le classement officiel est affiché.");
         this.cdr.markForCheck();
       },
       error: (err) => {
-        alert(err.error?.message || "Erreur lors de l'arrêt de la course.");
+        alert(err?.error?.message || "Erreur lors de l'arrêt de la course.");
       }
     });
   }
@@ -6077,20 +6092,30 @@ export class AppComponent implements OnInit, OnDestroy {
             this.exitPrivateRoomToPublic(true);
           }
         } else if (isPublicTarget && (update.status === 'COMPLETED' || update.status === 'STOPPED')) {
-          if (this.nextRaceInfo) {
-            this.nextRaceInfo.status = 'completed';
-            if (this.nextRaceInfo.race) {
-              this.nextRaceInfo.race.status = 'COMPLETED';
+          if (update.status === 'STOPPED' || update.details?.hasRanking === false) {
+            this.isPostRaceRankingActive = false;
+            this.selectedRaceLeaderboard = [];
+            this.myActivity = null;
+            this.triggerFinishToast(
+              update.details?.message || "🛑 Course arrêtée par l'administrateur. Aucun classement n'a été établi."
+            );
+            this.loadNextRaceInfo();
+          } else {
+            if (this.nextRaceInfo) {
+              this.nextRaceInfo.status = 'completed';
+              if (this.nextRaceInfo.race) {
+                this.nextRaceInfo.race.status = 'COMPLETED';
+              }
             }
+            const targetRaceId = update.raceId || this.nextRaceInfo?.race?.id;
+            if (update.details?.ranking && update.details.ranking.length > 0) {
+              this.selectedRaceLeaderboard = update.details.ranking;
+            }
+            if (targetRaceId) {
+              this.openRaceLeaderboard(targetRaceId);
+            }
+            this.isPostRaceRankingActive = true;
           }
-          const targetRaceId = update.raceId || this.nextRaceInfo?.race?.id;
-          if (update.details?.ranking && update.details.ranking.length > 0) {
-            this.selectedRaceLeaderboard = update.details.ranking;
-          }
-          if (targetRaceId) {
-            this.openRaceLeaderboard(targetRaceId);
-          }
-          this.isPostRaceRankingActive = true;
         }
       }
       this.cdr.markForCheck();

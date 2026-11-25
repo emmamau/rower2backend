@@ -243,6 +243,14 @@ export class AdminService {
     );
   }
 
+  abortAndResetPublicRace(): Observable<{ success: boolean; message: string; oldRaceId?: string; newRace?: any }> {
+    return this.http.post<{ success: boolean; message: string; oldRaceId?: string; newRace?: any }>(
+      `${this.apiUrl}/api/admin/public-races/abort-and-reset`,
+      {},
+      { headers: this.getAuthHeaders() }
+    );
+  }
+
   // ---------------------------------------------------------------------------
   // 2. Gestion des Utilisateurs
   // ---------------------------------------------------------------------------

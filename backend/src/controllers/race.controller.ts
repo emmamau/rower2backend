@@ -1107,8 +1107,38 @@ export const stopRace = async (req: Request, res: Response): Promise<void> => {
     const cleanRaceId = String(raceId).trim();
     const cleanUserId = String(userId).trim();
 
+    const user = await userStore.findUser(cleanUserId);
+    const isAdmin = Boolean(
+      isEmmaAdminUser(cleanUserId, user?.name) ||
+      user?.isAdmin === true ||
+      (user as any)?.role === "ADMIN" ||
+      (user as any)?.role === "admin"
+    );
+
     const managedPrivate = raceManager.findPrivateRace(cleanRaceId);
     const managedPublic = raceManager.getCurrentPublicRace();
+    const isPublicRace = Boolean(managedPublic && managedPublic.id === cleanRaceId);
+
+    // Cas d'une course publique arrêtée par un administrateur (applicable en LOBBY, COUNTDOWN ou RUNNING)
+    if (isPublicRace) {
+      if (!isAdmin) {
+        res.status(403).json({
+          success: false,
+          message: "Action non autorisée. Seul un administrateur peut arrêter une course publique."
+        });
+        return;
+      }
+      console.log(`[RaceController] Admin ${cleanUserId} stopping and resetting public race ${cleanRaceId}`);
+      const result = await raceManager.abortAndResetPublicRace("admin_stopped");
+      res.status(200).json({
+        success: true,
+        message: "La course publique a été arrêtée par l'administrateur. Aucun classement n'a été établi et un nouveau cycle a été lancé.",
+        ranking: [],
+        newRace: result.newRace
+      });
+      return;
+    }
+
     const targetRace = managedPrivate || (managedPublic && managedPublic.id === cleanRaceId ? managedPublic : raceManager.getRaceById(cleanRaceId));
     if (!targetRace || targetRace.status !== "RUNNING") {
       res.status(409).json({
@@ -1117,14 +1147,6 @@ export const stopRace = async (req: Request, res: Response): Promise<void> => {
       });
       return;
     }
-
-    const user = await userStore.findUser(cleanUserId);
-    const isAdmin = Boolean(
-      isEmmaAdminUser(cleanUserId, user?.name) ||
-      user?.isAdmin === true ||
-      (user as any)?.role === "ADMIN" ||
-      (user as any)?.role === "admin"
-    );
 
     const isHostOfPrivate = Boolean(
       managedPrivate && raceManager.canManagePrivateRace(managedPrivate, cleanUserId, isAdmin)
