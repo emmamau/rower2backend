@@ -66,6 +66,7 @@ export class AccountModalComponent implements OnChanges, OnDestroy {
   @Input() forgotEmailOrLogin = '';
   @Input() resetToken = '';
   @Input() resetNewPassword = '';
+  @Input() resetPasswordConfirm = '';
   @Input() showResetFields = false;
 
   // Kayak customizer inputs
@@ -126,6 +127,7 @@ export class AccountModalComponent implements OnChanges, OnDestroy {
   @Output() forgotEmailOrLoginChange = new EventEmitter<string>();
   @Output() resetTokenChange = new EventEmitter<string>();
   @Output() resetNewPasswordChange = new EventEmitter<string>();
+  @Output() resetPasswordConfirmChange = new EventEmitter<string>();
   @Output() showResetFieldsChange = new EventEmitter<boolean>();
 
   @Output() customKayakHullColorChange = new EventEmitter<string>();
@@ -192,6 +194,7 @@ export class AccountModalComponent implements OnChanges, OnDestroy {
   showRegPassword = false;
   showRegPasswordConfirm = false;
   showResetPassword = false;
+  showResetPasswordConfirm = false;
 
   readonly regattaMetricsCatalog: RegattaMetricOption[] = REGATTA_METRICS_CATALOG;
   readonly regattaZoomPresets: number[] = [1, 1.5, 2, 2.5, 3];

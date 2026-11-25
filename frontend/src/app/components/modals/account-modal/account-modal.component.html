@@ -701,7 +701,7 @@
       @if (accountModalTab === 'forgot') {
         <form class="modal-form" (ngSubmit)="showResetFields ? submitResetPasswordRequest.emit() : submitForgotPasswordRequest.emit()" novalidate>
           <p class="modal-desc">
-            {{ i18n.t('ACCOUNT_FORGOT_DESC') }}
+            {{ showResetFields ? i18n.t('ACCOUNT_RESET_SUBTITLE') : i18n.t('ACCOUNT_FORGOT_DESC') }}
           </p>
 
           @if (!showResetFields) {
@@ -726,17 +726,7 @@
               </button>
             </div>
           } @else {
-            <div class="form-group">
-              <label for="reset-token-input">{{ i18n.t('ACCOUNT_RESET_TOKEN_LABEL') }}</label>
-              <input
-                id="reset-token-input"
-                name="token"
-                type="text"
-                [ngModel]="resetToken"
-                (ngModelChange)="resetToken = $event; resetTokenChange.emit($event)"
-                [placeholder]="i18n.t('ACCOUNT_RESET_TOKEN_PH')"
-                required />
-            </div>
+            <input type="hidden" name="token" [ngModel]="resetToken" />
             <div class="form-group">
               <label for="reset-pwd-input">{{ i18n.t('ACCOUNT_RESET_NEW_PWD_LABEL') }}</label>
               <div class="pwd-input-wrapper">
@@ -775,12 +765,44 @@
               <span class="field-hint">{{ i18n.t('FIELD_PASSWORD_HINT') }}</span>
             </div>
 
+            <div class="form-group">
+              <label for="reset-pwd-confirm-input">{{ i18n.t('ACCOUNT_RESET_CONFIRM_LABEL') }}</label>
+              <div class="pwd-input-wrapper">
+                <input
+                  id="reset-pwd-confirm-input"
+                  name="passwordConfirm"
+                  [type]="showResetPasswordConfirm ? 'text' : 'password'"
+                  autocomplete="new-password"
+                  [ngModel]="resetPasswordConfirm"
+                  (ngModelChange)="resetPasswordConfirm = $event; resetPasswordConfirmChange.emit($event)"
+                  [placeholder]="i18n.t('ACCOUNT_RESET_CONFIRM_PH')"
+                  required />
+                <button
+                  type="button"
+                  class="btn-toggle-pwd"
+                  (click)="showResetPasswordConfirm = !showResetPasswordConfirm"
+                  [attr.aria-label]="showResetPasswordConfirm ? i18n.t('ACCOUNT_HIDE_PWD') : i18n.t('ACCOUNT_SHOW_PWD')">
+                  {{ showResetPasswordConfirm ? '🙈' : '👁️' }}
+                </button>
+              </div>
+              @if (resetPasswordConfirm && resetNewPassword !== resetPasswordConfirm) {
+                <span class="field-hint" style="color: #ff0055;">
+                  ⚠️ {{ i18n.t('ERR_PASSWORDS_DO_NOT_MATCH') }}
+                </span>
+              }
+            </div>
+
             <div class="modal-buttons">
-              <button type="submit" class="btn-primary" [disabled]="isAccountSubmitting || !isPasswordPolicySatisfied(resetNewPassword)">
+              <button type="submit" class="btn-primary" [disabled]="isAccountSubmitting || !isPasswordPolicySatisfied(resetNewPassword) || !resetPasswordConfirm || resetNewPassword !== resetPasswordConfirm">
                 {{ isAccountSubmitting ? i18n.t('ACCOUNT_UPDATING') : i18n.t('ACCOUNT_RESET_SUBMIT_BTN') }}
               </button>
+              @if (accountAuthError) {
+                <button type="button" class="btn-secondary" (click)="showResetFields = false; showResetFieldsChange.emit(false)">
+                  {{ i18n.t('ACCOUNT_RESET_REQUEST_NEW_LINK') }}
+                </button>
+              }
               <button type="button" class="btn-secondary" (click)="showResetFields = false; showResetFieldsChange.emit(false); switchTab('login')">
-                {{ i18n.t('ADMIN_MODAL_CANCEL') }}
+                {{ i18n.t('ACCOUNT_BACK_TO_LOGIN') }}
               </button>
             </div>
           }

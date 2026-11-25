@@ -1069,6 +1069,7 @@ export class AppComponent implements OnInit, OnDestroy {
   forgotEmailOrLogin = '';
   resetToken = '';
   resetNewPassword = '';
+  resetPasswordConfirm = '';
   showResetFields = false;
   showResetPassword = false;
 
@@ -2963,6 +2964,11 @@ export class AppComponent implements OnInit, OnDestroy {
       return;
     }
 
+    if (this.resetNewPassword.trim() !== this.resetPasswordConfirm.trim()) {
+      this.accountAuthError = this.i18n.translateError('ERR_PASSWORDS_DO_NOT_MATCH');
+      return;
+    }
+
     this.isAccountSubmitting = true;
     this.accountAuthError = '';
     this.accountAuthSuccess = '';
@@ -2970,10 +2976,14 @@ export class AppComponent implements OnInit, OnDestroy {
     this.rowerService.resetPassword(this.resetToken.trim(), this.resetNewPassword.trim()).subscribe({
       next: (res) => {
         this.isAccountSubmitting = false;
-        this.accountAuthSuccess = res.message || 'Mot de passe réinitialisé ! Vous pouvez vous connecter.';
+        this.accountAuthSuccess = res.message || this.i18n.t('ACCOUNT_RESET_SUCCESS');
+        this.showResetFields = false;
+        this.resetToken = '';
+        this.resetNewPassword = '';
+        this.resetPasswordConfirm = '';
         this.accountModalTab = 'login';
-        this.loginAccountInput = this.forgotEmailOrLogin;
-        this.passwordAccountInput = this.resetNewPassword;
+        this.loginAccountInput = this.forgotEmailOrLogin || this.loginAccountInput;
+        this.passwordAccountInput = '';
         this.cdr.markForCheck();
       },
       error: (err) => {
