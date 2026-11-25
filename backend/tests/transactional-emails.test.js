@@ -140,7 +140,8 @@ test('2. Forgot password generates 64-char hex token, sets 1-hour expiration, an
     const resetEmail = sentEmails.find((e) => e.to === email);
     assert.ok(resetEmail, 'L\'email de réinitialisation doit avoir été envoyé');
     assert.equal(resetEmail.subject, 'Rower Race - Réinitialisation de votre mot de passe');
-    assert.ok(resetEmail.html.includes('resetToken=' + encodeURIComponent(forgotData.token)), 'Le lien HTML doit inclure le token');
+    assert.ok(resetEmail.html.includes('/reset-password?token=' + encodeURIComponent(forgotData.token)), 'Le lien HTML doit inclure /reset-password?token=');
+    assert.ok(resetEmail.text.includes('/reset-password?token=' + encodeURIComponent(forgotData.token)), 'Le lien texte doit inclure /reset-password?token=');
     assert.ok(resetEmail.html.includes('1 heure'), 'La mention de 1 heure doit être présente');
     assert.ok(resetEmail.html.includes('Réinitialiser mon mot de passe'), 'Le bouton CTA de réinitialisation doit être présent');
   } finally {

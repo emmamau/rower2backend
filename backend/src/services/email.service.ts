@@ -458,7 +458,7 @@ export class EmailService {
   public async sendPasswordResetEmail(to: string, login: string, resetToken: string, lang: string = "fr"): Promise<boolean> {
     const config = getEmailConfig();
     const isFr = (lang || "fr").toLowerCase().startsWith("fr");
-    const resetUrl = `${config.frontendUrl}/?resetToken=${encodeURIComponent(resetToken)}`;
+    const resetUrl = `${config.frontendUrl}/reset-password?token=${encodeURIComponent(resetToken)}`;
 
     if (isFr) {
       const subject = "Rower Race - Réinitialisation de votre mot de passe";
