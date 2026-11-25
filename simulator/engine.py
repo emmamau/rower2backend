@@ -79,10 +79,15 @@ class SimulationEngine:
             self.session = None
 
     def _get_headers(self, watch: Optional[VirtualWatch] = None) -> Dict[str, str]:
-        headers = {"Content-Type": "application/json"}
-        if watch and watch.device_token:
-            headers["Authorization"] = f"Bearer {watch.device_token}"
-            headers["x-device-token"] = watch.device_token
+        headers = {
+            "Content-Type": "application/json",
+            "x-garmin-signature": "CIQ_OFFICIAL_ROWER_V1"
+        }
+        if watch:
+            headers["x-device-id"] = watch.device_id
+            if watch.device_token:
+                headers["Authorization"] = f"Bearer {watch.device_token}"
+                headers["x-device-token"] = watch.device_token
         if self.store.load_test_key:
             headers["x-load-test-key"] = self.store.load_test_key
         return headers

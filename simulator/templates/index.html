@@ -142,6 +142,8 @@
 </head>
 <body>
 
+  <div id="toastContainer"></div>
+
   <header>
     <div class="header-title">
       <h1>🚣 Simulateur de Charge Garmin FTMS</h1>
@@ -150,12 +152,12 @@
     <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
       <div class="backend-config">
         <label style="font-size: 12px; color: var(--text-muted);">Backend :</label>
-        <input type="text" id="backendUrl" value="http://localhost:3000">
+        <input type="text" id="backendUrl" value="http://localhost:3000" onkeydown="if(event.key==='Enter') updateBackendUrl()">
         <button class="btn btn-primary" onclick="updateBackendUrl()">Appliquer</button>
       </div>
       <div class="backend-config">
         <label style="font-size: 12px; color: var(--accent-yellow);">🔑 Clé Test Admin :</label>
-        <input type="text" id="loadTestKey" placeholder="Ex: LTK-7F9B1E4A" style="width: 150px; text-transform: uppercase;">
+        <input type="text" id="loadTestKey" placeholder="Ex: LTK-7F9B1E4A" style="width: 150px; text-transform: uppercase;" oninput="this.value=this.value.toUpperCase()" onkeydown="if(event.key==='Enter') updateLoadTestKey()">
         <button class="btn btn-warning" onclick="updateLoadTestKey()">Définir Clé</button>
       </div>
     </div>
@@ -190,7 +192,7 @@
     <div class="toolbar-row">
       <button class="btn btn-warning" onclick="seedTestUsers()">⚡ 1-Clic : Initialiser 30 comptes & pré-appairer</button>
       <div style="border-left: 1px solid var(--card-border); height: 26px; margin: 0 5px;"></div>
-      <input type="text" id="bulkPin" class="input-pin" placeholder="PIN SALON" maxlength="6">
+      <input type="text" id="bulkPin" class="input-pin" placeholder="PIN SALON" maxlength="6" style="text-transform: uppercase;" oninput="this.value=this.value.toUpperCase()" onkeydown="if(event.key==='Enter') bulkEngagePin()">
       <button class="btn btn-primary" onclick="bulkEngagePin()">Engager sélection PIN</button>
       <button class="btn btn-primary" onclick="bulkJoinPublic()">Course Publique (Tous)</button>
       <div style="border-left: 1px solid var(--card-border); height: 26px; margin: 0 5px;"></div>
@@ -230,7 +232,21 @@
   <script>
     let watchesState = [];
     let selectedWatchIds = new Set();
-    let isUpdating = false;
+
+    function showToast(message, type = "info") {
+      const container = document.getElementById("toastContainer");
+      if (!container) return;
+      const toast = document.createElement("div");
+      toast.className = `toast ${type}`;
+      const icon = type === "success" ? "✓" : type === "error" ? "⚠" : "ℹ";
+      toast.innerHTML = `<span style="font-weight: bold; font-size: 15px;">${icon}</span> <span>${message}</span>`;
+      container.appendChild(toast);
+      setTimeout(() => toast.classList.add("show"), 10);
+      setTimeout(() => {
+        toast.classList.remove("show");
+        setTimeout(() => toast.remove(), 300);
+      }, 4000);
+    }
 
     async function fetchState() {
       try {
@@ -238,8 +254,9 @@
         if (!res.ok) return;
         const data = await res.json();
         watchesState = data.watches || [];
-        if (data.load_test_key && !document.getElementById("loadTestKey").value) {
-          document.getElementById("loadTestKey").value = data.load_test_key;
+        const ltkInput = document.getElementById("loadTestKey");
+        if (data.load_test_key && ltkInput && !ltkInput.value && document.activeElement !== ltkInput) {
+          ltkInput.value = data.load_test_key;
         }
         updateMetrics(data.metrics || {});
         renderRegatta(watchesState);
@@ -278,105 +295,216 @@
 
     function renderRegatta(watches) {
       const dock = document.getElementById("regattaDock");
+      if (!dock) return;
       const sorted = [...watches].sort((a, b) => b.current_distance - a.current_distance);
 
-      dock.innerHTML = sorted.map((w, idx) => {
+      if (dock.children.length !== sorted.length) {
+        dock.innerHTML = sorted.map((w, idx) => `
+          <div class="lane-track" id="regattaLane-${w.id}">
+            <div class="lane-num" id="laneNum-${w.id}">#${idx + 1}</div>
+            <div class="lane-name" id="laneName-${w.id}">${w.user_name || w.device_id}</div>
+            <div class="lane-bar-container">
+              <div class="lane-bar" id="laneBar-${w.id}"></div>
+            </div>
+            <div class="lane-stats" id="laneStats-${w.id}">0m / 2000m</div>
+          </div>
+        `).join("");
+      }
+
+      sorted.forEach((w, idx) => {
+        const lane = document.getElementById(`regattaLane-${w.id}`);
+        if (!lane) return;
+        dock.appendChild(lane); // Reclasse en direct sans détruire les éléments
+
+        const numEl = document.getElementById(`laneNum-${w.id}`);
+        if (numEl) numEl.textContent = `#${idx + 1}`;
+
+        const nameEl = document.getElementById(`laneName-${w.id}`);
+        if (nameEl) nameEl.textContent = w.user_name || w.device_id;
+
         const pct = Math.min(100, (w.current_distance / Math.max(1, w.target_distance)) * 100);
         const isFin = w.race_status === "FINISHED" || pct >= 100;
-        return `
-          <div class="lane-track">
-            <div class="lane-num">#${idx + 1}</div>
-            <div class="lane-name">${w.user_name || w.device_id}</div>
-            <div class="lane-bar-container">
-              <div class="lane-bar ${isFin ? 'finished' : ''}" style="width: ${pct}%"></div>
+
+        const bar = document.getElementById(`laneBar-${w.id}`);
+        if (bar) {
+          bar.style.width = `${pct}%`;
+          if (isFin) bar.classList.add("finished");
+          else bar.classList.remove("finished");
+        }
+
+        const stats = document.getElementById(`laneStats-${w.id}`);
+        if (stats) {
+          stats.textContent = `${Math.round(w.current_distance)}m / ${w.target_distance}m • ${formatSplit(w.current_split)}`;
+        }
+      });
+    }
+
+    function createWatchCardHTML(w) {
+      const isChecked = selectedWatchIds.has(w.id);
+      const statusLower = (w.race_status || "idle").toLowerCase();
+      const statusClass = `status-${statusLower}`;
+
+      return `
+        <div class="watch-card ${statusLower}" id="card-${w.id}">
+          <div class="card-head">
+            <div class="card-id">
+              <input type="checkbox" id="check-${w.id}" onchange="toggleWatchSelect(${w.id})" ${isChecked ? 'checked' : ''}>
+              <span>#${w.id} ${w.device_id}</span>
             </div>
-            <div class="lane-stats">
-              ${Math.round(w.current_distance)}m / ${w.target_distance}m • ${formatSplit(w.current_split)}
+            <span class="card-status ${statusClass}" id="statusBadge-${w.id}">${w.race_status}</span>
+          </div>
+
+          <div style="font-size: 11px; color: var(--text-muted);">${w.watch_model} • ${w.rower_model}</div>
+
+          <div class="user-pill">
+            <span>Compte :</span>
+            <span id="userStatusText-${w.id}" class="${w.is_paired ? 'paired' : 'unpaired'}">
+              ${w.is_paired ? `✓ ${w.user_name || 'Utilisateur'} (${w.user_id})` : 'Non appairé'}
+            </span>
+          </div>
+
+          <div class="action-row" id="pairRow-${w.id}" style="${w.is_paired ? 'display: none;' : ''}">
+            <input type="text" id="pairPin-${w.id}" placeholder="PIN 6-CARACT" maxlength="6" style="text-transform: uppercase;" oninput="this.value=this.value.toUpperCase()" onkeydown="if(event.key==='Enter') pairWatch(${w.id})">
+            <button class="btn btn-primary" id="pairBtn-${w.id}" onclick="pairWatch(${w.id})">Appairer</button>
+          </div>
+
+          <div class="telemetry-gauges">
+            <div>
+              <div class="gauge-val" id="gaugeDist-${w.id}">${Math.round(w.current_distance)}m</div>
+              <div class="gauge-lbl">Distance</div>
+            </div>
+            <div>
+              <div class="gauge-val" id="gaugeSplit-${w.id}">${formatSplit(w.current_split)}</div>
+              <div class="gauge-lbl">/500m</div>
+            </div>
+            <div>
+              <div class="gauge-val" id="gaugePower-${w.id}">${w.current_power}W</div>
+              <div class="gauge-lbl">Puissance</div>
+            </div>
+            <div>
+              <div class="gauge-val" id="gaugeHr-${w.id}">${w.current_hr}</div>
+              <div class="gauge-lbl">BPM</div>
             </div>
           </div>
-        `;
-      }).join("");
+
+          <div class="pace-slider-wrap">
+            <div class="pace-slider-head">
+              <span>Allure cible</span>
+              <span id="targetPaceText-${w.id}"><strong>${formatSplit(w.target_split)}</strong> (${w.target_power}W • ${w.current_spm.toFixed(1)} SPM)</span>
+            </div>
+            <input type="range" class="pace-slider" id="paceSlider-${w.id}" min="85" max="160" step="1" value="${Math.round(w.target_split)}" oninput="onPaceSliderInput(${w.id}, this.value)" onchange="updateWatchPace(${w.id}, this.value)">
+          </div>
+
+          <div class="action-row">
+            <input type="text" id="racePin-${w.id}" placeholder="${w.race_pin || 'PIN SALON'}" maxlength="6" style="text-transform: uppercase;" value="${w.race_pin || ''}" oninput="this.value=this.value.toUpperCase()" onkeydown="if(event.key==='Enter') engageWatchPin(${w.id})">
+            <button class="btn" onclick="engageWatchPin(${w.id})">Engager</button>
+            <button class="btn btn-primary" onclick="joinPublicWatch(${w.id})">Publique</button>
+          </div>
+
+          <div class="diag-footer">
+            <span id="diagHttp-${w.id}">HTTP: <strong>${w.last_http_code || '-'}</strong> (${w.last_rtt_ms ? Math.round(w.last_rtt_ms) + 'ms' : '-'})</span>
+            <span id="diagErr-${w.id}" class="${w.error_message ? 'diag-err' : ''}">${w.error_message || 'OK'}</span>
+          </div>
+        </div>
+      `;
     }
 
     function renderWatchCards(watches) {
       const grid = document.getElementById("watchesGrid");
-      // Render without destroying active input focus
-      const activeEl = document.activeElement;
-      const activeId = activeEl ? activeEl.id : null;
+      if (!grid) return;
 
-      grid.innerHTML = watches.map(w => {
-        const isChecked = selectedWatchIds.has(w.id);
-        const statusClass = `status-${w.race_status.toLowerCase()}`;
-        return `
-          <div class="watch-card ${w.race_status.toLowerCase()}" id="card-${w.id}">
-            <div class="card-head">
-              <div class="card-id">
-                <input type="checkbox" onchange="toggleWatchSelect(${w.id})" ${isChecked ? 'checked' : ''}>
-                <span>#${w.id} ${w.device_id}</span>
-              </div>
-              <span class="card-status ${statusClass}">${w.race_status}</span>
-            </div>
+      // Si la grille est vide ou de taille différente, initialiser le DOM une seule fois
+      const existingCards = grid.querySelectorAll(".watch-card");
+      if (existingCards.length !== watches.length) {
+        grid.innerHTML = watches.map(createWatchCardHTML).join("");
+        return;
+      }
 
-            <div style="font-size: 11px; color: var(--text-muted);">${w.watch_model} • ${w.rower_model}</div>
+      // Mise à jour ciblée en place : AUCUNE DESTRUCTION DU DOM, LES SAISIES UTILISATEUR SONT PRÉSERVÉES !
+      for (const w of watches) {
+        const card = document.getElementById(`card-${w.id}`);
+        if (!card) continue;
 
-            <div class="user-pill">
-              <span>Compte :</span>
-              ${w.is_paired
-                ? `<span class="paired">✓ ${w.user_name} (${w.user_id})</span>`
-                : `<span class="unpaired">Non appairé</span>`}
-            </div>
+        // Mise à jour classe du container
+        const statusLower = (w.race_status || "idle").toLowerCase();
+        if (card.className !== `watch-card ${statusLower}`) {
+          card.className = `watch-card ${statusLower}`;
+        }
 
-            ${!w.is_paired ? `
-              <div class="action-row">
-                <input type="text" id="pairPin-${w.id}" placeholder="PIN 6-CARACT" maxlength="6">
-                <button class="btn btn-primary" onclick="pairWatch(${w.id})">Appairer</button>
-              </div>
-            ` : ''}
+        // Badge statut
+        const badge = document.getElementById(`statusBadge-${w.id}`);
+        if (badge) {
+          badge.className = `card-status status-${statusLower}`;
+          badge.textContent = w.race_status;
+        }
 
-            <div class="telemetry-gauges">
-              <div>
-                <div class="gauge-val">${Math.round(w.current_distance)}m</div>
-                <div class="gauge-lbl">Distance</div>
-              </div>
-              <div>
-                <div class="gauge-val">${formatSplit(w.current_split)}</div>
-                <div class="gauge-lbl">/500m</div>
-              </div>
-              <div>
-                <div class="gauge-val">${w.current_power}W</div>
-                <div class="gauge-lbl">Puissance</div>
-              </div>
-              <div>
-                <div class="gauge-val">${w.current_hr}</div>
-                <div class="gauge-lbl">BPM</div>
-              </div>
-            </div>
+        // Appairage / Compte
+        const userText = document.getElementById(`userStatusText-${w.id}`);
+        const pairRow = document.getElementById(`pairRow-${w.id}`);
+        if (userText) {
+          if (w.is_paired) {
+            userText.className = "paired";
+            userText.textContent = `✓ ${w.user_name || 'Utilisateur'} (${w.user_id})`;
+            if (pairRow && pairRow.style.display !== "none") pairRow.style.display = "none";
+          } else {
+            userText.className = "unpaired";
+            userText.textContent = "Non appairé";
+            if (pairRow && pairRow.style.display === "none") pairRow.style.display = "flex";
+          }
+        }
+        // Note capitale : pairPin-${w.id} n'est JAMAIS touché ici, ce qui évite d'effacer la frappe en cours !
 
-            <div class="pace-slider-wrap">
-              <div class="pace-slider-head">
-                <span>Allure cible</span>
-                <span><strong>${formatSplit(w.target_split)}</strong> (${w.target_power}W • ${w.current_spm.toFixed(1)} SPM)</span>
-              </div>
-              <input type="range" class="pace-slider" min="85" max="160" step="1" value="${Math.round(w.target_split)}" onchange="updateWatchPace(${w.id}, this.value)">
-            </div>
+        // Télémétrie en temps réel
+        const distEl = document.getElementById(`gaugeDist-${w.id}`);
+        if (distEl) distEl.textContent = `${Math.round(w.current_distance)}m`;
 
-            <div class="action-row">
-              <input type="text" id="racePin-${w.id}" placeholder="${w.race_pin || 'PIN SALON'}" maxlength="6" value="${w.race_pin || ''}">
-              <button class="btn" onclick="engageWatchPin(${w.id})">Engager</button>
-              <button class="btn btn-primary" onclick="joinPublicWatch(${w.id})">Publique</button>
-            </div>
+        const splitEl = document.getElementById(`gaugeSplit-${w.id}`);
+        if (splitEl) splitEl.textContent = formatSplit(w.current_split);
 
-            <div class="diag-footer">
-              <span>HTTP: <strong>${w.last_http_code || '-'}</strong> (${w.last_rtt_ms ? Math.round(w.last_rtt_ms) + 'ms' : '-'})</span>
-              <span class="${w.error_message ? 'diag-err' : ''}">${w.error_message || 'OK'}</span>
-            </div>
-          </div>
-        `;
-      }).join("");
+        const powEl = document.getElementById(`gaugePower-${w.id}`);
+        if (powEl) powEl.textContent = `${w.current_power}W`;
 
-      if (activeId) {
-        const el = document.getElementById(activeId);
-        if (el) el.focus();
+        const hrEl = document.getElementById(`gaugeHr-${w.id}`);
+        if (hrEl) hrEl.textContent = w.current_hr;
+
+        // Allure cible & Slider (uniquement si l'utilisateur ne manipule pas le slider à l'instant)
+        const paceText = document.getElementById(`targetPaceText-${w.id}`);
+        if (paceText) {
+          paceText.innerHTML = `<strong>${formatSplit(w.target_split)}</strong> (${w.target_power}W • ${w.current_spm.toFixed(1)} SPM)`;
+        }
+        const slider = document.getElementById(`paceSlider-${w.id}`);
+        if (slider && document.activeElement !== slider) {
+          slider.value = Math.round(w.target_split);
+        }
+
+        // PIN de course
+        const racePinInput = document.getElementById(`racePin-${w.id}`);
+        if (racePinInput) {
+          if (w.race_pin) racePinInput.placeholder = w.race_pin;
+          if (document.activeElement !== racePinInput && !racePinInput.value && w.race_pin) {
+            racePinInput.value = w.race_pin;
+          }
+        }
+
+        // Diagnostics
+        const diagHttp = document.getElementById(`diagHttp-${w.id}`);
+        if (diagHttp) {
+          diagHttp.innerHTML = `HTTP: <strong>${w.last_http_code || '-'}</strong> (${w.last_rtt_ms ? Math.round(w.last_rtt_ms) + 'ms' : '-'})`;
+        }
+        const diagErr = document.getElementById(`diagErr-${w.id}`);
+        if (diagErr) {
+          diagErr.className = w.error_message ? "diag-err" : "";
+          diagErr.textContent = w.error_message || "OK";
+        }
+      }
+    }
+
+    function onPaceSliderInput(id, val) {
+      const paceText = document.getElementById(`targetPaceText-${id}`);
+      if (paceText) {
+        const split = parseFloat(val);
+        const watts = Math.round(2.80 / Math.pow(split / 500.0, 3));
+        paceText.innerHTML = `<strong>${formatSplit(split)}</strong> (~${watts}W)`;
       }
     }
 
@@ -391,7 +519,10 @@
       } else {
         watchesState.forEach(w => selectedWatchIds.add(w.id));
       }
-      renderWatchCards(watchesState);
+      watchesState.forEach(w => {
+        const chk = document.getElementById(`check-${w.id}`);
+        if (chk) chk.checked = selectedWatchIds.has(w.id);
+      });
     }
 
     function getSelectedOrAll() {
@@ -401,57 +532,112 @@
 
     async function updateBackendUrl() {
       const url = document.getElementById("backendUrl").value.trim();
-      await fetch("/api/config/backend-url", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ backend_url: url })
-      });
-      alert("URL Backend mise à jour !");
-      fetchState();
+      try {
+        await fetch("/api/config/backend-url", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ backend_url: url })
+        });
+        showToast("URL Backend mise à jour : " + url, "success");
+        fetchState();
+      } catch (e) {
+        showToast("Erreur: " + e.message, "error");
+      }
     }
 
     async function updateLoadTestKey() {
       const key = document.getElementById("loadTestKey").value.trim().toUpperCase();
-      await fetch("/api/config/load-test-key", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ load_test_key: key })
-      });
-      alert(key ? `Clé de test ${key} enregistrée !` : "Clé de test effacée.");
-      fetchState();
+      try {
+        await fetch("/api/config/load-test-key", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ load_test_key: key })
+        });
+        showToast(key ? `Clé de test ${key} enregistrée !` : "Clé de test effacée.", "success");
+        fetchState();
+      } catch (e) {
+        showToast("Erreur: " + e.message, "error");
+      }
     }
 
     async function pairWatch(id) {
-      const pin = (document.getElementById(`pairPin-${id}`)?.value || "").trim();
-      if (!pin) return alert("Veuillez saisir le code PIN d'appairage à 6 caractères.");
-      const res = await fetch(`/api/watches/${id}/pair`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pin })
-      });
-      const data = await res.json();
-      alert(data.message || (data.success ? "Appairé !" : "Erreur"));
-      fetchState();
+      const inputEl = document.getElementById(`pairPin-${id}`);
+      const btnEl = document.getElementById(`pairBtn-${id}`);
+      const pin = (inputEl?.value || "").trim().toUpperCase();
+      if (!pin) {
+        showToast("Veuillez saisir le code PIN d'appairage à 6 caractères.", "error");
+        if (inputEl) inputEl.focus();
+        return;
+      }
+
+      if (btnEl) {
+        btnEl.innerText = "⏳...";
+        btnEl.disabled = true;
+      }
+
+      try {
+        const res = await fetch(`/api/watches/${id}/pair`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ pin })
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          showToast(data.message || `Montre #${id} appairée avec succès !`, "success");
+          if (inputEl) inputEl.value = "";
+        } else {
+          showToast(data.message || "Erreur lors de l'appairage", "error");
+        }
+        await fetchState();
+      } catch (err) {
+        showToast("Erreur de connexion : " + err.message, "error");
+      } finally {
+        if (btnEl) {
+          btnEl.innerText = "Appairer";
+          btnEl.disabled = false;
+        }
+      }
     }
 
     async function engageWatchPin(id) {
-      const pin = (document.getElementById(`racePin-${id}`)?.value || "").trim();
-      if (!pin) return alert("Veuillez saisir le code PIN de course (5 caractères).");
-      const res = await fetch(`/api/watches/${id}/engage`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pin })
-      });
-      const data = await res.json();
-      alert(data.message || "Engagé !");
-      fetchState();
+      const inputEl = document.getElementById(`racePin-${id}`);
+      const pin = (inputEl?.value || "").trim().toUpperCase();
+      if (!pin) {
+        showToast("Veuillez saisir le code PIN de course (5 caractères).", "error");
+        if (inputEl) inputEl.focus();
+        return;
+      }
+      try {
+        const res = await fetch(`/api/watches/${id}/engage`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ pin })
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          showToast(data.message || `Montre #${id} engagée dans le salon ${pin} !`, "success");
+        } else {
+          showToast(data.message || "Erreur d'engagement", "error");
+        }
+        await fetchState();
+      } catch (err) {
+        showToast("Erreur de connexion : " + err.message, "error");
+      }
     }
 
     async function joinPublicWatch(id) {
-      const res = await fetch(`/api/watches/${id}/join-public`, { method: "POST" });
-      const data = await res.json();
-      alert(data.message || "Engagé course publique !");
-      fetchState();
+      try {
+        const res = await fetch(`/api/watches/${id}/join-public`, { method: "POST" });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          showToast(data.message || `Montre #${id} engagée sur la course publique !`, "success");
+        } else {
+          showToast(data.message || "Erreur d'engagement", "error");
+        }
+        await fetchState();
+      } catch (err) {
+        showToast("Erreur : " + err.message, "error");
+      }
     }
 
     async function updateWatchPace(id, splitVal) {
@@ -465,36 +651,53 @@
 
     async function seedTestUsers() {
       if (!confirm("Voulez-vous générer 30 utilisateurs de test et les appairer automatiquement aux 30 montres ?")) return;
-      const res = await fetch("/api/seed-users", { method: "POST" });
-      const data = await res.json();
-      alert(data.message || "Initialisation terminée !");
-      fetchState();
+      showToast("Génération et appairage des 30 comptes en cours...", "info");
+      try {
+        const res = await fetch("/api/seed-users", { method: "POST" });
+        const data = await res.json();
+        showToast(data.message || "Initialisation terminée !", data.success ? "success" : "error");
+        await fetchState();
+      } catch (e) {
+        showToast("Erreur: " + e.message, "error");
+      }
     }
 
     async function bulkEngagePin() {
-      const pin = document.getElementById("bulkPin").value.trim();
-      if (!pin) return alert("Veuillez saisir le code PIN à appliquer aux montres sélectionnées.");
+      const pin = document.getElementById("bulkPin").value.trim().toUpperCase();
+      if (!pin) {
+        showToast("Veuillez saisir le code PIN à appliquer aux montres sélectionnées.", "error");
+        document.getElementById("bulkPin").focus();
+        return;
+      }
       const ids = getSelectedOrAll();
-      const res = await fetch("/api/bulk/engage", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ watch_ids: ids, pin })
-      });
-      const data = await res.json();
-      alert(data.message || "Sélection engagée !");
-      fetchState();
+      try {
+        const res = await fetch("/api/bulk/engage", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ watch_ids: ids, pin })
+        });
+        const data = await res.json();
+        showToast(data.message || "Sélection engagée !", data.success ? "success" : "error");
+        await fetchState();
+      } catch (e) {
+        showToast("Erreur: " + e.message, "error");
+      }
     }
 
     async function bulkJoinPublic() {
       const ids = getSelectedOrAll();
-      const res = await fetch("/api/bulk/join-public", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ watch_ids: ids })
-      });
-      const data = await res.json();
-      alert(data.message || "Engagés sur la course publique !");
-      fetchState();
+      try {
+        const res = await fetch("/api/bulk/join-public", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ watch_ids: ids })
+        });
+        const data = await res.json();
+        showToast(data.message || "Engagés sur la course publique !", "success");
+        await fetchState();
+      } catch (e) {
+        showToast("Erreur: " + e.message, "error");
+      }
     }
 
     async function bulkApplyProfile() {
@@ -505,6 +708,7 @@
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ watch_ids: ids, profile })
       });
+      showToast("Profil " + profile + " appliqué !", "success");
       fetchState();
     }
 
@@ -515,11 +719,13 @@
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ watch_ids: ids })
       });
+      showToast("Télémétrie 1Hz démarrée !", "success");
       fetchState();
     }
 
     async function stopSimulation() {
       await fetch("/api/bulk/stop", { method: "POST" });
+      showToast("Simulation stoppée.", "info");
       fetchState();
     }
 
@@ -530,6 +736,7 @@
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ watch_ids: ids })
       });
+      showToast("Distances réinitialisées à 0m.", "info");
       fetchState();
     }
 
