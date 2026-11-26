@@ -565,10 +565,30 @@ export const getRaceLeaderboard = async (req: Request, res: Response): Promise<v
 
     const managedForParts = raceManager.getRaceById(cleanId) || raceManager.findPrivateRace(cleanId);
     if (managedForParts && managedForParts.participants) {
+      if (managedForParts.type === "PRIVATE_INVITE") {
+        activities = activities.filter((a: any) => {
+          const uid = typeof a.get === "function" ? a.get("userId") : a.userId;
+          const isBot = Boolean(typeof a.get === "function" ? a.get("isBot") : a.isBot) || String(uid || "").startsWith("bot_");
+          if (isBot) return true;
+          const dist = Number((typeof a.get === "function" ? a.get("netDistance") : a.netDistance) || 0);
+          const power = Number((typeof a.get === "function" ? a.get("lastPower") : a.lastPower) || 0);
+          const spm = Number((typeof a.get === "function" ? a.get("lastStrokeRate") : a.lastStrokeRate) || 0);
+          if (dist > 0 || power > 0 || spm > 0) return true;
+          const pInfo = managedForParts.participants?.get(uid);
+          if (pInfo && (pInfo.connectionState === "PENDING_PIN" || pInfo.pinValidated === false)) {
+            return false;
+          }
+          return true;
+        });
+      }
       const existingIds = new Set(
         activities.map((a: any) => (typeof a.get === "function" ? a.get("userId") : a.userId))
       );
       for (const p of managedForParts.participants.values()) {
+        const isBot = Boolean((p as any).isBot) || String(p.userId || "").startsWith("bot_");
+        if (!isBot && managedForParts.type === "PRIVATE_INVITE" && (p.connectionState === "PENDING_PIN" || p.pinValidated === false)) {
+          continue;
+        }
         if (!existingIds.has(p.userId)) {
           const fallbackObj: Record<string, any> = {
             id: `${cleanId}_${p.userId}`,
@@ -588,7 +608,7 @@ export const getRaceLeaderboard = async (req: Request, res: Response): Promise<v
             avgPace: 0,
             avgStrokeRate: 0,
             elapsedTime: 0,
-            isBot: false,
+            isBot,
           };
           fallbackObj.get = (k: string) => fallbackObj[k];
           activities.push(fallbackObj);
@@ -842,6 +862,14 @@ export const toggleBots = async (req: Request, res: Response): Promise<void> => 
     }
 
     if (managedPrivate) {
+      if (managedPrivate.status === "RUNNING" || managedPrivate.status === "COUNTDOWN") {
+        res.status(409).json({
+          success: false,
+          error: "Impossible d'ajouter ou de modifier des bots lorsqu'une course est lancée.",
+          message: "Impossible d'ajouter ou de modifier des bots lorsqu'une course est lancée."
+        });
+        return;
+      }
       if (managedPrivate.isBotDuel) {
         let isRegisteredUser = false;
         if (userId) {
@@ -920,6 +948,15 @@ export const toggleBots = async (req: Request, res: Response): Promise<void> => 
     const managedRace = raceManager.getRaceById(actualRaceId);
     const targetDist = managedRace?.targetDistance || (race ? (race.get("targetDistance") as number) : 10000) || 10000;
     const isRunning = managedRace ? managedRace.status === "RUNNING" : (race ? race.get("status") === "in_progress" : false);
+    const isCountdown = managedRace ? managedRace.status === "COUNTDOWN" : (race ? race.get("status") === "countdown" : false);
+    if (isRunning || isCountdown) {
+      res.status(409).json({
+        success: false,
+        error: "Impossible d'ajouter ou de modifier des bots lorsqu'une course est lancée.",
+        message: "Impossible d'ajouter ou de modifier des bots lorsqu'une course est lancée."
+      });
+      return;
+    }
     const clampedBotCount = Math.min(12, Math.max(1, Number(botCount) || 3));
 
     if (enable) {

@@ -234,19 +234,24 @@ export class SessionService {
           } else if (race.isDuel1v1) {
             const ch = db.duelChallenges ? await db.duelChallenges.findOne({ where: { roomId: race.id } }) : null;
             const chAny = ch as any;
-            const hostInParts = race.hostUserId ? Boolean(race.participants?.has(race.hostUserId)) : false;
-            if (!hostInParts && race.hostUserId && race.hostUserId !== "anonymous") {
+            const hostPart = race.hostUserId ? race.participants?.get(race.hostUserId) : undefined;
+            const hostClaimed = Boolean(hostPart && hostPart.pinValidated !== false && hostPart.connectionState !== "PENDING_PIN");
+            const challengedUid = chAny?.challengedUserId || chAny?.challengedId;
+            const challengedPart = challengedUid ? race.participants?.get(challengedUid) : undefined;
+            const challengedClaimed = Boolean(challengedPart && challengedPart.pinValidated !== false && challengedPart.connectionState !== "PENDING_PIN");
+            if (!hostClaimed && race.hostUserId && race.hostUserId !== "anonymous") {
               userId = race.hostUserId;
               guestName = race.hostUserName || guestName;
-            } else if (chAny && chAny.challengedId && !race.participants?.has(chAny.challengedId)) {
-              userId = chAny.challengedId;
-              guestName = chAny.challengedName || guestName;
+            } else if (challengedUid && !challengedClaimed) {
+              userId = challengedUid;
+              guestName = chAny.challengedName || chAny.challengedLogin || guestName;
             } else {
               userId = `guest_${cleanCode.toLowerCase()}`;
             }
           } else if (race.hostUserId && race.hostUserId !== "anonymous") {
             const hostPart = race.participants?.get(race.hostUserId);
-            if (!hostPart || !hostPart.deviceToken) {
+            const hostClaimed = Boolean(hostPart && (hostPart.deviceToken || (hostPart.pinValidated !== false && hostPart.connectionState !== "PENDING_PIN")));
+            if (!hostClaimed) {
               userId = race.hostUserId;
               guestName = race.hostUserName || guestName;
             } else {

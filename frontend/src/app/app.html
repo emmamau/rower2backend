@@ -415,7 +415,8 @@
         (requestAccountModal)="openAccountModal($event)"
         (bannerCollapsedChange)="onPrivateBannerCollapsedChange($event)"
         (viewRankingRequest)="openRaceLeaderboard($event)"
-        (raceStartTriggered)="onPrivateRaceStartTriggered($event)">
+        (raceStartTriggered)="onPrivateRaceStartTriggered($event)"
+        (roomsOrDuelsCountChanged)="refreshPendingPrivateAndDuels()">
       </app-private-room-manager>
     }
 

@@ -70,6 +70,7 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
   @Output() bannerCollapsedChange = new EventEmitter<boolean>();
   @Output() viewRankingRequest = new EventEmitter<string>();
   @Output() raceStartTriggered = new EventEmitter<{ countdownSeconds: number; isFirstStroke?: boolean }>();
+  @Output() roomsOrDuelsCountChanged = new EventEmitter<void>();
 
   activeTab: PrivateModalTab = 'create';
   isBannerCollapsed = false;
@@ -255,6 +256,11 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
 
   updateLobbyBots(count: number): void {
     if (!this.activeRoom || this.isActionBusy) return;
+    if (this.isActiveRoomCountdownOrRunning) {
+      this.actionError = "Impossible d'ajouter ou de retirer des bots lorsqu'une course est lancée.";
+      this.cdr.markForCheck();
+      return;
+    }
     const identifier = this.activeRoomCode || this.activeRoom.race?.id;
     if (!identifier) return;
 
@@ -645,6 +651,18 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
     return true;
   }
 
+  get isActiveRoomCountdown(): boolean {
+    if (!this.activeRoom) return false;
+    const st = String(this.activeRoom.status || '').toLowerCase();
+    const raceSt = String(this.activeRoom.race?.status || '').toLowerCase();
+    const internalSt = String((this.activeRoom as any).internalStatus || (this.activeRoom.race as any)?.internalStatus || '').toUpperCase();
+    return st === 'countdown' || raceSt === 'countdown' || internalSt === 'COUNTDOWN';
+  }
+
+  get isActiveRoomCountdownOrRunning(): boolean {
+    return this.isActiveRoomRunning || this.isActiveRoomCountdown;
+  }
+
   get isBotDuelRoom(): boolean {
     return Boolean(this.activeRoom?.race?.isBotDuel || (this.activeRoom as any)?.isBotDuel);
   }
@@ -896,10 +914,17 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
 
   get roomParticipants(): any[] {
     const raw: any = this.activeRoom?.race?.participants;
-    if (Array.isArray(raw)) return raw;
-    if (raw && typeof raw.values === 'function') return Array.from(raw.values());
-    if (raw && typeof raw === 'object') return Object.values(raw);
-    return [];
+    let list: any[] = [];
+    if (Array.isArray(raw)) list = raw;
+    else if (raw && typeof raw.values === 'function') list = Array.from(raw.values());
+    else if (raw && typeof raw === 'object') list = Object.values(raw);
+    return list.filter((p) => {
+      if (!p) return false;
+      const isBot = Boolean(p.isBot) || String(p.userId || '').startsWith('bot_');
+      if (isBot) return true;
+      if (p.hasLeft || p.status === 'abandoned') return false;
+      return Boolean(p.lane > 0 && p.pinValidated !== false && p.connectionState !== 'PENDING_PIN');
+    });
   }
 
   get areAllParticipantsReady(): boolean {
@@ -1158,7 +1183,36 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
     const race = this.activeRoom.race || this.activeRoom;
     const parts = race.participants || (this.activeRoom as any).participants || [];
     const list: any[] = Array.isArray(parts) ? parts : Array.from((parts as any).values ? (parts as any).values() : []);
-    return list.some((p: any) => p.userId === this.activeUserId && (p.lane > 0 || p.ready || p.deviceToken));
+    return list.some((p: any) =>
+      p.userId === this.activeUserId &&
+      p.lane > 0 &&
+      p.pinValidated !== false &&
+      p.connectionState !== 'PENDING_PIN'
+    );
+  }
+
+  get engagedKayaksCount(): number {
+    if (!this.activeRoom) return 0;
+    const race: any = this.activeRoom.race || this.activeRoom;
+    const parts = race.participants || (this.activeRoom as any).participants || [];
+    const list: any[] = Array.isArray(parts) ? parts : Array.from((parts as any).values ? (parts as any).values() : []);
+    const engagedHumans = list.filter((p: any) => {
+      const isBot = Boolean(p?.isBot) || String(p?.userId || '').startsWith('bot_');
+      if (isBot) return false;
+      if (p?.hasLeft || p?.status === 'abandoned') return false;
+      return Boolean(p?.lane > 0 && p?.pinValidated !== false && p?.connectionState !== 'PENDING_PIN');
+    }).length;
+    const botParts = list.filter((p: any) => Boolean(p?.isBot) || String(p?.userId || '').startsWith('bot_')).length;
+    const configuredBots = Number(race?.botCount ?? (this.activeRoom as any)?.botCount ?? (this.isBotDuelRoom ? 1 : 0)) || 0;
+    return engagedHumans + Math.max(botParts, configuredBots);
+  }
+
+  get minRequiredKayaksForStart(): number {
+    return this.isSoloRoom ? 1 : 2;
+  }
+
+  get hasEnoughEngagedKayaks(): boolean {
+    return this.engagedKayaksCount >= this.minRequiredKayaksForStart;
   }
 
   get isStartLocked(): boolean {
@@ -1170,10 +1224,14 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
       const startMs = new Date(scheduledTime).getTime();
       if (Number.isFinite(startMs)) {
         const unlockMs = startMs - 5 * 60 * 1000;
-        return Date.now() < unlockMs;
+        if (Date.now() < unlockMs) return true;
       }
     }
-    // Verrouillage du départ tant que la montre Garmin n'a pas validé le code PIN du salon
+    // Exiger au moins 2 kayaks engagés sur une ligne d'eau (ou 1 en mode Solo), pour tous les comptes y compris admin
+    if (!this.hasEnoughEngagedKayaks) {
+      return true;
+    }
+    // Verrouillage du départ tant que la montre Garmin de l'organisateur (non-admin) n'a pas validé le code PIN du salon
     if (!this.isWatchEngaged && !this.isUserAdmin) {
       return true;
     }
@@ -1184,6 +1242,12 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
     if (!this.activeRoom) return '';
     if (!this.isWatchEngaged && !this.isUserAdmin) {
       return `Saisie du code PIN (${this.activeRoomPin || '----'}) requise sur votre montre Garmin pour engager votre couloir avant de démarrer`;
+    }
+    if (!this.hasEnoughEngagedKayaks) {
+      if (this.isSoloRoom) {
+        return `Saisie du code PIN (${this.activeRoomPin || '----'}) requise sur votre montre Garmin pour engager votre kayak sur une ligne d'eau`;
+      }
+      return `Au moins 2 kayaks doivent être engagés sur une ligne d'eau pour démarrer à 15s (actuellement ${this.engagedKayaksCount}/2)`;
     }
     if (this.isStartLocked) {
       const race = this.activeRoom.race || this.activeRoom;
@@ -1473,9 +1537,10 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
       .subscribe({
         next: (created) => {
           this.isCreating = false;
-          (created as any).lane = (created as any).lane !== undefined ? (created as any).lane : 1;
+          (created as any).lane = (created as any).lane !== undefined ? (created as any).lane : 0;
           this.rememberSalon(created, true);
           this.roomSelected.emit({ payload: created, pushUrl: false, isPreview: true });
+          this.roomsOrDuelsCountChanged.emit();
           this.activeTab = 'share';
           this.showFeedback(this.i18n.t('PRIVATE_ROOM_BADGE') + ' : ' + (created.code || ''));
           this.refreshRoomLimits();
@@ -2144,9 +2209,10 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
         // Prune locally stored salons that no longer exist on backend
         if (knownCodes.length > 0) {
           const activeIds = new Set(serverRaces.map((r) => r.race.id));
-          this.savedSalons = this.savedSalons.filter((s) => activeIds.has(s.id));
+          this.savedSalons = this.savedSalons.filter((s) => s.isDuel1v1 || activeIds.has(s.id));
           this.persistSavedSalons();
         }
+        this.roomsOrDuelsCountChanged.emit();
         this.cdr.markForCheck();
       },
       error: () => {
@@ -2225,6 +2291,7 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
     this.savedSalons = this.savedSalons.filter((s) => s.id !== raceId);
     this.liveRoomsMap.delete(raceId);
     this.persistSavedSalons();
+    this.roomsOrDuelsCountChanged.emit();
   }
 
   private getSavedSalonsStorageKey(): string {
@@ -2453,6 +2520,7 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
           this.sentDuelChallenges = res.sent || [];
           this.blockedDuelSlots = res.blockedSlots || [];
           this.syncDuelsToSavedSalons();
+          this.roomsOrDuelsCountChanged.emit();
         }
         this.cdr.markForCheck();
       },
@@ -2675,18 +2743,41 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
     const code = challenge.roomCode || challenge.roomId;
     if (!code) return;
     this.isActionBusy = true;
-    this.rowerService.getPrivateRace(code).subscribe({
-      next: (room) => {
-        this.isActionBusy = false;
-        this.rememberSalon(room, challenge.challengerUserId === this.activeUserId);
-        this.roomSelected.emit({ payload: room, pushUrl: false, isPreview: true });
-        this.closeModal();
-        this.cdr.markForCheck();
+    this.rowerService.openRoom(code, this.activeUserId, this.activeUserName).subscribe({
+      next: (joinRes) => {
+        const assignedLane = joinRes?.lane ?? 0;
+        this.rowerService.getPrivateRace(code).subscribe({
+          next: (room) => {
+            this.isActionBusy = false;
+            (room as any).lane = assignedLane;
+            this.rememberSalon(room, challenge.challengerUserId === this.activeUserId);
+            this.roomSelected.emit({ payload: room, pushUrl: false, isPreview: true });
+            this.closeModal();
+            this.cdr.markForCheck();
+          },
+          error: (err) => {
+            this.isActionBusy = false;
+            this.duelManageError = err?.error?.message || err?.error?.error || 'Le salon associé à ce duel est inaccessible ou fermé.';
+            this.cdr.markForCheck();
+          }
+        });
       },
-      error: (err) => {
-        this.isActionBusy = false;
-        this.duelManageError = err?.error?.message || err?.error?.error || 'Le salon associé à ce duel est inaccessible ou fermé.';
-        this.cdr.markForCheck();
+      error: () => {
+        this.rowerService.getPrivateRace(code).subscribe({
+          next: (room) => {
+            this.isActionBusy = false;
+            (room as any).lane = 0;
+            this.rememberSalon(room, challenge.challengerUserId === this.activeUserId);
+            this.roomSelected.emit({ payload: room, pushUrl: false, isPreview: true });
+            this.closeModal();
+            this.cdr.markForCheck();
+          },
+          error: (err) => {
+            this.isActionBusy = false;
+            this.duelManageError = err?.error?.message || err?.error?.error || 'Le salon associé à ce duel est inaccessible ou fermé.';
+            this.cdr.markForCheck();
+          }
+        });
       }
     });
   }

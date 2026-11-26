@@ -1441,11 +1441,11 @@
                     🚣 Au premier coup de rame{{ isFirstStrokeMode ? ' ✓' : '' }}
                   </button>
                 }
-                @if (!isBotDuelRoom && !isSoloRoom && !isDuel1v1Room) {
+                @if (!isBotDuelRoom && !isSoloRoom && !isDuel1v1Room && !isActiveRoomCountdownOrRunning) {
                   <button
                     type="button"
                     class="priv-btn priv-btn-cyan"
-                    [disabled]="isActionBusy"
+                    [disabled]="isActionBusy || isActiveRoomCountdownOrRunning"
                     title="Gérer les bots dans ce salon"
                     (click)="activeRoomBotCount === 0 ? addQuickBots() : updateLobbyBots(0)">
                     {{ activeRoomBotCount === 0 ? '🤖 + Ajouter des bots' : '🤖 Retirer les ' + activeRoomBotCount + ' bot(s)' }}

@@ -560,7 +560,25 @@ export class RaceManager {
       return chosen;
     };
 
-    return sortedRows.map((r: any, idx: number) => {
+    const filteredRows = sortedRows.filter((r: any) => {
+      const getVal = (f: string) => (typeof r.get === "function" ? r.get(f) : r[f]);
+      const userId = getVal("userId");
+      const isBot = Boolean(getVal("isBot")) || String(userId || "").startsWith("bot_");
+      if (isBot) return true;
+      if (race && race.type === "PRIVATE_INVITE") {
+        const dist = Number(getVal("netDistance") || 0);
+        const watts = Number(getVal("lastPower") || 0);
+        const spm = Number(getVal("lastStrokeRate") || 0);
+        if (dist > 0 || watts > 0 || spm > 0) return true;
+        const pInfo = race.participants?.get(userId);
+        if (pInfo && (pInfo.connectionState === "PENDING_PIN" || pInfo.pinValidated === false)) {
+          return false;
+        }
+      }
+      return true;
+    });
+
+    return filteredRows.map((r: any, idx: number) => {
       const getVal = (f: string) => (typeof r.get === "function" ? r.get(f) : r[f]);
       const userId = getVal("userId");
       const isBot = Boolean(getVal("isBot")) || String(userId || "").startsWith("bot_");
@@ -2003,9 +2021,9 @@ export class RaceManager {
         userName: hostUserName || hostUserId,
         joinedAt: now,
         lane: 1,
-        ready: !isDuel1v1,
-        pinValidated: !isDuel1v1,
-        connectionState: isDuel1v1 ? "PENDING_PIN" : "CONNECTED"
+        ready: false,
+        pinValidated: false,
+        connectionState: "PENDING_PIN"
       });
     }
 
@@ -2303,6 +2321,9 @@ export class RaceManager {
   ): Promise<RaceState | null> {
     const race = this.getRaceById(raceId) || this.findPrivateRace(raceId);
     if (!race) return null;
+    if (race.status === "RUNNING" || race.status === "COUNTDOWN") {
+      return null;
+    }
 
     const clampedCount = Math.max(0, Math.min(20, Math.floor(Number(botCount) || 0)));
     race.botCount = clampedCount;
@@ -2364,7 +2385,9 @@ export class RaceManager {
     if (race && race.participants) {
       const usedLanes = new Set<number>();
       for (const p of race.participants.values()) {
-        if (p.lane) usedLanes.add(p.lane);
+        if (p.lane && p.connectionState !== "PENDING_PIN" && p.pinValidated !== false) {
+          usedLanes.add(p.lane);
+        }
       }
       while (usedLanes.has(assignedLane)) {
         assignedLane++;
@@ -2891,7 +2914,9 @@ export class RaceManager {
     } else {
       const usedLanes = new Set<number>();
       for (const p of race.participants.values()) {
-        if (p.lane) usedLanes.add(p.lane);
+        if (p.lane && p.connectionState !== "PENDING_PIN" && p.pinValidated !== false) {
+          usedLanes.add(p.lane);
+        }
       }
       if (race.pendingParticipants) {
         for (const p of race.pendingParticipants.values()) {
@@ -2929,6 +2954,7 @@ export class RaceManager {
       ? Boolean(options.ready)
       : (Boolean(options?.viaPin) && race.isBotDuel && race.botStartMode !== "first_stroke" ? true : false);
     const connectionState: "CONNECTED" | "READY" = isReady ? "READY" : "CONNECTED";
+    const isPinValidated = options?.viaPin !== undefined ? Boolean(options.viaPin) : true;
 
     race.participants.set(cleanUserId, {
       userId: cleanUserId,
@@ -2937,7 +2963,7 @@ export class RaceManager {
       country,
       lane: assignedLane,
       ready: isReady,
-      pinValidated: Boolean(options?.viaPin),
+      pinValidated: isPinValidated,
       connectionState,
       socketId: options?.socketId,
       deviceToken: options?.deviceToken
@@ -3457,6 +3483,31 @@ export class RaceManager {
     }
     if ((race.isBotDuel || race.isSolo) && options.botStartMode === "countdown") {
       race.botStartMode = "countdown";
+    }
+
+    // Verrouillage du démarrage à 15s (ou avec décompte > 0) tant que le nombre requis de kayaks n'est pas engagé sur une ligne d'eau
+    if (countdownSec > 0) {
+      const partsList = race.participants ? Array.from(race.participants.values()) : [];
+      const engagedHumans = partsList.filter((p) => {
+        const isBot = Boolean((p as any).isBot) || String(p.userId || "").startsWith("bot_");
+        if (isBot) return false;
+        if (p.hasLeft || p.status === "abandoned") return false;
+        if (!p.lane || p.lane <= 0) return false;
+        return p.connectionState !== "PENDING_PIN" && p.pinValidated !== false;
+      }).length;
+      const botPartsCount = partsList.filter((p) => Boolean((p as any).isBot) || String(p.userId || "").startsWith("bot_")).length;
+      const effectiveBots = Math.max(botPartsCount, Number(race.botCount || (race.isBotDuel ? 1 : 0)));
+      const totalEngagedKayaks = engagedHumans + effectiveBots;
+      const minRequiredKayaks = race.isSolo ? 1 : 2;
+
+      if (totalEngagedKayaks < minRequiredKayaks) {
+        return {
+          error: race.isSolo
+            ? "Votre kayak doit être engagé sur une ligne d'eau (code PIN saisi sur votre montre) avant de démarrer."
+            : `Au moins 2 kayaks doivent être engagés sur une ligne d'eau pour lancer le départ à 15s (actuellement ${totalEngagedKayaks}/2).`,
+          statusCode: 409
+        };
+      }
     }
 
     // Si départ immédiat (0s) et des compétiteurs connectés via montre sont encore non prêts

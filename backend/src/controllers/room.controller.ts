@@ -82,7 +82,8 @@ export class RoomController {
         userId = "anonymous";
       }
 
-      const viaPin = Boolean(
+      const openOnly = Boolean(body.openOnly || query.openOnly);
+      const viaPin = !openOnly && Boolean(
         body.pin ||
         query.pin ||
         /^[a-zA-Z0-9]{4,8}$/.test(rawCode)
@@ -245,11 +246,16 @@ export class RoomController {
         }
       }
 
-      const openOnly = Boolean(body.openOnly || query.openOnly);
+      const existingPart = race.participants?.get(String(userId)) || (bodyUserId ? race.participants?.get(bodyUserId) : undefined);
+      const hasValidatedPinOnWatch = Boolean(
+        existingPart &&
+        existingPart.pinValidated !== false &&
+        existingPart.connectionState !== "PENDING_PIN"
+      );
 
       // Si l'utilisateur demande une ouverture en mode consultation (openOnly) et n'a pas validé son code PIN sur sa montre,
       // ouvrir le salon en mode consultation / attente sans attribuer de couloir de départ ni verrouiller la grille.
-      if (openOnly && !alreadyApproved && !viaPin && !isDeviceAuthenticated) {
+      if (openOnly && !hasValidatedPinOnWatch && !viaPin && !isDeviceAuthenticated) {
         res.status(200).json({
           success: true,
           lane: 0,

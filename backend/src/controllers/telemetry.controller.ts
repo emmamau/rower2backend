@@ -218,12 +218,15 @@ async function buildPrivateRacePayload(race: RaceState) {
     createdAt: race.createdAt ? race.createdAt.toISOString() : undefined
   };
 
+  const hostPart = race.participants?.get(race.hostUserId || "");
+  const hostPinValidated = Boolean(hostPart && hostPart.pinValidated !== false && hostPart.connectionState !== "PENDING_PIN");
+
   return {
     success: true,
     race: serializedRace,
     code: race.code,
     pinCode: race.pinCode,
-    lane: race.adminAsSpectator ? 0 : (race.participants?.get(race.hostUserId || "")?.lane || 1),
+    lane: race.adminAsSpectator ? 0 : (hostPinValidated ? (hostPart?.lane || 1) : 0),
     botLane: race.isBotDuel ? 2 : undefined,
     isBotDuel: Boolean(race.isBotDuel),
     isDuel1v1: Boolean(race.isDuel1v1),
@@ -1242,44 +1245,6 @@ export class TelemetryController {
         // Non-blocking if DB is offline during standalone/local execution
       }
 
-      if (!allowAdminSpectator && hostParticipates && hostUserId && hostUserId !== "anonymous") {
-        const compId = `${race.id}_${hostUserId}`;
-        const hostDefaults = {
-          id: compId,
-          activityId: race.id,
-          userId: hostUserId,
-          userName: hostUserName || hostUserId,
-          raceMode: "race",
-          targetDistance: race.targetDistance,
-          status: "waiting",
-          initialDistance: 0,
-          currentDistance: 0,
-          netDistance: 0,
-          progressPercent: 0,
-          lastStrokeRate: 0,
-          lastStrokeCount: 0,
-          lastPower: 0,
-          lastPace: 0,
-          lastHeartRate: 0,
-          lastResistance: 1,
-          avgPower: 0,
-          avgPace: 0,
-          avgStrokeRate: 0,
-          totalStrokes: 0,
-          totalEnergy: 0,
-          elapsedTime: 0,
-          avgSpeedKmh: 0,
-          isBot: false
-        };
-        userStore.recordActivity(hostDefaults);
-        try {
-          await Activities.findOrCreate({
-            where: { id: compId },
-            defaults: hostDefaults as any
-          });
-        } catch {}
-      }
-
       const payload = await buildPrivateRacePayload(race);
       res.status(201).json(payload);
     } catch (err: unknown) {
@@ -1886,6 +1851,18 @@ export class TelemetryController {
           (race.originalHostUserId && userId.toLowerCase() === race.originalHostUserId.toLowerCase()))
       );
 
+      if (userId) {
+        if (isHost && race.participants) {
+          const hostEntry = race.participants.get(race.hostUserId || userId) || race.participants.get(userId);
+          if (hostEntry) {
+            hostEntry.pinValidated = true;
+            if (hostEntry.connectionState === "PENDING_PIN") {
+              hostEntry.connectionState = hostEntry.ready ? "READY" : "CONNECTED";
+            }
+          }
+        }
+      }
+
       if (userId && !isHost) {
         if (race.isBotDuel) {
           const currentHost = String(race.hostUserId || "");
@@ -1909,7 +1886,10 @@ export class TelemetryController {
                 userId,
                 userName: userName || race.hostUserName || userId,
                 joinedAt: oldInfo?.joinedAt || new Date(),
-                lane: 1
+                lane: 1,
+                ready: false,
+                pinValidated: true,
+                connectionState: "CONNECTED"
               });
             }
           } else {

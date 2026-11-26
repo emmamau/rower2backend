@@ -258,20 +258,31 @@ export class GarminController {
         } else if (race.isDuel1v1) {
           const ch = db.duelChallenges ? await db.duelChallenges.findOne({ where: { roomId: race.id } }) : null;
           const chAny = ch as any;
-          const hostInParts = race.hostUserId ? Boolean(race.participants?.has(race.hostUserId)) : false;
-          if (!hostInParts && race.hostUserId && race.hostUserId !== "anonymous") {
+          const hostPart = race.hostUserId ? race.participants?.get(race.hostUserId) : undefined;
+          const hostClaimed = Boolean(hostPart && hostPart.pinValidated !== false && hostPart.connectionState !== "PENDING_PIN");
+          const challengedUid = chAny?.challengedUserId || chAny?.challengedId;
+          const challengedPart = challengedUid ? race.participants?.get(challengedUid) : undefined;
+          const challengedClaimed = Boolean(challengedPart && challengedPart.pinValidated !== false && challengedPart.connectionState !== "PENDING_PIN");
+          if (!hostClaimed && race.hostUserId && race.hostUserId !== "anonymous") {
             userId = race.hostUserId;
             guestName = race.hostUserName || guestName || race.hostUserId;
-          } else if (chAny && chAny.challengedId && !race.participants?.has(chAny.challengedId)) {
-            userId = chAny.challengedId;
-            guestName = chAny.challengedName || guestName || chAny.challengedId;
+          } else if (challengedUid && !challengedClaimed) {
+            userId = challengedUid;
+            guestName = chAny.challengedName || chAny.challengedLogin || guestName || challengedUid;
           } else {
             userId = userId || `guest_${rawPin.toLowerCase()}`;
             guestName = guestName || `Rameur_${rawPin.slice(0, 3)}`;
           }
-        } else if (race.hostUserId && race.hostUserId !== "anonymous" && !race.participants?.has(race.hostUserId)) {
-          userId = race.hostUserId;
-          guestName = race.hostUserName || guestName || race.hostUserId;
+        } else if (race.hostUserId && race.hostUserId !== "anonymous") {
+          const hostPart = race.participants?.get(race.hostUserId);
+          const hostClaimed = Boolean(hostPart && (hostPart.deviceToken || (hostPart.pinValidated !== false && hostPart.connectionState !== "PENDING_PIN")));
+          if (!hostClaimed) {
+            userId = race.hostUserId;
+            guestName = race.hostUserName || guestName || race.hostUserId;
+          } else {
+            userId = userId || `guest_${rawPin.toLowerCase()}`;
+            guestName = guestName || `Rameur_${rawPin.slice(0, 3)}`;
+          }
         } else {
           userId = userId || `guest_${rawPin.toLowerCase()}`;
           guestName = guestName || `Rameur_${rawPin.slice(0, 3)}`;

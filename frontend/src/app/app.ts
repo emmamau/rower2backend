@@ -1804,21 +1804,16 @@ export class AppComponent implements OnInit, OnDestroy {
               return (b.netDistance || 0) - (a.netDistance || 0);
             });
             this.totalActiveRacers = activeList.length;
-            const isDuelRoom = Boolean(
-              (this.activePrivateRoom as any)?.isDuel1v1 ||
-              this.activePrivateRoom?.race?.isDuel1v1 ||
-              (raceData.race as any)?.isDuel1v1 ||
-              (raceData.race as any)?.gameMode === 'duel_1v1'
-            );
+            const isPrivateRoom = Boolean(this.activePrivateRoom || (raceData.race as any)?.type === 'PRIVATE_INVITE');
             const roomParts = this.activePrivateRoom?.race?.participants || (raceData.race as any)?.participants || [];
             // Maintien continu des participants du salon sur la ligne de départ (anti-clignotement)
             if (roomParts && roomParts.length > 0 && (!this.isRaceActive || isRaceWaitingOrCountdown)) {
               for (const p of roomParts) {
                 if (!p.userId) continue;
-                const isMe = p.userId === this.activeUserId;
-                const isUserValidated = Boolean(p.ready || p.pinValidated || p.connectionState === 'READY' || (isMe && (this.isPaired || this.isWatchConfirmed)));
-                // En mode duel 1v1, un kayak n'apparaît sur le plan d'eau QUE lorsque le joueur a validé son code PIN sur sa montre
-                if (isDuelRoom && !isUserValidated && (p.netDistance || 0) <= 0) {
+                const isBot = Boolean(p.isBot) || String(p.userId).startsWith('bot_');
+                const isUserValidated = isBot || Boolean(p.pinValidated === true && p.connectionState !== 'PENDING_PIN');
+                // Dans tout salon privé ou duel, un kayak humain n'apparaît sur une ligne d'eau QUE lorsque le joueur a validé son code PIN sur sa montre
+                if (isPrivateRoom && !isUserValidated && (p.netDistance || 0) <= 0) {
                   continue;
                 }
                 if (!activeList.some(r => r.userId === p.userId)) {
@@ -1832,35 +1827,41 @@ export class AppComponent implements OnInit, OnDestroy {
                     lastPower: 0,
                     lastStrokeRate: 0,
                     lastPace: 120,
+                    isBot,
                     kayak: p.kayak
                   } as any);
                 }
               }
             }
-            if (isDuelRoom) {
+            if (isPrivateRoom) {
               activeList = activeList.filter(r => {
-                const isMe = r.userId === this.activeUserId;
+                const isBot = this.isBotRacer(r) || String(r.userId || '').startsWith('bot_');
+                if (isBot) return true;
                 const partInfo = roomParts.find((p: any) => p.userId === r.userId);
-                const hasValidatedPin = Boolean(partInfo?.ready || partInfo?.pinValidated || partInfo?.connectionState === 'READY' || (isMe && (this.isPaired || this.isWatchConfirmed)));
+                const hasValidatedPin = Boolean(partInfo && partInfo.pinValidated !== false && partInfo.connectionState !== 'PENDING_PIN');
                 return hasValidatedPin || (r.netDistance || 0) > 0 || (r.lastPower || 0) > 0;
               });
             }
-            // S'assurer que le kayak du joueur local reste positionné sur sa ligne d'eau attribuée
+            // S'assurer que le kayak du joueur local reste positionné sur sa ligne d'eau attribuée (uniquement si engagé dans un salon privé)
             if (this.activeUserId && !activeList.some(r => r.userId === this.activeUserId) && (!this.isRaceActive || isRaceWaitingOrCountdown)) {
-              const myMetric = this.liveMetricsList.find(m => m.userId === this.activeUserId);
-              if (myMetric) {
-                activeList.push({
-                  userId: myMetric.userId,
-                  userName: myMetric.name,
-                  netDistance: myMetric.dist || 0,
-                  currentDistance: myMetric.dist || 0,
-                  lane: myMetric.lane || this.myAssignedLane || 1,
-                  status: myMetric.status || 'waiting',
-                  lastPower: myMetric.watts || 0,
-                  lastStrokeRate: myMetric.spm || 0,
-                  lastPace: myMetric.split || 120,
-                  kayak: myMetric.kayak
-                } as any);
+              const myPart = isPrivateRoom ? roomParts.find((p: any) => p.userId === this.activeUserId) : null;
+              const canKeepLocalKayak = !isPrivateRoom || Boolean(myPart && myPart.pinValidated !== false && myPart.connectionState !== 'PENDING_PIN');
+              if (canKeepLocalKayak) {
+                const myMetric = this.liveMetricsList.find(m => m.userId === this.activeUserId);
+                if (myMetric && (!isPrivateRoom || (myMetric.lane && myMetric.lane > 0))) {
+                  activeList.push({
+                    userId: myMetric.userId,
+                    userName: myMetric.name,
+                    netDistance: myMetric.dist || 0,
+                    currentDistance: myMetric.dist || 0,
+                    lane: myMetric.lane || this.myAssignedLane || 1,
+                    status: myMetric.status || 'waiting',
+                    lastPower: myMetric.watts || 0,
+                    lastStrokeRate: myMetric.spm || 0,
+                    lastPace: myMetric.split || 120,
+                    kayak: myMetric.kayak
+                  } as any);
+                }
               }
             }
             this.liveMetricsList = activeList.map((r, idx) => {
@@ -2744,8 +2745,14 @@ export class AppComponent implements OnInit, OnDestroy {
           }
 
           this.accountAuthSuccess = 'Connexion réussie !';
+          this.pendingPrivateSalonsCount = 0;
+          this.pendingDuelsCount = 0;
+          this.refreshPendingPrivateAndDuels();
           this.loadUserProfile();
           this.loadGeneralLeaderboard();
+          this.pendingPrivateSalonsCount = 0;
+          this.pendingDuelsCount = 0;
+          this.refreshPendingPrivateAndDuels();
           setTimeout(() => {
             this.closeAccountModal();
             this.setSiteView('home');
@@ -2891,6 +2898,9 @@ export class AppComponent implements OnInit, OnDestroy {
           }
           this.loadUserProfile();
           this.loadGeneralLeaderboard();
+          this.pendingPrivateSalonsCount = 0;
+          this.pendingDuelsCount = 0;
+          this.refreshPendingPrivateAndDuels();
           if (this.pendingDuelInviteToken) {
             this.pendingDuelInviteToken = '';
             this.pendingRegistrationEmail = '';
@@ -3128,6 +3138,9 @@ export class AppComponent implements OnInit, OnDestroy {
     this.regPassword = '';
     this.accountAuthError = '';
     this.accountAuthSuccess = 'Vous avez été déconnecté.';
+    this.pendingPrivateSalonsCount = 0;
+    this.pendingDuelsCount = 0;
+    this.refreshPendingPrivateAndDuels();
 
     this.setSiteView('home');
     this.userExplicitlyNavigatedHome = true;
@@ -3205,7 +3218,28 @@ export class AppComponent implements OnInit, OnDestroy {
     const race = this.activePrivateRoom.race || this.activePrivateRoom;
     const parts: any = race.participants || (this.activePrivateRoom as any).participants || [];
     const list: any[] = Array.isArray(parts) ? parts : Array.from((parts as any).values ? (parts as any).values() : []);
-    return list.some((p: any) => p.userId === this.activeUserId && (p.lane > 0 || p.ready || p.deviceToken));
+    return list.some((p: any) =>
+      p.userId === this.activeUserId &&
+      p.lane > 0 &&
+      p.pinValidated !== false &&
+      p.connectionState !== 'PENDING_PIN'
+    );
+  }
+
+  get engagedKayaksCountInActiveRoom(): number {
+    if (!this.activePrivateRoom) return 0;
+    const race: any = this.activePrivateRoom.race || this.activePrivateRoom;
+    const parts: any = race.participants || (this.activePrivateRoom as any).participants || [];
+    const list: any[] = Array.isArray(parts) ? parts : Array.from((parts as any).values ? (parts as any).values() : []);
+    const engagedHumans = list.filter((p: any) => {
+      const isBot = Boolean(p?.isBot) || String(p?.userId || '').startsWith('bot_');
+      if (isBot) return false;
+      if (p?.hasLeft || p?.status === 'abandoned') return false;
+      return Boolean(p?.lane > 0 && p?.pinValidated !== false && p?.connectionState !== 'PENDING_PIN');
+    }).length;
+    const botParts = list.filter((p: any) => Boolean(p?.isBot) || String(p?.userId || '').startsWith('bot_')).length;
+    const configuredBots = Number(race?.botCount ?? (this.activePrivateRoom as any)?.botCount ?? (race?.isBotDuel ? 1 : 0)) || 0;
+    return engagedHumans + Math.max(botParts, configuredBots);
   }
 
   get canStartRace(): boolean {
@@ -3213,6 +3247,10 @@ export class AppComponent implements OnInit, OnDestroy {
     if (!this.activePrivateRoom) return false;
     if (this.isPrivateRoomStartLocked) return false;
     if (!this.isOrganizerOfActiveRoom && !this.isUserAdmin) return false;
+    const race: any = this.activePrivateRoom.race || this.activePrivateRoom;
+    const isSolo = Boolean(race?.isSolo || (this.activePrivateRoom as any)?.isSolo);
+    const minRequiredKayaks = isSolo ? 1 : 2;
+    if (this.engagedKayaksCountInActiveRoom < minRequiredKayaks) return false;
     if (!this.isWatchEngaged && !this.isUserAdmin) return false;
     const st = String(this.activePrivateRoom.status || this.activePrivateRoom.race?.status || '').toLowerCase();
     return st === 'waiting' || st === 'countdown' || st === 'lobby';
@@ -5456,6 +5494,9 @@ export class AppComponent implements OnInit, OnDestroy {
             this.isWatchConfirmed = true;
           }
 
+          this.pendingPrivateSalonsCount = 0;
+          this.pendingDuelsCount = 0;
+          this.refreshPendingPrivateAndDuels();
           this.launchRegattaFromSplash();
         } else {
           this.invitationAuthError = this.i18n.translateError(res.message || 'ERR_INVALID_CREDENTIALS');
@@ -5521,6 +5562,9 @@ export class AppComponent implements OnInit, OnDestroy {
             this.isWatchConfirmed = true;
           }
 
+          this.pendingPrivateSalonsCount = 0;
+          this.pendingDuelsCount = 0;
+          this.refreshPendingPrivateAndDuels();
           this.launchRegattaFromSplash();
         } else {
           this.invitationAuthError = this.i18n.translateError(res.message || 'ERR_GENERIC');
@@ -5637,14 +5681,20 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   refreshPendingPrivateAndDuels(): void {
+    const uid = (this.activeUserId || this.currentUser?.login || this.currentUser?.id || '').trim();
     let savedCodes: string[] = [];
     try {
       if (typeof localStorage !== 'undefined') {
-        const raw = localStorage.getItem('rower_saved_private_salons');
+        const storageKey = (uid && this.isRegisteredUser)
+          ? `rower_saved_private_salons_${uid.toLowerCase()}`
+          : 'rower_saved_private_salons_guest';
+        const raw = localStorage.getItem(storageKey);
         if (raw) {
           const parsed = JSON.parse(raw);
           if (Array.isArray(parsed)) {
-            savedCodes = parsed.map((s: any) => s?.code).filter(Boolean);
+            savedCodes = parsed
+              .filter((s: any) => s && !s.isDuel1v1 && s.code)
+              .map((s: any) => s.code);
           }
         }
       }
@@ -5652,16 +5702,37 @@ export class AppComponent implements OnInit, OnDestroy {
       savedCodes = [];
     }
 
-    const uid = this.currentUser?.id || this.currentUser?.login || this.activeUserId || '';
+    const closedStatuses = new Set([
+      'ABANDONED', 'FINISHED', 'COMPLETED', 'STOPPED', 'CANCELLED',
+      'abandoned', 'finished', 'completed', 'stopped', 'cancelled'
+    ]);
 
-    // 1. Salons privés actifs / en attente
-    if (uid || savedCodes.length > 0) {
-      this.rowerService.listPrivateRaces(uid || undefined, savedCodes).subscribe({
+    // 1. Salons privés actifs / en attente (hors duels 1v1 comptés séparément ci-dessous)
+    if ((uid && uid !== 'anonymous') || savedCodes.length > 0) {
+      const queryHostId = (uid && !uid.startsWith('usr_') && !uid.startsWith('guest_')) ? uid : uid;
+      this.rowerService.listPrivateRaces(queryHostId || undefined, savedCodes).subscribe({
         next: (res) => {
           if (res?.success && Array.isArray(res.races)) {
-            this.pendingPrivateSalonsCount = res.races.filter(
-              (r) => r.race && !r.race.isDuel1v1 && r.race.status !== 'ABANDONED' && r.race.status !== 'FINISHED' && r.race.status !== 'COMPLETED' && r.race.status !== 'STOPPED' && r.race.status !== 'CANCELLED'
-            ).length;
+            const seenIds = new Set<string>();
+            const activeNonDuel = res.races.filter((r) => {
+              if (!r?.race?.id) return false;
+              if (seenIds.has(r.race.id)) return false;
+              seenIds.add(r.race.id);
+              const isDuel = Boolean(
+                r.isDuel1v1 ||
+                r.race.isDuel1v1 ||
+                (r as any).gameMode === 'duel_1v1' ||
+                (r.race as any).gameMode === 'duel_1v1' ||
+                r.duelChallenge ||
+                (r.race as any).duelChallenge
+              );
+              if (isDuel) return false;
+              const st1 = String(r.status || '');
+              const st2 = String(r.race.status || '');
+              const st3 = String((r as any).internalStatus || (r.race as any).internalStatus || '');
+              return !closedStatuses.has(st1) && !closedStatuses.has(st2) && !closedStatuses.has(st3);
+            });
+            this.pendingPrivateSalonsCount = activeNonDuel.length;
           } else {
             this.pendingPrivateSalonsCount = 0;
           }
@@ -5674,20 +5745,25 @@ export class AppComponent implements OnInit, OnDestroy {
       });
     } else {
       this.pendingPrivateSalonsCount = 0;
+      this.cdr.markForCheck();
     }
 
-    // 2. Duels actifs ou ouverts (statut PENDING ou ACCEPTED)
+    // 2. Duels actifs ou ouverts (statut PENDING ou ACCEPTED) pour le compte courant
     if (uid && this.isRegisteredUser) {
       this.rowerService.getMyDuelChallenges(uid).subscribe({
         next: (res) => {
           if (res?.success) {
-            const receivedActiveOrOpen = (res.received || []).filter(
-              (d) => d && (d.status === 'PENDING' || d.status === 'ACCEPTED')
-            ).length;
-            const sentActiveOrOpen = (res.sent || []).filter(
-              (d) => d && (d.status === 'PENDING' || d.status === 'ACCEPTED')
-            ).length;
-            this.pendingDuelsCount = receivedActiveOrOpen + sentActiveOrOpen;
+            const seenDuelIds = new Set<string>();
+            const allDuels = [...(res.received || []), ...(res.sent || [])];
+            let activeDuelsCount = 0;
+            for (const d of allDuels) {
+              if (!d || !d.id || seenDuelIds.has(d.id)) continue;
+              if (d.status === 'PENDING' || d.status === 'ACCEPTED') {
+                seenDuelIds.add(d.id);
+                activeDuelsCount++;
+              }
+            }
+            this.pendingDuelsCount = activeDuelsCount;
           } else {
             this.pendingDuelsCount = 0;
           }
@@ -5700,6 +5776,7 @@ export class AppComponent implements OnInit, OnDestroy {
       });
     } else {
       this.pendingDuelsCount = 0;
+      this.cdr.markForCheck();
     }
   }
 
@@ -5795,6 +5872,9 @@ export class AppComponent implements OnInit, OnDestroy {
         if (roomParts.length > 0 && (!this.isRaceActive || this.isPreStartCountdown)) {
           for (const p of roomParts) {
             if (!p.userId) continue;
+            const isBot = Boolean((p as any).isBot) || String(p.userId).startsWith('bot_');
+            const isEngaged = isBot || Boolean(p.pinValidated !== false && p.connectionState !== 'PENDING_PIN');
+            if (!isEngaged) continue;
             if (!this.liveMetricsList.some(m => m.userId === p.userId)) {
               this.liveMetricsList.push({
                 lane: p.lane || (this.liveMetricsList.length + 1),
@@ -5806,6 +5886,7 @@ export class AppComponent implements OnInit, OnDestroy {
                 spm: 0,
                 ready: p.ready !== false,
                 connectionState: p.connectionState || 'CONNECTED',
+                isBot,
                 kayak: p.kayak
               } as any);
             }
@@ -6837,8 +6918,10 @@ export class AppComponent implements OnInit, OnDestroy {
     this.activePrivateRoom = room;
     this.nextRaceInfo = room;
     this.isPrivateRoomPreview = isPreview;
-    if ((room as any).lane) {
-      this.myAssignedLane = (room as any).lane;
+    if ((room as any).lane !== undefined) {
+      this.myAssignedLane = Number((room as any).lane) || 0;
+    } else if (isPreview) {
+      this.myAssignedLane = 0;
     }
     this.privateUrlError = '';
 
@@ -6879,11 +6962,14 @@ export class AppComponent implements OnInit, OnDestroy {
     this.updateDocumentTitle();
     this.syncSocketRoom(room.race.id);
 
-    // Synchroniser immédiatement les participants du salon sur leurs lignes d'eau au ponton de départ
+    // Synchroniser immédiatement les participants engagés (bots ou humains ayant validé le PIN sur leur montre) sur leurs lignes d'eau
     const roomParts = room?.race?.participants || [];
     if (Array.isArray(roomParts) && roomParts.length > 0) {
       for (const p of roomParts) {
         if (!p.userId) continue;
+        const isBot = Boolean(p.isBot) || String(p.userId).startsWith('bot_');
+        const isEngagedOnLane = isBot || Boolean(p.pinValidated !== false && p.connectionState !== 'PENDING_PIN');
+        if (!isEngagedOnLane) continue;
         const pLane = Number(p.lane) || (this.liveMetricsList.length + 1);
         if (!this.liveMetricsList.some(m => m.userId === p.userId || m.lane === pLane)) {
           const isMe = p.userId === this.activeUserId;
@@ -6902,7 +6988,7 @@ export class AppComponent implements OnInit, OnDestroy {
             connectionState: p.connectionState || 'CONNECTED',
             kayak: pKayak,
             status: room.race?.status === 'RUNNING' ? 'in_progress' : 'waiting',
-            isBot: Boolean(p.isBot),
+            isBot,
             isPaired: Boolean(p.isPaired || p.deviceToken || isMe)
           } as any);
         }
