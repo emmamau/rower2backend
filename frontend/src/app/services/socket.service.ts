@@ -203,6 +203,10 @@ export class SocketService {
     return this.socket?.id;
   }
 
+  public isConnected(): boolean {
+    return Boolean(this.socket && this.socket.connected);
+  }
+
   public onGarminPaired(): Observable<{
     userId: string;
     deviceId?: string;

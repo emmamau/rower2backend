@@ -287,25 +287,65 @@ test('4. Durcissement HTTP : En-têtes de sécurité, suppression de X-Powered-B
   }
 });
 
-test('5. Anti-DDoS Garmin Telemetry : Isolation par deviceToken pour clubs multi-montres', async () => {
+test('5. Anti-DDoS Garmin Telemetry : Isolation par deviceToken pour clubs multi-montres et exclusion du limiteur global', async () => {
   const ctx = await createTestServer();
   try {
-    const { garminBoostRateLimiter } = require('../dist/middleware/rate-limit.middleware');
+    const { garminBoostRateLimiter, resolveClientRateLimitKey } = require('../dist/middleware/rate-limit.middleware');
     assert.ok(garminBoostRateLimiter, 'Le rate-limiter Garmin doit être exporté et configuré');
 
-    // Simuler le keyGenerator pour vérifier la différenciation par deviceToken
-    const keyGen = garminBoostRateLimiter.keyGenerator;
+    // Simuler le keyGenerator pour vérifier la différenciation par deviceToken / deviceId
+    const keyGen = resolveClientRateLimitKey || garminBoostRateLimiter.keyGenerator;
     if (typeof keyGen === 'function') {
       const watchA = { body: { deviceToken: 'WATCH_DEV_TOKEN_AAA' }, headers: {}, ip: '192.168.1.1' };
       const watchB = { body: { deviceToken: 'WATCH_DEV_TOKEN_BBB' }, headers: {}, ip: '192.168.1.1' };
+      const watchC = { body: {}, headers: { 'x-device-id': 'SIM_GARMIN_03' }, ip: '192.168.1.1' };
 
       const keyA = keyGen(watchA);
       const keyB = keyGen(watchB);
+      const keyC = keyGen(watchC);
 
       assert.equal(keyA, 'WATCH_DEV_TOKEN_AAA');
       assert.equal(keyB, 'WATCH_DEV_TOKEN_BBB');
+      assert.equal(keyC, 'dev:SIM_GARMIN_03');
       assert.notEqual(keyA, keyB, 'Deux montres sur le même Wi-Fi/IP doivent avoir deux clés de rate-limit distinctes !');
     }
+
+    // Simuler 20 montres sur la même IP envoyant chacune 10 paquets de télémétrie (200 requêtes > ancien plafond de 150)
+    // avec le rate-limiter actif (x-test-rate-limit: 1) : aucune requête ne doit tomber en HTTP 429 !
+    const requests = [];
+    for (let w = 1; w <= 20; w++) {
+      for (let seq = 1; seq <= 10; seq++) {
+        requests.push(
+          fetch(`${ctx.baseUrl}/api/garmin/boost`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-test-rate-limit': '1',
+              'x-garmin-signature': 'CIQ_OFFICIAL_ROWER_V1',
+              'x-device-id': `SIM_GARMIN_${w}`,
+              'x-device-token': `TOKEN_WATCH_${w}`,
+            },
+            body: JSON.stringify({
+              raceId: 'PUBLIC',
+              userId: `sim_user_${w}`,
+              userName: `Rameur_${w}`,
+              deviceToken: `TOKEN_WATCH_${w}`,
+              deviceId: `SIM_GARMIN_${w}`,
+              seq,
+              elapsedTime: seq * 2,
+              currentDistance: seq * 8,
+              instantPower: 200,
+              instantPace: 120,
+              strokeRate: 24,
+              status: 'in_progress',
+            }),
+          })
+        );
+      }
+    }
+    const responses = await Promise.all(requests);
+    const status429Count = responses.filter((r) => r.status === 429).length;
+    assert.equal(status429Count, 0, 'Aucune des 200 requêtes de télémétrie multi-montres sur la même IP ne doit tomber en HTTP 429');
   } finally {
     await ctx.close();
   }

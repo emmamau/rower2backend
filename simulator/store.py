@@ -105,6 +105,9 @@ class VirtualWatch:
         self.last_http_code: Optional[int] = None
         self.last_rtt_ms: Optional[float] = None
         self.last_sync_timestamp: float = 0.0
+        self.last_poll_timestamp: float = 0.0
+        self.initial_waiting_sent: bool = False
+        self.countdown_remaining: Optional[int] = None
         self.error_message: Optional[str] = None
 
     def set_pace(self, split_sec: float):
@@ -125,6 +128,9 @@ class VirtualWatch:
         self.current_hr = 132
         self.race_status = "IDLE"
         self.is_simulating = False
+        self.last_poll_timestamp = 0.0
+        self.initial_waiting_sent = False
+        self.countdown_remaining = None
         self.error_message = None
 
     def to_dict(self) -> Dict[str, Any]:

@@ -499,8 +499,8 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
 
   private startModalPolling(): void {
     this.stopModalPolling();
-    this.modalPollSub = interval(2000).subscribe(() => {
-      if (this.isOpen && this.activeRoom) {
+    this.modalPollSub = interval(12000).subscribe(() => {
+      if (this.isOpen && this.activeRoom && !this.socketService.isConnected()) {
         this.refreshActiveRoom();
       }
     });

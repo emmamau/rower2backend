@@ -1184,6 +1184,8 @@ export class AppComponent implements OnInit, OnDestroy {
   wakeLockSupported = false;
 
   private pollingSub?: Subscription;
+  private lastHttpSyncAtMs = 0;
+  private lastSocketUpdateAtMs = 0;
   // Private Salons state
   activePrivateRoom: PrivateRacePayload | null = null;
   isPrivateRoomCompleted = false;
@@ -1686,20 +1688,31 @@ export class AppComponent implements OnInit, OnDestroy {
     if (this.pollingSub) {
       this.pollingSub.unsubscribe();
     }
+    this.lastHttpSyncAtMs = 0;
 
-    this.pollingSub = interval(1500)
+    this.pollingSub = interval(2500)
       .pipe(
         startWith(0),
-        switchMap(() =>
-          this.pollActiveRaceSource().pipe(
+        filter((tick) => {
+          if (tick === 0) return true;
+          if (typeof document !== 'undefined' && document.hidden) return false;
+          const now = Date.now();
+          const wsConnected = this.socketService.isConnected();
+          // When WebSocket is connected, only perform a periodic safety sync every 12s
+          const minIntervalMs = wsConnected ? 12000 : 2500;
+          return now - this.lastHttpSyncAtMs >= minIntervalMs;
+        }),
+        switchMap(() => {
+          this.lastHttpSyncAtMs = Date.now();
+          return this.pollActiveRaceSource().pipe(
             catchError((err) => {
               this.backendConnected = err.status !== 0;
               this.errorMessage = err.status === 0 ? 'Connexion en attente avec le backend (' + this.apiUrl + ')' : '';
               this.cdr.markForCheck();
               return of(null);
             })
-          )
-        )
+          );
+        })
       )
       .subscribe((raceData) => {
         if (raceData) {
@@ -1752,7 +1765,17 @@ export class AppComponent implements OnInit, OnDestroy {
           }
           this.formattedGameRemaining = this.i18n.formatDetailedCountdown(this.gameRemainingSeconds);
 
-          // Fetch Live Leaderboard
+          // Skip redundant HTTP leaderboard fetch when WebSocket has already delivered fresh live metrics recently (< 10s)
+          const hasFreshSocketLeaderboard =
+            this.socketService.isConnected() &&
+            this.liveMetricsList.length > 0 &&
+            Date.now() - this.lastSocketUpdateAtMs < 10000;
+          if (hasFreshSocketLeaderboard) {
+            this.cdr.markForCheck();
+            return;
+          }
+
+          // Fetch Live Leaderboard (initial load or fallback when WebSocket is idle/disconnected)
           this.rowerService.getRaceLeaderboard(raceData.race.id).pipe(
             catchError(() => of({ activityId: raceData.race.id, totalParticipants: 0, leaderboard: [] }))
           ).subscribe((lb) => {
@@ -5825,6 +5848,7 @@ export class AppComponent implements OnInit, OnDestroy {
     }
     this.socketSub = this.socketService.onLeaderboardUpdate().subscribe((update) => {
       if (this.nextRaceInfo && update.raceId === this.nextRaceInfo.race.id) {
+        this.lastSocketUpdateAtMs = Date.now();
         const targetDist = this.activeTargetDistance || 2000;
         this.liveMetricsList = update.leaderboard.map((m) => {
           const existing = this.liveMetricsList.find(x => x.userId === m.userId);

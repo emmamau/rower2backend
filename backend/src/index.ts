@@ -56,7 +56,7 @@ app.use(
 app.use(express.urlencoded({ extended: true, limit: "100kb" }));
 
 // Rate limiters intelligents et différenciés
-app.use(["/api/garmin/boost", "/boost", "/api/boost", "/api/v1/boost"], garminBoostRateLimiter);
+app.use(["/api/garmin/boost", "/boost", "/api/boost", "/api/v1/boost", "/api/v1/telemetry"], garminBoostRateLimiter);
 app.use(["/api/user/register", "/api/users/register"], registerRateLimiter);
 app.use(
   ["/api/user/login", "/api/users/login", "/api/garmin/pair", "/api/garmin/pair-code", "/api/garmin/pairing-code"],

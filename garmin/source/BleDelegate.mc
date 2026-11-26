@@ -1048,7 +1048,7 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
             } else if (!updateProgressAndCheckFinish()) {
                 if (_activityStatus.equals("in_progress") && _raceMode.equals("race") && _activityId.length() > 0) {
                     var secSinceSend = _tickCounter - _lastFallbackSendSec;
-                    if (_pendingStrokeSync || _model.totalDistance != _lastSentDistance || (secSinceSend >= 1 && (_model.totalDistance > 0 || _model.instantPower > 0))) {
+                    if ((_pendingStrokeSync && secSinceSend >= 1) || (secSinceSend >= 2 && (_model.totalDistance != _lastSentDistance || _model.totalDistance > 0 || _model.instantPower > 0))) {
                         _pendingStrokeSync = false;
                         _lastSentDistance = _model.totalDistance;
                         _lastFallbackSendSec = _tickCounter;
@@ -1484,18 +1484,20 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
             }
 
             if (_raceMode.equals("race") && _activityId.length() > 0) {
-                if (_model.strokeCount > _lastSentStrokeCount || _model.totalDistance != _lastSentDistance) {
+                if (_model.strokeCount > _lastSentStrokeCount) {
                     _lastSentStrokeCount = _model.strokeCount;
-                    _lastSentDistance = _model.totalDistance;
                     _pendingStrokeSync = true;
                 }
+                var secSinceLastSend = _tickCounter - _lastFallbackSendSec;
                 var shouldSend = false;
-                if (_pendingStrokeSync) {
+                if (_pendingStrokeSync && secSinceLastSend >= 1) {
                     shouldSend = true;
                     _pendingStrokeSync = false;
+                    _lastSentDistance = _model.totalDistance;
                     _lastFallbackSendSec = _tickCounter;
-                } else if ((_model.instantPower > 0 || _model.totalDistance > 0) && (_tickCounter - _lastFallbackSendSec >= 1)) {
+                } else if ((_model.instantPower > 0 || _model.totalDistance > 0) && secSinceLastSend >= 2) {
                     shouldSend = true;
+                    _lastSentDistance = _model.totalDistance;
                     _lastFallbackSendSec = _tickCounter;
                 }
 

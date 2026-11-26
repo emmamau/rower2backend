@@ -173,6 +173,8 @@ class SimulationEngine:
                     watch.race_mode = "PRIVATE"
                     watch.lane = data.get("lane") or watch.lane
                     watch.race_status = "LOBBY"
+                    watch.initial_waiting_sent = False
+                    watch.last_poll_timestamp = 0.0
                     watch.error_message = None
                     self.store.save()
                     return {"success": True, "message": f"Engagé en ligne {watch.lane} !", "data": data}
@@ -246,6 +248,8 @@ class SimulationEngine:
                 watch.race_mode = "PUBLIC"
                 watch.race_status = "LOBBY"
                 watch.target_distance = target_dist
+                watch.initial_waiting_sent = False
+                watch.last_poll_timestamp = 0.0
                 watch.error_message = None
                 self.store.save()
                 return {"success": True, "message": f"Engagé sur la course publique {race_id} !", "data": data}
@@ -254,6 +258,8 @@ class SimulationEngine:
             watch.race_id = race_id
             watch.race_mode = "PUBLIC"
             watch.race_status = "LOBBY"
+            watch.initial_waiting_sent = False
+            watch.last_poll_timestamp = 0.0
             self.store.save()
             return {"success": True, "message": f"Assigné à la course publique {race_id}"}
 
@@ -331,20 +337,37 @@ class SimulationEngine:
             await asyncio.sleep(sleep_time)
 
     async def _handle_waiting_state(self, watch: VirtualWatch):
-        """Polls race status and sends readiness telemetry"""
+        """Polls race status at a throttled interval (3s in lobby, 1s in final 5s countdown) and sends initial readiness once."""
         if not watch.race_id:
             # Nothing to wait for yet
             await asyncio.sleep(1.0)
             return
+
+        now = time.time()
+        # Send a single 0m telemetry packet once when entering the starting line
+        if watch.is_simulating and watch.race_id and not getattr(watch, "initial_waiting_sent", False):
+            watch.initial_waiting_sent = True
+            await self._send_telemetry(watch, status="waiting", dt=0.0)
+            if watch.race_status == "RUNNING":
+                return
+
+        # Adaptive polling interval: 1.0s when countdown <= 5s, otherwise 3.0s
+        cd = getattr(watch, "countdown_remaining", None)
+        poll_interval = 1.0 if (watch.race_status == "COUNTDOWN" and cd is not None and cd <= 5) else 3.0
+        last_poll = getattr(watch, "last_poll_timestamp", 0.0)
+        if now - last_poll < poll_interval:
+            return
+        watch.last_poll_timestamp = now
 
         # Poll race status from backend
         url = f"{self.store.backend_url}/api/v1/races/private/{watch.race_id}"
         if watch.race_mode == "PUBLIC":
             url = f"{self.store.backend_url}/api/v1/races/current"
 
+        headers = self._get_headers(watch)
         try:
             start_t = time.perf_counter()
-            async with self.session.get(url) as resp:
+            async with self.session.get(url, headers=headers) as resp:
                 rtt = (time.perf_counter() - start_t) * 1000
                 self.metrics.record_request(resp.status, rtt)
                 watch.last_http_code = resp.status
@@ -353,26 +376,27 @@ class SimulationEngine:
                 if resp.status == 200:
                     data = await resp.json()
                     race = data.get("race") or data
-                    st = race.get("status")
+                    st = race.get("internalStatus") or race.get("status") or data.get("status")
                     if race.get("targetDistance"):
                         watch.target_distance = int(race.get("targetDistance"))
+
+                    sec_rem = data.get("secondsRemaining") if data.get("secondsRemaining") is not None else data.get("countdownSeconds")
+                    if isinstance(sec_rem, (int, float)):
+                        watch.countdown_remaining = int(sec_rem)
 
                     if st == "RUNNING" or st == "in_progress":
                         watch.race_status = "RUNNING"
                         watch.elapsed_time = 0.0
                         watch.current_distance = 0.0
-                    elif st in ("COUNTDOWN", "LOBBY", "waiting"):
-                        watch.race_status = st
+                    elif st in ("COUNTDOWN", "countdown"):
+                        watch.race_status = "COUNTDOWN"
+                    elif st in ("LOBBY", "waiting"):
+                        watch.race_status = "LOBBY"
         except Exception:
             pass
 
-        # If user explicitly started simulation and race is known, can also force RUNNING if backend doesn't answer
-        if watch.is_simulating and watch.race_id and watch.race_status == "LOBBY":
-            # Send a 0m telemetry packet to indicate watch is ON THE STARTING LINE
-            await self._send_telemetry(watch, status="waiting", dt=0.0)
-
     async def _handle_running_state(self, watch: VirtualWatch, dt: float):
-        """Simulates physiological rowing stroke and transmits FTMS packet"""
+        """Simulates physiological rowing stroke at 1Hz and transmits FTMS packet every ~1.8s (or on finish)."""
         # 1. Physics & Jitter
         target_p = float(watch.target_power)
         # Organic Gaussian fluctuation of ±2.5%
@@ -389,8 +413,10 @@ class SimulationEngine:
 
         # Stroke count increment
         strokes_this_second = (watch.current_spm / 60.0) * dt
+        stroke_occurred = False
         if random.random() < strokes_this_second:
             watch.stroke_count += 1
+            stroke_occurred = True
 
         # Distance progression
         watch.elapsed_time += dt
@@ -407,8 +433,14 @@ class SimulationEngine:
             watch.race_status = "FINISHED"
             is_final = True
 
-        status_str = "finished" if is_final else "in_progress"
-        await self._send_telemetry(watch, status=status_str, dt=dt)
+        # Send telemetry immediately on finish, or when a stroke occurs (>= 1.5s since last sync), or fallback every 2.0s
+        now = time.time()
+        since_last_sync = now - (watch.last_sync_timestamp or 0.0)
+        should_send = is_final or (stroke_occurred and since_last_sync >= 1.5) or (since_last_sync >= 2.0)
+
+        if should_send:
+            status_str = "finished" if is_final else "in_progress"
+            await self._send_telemetry(watch, status=status_str, dt=dt)
 
         if is_final:
             watch.is_simulating = False
