@@ -545,6 +545,15 @@ export class RowerService {
     );
   }
 
+  // Modification du mot de passe pour un utilisateur connecté
+  changePassword(currentPassword: string, newPassword: string): Observable<{ success: boolean; message: string }> {
+    return this.http.put<{ success: boolean; message: string }>(
+      `${this.apiUrl}/api/user/password`,
+      { currentPassword, newPassword },
+      { headers: this.getAuthHeaders() }
+    );
+  }
+
   // Mise à jour générique du profil utilisateur (ex: langue préférée)
   updateProfile(profile: { language?: string; [key: string]: any }): Observable<{ success: boolean; message?: string; language?: string; user?: UserProfile }> {
     return this.http.put<{ success: boolean; message?: string; language?: string; user?: UserProfile }>(

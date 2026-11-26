@@ -22,6 +22,22 @@ interface ErrorMessageRule {
 const ERROR_MESSAGE_RULES: ErrorMessageRule[] = [
   {
     patterns: [
+      'mot de passe actuel est incorrect',
+      'mot de passe actuel incorrect',
+      'current password is incorrect'
+    ],
+    key: 'ERR_CURRENT_PWD_INVALID'
+  },
+  {
+    patterns: [
+      'doit être différent',
+      'must be different',
+      'nouveau mot de passe doit être différent'
+    ],
+    key: 'ERR_NEW_PWD_SAME_AS_CURRENT'
+  },
+  {
+    patterns: [
       'mot de passe incorrect',
       'identifiants invalides',
       'invalid credentials',

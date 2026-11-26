@@ -1073,6 +1073,12 @@ export class AppComponent implements OnInit, OnDestroy {
   showResetFields = false;
   showResetPassword = false;
 
+  // Change password inputs (connected user)
+  currentPassword = '';
+  changeNewPassword = '';
+  changePasswordConfirm = '';
+  isChangePasswordOpen = false;
+
   getPasswordStrength(pwd: string): { score: number; label: string; class: string; width: string } {
     if (!pwd) return { score: 0, label: '', class: '', width: '0%' };
     let score = 0;
@@ -1410,6 +1416,7 @@ export class AppComponent implements OnInit, OnDestroy {
           this.setSiteView('home');
           this.userExplicitlyNavigatedHome = true;
           this.showResetFields = false;
+          this.accountAuthError = this.i18n.t('ACCOUNT_RESET_MISSING_TOKEN');
           this.openAccountModal('forgot');
         }
 
@@ -2941,8 +2948,52 @@ export class AppComponent implements OnInit, OnDestroy {
     this.rowerService.forgotPassword(this.forgotEmailOrLogin.trim()).subscribe({
       next: (res) => {
         this.isAccountSubmitting = false;
-        this.accountAuthSuccess = res.message || 'Demande de réinitialisation envoyée.';
-        this.showResetFields = true;
+        this.accountAuthSuccess = res.message || this.i18n.t('ACCOUNT_FORGOT_SENT_CONFIRMATION');
+        this.showResetFields = false;
+        this.forgotEmailOrLogin = '';
+        this.cdr.markForCheck();
+      },
+      error: (err) => {
+        this.isAccountSubmitting = false;
+        this.accountAuthError = this.i18n.translateError(err.error?.message ? err : 'ERR_GENERIC');
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  submitChangePassword(): void {
+    if (!this.currentPassword.trim() || !this.changeNewPassword.trim() || !this.changePasswordConfirm.trim()) {
+      this.accountAuthError = this.i18n.translateError('ERR_MISSING_FIELDS');
+      return;
+    }
+
+    if (!this.isPasswordPolicySatisfied(this.changeNewPassword)) {
+      this.accountAuthError = this.i18n.translateError('ERR_PASSWORD_POLICY');
+      return;
+    }
+
+    if (this.changeNewPassword.trim() !== this.changePasswordConfirm.trim()) {
+      this.accountAuthError = this.i18n.translateError('ERR_PASSWORDS_DO_NOT_MATCH');
+      return;
+    }
+
+    if (this.currentPassword.trim() === this.changeNewPassword.trim()) {
+      this.accountAuthError = this.i18n.translateError('ERR_NEW_PWD_SAME_AS_CURRENT');
+      return;
+    }
+
+    this.isAccountSubmitting = true;
+    this.accountAuthError = '';
+    this.accountAuthSuccess = '';
+
+    this.rowerService.changePassword(this.currentPassword.trim(), this.changeNewPassword.trim()).subscribe({
+      next: (res) => {
+        this.isAccountSubmitting = false;
+        this.accountAuthSuccess = res.message || this.i18n.t('ACCOUNT_PWD_CHANGED_SUCCESS');
+        this.currentPassword = '';
+        this.changeNewPassword = '';
+        this.changePasswordConfirm = '';
+        this.isChangePasswordOpen = false;
         this.cdr.markForCheck();
       },
       error: (err) => {

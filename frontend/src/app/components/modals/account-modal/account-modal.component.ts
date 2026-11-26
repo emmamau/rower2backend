@@ -69,6 +69,12 @@ export class AccountModalComponent implements OnChanges, OnDestroy {
   @Input() resetPasswordConfirm = '';
   @Input() showResetFields = false;
 
+  // Change password inputs (connected user)
+  @Input() currentPassword = '';
+  @Input() changeNewPassword = '';
+  @Input() changePasswordConfirm = '';
+  @Input() isChangePasswordOpen = false;
+
   // Kayak customizer inputs
   @Input() customKayakHullColor = '#00e5ff';
   @Input() customKayakBladeColor = '#00f0ff';
@@ -129,6 +135,10 @@ export class AccountModalComponent implements OnChanges, OnDestroy {
   @Output() resetNewPasswordChange = new EventEmitter<string>();
   @Output() resetPasswordConfirmChange = new EventEmitter<string>();
   @Output() showResetFieldsChange = new EventEmitter<boolean>();
+  @Output() currentPasswordChange = new EventEmitter<string>();
+  @Output() changeNewPasswordChange = new EventEmitter<string>();
+  @Output() changePasswordConfirmChange = new EventEmitter<string>();
+  @Output() isChangePasswordOpenChange = new EventEmitter<boolean>();
 
   @Output() customKayakHullColorChange = new EventEmitter<string>();
   @Output() customKayakBladeColorChange = new EventEmitter<string>();
@@ -143,6 +153,7 @@ export class AccountModalComponent implements OnChanges, OnDestroy {
   @Output() submitAccountRegisterRequest = new EventEmitter<void>();
   @Output() submitForgotPasswordRequest = new EventEmitter<void>();
   @Output() submitResetPasswordRequest = new EventEmitter<void>();
+  @Output() submitChangePasswordRequest = new EventEmitter<void>();
   @Output() startPairingFromProfileRequest = new EventEmitter<void>();
   @Output() resetGarminPairingRequest = new EventEmitter<void>();
   @Output() toggleRestingModeRequest = new EventEmitter<void>();
@@ -195,6 +206,9 @@ export class AccountModalComponent implements OnChanges, OnDestroy {
   showRegPasswordConfirm = false;
   showResetPassword = false;
   showResetPasswordConfirm = false;
+  showCurrentPassword = false;
+  showChangeNewPassword = false;
+  showChangePasswordConfirm = false;
 
   readonly regattaMetricsCatalog: RegattaMetricOption[] = REGATTA_METRICS_CATALOG;
   readonly regattaZoomPresets: number[] = [1, 1.5, 2, 2.5, 3];
@@ -251,6 +265,19 @@ export class AccountModalComponent implements OnChanges, OnDestroy {
   switchTab(tab: AccountModalTabType): void {
     this.accountModalTab = tab;
     this.accountModalTabChange.emit(tab);
+  }
+
+  toggleChangePassword(): void {
+    this.isChangePasswordOpen = !this.isChangePasswordOpen;
+    this.isChangePasswordOpenChange.emit(this.isChangePasswordOpen);
+    if (!this.isChangePasswordOpen) {
+      this.currentPassword = '';
+      this.currentPasswordChange.emit('');
+      this.changeNewPassword = '';
+      this.changeNewPasswordChange.emit('');
+      this.changePasswordConfirm = '';
+      this.changePasswordConfirmChange.emit('');
+    }
   }
 
   openKayakCustomizer(): void {

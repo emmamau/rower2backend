@@ -4343,6 +4343,37 @@ select:autofill:focus {
   background: rgba(0, 240, 255, 0.3);
   color: #ffffff;
 }
+.profile-security-box {
+  margin-top: 1rem;
+}
+.profile-security-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.profile-security-header h5 {
+  margin: 0;
+}
+.change-pwd-form {
+  margin-top: 0.85rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+.change-pwd-actions {
+  display: flex;
+  gap: 0.6rem;
+  margin-top: 1rem;
+}
+.forgot-sent-success-box {
+  background: rgba(34, 197, 94, 0.12);
+  border: 1px solid rgba(34, 197, 94, 0.35);
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 1.2rem;
+  color: #86efac;
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
 .btn-unsubscribe {
   background: rgba(234, 179, 8, 0.12);
   border: 1px solid rgba(234, 179, 8, 0.4);

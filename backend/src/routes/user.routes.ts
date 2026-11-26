@@ -16,6 +16,7 @@ export default (app: Application): void => {
   // Profil et historique des courses (uniquement les classements)
   router.get("/profile/:userId", userController.getUserProfile);
   router.get("/leaderboard", userController.getGeneralLeaderboard);
+  router.put("/password", requireAuth, userController.changePassword);
   router.put("/kayak", requireAuth, userController.updateKayakCustomization);
   router.put("/regatta-preferences", requireAuth, userController.updateRegattaPreferences);
   router.put("/duel-preferences", requireAuth, userController.updateDuelPreferences);

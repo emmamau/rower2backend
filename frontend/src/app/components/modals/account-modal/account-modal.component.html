@@ -72,13 +72,15 @@
           (click)="openRegattaSettings()">
           🔍 {{ i18n.t('ACCOUNT_TAB_REGATTA_SETTINGS') }}
         </button>
-        <button
-          type="button"
-          class="modal-tab-btn"
-          [class.active]="accountModalTab === 'forgot'"
-          (click)="switchTab('forgot')">
-          ❓ {{ i18n.t('ACCOUNT_TAB_FORGOT') }}
-        </button>
+        @if (!isSubscriber && !isUserAdmin && !isRegisteredUser && !isIdentified) {
+          <button
+            type="button"
+            class="modal-tab-btn"
+            [class.active]="accountModalTab === 'forgot'"
+            (click)="switchTab('forgot')">
+            ❓ {{ i18n.t('ACCOUNT_TAB_FORGOT') }}
+          </button>
+        }
       </div>
 
       <!-- Feedback banners -->
@@ -680,6 +682,127 @@
             <div class="account-action-feedback err" *ngIf="deleteAccountError">{{ i18n.translateError(deleteAccountError) }}</div>
           </div>
 
+          <!-- Sécurité & Modification de mot de passe -->
+          <div class="profile-account-management-box profile-security-box">
+            <div class="profile-security-header">
+              <h5>🔒 {{ i18n.t('ACCOUNT_SECURITY_TITLE') }}</h5>
+              <button
+                type="button"
+                class="btn-sm btn-stat-link"
+                (click)="toggleChangePassword()">
+                {{ isChangePasswordOpen ? i18n.t('BTN_CANCEL') : ('🔒 ' + i18n.t('ACCOUNT_BTN_CHANGE_PWD')) }}
+              </button>
+            </div>
+
+            @if (isChangePasswordOpen) {
+              <form class="modal-form change-pwd-form" (ngSubmit)="submitChangePasswordRequest.emit()" novalidate>
+                <!-- Ancien mot de passe -->
+                <div class="form-group">
+                  <label for="current-pwd-input">{{ i18n.t('ACCOUNT_CURRENT_PWD_LABEL') }}</label>
+                  <div class="pwd-input-wrapper">
+                    <input
+                      id="current-pwd-input"
+                      name="currentPassword"
+                      [type]="showCurrentPassword ? 'text' : 'password'"
+                      autocomplete="current-password"
+                      [ngModel]="currentPassword"
+                      (ngModelChange)="currentPassword = $event; currentPasswordChange.emit($event)"
+                      [placeholder]="i18n.t('ACCOUNT_CURRENT_PWD_PH')"
+                      required />
+                    <button
+                      type="button"
+                      class="btn-toggle-pwd"
+                      (click)="showCurrentPassword = !showCurrentPassword"
+                      [attr.aria-label]="showCurrentPassword ? i18n.t('ACCOUNT_HIDE_PWD') : i18n.t('ACCOUNT_SHOW_PWD')">
+                      {{ showCurrentPassword ? '🙈' : '👁️' }}
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Nouveau mot de passe -->
+                <div class="form-group">
+                  <label for="change-new-pwd-input">{{ i18n.t('ACCOUNT_NEW_PWD_LABEL') }}</label>
+                  <div class="pwd-input-wrapper">
+                    <input
+                      id="change-new-pwd-input"
+                      name="changeNewPassword"
+                      [type]="showChangeNewPassword ? 'text' : 'password'"
+                      autocomplete="new-password"
+                      [ngModel]="changeNewPassword"
+                      (ngModelChange)="changeNewPassword = $event; changeNewPasswordChange.emit($event)"
+                      [placeholder]="i18n.t('ACCOUNT_PWD_POLICY_PH')"
+                      required />
+                    <button
+                      type="button"
+                      class="btn-toggle-pwd"
+                      (click)="showChangeNewPassword = !showChangeNewPassword"
+                      [attr.aria-label]="showChangeNewPassword ? i18n.t('ACCOUNT_HIDE_PWD') : i18n.t('ACCOUNT_SHOW_PWD')">
+                      {{ showChangeNewPassword ? '🙈' : '👁️' }}
+                    </button>
+                  </div>
+                  @if (changeNewPassword) {
+                    <div class="pwd-strength-container">
+                      <div class="pwd-strength-track">
+                        <div
+                          class="pwd-strength-bar"
+                          [ngClass]="getPasswordStrength(changeNewPassword).class"
+                          [style.width]="getPasswordStrength(changeNewPassword).width">
+                        </div>
+                      </div>
+                      <span class="pwd-strength-label" [ngClass]="getPasswordStrength(changeNewPassword).class">
+                        {{ i18n.t('ACCOUNT_PWD_STRENGTH') }} {{ getPasswordStrength(changeNewPassword).label }}
+                      </span>
+                    </div>
+                  }
+                  <span class="field-hint">{{ i18n.t('FIELD_PASSWORD_HINT') }}</span>
+                </div>
+
+                <!-- Confirmation nouveau mot de passe -->
+                <div class="form-group">
+                  <label for="change-pwd-confirm-input">{{ i18n.t('ACCOUNT_NEW_PWD_CONFIRM_LABEL') }}</label>
+                  <div class="pwd-input-wrapper">
+                    <input
+                      id="change-pwd-confirm-input"
+                      name="changePasswordConfirm"
+                      [type]="showChangePasswordConfirm ? 'text' : 'password'"
+                      autocomplete="new-password"
+                      [ngModel]="changePasswordConfirm"
+                      (ngModelChange)="changePasswordConfirm = $event; changePasswordConfirmChange.emit($event)"
+                      [placeholder]="i18n.t('ACCOUNT_RESET_CONFIRM_PH')"
+                      required />
+                    <button
+                      type="button"
+                      class="btn-toggle-pwd"
+                      (click)="showChangePasswordConfirm = !showChangePasswordConfirm"
+                      [attr.aria-label]="showChangePasswordConfirm ? i18n.t('ACCOUNT_HIDE_PWD') : i18n.t('ACCOUNT_SHOW_PWD')">
+                      {{ showChangePasswordConfirm ? '🙈' : '👁️' }}
+                    </button>
+                  </div>
+                  @if (changePasswordConfirm && changeNewPassword !== changePasswordConfirm) {
+                    <span class="field-hint" style="color: #ff0055;">
+                      ⚠️ {{ i18n.t('ERR_PASSWORDS_DO_NOT_MATCH') }}
+                    </span>
+                  }
+                </div>
+
+                <div class="change-pwd-actions">
+                  <button
+                    type="submit"
+                    class="btn-primary"
+                    [disabled]="isAccountSubmitting || !currentPassword || !changeNewPassword || !changePasswordConfirm || changeNewPassword !== changePasswordConfirm || !isPasswordPolicySatisfied(changeNewPassword)">
+                    {{ isAccountSubmitting ? i18n.t('ACCOUNT_UPDATING') : i18n.t('ACCOUNT_BTN_UPDATE_PWD') }}
+                  </button>
+                  <button
+                    type="button"
+                    class="btn-secondary"
+                    (click)="toggleChangePassword()">
+                    {{ i18n.t('BTN_CANCEL') }}
+                  </button>
+                </div>
+              </form>
+            }
+          </div>
+
           <div class="modal-buttons">
             <button type="button" class="btn-cyan" (click)="openSubscriptionModalRequest.emit()">
               ⭐ {{ i18n.t('ACCOUNT_BTN_MANAGE_SUB') }}
@@ -705,26 +828,37 @@
           </p>
 
           @if (!showResetFields) {
-            <div class="form-group">
-              <label for="forgot-input">{{ i18n.t('ACCOUNT_FORGOT_LABEL') }}</label>
-              <input
-                id="forgot-input"
-                name="emailOrLogin"
-                type="text"
-                [ngModel]="forgotEmailOrLogin"
-                (ngModelChange)="forgotEmailOrLogin = $event; forgotEmailOrLoginChange.emit($event)"
-                [placeholder]="i18n.t('ACCOUNT_FORGOT_PH')"
-                required />
-            </div>
+            @if (accountAuthSuccess) {
+              <div class="forgot-sent-success-box">
+                <p>{{ i18n.t(accountAuthSuccess) }}</p>
+              </div>
+              <div class="modal-buttons">
+                <button type="button" class="btn-primary" (click)="switchTab('login')">
+                  {{ i18n.t('ACCOUNT_BACK_TO_LOGIN') }}
+                </button>
+              </div>
+            } @else {
+              <div class="form-group">
+                <label for="forgot-input">{{ i18n.t('ACCOUNT_FORGOT_LABEL') }}</label>
+                <input
+                  id="forgot-input"
+                  name="emailOrLogin"
+                  type="text"
+                  [ngModel]="forgotEmailOrLogin"
+                  (ngModelChange)="forgotEmailOrLogin = $event; forgotEmailOrLoginChange.emit($event)"
+                  [placeholder]="i18n.t('ACCOUNT_FORGOT_PH')"
+                  required />
+              </div>
 
-            <div class="modal-buttons">
-              <button type="submit" class="btn-primary" [disabled]="isAccountSubmitting">
-                {{ isAccountSubmitting ? i18n.t('ACCOUNT_SENDING') : i18n.t('ACCOUNT_FORGOT_SEND_BTN') }}
-              </button>
-              <button type="button" class="btn-secondary" (click)="switchTab('login')">
-                {{ i18n.t('ACCOUNT_BACK_TO_LOGIN') }}
-              </button>
-            </div>
+              <div class="modal-buttons">
+                <button type="submit" class="btn-primary" [disabled]="isAccountSubmitting">
+                  {{ isAccountSubmitting ? i18n.t('ACCOUNT_SENDING') : i18n.t('ACCOUNT_FORGOT_SEND_BTN') }}
+                </button>
+                <button type="button" class="btn-secondary" (click)="switchTab('login')">
+                  {{ i18n.t('ACCOUNT_BACK_TO_LOGIN') }}
+                </button>
+              </div>
+            }
           } @else {
             <input type="hidden" name="token" [ngModel]="resetToken" />
             <div class="form-group">

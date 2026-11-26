@@ -819,6 +819,97 @@ export const resetPassword = async (req: Request, res: Response): Promise<void> 
 };
 
 /**
+ * PUT /api/user/password
+ * Permet à un utilisateur connecté de modifier son mot de passe en fournissant son mot de passe actuel.
+ */
+export const changePassword = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const userId = String(
+      (req as any).user?.userId ||
+        (req as any).user?.id ||
+        (req as any).user?.login ||
+        ""
+    ).trim();
+
+    if (!userId) {
+      res.status(401).json({ success: false, message: "Authentification requise." });
+      return;
+    }
+
+    const { currentPassword, newPassword } = req.body || {};
+    const cleanCurrent = String(currentPassword || "").trim();
+    const cleanNew = String(newPassword || "").trim();
+
+    if (!cleanCurrent || !cleanNew) {
+      res.status(400).json({
+        success: false,
+        message: "Le mot de passe actuel et le nouveau mot de passe sont requis.",
+      });
+      return;
+    }
+
+    const user = await userStore.findUser(userId);
+    if (!user) {
+      res.status(404).json({ success: false, message: "Utilisateur non trouvé." });
+      return;
+    }
+
+    const storedHash = user.passwordHash;
+    const storedSalt = user.passwordSalt;
+
+    if (!storedHash || !storedSalt) {
+      res.status(400).json({
+        success: false,
+        message: "Ce compte n'a pas de mot de passe configuré.",
+      });
+      return;
+    }
+
+    const isCurrentValid = verifyPassword(cleanCurrent, storedHash, storedSalt);
+    if (!isCurrentValid) {
+      res.status(401).json({
+        success: false,
+        message: "Le mot de passe actuel est incorrect.",
+      });
+      return;
+    }
+
+    const pwdCheck = validateStrongPassword(cleanNew);
+    if (!pwdCheck.valid) {
+      res.status(400).json({
+        success: false,
+        message: pwdCheck.message,
+      });
+      return;
+    }
+
+    if (cleanCurrent === cleanNew) {
+      res.status(400).json({
+        success: false,
+        message: "Le nouveau mot de passe doit être différent du mot de passe actuel.",
+      });
+      return;
+    }
+
+    const { hash, salt } = hashPassword(cleanNew);
+    await userStore.updateUser(user.id, {
+      passwordHash: hash,
+      passwordSalt: salt,
+      resetPasswordToken: undefined,
+      resetPasswordExpires: undefined,
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Votre mot de passe a été modifié avec succès.",
+    });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ success: false, message: "Erreur modification mot de passe: " + message });
+  }
+};
+
+/**
  * GET /api/user/account/:identifier
  * Retourne le compte complet d'un abonné (sans données de hachage).
  */
@@ -1696,6 +1787,7 @@ export default {
   getMe,
   forgotPassword,
   resetPassword,
+  changePassword,
   getUserAccount,
   getUserProfile,
   getGeneralLeaderboard,
