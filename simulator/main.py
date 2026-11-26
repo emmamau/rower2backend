@@ -56,6 +56,17 @@ class PinRequest(BaseModel):
 class PaceRequest(BaseModel):
     split_sec: Optional[float] = None
     power_watts: Optional[int] = None
+    delta_watts: Optional[int] = None
+
+class FleetEnableRequest(BaseModel):
+    count: Optional[int] = None
+    enabled: Optional[bool] = None
+
+class SeedUsersRequest(BaseModel):
+    count: Optional[int] = 30
+    password: Optional[str] = "RowerTest2026!"
+    prefix: Optional[str] = "test_runner_"
+    only_enabled: Optional[bool] = False
 
 class BulkEngageRequest(BaseModel):
     watch_ids: List[int]
@@ -123,12 +134,33 @@ async def join_public(watch_id: int):
     res = await engine.join_public_race(watch_id)
     return res
 
+@app.post("/api/watches/{watch_id}/toggle-enabled")
+async def toggle_watch_enabled(watch_id: int):
+    new_state = store.toggle_watch_enabled(watch_id)
+    if not new_state:
+        await engine.stop_watch_simulation(watch_id)
+    return {"success": True, "watch_id": watch_id, "is_enabled": new_state}
+
+@app.post("/api/bulk/enable-fleet")
+async def bulk_enable_fleet(req: FleetEnableRequest):
+    if req.count is not None:
+        store.set_fleet_enabled_count(req.count)
+    elif req.enabled is not None:
+        store.set_all_enabled(req.enabled)
+    for w in store.watches.values():
+        if not w.is_enabled and w.id in engine.watch_tasks:
+            await engine.stop_watch_simulation(w.id)
+    return {"success": True, "enabled_count": len(store.get_enabled_watches())}
+
 @app.post("/api/watches/{watch_id}/pace")
 async def set_watch_pace(watch_id: int, req: PaceRequest):
     watch = store.get_watch(watch_id)
     if not watch:
         raise HTTPException(status_code=404, detail="Montre introuvable")
-    if req.split_sec is not None:
+    if req.delta_watts is not None:
+        new_power = max(50, min(1000, watch.target_power + req.delta_watts))
+        watch.set_power(new_power)
+    elif req.split_sec is not None:
         watch.set_pace(req.split_sec)
     elif req.power_watts is not None:
         watch.set_power(req.power_watts)
@@ -139,7 +171,9 @@ async def set_watch_pace(watch_id: int, req: PaceRequest):
 async def bulk_engage(req: BulkEngageRequest):
     count = 0
     errors = []
-    for wid in req.watch_ids:
+    # Only engage enabled watches among selection
+    active_ids = [wid for wid in req.watch_ids if store.get_watch(wid) and store.get_watch(wid).is_enabled]
+    for wid in active_ids:
         res = await engine.claim_race_pin(wid, req.pin)
         if res.get("success"):
             count += 1
@@ -148,22 +182,23 @@ async def bulk_engage(req: BulkEngageRequest):
     return {
         "success": count > 0,
         "engaged_count": count,
-        "total": len(req.watch_ids),
-        "message": f"{count} / {len(req.watch_ids)} montres engagées avec le code PIN {req.pin}",
+        "total": len(active_ids),
+        "message": f"{count} / {len(active_ids)} kayaks actifs engagés avec le code PIN {req.pin}",
         "errors": errors[:5]
     }
 
 @app.post("/api/bulk/join-public")
 async def bulk_join_public(req: BulkJoinPublicRequest):
     count = 0
-    for wid in req.watch_ids:
+    active_ids = [wid for wid in req.watch_ids if store.get_watch(wid) and store.get_watch(wid).is_enabled]
+    for wid in active_ids:
         res = await engine.join_public_race(wid)
         if res.get("success"):
             count += 1
     return {
         "success": True,
         "joined_count": count,
-        "message": f"{count} montres engagées sur la course publique !"
+        "message": f"{count} kayaks actifs engagés sur la course publique !"
     }
 
 @app.post("/api/bulk/pace")
@@ -182,7 +217,7 @@ async def bulk_set_pace(req: BulkPaceRequest):
 @app.post("/api/bulk/start")
 async def bulk_start(req: BulkActionRequest):
     await engine.start_all(req.watch_ids)
-    return {"success": True, "message": "Simulation télémétrique démarrée"}
+    return {"success": True, "message": "Simulation télémétrique démarrée sur les kayaks actifs"}
 
 @app.post("/api/bulk/stop")
 async def bulk_stop():
@@ -195,8 +230,18 @@ async def bulk_reset(req: BulkActionRequest):
     return {"success": True, "message": "Distances réinitialisées"}
 
 @app.post("/api/seed-users")
-async def seed_users():
-    res = await seed_and_pair_test_users(store, count=30)
+async def seed_users(req: Optional[SeedUsersRequest] = None):
+    count = req.count if req and req.count else 30
+    password = req.password if req and req.password else "RowerTest2026!"
+    prefix = req.prefix if req and req.prefix else "test_runner_"
+    only_enabled = req.only_enabled if req and req.only_enabled else False
+    res = await seed_and_pair_test_users(
+        store,
+        count=count,
+        common_password=password,
+        login_prefix=prefix,
+        only_enabled=only_enabled
+    )
     return res
 
 if __name__ == "__main__":

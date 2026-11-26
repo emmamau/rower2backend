@@ -1,27 +1,39 @@
+import argparse
 import asyncio
 from typing import Dict, Any, List
 import aiohttp
 from store import SimulatorStore
 
-async def seed_and_pair_test_users(store: SimulatorStore, count: int = 30) -> Dict[str, Any]:
+async def seed_and_pair_test_users(
+    store: SimulatorStore,
+    count: int = 30,
+    common_password: str = "RowerTest2026!",
+    login_prefix: str = "test_runner_",
+    only_enabled: bool = False
+) -> Dict[str, Any]:
     """
-    Creates test user accounts on the platform (if not already existing),
-    generates their pairing codes, and automatically pairs the 30 virtual watches.
+    Creates test user accounts on the platform (if not already existing) with a common password,
+    generates their pairing codes, and automatically pairs the virtual watches.
     """
     backend_url = store.backend_url
-    timeout = aiohttp.ClientTimeout(total=8.0)
+    timeout = aiohttp.ClientTimeout(total=10.0)
     paired_count = 0
     errors: List[str] = []
+    pwd = (common_password or "RowerTest2026!").strip()
+    prefix = (login_prefix or "test_runner_").strip()
+
+    target_count = max(1, min(store.count, count))
 
     async with aiohttp.ClientSession(timeout=timeout) as session:
-        for i in range(1, count + 1):
+        for i in range(1, target_count + 1):
             watch = store.get_watch(i)
             if not watch:
                 continue
+            if only_enabled and not watch.is_enabled:
+                continue
 
-            login = f"test_runner_{i:02d}"
-            email = f"test_runner_{i:02d}@testrower.com"
-            password = "Password123!"
+            login = f"{prefix}{i:02d}"
+            email = f"{prefix}{i:02d}@testrower.com"
             first_name = "Rameur"
             last_name = f"Test {i:02d}"
 
@@ -31,7 +43,7 @@ async def seed_and_pair_test_users(store: SimulatorStore, count: int = 30) -> Di
             reg_payload = {
                 "login": login,
                 "email": email,
-                "password": password,
+                "password": pwd,
                 "prenom": first_name,
                 "firstName": first_name,
                 "nom": last_name,
@@ -52,7 +64,7 @@ async def seed_and_pair_test_users(store: SimulatorStore, count: int = 30) -> Di
                     else:
                         # Attempt login if already registered
                         login_url = f"{backend_url}/api/user/login"
-                        async with session.post(login_url, json={"login": login, "password": password}) as lresp:
+                        async with session.post(login_url, json={"login": login, "password": pwd}) as lresp:
                             if lresp.status == 200:
                                 ldata = await lresp.json()
                                 token = ldata.get("token") or (ldata.get("user") or {}).get("token")
@@ -62,7 +74,13 @@ async def seed_and_pair_test_users(store: SimulatorStore, count: int = 30) -> Di
 
             # 2. Generate 6-character Garmin pairing code for this user
             pair_code_url = f"{backend_url}/api/garmin/pairing-code"
-            headers = {"Content-Type": "application/json"}
+            headers = {
+                "Content-Type": "application/json",
+                "x-garmin-signature": "CIQ_OFFICIAL_ROWER_V1",
+                "x-device-id": watch.device_id
+            }
+            if store.load_test_key:
+                headers["x-load-test-key"] = store.load_test_key
             if token:
                 headers["Authorization"] = f"Bearer {token}"
 
@@ -87,7 +105,15 @@ async def seed_and_pair_test_users(store: SimulatorStore, count: int = 30) -> Di
                     "pairingCode": pairing_code,
                     "deviceId": watch.device_id
                 }
-                async with session.post(pair_watch_url, json=pair_payload) as p_resp:
+                pair_headers = {
+                    "Content-Type": "application/json",
+                    "x-garmin-signature": "CIQ_OFFICIAL_ROWER_V1",
+                    "x-device-id": watch.device_id
+                }
+                if store.load_test_key:
+                    pair_headers["x-load-test-key"] = store.load_test_key
+
+                async with session.post(pair_watch_url, json=pair_payload, headers=pair_headers) as p_resp:
                     if p_resp.status == 200:
                         p_data = await p_resp.json()
                         dev_token = p_data.get("deviceToken")
@@ -106,7 +132,27 @@ async def seed_and_pair_test_users(store: SimulatorStore, count: int = 30) -> Di
     return {
         "success": paired_count > 0,
         "paired_count": paired_count,
-        "total": count,
+        "total": target_count,
+        "password": pwd,
+        "prefix": prefix,
         "errors": errors[:5],
-        "message": f"{paired_count} / {count} montres appairées avec succès aux comptes de test !"
+        "message": f"{paired_count} / {target_count} montres appairées avec succès (mot de passe commun : {pwd}) !"
     }
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Seed test users with common password and auto-pair virtual watches")
+    parser.add_argument("--count", type=int, default=30, help="Number of test users to create (1-30)")
+    parser.add_argument("--password", type=str, default="RowerTest2026!", help="Common password for test users")
+    parser.add_argument("--prefix", type=str, default="test_runner_", help="Login prefix (e.g. test_runner_)")
+    parser.add_argument("--backend", type=str, default=None, help="Target backend URL override")
+    args = parser.parse_args()
+
+    st = SimulatorStore()
+    if args.backend:
+        st.backend_url = args.backend.rstrip("/")
+
+    print(f"Création de {args.count} comptes sur {st.backend_url} avec le mot de passe '{args.password}'...")
+    res = asyncio.run(seed_and_pair_test_users(st, count=args.count, common_password=args.password, login_prefix=args.prefix))
+    print(res["message"])
+    if res["errors"]:
+        print("Erreurs rencontrées:", res["errors"])

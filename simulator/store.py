@@ -77,6 +77,7 @@ class VirtualWatch:
         self.user_name: Optional[str] = None
         self.device_token: Optional[str] = None
         self.is_paired: bool = False
+        self.is_enabled: bool = True
 
         # Race engagement
         self.race_id: Optional[str] = None
@@ -136,6 +137,7 @@ class VirtualWatch:
             "user_name": self.user_name,
             "device_token": self.device_token,
             "is_paired": self.is_paired,
+            "is_enabled": self.is_enabled,
             "race_id": self.race_id,
             "race_mode": self.race_mode,
             "race_pin": self.race_pin,
@@ -162,6 +164,7 @@ class VirtualWatch:
         if "user_name" in data: self.user_name = data["user_name"]
         if "device_token" in data: self.device_token = data["device_token"]
         if "is_paired" in data: self.is_paired = data["is_paired"]
+        if "is_enabled" in data: self.is_enabled = bool(data["is_enabled"])
         if "target_split" in data: self.set_pace(float(data["target_split"]))
         if "target_power" in data: self.set_power(int(data["target_power"]))
         if "race_pin" in data: self.race_pin = data["race_pin"]
@@ -208,6 +211,28 @@ class SimulatorStore:
                 w.set_pace(profile["split"])
         self.save()
 
+    def get_enabled_watches(self) -> List[VirtualWatch]:
+        return [self.watches[i] for i in range(1, self.count + 1) if self.watches[i].is_enabled]
+
+    def set_fleet_enabled_count(self, count: int):
+        target = max(0, min(self.count, count))
+        for w in self.watches.values():
+            w.is_enabled = (w.id <= target)
+        self.save()
+
+    def set_all_enabled(self, enabled: bool):
+        for w in self.watches.values():
+            w.is_enabled = enabled
+        self.save()
+
+    def toggle_watch_enabled(self, watch_id: int) -> bool:
+        w = self.get_watch(watch_id)
+        if w:
+            w.is_enabled = not w.is_enabled
+            self.save()
+            return w.is_enabled
+        return False
+
     def save(self):
         try:
             data = {
@@ -220,6 +245,7 @@ class SimulatorStore:
                         "user_name": w.user_name,
                         "device_token": w.device_token,
                         "is_paired": w.is_paired,
+                        "is_enabled": w.is_enabled,
                         "target_split": w.target_split,
                         "target_power": w.target_power,
                         "race_pin": w.race_pin,

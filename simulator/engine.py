@@ -259,7 +259,7 @@ class SimulationEngine:
 
     async def start_watch_simulation(self, watch_id: int):
         watch = self.store.get_watch(watch_id)
-        if not watch or watch.id in self.watch_tasks:
+        if not watch or not watch.is_enabled or watch.id in self.watch_tasks:
             return
         watch.is_simulating = True
         task = asyncio.create_task(self._watch_loop(watch))
@@ -280,7 +280,10 @@ class SimulationEngine:
     async def start_all(self, watch_ids: Optional[List[int]] = None):
         await self.init_session()
         self.running = True
-        targets = watch_ids if watch_ids is not None else list(self.store.watches.keys())
+        if watch_ids is not None:
+            targets = [wid for wid in watch_ids if self.store.get_watch(wid) and self.store.get_watch(wid).is_enabled]
+        else:
+            targets = [w.id for w in self.store.get_enabled_watches()]
         for wid in targets:
             await self.start_watch_simulation(wid)
 

@@ -133,6 +133,60 @@
     .toast.error { border-color: var(--accent-red); background: #7f1d1d; color: #fecaca; }
     .toast.info { border-color: var(--accent-blue); background: #0c4a6e; color: #bae6fd; }
 
+    /* Disabled kayak card */
+    .watch-card.disabled-kayak {
+      opacity: 0.40;
+      filter: grayscale(40%);
+      border-color: #1e293b !important;
+    }
+    .watch-card.disabled-kayak:hover {
+      opacity: 0.85;
+      filter: grayscale(0%);
+    }
+
+    /* Switch toggle */
+    .switch-wrap {
+      position: relative;
+      display: inline-block;
+      width: 32px;
+      height: 18px;
+      margin-left: 6px;
+    }
+    .switch-wrap input { opacity: 0; width: 0; height: 0; }
+    .switch-slider {
+      position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+      background-color: #334155; transition: .2s; border-radius: 18px; border: 1px solid #475569;
+    }
+    .switch-slider:before {
+      position: absolute; content: ""; height: 12px; width: 12px; left: 2px; bottom: 2px;
+      background-color: white; transition: .2s; border-radius: 50%;
+    }
+    .switch-wrap input:checked + .switch-slider { background-color: var(--accent-green); border-color: var(--accent-green); }
+    .switch-wrap input:checked + .switch-slider:before { transform: translateX(14px); }
+
+    /* Pace quick buttons */
+    .pace-quick-btns { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; margin-top: 4px; }
+    .btn-xs { padding: 3px 8px; font-size: 11px; border-radius: 4px; background: #1e293b; color: #cbd5e1; border: 1px solid var(--card-border); cursor: pointer; }
+    .btn-xs:hover { background: #334155; color: #fff; border-color: var(--accent-blue); }
+
+    /* Modal Backdrop */
+    .modal-backdrop {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0, 0, 0, 0.75); display: none; justify-content: center; align-items: center;
+      z-index: 10000; backdrop-filter: blur(4px);
+    }
+    .modal-card {
+      background: #151f32; border: 1px solid var(--card-border); border-radius: 12px;
+      width: 480px; max-width: 95vw; padding: 24px; display: flex; flex-direction: column; gap: 16px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8);
+    }
+    .modal-title { font-size: 18px; font-weight: 700; color: var(--accent-yellow); display: flex; align-items: center; gap: 8px; }
+    .modal-body { display: flex; flex-direction: column; gap: 12px; font-size: 13px; }
+    .modal-field { display: flex; flex-direction: column; gap: 6px; }
+    .modal-field label { font-size: 12px; color: var(--text-muted); font-weight: 600; }
+    .modal-field input { background: #0b1120; border: 1px solid var(--card-border); color: #fff; padding: 8px 10px; border-radius: 6px; font-size: 13px; }
+    .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 8px; }
+
     @keyframes pulse {
       0% { opacity: 0.8; }
       50% { opacity: 1; filter: drop-shadow(0 0 5px #38bdf8); }
@@ -144,6 +198,45 @@
 
   <div id="toastContainer"></div>
 
+  <!-- Modal Création Comptes Test -->
+  <div id="seedModal" class="modal-backdrop">
+    <div class="modal-card">
+      <div class="modal-title">
+        <span>⚡ Création des Utilisateurs de Test</span>
+      </div>
+      <div class="modal-body">
+        <p style="color: var(--text-muted); line-height: 1.4;">
+          Crée automatiquement les comptes sur le backend cible, génère les codes d'appairage Garmin et associe directement chaque montre virtuelle.
+        </p>
+        <div class="modal-field">
+          <label>Mot de passe commun pour TOUS les comptes :</label>
+          <input type="text" id="seedCommonPassword" value="RowerTest2026!" placeholder="Ex: RowerTest2026!">
+          <span style="font-size: 11px; color: var(--text-muted);">
+            Règles API : min 8 car., 1 majuscule, 1 minuscule, 1 chiffre, 1 caractère spécial (!@#$%^&*).
+          </span>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div class="modal-field">
+            <label>Nombre de comptes (1 à 30) :</label>
+            <input type="number" id="seedCount" min="1" max="30" value="30">
+          </div>
+          <div class="modal-field">
+            <label>Préfixe de login :</label>
+            <input type="text" id="seedPrefix" value="test_runner_">
+          </div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px; margin-top: 4px;">
+          <input type="checkbox" id="seedOnlyEnabled" style="accent-color: var(--accent-blue); width: 16px; height: 16px;">
+          <label for="seedOnlyEnabled" style="font-size: 12px; cursor: pointer;">Créer/Appairer uniquement pour les kayaks ACTIVÉS</label>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn" onclick="toggleSeedModal(false)">Annuler</button>
+        <button class="btn btn-warning" id="btnExecuteSeed" onclick="executeSeedUsers()">🚀 Lancer la création & appairage</button>
+      </div>
+    </div>
+  </div>
+
   <header>
     <div class="header-title">
       <h1>🚣 Simulateur de Charge Garmin FTMS</h1>
@@ -152,8 +245,13 @@
     <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
       <div class="backend-config">
         <label style="font-size: 12px; color: var(--text-muted);">Backend :</label>
-        <input type="text" id="backendUrl" value="http://localhost:3000" onkeydown="if(event.key==='Enter') updateBackendUrl()">
+        <input type="text" id="backendUrl" value="" placeholder="http://localhost:3000" onkeydown="if(event.key==='Enter') updateBackendUrl()">
         <button class="btn btn-primary" onclick="updateBackendUrl()">Appliquer</button>
+        <div style="display: flex; gap: 4px; margin-left: 2px;">
+          <button class="btn btn-xs" onclick="setBackendPreset('http://localhost:3000')">Local:3000</button>
+          <button class="btn btn-xs" style="color: #38bdf8;" onclick="setBackendPreset('https://rowerrace.com')">Prod</button>
+          <button class="btn btn-xs" style="color: #a855f7;" onclick="setBackendPreset('https://rower-api-service.onrender.com')">Render</button>
+        </div>
       </div>
       <div class="backend-config">
         <label style="font-size: 12px; color: var(--accent-yellow);">🔑 Clé Test Admin :</label>
@@ -196,12 +294,25 @@
 
   <!-- Action Toolbar -->
   <div class="control-toolbar">
+    <!-- Row 1: Fleet Presets & Accounts -->
+    <div class="toolbar-row" style="background: rgba(15, 23, 42, 0.6); padding: 8px 12px; border-radius: 8px; border: 1px solid var(--card-border);">
+      <span style="font-size: 12px; font-weight: 700; color: var(--accent-blue); display: flex; align-items: center; gap: 6px;">
+        🚣 Flotte Active : <span id="fleetActiveCounter" style="background:#0284c7; color:#fff; padding: 2px 7px; border-radius: 4px; font-size: 11px;">30 / 30</span>
+      </span>
+      <button class="btn btn-xs" onclick="setFleetPreset(4)">4 Kayaks</button>
+      <button class="btn btn-xs" onclick="setFleetPreset(8)">8 Kayaks</button>
+      <button class="btn btn-xs" onclick="setFleetPreset(16)">16 Kayaks</button>
+      <button class="btn btn-xs" onclick="setFleetPreset(30)">Tous (30)</button>
+      <button class="btn btn-xs btn-danger" onclick="setFleetPreset(0)">Désactiver tous</button>
+      <div style="border-left: 1px solid var(--card-border); height: 20px; margin: 0 4px;"></div>
+      <button class="btn btn-warning" onclick="toggleSeedModal(true)">⚡ Créer comptes de test (Mot de passe commun)</button>
+    </div>
+
+    <!-- Row 2: Race engagement & profiles -->
     <div class="toolbar-row">
-      <button class="btn btn-warning" onclick="seedTestUsers()">⚡ 1-Clic : Initialiser 30 comptes & pré-appairer</button>
-      <div style="border-left: 1px solid var(--card-border); height: 26px; margin: 0 5px;"></div>
       <input type="text" id="bulkPin" class="input-pin" placeholder="PIN SALON" maxlength="6" style="text-transform: uppercase;" oninput="this.value=this.value.toUpperCase()" onkeydown="if(event.key==='Enter') bulkEngagePin()">
       <button class="btn btn-primary" onclick="bulkEngagePin()">Engager sélection PIN</button>
-      <button class="btn btn-primary" onclick="bulkJoinPublic()">Course Publique (Tous)</button>
+      <button class="btn btn-primary" onclick="bulkJoinPublic()">Course Publique (Actifs)</button>
       <div style="border-left: 1px solid var(--card-border); height: 26px; margin: 0 5px;"></div>
       <select id="bulkProfile" class="input-select">
         <option value="peloton">Profil : Peloton Complet (1:38 à 2:22)</option>
@@ -212,9 +323,11 @@
       </select>
       <button class="btn" onclick="bulkApplyProfile()">Appliquer Allure</button>
     </div>
+
+    <!-- Row 3: Simulation controls -->
     <div class="toolbar-row">
       <button class="btn" onclick="toggleSelectAll()">Tout cocher / Décocher</button>
-      <button class="btn btn-success" onclick="startSimulation()">▶ Démarrer la Télémétrie</button>
+      <button class="btn btn-success" onclick="startSimulation()">▶ Démarrer la Télémétrie (Actifs)</button>
       <button class="btn btn-danger" onclick="stopSimulation()">⏸ Stopper Tout</button>
       <button class="btn" onclick="resetSimulation()">🔄 Réinitialiser Distances</button>
     </div>
@@ -239,6 +352,7 @@
   <script>
     let watchesState = [];
     let selectedWatchIds = new Set();
+    const paceThrottles = {};
 
     function showToast(message, type = "info") {
       const container = document.getElementById("toastContainer");
@@ -261,6 +375,13 @@
         if (!res.ok) return;
         const data = await res.json();
         watchesState = data.watches || [];
+
+        // Synchroniser et initialiser l'URL Backend si non éditée
+        const bInput = document.getElementById("backendUrl");
+        if (data.backend_url && bInput && !bInput.value && document.activeElement !== bInput) {
+          bInput.value = data.backend_url;
+        }
+
         const ltkInput = document.getElementById("loadTestKey");
         if (data.load_test_key && ltkInput && !ltkInput.value && document.activeElement !== ltkInput) {
           ltkInput.value = data.load_test_key;
@@ -288,10 +409,14 @@
       document.getElementById("kpiHttp200").innerHTML = `${m.status_200 || 0} <span style="font-size:16px; color:#22c55e;">200 OK</span>`;
       document.getElementById("kpiErrors").innerText = `429: ${m.status_429 || 0} • 500: ${m.status_500 || 0} • Autres: ${m.status_other || 0}`;
 
-      const racingCount = watchesState.filter(w => w.race_status === "RUNNING").length;
-      const pairedCount = watchesState.filter(w => w.is_paired).length;
-      document.getElementById("kpiRacing").innerHTML = `${racingCount} <span style="font-size:16px;">/ ${watchesState.length}</span>`;
-      document.getElementById("kpiPairedCount").innerText = `${pairedCount} montres appairées`;
+      const activeWatches = watchesState.filter(w => w.is_enabled);
+      const racingCount = activeWatches.filter(w => w.race_status === "RUNNING").length;
+      const pairedCount = activeWatches.filter(w => w.is_paired).length;
+      document.getElementById("kpiRacing").innerHTML = `${racingCount} <span style="font-size:16px;">/ ${activeWatches.length}</span>`;
+      document.getElementById("kpiPairedCount").innerText = `${pairedCount} montres appairées (${activeWatches.length} actifs)`;
+
+      const counter = document.getElementById("fleetActiveCounter");
+      if (counter) counter.textContent = `${activeWatches.length} / ${watchesState.length}`;
     }
 
     function formatTime(sec) {
@@ -310,7 +435,10 @@
     function renderRegatta(watches) {
       const dock = document.getElementById("regattaDock");
       if (!dock) return;
-      const sorted = [...watches].sort((a, b) => b.current_distance - a.current_distance);
+
+      // Filtrer : seuls les kayaks ACTIVÉS sont affichés dans le bassin
+      const activeWatches = watches.filter(w => w.is_enabled);
+      const sorted = [...activeWatches].sort((a, b) => b.current_distance - a.current_distance);
 
       if (dock.children.length !== sorted.length) {
         dock.innerHTML = sorted.map((w, idx) => `
@@ -359,13 +487,17 @@
       const statusClass = `status-${statusLower}`;
 
       return `
-        <div class="watch-card ${statusLower}" id="card-${w.id}">
+        <div class="watch-card ${statusLower} ${!w.is_enabled ? 'disabled-kayak' : ''}" id="card-${w.id}">
           <div class="card-head">
             <div class="card-id">
               <input type="checkbox" id="check-${w.id}" onchange="toggleWatchSelect(${w.id})" ${isChecked ? 'checked' : ''}>
               <span>#${w.id} ${w.device_id}</span>
+              <label class="switch-wrap" title="Activer / Désactiver ce kayak pour les tests">
+                <input type="checkbox" id="toggleActive-${w.id}" ${w.is_enabled ? 'checked' : ''} onchange="toggleWatchActive(${w.id})">
+                <span class="switch-slider"></span>
+              </label>
             </div>
-            <span class="card-status ${statusClass}" id="statusBadge-${w.id}">${w.race_status}</span>
+            <span class="card-status ${statusClass}" id="statusBadge-${w.id}">${w.is_enabled ? w.race_status : 'DÉSACTIVÉ'}</span>
           </div>
 
           <div style="font-size: 11px; color: var(--text-muted);">${w.watch_model} • ${w.rower_model}</div>
@@ -406,7 +538,14 @@
               <span>Allure cible</span>
               <span id="targetPaceText-${w.id}"><strong>${formatSplit(w.target_split)}</strong> (${w.target_power}W • ${w.current_spm.toFixed(1)} SPM)</span>
             </div>
-            <input type="range" class="pace-slider" id="paceSlider-${w.id}" min="85" max="160" step="1" value="${Math.round(w.target_split)}" oninput="onPaceSliderInput(${w.id}, this.value)" onchange="updateWatchPace(${w.id}, this.value)">
+            <input type="range" class="pace-slider" id="paceSlider-${w.id}" min="85" max="160" step="1" value="${Math.round(w.target_split)}" oninput="onPaceSliderLiveChange(${w.id}, this.value)" onchange="updateWatchPace(${w.id}, this.value)">
+            <div class="pace-quick-btns">
+              <button class="btn btn-xs" onclick="adjustWatchWatts(${w.id}, -10)" title="Ralentir de 10W">-10W</button>
+              <button class="btn btn-xs" onclick="adjustWatchWatts(${w.id}, 10)" title="Accélérer de 10W">+10W</button>
+              <button class="btn btn-xs" style="color: var(--accent-yellow);" onclick="setWatchPresetPace(${w.id}, 90)" title="Sprint (1:30 / 410W)">⚡ Sprint</button>
+              <button class="btn btn-xs" style="color: var(--accent-blue);" onclick="setWatchPresetPace(${w.id}, 110)" title="Rythme (1:50 / 250W)">⏱ Rythme</button>
+              <button class="btn btn-xs" style="color: var(--accent-green);" onclick="setWatchPresetPace(${w.id}, 130)" title="Récup (2:10 / 165W)">🧘 Récup</button>
+            </div>
           </div>
 
           <div class="action-row">
@@ -441,15 +580,23 @@
 
         // Mise à jour classe du container
         const statusLower = (w.race_status || "idle").toLowerCase();
-        if (card.className !== `watch-card ${statusLower}`) {
-          card.className = `watch-card ${statusLower}`;
+        const disabledClass = !w.is_enabled ? ' disabled-kayak' : '';
+        const targetClass = `watch-card ${statusLower}${disabledClass}`;
+        if (card.className !== targetClass) {
+          card.className = targetClass;
+        }
+
+        // Switch activation
+        const switchEl = document.getElementById(`toggleActive-${w.id}`);
+        if (switchEl && document.activeElement !== switchEl) {
+          switchEl.checked = Boolean(w.is_enabled);
         }
 
         // Badge statut
         const badge = document.getElementById(`statusBadge-${w.id}`);
         if (badge) {
           badge.className = `card-status status-${statusLower}`;
-          badge.textContent = w.race_status;
+          badge.textContent = w.is_enabled ? w.race_status : 'DÉSACTIVÉ';
         }
 
         // Appairage / Compte
@@ -466,7 +613,6 @@
             if (pairRow && pairRow.style.display === "none") pairRow.style.display = "flex";
           }
         }
-        // Note capitale : pairPin-${w.id} n'est JAMAIS touché ici, ce qui évite d'effacer la frappe en cours !
 
         // Télémétrie en temps réel
         const distEl = document.getElementById(`gaugeDist-${w.id}`);
@@ -513,12 +659,63 @@
       }
     }
 
-    function onPaceSliderInput(id, val) {
+    function onPaceSliderLiveChange(id, val) {
+      const split = parseFloat(val);
+      const watts = Math.round(2.80 / Math.pow(split / 500.0, 3));
       const paceText = document.getElementById(`targetPaceText-${id}`);
       if (paceText) {
-        const split = parseFloat(val);
-        const watts = Math.round(2.80 / Math.pow(split / 500.0, 3));
         paceText.innerHTML = `<strong>${formatSplit(split)}</strong> (~${watts}W)`;
+      }
+      if (paceThrottles[id]) clearTimeout(paceThrottles[id]);
+      paceThrottles[id] = setTimeout(() => {
+        updateWatchPace(id, split, false);
+      }, 75);
+    }
+
+    async function adjustWatchWatts(id, delta) {
+      try {
+        const res = await fetch(`/api/watches/${id}/pace`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ delta_watts: delta })
+        });
+        const data = await res.json();
+        if (data.watch) {
+          showToast(`Kayak #${id}: ${delta > 0 ? '+' : ''}${delta}W -> ${data.watch.target_power}W (${formatSplit(data.watch.target_split)})`, "info");
+        }
+        fetchState();
+      } catch (e) {
+        showToast("Erreur changement allure: " + e.message, "error");
+      }
+    }
+
+    async function setWatchPresetPace(id, split) {
+      await updateWatchPace(id, split, true);
+    }
+
+    async function toggleWatchActive(id) {
+      try {
+        const res = await fetch(`/api/watches/${id}/toggle-enabled`, { method: "POST" });
+        const data = await res.json();
+        showToast(`Kayak #${id} : ${data.is_enabled ? 'ACTIVÉ' : 'DÉSACTIVÉ'}`, data.is_enabled ? "success" : "info");
+        fetchState();
+      } catch (e) {
+        showToast("Erreur: " + e.message, "error");
+      }
+    }
+
+    async function setFleetPreset(count) {
+      try {
+        const res = await fetch("/api/bulk/enable-fleet", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ count: count })
+        });
+        const data = await res.json();
+        showToast(`Flotte configurée : ${data.enabled_count} kayaks actifs`, "success");
+        fetchState();
+      } catch (e) {
+        showToast("Erreur: " + e.message, "error");
       }
     }
 
@@ -541,22 +738,30 @@
 
     function getSelectedOrAll() {
       if (selectedWatchIds.size > 0) return Array.from(selectedWatchIds);
-      return watchesState.map(w => w.id);
+      return watchesState.filter(w => w.is_enabled).map(w => w.id);
     }
 
     async function updateBackendUrl() {
       const url = document.getElementById("backendUrl").value.trim();
+      if (!url) return;
       try {
         await fetch("/api/config/backend-url", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ backend_url: url })
         });
-        showToast("URL Backend mise à jour : " + url, "success");
+        localStorage.setItem("rower_sim_backend_url", url);
+        showToast("URL Backend mise à jour et sauvegardée : " + url, "success");
         fetchState();
       } catch (e) {
         showToast("Erreur: " + e.message, "error");
       }
+    }
+
+    async function setBackendPreset(url) {
+      const input = document.getElementById("backendUrl");
+      if (input) input.value = url;
+      await updateBackendUrl();
     }
 
     async function updateLoadTestKey() {
@@ -688,25 +893,63 @@
       }
     }
 
-    async function updateWatchPace(id, splitVal) {
-      await fetch(`/api/watches/${id}/pace`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ split_sec: parseFloat(splitVal) })
-      });
-      fetchState();
+    async function updateWatchPace(id, splitVal, notify = false) {
+      try {
+        const res = await fetch(`/api/watches/${id}/pace`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ split_sec: parseFloat(splitVal) })
+        });
+        const data = await res.json();
+        if (notify && data.watch) {
+          showToast(`Kayak #${id} : Allure ${formatSplit(data.watch.target_split)} (${data.watch.target_power}W)`, "info");
+        }
+        fetchState();
+      } catch (e) {
+        console.error("Pace update error:", e);
+      }
     }
 
-    async function seedTestUsers() {
-      if (!confirm("Voulez-vous générer 30 utilisateurs de test et les appairer automatiquement aux 30 montres ?")) return;
-      showToast("Génération et appairage des 30 comptes en cours...", "info");
+    function toggleSeedModal(show) {
+      const modal = document.getElementById("seedModal");
+      if (modal) modal.style.display = show ? "flex" : "none";
+    }
+
+    async function executeSeedUsers() {
+      const pwd = document.getElementById("seedCommonPassword").value.trim();
+      const count = parseInt(document.getElementById("seedCount").value) || 30;
+      const prefix = document.getElementById("seedPrefix").value.trim() || "test_runner_";
+      const onlyEnabled = document.getElementById("seedOnlyEnabled").checked;
+
+      if (!pwd || pwd.length < 8) {
+        return showToast("Le mot de passe doit comporter au moins 8 caractères.", "error");
+      }
+
+      const btn = document.getElementById("btnExecuteSeed");
+      btn.innerText = "⏳ Génération en cours...";
+      btn.disabled = true;
+
       try {
-        const res = await fetch("/api/seed-users", { method: "POST" });
+        showToast(`Création de ${count} comptes avec mot de passe commun en cours...`, "info");
+        const res = await fetch("/api/seed-users", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            count: count,
+            password: pwd,
+            prefix: prefix,
+            only_enabled: onlyEnabled
+          })
+        });
         const data = await res.json();
         showToast(data.message || "Initialisation terminée !", data.success ? "success" : "error");
+        toggleSeedModal(false);
         await fetchState();
       } catch (e) {
         showToast("Erreur: " + e.message, "error");
+      } finally {
+        btn.innerText = "🚀 Lancer la création & appairage";
+        btn.disabled = false;
       }
     }
 
@@ -767,7 +1010,7 @@
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ watch_ids: ids })
       });
-      showToast("Télémétrie 1Hz démarrée !", "success");
+      showToast("Télémétrie 1Hz démarrée sur les kayaks actifs !", "success");
       fetchState();
     }
 
