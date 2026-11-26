@@ -45,7 +45,7 @@ export interface PrivateRoomParticipant {
   lane?: number;
   ready?: boolean;
   pinValidated?: boolean;
-  connectionState?: 'CONNECTED' | 'READY';
+  connectionState?: 'CONNECTED' | 'READY' | 'PENDING_PIN';
   isBot?: boolean;
   isPaired?: boolean;
   deviceToken?: string;

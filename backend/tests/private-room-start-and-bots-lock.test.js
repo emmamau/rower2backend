@@ -20,14 +20,16 @@ test.before(async () => {
     login: 'host_rules',
     name: 'HostRules',
     isSubscriber: true,
-    subscriptionTier: 'club',
+    subscriptionTier: 'pro',
+    customConcurrentRooms: 20,
+    customWeeklyRooms: 50,
   });
   await userStore.createUser({
     id: 'usr_player2_rules',
     login: 'player2_rules',
     name: 'Player2Rules',
     isSubscriber: true,
-    subscriptionTier: 'club',
+    subscriptionTier: 'pro',
   });
 });
 
