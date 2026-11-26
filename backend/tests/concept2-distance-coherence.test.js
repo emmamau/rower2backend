@@ -81,6 +81,20 @@ test('Salon race: strict speed and distance coherence across different rower mod
     const raceId = salon.race.id;
     const code = salon.code;
 
+    // Register the 3 test rowers in the salon before the start
+    for (const [uid, uname] of [
+      ['racer_merach', 'MerachRower'],
+      ['racer_c2', 'Concept2Rower'],
+      ['racer_generic', 'GenericFTMS'],
+    ]) {
+      const rJoin = await fetch(`${baseUrl}/api/v1/races/private/${code}/join`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: uid, userName: uname, registerLane: true }),
+      });
+      assert.equal(rJoin.status, 200);
+    }
+
     // Start the salon race immediately (countdownSeconds: 0 -> RUNNING)
     const resStart = await fetch(`${baseUrl}/api/v1/races/private/${code}/start`, {
       method: 'POST',

@@ -251,7 +251,13 @@ export class SessionService {
           } else if (race.hostUserId && race.hostUserId !== "anonymous") {
             const hostPart = race.participants?.get(race.hostUserId);
             const hostClaimed = Boolean(hostPart && (hostPart.deviceToken || (hostPart.pinValidated !== false && hostPart.connectionState !== "PENDING_PIN")));
-            if (!hostClaimed) {
+            const customLower = customGuestPseudo ? String(customGuestPseudo).trim().toLowerCase() : "";
+            const isMatchesHostPseudo =
+              !customLower ||
+              customLower === "rameur_42" ||
+              customLower === race.hostUserId.toLowerCase() ||
+              (race.hostUserName && customLower === race.hostUserName.toLowerCase());
+            if (!hostClaimed && (race.isBotDuel || race.isSolo || isMatchesHostPseudo)) {
               userId = race.hostUserId;
               guestName = race.hostUserName || guestName;
             } else {
@@ -290,7 +296,9 @@ export class SessionService {
         });
 
         if ("error" in joinRes) {
-          throw new Error(joinRes.error);
+          const err: any = new Error(joinRes.error);
+          err.statusCode = joinRes.statusCode;
+          throw err;
         }
 
         const lane = ticket?.lane || joinRes.lane || 1;
@@ -507,7 +515,7 @@ export class SessionService {
       if (mode === "room" && roomId) {
         const race = raceManager.getRaceById(roomId);
         if (race) {
-          raceManager.joinPrivateRace(race.id, targetUserId, finalPlayerName, undefined, {
+          const joinRes = raceManager.joinPrivateRace(race.id, targetUserId, finalPlayerName, undefined, {
             isDeviceAuthenticated: true,
             viaPin: true,
             ready: false,
@@ -515,6 +523,11 @@ export class SessionService {
             deviceToken,
             bypassApproval: true,
           });
+          if ("error" in joinRes) {
+            const err: any = new Error(joinRes.error);
+            err.statusCode = joinRes.statusCode;
+            throw err;
+          }
           if (race.participants && race.participants.has(targetUserId)) {
             const p = race.participants.get(targetUserId)!;
             p.pinValidated = true;
@@ -541,7 +554,7 @@ export class SessionService {
       if (roomId) {
         const race = raceManager.getRaceById(roomId);
         if (race) {
-          raceManager.joinPrivateRace(race.id, targetUserId, finalPlayerName, undefined, {
+          const joinRes = raceManager.joinPrivateRace(race.id, targetUserId, finalPlayerName, undefined, {
             isDeviceAuthenticated: true,
             viaPin: true,
             ready: false,
@@ -549,6 +562,11 @@ export class SessionService {
             deviceToken,
             bypassApproval: true,
           });
+          if ("error" in joinRes) {
+            const err: any = new Error(joinRes.error);
+            err.statusCode = joinRes.statusCode;
+            throw err;
+          }
           if (race.participants && race.participants.has(targetUserId)) {
             const p = race.participants.get(targetUserId)!;
             p.pinValidated = true;

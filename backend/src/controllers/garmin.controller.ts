@@ -227,7 +227,15 @@ export class GarminController {
             message: claimed.message,
           });
           return;
-        } catch {
+        } catch (claimErr: any) {
+          if (claimErr?.statusCode && [403, 409, 410].includes(claimErr.statusCode)) {
+            res.status(claimErr.statusCode).json({
+              success: false,
+              error: claimErr.message,
+              message: claimErr.message
+            });
+            return;
+          }
           res.status(404).json({
             success: false,
             error: "Ticket ou salon introuvable ou expiré.",
@@ -249,7 +257,7 @@ export class GarminController {
       let guestName = ticket?.guestName || String(body.guestName || body.userName || "").trim();
       let userId = ticket?.userId || String(body.userId || "").trim();
 
-      if (!userId || userId.startsWith("guest_")) {
+      if (!ticket && (!userId || userId.startsWith("guest_"))) {
         const existingPairing = !ticket ? await pairingService.findPairingByDeviceId(deviceId) : null;
         if (existingPairing?.userId && !existingPairing.userId.startsWith("guest_")) {
           userId = existingPairing.userId;
@@ -335,8 +343,6 @@ export class GarminController {
         p.deviceToken = paired.deviceToken;
         if (socketId) p.socketId = socketId;
         p.pinValidated = true;
-        p.ready = true;
-        p.connectionState = "READY";
         race.participants.set(userId, p);
       }
 

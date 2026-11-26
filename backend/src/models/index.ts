@@ -8,6 +8,7 @@ import definePairings, { PairingModel } from "./pairing.model";
 import definePublicRaceSettings, { PublicRaceSettingsModel } from "./public-race-settings.model";
 import defineSubscriptionPlans, { SubscriptionPlanModel } from "./subscription-plan.model";
 import defineDuelChallenges, { DuelChallengeModel } from "./duel-challenge.model";
+import definePlanUpgradeInterests, { PlanUpgradeInterestModel } from "./plan-upgrade-interest.model";
 
 const connectionUrl =
   process.env.DATABASE_URL ||
@@ -46,6 +47,7 @@ export interface Database {
   publicRaceSettings: PublicRaceSettingsModel;
   subscriptionPlans: SubscriptionPlanModel;
   duelChallenges: DuelChallengeModel;
+  planUpgradeInterests: PlanUpgradeInterestModel;
 }
 
 export const db: Database = {
@@ -59,6 +61,7 @@ export const db: Database = {
   publicRaceSettings: definePublicRaceSettings(sequelize, DataTypes),
   subscriptionPlans: defineSubscriptionPlans(sequelize, DataTypes),
   duelChallenges: defineDuelChallenges(sequelize, DataTypes),
+  planUpgradeInterests: definePlanUpgradeInterests(sequelize, DataTypes),
 };
 
 export default db;

@@ -54,12 +54,18 @@ export class RoomController {
       let isDeviceAuthenticated = false;
 
       if (sessionService.getSessionCodeContext(rawCode)) {
-        const claimed = await sessionService.claimSessionCode(
-          rawCode,
-          String(body.deviceId || "GARMIN_DEVICE"),
-          userName ? String(userName) : null
-        );
-        res.status(200).json({ ...claimed, success: true });
+        try {
+          const claimed = await sessionService.claimSessionCode(
+            rawCode,
+            String(body.deviceId || "GARMIN_DEVICE"),
+            userName ? String(userName) : null
+          );
+          res.status(200).json({ ...claimed, success: true });
+        } catch (claimErr: any) {
+          const codeStatus = claimErr?.statusCode || 400;
+          const msg = claimErr instanceof Error ? claimErr.message : String(claimErr);
+          res.status(codeStatus).json({ success: false, error: msg, message: msg });
+        }
         return;
       }
 
@@ -135,7 +141,7 @@ export class RoomController {
       }
 
       // 1. Rejeter tout PIN/salon terminé
-      if (race.status === "COMPLETED" || race.status === "ABANDONED") {
+      if (race.status === "COMPLETED" || race.status === "ABANDONED" || race.status === "STOPPED" || race.status === "CANCELLED") {
         res.status(410).json({
           success: false,
           error: "Ce salon est déjà terminé.",
@@ -144,10 +150,12 @@ export class RoomController {
         return;
       }
 
-      const alreadyApproved = Boolean(
-        race.participants?.has(String(userId)) ||
-        (bodyUserId && race.participants?.has(bodyUserId))
-      );
+      const engagement = raceManager.verifyPlayerEngaged(race, {
+        userId: String(userId),
+        rawUserId: bodyUserId,
+        deviceToken: deviceToken ? String(deviceToken) : undefined,
+      });
+      const alreadyApproved = engagement.engaged;
 
       // 2. Capacité selon le type d'abonnement du créateur/organisateur
       const hostUser = race.hostUserId ? await userStore.findUser(race.hostUserId) : null;
@@ -181,7 +189,9 @@ export class RoomController {
         (userName && race.hostUserName && String(userName).trim().toLowerCase() === race.hostUserName.toLowerCase())
       );
 
-      if (!alreadyApproved && !isHost && !race.isSolo && !race.isBotDuel && !race.isDuel1v1 && race.participants && race.participants.size >= organizerCapacity) {
+      const engagedHumans = raceManager.getEngagedHumanCount(race);
+
+      if (!alreadyApproved && !isHost && !race.isSolo && !race.isBotDuel && !race.isDuel1v1 && engagedHumans >= organizerCapacity && engagedHumans < (race.maxParticipants || 20)) {
         res.status(409).json({
           success: false,
           error: "Capacité maximale atteinte pour ce salon",
@@ -190,7 +200,7 @@ export class RoomController {
         return;
       }
 
-      if (race.status === "RUNNING" && !alreadyApproved && !isHost && !race.isSolo && !race.isBotDuel && !race.isDuel1v1) {
+      if (race.status === "RUNNING" && !alreadyApproved && !isHost) {
         res.status(410).json({
           success: false,
           error: "Cette course a déjà été lancée.",
@@ -256,6 +266,14 @@ export class RoomController {
       // Si l'utilisateur demande une ouverture en mode consultation (openOnly) et n'a pas validé son code PIN sur sa montre,
       // ouvrir le salon en mode consultation / attente sans attribuer de couloir de départ ni verrouiller la grille.
       if (openOnly && !hasValidatedPinOnWatch && !viaPin && !isDeviceAuthenticated) {
+        if (!alreadyApproved && !isHost && engagedHumans >= raceManager.getEffectiveMaxHumanParticipants(race)) {
+          res.status(409).json({
+            success: false,
+            error: "Salon complet - quota atteint",
+            message: "Salon complet - quota atteint"
+          });
+          return;
+        }
         res.status(200).json({
           success: true,
           lane: 0,

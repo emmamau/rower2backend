@@ -1,13 +1,21 @@
 import { Request, Response } from "express";
 import crypto from "crypto";
+import db from "../models";
 import userStore from "../services/user-store.service";
 import { isEmmaAdminUser } from "../services/auth.service";
 import stripeService from "../services/stripe.service";
 import emailService from "../services/email.service";
 import subscriptionPlanService from "../services/subscription-plan.service";
 
+let launchPioneerMode: boolean = process.env.LAUNCH_PIONEER_MODE !== "false";
+
+export const getPioneerMode = (): boolean => launchPioneerMode;
+export const setPioneerMode = (active: boolean): void => {
+  launchPioneerMode = Boolean(active);
+};
+
 export interface SubscriptionTierConfig {
-  id: "free" | "intermediate" | "premium";
+  id: "free" | "competitor" | "club_elite" | "intermediate" | "premium";
   name: string;
   priceEur: number;
   priceFormatted: string;
@@ -25,80 +33,101 @@ export interface SubscriptionTierConfig {
 export const SUBSCRIPTION_TIERS: Record<string, SubscriptionTierConfig> = {
   free: {
     id: "free",
-    name: "Offre Gratuite",
+    name: "Découverte",
     priceEur: 0,
-    priceFormatted: "0 €",
+    priceFormatted: "0 € / mois",
     maxGuests: 1,
     maxParticipants: 2,
     maxDistance: 2000,
     maxBots: 1,
     maxConcurrentRooms: 1,
-    maxWeeklyRooms: 5,
+    maxWeeklyRooms: 2,
     historyDays: 10,
     customPrefixAllowed: false,
     features: [
-      "1 salon ouvert à la fois (5 salons max / semaine)",
-      "1 joueur invité en salon privé (2 coureurs max)",
+      "Courses publiques illimitées (Ligue Bronze)",
+      "1 salon privé ouvert à la fois (2 salons max par semaine)",
+      "Jusqu'à 2 joueurs max par salon privé (1 invité)",
       "Courses jusqu'à 2 000 m (2 km)",
-      "1 bot d'entraînement virtuel",
-      "Historique des courses sur 10 jours",
-      "Classement public et cockpit direct",
+      "1 bot d'entraînement virtuel (allure fixe)",
+      "Historique des courses limité aux 10 derniers jours",
+      "Cockpit en direct et classements publics",
     ],
   },
-  intermediate: {
-    id: "intermediate",
-    name: "Offre Club",
+  competitor: {
+    id: "competitor",
+    name: "Compétiteur",
     priceEur: 5.99,
     priceFormatted: "5,99 € / mois",
-    maxGuests: 5,
+    maxGuests: 4,
     maxParticipants: 5,
     maxDistance: 5000,
     maxBots: 3,
     maxConcurrentRooms: 3,
-    maxWeeklyRooms: 10,
+    maxWeeklyRooms: 5,
     historyDays: null,
     customPrefixAllowed: true,
     features: [
-      "Jusqu'à 3 salons ouverts à la fois (10 salons max / semaine)",
-      "Jusqu'à 5 joueurs dans vos salons privés",
+      "Accès complet aux Ligues Argent & Or + défis 1v1 illimités",
+      "Jusqu'à 3 salons privés ouverts à la fois (5 salons max par semaine)",
+      "Jusqu'à 5 joueurs max par salon privé",
       "Courses jusqu'à 5 000 m (5 km)",
-      "Jusqu'à 3 bots avec allure configurable",
-      "Historique illimité des courses et classements",
-      "Progression en ligues et classement compétitif",
-      "Départ manuel ou programmé à date/heure précise",
+      "Jusqu'à 3 bots configurables",
+      "Historique et statistiques avancées illimités",
+      "Départ manuel ou programmé à l'heure",
     ],
   },
-  premium: {
-    id: "premium",
-    name: "Offre Élite Pro",
+  club_elite: {
+    id: "club_elite",
+    name: "Club / Élite",
     priceEur: 8.99,
     priceFormatted: "8,99 € / mois",
-    maxGuests: 10,
+    maxGuests: 9,
     maxParticipants: 10,
     maxDistance: 10000,
     maxBots: 5,
     maxConcurrentRooms: 5,
-    maxWeeklyRooms: 15,
+    maxWeeklyRooms: 10,
     historyDays: null,
     customPrefixAllowed: true,
     features: [
-      "Jusqu'à 5 salons ouverts à la fois (15 salons max / semaine)",
-      "Jusqu'à 10 joueurs dans vos salons privés",
-      "Courses longue distance jusqu'à 10 000 m (10 km)",
-      "Jusqu'à 5 bots avec allure de course max",
-      "Historique illimité et export des statistiques",
-      "Analyses et statistiques de courses illimitées",
-      "Tous modes de départ (top départ ou heure programmée)",
-      "Accès prioritaire aux nouvelles fonctionnalités",
+      "Tout l'accès Compétiteur (Ligues Argent & Or, défis 1v1 illimités)",
+      "Jusqu'à 5 salons privés ouverts à la fois (10 salons max par semaine)",
+      "Jusqu'à 10 joueurs max par salon privé",
+      "Courses longues jusqu'à 10 000 m (ou marathon)",
+      "Jusqu'à 5 bots configurables avec allure max",
+      "Historique illimité & export complet des données (.fit, .tcx, .csv)",
+      "Support prioritaire & accès anticipé aux nouveautés",
     ],
   },
 };
 
-// Aliases d'offres
-SUBSCRIPTION_TIERS.pro = SUBSCRIPTION_TIERS.premium;
-SUBSCRIPTION_TIERS.elite_pro = SUBSCRIPTION_TIERS.premium;
-SUBSCRIPTION_TIERS.club = SUBSCRIPTION_TIERS.intermediate;
-SUBSCRIPTION_TIERS.standard = SUBSCRIPTION_TIERS.intermediate;
+// Aliases d'offres pour rétrocompatibilité totale
+SUBSCRIPTION_TIERS.intermediate = SUBSCRIPTION_TIERS.competitor;
+SUBSCRIPTION_TIERS.standard = SUBSCRIPTION_TIERS.competitor;
+SUBSCRIPTION_TIERS.club = SUBSCRIPTION_TIERS.competitor;
+SUBSCRIPTION_TIERS.premium = SUBSCRIPTION_TIERS.club_elite;
+SUBSCRIPTION_TIERS.pro = SUBSCRIPTION_TIERS.club_elite;
+SUBSCRIPTION_TIERS.elite_pro = SUBSCRIPTION_TIERS.club_elite;
+
+export const normalizeTier = (tierOrUser?: any): string => {
+  let raw = "";
+  if (typeof tierOrUser === "string") {
+    raw = tierOrUser.trim().toLowerCase();
+  } else if (tierOrUser && typeof tierOrUser === "object") {
+    raw = String(tierOrUser.subscriptionTier || tierOrUser.subscription_tier || (tierOrUser.isSubscriber ? "competitor" : "free")).trim().toLowerCase();
+  }
+  if (raw === "competitor" || raw === "intermediate" || raw === "standard" || raw === "club") {
+    return "competitor";
+  }
+  if (raw === "club_elite" || raw === "premium" || raw === "pro" || raw === "elite_pro") {
+    return "club_elite";
+  }
+  if (raw === "free" || raw === "decouverte") {
+    return "free";
+  }
+  return raw;
+};
 
 /**
  * Détermine l'URL de base du frontend client.
@@ -141,13 +170,21 @@ export const getFrontendBaseUrl = (req: Request): string => {
 export const getSubscriptionTiers = async (_req: Request, res: Response): Promise<void> => {
   try {
     const plans = await subscriptionPlanService.loadAllPlans();
-    const standardDb = plans.find((p: any) => String(p.code || "").toUpperCase() === "STANDARD");
-    const premiumDb = plans.find((p: any) => String(p.code || "").toUpperCase() === "PREMIUM");
+    const competitorDb = plans.find((p: any) => {
+      const code = String(p.code || "").toUpperCase();
+      return code === "COMPETITOR" || code === "STANDARD";
+    });
+    const clubEliteDb = plans.find((p: any) => {
+      const code = String(p.code || "").toUpperCase();
+      return code === "CLUB_ELITE" || code === "PREMIUM";
+    });
     const freeDb = plans.find((p: any) => String(p.code || "").toUpperCase() === "FREE");
 
-    const isStandardActive = standardDb ? Boolean(standardDb.isActive ?? standardDb.is_active ?? false) : false;
-    const isPremiumActive = premiumDb ? Boolean(premiumDb.isActive ?? premiumDb.is_active ?? false) : false;
-    const isFreeActive = freeDb ? Boolean(freeDb.isActive ?? freeDb.is_active ?? false) : false;
+    const isCompetitorActive = competitorDb ? Boolean(competitorDb.isActive ?? competitorDb.is_active ?? true) : true;
+    const isClubEliteActive = clubEliteDb ? Boolean(clubEliteDb.isActive ?? clubEliteDb.is_active ?? true) : true;
+    const isFreeActive = freeDb ? Boolean(freeDb.isActive ?? freeDb.is_active ?? true) : true;
+
+    const isPioneer = getPioneerMode();
 
     const formatTier = (tierConfig: SubscriptionTierConfig, isActive: boolean) => ({
       ...tierConfig,
@@ -158,19 +195,21 @@ export const getSubscriptionTiers = async (_req: Request, res: Response): Promis
 
     res.status(200).json({
       success: true,
+      pioneerMode: isPioneer,
       tiers: [
         formatTier(SUBSCRIPTION_TIERS.free, isFreeActive),
-        formatTier(SUBSCRIPTION_TIERS.intermediate, isStandardActive),
-        formatTier(SUBSCRIPTION_TIERS.premium, isPremiumActive),
+        formatTier(SUBSCRIPTION_TIERS.competitor, isCompetitorActive),
+        formatTier(SUBSCRIPTION_TIERS.club_elite, isClubEliteActive),
       ],
     });
   } catch {
     res.status(200).json({
       success: true,
+      pioneerMode: getPioneerMode(),
       tiers: [
-        { ...SUBSCRIPTION_TIERS.free, priceEur: null, priceFormatted: null, isActive: false },
-        { ...SUBSCRIPTION_TIERS.intermediate, priceEur: null, priceFormatted: null, isActive: false },
-        { ...SUBSCRIPTION_TIERS.premium, priceEur: null, priceFormatted: null, isActive: false },
+        { ...SUBSCRIPTION_TIERS.free, isActive: true },
+        { ...SUBSCRIPTION_TIERS.competitor, isActive: true },
+        { ...SUBSCRIPTION_TIERS.club_elite, isActive: true },
       ],
     });
   }
@@ -186,10 +225,10 @@ export const getUserSubscriptionStatus = async (req: Request, res: Response): Pr
     const user = await userStore.findUser(userId);
 
     const isEmma = user ? isEmmaAdminUser(user.login || user.id, user.name) : isEmmaAdminUser(userId);
-    const rawTier = String((user?.subscriptionTier as any) || (user?.isSubscriber ? "intermediate" : "free")).toLowerCase().trim();
-    const tierId: "free" | "intermediate" | "premium" = isEmma
-      ? "premium"
-      : (rawTier === "pro" || rawTier === "elite_pro" ? "premium" : (rawTier === "club" || rawTier === "standard" ? "intermediate" : (rawTier as any) || "free"));
+    const normalized = normalizeTier(user?.subscriptionTier || (user?.isSubscriber ? "competitor" : "free"));
+    const tierId: "free" | "competitor" | "club_elite" = isEmma
+      ? "club_elite"
+      : (normalized === "competitor" || normalized === "club_elite" ? normalized : "free");
 
     const tierConfig = SUBSCRIPTION_TIERS[tierId] || SUBSCRIPTION_TIERS.free;
 
@@ -208,6 +247,8 @@ export const getUserSubscriptionStatus = async (req: Request, res: Response): Pr
       tier: tierId,
       status: isEmma ? "active" : user?.subscriptionStatus || (isSub ? "active" : "none"),
       isSubscriber: isSub,
+      isPioneer: Boolean(user?.isPioneer || (user as any)?.is_pioneer),
+      pioneerActivatedAt: user?.pioneerActivatedAt || (user as any)?.pioneer_activated_at || null,
       isAdmin: Boolean(user?.isAdmin || isEmma),
       limits: tierConfig,
       lemonCustomerId: user?.lemonCustomerId || null,
@@ -410,17 +451,15 @@ export const createStripeCheckoutSession = async (req: Request, res: Response): 
   try {
     const { userId, tier, returnUrl, successUrl, cancelUrl } = req.body || {};
     const cleanUserId = String(userId || "").trim();
-    let cleanTier = String(tier || "intermediate").toLowerCase().trim();
-    if (cleanTier === "pro" || cleanTier === "elite_pro") cleanTier = "premium";
-    if (cleanTier === "club" || cleanTier === "standard") cleanTier = "intermediate";
+    const cleanTier = normalizeTier(tier);
 
     if (!cleanUserId) {
       res.status(400).json({ success: false, message: "L'identifiant utilisateur est obligatoire." });
       return;
     }
 
-    if (!["intermediate", "premium", "free"].includes(cleanTier)) {
-      res.status(400).json({ success: false, message: "Offre invalide (free, intermediate ou premium)." });
+    if (!["competitor", "club_elite", "free", "intermediate", "premium"].includes(cleanTier)) {
+      res.status(400).json({ success: false, message: "Offre invalide (free, competitor ou club_elite)." });
       return;
     }
 
@@ -758,6 +797,145 @@ export const handleStripeWebhook = async (req: Request, res: Response): Promise<
   }
 };
 
+/**
+ * POST /api/v1/subscriptions/activate-pioneer
+ * Active immédiatement un plan en mode « Accès Pionnier gratuit » (sans Stripe)
+ */
+export const activatePioneer = async (req: Request, res: Response): Promise<void> => {
+  try {
+    if (!getPioneerMode()) {
+      res.status(403).json({
+        success: false,
+        message: "Le mode Accès Pionnier n'est pas actif actuellement.",
+      });
+      return;
+    }
+
+    const { userId, plan, sourceTrigger } = req.body || {};
+    const cleanUserId = String(userId || "").trim();
+    if (!cleanUserId) {
+      res.status(400).json({ success: false, message: "Identifiant utilisateur manquant." });
+      return;
+    }
+
+    const user = await userStore.findUser(cleanUserId);
+    if (!user) {
+      res.status(404).json({ success: false, message: "Utilisateur introuvable." });
+      return;
+    }
+
+    const normalizedPlan = normalizeTier(plan);
+    if (normalizedPlan === "free") {
+      res.status(400).json({ success: false, message: "Veuillez sélectionner l'offre Compétiteur ou Club / Élite." });
+      return;
+    }
+
+    const updatedUser = await userStore.updateUser(user.id, {
+      subscriptionTier: normalizedPlan,
+      subscriptionStatus: "active",
+      isSubscriber: true,
+      isPioneer: true,
+      pioneerActivatedAt: new Date(),
+    });
+
+    // Journalisation de l'intention d'upgrade / activation
+    try {
+      if (db.planUpgradeInterests) {
+        await db.planUpgradeInterests.create({
+          userId: user.id,
+          targetPlan: normalizedPlan,
+          sourceTrigger: sourceTrigger || "pioneer_modal",
+        });
+      }
+    } catch (dbErr) {
+      console.warn("[Subscription] Impossible d'enregistrer plan_upgrade_interests:", dbErr);
+    }
+
+    const tierConfig = SUBSCRIPTION_TIERS[normalizedPlan] || SUBSCRIPTION_TIERS.competitor;
+
+    res.status(200).json({
+      success: true,
+      message: `Accès Pionnier activé avec succès pour le plan ${tierConfig.name} !`,
+      tier: normalizedPlan,
+      isPioneer: true,
+      pioneerActivatedAt: updatedUser?.pioneerActivatedAt || new Date(),
+      limits: tierConfig,
+    });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ success: false, message: "Erreur activation Pionnier: " + msg });
+  }
+};
+
+/**
+ * GET /api/v1/subscriptions/pioneer-stats
+ * Retourne le récapitulatif des activations Pionniers pour le back-office
+ */
+export const getPioneerStats = async (_req: Request, res: Response): Promise<void> => {
+  try {
+    const allUsers = await userStore.getAllUsers();
+    const pioneerUsers = allUsers.filter((u: any) => Boolean(u.isPioneer || u.is_pioneer));
+
+    let competitorCount = 0;
+    let clubEliteCount = 0;
+    for (const u of pioneerUsers) {
+      const tier = normalizeTier(u.subscriptionTier || (u as any).subscription_tier);
+      if (tier === "competitor") competitorCount++;
+      else if (tier === "club_elite") clubEliteCount++;
+    }
+
+    let interests: any[] = [];
+    try {
+      if (db.planUpgradeInterests) {
+        interests = await db.planUpgradeInterests.findAll({
+          order: [["createdAt", "DESC"]],
+          limit: 50,
+        });
+      }
+    } catch {}
+
+    res.status(200).json({
+      success: true,
+      pioneerMode: getPioneerMode(),
+      totalPioneers: pioneerUsers.length,
+      competitorCount,
+      clubEliteCount,
+      pioneers: pioneerUsers.map((u: any) => ({
+        id: u.id,
+        name: u.name || u.login,
+        email: u.email || "",
+        subscriptionTier: normalizeTier(u.subscriptionTier || u.subscription_tier),
+        pioneerActivatedAt: u.pioneerActivatedAt || u.pioneer_activated_at || null,
+        createdAt: u.createdAt || null,
+      })),
+      recentInterests: interests,
+    });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ success: false, message: "Erreur stats pionniers: " + msg });
+  }
+};
+
+/**
+ * POST /api/v1/subscriptions/toggle-pioneer
+ * Permet à l'administrateur de basculer le mode Pionnier à chaud
+ */
+export const togglePioneerMode = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { active } = req.body || {};
+    const newActive = active !== undefined ? Boolean(active) : !getPioneerMode();
+    setPioneerMode(newActive);
+    res.status(200).json({
+      success: true,
+      pioneerMode: newActive,
+      message: `Mode Accès Pionnier ${newActive ? "activé" : "désactivé"}.`,
+    });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ success: false, message: "Erreur toggle mode pionnier: " + msg });
+  }
+};
+
 export default {
   SUBSCRIPTION_TIERS,
   getFrontendBaseUrl,
@@ -769,4 +947,10 @@ export default {
   createStripeCheckoutSession,
   createStripePortalSession,
   handleStripeWebhook,
+  activatePioneer,
+  getPioneerStats,
+  togglePioneerMode,
+  getPioneerMode,
+  setPioneerMode,
+  normalizeTier,
 };

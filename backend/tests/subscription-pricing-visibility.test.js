@@ -32,13 +32,13 @@ test("Subscription pricing visibility rules: prices only given when active, null
     assert.equal(body.success, true);
     assert.ok(Array.isArray(body.tiers));
 
-    const standard = body.tiers.find((t) => t.id === "intermediate");
+    const standard = body.tiers.find((t) => t.id === "competitor" || t.id === "intermediate");
     assert.ok(standard);
     assert.equal(standard.isActive, true);
     assert.equal(standard.priceEur, 5.99);
     assert.ok(standard.priceFormatted.includes("5,99"));
 
-    const premium = body.tiers.find((t) => t.id === "premium");
+    const premium = body.tiers.find((t) => t.id === "club_elite" || t.id === "premium");
     assert.ok(premium);
     assert.equal(premium.isActive, true);
     assert.equal(premium.priceEur, 8.99);
@@ -60,13 +60,13 @@ test("Subscription pricing visibility rules: prices only given when active, null
     assert.equal(res.status, 200);
     assert.equal(body.success, true);
 
-    const standard = body.tiers.find((t) => t.id === "intermediate");
+    const standard = body.tiers.find((t) => t.id === "competitor" || t.id === "intermediate");
     assert.ok(standard);
     assert.equal(standard.isActive, false);
     assert.equal(standard.priceEur, null);
     assert.equal(standard.priceFormatted, null);
 
-    const premium = body.tiers.find((t) => t.id === "premium");
+    const premium = body.tiers.find((t) => t.id === "club_elite" || t.id === "premium");
     assert.ok(premium);
     assert.equal(premium.isActive, false);
     assert.equal(premium.priceEur, null);

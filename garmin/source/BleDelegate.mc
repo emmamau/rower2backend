@@ -96,6 +96,7 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
     private var _isFalseStartPenalized as Boolean = false;
     private var _isBleRowerReady as Boolean = false;
     private var _isWaitingForReadyOrHost as Boolean = false;
+    private var _isRaceEngaged as Boolean = false;
 
     // FitContributor developer fields
     private var _fitFieldRaceRank as FitContributor.Field?;
@@ -1438,7 +1439,7 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
         if (state == RowerView.STATE_WAITING_START || state == RowerView.STATE_COUNTDOWN_5S || state == RowerView.STATE_LOBBY) {
             var cd = view.getCountdown();
             var isMoving = (_model.strokeRate > 0 || _model.instantPower > 0 || _model.liveMovementDetected);
-            if (!_isBleRowerReady && isMoving && _activityId.length() > 0) {
+            if (!_isBleRowerReady && isMoving && _isRaceEngaged && _activityId.length() > 0) {
                 _isBleRowerReady = true;
                 _syncManager.notifyRoomReady(_activityId, true, _userId);
                 view.setWaitingStatusMessage(I18n.getText("BLE_READY_WAIT_START"));
@@ -1483,7 +1484,7 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
                 return;
             }
 
-            if (_raceMode.equals("race") && _activityId.length() > 0) {
+            if (_raceMode.equals("race") && _isRaceEngaged && _activityId.length() > 0) {
                 if (_model.strokeCount > _lastSentStrokeCount) {
                     _lastSentStrokeCount = _model.strokeCount;
                     _pendingStrokeSync = true;
@@ -1701,7 +1702,7 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
                 if (rDict.hasKey("targetDistance") && rDict.get("targetDistance") != null) {
                     targetDist = rDict.get("targetDistance") as Number;
                 }
-                if (rDict.hasKey("id") && rDict.get("id") != null) {
+                if (rDict.hasKey("id") && rDict.get("id") != null && _isRaceEngaged) {
                     _activityId = rDict.get("id").toString();
                 }
                 if (rDict.hasKey("hasBots") && rDict.get("hasBots") instanceof Boolean) {
@@ -1744,11 +1745,11 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
             view.setLobbyInfo(countdown, players, targetDist);
 
             var curState = view.getAppState();
-            if (isRunning &&
+            if (isRunning && _isRaceEngaged &&
                 (curState == RowerView.STATE_LOBBY || curState == RowerView.STATE_WAITING_START || curState == RowerView.STATE_COUNTDOWN_5S || curState == RowerView.STATE_PENDING_APPROVAL)) {
                 var isRowing = (_model.strokeRate > 0 || _model.instantPower > 0);
                 handleRaceStartTrigger(view, isRowing);
-            } else if (!isRunning && countdown > 0 && countdown <= 3 &&
+            } else if (!isRunning && _isRaceEngaged && countdown > 0 && countdown <= 3 &&
                 (curState == RowerView.STATE_WAITING_START || curState == RowerView.STATE_LOBBY || curState == RowerView.STATE_COUNTDOWN_5S)) {
                 _isWaitingForReadyOrHost = false;
                 view.set5sCountdown(countdown);
@@ -1762,6 +1763,7 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
         _raceMode = "race";
         _activityStatus = "waiting";
         _isWaitingForReadyOrHost = true;
+        _isRaceEngaged = false;
         _activityId = "";
         _isBotDuel = false;
         if (_view != null) {
@@ -1779,6 +1781,8 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
     public function onJoinRaceReceived(data as Dictionary?) as Void {
         if (data != null && _view != null) {
             var view = _view as RowerView;
+            var isWaitNext = (data.hasKey("action") && data.get("action") != null && data.get("action").toString().equals("wait_next"));
+            _isRaceEngaged = !isWaitNext;
             if (data.hasKey("userId") && data.get("userId") != null) {
                 var resolvedId = data.get("userId").toString();
                 if (resolvedId.length() > 0 && !resolvedId.equals("anonymous")) {
@@ -1817,15 +1821,19 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
         }
     }
 
-    public function joinRaceLate() as Void {
-        _userId = UserManager.getUserId();
-        _raceMode = "race";
+    public function onJoinRaceFailed(responseCode as Number, data as Dictionary or String or Null) as Void {
+        _isRaceEngaged = false;
+        _activityId = "";
+        _isWaitingForReadyOrHost = false;
+        onPinJoinFailed(responseCode, data);
         if (_view != null) {
-            (_view as RowerView).setIsLateJoiner(true);
+            (_view as RowerView).setAppState(RowerView.STATE_MENU);
         }
-        var displayPseudo = UserManager.getDisplayPseudo();
-        _syncManager.joinRace(_userId, displayPseudo, "join_late");
-        launchSessionNow();
+    }
+
+    public function joinRaceLate() as Void {
+        // Les inscriptions tardives en cours de course sont désormais interdites : basculer en attente de la prochaine course
+        waitNextRaceSlot();
     }
 
     public function waitNextRaceSlot() as Void {
@@ -2411,12 +2419,14 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
         }
 
         if (isPending) {
+            _isRaceEngaged = false;
             _activityStatus = "pending_approval";
             if (_view != null) {
                 (_view as RowerView).setIsLateJoiner(false);
                 (_view as RowerView).setAppState(RowerView.STATE_PENDING_APPROVAL);
             }
         } else {
+            _isRaceEngaged = true;
             _activityStatus = "waiting";
             if (_view != null) {
                 (_view as RowerView).setIsLateJoiner(false);
@@ -2453,6 +2463,7 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
             var dict = data as Dictionary;
             var st = dict.get("status");
             if (st != null && st.toString().equals("approved")) {
+                _isRaceEngaged = true;
                 _activityStatus = "waiting";
                 if (dict.hasKey("targetDistance") && dict.get("targetDistance") != null) {
                     _targetDistance = dict.get("targetDistance") as Number;
@@ -2462,12 +2473,16 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
                 (_view as RowerView).setAppState(RowerView.STATE_WAITING_START);
                 _syncManager.fetchUserProfile(_userId);
             } else if (st != null && st.toString().equals("rejected")) {
+                _isRaceEngaged = false;
+                _activityId = "";
                 _activityStatus = "waiting";
                 triggerRejectVibe();
                 (_view as RowerView).showWarning(I18n.getText("PENDING_REJECTED"), 3);
                 (_view as RowerView).setAppState(RowerView.STATE_MENU);
             }
         } else if (code == 403) {
+            _isRaceEngaged = false;
+            _activityId = "";
             _activityStatus = "waiting";
             triggerRejectVibe();
             (_view as RowerView).showWarning(I18n.getText("PENDING_REJECTED"), 3);
@@ -2476,6 +2491,8 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
     }
 
     public function onPinJoinFailed(responseCode as Number, data as Dictionary or String or Null) as Void {
+        _isRaceEngaged = false;
+        _activityId = "";
         triggerRejectVibe();
         if (_view != null) {
             var msg = "Invalide";

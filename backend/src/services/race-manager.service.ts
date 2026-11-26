@@ -450,6 +450,158 @@ export class RaceManager {
   }
 
   /**
+   * Détermine si une entrée de participant correspond à un bot virtuel.
+   */
+  public static isBotParticipant(userId?: string, participant?: any): boolean {
+    const uid = String(userId || participant?.userId || "").trim();
+    return Boolean(participant?.isBot) || uid.startsWith("bot_");
+  }
+
+  /**
+   * Compte strictement les joueurs humains engagés et actifs sur la course (hors bots et hors joueurs ayant quitté/abandonné).
+   */
+  public getEngagedHumanCount(race?: RaceState | null): number {
+    if (!race || !race.participants) return 0;
+    let count = 0;
+    for (const [uid, p] of race.participants.entries()) {
+      if (RaceManager.isBotParticipant(uid, p)) continue;
+      if (p.hasLeft === true || p.status === "abandoned") continue;
+      count++;
+    }
+    return count;
+  }
+
+  /**
+   * Retourne le plafond effectif de joueurs humains autorisés sur la course :
+   * - Course publique : configuration fixée par l'administrateur (publicMaxPlayers / adminPublicRaceConfig.maxParticipants)
+   * - Salon privé : 1 en Solo, 1 humain en Duel contre un Bot, 2 en Duel 1v1, ou min(maxParticipants, organizerCapacity) en Multi
+   */
+  public getEffectiveMaxHumanParticipants(race?: RaceState | null): number {
+    if (!race) return this.publicMaxPlayers || this.adminPublicRaceConfig.maxParticipants || 6;
+    if (race.type === "PUBLIC_HOURLY") {
+      return race.maxParticipants || this.publicMaxPlayers || this.adminPublicRaceConfig.maxParticipants || 6;
+    }
+    if (race.isSolo || race.gameMode === "solo") return 1;
+    if (race.isBotDuel || race.gameMode === "bot_duel") return 1;
+    if (race.isDuel1v1 || race.gameMode === "duel_1v1") return 2;
+    const roomMax = race.maxParticipants || 8;
+    if (race.organizerCapacity && race.organizerCapacity > 0) {
+      return Math.min(roomMax, race.organizerCapacity);
+    }
+    return roomMax;
+  }
+
+  /**
+   * Vérifie si un joueur (identifié par userId, deviceToken, deviceId ou userName) est légitimement engagé sur la course.
+   */
+  public verifyPlayerEngaged(
+    race: RaceState | null | undefined,
+    criteria: {
+      userId?: string;
+      rawUserId?: string;
+      deviceToken?: string;
+      deviceId?: string;
+      userName?: string;
+    }
+  ): {
+    engaged: boolean;
+    participant?: PrivateParticipantInfo;
+    canonicalUserId?: string;
+    reason?: string;
+  } {
+    if (!race) {
+      return { engaged: false, reason: "race_not_found" };
+    }
+    if (["ABANDONED", "CANCELLED", "STOPPED"].includes(race.status)) {
+      return { engaged: false, reason: "race_closed" };
+    }
+
+    const cleanUid = criteria.userId ? String(criteria.userId).trim() : "";
+    const cleanRawUid = criteria.rawUserId ? String(criteria.rawUserId).trim() : "";
+    const cleanTok = criteria.deviceToken ? String(criteria.deviceToken).trim() : "";
+    const cleanDevId = criteria.deviceId ? String(criteria.deviceId).trim() : "";
+    const cleanName = criteria.userName ? String(criteria.userName).trim() : "";
+
+    if (race.rejectedParticipants) {
+      if ((cleanUid && race.rejectedParticipants.has(cleanUid)) || (cleanRawUid && race.rejectedParticipants.has(cleanRawUid))) {
+        return { engaged: false, reason: "rejected" };
+      }
+    }
+
+    if (race.participants) {
+      // 1. Correspondance directe par userId ou rawUserId
+      const direct = (cleanUid && race.participants.get(cleanUid)) || (cleanRawUid && race.participants.get(cleanRawUid));
+      if (direct && !RaceManager.isBotParticipant(direct.userId, direct)) {
+        if (direct.hasLeft === true || direct.status === "abandoned") {
+          return { engaged: false, reason: "player_left_or_abandoned" };
+        }
+        return { engaged: true, participant: direct, canonicalUserId: direct.userId };
+      }
+
+      // 2. Correspondance par deviceToken, deviceId ou userId insensible à la casse
+      for (const [uid, p] of race.participants.entries()) {
+        if (RaceManager.isBotParticipant(uid, p)) continue;
+        const matchUid =
+          (cleanUid && (uid.toLowerCase() === cleanUid.toLowerCase() || p.userId.toLowerCase() === cleanUid.toLowerCase())) ||
+          (cleanRawUid && (uid.toLowerCase() === cleanRawUid.toLowerCase() || p.userId.toLowerCase() === cleanRawUid.toLowerCase()));
+        const matchTok = Boolean(cleanTok && p.deviceToken && p.deviceToken === cleanTok);
+        const matchDev = Boolean(cleanDevId && p.deviceId && p.deviceId === cleanDevId);
+
+        if (matchUid || matchTok || matchDev) {
+          if (p.hasLeft === true || p.status === "abandoned") {
+            return { engaged: false, reason: "player_left_or_abandoned" };
+          }
+          return { engaged: true, participant: p, canonicalUserId: p.userId };
+        }
+      }
+
+      // 3. En salon privé uniquement : correspondance par pseudo invité exact si le joueur envoie son guestName comme userId avec son token ou sur son siège réservé
+      if (race.type === "PRIVATE_INVITE") {
+        for (const [uid, p] of race.participants.entries()) {
+          if (RaceManager.isBotParticipant(uid, p)) continue;
+          const pName = (p.guestName || p.userName || "").trim().toLowerCase();
+          if (pName && ((cleanUid && pName === cleanUid.toLowerCase()) || (cleanRawUid && pName === cleanRawUid.toLowerCase()) || (cleanName && pName === cleanName.toLowerCase()))) {
+            // S'il y a un token sur le participant, il doit correspondre (ou pas de token exigé)
+            if (!p.deviceToken || !cleanTok || p.deviceToken === cleanTok) {
+              if (p.hasLeft === true || p.status === "abandoned") {
+                return { engaged: false, reason: "player_left_or_abandoned" };
+              }
+              return { engaged: true, participant: p, canonicalUserId: p.userId };
+            }
+          }
+        }
+      }
+    }
+
+    if (race.pendingParticipants) {
+      if ((cleanUid && race.pendingParticipants.has(cleanUid)) || (cleanRawUid && race.pendingParticipants.has(cleanRawUid))) {
+        return { engaged: false, reason: "pending_approval" };
+      }
+    }
+
+    return { engaged: false, reason: "not_engaged" };
+  }
+
+  /**
+   * Purge et rejette automatiquement toutes les demandes en attente lorsque la capacité maximale du salon est atteinte.
+   */
+  public rejectRemainingPendingParticipants(race: RaceState): void {
+    if (!race.pendingParticipants || race.pendingParticipants.size === 0) return;
+    if (!race.rejectedParticipants) {
+      race.rejectedParticipants = new Set();
+    }
+    for (const pendingUid of Array.from(race.pendingParticipants.keys())) {
+      race.pendingParticipants.delete(pendingUid);
+      race.rejectedParticipants.add(pendingUid);
+      socketGateway.broadcastPrivateRoomUpdate(race.id, {
+        type: "PARTICIPANT_REJECTED",
+        userId: pendingUid,
+        reason: "quota_reached"
+      });
+    }
+  }
+
+  /**
    * Main state machine ticker running every 1 second.
    * The loop is re-entrancy safe: a slow DB round-trip never overlaps the next tick.
    */
@@ -1029,8 +1181,8 @@ export class RaceManager {
 
     if (race.status === "LOBBY" || race.status === "COUNTDOWN") {
       const remainingSec = Math.max(0, Math.floor((race.lobbyEndsAt.getTime() - now.getTime()) / 1000));
-      const participantHumans = race.participants ? Array.from(race.participants.values()).length : 0;
-      const maxPart = race.maxParticipants || this.adminPublicRaceConfig.maxParticipants || 20;
+      const participantHumans = this.getEngagedHumanCount(race);
+      const maxPart = this.getEffectiveMaxHumanParticipants(race);
 
       // Condition 1 : Nombre maxi de coureurs connecté -> déclenchement immédiat du départ
       if (participantHumans >= maxPart && race.status === "LOBBY") {
@@ -1220,6 +1372,9 @@ export class RaceManager {
     for (const race of Array.from(this.privateRacesById.values())) {
       // 1. Si la course est terminée ou clôturée, conservation 24h après la fin pour consultation
       if (["COMPLETED", "STOPPED", "CANCELLED", "ABANDONED"].includes(race.status)) {
+        if ((race as any)._finishingPromise) {
+          await (race as any)._finishingPromise;
+        }
         const finishedAt = race.endedAt || race.createdAt || now;
         if (now.getTime() - finishedAt.getTime() > ttlMs) {
           this.removePrivateRaceInternal(race);
@@ -1246,9 +1401,12 @@ export class RaceManager {
       if ((race.status === "LOBBY" || race.status === "COUNTDOWN") && race.startMode === "scheduled" && race.scheduledStartTime) {
         const msUntilStart = race.scheduledStartTime.getTime() - now.getTime();
         const hasConnectedParticipants = Boolean(race.participants && race.participants.size > 0);
-        const allParticipantsReady =
+        const anyConnectedWatchNotReady =
           hasConnectedParticipants &&
-          Array.from(race.participants!.values()).every((p) => p.ready !== false);
+          Array.from(race.participants!.values()).some(
+            (p) => !RaceManager.isBotParticipant(p.userId, p) && p.connectionState === "CONNECTED" && p.ready === false
+          );
+        const allParticipantsReady = hasConnectedParticipants && !anyConnectedWatchNotReady;
         if (race.status === "COUNTDOWN" && !allParticipantsReady) {
           race.status = "LOBBY";
           race.autoStart = false;
@@ -1270,9 +1428,12 @@ export class RaceManager {
           const hasParticipants =
             (race.participants && race.participants.size > 0) ||
             rows.some((r: any) => !r.get("isBot") && ["waiting", "in_progress"].includes(r.get("status")));
-          const allParticipantsReady =
+          const anyConnectedWatchNotReady =
             Boolean(race.participants && race.participants.size > 0) &&
-            Array.from(race.participants!.values()).every((p) => p.ready !== false);
+            Array.from(race.participants!.values()).some(
+              (p) => !RaceManager.isBotParticipant(p.userId, p) && p.connectionState === "CONNECTED" && p.ready === false
+            );
+          const allParticipantsReady = Boolean(race.participants && race.participants.size > 0) && !anyConnectedWatchNotReady;
           if (!hasParticipants || !allParticipantsReady) {
             // Pas encore de participant ou au moins un rameur en veille (CONNECTED), on laisse le lobby ouvert
             if (race.startMode === "scheduled") {
@@ -1418,7 +1579,21 @@ export class RaceManager {
   }
 
   public async finishPrivateRace(race: RaceState, reason: string): Promise<void> {
+    if ((race as any)._finishingPromise) {
+      await (race as any)._finishingPromise;
+      return;
+    }
     if (race.status === "COMPLETED" || race.status === "STOPPED" || race.status === "CANCELLED") return;
+    const promise = this._doFinishPrivateRace(race, reason);
+    (race as any)._finishingPromise = promise;
+    try {
+      await promise;
+    } finally {
+      delete (race as any)._finishingPromise;
+    }
+  }
+
+  private async _doFinishPrivateRace(race: RaceState, reason: string): Promise<void> {
     const isStopped = reason === "organizer_stopped" || reason === "stopped";
     const isCancelled = reason === "cancelled" || reason === "aborted";
     race.status = isStopped ? "STOPPED" : (isCancelled ? "CANCELLED" : "COMPLETED");
@@ -1496,8 +1671,8 @@ export class RaceManager {
     const pin = this.generateUniquePinCode();
 
     const title = `Régate Publique ${lobbyEndsAt.getHours().toString().padStart(2, "0")}h${lobbyEndsAt.getMinutes().toString().padStart(2, "0")}`;
-    const targetDistance = this.adminPublicRaceConfig.targetDistance || 2000;
-    const maxParticipants = this.adminPublicRaceConfig.maxParticipants || 20;
+    const targetDistance = this.adminPublicRaceConfig.targetDistance || this.publicRaceDistanceM || 2000;
+    const maxParticipants = this.adminPublicRaceConfig.maxParticipants || this.publicMaxPlayers || 6;
     const maxDurationMinutes = this.adminPublicRaceConfig.maxDurationMinutes || 55;
 
     try {
@@ -1531,6 +1706,7 @@ export class RaceManager {
       lobbyEndsAt,
       pinCode: pin,
       hasBots: this.adminPublicRaceConfig.defaultBotsCount > 0,
+      participants: new Map(),
       createdAt: now
     };
 
@@ -1645,8 +1821,8 @@ export class RaceManager {
     };
   }
 
-  public notifyPlayerJoinedPublic(userId: string, userName?: string, deviceId?: string, deviceToken?: string, isPaired?: boolean): void {
-    if (!this.currentPublicRace || !userId) return;
+  public notifyPlayerJoinedPublic(userId: string, userName?: string, deviceId?: string, deviceToken?: string, isPaired?: boolean): boolean {
+    if (!this.currentPublicRace || !userId) return false;
     if (this.currentPublicRace.status === "LOBBY" || this.currentPublicRace.status === "COUNTDOWN") {
       if (!this.currentPublicRace.participants) {
         this.currentPublicRace.participants = new Map();
@@ -1659,6 +1835,7 @@ export class RaceManager {
         ? userName.trim()
         : `Racer_${userId.slice(-4)}`;
 
+      let freedLane: number | undefined;
       // Recherche d'un éventuel doublon antérieur pour cette même montre physique ou ce même utilisateur
       for (const [existingId, p] of this.currentPublicRace.participants.entries()) {
         if (existingId !== userId) {
@@ -1667,7 +1844,9 @@ export class RaceManager {
           // Si même montre physique ou même token de session/device
           if (matchDevice || matchToken) {
             console.log(`[RaceManager] Détection tentative multiple pour montre ${cleanDeviceId}. Remplacement de ${existingId} par ${userId}`);
+            freedLane = p.lane;
             this.currentPublicRace.participants.delete(existingId);
+            userStore.deleteActivityById(`${this.currentPublicRace.id}_${existingId}`);
             // Libération asynchrone de l'ancienne activité en DB
             Activities.update(
               { status: "abandoned" },
@@ -1677,21 +1856,41 @@ export class RaceManager {
         }
       }
 
+      const maxParticipants = this.getEffectiveMaxHumanParticipants(this.currentPublicRace);
       const existingPart = this.currentPublicRace.participants.get(userId);
+      const currentHumans = this.getEngagedHumanCount(this.currentPublicRace);
+
+      // Si c'est un nouveau joueur et que le quota maximal fixé par l'admin est déjà atteint -> refuser
+      if (!existingPart && currentHumans >= maxParticipants) {
+        return false;
+      }
+
+      let assignedLane = existingPart?.lane || freedLane || 0;
+      if (!assignedLane || assignedLane <= 0) {
+        const usedLanes = new Set<number>();
+        for (const p of this.currentPublicRace.participants.values()) {
+          if (p.lane && p.lane > 0) usedLanes.add(p.lane);
+        }
+        assignedLane = 1;
+        while (usedLanes.has(assignedLane)) {
+          assignedLane++;
+        }
+      }
+
       this.currentPublicRace.participants.set(userId, {
         userId,
         userName: cleanName || existingPart?.userName || `Racer_${userId.slice(-4)}`,
         joinedAt: existingPart?.joinedAt || new Date(),
+        lane: assignedLane,
         deviceId: cleanDeviceId || existingPart?.deviceId,
         deviceToken: cleanDeviceToken || existingPart?.deviceToken,
         isPaired: isPaired !== undefined ? isPaired : (existingPart?.isPaired ?? false)
       });
 
-      const maxParticipants = this.currentPublicRace.maxParticipants || this.adminPublicRaceConfig.maxParticipants || 20;
-      const count = this.currentPublicRace.participants.size;
+      const count = this.getEngagedHumanCount(this.currentPublicRace);
 
       // Condition de départ anticipé : si le nombre maxi de coureurs connectés est atteint
-      if (count >= maxParticipants) {
+      if (count >= maxParticipants && this.currentPublicRace.status === "LOBBY") {
         console.log(`[RaceManager] Capacité maxi atteinte (${count}/${maxParticipants}) pour la course ${this.currentPublicRace.id}. Déclenchement du départ !`);
         const now = new Date();
         const countdownSec = 15; // 15 secondes pour se placer sur le rameur
@@ -1714,21 +1913,27 @@ export class RaceManager {
           lastJoinedUserId: userId
         });
       }
+      return true;
     }
+    return false;
   }
 
   public updatePublicRaceConfig(newCfg: Partial<typeof this.adminPublicRaceConfig>): typeof this.adminPublicRaceConfig {
     if (newCfg.targetDistance !== undefined && Number.isFinite(Number(newCfg.targetDistance))) {
       this.adminPublicRaceConfig.targetDistance = Math.min(100000, Math.max(500, Math.round(Number(newCfg.targetDistance))));
+      this.publicRaceDistanceM = this.adminPublicRaceConfig.targetDistance;
     }
     if (newCfg.maxParticipants !== undefined && Number.isFinite(Number(newCfg.maxParticipants))) {
       this.adminPublicRaceConfig.maxParticipants = Math.min(100, Math.max(2, Math.round(Number(newCfg.maxParticipants))));
+      this.publicMaxPlayers = this.adminPublicRaceConfig.maxParticipants;
     }
     if (newCfg.maxDurationMinutes !== undefined && Number.isFinite(Number(newCfg.maxDurationMinutes))) {
       this.adminPublicRaceConfig.maxDurationMinutes = Math.min(180, Math.max(5, Math.round(Number(newCfg.maxDurationMinutes))));
+      this.publicMaxDurationSec = this.adminPublicRaceConfig.maxDurationMinutes * 60;
     }
     if (newCfg.defaultBotsCount !== undefined && Number.isFinite(Number(newCfg.defaultBotsCount))) {
       this.adminPublicRaceConfig.defaultBotsCount = Math.min(20, Math.max(0, Math.round(Number(newCfg.defaultBotsCount))));
+      this.publicBotCount = this.adminPublicRaceConfig.defaultBotsCount;
     }
     if (newCfg.defaultBotsPace !== undefined && Number.isFinite(Number(newCfg.defaultBotsPace))) {
       this.adminPublicRaceConfig.defaultBotsPace = Math.min(300, Math.max(60, Math.round(Number(newCfg.defaultBotsPace))));
@@ -2800,7 +3005,7 @@ export class RaceManager {
       return { error: "Votre demande de participation a été refusée par l'hôte.", statusCode: 403, rejected: true };
     }
 
-    if (race.status === "COMPLETED" || race.status === "ABANDONED") {
+    if (race.status === "COMPLETED" || race.status === "ABANDONED" || race.status === "STOPPED" || race.status === "CANCELLED") {
       return { error: "Ce salon est déjà terminé.", statusCode: 410 };
     }
 
@@ -2814,10 +3019,10 @@ export class RaceManager {
       options?.sameAccountAsHost
     );
 
-    // En mode Duel 1v1 Bot, le créateur est le seul compétiteur humain attendu.
+    // En mode Duel 1v1 Bot ou Solo, le créateur est le seul compétiteur humain attendu.
     // Si le créateur rejoint depuis sa montre Garmin (authentifiée par deviceToken ou via le code PIN sur un salon créé en session web),
     // rattacher immédiatement son identifiant de montre au siège Ligne 1 du créateur.
-    if (race.isBotDuel && !isHost && !alreadyApproved) {
+    if ((race.isBotDuel || race.isSolo) && !isHost && !alreadyApproved) {
       const currentHost = String(race.hostUserId || "");
       const isWebSessionHost =
         !currentHost ||
@@ -2833,7 +3038,7 @@ export class RaceManager {
       }
     }
 
-    if (race.isBotDuel && isHost) {
+    if ((race.isBotDuel || race.isSolo) && isHost) {
       const oldHostId = race.hostUserId;
       if (!race.originalHostUserId && oldHostId) {
         race.originalHostUserId = oldHostId;
@@ -2854,34 +3059,40 @@ export class RaceManager {
       alreadyApproved = race.participants.has(cleanUserId);
     }
 
-    // Exception Administrateur : le créateur avec rôle Admin peut agir en pur régulateur/spectateur sans occuper de ligne d'eau (hors Duel 1v1 Bot)
-    if (!race.isBotDuel && race.adminAsSpectator && (isHost || options?.isAdmin)) {
+    // Exception Administrateur : le créateur avec rôle Admin peut agir en pur régulateur/spectateur sans occuper de ligne d'eau (hors Duel 1v1 Bot et Solo)
+    if (!race.isBotDuel && !race.isSolo && race.adminAsSpectator && (isHost || options?.isAdmin)) {
       return { race, lane: 0, alreadyJoined: true, pending: false };
     }
 
-    // 1. Salon "Duel contre un Bot" : strictement réservé au joueur qui a créé le salon
+    // 1. Salon "Duel contre un Bot" ou "Solo" : strictement réservé au joueur qui a créé le salon
     if (race.isBotDuel && !isHost && !alreadyApproved) {
       return { error: "Ce duel contre un bot est réservé à son créateur", statusCode: 403 };
     }
+    if (race.isSolo && !isHost && !alreadyApproved) {
+      return { error: "Cette course solo est réservée à son créateur", statusCode: 403 };
+    }
 
-    // 2. Salon "Duel 1 contre 1" (Joueur vs Joueur) : capacité maximale fixée à 2 joueurs (créateur + 1 invité)
+    if (race.status === "RUNNING" && !alreadyApproved) {
+      return { error: "Cette course a déjà été lancée.", statusCode: 410 };
+    }
+
+    const engagedHumans = this.getEngagedHumanCount(race);
+    const effectiveMaxHumans = this.getEffectiveMaxHumanParticipants(race);
+
+    // 2. Salon "Duel 1 contre 1" (Joueur vs Joueur) : capacité maximale fixée à 2 joueurs humains (créateur + 1 invité)
     const isDuel1v1 = Boolean(race.isDuel1v1);
-    if (isDuel1v1 && !alreadyApproved && race.participants.size >= 2) {
+    if (isDuel1v1 && !alreadyApproved && engagedHumans >= 2) {
       return { error: "Salon complet - quota atteint", statusCode: 409 };
     }
 
-    // Contrôle de la jauge maximale permise par l'abonnement de l'organisateur
-    if (!alreadyApproved && !isHost && race.organizerCapacity && race.participants.size >= race.organizerCapacity) {
+    // Contrôle de la jauge maximale permise par l'abonnement de l'organisateur (hors bots)
+    if (!alreadyApproved && !isHost && race.organizerCapacity && engagedHumans >= race.organizerCapacity) {
       return { error: "Capacité maximale atteinte pour ce salon", statusCode: 409 };
     }
 
-    // 3. Salon Régate Multijoueur / Privé standard : contrôle quota maximum de lignes d'eau
-    if (!alreadyApproved && race.participants.size >= race.maxParticipants) {
+    // 3. Salon Régate Multijoueur / Privé standard : contrôle quota maximum de joueurs humains (hors bots)
+    if (!alreadyApproved && (engagedHumans >= race.maxParticipants || engagedHumans >= effectiveMaxHumans)) {
       return { error: "Salon complet - quota atteint", statusCode: 409 };
-    }
-
-    if (race.status === "RUNNING" && !alreadyApproved && !isHost) {
-      return { error: "Cette course a déjà été lancée.", statusCode: 410 };
     }
 
     // 4. Contrôle du profil du joueur et prérequis (niveau de ligue, abonnement)
@@ -2914,7 +3125,7 @@ export class RaceManager {
     } else {
       const usedLanes = new Set<number>();
       for (const p of race.participants.values()) {
-        if (p.lane && p.connectionState !== "PENDING_PIN" && p.pinValidated !== false) {
+        if (p.lane && p.lane > 0 && !p.hasLeft && p.status !== "abandoned") {
           usedLanes.add(p.lane);
         }
       }
@@ -2952,7 +3163,7 @@ export class RaceManager {
 
     const isReady = options?.ready !== undefined
       ? Boolean(options.ready)
-      : (Boolean(options?.viaPin) && race.isBotDuel && race.botStartMode !== "first_stroke" ? true : false);
+      : (Boolean(options?.viaPin) && (race.isDuel1v1 || (race.isBotDuel && race.botStartMode !== "first_stroke")) ? true : false);
     const connectionState: "CONNECTED" | "READY" = isReady ? "READY" : "CONNECTED";
     const isPinValidated = options?.viaPin !== undefined ? Boolean(options.viaPin) : true;
 
@@ -2973,11 +3184,19 @@ export class RaceManager {
       this.pinToRaceMap.set(race.pinCode.toUpperCase(), { raceId: race.id, lane: assignedLane });
     }
 
-    const allParticipantsReady = race.participants.size > 0 && Array.from(race.participants.values()).every((p) => Boolean(p.ready));
+    // Si la capacité maximale de joueurs humains est désormais atteinte, rejeter automatiquement les demandes en attente restantes
+    if (this.getEngagedHumanCount(race) >= this.getEffectiveMaxHumanParticipants(race)) {
+      this.rejectRemainingPendingParticipants(race);
+    }
+
+    const humanParticipants = Array.from(race.participants.values()).filter(
+      (p) => !RaceManager.isBotParticipant(p.userId, p) && !p.hasLeft && p.status !== "abandoned"
+    );
+    const allParticipantsReady = humanParticipants.length > 0 && humanParticipants.every((p) => Boolean(p.ready));
 
     // 4. Logiques de départ
     // Duel 1v1 Joueur vs Joueur : déclenchement automatique du décompte de 15 s dès que les 2 joueurs sont READY sur leur ligne
-    if (isDuel1v1 && race.participants.size === 2 && allParticipantsReady && race.status === "LOBBY") {
+    if (isDuel1v1 && humanParticipants.length === 2 && allParticipantsReady && race.status === "LOBBY") {
       const startNow = new Date();
       race.status = "COUNTDOWN";
       race.autoStart = true;
@@ -3107,48 +3326,73 @@ export class RaceManager {
     let targetParticipant: PrivateParticipantInfo | undefined;
     const cleanUser = userIdOrTokenUser ? String(userIdOrTokenUser).trim() : "";
 
-    if (cleanUser && race.participants.has(cleanUser)) {
-      targetParticipant = race.participants.get(cleanUser);
-    } else if (cleanUser) {
-      for (const p of race.participants.values()) {
-        if (p.userId.toLowerCase() === cleanUser.toLowerCase() || p.deviceToken === cleanUser) {
-          targetParticipant = p;
-          break;
-        }
+    if (cleanUser) {
+      const check = this.verifyPlayerEngaged(race, {
+        userId: cleanUser,
+        rawUserId: cleanUser,
+        deviceToken: cleanUser
+      });
+      if (check.engaged && check.participant) {
+        targetParticipant = check.participant;
       }
     }
 
-    // Si un seul participant humain (ex: Duel contre un Bot) et userId non fourni, cibler ce participant
-    if (!targetParticipant && race.participants.size === 1) {
-      targetParticipant = Array.from(race.participants.values())[0];
+    // Si userId non fourni (ex: requête anonyme en Duel Bot / Solo avec un seul humain engagé), cibler l'unique humain engagé uniquement si cleanUser est vide
+    if (!targetParticipant && !cleanUser && (race.isBotDuel || race.isSolo)) {
+      const humanParts = Array.from(race.participants.values()).filter(
+        (p) => !RaceManager.isBotParticipant(p.userId, p) && !p.hasLeft && p.status !== "abandoned"
+      );
+      if (humanParts.length === 1) {
+        targetParticipant = humanParts[0];
+      }
     }
 
-    if (targetParticipant) {
-      targetParticipant.ready = Boolean(ready);
-      targetParticipant.connectionState = ready ? "READY" : "CONNECTED";
-      race.participants.set(targetParticipant.userId, targetParticipant);
-    } else if (cleanUser) {
-      targetParticipant = {
-        userId: cleanUser,
-        userName: `Rameur_${cleanUser.slice(-4)}`,
-        joinedAt: new Date(),
-        lane: 1,
-        ready: Boolean(ready),
-        connectionState: ready ? "READY" : "CONNECTED"
+    if (!targetParticipant && cleanUser) {
+      const isHostCaller = Boolean(
+        (race.hostUserId && cleanUser.toLowerCase() === race.hostUserId.toLowerCase()) ||
+        (race.originalHostUserId && cleanUser.toLowerCase() === race.originalHostUserId.toLowerCase())
+      );
+      if (isHostCaller && race.adminAsSpectator) {
+        // L'hôte administrateur en mode spectateur valide son statut sans occuper de ligne d'eau
+        const humanParticipantsList = Array.from(race.participants.values()).filter(
+          (p) => !RaceManager.isBotParticipant(p.userId, p) && !p.hasLeft && p.status !== "abandoned"
+        );
+        const allReady =
+          humanParticipantsList.length > 0 && humanParticipantsList.every((p) => Boolean(p.ready));
+        return {
+          race,
+          participant: undefined,
+          countdownTriggered: false,
+          allReady,
+          waitingStatusMessage: getWaitingStatusMessage(race, new Date())
+        };
+      }
+    }
+
+    if (!targetParticipant) {
+      return {
+        error: "Joueur non engagé sur cette course.",
+        statusCode: 403
       };
-      race.participants.set(cleanUser, targetParticipant);
     }
 
-    const participantsList = Array.from(race.participants.values());
+    targetParticipant.ready = Boolean(ready);
+    targetParticipant.connectionState = ready ? "READY" : "CONNECTED";
+    targetParticipant.pinValidated = true;
+    race.participants.set(targetParticipant.userId, targetParticipant);
+
+    const humanParticipantsList = Array.from(race.participants.values()).filter(
+      (p) => !RaceManager.isBotParticipant(p.userId, p) && !p.hasLeft && p.status !== "abandoned"
+    );
     const allReady =
-      participantsList.length > 0 && participantsList.every((p) => Boolean(p.ready));
+      humanParticipantsList.length > 0 && humanParticipantsList.every((p) => Boolean(p.ready));
 
     let countdownTriggered = false;
     const now = new Date();
 
     if (race.status === "LOBBY" && ready) {
       // Mode 1 : Duel 1v1 Joueur vs Joueur -> dès que les DEUX joueurs humains sont à l'état READY, décompte 15s automatique
-      if (race.isDuel1v1 && race.participants.size === 2 && allReady) {
+      if (race.isDuel1v1 && humanParticipantsList.length === 2 && allReady) {
         race.status = "COUNTDOWN";
         race.autoStart = true;
         race.lobbyEndsAt = new Date(now.getTime() + 15 * 1000);
@@ -3228,14 +3472,18 @@ export class RaceManager {
       race.pendingParticipants = new Map();
     }
 
-    // If approval is turned OFF, automatically accept all currently waiting players!
+    // If approval is turned OFF, automatically accept waiting players up to the human capacity limit!
     if (!race.requireApproval && race.pendingParticipants.size > 0) {
-      for (const [uid, p] of race.pendingParticipants.entries()) {
-        if (race.participants.size < race.maxParticipants) {
+      const maxHumans = this.getEffectiveMaxHumanParticipants(race);
+      for (const [uid, p] of Array.from(race.pendingParticipants.entries())) {
+        if (this.getEngagedHumanCount(race) < maxHumans) {
+          race.pendingParticipants.delete(uid);
           race.participants.set(uid, p);
         }
       }
-      race.pendingParticipants.clear();
+      if (this.getEngagedHumanCount(race) >= maxHumans) {
+        this.rejectRemainingPendingParticipants(race);
+      }
       race.totalParticipants = Math.max(race.totalParticipants || 0, race.participants.size);
     }
 
@@ -3279,8 +3527,13 @@ export class RaceManager {
     }
 
     if (approve) {
-      if (race.participants.size >= race.maxParticipants) {
-        return { error: `Le salon est complet (${race.maxParticipants} max).`, statusCode: 409 };
+      if (race.status === "RUNNING" || race.status === "COMPLETED" || race.status === "ABANDONED" || race.status === "STOPPED" || race.status === "CANCELLED") {
+        return { error: "Cette course a déjà été lancée ou est terminée.", statusCode: 410 };
+      }
+      const maxHumans = this.getEffectiveMaxHumanParticipants(race);
+      if (!race.participants.has(cleanTargetId) && this.getEngagedHumanCount(race) >= maxHumans) {
+        this.rejectRemainingPendingParticipants(race);
+        return { error: `Le salon est complet (${maxHumans} max).`, statusCode: 409 };
       }
       const pending = race.pendingParticipants.get(cleanTargetId);
       const participantInfo: PrivateParticipantInfo = pending || {
@@ -3292,6 +3545,10 @@ export class RaceManager {
       race.rejectedParticipants.delete(cleanTargetId);
       race.participants.set(cleanTargetId, participantInfo);
       race.totalParticipants = Math.max(race.totalParticipants || 0, race.participants.size);
+
+      if (this.getEngagedHumanCount(race) >= maxHumans) {
+        this.rejectRemainingPendingParticipants(race);
+      }
 
       socketGateway.broadcastPrivateRoomUpdate(race.id, {
         type: "PARTICIPANT_APPROVED",
@@ -3493,6 +3750,7 @@ export class RaceManager {
         if (isBot) return false;
         if (p.hasLeft || p.status === "abandoned") return false;
         if (!p.lane || p.lane <= 0) return false;
+        if (race.isSolo) return true;
         return p.connectionState !== "PENDING_PIN" && p.pinValidated !== false;
       }).length;
       const botPartsCount = partsList.filter((p) => Boolean((p as any).isBot) || String(p.userId || "").startsWith("bot_")).length;

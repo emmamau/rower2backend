@@ -48,8 +48,8 @@ test('Stripe Subscriptions: Tiers listing and user status with stripe IDs', asyn
     const tiersData = await tiersRes.json();
     assert.equal(tiersData.success, true);
     assert.equal(tiersData.tiers.length, 3);
-    const clubTier = tiersData.tiers.find((t) => t.id === 'intermediate');
-    const eliteTier = tiersData.tiers.find((t) => t.id === 'premium');
+    const clubTier = tiersData.tiers.find((t) => t.id === 'competitor' || t.id === 'intermediate');
+    const eliteTier = tiersData.tiers.find((t) => t.id === 'club_elite' || t.id === 'premium');
     assert.equal(clubTier.priceEur, 5.99);
     assert.equal(eliteTier.priceEur, 8.99);
 
@@ -58,7 +58,7 @@ test('Stripe Subscriptions: Tiers listing and user status with stripe IDs', asyn
     assert.equal(statusRes.status, 200);
     const statusData = await statusRes.json();
     assert.equal(statusData.success, true);
-    assert.equal(statusData.tier, 'premium');
+    assert.ok(statusData.tier === 'premium' || statusData.tier === 'club_elite');
     assert.equal(statusData.isSubscriber, true);
     assert.equal(statusData.isAdmin, true);
     assert.ok('stripeCustomerId' in statusData);

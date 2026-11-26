@@ -11,7 +11,9 @@ import {
   SubscriptionPlanItem,
   AdminStatsResponse,
   AdminStatsTimelineItem,
-  AntiCheatStatusResponse
+  AntiCheatStatusResponse,
+  AdminPioneerStatsResponse,
+  PioneerUserItem
 } from '../../services/admin.service';
 import { I18nService } from '../../services/i18n.service';
 
@@ -118,6 +120,9 @@ export class AdminDashboardComponent implements OnInit {
   plansList: SubscriptionPlanItem[] = [];
   isLoadingPlans = false;
   isPlanModalOpen = false;
+  pioneerStats: AdminPioneerStatsResponse | null = null;
+  isLoadingPioneer = false;
+  isTogglingPioneer = false;
   editingPlan: SubscriptionPlanItem = {
     code: '',
     name: '',
@@ -726,6 +731,7 @@ export class AdminDashboardComponent implements OnInit {
   loadPlans(): void {
     this.isLoadingPlans = true;
     this.clearMessages();
+    this.loadPioneerStats();
     this.adminService.getPlans().subscribe({
       next: (res) => {
         this.isLoadingPlans = false;
@@ -819,6 +825,44 @@ export class AdminDashboardComponent implements OnInit {
       },
       error: (err) => {
         this.errorMessage = this.formatAdminError(err, 'ADMIN_ERR_TOGGLE_PLAN');
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  loadPioneerStats(): void {
+    this.isLoadingPioneer = true;
+    this.adminService.getPioneerStats().subscribe({
+      next: (res) => {
+        this.isLoadingPioneer = false;
+        if (res && res.success) {
+          this.pioneerStats = res;
+        }
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.isLoadingPioneer = false;
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  togglePioneerMode(): void {
+    if (this.isTogglingPioneer) return;
+    this.isTogglingPioneer = true;
+    const target = !(this.pioneerStats?.pioneerMode ?? true);
+    this.adminService.togglePioneerMode(target).subscribe({
+      next: (res) => {
+        this.isTogglingPioneer = false;
+        this.feedbackMessage = res.message;
+        if (this.pioneerStats) {
+          this.pioneerStats.pioneerMode = res.pioneerMode;
+        }
+        this.cdr.markForCheck();
+      },
+      error: (err) => {
+        this.isTogglingPioneer = false;
+        this.errorMessage = this.formatAdminError(err, 'ADMIN_ERR_TOGGLE_PIONEER');
         this.cdr.markForCheck();
       }
     });

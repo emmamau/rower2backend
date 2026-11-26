@@ -8,6 +8,7 @@ import subscriptionPlanService from "../services/subscription-plan.service";
 import userStore from "../services/user-store.service";
 import { ensureCurrentWeek } from "../services/league-db.service";
 import antiCheatService from "../services/anti-cheat.service";
+import subscriptionController from "./subscription.controller";
 
 const Users = db.users;
 const PublicRaceSettings = db.publicRaceSettings;
@@ -142,6 +143,14 @@ export class AdminController {
       if (is_enabled !== undefined || isEnabled !== undefined) {
         updates.isEnabled = Boolean(is_enabled ?? isEnabled);
         raceManager.isPublicRaceEnabled = updates.isEnabled;
+      }
+
+      const curPub = raceManager.getCurrentPublicRace();
+      if (curPub && (curPub.status === "LOBBY" || curPub.status === "COUNTDOWN")) {
+        curPub.targetDistance = raceManager.publicRaceDistanceM;
+        curPub.maxParticipants = raceManager.publicMaxPlayers;
+        curPub.maxDurationMinutes = Math.max(1, Math.round(raceManager.publicMaxDurationSec / 60));
+        curPub.botCount = raceManager.publicBotCount;
       }
 
       let row: any = null;
@@ -1682,6 +1691,14 @@ export class AdminController {
       const message = err instanceof Error ? err.message : String(err);
       res.status(500).json({ success: false, message: `Erreur réinitialisation anti-triche: ${message}` });
     }
+  }
+
+  public static async getPioneerStats(req: Request, res: Response): Promise<void> {
+    return subscriptionController.getPioneerStats(req, res);
+  }
+
+  public static async togglePioneerMode(req: Request, res: Response): Promise<void> {
+    return subscriptionController.togglePioneerMode(req, res);
   }
 }
 

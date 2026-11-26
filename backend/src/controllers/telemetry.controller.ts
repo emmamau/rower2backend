@@ -6,7 +6,7 @@ import socketGateway, { LiveRacerMetric } from "../websocket/socket.gateway";
 import { TelemetryValidator } from "../services/telemetry-validator.service";
 import { isEmmaAdminUser } from "../services/auth.service";
 import userStore from "../services/user-store.service";
-import { SUBSCRIPTION_TIERS } from "./subscription.controller";
+import { SUBSCRIPTION_TIERS, normalizeTier } from "./subscription.controller";
 import subscriptionPlanService from "../services/subscription-plan.service";
 import { IpGeoService } from "../services/ip-geo.service";
 import pairingService from "../services/pairing.service";
@@ -264,7 +264,12 @@ export class TelemetryController {
   public static async ingestTelemetry(req: Request, res: Response): Promise<void> {
     try {
       const body = req.body;
-      const raceId = body.raceId || raceManager.getCurrentPublicRace()?.id;
+      const rawRaceId = body.raceId ? String(body.raceId).trim() : "";
+      const isPublicTarget = !rawRaceId || rawRaceId.toUpperCase() === "PUBLIC";
+      const matchedRaceForUser = isPublicTarget
+        ? raceManager.getCurrentPublicRace()
+        : (raceManager.getRaceById(rawRaceId) || raceManager.findPrivateRace(rawRaceId));
+      const raceId = matchedRaceForUser?.id || rawRaceId || raceManager.getCurrentPublicRace()?.id;
       let userId = body.userId || "anonymous";
       let resolvedUserName = body.userName ? String(body.userName) : "";
 
@@ -274,7 +279,6 @@ export class TelemetryController {
       }
 
       // Resolve deviceToken or guestName participant mapping for Parcours 1 & Parcours 2
-      const matchedRaceForUser = raceManager.getRaceById(raceId) || raceManager.getCurrentPublicRace();
       const authHeader = String(req.headers.authorization || "");
       const bearerToken = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
       const headerToken = req.headers["x-device-token"] ? String(req.headers["x-device-token"]).trim() : "";
@@ -325,33 +329,48 @@ export class TelemetryController {
           deviceId: rawDeviceId,
         });
       }
-      if (matchedRaceForUser?.participants && !matchedRaceForUser.participants.has(userId)) {
-        for (const p of matchedRaceForUser.participants.values()) {
-          if (p.userName && p.userName.toLowerCase() === String(userId).toLowerCase()) {
-            userId = p.userId;
-            if (!resolvedUserName) {
-              resolvedUserName = p.userName;
-            }
-            break;
-          }
+
+      // Vérification stricte de l'engagement sur toute course gérée (course publique ou salon privé) :
+      // tout appel HTTPS provenant d'un joueur non engagé est immédiatement rejeté (403) sans polluer la course.
+      const isManagedRaceFormat =
+        Boolean(matchedRaceForUser) ||
+        isPublicTarget ||
+        rawRaceId.startsWith("PRIV_") ||
+        /^RACE_\d{8}/i.test(rawRaceId);
+
+      if (isManagedRaceFormat) {
+        if (!matchedRaceForUser || ["ABANDONED", "STOPPED", "CANCELLED"].includes(matchedRaceForUser.status)) {
+          res.status(403).json({
+            success: false,
+            error: "Course introuvable, terminée ou arrêtée. Appel HTTPS refusé.",
+            message: "Course introuvable, terminée ou arrêtée. Appel HTTPS refusé.",
+          });
+          return;
         }
-        if (
-          !matchedRaceForUser.participants.has(userId) &&
-          matchedRaceForUser.type === "PRIVATE_INVITE" &&
-          (matchedRaceForUser.isSolo || matchedRaceForUser.isBotDuel) &&
-          matchedRaceForUser.participants.size === 1
-        ) {
-          const soleParticipant = Array.from(matchedRaceForUser.participants.values())[0];
-          if (soleParticipant && soleParticipant.userId) {
-            userId = soleParticipant.userId;
-            if (!resolvedUserName) {
-              resolvedUserName = soleParticipant.userName || "";
-            }
-          }
+
+        const engagement = raceManager.verifyPlayerEngaged(matchedRaceForUser, {
+          userId,
+          rawUserId: body.userId ? String(body.userId) : undefined,
+          deviceToken: rawToken || undefined,
+          deviceId: rawDeviceId || undefined,
+          userName: resolvedUserName || (body.userName ? String(body.userName) : undefined),
+        });
+
+        if (!engagement.engaged) {
+          res.status(403).json({
+            success: false,
+            error: "Joueur non engagé sur cette course. Appel HTTPS ignoré.",
+            message: "Joueur non engagé sur cette course. Appel HTTPS ignoré.",
+          });
+          return;
         }
-      }
-      if (!resolvedUserName && matchedRaceForUser?.participants?.has(userId)) {
-        resolvedUserName = matchedRaceForUser.participants.get(userId)?.userName || "";
+
+        if (engagement.canonicalUserId) {
+          userId = engagement.canonicalUserId;
+        }
+        if (!resolvedUserName && engagement.participant?.userName) {
+          resolvedUserName = engagement.participant.userName;
+        }
       }
 
       // Extract metrics either from standard format or legacy flat format
@@ -398,7 +417,7 @@ export class TelemetryController {
       const watchModel = String(body.watchModel || "Garmin Connect IQ").slice(0, 64);
       const rowerModel = String(body.rowerModel || body.deviceName || "FTMS / SmartRow").slice(0, 64);
 
-      const matchedRace = raceManager.getRaceById(raceId) || raceManager.getCurrentPublicRace();
+      const matchedRace = matchedRaceForUser;
       const targetDist = matchedRace?.targetDistance || Number(body.targetDistance) || 2000;
       const nowMs = Date.now();
 
@@ -595,57 +614,24 @@ export class TelemetryController {
         effectiveUserName = resolvedUserName || body.userName || `Racer_${userId.slice(-4)}`;
       }
 
-      if (matchedRace && userId !== "anonymous") {
-        if (!matchedRace.participants) {
-          matchedRace.participants = new Map();
-        }
-        const isNewParticipant = !matchedRace.participants.has(userId);
-        if (isNewParticipant) {
-          const usedLanes = new Set<number>();
-          for (const p of matchedRace.participants.values()) {
-            if (p.lane) usedLanes.add(p.lane);
+      if (matchedRace && userId !== "anonymous" && matchedRace.participants) {
+        const existingP = matchedRace.participants.get(userId);
+        if (existingP) {
+          // Ne jamais écraser un vrai pseudo par un identifiant Garmin technique
+          if ((!existingP.userName || existingP.userName.startsWith("Garmin_")) && effectiveUserName) {
+            existingP.userName = effectiveUserName;
           }
-          let assignedLane = 1;
-          while (usedLanes.has(assignedLane)) {
-            assignedLane++;
+          existingP.exactDistance = exactDistance;
+          existingP.lastTelemetryAtMs = nowMs;
+          if (isActivelyRowing) {
+            existingP.lastRowedAtMs = nowMs;
           }
-
-          matchedRace.participants.set(userId, {
-            userId,
-            userName: effectiveUserName,
-            joinedAt: new Date(),
-            country,
-            exactDistance,
-            lastTelemetryAtMs: nowMs,
-            lastRowedAtMs: isActivelyRowing ? nowMs : (matchedRace.startedAt ? matchedRace.startedAt.getTime() : nowMs),
-            lastElapsedSec: nextExactElapsed,
-            isPaired: isTelemetryPaired,
-            lane: assignedLane
-          });
-          const incomingDevId = String(body.deviceId || "").trim() || undefined;
-          const incomingDevToken = rawToken || undefined;
-          if (matchedRace.type === "PUBLIC_HOURLY" && (matchedRace.status === "LOBBY" || matchedRace.status === "COUNTDOWN")) {
-            raceManager.notifyPlayerJoinedPublic(userId, effectiveUserName, incomingDevId, incomingDevToken, isTelemetryPaired);
+          existingP.lastElapsedSec = nextExactElapsed;
+          if (isTelemetryPaired) {
+            existingP.isPaired = true;
           }
-        } else {
-          const existingP = matchedRace.participants.get(userId);
-          if (existingP) {
-            // Ne jamais écraser un vrai pseudo par un identifiant Garmin technique
-            if ((!existingP.userName || existingP.userName.startsWith("Garmin_")) && effectiveUserName) {
-              existingP.userName = effectiveUserName;
-            }
-            existingP.exactDistance = exactDistance;
-            existingP.lastTelemetryAtMs = nowMs;
-            if (isActivelyRowing) {
-              existingP.lastRowedAtMs = nowMs;
-            }
-            existingP.lastElapsedSec = nextExactElapsed;
-            if (isTelemetryPaired) {
-              existingP.isPaired = true;
-            }
-            if ((actualPower > 0 || actualSpm > 0) && existingP.ready === false) {
-              raceManager.setParticipantReadyStatus(matchedRace.id, userId, true);
-            }
+          if ((actualPower > 0 || actualSpm > 0) && existingP.ready === false) {
+            raceManager.setParticipantReadyStatus(matchedRace.id, userId, true);
           }
         }
       }
@@ -1097,9 +1083,9 @@ export class TelemetryController {
       }
 
       // QUOTAS PAR OFFRE (SIMULTANÉS ET HEBDOMADAIRES)
-      // Gratuite : 1 simultané, 5 / semaine
-      // Club : 3 simultanés, 10 / semaine
-      // Élite Pro : 5 simultanés, 15 / semaine
+      // Découverte : 1 simultané, 2 / semaine
+      // Compétiteur : 3 simultanés, 5 / semaine
+      // Club / Élite : 5 simultanés, 10 / semaine
       if (!isUserAdmin && hostUserId && hostUserId !== "anonymous") {
         const customConcurrent = (user as any)?.customConcurrentRooms ?? (user as any)?.custom_concurrent_rooms;
         const customWeekly = (user as any)?.customWeeklyRooms ?? (user as any)?.custom_weekly_rooms;
@@ -1110,7 +1096,7 @@ export class TelemetryController {
 
         const maxWeekly = customWeekly !== null && customWeekly !== undefined && Number.isFinite(Number(customWeekly))
           ? Number(customWeekly)
-          : (limits.maxWeeklyRooms !== undefined ? limits.maxWeeklyRooms : 5);
+          : (limits.maxWeeklyRooms !== undefined ? limits.maxWeeklyRooms : 2);
 
         // 1. Vérification du plafond de salons ouverts simultanément
         const activeRoomsCount = raceManager.getActiveRoomsCount(String(hostUserId));
@@ -1283,17 +1269,17 @@ export class TelemetryController {
       const isEmma = isEmmaAdminUser(hostUserId, user?.name);
       const isUserAdmin = Boolean(isEmma || user?.isAdmin);
 
-      const rawTier = String((user?.subscriptionTier as any) || (user?.isSubscriber ? "intermediate" : "free")).toLowerCase().trim();
+      const rawTier = String((user?.subscriptionTier as any) || (user?.isSubscriber ? "competitor" : "free")).toLowerCase().trim();
       const tierId = isEmma
-        ? "premium"
-        : (rawTier === "pro" || rawTier === "elite_pro" ? "premium" : (rawTier === "club" || rawTier === "standard" ? "intermediate" : (rawTier as any) || "free"));
+        ? "club_elite"
+        : normalizeTier(rawTier);
       const tierConfig = await subscriptionPlanService.getLimitsForTier(user || tierId);
 
       const customConcurrent = (user as any)?.customConcurrentRooms ?? (user as any)?.custom_concurrent_rooms;
       const customWeekly = (user as any)?.customWeeklyRooms ?? (user as any)?.custom_weekly_rooms;
 
       const defaultMaxConcurrent = isUserAdmin ? 999 : (tierConfig.maxConcurrentRooms || 1);
-      const defaultMaxWeekly = isUserAdmin ? 999 : (tierConfig.maxWeeklyRooms || 5);
+      const defaultMaxWeekly = isUserAdmin ? 999 : (tierConfig.maxWeeklyRooms || 2);
 
       const maxConcurrent = (!isUserAdmin && customConcurrent !== null && customConcurrent !== undefined && Number.isFinite(Number(customConcurrent)))
         ? Number(customConcurrent)
@@ -1315,9 +1301,9 @@ export class TelemetryController {
         isUserAdmin,
         tier: (isUserAdmin && !user?.subscriptionTier) ? "admin" : tierId,
         tierName: (isUserAdmin && !user?.subscriptionTier) ? "Administrateur" : tierConfig.name,
-        maxBots: (isUserAdmin && !user?.subscriptionTier) ? 20 : (tierConfig.maxBots || (tierId === "premium" ? 5 : (tierId === "intermediate" ? 3 : 1))),
-        maxParticipants: (isUserAdmin && !user?.subscriptionTier) ? 30 : (tierConfig.maxParticipants || (tierId === "premium" ? 10 : (tierId === "intermediate" ? 5 : 2))),
-        maxDistance: isUserAdmin ? 100000 : (tierConfig.maxDistance || 2000),
+        maxBots: (isUserAdmin && !user?.subscriptionTier) ? 20 : (tierConfig.maxBots || (tierId === "club_elite" ? 5 : (tierId === "competitor" ? 3 : 1))),
+        maxParticipants: (isUserAdmin && !user?.subscriptionTier) ? 30 : (tierConfig.maxParticipants || (tierId === "club_elite" ? 10 : (tierId === "competitor" ? 5 : 2))),
+        maxDistance: isUserAdmin ? 100000 : (tierConfig.maxDistance || (tierId === "club_elite" ? 10000 : (tierId === "competitor" ? 5000 : 2000))),
         canCreateDuel1v1: isUserAdmin ? true : Boolean(tierConfig.canCreateDuel1v1 ?? true),
         concurrent: {
           current: activeCount,
@@ -1520,6 +1506,29 @@ export class TelemetryController {
       if (!race) {
         res.status(404).json({ error: "Salon privé introuvable ou expiré." });
         return;
+      }
+
+      if (!registerLane && userId) {
+        const cleanUid = String(userId).trim();
+        const isHost = Boolean(
+          (race.hostUserId && cleanUid.toLowerCase() === race.hostUserId.toLowerCase()) ||
+          (race.originalHostUserId && cleanUid.toLowerCase() === race.originalHostUserId.toLowerCase())
+        );
+        const isEngaged = raceManager.verifyPlayerEngaged(race, { userId: cleanUid }).engaged;
+        if (!isEngaged && !isHost) {
+          if (race.status === "COMPLETED" || race.status === "ABANDONED" || race.status === "STOPPED" || race.status === "CANCELLED") {
+            res.status(410).json({ error: "Ce salon est déjà terminé." });
+            return;
+          }
+          if (race.status === "RUNNING") {
+            res.status(410).json({ error: "Cette course a déjà été lancée." });
+            return;
+          }
+          if (raceManager.getEngagedHumanCount(race) >= raceManager.getEffectiveMaxHumanParticipants(race)) {
+            res.status(409).json({ error: "Salon complet - quota atteint" });
+            return;
+          }
+        }
       }
 
       let assignedLane = 1;
@@ -1864,7 +1873,26 @@ export class TelemetryController {
       }
 
       if (userId && !isHost) {
-        if (race.isBotDuel) {
+        if (race.status === "COMPLETED" || race.status === "ABANDONED" || race.status === "STOPPED" || race.status === "CANCELLED") {
+          res.status(410).json({
+            error: "Ce salon est déjà terminé.",
+            status: "rejected",
+            approvalStatus: "rejected",
+            raceId: race.id
+          });
+          return;
+        }
+        if (race.status === "RUNNING" && (!race.participants || !race.participants.has(userId))) {
+          res.status(410).json({
+            error: "Cette course a déjà été lancée.",
+            status: "rejected",
+            approvalStatus: "rejected",
+            raceId: race.id
+          });
+          return;
+        }
+
+        if (race.isBotDuel || race.isSolo) {
           const currentHost = String(race.hostUserId || "");
           const isWebSessionHost =
             !currentHost ||
@@ -1894,7 +1922,7 @@ export class TelemetryController {
             }
           } else {
             res.status(403).json({
-              error: "Ce duel contre un bot est réservé à son créateur",
+              error: race.isSolo ? "Cette course solo est réservée à son créateur" : "Ce duel contre un bot est réservé à son créateur",
               status: "rejected",
               approvalStatus: "rejected",
               raceId: race.id
@@ -1903,8 +1931,10 @@ export class TelemetryController {
           }
         }
 
+        const engagedHumans = raceManager.getEngagedHumanCount(race);
+        const maxHumans = raceManager.getEffectiveMaxHumanParticipants(race);
         const isDuel1v1 = Boolean(race.isDuel1v1);
-        if (isDuel1v1 && race.participants && !race.participants.has(userId) && race.participants.size >= 2) {
+        if (isDuel1v1 && race.participants && !race.participants.has(userId) && engagedHumans >= 2) {
           res.status(409).json({
             error: "Salon complet - quota atteint",
             status: "rejected",
@@ -1914,7 +1944,7 @@ export class TelemetryController {
           return;
         }
 
-        if (race.participants && !race.participants.has(userId) && race.participants.size >= race.maxParticipants) {
+        if (race.participants && !race.participants.has(userId) && engagedHumans >= maxHumans) {
           res.status(409).json({
             error: "Salon complet - quota atteint",
             status: "rejected",
@@ -1967,6 +1997,22 @@ export class TelemetryController {
           });
           return;
         }
+
+        if (!isApproved && !race.requireApproval) {
+          const joined = raceManager.joinPrivateRace(race.id, userId, userName || undefined, undefined, {
+            viaPin: true
+          });
+          if ("error" in joined) {
+            res.status(joined.statusCode).json({
+              error: joined.error,
+              status: "rejected",
+              approvalStatus: "rejected",
+              raceId: race.id
+            });
+            return;
+          }
+          matched.lane = joined.lane;
+        }
       }
 
       if (userId && race.isBotDuel && race.status === "LOBBY") {
@@ -2000,6 +2046,41 @@ export class TelemetryController {
     }
 
     const pubRace = matched.race;
+    if (pubRace && userId) {
+      const isEngaged = raceManager.verifyPlayerEngaged(pubRace, { userId }).engaged;
+      if (!isEngaged) {
+        if (pubRace.status === "RUNNING" || pubRace.status === "COMPLETED" || pubRace.status === "ABANDONED" || pubRace.status === "STOPPED") {
+          res.status(410).json({
+            error: "Cette course a déjà été lancée.",
+            status: "rejected",
+            approvalStatus: "rejected",
+            raceId: pubRace.id
+          });
+          return;
+        }
+        const maxAllowed = raceManager.getEffectiveMaxHumanParticipants(pubRace);
+        if (raceManager.getEngagedHumanCount(pubRace) >= maxAllowed) {
+          res.status(409).json({
+            error: `La course publique est complète (${maxAllowed} participants maximum).`,
+            status: "rejected",
+            approvalStatus: "rejected",
+            raceId: pubRace.id
+          });
+          return;
+        }
+        const accepted = raceManager.notifyPlayerJoinedPublic(userId, userName || undefined);
+        if (!accepted) {
+          res.status(409).json({
+            error: `La course publique est complète (${maxAllowed} participants maximum).`,
+            status: "rejected",
+            approvalStatus: "rejected",
+            raceId: pubRace.id
+          });
+          return;
+        }
+      }
+      matched.lane = pubRace.participants?.get(userId)?.lane || matched.lane;
+    }
     const remainingSec = pubRace
       ? Math.max(0, Math.floor((pubRace.lobbyEndsAt.getTime() - Date.now()) / 1000))
       : 600;

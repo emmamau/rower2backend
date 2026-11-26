@@ -378,6 +378,7 @@ export class AppComponent implements OnInit, OnDestroy {
   // Offres d'abonnement
   isSubscriptionModalOpen = false;
   subscriptionTiers: any[] = [];
+  pioneerMode = true;
   subscriptionStatus: any = null;
   subscriptionLoading = false;
   subscriptionError = '';
@@ -4855,7 +4856,10 @@ export class AppComponent implements OnInit, OnDestroy {
     this.subscriptionSuccessMessage = '';
     this.rowerService.getSubscriptionTiers().subscribe({
       next: (res) => {
-        if (res.success) this.subscriptionTiers = res.tiers;
+        if (res.success) {
+          this.subscriptionTiers = res.tiers;
+          this.pioneerMode = res.pioneerMode !== false;
+        }
         this.cdr.markForCheck();
       }
     });
@@ -4875,13 +4879,18 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   isTierActive(tierId: string): boolean {
+    if (this.pioneerMode) return true;
     const clean = String(tierId || '').toLowerCase().trim();
     const tier = (this.subscriptionTiers || []).find((t: any) => {
       const code = String(t.code || t.id || '').toLowerCase().trim();
-      return code === clean || (clean === 'intermediate' && code === 'standard') || (clean === 'premium' && code === 'elite_pro');
+      return code === clean ||
+        (clean === 'competitor' && (code === 'intermediate' || code === 'standard' || code === 'club')) ||
+        (clean === 'club_elite' && (code === 'premium' || code === 'pro' || code === 'elite_pro')) ||
+        (clean === 'intermediate' && code === 'standard') ||
+        (clean === 'premium' && code === 'elite_pro');
     });
-    if (!tier) return false;
-    return tier.isActive === true;
+    if (!tier) return true;
+    return tier.isActive !== false;
   }
 
   subscribeToTier(tierId: string): void {
@@ -4891,7 +4900,14 @@ export class AppComponent implements OnInit, OnDestroy {
       return;
     }
 
-    if (!this.isTierActive(tierId)) {
+    const cleanTier = String(tierId || '').toLowerCase().trim();
+    const normalizedTier = (cleanTier === 'intermediate' || cleanTier === 'standard' || cleanTier === 'club')
+      ? 'competitor'
+      : (cleanTier === 'premium' || cleanTier === 'pro' || cleanTier === 'elite_pro')
+      ? 'club_elite'
+      : cleanTier;
+
+    if (!this.isTierActive(normalizedTier)) {
       this.subscriptionError = this.i18n.translateError('ERR_SUB_DISABLED');
       this.cdr.markForCheck();
       return;
@@ -4899,15 +4915,48 @@ export class AppComponent implements OnInit, OnDestroy {
 
     this.subscriptionLoading = true;
     this.subscriptionError = '';
-    this.rowerService.createSubscriptionCheckout(this.activeUserId, tierId).subscribe({
+
+    // En mode Pionnier : activation gratuite instantanée sans Stripe
+    if (this.pioneerMode && normalizedTier !== 'free') {
+      this.rowerService.activatePioneerPlan(this.activeUserId, normalizedTier).subscribe({
+        next: (res) => {
+          this.subscriptionLoading = false;
+          if (res.success) {
+            this.subscriptionSuccessMessage = res.message || 'Accès Pionnier activé avec succès !';
+            this.currentUser.isSubscriber = true;
+            this.currentUser.subscriptionTier = res.tier || normalizedTier;
+            if (this.subscriptionStatus) {
+              this.subscriptionStatus.tier = res.tier || normalizedTier;
+              this.subscriptionStatus.isSubscriber = true;
+              this.subscriptionStatus.isPioneer = true;
+              this.subscriptionStatus.limits = res.limits;
+            }
+            if (typeof localStorage !== 'undefined') {
+              localStorage.setItem('rower_subscription_tier', res.tier || normalizedTier);
+              localStorage.setItem('rower_is_subscriber', 'true');
+            }
+            this.cdr.markForCheck();
+          }
+        },
+        error: (err) => {
+          this.subscriptionLoading = false;
+          this.subscriptionError = this.i18n.translateError(err.error?.message ? err : 'ERR_SUB_CHECKOUT');
+          this.cdr.markForCheck();
+        }
+      });
+      return;
+    }
+
+    // Hors mode Pionnier ou retour au plan gratuit : checkout standard
+    this.rowerService.createSubscriptionCheckout(this.activeUserId, normalizedTier).subscribe({
       next: (res) => {
         this.subscriptionLoading = false;
         if (res.checkoutUrl) {
           window.location.href = res.checkoutUrl;
         } else if (res.success) {
           this.subscriptionSuccessMessage = res.message || 'Abonnement activé avec succès !';
-          this.currentUser.isSubscriber = tierId !== 'free';
-          this.currentUser.subscriptionTier = tierId;
+          this.currentUser.isSubscriber = normalizedTier !== 'free';
+          this.currentUser.subscriptionTier = normalizedTier;
           this.cdr.markForCheck();
         }
       },

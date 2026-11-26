@@ -76,8 +76,10 @@ export interface UserAttributes {
   passwordHash?: string;    // Hash du mot de passe
   passwordSalt?: string;    // Sel cryptographique du mot de passe
   isSubscriber?: boolean;   // Statut abonné (droit de créer des salons privés)
-  subscriptionTier?: 'free' | 'intermediate' | 'premium'; // 'free' (gratuit) | 'intermediate' (5.99€) | 'premium' (8.99€)
+  subscriptionTier?: 'free' | 'competitor' | 'club_elite' | 'intermediate' | 'premium' | string; // 'free' (gratuit) | 'competitor' (5.99€) | 'club_elite' (8.99€)
   subscriptionStatus?: string; // 'active' | 'cancelled' | 'expired' | 'none'
+  isPioneer?: boolean;      // Bénéficiaire de l'accès Pionnier gratuit (phase de lancement)
+  pioneerActivatedAt?: Date; // Date d'activation de l'accès Pionnier
   lemonCustomerId?: string;
   lemonSubscriptionId?: string;
   stripeCustomerId?: string;
@@ -205,6 +207,16 @@ export default (sequelize: Sequelize, _DataTypesInstance: typeof DataTypes): Use
         type: DataTypes.STRING(32),
         field: "subscription_status",
         defaultValue: "none",
+      },
+      isPioneer: {
+        type: DataTypes.BOOLEAN,
+        field: "is_pioneer",
+        defaultValue: false,
+      },
+      pioneerActivatedAt: {
+        type: DataTypes.DATE,
+        field: "pioneer_activated_at",
+        allowNull: true,
       },
       lemonCustomerId: {
         type: DataTypes.STRING(64),

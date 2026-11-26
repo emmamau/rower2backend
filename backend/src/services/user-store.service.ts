@@ -26,8 +26,10 @@ export interface StoredUser {
   passwordHash?: string;
   passwordSalt?: string;
   isSubscriber: boolean;
-  subscriptionTier?: "free" | "intermediate" | "premium" | string;
+  subscriptionTier?: "free" | "competitor" | "club_elite" | "intermediate" | "premium" | string;
   subscriptionStatus?: "active" | "canceled" | "past_due" | "none" | string;
+  isPioneer?: boolean;
+  pioneerActivatedAt?: Date;
   lemonCustomerId?: string;
   lemonSubscriptionId?: string;
   stripeCustomerId?: string;

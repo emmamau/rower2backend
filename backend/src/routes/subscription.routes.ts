@@ -6,6 +6,9 @@ export default (app: Application): void => {
 
   router.get("/tiers", subscriptionController.getSubscriptionTiers);
   router.get("/status/:userId", subscriptionController.getUserSubscriptionStatus);
+  router.post("/activate-pioneer", subscriptionController.activatePioneer);
+  router.get("/pioneer-stats", subscriptionController.getPioneerStats);
+  router.post("/toggle-pioneer", subscriptionController.togglePioneerMode);
   router.post("/checkout", subscriptionController.createCheckoutSession);
   router.get("/simulate-checkout", subscriptionController.simulateCheckout);
   router.post("/simulate-checkout", subscriptionController.simulateCheckout);

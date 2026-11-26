@@ -20,7 +20,7 @@ export const getStripeClient = (): Stripe | null => {
 
 export interface CreateStripeCheckoutParams {
   userId: string;
-  tier: "intermediate" | "premium";
+  tier: "competitor" | "club_elite" | "intermediate" | "premium" | string;
   customerEmail?: string;
   customerName?: string;
   successUrl: string;
@@ -58,8 +58,10 @@ export class StripeService {
     const tierConfig = SUBSCRIPTION_TIERS[tier] || SUBSCRIPTION_TIERS.intermediate;
 
     // Détermination de l'ID de prix récurrent
-    const configuredPriceId =
-      tier === "premium" ? process.env.STRIPE_PRICE_PREMIUM : process.env.STRIPE_PRICE_CLUB;
+    const isClubElite = tier === "club_elite" || tier === "premium" || tier === "pro";
+    const configuredPriceId = isClubElite
+      ? (process.env.STRIPE_PRICE_CLUB_ELITE || process.env.STRIPE_PRICE_PREMIUM)
+      : (process.env.STRIPE_PRICE_COMPETITOR || process.env.STRIPE_PRICE_CLUB || process.env.STRIPE_PRICE_INTERMEDIATE);
 
     // Suffixe aléatoire de 8 lettres pour le tag integration_identifier
     const randomSuffix = Math.random().toString(36).substring(2, 10);

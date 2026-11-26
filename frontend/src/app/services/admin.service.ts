@@ -195,6 +195,25 @@ export interface SubscriptionPlanItem {
   isActive: boolean;
 }
 
+export interface PioneerUserItem {
+  id: string;
+  name: string;
+  email: string;
+  subscriptionTier: string;
+  pioneerActivatedAt: string | null;
+  createdAt: string | null;
+}
+
+export interface AdminPioneerStatsResponse {
+  success: boolean;
+  pioneerMode: boolean;
+  totalPioneers: number;
+  competitorCount: number;
+  clubEliteCount: number;
+  pioneers: PioneerUserItem[];
+  recentInterests?: any[];
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -424,6 +443,21 @@ export class AdminService {
   deletePlan(planId: number | string): Observable<{ success: boolean; message: string }> {
     return this.http.delete<{ success: boolean; message: string }>(
       `${this.apiUrl}/api/admin/plans/${planId}`,
+      { headers: this.getAuthHeaders() }
+    );
+  }
+
+  getPioneerStats(): Observable<AdminPioneerStatsResponse> {
+    return this.http.get<AdminPioneerStatsResponse>(
+      `${this.apiUrl}/api/admin/pioneer/stats`,
+      { headers: this.getAuthHeaders() }
+    );
+  }
+
+  togglePioneerMode(active?: boolean): Observable<{ success: boolean; pioneerMode: boolean; message: string }> {
+    return this.http.post<{ success: boolean; pioneerMode: boolean; message: string }>(
+      `${this.apiUrl}/api/admin/pioneer/toggle`,
+      { active },
       { headers: this.getAuthHeaders() }
     );
   }

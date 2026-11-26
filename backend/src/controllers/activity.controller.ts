@@ -52,10 +52,57 @@ export const syncActivity = async (req: Request, res: Response): Promise<void> =
       deviceToken: rawToken,
       deviceId,
     });
-    const userId = identity.userId;
-    const userName = identity.userName;
+    let userId = identity.userId;
+    let userName = identity.userName;
 
-    const actualActivityId = activityId || (await getOrCreateCurrentRace()).id;
+    const rawActId = activityId ? String(activityId).trim() : "";
+    const isPublicTarget = !rawActId || rawActId.toUpperCase() === "PUBLIC";
+    const matchedRace = isPublicTarget
+      ? raceManager.getCurrentPublicRace()
+      : (raceManager.getRaceById(rawActId) || raceManager.findPrivateRace(rawActId));
+
+    const isManagedRaceFormat =
+      Boolean(matchedRace) ||
+      isPublicTarget ||
+      rawActId.startsWith("PRIV_") ||
+      /^RACE_\d{8}/i.test(rawActId);
+
+    if (isManagedRaceFormat) {
+      if (!matchedRace || ["ABANDONED", "STOPPED", "CANCELLED"].includes(matchedRace.status)) {
+        res.status(403).json({
+          success: false,
+          error: "Course introuvable, terminée ou arrêtée. Appel HTTPS refusé.",
+          message: "Course introuvable, terminée ou arrêtée. Appel HTTPS refusé.",
+        });
+        return;
+      }
+
+      const engagement = raceManager.verifyPlayerEngaged(matchedRace, {
+        userId,
+        rawUserId: rawUserId ? String(rawUserId) : undefined,
+        deviceToken: rawToken || undefined,
+        deviceId: deviceId ? String(deviceId) : undefined,
+        userName: userName || (rawUserName ? String(rawUserName) : undefined),
+      });
+
+      if (!engagement.engaged) {
+        res.status(403).json({
+          success: false,
+          error: "Joueur non engagé sur cette course. Appel HTTPS ignoré.",
+          message: "Joueur non engagé sur cette course. Appel HTTPS ignoré.",
+        });
+        return;
+      }
+
+      if (engagement.canonicalUserId) {
+        userId = engagement.canonicalUserId;
+      }
+      if (!userName && engagement.participant?.userName) {
+        userName = engagement.participant.userName;
+      }
+    }
+
+    const actualActivityId = matchedRace?.id || rawActId || (await getOrCreateCurrentRace()).id;
     const compositeId = `${actualActivityId}_${userId}`;
 
     // Récupération de l'unique ligne de cette activité

@@ -290,74 +290,109 @@ export const joinRace = async (req: Request, res: Response): Promise<void> => {
     const actualRaceId = state.id;
     const compositeId = `${actualRaceId}_${userId}`;
 
-    let currentCount = 0;
-    try {
-      currentCount = await Activities.count({
-        where: { activityId: actualRaceId, status: { [Op.ne]: "abandoned" }, isBot: false },
+    // Vérifier si ce joueur (ou cette même montre physique) est déjà engagé sur la course publique courante
+    const existingEngagement = raceManager.verifyPlayerEngaged(state, {
+      userId,
+      rawUserId,
+      deviceToken,
+      deviceId,
+      userName: cleanUserName,
+    });
+
+    // Dès que la course publique est lancée (RUNNING), aucun nouveau joueur non engagé ne peut la rejoindre
+    if (isRunning && !existingEngagement.engaged) {
+      res.status(409).json({
+        success: false,
+        error: "La course publique est déjà en cours. Les inscriptions sont fermées.",
+        message: "La course publique est déjà en cours. Les inscriptions sont fermées.",
       });
-    } catch {
-      currentCount = state.participants ? state.participants.size : 0;
+      return;
     }
 
-    const maxAllowed = state.maxParticipants || 20;
+    const maxAllowed = raceManager.getEffectiveMaxHumanParticipants(state);
+    let currentCount = raceManager.getEngagedHumanCount(state);
+    try {
+      const dbCount = await Activities.count({
+        where: { activityId: actualRaceId, status: { [Op.ne]: "abandoned" }, isBot: false },
+      });
+      currentCount = Math.max(currentCount, dbCount);
+    } catch {}
+
     let existingActivity: any = null;
     try {
       existingActivity = await Activities.findByPk(compositeId);
     } catch {}
+    if (!existingActivity) {
+      existingActivity = userStore.findActivityById(compositeId);
+    }
 
-    if (currentCount >= maxAllowed && !existingActivity) {
+    const isAlreadyRegistered = Boolean(existingEngagement.engaged || (existingActivity && existingActivity.status !== "abandoned"));
+
+    if (currentCount >= maxAllowed && !isAlreadyRegistered) {
       res.status(409).json({
         success: false,
+        error: `La course publique est complète (${maxAllowed} participants maximum).`,
         message: `La course publique est complète (${maxAllowed} participants maximum).`,
       });
       return;
     }
 
-    // Le statut de départ : si rejoint en retard dans une course en cours -> in_progress immédiat
-    const playerStatus = isRunning && action === "join_late" ? "in_progress" : "waiting";
+    // Dédoublonnage et enregistrement dans le gestionnaire de course (avec contrôle strict du plafond admin)
+    if (!isRunning && (state.status === "LOBBY" || state.status === "COUNTDOWN")) {
+      const accepted = raceManager.notifyPlayerJoinedPublic(userId, cleanUserName, deviceId, deviceToken, identity.isPaired);
+      if (!accepted && !isAlreadyRegistered) {
+        res.status(409).json({
+          success: false,
+          error: `La course publique est complète (${maxAllowed} participants maximum).`,
+          message: `La course publique est complète (${maxAllowed} participants maximum).`,
+        });
+        return;
+      }
+    }
+
+    // Le statut de départ : en attente si en LOBBY/COUNTDOWN, ou in_progress si reconnexion d'un joueur déjà engagé
+    const playerStatus = isRunning ? "in_progress" : "waiting";
 
     let activity = existingActivity;
     if (!activity) {
       const user = await userStore.findUser(String(userId));
       const country = user?.country || user?.pays || (await IpGeoService.resolveCountryFromRequest(req));
       const finalName = cleanUserName || user?.name || `Racer_${String(userId).slice(-4)}`;
+      const actRecord = {
+        id: compositeId,
+        activityId: actualRaceId,
+        userId,
+        userName: finalName,
+        country,
+        raceMode: "race",
+        targetDistance: state.targetDistance || 10000,
+        status: playerStatus,
+        initialDistance: 0,
+        currentDistance: 0,
+        netDistance: 0,
+        progressPercent: 0,
+        lastStrokeRate: 0,
+        lastStrokeCount: 0,
+        lastPower: 0,
+        lastPace: 0,
+        lastHeartRate: 0,
+        lastResistance: 1,
+        avgPower: 0,
+        avgPace: 0,
+        avgStrokeRate: 0,
+        totalStrokes: 0,
+        totalEnergy: 0,
+        elapsedTime: 0,
+        avgSpeedKmh: 0,
+        isBot: false,
+      };
+      userStore.recordActivity(actRecord);
 
       try {
-        activity = await Activities.create({
-          id: compositeId,
-          activityId: actualRaceId,
-          userId,
-          userName: finalName,
-          country,
-          raceMode: "race",
-          targetDistance: state.targetDistance || 10000,
-          status: playerStatus,
-          initialDistance: 0,
-          currentDistance: 0,
-          netDistance: 0,
-          progressPercent: 0,
-          lastStrokeRate: 0,
-          lastStrokeCount: 0,
-          lastPower: 0,
-          lastPace: 0,
-          lastHeartRate: 0,
-          lastResistance: 1,
-          avgPower: 0,
-          avgPace: 0,
-          avgStrokeRate: 0,
-          totalStrokes: 0,
-          totalEnergy: 0,
-          elapsedTime: 0,
-          avgSpeedKmh: 0,
-        });
+        activity = await Activities.create(actRecord as any);
       } catch {
         activity = {
-          id: compositeId,
-          activityId: actualRaceId,
-          userId,
-          userName: finalName,
-          status: playerStatus,
-          netDistance: 0,
+          ...actRecord,
           update: async () => {},
           toJSON: () => ({ id: compositeId, userId, userName: finalName, status: playerStatus })
         };
@@ -370,14 +405,6 @@ export const joinRace = async (req: Request, res: Response): Promise<void> => {
           userName: finalName,
         });
       } catch {}
-    }
-
-    // Dédoublonnage et notification dans le gestionnaire de course (avec deviceId et login Garmin)
-    if (!isRunning && (state.status === "LOBBY" || state.status === "COUNTDOWN")) {
-      raceManager.notifyPlayerJoinedPublic(userId, cleanUserName, deviceId, deviceToken, identity.isPaired);
-    } else if (state.participants) {
-      // Si course déjà lancée, assurer le dédoublonnage de lignes d'eau
-      raceManager.notifyPlayerJoinedPublic(userId, cleanUserName, deviceId, deviceToken, identity.isPaired);
     }
 
     const assignedLane = state.participants?.get(userId)?.lane || 1;
@@ -946,6 +973,20 @@ export const toggleBots = async (req: Request, res: Response): Promise<void> => 
     const actualRaceId = race ? String(race.get("id")) : (raceId ? String(raceId) : "RACE_DEFAULT");
     // Course pilotée par le RaceManager (publique courante) : source de vérité de l'état
     const managedRace = raceManager.getRaceById(actualRaceId);
+    if (managedRace && managedRace.type === "PUBLIC_HOURLY" && userId) {
+      const cleanUid = String(userId).trim();
+      const userObj = await userStore.findUser(cleanUid);
+      const isAdmin = Boolean(isEmmaAdminUser(cleanUid, userObj?.name) || userObj?.isAdmin);
+      const isEngaged = raceManager.verifyPlayerEngaged(managedRace, { userId: cleanUid }).engaged;
+      if (!isAdmin && !isEngaged) {
+        res.status(403).json({
+          success: false,
+          error: "Joueur non engagé sur cette course.",
+          message: "Joueur non engagé sur cette course.",
+        });
+        return;
+      }
+    }
     const targetDist = managedRace?.targetDistance || (race ? (race.get("targetDistance") as number) : 10000) || 10000;
     const isRunning = managedRace ? managedRace.status === "RUNNING" : (race ? race.get("status") === "in_progress" : false);
     const isCountdown = managedRace ? managedRace.status === "COUNTDOWN" : (race ? race.get("status") === "countdown" : false);

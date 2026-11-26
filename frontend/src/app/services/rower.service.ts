@@ -447,12 +447,20 @@ export class RowerService {
   }
 
   // Abonnements (3 offres)
-  getSubscriptionTiers(): Observable<{ success: boolean; tiers: any[] }> {
-    return this.http.get<{ success: boolean; tiers: any[] }>(`${this.apiUrl}/api/v1/subscriptions/tiers`);
+  getSubscriptionTiers(): Observable<{ success: boolean; pioneerMode?: boolean; tiers: any[] }> {
+    return this.http.get<{ success: boolean; pioneerMode?: boolean; tiers: any[] }>(`${this.apiUrl}/api/v1/subscriptions/tiers`);
   }
 
   getUserSubscriptionStatus(userId: string): Observable<any> {
     return this.http.get<any>(`${this.apiUrl}/api/v1/subscriptions/status/${encodeURIComponent(userId)}`);
+  }
+
+  activatePioneerPlan(userId: string, plan: string, sourceTrigger: string = 'pioneer_modal'): Observable<any> {
+    return this.http.post<any>(`${this.apiUrl}/api/v1/subscriptions/activate-pioneer`, {
+      userId,
+      plan,
+      sourceTrigger
+    });
   }
 
   createSubscriptionCheckout(

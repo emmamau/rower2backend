@@ -99,7 +99,7 @@ class RestSyncManager {
             if (responseCode == 200 && data != null && data instanceof Dictionary) {
                 (_delegate as BleDelegate).onJoinRaceReceived(data as Dictionary);
             } else {
-                (_delegate as BleDelegate).onJoinRaceReceived(null);
+                (_delegate as BleDelegate).onJoinRaceFailed(responseCode, data);
             }
         }
     }
@@ -479,7 +479,7 @@ class RestSyncManager {
                 }
             } else {
                 // Notifier l'échec de validation du code PIN
-                if (responseCode == 404 || responseCode == 400 || responseCode == 401) {
+                if (responseCode == 404 || responseCode == 400 || responseCode == 401 || responseCode == 403 || responseCode == 409 || responseCode == 410) {
                     (_delegate as BleDelegate).onPinJoinFailed(responseCode, data);
                 } else if (_lastClaimedCode.length() > 0) {
                     // En cas d'échec sur /api/session/claim (ex: timeout ou réseau), tenter le fallback claimGuestTicket pour compatibilité

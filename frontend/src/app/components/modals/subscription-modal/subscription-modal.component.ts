@@ -14,6 +14,7 @@ export class SubscriptionModalComponent {
   @Input() subscriptionStatus: any = null;
   @Input() subscriptionLoading = false;
   @Input() subscriptionTiers: any[] = [];
+  @Input() pioneerMode = true;
   @Input() subscriptionSuccessMessage = '';
   @Input() subscriptionError = '';
 
@@ -26,18 +27,40 @@ export class SubscriptionModalComponent {
     this.subscribeToTierRequest.emit(tierId);
   }
 
+  get userTier(): 'free' | 'competitor' | 'club_elite' {
+    const raw = String(this.subscriptionStatus?.tier || '').toLowerCase().trim();
+    if (raw === 'competitor' || raw === 'intermediate' || raw === 'standard' || raw === 'club') return 'competitor';
+    if (raw === 'club_elite' || raw === 'premium' || raw === 'pro' || raw === 'elite_pro') return 'club_elite';
+    return 'free';
+  }
+
+  isCurrentTier(tierId: string): boolean {
+    const clean = String(tierId || '').toLowerCase().trim();
+    const current = this.userTier;
+    if (clean === 'free') return current === 'free';
+    if (clean === 'competitor' || clean === 'intermediate') return current === 'competitor';
+    if (clean === 'club_elite' || clean === 'premium') return current === 'club_elite';
+    return false;
+  }
+
   isTierActive(tierId: string): boolean {
+    if (this.pioneerMode) return true;
     const clean = String(tierId || '').toLowerCase().trim();
     const tier = (this.subscriptionTiers || []).find((t: any) => {
       const code = String(t.code || t.id || '').toLowerCase().trim();
-      return code === clean || (clean === 'intermediate' && code === 'standard') || (clean === 'premium' && code === 'elite_pro');
+      return code === clean ||
+        (clean === 'competitor' && (code === 'intermediate' || code === 'standard' || code === 'club')) ||
+        (clean === 'club_elite' && (code === 'premium' || code === 'pro' || code === 'elite_pro')) ||
+        (clean === 'intermediate' && code === 'standard') ||
+        (clean === 'premium' && code === 'elite_pro');
     });
-    if (!tier) return false;
-    return tier.isActive === true;
+    if (!tier) return true;
+    return tier.isActive !== false;
   }
 
   hasPaidTierActive(): boolean {
-    if (this.isTierActive('intermediate') || this.isTierActive('premium')) {
+    if (this.pioneerMode) return true;
+    if (this.isTierActive('competitor') || this.isTierActive('club_elite')) {
       return true;
     }
     return (this.subscriptionTiers || []).some((t: any) => {

@@ -96,7 +96,8 @@ export class SessionController {
       });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
-      res.status(400).json({
+      const statusCode = (err as any)?.statusCode || 400;
+      res.status(statusCode).json({
         success: false,
         error: message,
         message,

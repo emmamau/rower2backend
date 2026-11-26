@@ -58,6 +58,12 @@ export class AdminInitService {
             IF NOT EXISTS (SELECT FROM information_schema.columns WHERE table_name = 'rower_race_users' AND column_name = 'custom_weekly_rooms') THEN
               ALTER TABLE rower_race_users ADD COLUMN custom_weekly_rooms INTEGER NULL;
             END IF;
+            IF NOT EXISTS (SELECT FROM information_schema.columns WHERE table_name = 'rower_race_users' AND column_name = 'is_pioneer') THEN
+              ALTER TABLE rower_race_users ADD COLUMN is_pioneer BOOLEAN DEFAULT FALSE;
+            END IF;
+            IF NOT EXISTS (SELECT FROM information_schema.columns WHERE table_name = 'rower_race_users' AND column_name = 'pioneer_activated_at') THEN
+              ALTER TABLE rower_race_users ADD COLUMN pioneer_activated_at TIMESTAMP NULL;
+            END IF;
           END IF;
 
           -- Colonnes sur users (si présente)
@@ -128,51 +134,51 @@ export class AdminInitService {
   }
 
   /**
-   * 3. Table des offres et quotas (subscription_plans) : FREE, STANDARD, PREMIUM
+   * 3. Table des offres et quotas (subscription_plans) : FREE, COMPETITOR, CLUB_ELITE
    */
   public static async ensureSubscriptionPlans(): Promise<void> {
     const defaultPlans = [
       {
         code: "FREE",
-        name: "Offre Gratuite",
-        description: "Accès de base : 1 bot, courses 2 000 m max, 2 joueurs par salon privé.",
+        name: "Découverte",
+        description: "Accès de base : 1 bot, courses 2 000 m max, 2 joueurs par salon privé, 2 salons/semaine.",
         priceMonthly: 0,
         priceYearly: 0,
         maxBotsPerRace: 1,
         maxRaceDistanceM: 2000,
         maxPlayersPerRoom: 2,
         maxConcurrentRooms: 1,
-        maxRoomsPerWeek: 5,
+        maxRoomsPerWeek: 2,
         canCreateDuel1v1: true,
         canScheduleRaces: false,
         isActive: true,
       },
       {
-        code: "STANDARD",
-        name: "Offre Club",
-        description: "Offre Club complète : jusqu'à 3 bots, 5 000 m, 5 rameurs par salon, planification horaire.",
+        code: "COMPETITOR",
+        name: "Compétiteur",
+        description: "Offre Compétiteur : jusqu'à 3 bots, 5 000 m, 5 rameurs par salon, 5 salons/semaine, ligues Argent/Or & planification horaire.",
         priceMonthly: 5.99,
         priceYearly: 59.99,
         maxBotsPerRace: 3,
         maxRaceDistanceM: 5000,
         maxPlayersPerRoom: 5,
         maxConcurrentRooms: 3,
-        maxRoomsPerWeek: 10,
+        maxRoomsPerWeek: 5,
         canCreateDuel1v1: true,
         canScheduleRaces: true,
         isActive: true,
       },
       {
-        code: "PREMIUM",
-        name: "Offre Élite Pro",
-        description: "Accès total : 5 bots configurables, 10 000 m, 10 rameurs par salon, salons simultanés étendus.",
+        code: "CLUB_ELITE",
+        name: "Club / Élite",
+        description: "Accès total : 5 bots configurables, 10 000 m, 10 rameurs par salon, 10 salons/semaine, export complet et support prioritaire.",
         priceMonthly: 8.99,
         priceYearly: 89.99,
         maxBotsPerRace: 5,
         maxRaceDistanceM: 10000,
         maxPlayersPerRoom: 10,
         maxConcurrentRooms: 5,
-        maxRoomsPerWeek: 15,
+        maxRoomsPerWeek: 10,
         canCreateDuel1v1: true,
         canScheduleRaces: true,
         isActive: true,
@@ -181,10 +187,25 @@ export class AdminInitService {
 
     for (const plan of defaultPlans) {
       try {
-        const [existing, created] = await SubscriptionPlans.findOrCreate({
+        const [planRow, created] = await SubscriptionPlans.findOrCreate({
           where: { code: plan.code },
           defaults: plan as any,
         });
+        if (!created && planRow) {
+          await planRow.update({
+            name: plan.name,
+            description: plan.description,
+            priceMonthly: plan.priceMonthly,
+            priceYearly: plan.priceYearly,
+            maxBotsPerRace: plan.maxBotsPerRace,
+            maxRaceDistanceM: plan.maxRaceDistanceM,
+            maxPlayersPerRoom: plan.maxPlayersPerRoom,
+            maxConcurrentRooms: plan.maxConcurrentRooms,
+            maxRoomsPerWeek: plan.maxRoomsPerWeek,
+            canCreateDuel1v1: plan.canCreateDuel1v1,
+            canScheduleRaces: plan.canScheduleRaces,
+          });
+        }
         if (created) {
           console.log(`[AdminInit] Offre par défaut ${plan.code} (${plan.name}) initialisée.`);
         }
@@ -192,6 +213,28 @@ export class AdminInitService {
         console.warn(`[AdminInit] Offre ${plan.code} vérifiée.`);
       }
     }
+
+    // Migration transparente des anciens codes STANDARD et PREMIUM si présents
+    try {
+      const legacyStandard = await SubscriptionPlans.findOne({ where: { code: "STANDARD" } });
+      if (legacyStandard) {
+        await legacyStandard.update({
+          name: "Compétiteur",
+          maxRoomsPerWeek: 5,
+          maxPlayersPerRoom: 5,
+          maxRaceDistanceM: 5000,
+        });
+      }
+      const legacyPremium = await SubscriptionPlans.findOne({ where: { code: "PREMIUM" } });
+      if (legacyPremium) {
+        await legacyPremium.update({
+          name: "Club / Élite",
+          maxRoomsPerWeek: 10,
+          maxPlayersPerRoom: 10,
+          maxRaceDistanceM: 10000,
+        });
+      }
+    } catch {}
   }
 
   /**
