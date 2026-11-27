@@ -11,7 +11,7 @@ import uvicorn
 
 from store import SimulatorStore
 from engine import SimulationEngine
-from test_users_seeder import seed_and_pair_test_users
+from test_users_seeder import seed_and_pair_test_users, reset_and_recreate_test_users
 
 store = SimulatorStore(count=30, filepath="simulator/virtual_watches.json")
 engine = SimulationEngine(store)
@@ -73,6 +73,14 @@ class FleetEnableRequest(BaseModel):
     enabled: Optional[bool] = None
 
 class SeedUsersRequest(BaseModel):
+    count: Optional[int] = 30
+    password: Optional[str] = "RowerTest2026!"
+    prefix: Optional[str] = "test_runner_"
+    only_enabled: Optional[bool] = False
+
+class ResetUsersRequest(BaseModel):
+    admin_login: str
+    admin_password: str
     count: Optional[int] = 30
     password: Optional[str] = "RowerTest2026!"
     prefix: Optional[str] = "test_runner_"
@@ -429,6 +437,18 @@ async def seed_users(req: Optional[SeedUsersRequest] = None):
         only_enabled=only_enabled
     )
     return res
+
+@app.post("/api/reset-users")
+async def reset_users(req: ResetUsersRequest):
+    return await reset_and_recreate_test_users(
+        store,
+        admin_login=req.admin_login,
+        admin_password=req.admin_password,
+        count=req.count or 30,
+        common_password=req.password or "RowerTest2026!",
+        login_prefix=req.prefix or "test_runner_",
+        only_enabled=bool(req.only_enabled),
+    )
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8080, reload=False)

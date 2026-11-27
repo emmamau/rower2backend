@@ -255,9 +255,17 @@
           <input type="checkbox" id="seedOnlyEnabled" style="accent-color: var(--accent-blue); width: 16px; height: 16px;">
           <label for="seedOnlyEnabled" style="font-size: 12px; cursor: pointer;">Créer/Appairer uniquement pour les kayaks ACTIVÉS</label>
         </div>
+        <div class="modal-field" style="border-top:1px solid #333; padding-top:10px;">
+          <label>♻️ Reset complet : compte ADMIN requis pour supprimer les anciens comptes</label>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+            <input type="text" id="resetAdminLogin" placeholder="Login admin">
+            <input type="password" id="resetAdminPassword" placeholder="Mot de passe admin">
+          </div>
+        </div>
       </div>
       <div class="modal-actions">
         <button class="btn" onclick="toggleSeedModal(false)">Annuler</button>
+        <button class="btn btn-danger" id="btnExecuteReset" onclick="executeResetUsers()">♻️ Supprimer &amp; recréer tout</button>
         <button class="btn btn-warning" id="btnExecuteSeed" onclick="executeSeedUsers()">🚀 Lancer la création & appairage</button>
       </div>
     </div>
@@ -1236,6 +1244,39 @@
         showToast("Erreur: " + e.message, "error");
       } finally {
         btn.innerText = "🚀 Lancer la création & appairage";
+        btn.disabled = false;
+      }
+    }
+
+    async function executeResetUsers() {
+      const pwd = document.getElementById("seedCommonPassword").value.trim();
+      const count = parseInt(document.getElementById("seedCount").value) || 30;
+      const prefix = document.getElementById("seedPrefix").value.trim() || "test_runner_";
+      const onlyEnabled = document.getElementById("seedOnlyEnabled").checked;
+      const adminLogin = document.getElementById("resetAdminLogin").value.trim();
+      const adminPassword = document.getElementById("resetAdminPassword").value;
+      if (!adminLogin || !adminPassword) return showToast("Login et mot de passe admin requis.", "error");
+      if (!pwd || pwd.length < 8) return showToast("Le mot de passe doit comporter au moins 8 caractères.", "error");
+      if (!confirm(`Supprimer définitivement les comptes ${prefix}01 à ${prefix}${String(count).padStart(2, "0")} puis les recréer et réappairer ?`)) return;
+
+      const btn = document.getElementById("btnExecuteReset");
+      const label = btn.innerText;
+      btn.innerText = "⏳ Reset en cours...";
+      btn.disabled = true;
+      try {
+        const res = await fetch("/api/reset-users", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ admin_login: adminLogin, admin_password: adminPassword, count, password: pwd, prefix, only_enabled: onlyEnabled })
+        });
+        const data = await res.json();
+        showToast(data.message || "Reset terminé", data.success ? "success" : "error");
+        if (data.success) toggleSeedModal(false);
+        await fetchState();
+      } catch (e) {
+        showToast("Erreur: " + e.message, "error");
+      } finally {
+        btn.innerText = label;
         btn.disabled = false;
       }
     }

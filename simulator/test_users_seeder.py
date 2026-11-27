@@ -139,6 +139,86 @@ async def seed_and_pair_test_users(
         "message": f"{paired_count} / {target_count} montres appairées avec succès (mot de passe commun : {pwd}) !"
     }
 
+
+async def reset_and_recreate_test_users(
+    store: SimulatorStore,
+    admin_login: str,
+    admin_password: str,
+    count: int = 30,
+    common_password: str = "RowerTest2026!",
+    login_prefix: str = "test_runner_",
+    only_enabled: bool = False
+) -> Dict[str, Any]:
+    """
+    Deletes every simulator test account (via the admin API), clears the local watch pairings,
+    then recreates all accounts and re-pairs every virtual watch.
+    """
+    backend_url = store.backend_url
+    prefix = (login_prefix or "test_runner_").strip()
+    target_count = max(1, min(store.count, count))
+    timeout = aiohttp.ClientTimeout(total=15.0)
+    errors: List[str] = []
+    deleted = 0
+    not_found = 0
+
+    # 1. Admin authentication
+    admin_token = None
+    try:
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            async with session.post(f"{backend_url}/api/user/login", json={"login": admin_login, "password": admin_password}) as resp:
+                if resp.status == 200:
+                    d = await resp.json()
+                    admin_token = d.get("token") or (d.get("user") or {}).get("token")
+            if not admin_token:
+                return {"success": False, "message": "Connexion admin refusée : suppression annulée (aucun compte modifié).", "errors": []}
+
+            headers = {"Authorization": f"Bearer {admin_token}"}
+            if store.load_test_key:
+                headers["x-load-test-key"] = store.load_test_key
+
+            # 2. Delete accounts (this also removes server-side watch pairings)
+            for i in range(1, target_count + 1):
+                login = f"{prefix}{i:02d}"
+                if login.lower() == admin_login.lower():
+                    continue
+                try:
+                    async with session.delete(f"{backend_url}/api/admin/users/{login}", headers=headers) as dresp:
+                        if dresp.status == 200:
+                            deleted += 1
+                        elif dresp.status == 404:
+                            not_found += 1
+                        else:
+                            errors.append(f"Suppression {login}: HTTP {dresp.status}")
+                except Exception as e:
+                    errors.append(f"Suppression {login}: {e}")
+    except Exception as e:
+        return {"success": False, "message": f"Erreur suppression : {e}", "errors": [str(e)]}
+
+    # 3. Clear local pairing state
+    for i in range(1, target_count + 1):
+        w = store.get_watch(i)
+        if not w:
+            continue
+        if only_enabled and not w.is_enabled:
+            continue
+        w.user_id = None
+        w.user_name = None
+        w.device_token = None
+        w.is_paired = False
+        w.is_simulating = False
+    store.save()
+
+    # 4. Recreate accounts and re-pair
+    res = await seed_and_pair_test_users(
+        store, count=count, common_password=common_password,
+        login_prefix=login_prefix, only_enabled=only_enabled
+    )
+    res["deleted"] = deleted
+    res["not_found"] = not_found
+    res["errors"] = (errors + res.get("errors", []))[:8]
+    res["message"] = f"{deleted} comptes supprimés ({not_found} absents). " + res["message"]
+    return res
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Seed test users with common password and auto-pair virtual watches")
     parser.add_argument("--count", type=int, default=30, help="Number of test users to create (1-30)")
