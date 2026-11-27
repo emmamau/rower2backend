@@ -85,11 +85,14 @@ test('Task 3: RegattaCanvasComponent renders giant watermark in player water lan
   assert.match(canvasContent, /w\s*\*\s*0\.5/);
 });
 
-test('Task 4: Adaptive VOUS banner flips below on Lane 1 and configurable lane data badges with auto-flip', () => {
+test('Task 4: Adaptive VOUS banner defaults to front in water lane and configurable lane data badges with auto-flip', () => {
   const canvasPath = path.join(rootDir, 'src/app/components/regatta-canvas/regatta-canvas.component.ts');
   const canvasContent = fs.readFileSync(canvasPath, 'utf-8');
 
-  // Lane 1 / index 0 banner below detection
+  // Default resolvedNamePos in auto mode is 'front' (in front of the kayak in the water lane)
+  assert.match(canvasContent, /let\s+resolvedNamePos\s*:\s*'above'\s*\|\s*'below'\s*\|\s*'front'\s*\|\s*'back'\s*\|\s*'none'\s*=\s*'front'/);
+
+  // Lane 1 / index 0 banner below detection when 'above' is chosen
   assert.match(canvasContent, /effectiveLaneIdx\s*===\s*0|topOffset/);
 
   // Header metric display for player and opponents

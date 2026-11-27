@@ -1735,7 +1735,7 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
       const nameBoxW = nameTextW + namePadX * 2;
 
       // Résolution de la position effective du nom : 'above' | 'below' | 'front' | 'back' | 'none'
-      let resolvedNamePos: 'above' | 'below' | 'front' | 'back' | 'none' = 'above';
+      let resolvedNamePos: 'above' | 'below' | 'front' | 'back' | 'none' = 'front';
       if (rawNamePosPref === 'none') {
         resolvedNamePos = 'none';
       } else if (rawNamePosPref === 'above') {
@@ -1747,8 +1747,8 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
       } else if (rawNamePosPref === 'back') {
         resolvedNamePos = (x - hullRx - gap - nameBoxW < minXBound && x + hullRx + gap + nameBoxW <= maxXBound) ? 'front' : 'back';
       } else {
-        // 'auto' : Au-dessus par défaut (ou en-dessous sur la ligne 1 tout en haut)
-        resolvedNamePos = (effectiveLaneIdx === 0 || (y - hullRy - nameBoxH - 6 < topOffset)) ? 'below' : 'above';
+        // 'auto' : Devant le kayak par défaut dans la ligne d'eau (et bascule derrière s'il n'y a plus de place près de l'arrivée)
+        resolvedNamePos = (x + hullRx + gap + nameBoxW > maxXBound && x - hullRx - gap - nameBoxW >= minXBound) ? 'back' : 'front';
       }
 
       // 3. Dessin de la bulle du nom du kayak (si visible)

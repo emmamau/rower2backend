@@ -302,6 +302,8 @@ class _RegattaCustomPainter extends CustomPainter {
         boat: boat,
         isMe: isMe,
         defaultColor: defaultColors[i % defaultColors.length],
+        minXBound: leftMargin,
+        maxXBound: w - 6,
       );
     }
   }
@@ -313,6 +315,8 @@ class _RegattaCustomPainter extends CustomPainter {
     required BoatRenderState boat,
     required bool isMe,
     required Color defaultColor,
+    required double minXBound,
+    required double maxXBound,
   }) {
     const hullRx = 16.0;
     const hullRy = 4.5;
@@ -372,7 +376,7 @@ class _RegattaCustomPainter extends CustomPainter {
     final rowerPaint = Paint()..color = isMe ? AppColors.yellow : const Color(0xFFFCD34D);
     canvas.drawCircle(Offset(x - 2, y), 2.5, rowerPaint);
 
-    // Flèche et bannière pseudo prioritaire (★ VOUS : Pseudo · 480m)
+    // Bannière pseudo placée par défaut devant le kayak dans la ligne d'eau (et bascule derrière près de l'arrivée)
     final shortName = boat.name.length > 12 ? '${boat.name.substring(0, 11)}…' : boat.name;
     final bannerText = isMe
         ? '★ VOUS : $shortName · ${boat.currentDisplayDist.round()}m'
@@ -388,24 +392,26 @@ class _RegattaCustomPainter extends CustomPainter {
     );
     final tp = TextPainter(text: textSpan, textDirection: TextDirection.ltr)..layout();
 
-    final bx = x - tp.width / 2;
-    final by = y - hullRy - 18;
+    const gap = 8.0;
+    final boxW = tp.width + 8;
+    final placeBack = (x + hullRx + gap + boxW > maxXBound) && (x - hullRx - gap - boxW >= minXBound);
+    final bx = placeBack
+        ? math.max(minXBound + 4, x - hullRx - gap - tp.width - 4)
+        : math.min(maxXBound - tp.width - 4, x + hullRx + gap + 4);
+    final by = y - tp.height / 2;
 
-    if (isMe) {
-      // Petite boîte avec fond pour lisibilité maximale
-      final bgBox = Paint()..color = const Color(0xEE060F21);
-      final borderBox = Paint()
-        ..color = AppColors.cyan
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.0;
+    final bgBox = Paint()..color = isMe ? const Color(0xEE060F21) : const Color(0xD6060F21);
+    final borderBox = Paint()
+      ..color = isMe ? AppColors.cyan : const Color(0x73FFFFFF)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = isMe ? 1.2 : 0.9;
 
-      final rect = RRect.fromRectAndRadius(
-        Rect.fromLTWH(bx - 4, by - 2, tp.width + 8, tp.height + 4),
-        const Radius.circular(4),
-      );
-      canvas.drawRRect(rect, bgBox);
-      canvas.drawRRect(rect, borderBox);
-    }
+    final rect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(bx - 4, by - 2, tp.width + 8, tp.height + 4),
+      const Radius.circular(4),
+    );
+    canvas.drawRRect(rect, bgBox);
+    canvas.drawRRect(rect, borderBox);
 
     tp.paint(canvas, Offset(bx, by));
   }
