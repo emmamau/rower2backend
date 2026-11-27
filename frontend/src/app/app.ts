@@ -144,6 +144,8 @@ export class AppComponent implements OnInit, OnDestroy {
   private finishCelebrationTimer: any = null;
   hasCelebratedFinish = false;
   isPostRaceRankingActive = false;
+  dismissedLeaderboardRaceIds = new Set<string>();
+  completedPublicRaceId: string | null = null;
 
   // Race Config
   configTargetDistance = 10000;
@@ -1935,7 +1937,7 @@ export class AppComponent implements OnInit, OnDestroy {
               this.distToLeader = Math.max(0, Math.round(leaderDist - myDist));
               this.distToPrev = myIdx > 0 ? Math.max(0, Math.round((activeList[myIdx - 1]?.netDistance || 0) - myDist)) : 0;
               this.distToNext = myIdx < activeList.length - 1 ? Math.max(0, Math.round(myDist - (activeList[myIdx + 1]?.netDistance || 0))) : 0;
-            } else {
+            } else if (!this.isPostRaceRankingActive) {
               this.myRank = null;
               this.distToLeader = 0;
               this.distToPrev = 0;
@@ -3381,7 +3383,7 @@ export class AppComponent implements OnInit, OnDestroy {
   get isPostRaceDisplayActive(): boolean {
     const active = Boolean(this.isFinished || this.isPostRaceRankingActive || this.isRaceEnded);
     if (active) {
-      const rId = this.nextRaceInfo?.race?.id || this.activePrivateRoom?.race?.id || (this.nextRaceInfo as any)?.id || (this.activePrivateRoom as any)?.id;
+      const rId = this.completedPublicRaceId || this.selectedRaceInfo?.id || this.nextRaceInfo?.race?.id || this.activePrivateRoom?.race?.id || (this.nextRaceInfo as any)?.id || (this.activePrivateRoom as any)?.id;
       if (rId && rId !== this.lastFetchedLeaderboardRaceId) {
         this.lastFetchedLeaderboardRaceId = rId;
         this.refreshOfficialRaceLeaderboard(rId);
@@ -3395,11 +3397,13 @@ export class AppComponent implements OnInit, OnDestroy {
   returnToHomeAfterRace(): void {
     this.closeRaceLeaderboardModal();
     this.isPostRaceRankingActive = false;
+    this.completedPublicRaceId = null;
     this.showFinishCelebration = false;
     this.raceMonotonicStartTimestamp = null;
     this.raceMonotonicMaxElapsed = 0;
     this.lastFetchedLeaderboardRaceId = null;
     this.selectedRaceLeaderboard = [];
+    this.myActivity = null;
     if (!this.activePrivateRoom) {
       this.isPrivateRoomCompleted = false;
     }
@@ -3556,8 +3560,10 @@ export class AppComponent implements OnInit, OnDestroy {
       this.showFinishCelebration = false;
       this.finishCelebrationTimer = null;
       if (raceId) {
-        this.openRaceLeaderboard(raceId);
         this.isPostRaceRankingActive = true;
+        if (!this.dismissedLeaderboardRaceIds.has(raceId)) {
+          this.openRaceLeaderboard(raceId);
+        }
       }
       this.cdr.markForCheck();
     }, 2000);
@@ -3567,6 +3573,12 @@ export class AppComponent implements OnInit, OnDestroy {
     this.siteView = view;
     if (view === 'home') {
       this.isPrivateBannerCollapsed = false;
+      if (this.isPostRaceRankingActive && !this.activePrivateRoom) {
+        this.isPostRaceRankingActive = false;
+        this.completedPublicRaceId = null;
+        this.myActivity = null;
+        this.selectedRaceLeaderboard = [];
+      }
       this.homeRefresh$.next();
     }
     if (view === 'regatta') {
@@ -4722,8 +4734,9 @@ export class AppComponent implements OnInit, OnDestroy {
 
   // Vue Historique : Consultation des classements passés
   openCurrentRaceLeaderboard(): void {
-    if (this.nextRaceInfo?.race?.id) {
-      this.openRaceLeaderboard(this.nextRaceInfo.race.id);
+    const targetRaceId = this.completedPublicRaceId || this.selectedRaceInfo?.id || this.nextRaceInfo?.race?.id;
+    if (targetRaceId) {
+      this.openRaceLeaderboard(targetRaceId);
     }
   }
 
@@ -4762,6 +4775,10 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   closeRaceLeaderboardModal(): void {
+    const closedRaceId = this.selectedRaceInfo?.id || this.completedPublicRaceId || this.nextRaceInfo?.race?.id || this.activePrivateRoom?.race?.id;
+    if (closedRaceId) {
+      this.dismissedLeaderboardRaceIds.add(closedRaceId);
+    }
     this.isRaceLeaderboardModalOpen = false;
     if (this.finishCelebrationTimer) {
       clearTimeout(this.finishCelebrationTimer);
@@ -4772,6 +4789,9 @@ export class AppComponent implements OnInit, OnDestroy {
       this.showFinishCelebration = false;
       this.selectedRaceLeaderboard = [];
       this.selectedRaceInfo = null;
+    }
+    if (!this.activePrivateRoom) {
+      this.isPrivateRoomCompleted = false;
     }
     this.cdr.markForCheck();
   }
@@ -6122,11 +6142,15 @@ export class AppComponent implements OnInit, OnDestroy {
         // 5. Affichage du Classement Général en Fin de Course publique
         const isPublicRace = !this.activePrivateRoom;
         if (isPublicRace && this.isFinished && !this.isPostRaceRankingActive && this.nextRaceInfo?.race?.id) {
+          const pubRaceId = this.nextRaceInfo.race.id;
+          this.completedPublicRaceId = pubRaceId;
           if (!this.hasCelebratedFinish) {
-            this.triggerFinishCelebration(this.nextRaceInfo.race.id);
+            this.triggerFinishCelebration(pubRaceId);
           } else if (!this.showFinishCelebration) {
-            this.openRaceLeaderboard(this.nextRaceInfo.race.id);
             this.isPostRaceRankingActive = true;
+            if (!this.dismissedLeaderboardRaceIds.has(pubRaceId)) {
+              this.openRaceLeaderboard(pubRaceId);
+            }
           }
         }
 
@@ -6209,6 +6233,10 @@ export class AppComponent implements OnInit, OnDestroy {
         this.finisherCount = 0;
         this.hasCelebratedFinish = false;
         this.showFinishCelebration = false;
+        this.completedPublicRaceId = null;
+        if (update.raceId) {
+          this.dismissedLeaderboardRaceIds.delete(update.raceId);
+        }
         if (this.finishCelebrationTimer) {
           clearTimeout(this.finishCelebrationTimer);
           this.finishCelebrationTimer = null;
@@ -6248,8 +6276,10 @@ export class AppComponent implements OnInit, OnDestroy {
           }
         }
         if (!this.activePrivateRoom && this.nextRaceInfo?.race?.id) {
-          if (!this.showFinishCelebration) {
-            this.openRaceLeaderboard(this.nextRaceInfo.race.id);
+          const pubRaceId = this.nextRaceInfo.race.id;
+          this.completedPublicRaceId = pubRaceId;
+          if (!this.showFinishCelebration && !this.isPostRaceRankingActive && !this.dismissedLeaderboardRaceIds.has(pubRaceId)) {
+            this.openRaceLeaderboard(pubRaceId);
             this.isPostRaceRankingActive = true;
           }
         }
@@ -6281,7 +6311,7 @@ export class AppComponent implements OnInit, OnDestroy {
             if (update.details?.ranking && update.details.ranking.length > 0) {
               this.selectedRaceLeaderboard = update.details.ranking;
             }
-            if (targetRaceId) {
+            if (targetRaceId && !this.dismissedLeaderboardRaceIds.has(targetRaceId)) {
               this.openRaceLeaderboard(targetRaceId);
             }
             this.isPostRaceRankingActive = true;
@@ -6299,6 +6329,7 @@ export class AppComponent implements OnInit, OnDestroy {
         } else if (isPublicTarget && (update.status === 'COMPLETED' || update.status === 'STOPPED')) {
           if (update.status === 'STOPPED' || update.details?.hasRanking === false) {
             this.isPostRaceRankingActive = false;
+            this.completedPublicRaceId = null;
             this.selectedRaceLeaderboard = [];
             this.myActivity = null;
             this.triggerFinishToast(
@@ -6306,20 +6337,19 @@ export class AppComponent implements OnInit, OnDestroy {
             );
             this.loadNextRaceInfo();
           } else {
-            if (this.nextRaceInfo) {
-              this.nextRaceInfo.status = 'completed';
-              if (this.nextRaceInfo.race) {
-                this.nextRaceInfo.race.status = 'COMPLETED';
-              }
-            }
             const targetRaceId = update.raceId || this.nextRaceInfo?.race?.id;
+            if (targetRaceId) {
+              this.completedPublicRaceId = targetRaceId;
+            }
             if (update.details?.ranking && update.details.ranking.length > 0) {
               this.selectedRaceLeaderboard = update.details.ranking;
             }
-            if (targetRaceId) {
+            if (targetRaceId && !this.dismissedLeaderboardRaceIds.has(targetRaceId)) {
               this.openRaceLeaderboard(targetRaceId);
             }
             this.isPostRaceRankingActive = true;
+            // Charger le nouveau lobby public pour que son timer d'attente reprenne immédiatement
+            this.loadNextRaceInfo();
           }
         }
       }

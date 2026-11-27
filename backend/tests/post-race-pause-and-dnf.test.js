@@ -3,40 +3,32 @@ const assert = require("node:assert/strict");
 const { RaceManager } = require("../dist/services/race-manager.service");
 const { buildPublicRacePayload } = require("../dist/controllers/race.controller");
 
-test("Post-race 2-minute pause and automatic transition to next lobby", async () => {
+test("Public race completion immediately transitions to next lobby and resumes wait timer", async () => {
   const rm = RaceManager.getInstance();
 
   // Initialize a public race
   const race = await rm.initNextPublicRace(15);
+  const completedRaceId = race.id;
   race.status = "RUNNING";
   race.startedAt = new Date(Date.now() - 30 * 1000);
 
-  // Complete the race (e.g., normal completion)
-  await rm.finishRace(race.id, false, "completed");
+  // Complete the race (e.g., all players crossed the finish line)
+  await rm.finishRace(completedRaceId, false, "completed");
 
   assert.equal(race.status, "COMPLETED");
-  assert.ok(race.pauseEndsAt, "pauseEndsAt must be defined");
-  const diffSec = Math.round((race.pauseEndsAt.getTime() - Date.now()) / 1000);
-  assert.ok(diffSec >= 115 && diffSec <= 120, `pauseEndsAt must be ~120s in the future (was ${diffSec}s)`);
+  assert.equal(race.pauseEndsAt, undefined, "pauseEndsAt must not block the next public race");
 
-  // buildPublicRacePayload must reflect post-race pause
+  // Current public race must immediately be the new lobby
+  const nextLobby = rm.getCurrentPublicRace();
+  assert.ok(nextLobby, "Next public race lobby must be initialized immediately");
+  assert.notEqual(nextLobby.id, completedRaceId, "Must immediately transition to a new public race lobby");
+  assert.equal(nextLobby.status, "LOBBY");
+
+  // buildPublicRacePayload must reflect the new waiting lobby with active countdown
   const payload = await buildPublicRacePayload();
-  assert.equal(payload.status, "post_race_pause");
-  assert.equal(payload.isPostRacePause, true);
-  assert.ok(payload.pauseRemainingSeconds > 0 && payload.pauseRemainingSeconds <= 120);
-
-  // Before 120s expires, tickPublicRace stays in pause
-  const tick1 = await rm.tickPublicRace();
-  assert.equal(tick1.id, race.id);
-  assert.equal(tick1.status, "COMPLETED");
-
-  // Fast-forward pause timer to simulate 120s elapsed
-  race.pauseEndsAt = new Date(Date.now() - 1000);
-
-  // Next tick must transition to fresh lobby
-  const tick2 = await rm.tickPublicRace();
-  assert.notEqual(tick2.id, race.id, "Must transition to a new public race lobby");
-  assert.equal(tick2.status, "LOBBY");
+  assert.equal(payload.status, "waiting");
+  assert.equal(payload.isPostRacePause, false);
+  assert.ok(payload.secondsRemaining > 0, "Public race waiting timer must immediately resume");
 });
 
 test("DNF & Inactivity: Abandoned rowers are marked, get 0 points, and placed in ranking", async () => {

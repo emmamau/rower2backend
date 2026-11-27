@@ -914,6 +914,11 @@ export class TelemetryController {
         } catch {}
       }
 
+      // Si le joueur vient de franchir la ligne d'arrivée sur une course publique en cours, déclencher immédiatement un tick de vérification pour clôturer la course si tous les joueurs ont franchi la ligne
+      if (isFinished && !wasAlreadyFinished && matchedRace && matchedRace.type === "PUBLIC_HOURLY" && matchedRace.status === "RUNNING") {
+        raceManager.tickPublicRace().catch(() => {});
+      }
+
       const top3 = activeRacers.slice(0, 3).map((item: any, idx: number) => ({
         rank: idx + 1,
         userId: typeof item.get === "function" ? item.get("userId") : item.userId,

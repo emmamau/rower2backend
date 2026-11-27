@@ -1012,15 +1012,16 @@ test('Ephemeral Finish Line Toast Notification: triggers for finished racers, 2-
   assert.match(appTs, /Ligne d'arrivée franchie !/);
 });
 
-test('Post-Race Detailed Ranking: displayed on public race finish and maintained across 2-minute pause until next race start', () => {
+test('Post-Race Detailed Ranking: displayed on public race finish, never reopens once closed, and allows returning to home', () => {
   const appHtml = readAppHtmlBundle();
   const appTs = readAppTsBundle();
 
   // Triggered on public race finish
   assert.match(appTs, /if\s*\(isPublicRace && this\.isFinished && !this\.isPostRaceRankingActive && this\.nextRaceInfo\?\.race\?\.id\)\s*\{/);
-  // Maintained throughout POST_RACE_PAUSE (2 minutes)
-  assert.match(appTs, /update\.status === 'POST_RACE_PAUSE'/);
-  assert.match(appTs, /this\.openRaceLeaderboard\(this\.nextRaceInfo\.race\.id\);/);
+  // Tracks dismissed race IDs so closing the modal prevents automatic reopening
+  assert.match(appTs, /dismissedLeaderboardRaceIds\.add\(closedRaceId\)/);
+  assert.match(appTs, /!this\.dismissedLeaderboardRaceIds\.has\(/);
+  assert.match(appTs, /this\.openRaceLeaderboard\(/);
   // Dismissed upon RUNNING status of next race
   assert.match(appTs, /if\s*\(this\.isPostRaceRankingActive \|\| this\.isRaceLeaderboardModalOpen\)\s*\{[\s\S]*?this\.closeRaceLeaderboardModal\(\);/);
   // Regatta finish overlay embeds complete detailed ranking table (positions, names, chrono, pace, gap, points)

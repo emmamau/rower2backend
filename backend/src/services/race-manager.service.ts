@@ -1159,22 +1159,10 @@ export class RaceManager {
     const race = this.currentPublicRace;
 
     if (race.status === "COMPLETED" || (race.status as any) === "POST_RACE_PAUSE") {
-      if (race.pauseEndsAt) {
-        if (now.getTime() >= race.pauseEndsAt.getTime()) {
-          console.log(`[RaceManager] Fin des 2 minutes de pause post-course pour ${race.id}. Enchaînement vers le nouveau lobby.`);
-          if (this.isPublicRaceEnabled) {
-            await this.initNextPublicRace();
-          } else {
-            this.currentPublicRace = null;
-          }
-        } else {
-          const pauseRemainingSec = Math.max(0, Math.ceil((race.pauseEndsAt.getTime() - now.getTime()) / 1000));
-          socketGateway.broadcastRaceStatus(race.id, "POST_RACE_PAUSE", {
-            pauseSeconds: pauseRemainingSec,
-            pauseEndsAt: race.pauseEndsAt,
-            ranking: race.finalRanking || []
-          });
-        }
+      if (this.isPublicRaceEnabled) {
+        await this.initNextPublicRace();
+      } else {
+        this.currentPublicRace = null;
       }
       return this.currentPublicRace!;
     }
@@ -1329,9 +1317,15 @@ export class RaceManager {
               return this.currentPublicRace!;
             }
 
-            // Règle: Lorsque tous les humains sont arrivés et qu'il ne reste plus que des bots, la course se termine
-            // et le chrono des bots restants est estimé par rapport à leur allure.
+            // Règle: Lorsque tous les participants engagés en mémoire et les activités ont terminé (ou tous les humains), la course se termine immédiatement.
+            const engagedParticipants = race.participants
+              ? Array.from(race.participants.values()).filter((p) => !RaceManager.isBotParticipant(p.userId, p) && !p.hasLeft && p.status !== "abandoned")
+              : [];
+            const activeIds = new Set(nonAbandonedHumans.map((a: any) => String(a.get("userId") || "")));
+            const hasUnfinishedEngagedParticipant = engagedParticipants.some((p) => !activeIds.has(p.userId));
+
             const allHumansFinished =
+              !hasUnfinishedEngagedParticipant &&
               nonAbandonedHumans.length > 0 &&
               nonAbandonedHumans.every(
                 (act: any) =>
@@ -1339,10 +1333,14 @@ export class RaceManager {
                   ((act.get("netDistance") as number) || 0) >= race.targetDistance
               );
 
-            if (allHumansFinished && botsInProgress.length > 0) {
-              console.log(`[RaceManager] Tous les humains sont arrivés en course publique ${race.id}. Clôture immédiate avec extrapolation des bots.`);
-              await this.estimateAndFinishRemainingBots(race, botsInProgress, nonAbandonedHumans, now);
-              await this.finishRace(race.id, false, "all_humans_finished");
+            if (allHumansFinished) {
+              if (botsInProgress.length > 0) {
+                console.log(`[RaceManager] Tous les humains sont arrivés en course publique ${race.id}. Clôture immédiate avec extrapolation des bots.`);
+                await this.estimateAndFinishRemainingBots(race, botsInProgress, nonAbandonedHumans, now);
+                await this.finishRace(race.id, false, "all_humans_finished");
+              } else {
+                await this.finishRace(race.id, false, "completed");
+              }
               return this.currentPublicRace!;
             }
           }
@@ -2022,9 +2020,7 @@ export class RaceManager {
     if (managed) {
       managed.status = isStopped ? "STOPPED" : (isCancelled ? "CANCELLED" : "COMPLETED");
       managed.endedAt = new Date();
-      if (isPublic && reason !== "no_active_humans" && !isStopped && !isCancelled) {
-        managed.pauseEndsAt = new Date(Date.now() + 120 * 1000); // 2 minutes post-race restitution pause
-      }
+      delete managed.pauseEndsAt;
     }
 
     let ranking: RaceRankingEntry[] = [];
@@ -2082,15 +2078,17 @@ export class RaceManager {
 
     socketGateway.broadcastRaceStatus(raceId, managed?.status || "COMPLETED", {
       reason: reason || (timeoutTriggered ? "timeout" : "completed"),
-      pauseSeconds: managed?.pauseEndsAt ? 120 : 0,
-      pauseEndsAt: managed?.pauseEndsAt,
+      pauseSeconds: 0,
+      pauseEndsAt: undefined,
       ranking,
       roomClosed: managed?.type === "PRIVATE_INVITE" ? true : undefined
     });
 
     if (isPublic) {
-      if (reason === "no_active_humans") {
-        await this.initNextPublicRace(15);
+      if (this.isPublicRaceEnabled) {
+        await this.initNextPublicRace();
+      } else {
+        this.currentPublicRace = null;
       }
     }
     return ranking;
