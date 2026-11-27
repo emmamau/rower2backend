@@ -4,6 +4,7 @@ export const fr: Record<string, string> = {
   'APP_SUBTITLE': 'CHAMPIONNAT MULTI-JOUEURS EN DIRECT',
   'ESPORT_BADGE': 'PRO ESPORT',
   'COUNTDOWN_TITLE': 'DÉPART DANS',
+  'COUNTDOWN_GO': 'GO !',
   'COUNTDOWN_SUB': 'Préparez vos rames !',
   'RACE_IN_PROGRESS': 'COURSE EN COURS',
   'NEXT_RACE': 'PROCHAINE COURSE',

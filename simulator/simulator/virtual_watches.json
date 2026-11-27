@@ -36,7 +36,7 @@
       "target_split": 88.0,
       "target_power": 514,
       "race_pin": null,
-      "race_id": "RACE_20261127062848",
+      "race_id": "RACE_20261127093628",
       "target_distance": 200
     },
     "4": {
@@ -48,20 +48,20 @@
       "target_split": 102.6,
       "target_power": 324,
       "race_pin": "WOHIN",
-      "race_id": "PRIV_vgkizqdie",
-      "target_distance": 2000
+      "race_id": "RACE_20261127093940",
+      "target_distance": 200
     },
     "5": {
       "user_id": "simu_05",
       "user_name": "Rameur 05",
       "device_token": "2ea042c9-967e-49f0-aeaf-4108a5653976",
       "is_paired": true,
-      "is_enabled": false,
+      "is_enabled": true,
       "target_split": 104.1,
       "target_power": 310,
       "race_pin": "WOHIN",
-      "race_id": "PRIV_vgkizqdie",
-      "target_distance": 2000
+      "race_id": "RACE_20261127093940",
+      "target_distance": 200
     },
     "6": {
       "user_id": "simu_06",

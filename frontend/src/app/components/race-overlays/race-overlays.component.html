@@ -376,11 +376,11 @@
 <!-- 3 SECONDS RACE COUNTDOWN OVERLAY (TRÈS ÉNORME AU MILIEU DE L'ÉCRAN SUR LES LIGNES D'EAU) -->
 <div class="three-sec-overlay" *ngIf="is3sCountdown">
   <div class="three-sec-huge-wrap">
-    <div class="three-sec-title">{{ i18n.t('COUNTDOWN_TITLE') }}</div>
+    <div class="three-sec-title" *ngIf="threeSecondsCount > 0">{{ i18n.t('COUNTDOWN_TITLE') }}</div>
     <div class="three-sec-number" [class.is-go]="threeSecondsCount <= 0">
-      {{ threeSecondsCount > 0 ? threeSecondsCount : (i18n.t('COUNTDOWN_GO') || 'GO !') }}
+      {{ threeSecondsCount > 0 ? threeSecondsCount : (i18n.t('COUNTDOWN_GO') !== 'COUNTDOWN_GO' ? i18n.t('COUNTDOWN_GO') : 'GO !') }}
     </div>
-    <div class="three-sec-sub">{{ i18n.t('COUNTDOWN_SUB') }}</div>
+    <div class="three-sec-sub" *ngIf="threeSecondsCount > 0">{{ i18n.t('COUNTDOWN_SUB') }}</div>
   </div>
 </div>
 

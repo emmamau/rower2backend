@@ -36,6 +36,8 @@ interface BoatRenderState {
   currentLaneIndex: number;
   currentDisplayDist: number;
   targetPacketDist: number;
+  currentSpeedMs: number;
+  targetSpeedMs: number;
   splitSec: number;
   watts: number;
   spm: number;
@@ -627,30 +629,38 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
         return r.medal ? `${r.medal} ${r.label}` : r.label;
       }
       case 'distRemaining': {
-        const remainingDist = Math.max(0, Math.round(target - boat.targetPacketDist));
+        const displayDist = Math.max(0, Math.min(target, boat.currentDisplayDist));
+        const remainingDist = Math.max(0, Math.round(target - displayDist));
         return remainingDist > 0 ? `${remainingDist}m` : (this.i18n.t('FINISH_ARRIVED') || 'Arrivé !');
       }
       case 'distCovered': {
-        return `${Math.round(boat.targetPacketDist)}m`;
+        const displayDist = Math.max(0, Math.min(target, boat.currentDisplayDist));
+        return `${Math.round(displayDist)}m`;
       }
       case 'distToLeader': {
         const leader = this.sortedLeaderboard[0];
         if (!leader || leader.userId === boat.userId) return this.i18n.t('CANVAS_LEADER') || '1er';
-        const gapM = Math.max(0, Math.round((leader.dist || 0) - boat.targetPacketDist));
+        const leaderBoat = this.boatsMap.get(leader.userId);
+        const leaderDist = leaderBoat ? leaderBoat.currentDisplayDist : (leader.dist || 0);
+        const gapM = Math.max(0, Math.round(leaderDist - boat.currentDisplayDist));
         return gapM > 0 ? `-${gapM}m` : (this.i18n.t('CANVAS_LEADER') || '1er');
       }
       case 'distToPrev': {
         const rankIdx = this.sortedLeaderboard.findIndex((b) => b.userId === boat.userId);
         if (rankIdx <= 0) return 'Ldr';
         const prev = this.sortedLeaderboard[rankIdx - 1];
-        const gap = Math.max(0, Math.round((prev.dist || 0) - boat.targetPacketDist));
+        const prevBoat = prev ? this.boatsMap.get(prev.userId) : undefined;
+        const prevDist = prevBoat ? prevBoat.currentDisplayDist : (prev?.dist || 0);
+        const gap = Math.max(0, Math.round(prevDist - boat.currentDisplayDist));
         return `-${gap}m`;
       }
       case 'distToNext': {
         const rankIdx = this.sortedLeaderboard.findIndex((b) => b.userId === boat.userId);
         if (rankIdx < 0 || rankIdx >= this.sortedLeaderboard.length - 1) return 'Fin';
         const next = this.sortedLeaderboard[rankIdx + 1];
-        const gap = Math.max(0, Math.round(boat.targetPacketDist - (next.dist || 0)));
+        const nextBoat = next ? this.boatsMap.get(next.userId) : undefined;
+        const nextDist = nextBoat ? nextBoat.currentDisplayDist : (next?.dist || 0);
+        const gap = Math.max(0, Math.round(boat.currentDisplayDist - nextDist));
         return `+${gap}m`;
       }
       case 'force': {
@@ -839,6 +849,37 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
     this.totalBoatsCount = 0;
   }
 
+  /**
+   * Calcule la vitesse instantanée physique (m/s) à partir des données FTMS du rameur (Puissance Watts, Allure /500m, Cadence SPM).
+   * Formule officielle Concept2 : v = (Watts / 2.80)^(1/3) = 500 / splitSec.
+   */
+  public computeFtmsTargetSpeedMs(r: {
+    watts?: number;
+    split?: number;
+    spm?: number;
+    speedMs?: number;
+    status?: string;
+    isBot?: boolean;
+    dist?: number;
+  }): number {
+    if (!r || r.status === 'finished' || r.status === 'completed' || r.status === 'abandoned') {
+      return 0;
+    }
+    if (typeof r.speedMs === 'number' && Number.isFinite(r.speedMs) && r.speedMs > 0) {
+      return Math.min(8.33, Math.max(0, r.speedMs));
+    }
+    const watts = Number(r.watts || 0);
+    if (watts > 0) {
+      return Math.min(8.33, Math.cbrt(Math.min(1200, watts) / 2.80));
+    }
+    const split = Number(r.split || 0);
+    const spm = Number(r.spm || 0);
+    if ((r.isBot || spm > 0) && split >= 60 && split <= 360) {
+      return Math.min(8.33, 500 / split);
+    }
+    return 0;
+  }
+
   private syncRacersData(): void {
     if (!this.racers || this.racers.length === 0) {
       this.clearAllBoats();
@@ -849,11 +890,25 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
 
     this.racers.forEach((r, idx) => {
       activeIds.add(r.userId);
+      const rawDistVal = Number(r.exactDist ?? r.dist ?? 0);
+      const safeRawDist = Number.isFinite(rawDistVal) ? Math.max(0, rawDistVal) : 0;
       const clampedDist = this.targetDistance > 0
-        ? Math.min(this.targetDistance, Math.round(r.dist || 0))
-        : Math.round(r.dist || 0);
+        ? Math.min(this.targetDistance, safeRawDist)
+        : safeRawDist;
       const isFinished = r.status === 'finished' || (r.status as string) === 'completed' || (this.targetDistance > 0 && clampedDist >= this.targetDistance);
       const effectiveDist = isFinished && this.targetDistance > 0 ? this.targetDistance : clampedDist;
+      const isBot = Boolean(r.isBot || String(r.userId || '').toLowerCase().startsWith('bot_') || /\(bot\)/i.test(String(r.name || '')));
+      const targetSpeedMs = isFinished
+        ? 0
+        : this.computeFtmsTargetSpeedMs({
+            watts: r.watts,
+            split: r.split,
+            spm: r.spm,
+            speedMs: r.speedMs,
+            status: r.status,
+            isBot,
+            dist: effectiveDist,
+          });
 
       let boat = this.boatsMap.get(r.userId);
       const racerKayak = (r.userId === this.activeUserId && this.myKayakCustomization)
@@ -872,6 +927,8 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
           currentLaneIndex: initialLaneIdx,
           currentDisplayDist: effectiveDist,
           targetPacketDist: effectiveDist,
+          currentSpeedMs: targetSpeedMs,
+          targetSpeedMs: targetSpeedMs,
           splitSec: r.split || 120,
           watts: r.watts || 0,
           spm: r.spm || 0,
@@ -880,7 +937,7 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
           status: isFinished ? 'finished' : r.status,
           ready: r.ready !== undefined ? r.ready : (r.connectionState !== 'CONNECTED'),
           connectionState: r.connectionState || (r.ready === false ? 'CONNECTED' : 'READY'),
-          isBot: Boolean(r.isBot || String(r.userId || '').toLowerCase().startsWith('bot_') || /\(bot\)/i.test(String(r.name || ''))),
+          isBot,
           isPaired: Boolean(r.isPaired),
           kayak: racerKayak
         };
@@ -894,26 +951,53 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
           boat.lane = Number(r.lane);
           boat.assignedLane = Number(r.lane);
         }
-        boat.isBot = Boolean(r.isBot || String(r.userId || '').toLowerCase().startsWith('bot_') || /\(bot\)/i.test(String(r.name || '')));
+        boat.isBot = isBot;
         boat.isPaired = Boolean(r.isPaired);
         boat.status = isFinished ? 'finished' : r.status;
         boat.kayak = racerKayak;
+
+        const prevTargetDist = boat.targetPacketDist;
+        const dtPacketSec = Math.max(0.05, (now - (boat.lastPacketTime || now)) / 1000);
+
         // Protection anti-recul : la distance cible ne régresse jamais, sauf réinitialisation de course (r.dist === 0)
-        if ((r.dist || 0) === 0 && boat.targetPacketDist > 50 && !isFinished) {
+        if (safeRawDist === 0 && boat.targetPacketDist > 50 && !isFinished) {
           boat.targetPacketDist = 0;
           boat.currentDisplayDist = 0;
+          boat.currentSpeedMs = 0;
+          boat.targetSpeedMs = 0;
         } else if (isFinished && this.targetDistance > 0) {
           boat.targetPacketDist = this.targetDistance;
           boat.currentDisplayDist = this.targetDistance;
+          boat.currentSpeedMs = 0;
+          boat.targetSpeedMs = 0;
         } else {
           boat.targetPacketDist = this.targetDistance > 0
             ? Math.min(this.targetDistance, Math.max(boat.targetPacketDist, effectiveDist))
             : Math.max(boat.targetPacketDist, effectiveDist);
         }
+
+        const packetDeltaM = Math.max(0, boat.targetPacketDist - prevTargetDist);
+        const packetHasProgress = packetDeltaM > 0.01;
+        const packetHasFtmsEffort = (r.watts || 0) > 0 || (r.spm || 0) > 0 || (typeof r.speedMs === 'number' && r.speedMs > 0);
+
+        if (isFinished) {
+          boat.targetSpeedMs = 0;
+          boat.currentSpeedMs = 0;
+        } else if (targetSpeedMs > 0) {
+          boat.targetSpeedMs = targetSpeedMs;
+        } else if (packetHasProgress && dtPacketSec <= 4.0) {
+          // Si le paquet avance en distance sans Watts explicites, dériver la vitesse de l'écart
+          boat.targetSpeedMs = Math.min(8.33, packetDeltaM / dtPacketSec);
+        } else if (!packetHasFtmsEffort) {
+          boat.targetSpeedMs = 0;
+        }
+
         boat.splitSec = r.split > 0 ? r.split : boat.splitSec;
         boat.watts = r.watts;
         boat.spm = r.spm;
-        boat.lastPacketTime = now;
+        if (packetHasProgress || packetHasFtmsEffort || !this.isRaceActive) {
+          boat.lastPacketTime = now;
+        }
         boat.color = this.boatColors[idx % this.boatColors.length];
         boat.ready = r.ready !== undefined ? r.ready : (r.connectionState !== 'CONNECTED');
         boat.connectionState = r.connectionState || (r.ready === false ? 'CONNECTED' : 'READY');
@@ -1018,6 +1102,8 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
       this.updateDynamicLanes();
     }
 
+    const now = performance.now();
+
     this.boatsMap.forEach((boat) => {
       const targetLaneIdx = this.dynamicLaneMode
         ? (boat.dynamicLaneIndex !== undefined ? boat.dynamicLaneIndex : Math.max(0, (boat.assignedLane || boat.lane || 1) - 1))
@@ -1039,21 +1125,101 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
         if (this.targetDistance > 0) {
           boat.targetPacketDist = this.targetDistance;
           boat.currentDisplayDist = this.targetDistance;
+          boat.currentSpeedMs = 0;
+          boat.targetSpeedMs = 0;
         }
+        return;
+      }
+
+      if (deltaT <= 0) {
         return;
       }
 
       const prevDisplay = boat.currentDisplayDist;
       const diff = boat.targetPacketDist - boat.currentDisplayDist;
-      if (diff > 0) {
-        if (diff < 0.8) {
-          boat.currentDisplayDist = boat.targetPacketDist;
+      const timeSincePacketSec = Math.max(0, (now - (boat.lastPacketTime || now)) / 1000);
+
+      // 1. Vitesse de base FTMS (m/s) issue des Watts / Allure du rameur
+      let desiredSpeedMs = boat.targetSpeedMs > 0
+        ? boat.targetSpeedMs
+        : this.computeFtmsTargetSpeedMs({
+            watts: boat.watts,
+            split: boat.splitSec,
+            spm: boat.spm,
+            status: boat.status,
+            isBot: boat.isBot,
+          });
+
+      // Si la course n'a pas encore démarré et que la distance cible est 0, rester immobile sur la ligne de départ
+      if (!this.isRaceActive && boat.targetPacketDist <= 0) {
+        boat.currentSpeedMs = 0;
+        boat.currentDisplayDist = 0;
+        return;
+      }
+
+      // 2. Décélération hydrodynamique douce si aucun nouveau paquet FTMS n'arrive après ~2.2s
+      // ou si le rameur a arrêté son effort (desiredSpeedMs === 0)
+      if (!boat.isBot && timeSincePacketSec > 2.2) {
+        const silenceOverSec = timeSincePacketSec - 2.2;
+        const decayFactor = Math.exp(-silenceOverSec * 1.4);
+        desiredSpeedMs *= decayFactor;
+      }
+
+      // 3. Projection cinématique de référence depuis le dernier paquet FTMS (dead-reckoning) :
+      // Entre deux paquets (~1 à 2s), la position attendue avance continûment à la vitesse FTMS.
+      const projectedElapsedSec = Math.min(2.2, timeSincePacketSec);
+      const projectedTargetDist = this.targetDistance > 0
+        ? Math.min(this.targetDistance, boat.targetPacketDist + desiredSpeedMs * projectedElapsedSec)
+        : boat.targetPacketDist + desiredSpeedMs * projectedElapsedSec;
+      const trackingErrorM = projectedTargetDist - boat.currentDisplayDist;
+
+      // Modulation continue de la vitesse pour suivre la trajectoire projetée FTMS sans à-coup :
+      // - Si le kayak est en retard sur la trajectoire projetée (trackingErrorM > 0) : correction proportionnelle souple
+      // - Si le kayak a légèrement dépassé la trajectoire projetée (trackingErrorM < 0) : ralentissement progressif (sans jamais reculer)
+      const maxLeadOverProjectedM = Math.max(2.0, desiredSpeedMs * 0.8);
+      let effectiveTargetSpeedMs = desiredSpeedMs;
+
+      if (trackingErrorM > 0) {
+        if (effectiveTargetSpeedMs > 0) {
+          const catchupBoost = Math.min(effectiveTargetSpeedMs * 0.85 + 2.5, trackingErrorM * 1.35);
+          effectiveTargetSpeedMs += catchupBoost;
+        } else if (diff > 0) {
+          // Même si Watts=0 sur le dernier paquet, glisser souplement jusqu'à targetPacketDist
+          effectiveTargetSpeedMs = Math.max(0.35, Math.min(8.0, diff * 2.2));
+        }
+      } else if (trackingErrorM < 0) {
+        const leadM = -trackingErrorM;
+        if (leadM >= maxLeadOverProjectedM) {
+          effectiveTargetSpeedMs = 0;
         } else {
-          boat.currentDisplayDist = Math.min(boat.targetPacketDist, boat.currentDisplayDist + Math.max(0.15, diff * 0.30));
+          const leadRatio = leadM / maxLeadOverProjectedM;
+          effectiveTargetSpeedMs *= Math.max(0.15, 1 - leadRatio * 0.85);
         }
       }
+
+      // 4. Inertie hydrodynamique sur la vitesse du kayak (filtre passe-bas continu indépendant du framerate)
+      const currentSpeed = Number.isFinite(boat.currentSpeedMs) ? boat.currentSpeedMs : effectiveTargetSpeedMs;
+      const speedResponseRate = effectiveTargetSpeedMs >= currentSpeed ? 6.5 : 4.5;
+      const alphaSpeed = 1 - Math.exp(-speedResponseRate * deltaT);
+      boat.currentSpeedMs = Math.max(0, currentSpeed + (effectiveTargetSpeedMs - currentSpeed) * alphaSpeed);
+
+      // 5. Intégration continue de la position à 60 FPS
+      let nextDist = boat.currentDisplayDist + boat.currentSpeedMs * deltaT;
+
+      // Si la vitesse résiduelle est quasi nulle et qu'on est très proche de la cible serveur, converger proprement
+      if (diff > 0 && diff <= 0.02 && desiredSpeedMs <= 0.05) {
+        nextDist = boat.targetPacketDist;
+        boat.currentSpeedMs = 0;
+      }
+
+      // Plafond avant la ligne d'arrivée tant que le statut 'finished' n'est pas confirmé
+      if (this.targetDistance > 0 && boat.targetPacketDist < this.targetDistance) {
+        const preFinishCap = Math.max(boat.targetPacketDist, this.targetDistance - 0.2);
+        nextDist = Math.min(nextDist, preFinishCap);
+      }
+
       // Règle d'or : le kayak ne recule jamais sur l'eau (monotonie absolue)
-      boat.currentDisplayDist = Math.max(prevDisplay, boat.currentDisplayDist);
+      boat.currentDisplayDist = Math.max(prevDisplay, nextDist);
 
       if (this.targetDistance > 0 && boat.currentDisplayDist > this.targetDistance) {
         boat.currentDisplayDist = this.targetDistance;

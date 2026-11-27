@@ -826,6 +826,7 @@ export class TelemetryController {
               if (field === "isBot") return false;
               if (field === "isPaired") return isTelemetryPaired;
               if (field === "netDistance") return effectiveDistance;
+              if (field === "exactDistance") return exactDistance;
               if (field === "lastPace") return actualSplit;
               if (field === "lastPower") return actualPower;
               if (field === "lastStrokeRate") return actualSpm;

@@ -1742,9 +1742,26 @@ class BleDelegate extends BluetoothLowEnergy.BleDelegate {
 
             _isWaitingForReadyOrHost = (isWaitingLobby && !isRunning);
             _targetDistance = targetDist;
-            view.setLobbyInfo(countdown, players, targetDist);
 
             var curState = view.getAppState();
+            var localCd = view.getCountdown();
+            // Protection monotone sur les 15 dernières secondes et après le départ :
+            // empêche une réponse HTTP en retard de faire remonter le compte à rebours ou de revenir à 2 après le GO
+            if (curState == RowerView.STATE_RACING || curState == RowerView.STATE_LATE_JOIN || _activityStatus.equals("in_progress")) {
+                return;
+            }
+            if (!isWaitingLobby && !isRunning && localCd > 0 && localCd <= 15 && countdown <= 15) {
+                if (countdown >= localCd) {
+                    countdown = localCd;
+                } else if (localCd - countdown <= 2) {
+                    countdown = localCd;
+                }
+            } else if (curState == RowerView.STATE_COUNTDOWN_5S && localCd <= 0 && countdown <= 5) {
+                countdown = 0;
+            }
+
+            view.setLobbyInfo(countdown, players, targetDist);
+
             if (isRunning && _isRaceEngaged &&
                 (curState == RowerView.STATE_LOBBY || curState == RowerView.STATE_WAITING_START || curState == RowerView.STATE_COUNTDOWN_5S || curState == RowerView.STATE_PENDING_APPROVAL)) {
                 var isRowing = (_model.strokeRate > 0 || _model.instantPower > 0);

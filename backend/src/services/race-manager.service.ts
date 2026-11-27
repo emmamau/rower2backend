@@ -781,7 +781,12 @@ export class RaceManager {
         participantInfo.userName = name;
       }
 
-      const dist = Number.isFinite(Number(getVal("netDistance"))) ? Math.max(0, Number(getVal("netDistance"))) : 0;
+      const rawNetDist = Number(getVal("netDistance"));
+      const rawExactDist = Number(getVal("exactDistance") ?? participantInfo?.exactDistance ?? rawNetDist);
+      const exactDistVal = Number.isFinite(rawExactDist) && rawExactDist > 0
+        ? Math.max(0, Number(rawExactDist.toFixed(2)))
+        : (Number.isFinite(rawNetDist) ? Math.max(0, Number(rawNetDist.toFixed(2))) : 0);
+      const dist = exactDistVal;
       const rawSplit = Number(getVal("lastPace")) || Number(getVal("avgPace")) || 120;
       const split = Number.isFinite(rawSplit) && rawSplit > 0 ? rawSplit : 120;
       const rawWatts = Number(getVal("lastPower")) || Number(getVal("avgPower")) || 0;
@@ -792,6 +797,14 @@ export class RaceManager {
       const country = getVal("country") || undefined;
       const status = getVal("status") || "in_progress";
       const elapsedTime = Number.isFinite(Number(getVal("elapsedTime"))) ? Math.max(0, Number(getVal("elapsedTime"))) : 0;
+      const rawSpeedMs = status === "finished"
+        ? 0
+        : (watts > 0
+            ? Math.min(8.33, Math.cbrt(Math.min(1200, watts) / 2.80))
+            : (isBot && split >= 60 && split <= 360
+                ? 500 / split
+                : (spm > 0 && split >= 60 && split <= 360 ? 500 / split : 0)));
+      const speedMs = Number(rawSpeedMs.toFixed(3));
 
       const isParticipantReady = isBot
         ? true
@@ -818,6 +831,8 @@ export class RaceManager {
         userId,
         name,
         dist,
+        exactDist: exactDistVal,
+        speedMs,
         split,
         watts,
         spm,
@@ -895,8 +910,9 @@ export class RaceManager {
       const elapsedSec = Math.max(0, (now.getTime() - botStartMs) / 1000);
       const pace = (bot.get("avgPace") as number) || (bot.get("lastPace") as number) || 120;
       const speedMs = 500 / Math.max(60, pace);
-      const dist = Math.min(target, Math.floor(elapsedSec * speedMs));
-      const finished = dist >= target;
+      const exactBotDist = Math.min(target, Number((elapsedSec * speedMs).toFixed(2)));
+      const dist = Math.min(target, Math.floor(exactBotDist));
+      const finished = exactBotDist >= target || dist >= target;
       const botPower = finished ? 0 : ((bot.get("lastPower") as number) || (bot.get("avgPower") as number) || 180);
       const botSpm = finished ? 0 : ((bot.get("lastStrokeRate") as number) || (bot.get("avgStrokeRate") as number) || 24);
 
@@ -904,8 +920,9 @@ export class RaceManager {
         await bot.update({
           netDistance: dist,
           currentDistance: dist,
+          exactDistance: finished ? target : exactBotDist,
           elapsedTime: Math.floor(elapsedSec),
-          progressPercent: Math.min(100, Number(((dist / target) * 100).toFixed(1))),
+          progressPercent: Math.min(100, Number(((exactBotDist / target) * 100).toFixed(1))),
           status: finished ? "finished" : "in_progress",
           finishedAt: finished ? (bot.get("finishedAt") || now) : bot.get("finishedAt"),
           lastPower: botPower,
@@ -918,10 +935,34 @@ export class RaceManager {
         if (typeof bot.setDataValue === "function") {
           bot.setDataValue("netDistance", dist);
           bot.setDataValue("currentDistance", dist);
+          bot.setDataValue("exactDistance", finished ? target : exactBotDist);
           bot.setDataValue("lastPower", botPower);
           bot.setDataValue("lastStrokeRate", botSpm);
         }
       }
+      if (typeof (bot as any).exactDistance !== "function") {
+        (bot as any).exactDistance = finished ? target : exactBotDist;
+      }
+      userStore.recordActivity({
+        id: bot.get("id") || `${race.id}_${bot.get("userId")}`,
+        activityId: race.id,
+        userId: bot.get("userId"),
+        userName: bot.get("userName"),
+        isBot: true,
+        netDistance: dist,
+        currentDistance: dist,
+        exactDistance: finished ? target : exactBotDist,
+        elapsedTime: Math.floor(elapsedSec),
+        progressPercent: Math.min(100, Number(((exactBotDist / target) * 100).toFixed(1))),
+        status: finished ? "finished" : "in_progress",
+        lastPower: botPower,
+        lastStrokeRate: botSpm,
+        lastPace: finished ? 0 : pace,
+        avgPace: pace,
+        avgPower: botPower,
+        avgStrokeRate: botSpm,
+        avgSpeedKmh: Number((speedMs * 3.6).toFixed(1)),
+      });
       advanced++;
     }
     if (advanced > 0) race.hasBots = true;
@@ -1712,7 +1753,7 @@ export class RaceManager {
 
     // Injecter automatiquement les bots configurés pour la course publique
     if (this.adminPublicRaceConfig.defaultBotsCount > 0) {
-      this.ensureDefaultPublicBots(
+      await this.ensureDefaultPublicBots(
         raceId,
         this.adminPublicRaceConfig.defaultBotsCount,
         this.adminPublicRaceConfig.defaultBotsPace,
@@ -1722,6 +1763,11 @@ export class RaceManager {
 
     console.log(`[RaceManager] New Public Race scheduled: ${raceId} | PIN: ${pin} | Target: ${targetDistance}m | Lobby until: ${lobbyEndsAt.toISOString()}`);
     socketGateway.broadcastRaceStatus(raceId, "LOBBY", { lobbyEndsAt });
+    try {
+      const initRows = await this.loadRaceActivities(raceId);
+      const sortedInit = RaceManager.sortRanking(initRows);
+      socketGateway.broadcastLeaderboard(raceId, RaceManager.toLiveMetrics(sortedInit, this.currentPublicRace));
+    } catch {}
     return this.currentPublicRace;
   }
 
@@ -2076,21 +2122,25 @@ export class RaceManager {
       }
     }
 
+    let nextPublicRace: RaceState | null = null;
+    if (isPublic) {
+      if (this.isPublicRaceEnabled) {
+        nextPublicRace = await this.initNextPublicRace();
+      } else {
+        this.currentPublicRace = null;
+      }
+    }
+
     socketGateway.broadcastRaceStatus(raceId, managed?.status || "COMPLETED", {
       reason: reason || (timeoutTriggered ? "timeout" : "completed"),
       pauseSeconds: 0,
       pauseEndsAt: undefined,
       ranking,
+      isPublic,
+      nextRaceId: nextPublicRace?.id,
       roomClosed: managed?.type === "PRIVATE_INVITE" ? true : undefined
     });
 
-    if (isPublic) {
-      if (this.isPublicRaceEnabled) {
-        await this.initNextPublicRace();
-      } else {
-        this.currentPublicRace = null;
-      }
-    }
     return ranking;
   }
 

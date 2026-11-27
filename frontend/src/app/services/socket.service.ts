@@ -9,6 +9,8 @@ export interface LiveRacerMetric {
   userId: string;
   name: string;
   dist: number;
+  exactDist?: number;
+  speedMs?: number;
   split: number;
   watts: number;
   spm: number;

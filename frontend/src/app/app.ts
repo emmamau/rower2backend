@@ -129,6 +129,7 @@ export class AppComponent implements OnInit, OnDestroy {
   isPrestartTimerDismissed = false;
   threeSecondsCount = 3;
   private goHoldUntilMs = 0;
+  private goTransitionLockUntilMs = 0;
   private goHideTimer: any = null;
 
   // Live race gap metrics
@@ -1731,12 +1732,39 @@ export class AppComponent implements OnInit, OnDestroy {
       .subscribe((raceData) => {
         if (raceData) {
           this.backendConnected = true;
+          const isNewRaceInLoop = Boolean(
+            !this.activePrivateRoom &&
+            raceData.race?.id &&
+            this.nextRaceInfo?.race?.id &&
+            raceData.race.id !== this.nextRaceInfo.race.id
+          );
+          if (isNewRaceInLoop) {
+            this.goHoldUntilMs = 0;
+            this.goTransitionLockUntilMs = 0;
+          }
+          const inGoTransitionLoop = Date.now() < this.goTransitionLockUntilMs && !isNewRaceInLoop && (raceData.secondsRemaining ?? 0) <= 5;
           this.nextRaceInfo = raceData;
+          if (inGoTransitionLoop) {
+            this.nextRaceInfo.status = 'in_progress';
+            this.nextRaceInfo.secondsRemaining = 0;
+            if (this.nextRaceInfo.race) {
+              this.nextRaceInfo.race.status = 'RUNNING';
+              (this.nextRaceInfo.race as any).internalStatus = 'RUNNING';
+            }
+          }
           if ((raceData as any).isSuspended !== undefined) {
             this.isPublicRaceSuspended = Boolean((raceData as any).isSuspended);
           }
           if (this.activePrivateRoom && raceData.race.type === 'PRIVATE_INVITE') {
             this.activePrivateRoom = raceData as PrivateRacePayload;
+            if (inGoTransitionLoop) {
+              this.activePrivateRoom.status = 'RUNNING';
+              (this.activePrivateRoom as any).internalStatus = 'RUNNING';
+              if (this.activePrivateRoom.race) {
+                this.activePrivateRoom.race.status = 'RUNNING';
+                (this.activePrivateRoom.race as any).internalStatus = 'RUNNING';
+              }
+            }
           }
           this.syncSocketRoom(raceData.race.id);
           this.gameMaxDurationSeconds = raceData.maxDurationSeconds || 3300;
@@ -1766,10 +1794,7 @@ export class AppComponent implements OnInit, OnDestroy {
             this.gameRemainingSeconds = this.gameMaxDurationSeconds;
             const serverRemaining = raceData.secondsRemaining;
             if (serverRemaining !== undefined && serverRemaining !== null) {
-              // Réconciliation douce : n'écrase pas le décompte local actif sauf si reset/nouveau joueur (diff > 3s)
-              if (this.countdownSeconds <= 0 || Math.abs(this.countdownSeconds - serverRemaining) > 3) {
-                this.countdownSeconds = serverRemaining;
-              }
+              this.applyMonotonicServerCountdown(serverRemaining);
             }
             this.syncCountdownUI();
           }
@@ -1796,12 +1821,12 @@ export class AppComponent implements OnInit, OnDestroy {
             this.racers = (lb.leaderboard || []).map((r) => {
               const existingMetric = this.liveMetricsList.find(m => m.userId === r.userId);
               const existingRacer = this.racers.find(x => x.userId === r.userId && x.activityId === r.activityId);
-              const rawPollDist = Math.round(r.netDistance || 0);
-              const prevKnownDist = Math.round(Math.max(
-                existingMetric?.dist || 0,
-                existingRacer?.netDistance || 0,
-                r.userId === this.activeUserId && this.myActivity?.activityId === r.activityId ? (this.myActivity?.netDistance || 0) : 0
-              ));
+              const rawPollDist = Number((r as any).exactDistance ?? r.netDistance ?? 0);
+              const prevKnownDist = Math.max(
+                Number(existingMetric?.exactDist ?? existingMetric?.dist ?? 0),
+                Number(existingRacer?.netDistance || 0),
+                r.userId === this.activeUserId && this.myActivity?.activityId === r.activityId ? Number(this.myActivity?.netDistance || 0) : 0
+              );
 
               const wasAlreadyFin = existingMetric?.status === 'finished' || existingRacer?.status === 'finished';
               let unifiedDist = isRaceWaitingOrCountdown && rawPollDist === 0
@@ -3388,6 +3413,9 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   get isPostRaceDisplayActive(): boolean {
+    if (!this.activePrivateRoom) {
+      return false;
+    }
     const active = Boolean(this.isFinished || this.isPostRaceRankingActive || this.isRaceEnded);
     if (active) {
       const rId = this.completedPublicRaceId || this.selectedRaceInfo?.id || this.nextRaceInfo?.race?.id || this.activePrivateRoom?.race?.id || (this.nextRaceInfo as any)?.id || (this.activePrivateRoom as any)?.id;
@@ -3566,7 +3594,11 @@ export class AppComponent implements OnInit, OnDestroy {
     this.finishCelebrationTimer = setTimeout(() => {
       this.showFinishCelebration = false;
       this.finishCelebrationTimer = null;
-      if (raceId) {
+      const isPublicRace = !this.activePrivateRoom;
+      const shouldOpenLeaderboard = Boolean(
+        raceId && (!isPublicRace || this.completedPublicRaceId === raceId || this.isPostRaceRankingActive)
+      );
+      if (shouldOpenLeaderboard && raceId) {
         this.isPostRaceRankingActive = true;
         if (!this.dismissedLeaderboardRaceIds.has(raceId)) {
           this.openRaceLeaderboard(raceId);
@@ -5754,6 +5786,16 @@ export class AppComponent implements OnInit, OnDestroy {
 
   onPrivateRoomUpdated(updated: PrivateRacePayload): void {
     const prevStatus = (this.activePrivateRoom?.status || this.activePrivateRoom?.race?.status || (this.activePrivateRoom as any)?.internalStatus || '').toString().toUpperCase();
+    const inGoTransition = Date.now() < this.goTransitionLockUntilMs && (updated?.secondsRemaining ?? 0) <= 5;
+    if (inGoTransition) {
+      updated.status = 'RUNNING';
+      (updated as any).internalStatus = 'RUNNING';
+      updated.secondsRemaining = 0;
+      if (updated.race) {
+        updated.race.status = 'RUNNING';
+        (updated.race as any).internalStatus = 'RUNNING';
+      }
+    }
     this.activePrivateRoom = updated;
     this.nextRaceInfo = updated;
     const updatedStatus = (
@@ -5765,16 +5807,16 @@ export class AppComponent implements OnInit, OnDestroy {
     ).toString().toUpperCase();
 
     if ((updatedStatus === 'COUNTDOWN' || (!updated?.waitingForHost && updated?.secondsRemaining && updated.secondsRemaining > 0 && updated.secondsRemaining <= 15)) && updated?.secondsRemaining && updated.secondsRemaining > 0) {
-      if (this.countdownSeconds <= 0 || Math.abs(this.countdownSeconds - updated.secondsRemaining) > 3) {
-        this.countdownSeconds = updated.secondsRemaining;
-      }
+      this.applyMonotonicServerCountdown(updated.secondsRemaining);
       this.syncCountdownUI();
     } else if (updatedStatus !== 'RUNNING' && updatedStatus !== 'IN_PROGRESS' && updatedStatus !== 'COUNTDOWN') {
-      this.countdownSeconds = 0;
-      this.isPreStartCountdown = false;
-      this.is3sCountdown = false;
-      this.gameRemainingSeconds = updated.maxDurationSeconds || this.gameMaxDurationSeconds || 3300;
-      this.formattedGameRemaining = this.i18n.formatDetailedCountdown(this.gameRemainingSeconds);
+      if (Date.now() >= this.goTransitionLockUntilMs) {
+        this.countdownSeconds = 0;
+        this.isPreStartCountdown = false;
+        this.is3sCountdown = false;
+        this.gameRemainingSeconds = updated.maxDurationSeconds || this.gameMaxDurationSeconds || 3300;
+        this.formattedGameRemaining = this.i18n.formatDetailedCountdown(this.gameRemainingSeconds);
+      }
     }
     const isNowStartingOrRunning =
       updatedStatus === 'COUNTDOWN' ||
@@ -5959,10 +6001,10 @@ export class AppComponent implements OnInit, OnDestroy {
         this.liveMetricsList = update.leaderboard.map((m) => {
           const existing = this.liveMetricsList.find(x => x.userId === m.userId);
           const existingRacer = this.racers.find(x => x.userId === m.userId && x.activityId === update.raceId);
-          const rawDist = Math.round(m.dist || 0);
+          const rawDist = Number(m.exactDist ?? m.dist ?? 0);
           const prevDist = (existing && existing.dist)
-            ? Math.max(Math.round(existing.dist), Math.round(existingRacer?.netDistance || 0))
-            : Math.round(existingRacer?.netDistance || 0);
+            ? Math.max(Number(existing.exactDist ?? existing.dist), Number(existingRacer?.netDistance || 0))
+            : Number(existingRacer?.netDistance || 0);
           const wasAlreadyFin = existing?.status === 'finished' || existingRacer?.status === 'finished';
           let safeDist = (prevDist > 0 && rawDist > 0)
             ? Math.max(prevDist, rawDist)
@@ -5977,14 +6019,24 @@ export class AppComponent implements OnInit, OnDestroy {
           const c2Split = wattsVal > 0
             ? Math.max(60, Math.min(360, Math.round(500 / Math.cbrt(wattsVal / 2.80))))
             : (m.split || 120);
+          const isBotVal = m.isBot !== undefined ? m.isBot : this.isBotRacer(m);
+          const computedSpeedMs = safeStatus === 'finished'
+            ? 0
+            : (typeof m.speedMs === 'number' && Number.isFinite(m.speedMs) && m.speedMs >= 0
+                ? m.speedMs
+                : (wattsVal > 0
+                    ? Math.min(8.33, Math.cbrt(Math.min(1200, wattsVal) / 2.80))
+                    : ((isBotVal || (m.spm || 0) > 0) && c2Split >= 60 && c2Split <= 360 ? 500 / c2Split : 0)));
 
           let updated: LiveRacerMetric = {
             ...m,
             dist: safeDist,
+            exactDist: safeDist,
+            speedMs: Number(computedSpeedMs.toFixed(3)),
             watts: wattsVal,
             split: c2Split,
             status: safeStatus,
-            isBot: m.isBot !== undefined ? m.isBot : this.isBotRacer(m),
+            isBot: isBotVal,
             isPaired: m.isPaired !== undefined ? m.isPaired : this.isPairedRacer(m),
           };
           if (m.userId === this.activeUserId) {
@@ -6176,12 +6228,16 @@ export class AppComponent implements OnInit, OnDestroy {
           }
         }
 
-        // 5. Affichage du Classement Général en Fin de Course publique
+        // 5. Affichage du Classement Général en Fin de Course publique (dès que l'ensemble des joueurs humains engagés ont atteint la ligne d'arrivée)
         const isPublicRace = !this.activePrivateRoom;
-        if (isPublicRace && this.isFinished && !this.isPostRaceRankingActive && this.nextRaceInfo?.race?.id) {
+        const nonAbandonedHumans = this.liveMetricsList.filter(r => !this.isBotRacer(r) && r.status !== 'abandoned');
+        const allHumansFinishedInMetric = nonAbandonedHumans.length > 0 && nonAbandonedHumans.every(
+          r => r.status === 'finished' || (targetDist > 0 && (r.dist || 0) >= targetDist)
+        );
+        if (isPublicRace && allHumansFinishedInMetric && !this.isPostRaceRankingActive && this.nextRaceInfo?.race?.id) {
           const pubRaceId = this.nextRaceInfo.race.id;
           this.completedPublicRaceId = pubRaceId;
-          if (!this.hasCelebratedFinish) {
+          if (this.isFinished && !this.hasCelebratedFinish) {
             this.triggerFinishCelebration(pubRaceId);
           } else if (!this.showFinishCelebration) {
             this.isPostRaceRankingActive = true;
@@ -6385,7 +6441,7 @@ export class AppComponent implements OnInit, OnDestroy {
             this.isPostRaceRankingActive = false;
             this.completedPublicRaceId = null;
             this.selectedRaceLeaderboard = [];
-            this.myActivity = null;
+            this.resetPublicWaterForNextRace();
             this.triggerFinishToast(
               update.details?.message || "🛑 Course arrêtée par l'administrateur. Aucun classement n'a été établi."
             );
@@ -6398,11 +6454,12 @@ export class AppComponent implements OnInit, OnDestroy {
             if (update.details?.ranking && update.details.ranking.length > 0) {
               this.selectedRaceLeaderboard = update.details.ranking;
             }
-            if (targetRaceId && !this.dismissedLeaderboardRaceIds.has(targetRaceId)) {
+            this.isPostRaceRankingActive = true;
+            if (targetRaceId && !this.showFinishCelebration && !this.dismissedLeaderboardRaceIds.has(targetRaceId)) {
               this.openRaceLeaderboard(targetRaceId);
             }
-            this.isPostRaceRankingActive = true;
-            // Charger le nouveau lobby public pour que son timer d'attente reprenne immédiatement
+            // Réinitialiser immédiatement le plan d'eau pour préparer la prochaine course publique
+            this.resetPublicWaterForNextRace(update.details?.nextRaceId);
             this.loadNextRaceInfo();
           }
         }
@@ -6518,6 +6575,16 @@ export class AppComponent implements OnInit, OnDestroy {
         }
         this.pollActiveRaceSource().subscribe((data) => {
           if (data) {
+            const inGoTransition = Date.now() < this.goTransitionLockUntilMs && (data.secondsRemaining ?? 0) <= 5;
+            if (inGoTransition) {
+              data.status = 'in_progress';
+              (data as any).internalStatus = 'RUNNING';
+              data.secondsRemaining = 0;
+              if (data.race) {
+                data.race.status = 'RUNNING';
+                (data.race as any).internalStatus = 'RUNNING';
+              }
+            }
             this.activePrivateRoom = data as PrivateRacePayload;
             this.nextRaceInfo = data;
             if (data.remainingSeconds !== undefined) {
@@ -6527,14 +6594,16 @@ export class AppComponent implements OnInit, OnDestroy {
             }
             const isCountdown = data.race?.status === 'COUNTDOWN' || (data as any)?.internalStatus === 'COUNTDOWN' || data.status === 'countdown';
             if (isCountdown && typeof data.secondsRemaining === 'number' && data.secondsRemaining > 0 && !data.waitingForHost) {
-              this.countdownSeconds = data.secondsRemaining;
+              this.applyMonotonicServerCountdown(data.secondsRemaining);
               this.syncCountdownUI();
             } else if (!isCountdown && !this.isRaceActive) {
-              this.countdownSeconds = 0;
-              this.isPreStartCountdown = false;
-              this.is3sCountdown = false;
-              this.gameRemainingSeconds = data.maxDurationSeconds || this.gameMaxDurationSeconds || 3300;
-              this.formattedGameRemaining = this.i18n.formatDetailedCountdown(this.gameRemainingSeconds);
+              if (Date.now() >= this.goTransitionLockUntilMs) {
+                this.countdownSeconds = 0;
+                this.isPreStartCountdown = false;
+                this.is3sCountdown = false;
+                this.gameRemainingSeconds = data.maxDurationSeconds || this.gameMaxDurationSeconds || 3300;
+                this.formattedGameRemaining = this.i18n.formatDetailedCountdown(this.gameRemainingSeconds);
+              }
             }
             this.cdr.markForCheck();
           }
@@ -6768,10 +6837,28 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   private triggerGoOverlayHold(): void {
+    const now = Date.now();
     this.is3sCountdown = true;
     this.isPreStartCountdown = false;
     this.threeSecondsCount = 0;
-    this.goHoldUntilMs = Date.now() + 1000;
+    this.goHoldUntilMs = now + 1000;
+    this.goTransitionLockUntilMs = now + 4000;
+    if (this.activePrivateRoom) {
+      this.activePrivateRoom.status = 'RUNNING';
+      (this.activePrivateRoom as any).internalStatus = 'RUNNING';
+      if (this.activePrivateRoom.race) {
+        this.activePrivateRoom.race.status = 'RUNNING';
+        (this.activePrivateRoom.race as any).internalStatus = 'RUNNING';
+      }
+    }
+    if (this.nextRaceInfo) {
+      this.nextRaceInfo.status = 'in_progress';
+      this.nextRaceInfo.secondsRemaining = 0;
+      if (this.nextRaceInfo.race) {
+        this.nextRaceInfo.race.status = 'RUNNING';
+        (this.nextRaceInfo.race as any).internalStatus = 'RUNNING';
+      }
+    }
     if (this.goHideTimer) {
       clearTimeout(this.goHideTimer);
     }
@@ -6782,6 +6869,35 @@ export class AppComponent implements OnInit, OnDestroy {
         this.cdr.markForCheck();
       }
     }, 1000);
+  }
+
+  /**
+   * Synchronise le compte à rebours serveur de manière strictement monotone (décroissante)
+   * pendant les 15 dernières secondes et bloque tout retour à 1..5s après le « GO ! ».
+   */
+  private applyMonotonicServerCountdown(serverRemaining: number): void {
+    if (typeof serverRemaining !== 'number' || isNaN(serverRemaining)) {
+      return;
+    }
+    const now = Date.now();
+    // Pendant la fenêtre de transition suivant le GO (4s), ignorer tout reliquat de décompte (<= 5s)
+    if (now < this.goTransitionLockUntilMs && serverRemaining <= 5) {
+      this.countdownSeconds = 0;
+      return;
+    }
+    // Pendant la séquence finale de lancement (<= 15s), interdire toute remontée du compteur due à la latence HTTP
+    if (this.countdownSeconds > 0 && this.countdownSeconds <= 15 && serverRemaining <= 15) {
+      if (serverRemaining < this.countdownSeconds) {
+        // N'accepter une baisse serveur que si l'écart dépasse 2s pour préserver la régularité du tick 1Hz local
+        if (this.countdownSeconds - serverRemaining > 2) {
+          this.countdownSeconds = serverRemaining;
+        }
+      }
+      return;
+    }
+    if (this.countdownSeconds <= 0 || Math.abs(this.countdownSeconds - serverRemaining) > 3) {
+      this.countdownSeconds = serverRemaining;
+    }
   }
 
   private initCountdownTicker(): void {
@@ -6854,6 +6970,14 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   private syncCountdownUI(): void {
+    const now = Date.now();
+    if (now < this.goHoldUntilMs) {
+      this.is3sCountdown = true;
+      this.isPreStartCountdown = false;
+      this.threeSecondsCount = 0;
+      return;
+    }
+
     const isRunning = this.isRaceActive;
     const isRoomWaiting = this.isPrivateRoomInWaitingLobby();
 
@@ -6865,9 +6989,7 @@ export class AppComponent implements OnInit, OnDestroy {
 
     if (isRunning || isRoomWaiting || this.countdownSeconds <= 0) {
       this.isPreStartCountdown = false;
-      if (Date.now() >= this.goHoldUntilMs) {
-        this.is3sCountdown = false;
-      }
+      this.is3sCountdown = false;
       return;
     }
 
@@ -6893,12 +7015,100 @@ export class AppComponent implements OnInit, OnDestroy {
     }
   }
 
+  resetPublicWaterForNextRace(nextRaceId?: string): void {
+    this.goHoldUntilMs = 0;
+    this.goTransitionLockUntilMs = 0;
+    this.racers = [];
+    this.liveMetricsList = [];
+    this.myActivity = null;
+    this.finishedRacerIds.clear();
+    this.finisherCount = 0;
+    this.totalActiveRacers = 0;
+    this.activeRacersCount = 0;
+    this.distToLeader = 0;
+    this.distToPrev = 0;
+    this.distToNext = 0;
+    this.raceMonotonicStartTimestamp = null;
+    this.raceMonotonicMaxElapsed = 0;
+    this.lastSocketUpdateAtMs = 0;
+    this.lastHttpSyncAtMs = 0;
+    if (nextRaceId) {
+      this.syncSocketRoom(nextRaceId);
+    }
+  }
+
   loadNextRaceInfo(): void {
     this.pollActiveRaceSource().subscribe((data) => {
       if (data) {
+        const isNewPublicRace = Boolean(
+          !this.activePrivateRoom &&
+          data.race?.id &&
+          this.nextRaceInfo?.race?.id &&
+          data.race.id !== this.nextRaceInfo.race.id
+        );
+        if (isNewPublicRace) {
+          this.goHoldUntilMs = 0;
+          this.goTransitionLockUntilMs = 0;
+        }
+        const inGoTransition = Date.now() < this.goTransitionLockUntilMs && !isNewPublicRace && (data.secondsRemaining ?? 0) <= 5;
         this.nextRaceInfo = data;
-        this.countdownSeconds = data.secondsRemaining;
+        if (inGoTransition) {
+          this.nextRaceInfo.status = 'in_progress';
+          this.nextRaceInfo.secondsRemaining = 0;
+          if (this.nextRaceInfo.race) {
+            this.nextRaceInfo.race.status = 'RUNNING';
+            (this.nextRaceInfo.race as any).internalStatus = 'RUNNING';
+          }
+          if (this.activePrivateRoom && data.race?.type === 'PRIVATE_INVITE') {
+            this.activePrivateRoom.status = 'RUNNING';
+            (this.activePrivateRoom as any).internalStatus = 'RUNNING';
+            if (this.activePrivateRoom.race) {
+              this.activePrivateRoom.race.status = 'RUNNING';
+              (this.activePrivateRoom.race as any).internalStatus = 'RUNNING';
+            }
+          }
+        }
+        if (data.race?.id) {
+          this.syncSocketRoom(data.race.id);
+        }
+        if (isNewPublicRace) {
+          this.countdownSeconds = data.secondsRemaining;
+        } else {
+          this.applyMonotonicServerCountdown(data.secondsRemaining);
+        }
         this.syncCountdownUI();
+        if (isNewPublicRace || (!this.activePrivateRoom && this.liveMetricsList.length === 0 && data.race?.id)) {
+          this.rowerService.getRaceLeaderboard(data.race.id).pipe(
+            catchError(() => of({ leaderboard: [] }))
+          ).subscribe((lb: any) => {
+            if (this.nextRaceInfo?.race?.id === data.race.id && Array.isArray(lb?.leaderboard)) {
+              const activeRows = lb.leaderboard.filter((r: any) => r.status !== 'abandoned');
+              this.racers = activeRows.map((r: any) => ({
+                ...r,
+                netDistance: r.netDistance || 0,
+                currentDistance: r.netDistance || 0,
+              }));
+              this.liveMetricsList = activeRows.map((r: any, idx: number) => ({
+                lane: Number(r.lane) || (idx + 1),
+                userId: r.userId,
+                name: r.userName || r.name || r.userId,
+                dist: r.netDistance || 0,
+                split: r.avgPaceSec || 120,
+                watts: 0,
+                spm: 0,
+                status: r.status || 'waiting',
+                ready: true,
+                connectionState: 'READY',
+                isBot: Boolean(r.isBot),
+                isPaired: Boolean(r.isPaired),
+                kayak: r.kayak,
+              }));
+              this.totalActiveRacers = this.liveMetricsList.length;
+              this.activeRacersCount = this.liveMetricsList.length;
+              this.cdr.markForCheck();
+            }
+          });
+        }
         this.cdr.markForCheck();
       }
     });

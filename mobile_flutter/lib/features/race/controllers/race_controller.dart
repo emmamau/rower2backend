@@ -501,10 +501,14 @@ class RaceController extends StateNotifier<RaceSessionState> {
   void _onPrivateUpdateReceived(Map<String, dynamic> data) {
     if (data['secondsRemaining'] is num) {
       final cd = (data['secondsRemaining'] as num).toInt();
-      if (cd > 0 && cd <= 15) {
+      if (cd > 0 && cd <= 15 && state.phase != RacePhase.racing && state.phase != RacePhase.finished) {
+        final currentCd = state.countdownSeconds;
+        final monotonicCd = (state.phase == RacePhase.countdown15s && currentCd > 0 && currentCd <= 15)
+            ? (cd < currentCd && (currentCd - cd > 2) ? cd : currentCd)
+            : cd;
         state = state.copyWith(
           phase: RacePhase.countdown15s,
-          countdownSeconds: cd,
+          countdownSeconds: monotonicCd,
         );
       }
     }

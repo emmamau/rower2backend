@@ -1016,8 +1016,8 @@ test('Post-Race Detailed Ranking: displayed on public race finish, never reopens
   const appHtml = readAppHtmlBundle();
   const appTs = readAppTsBundle();
 
-  // Triggered on public race finish
-  assert.match(appTs, /if\s*\(isPublicRace && this\.isFinished && !this\.isPostRaceRankingActive && this\.nextRaceInfo\?\.race\?\.id\)\s*\{/);
+  // Triggered on public race finish (once all humans have crossed the finish line)
+  assert.match(appTs, /if\s*\(isPublicRace && allHumansFinishedInMetric && !this\.isPostRaceRankingActive && this\.nextRaceInfo\?\.race\?\.id\)\s*\{/);
   // Tracks dismissed race IDs so closing the modal prevents automatic reopening
   assert.match(appTs, /dismissedLeaderboardRaceIds\.add\(closedRaceId\)/);
   assert.match(appTs, /!this\.dismissedLeaderboardRaceIds\.has\(/);
