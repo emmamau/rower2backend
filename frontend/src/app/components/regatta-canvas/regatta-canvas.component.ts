@@ -20,6 +20,7 @@ import {
   hexToRgba,
   RegattaPreferences,
   RegattaMetricKey,
+  KayakNamePosition,
   DEFAULT_REGATTA_PREFERENCES
 } from '../../models/user.model';
 import { I18nService } from '../../services/i18n.service';
@@ -1227,7 +1228,9 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
       ctx.stroke();
     }
 
-    // 3.5. Incrustation géante transparente (Watermark) sous le kayak au milieu de l'écran dans sa ligne d'eau
+    // 3.5. Incrustation géante transparente (Watermark) sur la ligne d'eau du joueur
+    // Au départ (< 50% de la distance), affichée à droite de la ligne pour rester visible ;
+    // dès que le kayak du joueur franchit 50% de la distance, bascule à gauche au début de la ligne.
     const watermarkKey = this.regattaPreferences?.watermarkMetric || 'chrono';
     if (watermarkKey && watermarkKey !== 'none') {
       const activeBoat = this.boatsMap.get(this.activeUserId);
@@ -1244,35 +1247,47 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
             const val = this.formatMetricValue(watermarkKey, activeBoat);
             if (val) {
               ctx.save();
-              // Agrandissement maximal pour occuper véritablement tout l'espace vertical du couloir (94-98% de laneH)
-              // En canvas 2D, la hauteur visible (cap-height) des chiffres représente ~72% de fontPx.
-              // On dimensionne donc fontPx pour que la hauteur réelle remplisse tout le couloir.
-              const baseFontPx = Math.max(24, Math.floor(laneH * 1.32));
+              // Taille réduite (~70% de la hauteur du couloir) pour ne jamais sortir de la ligne d'eau
+              const baseFontPx = Math.max(16, Math.floor(laneH * 0.92));
               ctx.font = `900 ${baseFontPx}px "Exo 2", monospace, sans-serif`;
               const m = ctx.measureText(val);
               const glyphAscent = m.actualBoundingBoxAscent || (baseFontPx * 0.72);
               const glyphDescent = m.actualBoundingBoxDescent || 0;
-              const actualGlyphH = Math.max(10, glyphAscent + glyphDescent);
+              const actualGlyphH = Math.max(8, glyphAscent + glyphDescent);
               const textWidth = Math.max(10, m.width);
 
-              // Occupe 96% de la hauteur du couloir tout en garantissant qu'elle ne déborde pas sur la largeur
-              const scaleH = (laneH * 0.96) / actualGlyphH;
-              const maxW = w * 0.92;
+              // Occupe ~70% de la hauteur du couloir avec une marge verticale franche
+              const scaleH = (laneH * 0.70) / actualGlyphH;
+              const maxW = trackW * 0.44;
               const scaleW = textWidth * scaleH > maxW ? maxW / textWidth : scaleH;
               const finalScale = Math.min(scaleH, scaleW);
-              const watermarkFontPx = Math.max(18, Math.round(baseFontPx * finalScale));
+              const watermarkFontPx = Math.max(13, Math.round(baseFontPx * finalScale));
 
               ctx.font = `900 ${watermarkFontPx}px "Exo 2", monospace, sans-serif`;
-              ctx.textAlign = 'center';
+              const finalTextW = ctx.measureText(val).width;
               ctx.textBaseline = 'middle';
               ctx.fillStyle = 'rgba(0, 240, 255, 0.28)';
               ctx.shadowColor = '#00f0ff';
-              ctx.shadowBlur = 12;
+              ctx.shadowBlur = 10;
 
-              // Centrage vertical et horizontal au millimètre près dans le couloir
-              const finalCenterX = Math.round(w * 0.5);
+              const activeProgress = Math.min(1.0, Math.max(0, activeBoat.currentDisplayDist / (this.targetDistance || 2000)));
+              const isPastHalfway = activeProgress >= 0.5;
+              const padSide = Math.round((isCompact ? 10 : 18) * Math.min(1.5, boatScale));
+              const trackLeftScreen = Math.max(marginX - camOffset + padSide, marginX * 0.85);
+              const trackRightScreen = Math.min(w - rightPad - padSide, finishX - padSide);
+
               const finalCenterY = Math.round(watermarkY);
-              ctx.fillText(val, finalCenterX, finalCenterY);
+              if (isPastHalfway) {
+                // Kayak >= 50% : affiché à gauche au début de la ligne d'eau
+                ctx.textAlign = 'left';
+                const leftX = Math.max(marginX * 0.75, Math.min(w - finalTextW - 10, trackLeftScreen));
+                ctx.fillText(val, Math.round(leftX), finalCenterY);
+              } else {
+                // Kayak < 50% (au départ) : affiché à droite de la ligne d'eau
+                ctx.textAlign = 'right';
+                const rightX = Math.min(w - 10, Math.max(marginX + finalTextW + 10, trackRightScreen));
+                ctx.fillText(val, Math.round(rightX), finalCenterY);
+              }
               ctx.restore();
             }
           }
@@ -1474,151 +1489,234 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
       ctx.fill();
 
       // =========================================================================
-      // MISE EN VALEUR : Flèche animée et bannière avec pseudo en surbrillance
-      // Taille de police maximisée au fur et à mesure que le zoom augmente
+      // BULLE DU NOM DU KAYAK ET BULLE DE DONNÉES DE LIGNE D'EAU CONFIGURABLES
+      // - Position du nom paramétrable : auto, above, below, front, back, none
+      // - Bulle de données un peu réduite pour rester strictement dans la ligne d'eau
+      // - Bascule automatique à 50% de la distance : à droite (devant) au départ (< 50%),
+      //   puis à gauche (derrière) dès que le kayak franchit la moitié de la distance (>= 50%).
       // =========================================================================
-      const shortName = isCompact && boat.name.length > 10 ? `${boat.name.slice(0, 9)}…` : boat.name;
-      const baseLabelPx = isCompact ? 10 : 11.5;
-      const labelFontPx = Math.min(Math.floor(laneH * 0.38), Math.max(10, Math.round(baseLabelPx * fontScale)));
+      const isPastHalfway = progress >= 0.5;
+      const gap = Math.round((isCompact ? 7 : 10) * boatScale);
+      const minXBound = Math.max(4, Math.round(marginX * 0.55));
+      const maxXBound = w - 6;
 
-      if (isUser || isFocused) {
-        // Encart au-dessus ou en-dessous : si ligne 1 (effectiveLaneIdx === 0) ou espace haut insuffisant, affiché en-dessous
-        const isBelow = effectiveLaneIdx === 0 || (y - 32 < topOffset);
-        const arrowBounce = Math.sin(nowSec * 5.5) * 3;
-        let arrowY = 0;
-        let by = 0;
+      // 1. Préparation de la bulle de données de ligne d'eau (Donnée 1 · Donnée 2)
+      const shouldShowDataBadge = this.isRaceActive || (boat.currentDisplayDist > 0 && boat.status !== 'finished') || boat.status === 'finished';
+      const mKeys = isUser
+        ? (this.regattaPreferences?.myLaneMetrics || ['position', 'distRemaining'])
+        : (this.regattaPreferences?.opponentLaneMetrics || ['distRemaining', 'pace']);
+      const dataPosPref = isUser
+        ? (this.regattaPreferences?.myLanePosition || 'auto')
+        : (this.regattaPreferences?.opponentLanePosition || 'auto');
 
-        ctx.fillStyle = isUser ? '#00f0ff' : '#ffe600';
-        ctx.beginPath();
-        if (isBelow) {
-          arrowY = y + hullRy + 6 * boatScale + arrowBounce;
-          ctx.moveTo(x, arrowY);
-          ctx.lineTo(x - 4.5 * boatScale, arrowY + 7 * boatScale);
-          ctx.lineTo(x + 4.5 * boatScale, arrowY + 7 * boatScale);
-          ctx.closePath();
-          ctx.fill();
-          by = arrowY + 12 * boatScale + labelFontPx * 0.6;
-        } else {
-          const rawArrowY = y - (hullRy + 12 * boatScale) + arrowBounce;
-          arrowY = Math.max(topOffset + 12, rawArrowY);
-          ctx.moveTo(x, arrowY + 4 * boatScale);
-          ctx.lineTo(x - 4.5 * boatScale, arrowY - 3 * boatScale);
-          ctx.lineTo(x + 4.5 * boatScale, arrowY - 3 * boatScale);
-          ctx.closePath();
-          ctx.fill();
-          by = Math.max(topOffset + 14, arrowY - 14);
-        }
+      const val1 = shouldShowDataBadge ? this.formatMetricValue(mKeys[0], boat) : '';
+      const val2 = shouldShowDataBadge ? this.formatMetricValue(mKeys[1], boat) : '';
+      const badgeItems = [val1, val2].filter(Boolean);
+      const hasDataBadge = badgeItems.length > 0;
 
-        // Bannière avec pseudo et métrique personnalisée (ou distance par défaut)
-        const myHeaderKey = this.regattaPreferences?.myHeaderMetric || 'distCovered';
-        const myHeaderVal = this.formatMetricValue(myHeaderKey, boat);
-        const bannerLabel = `${isUser ? this.i18n.t('CANVAS_BADGE_YOU') : this.i18n.t('CANVAS_BADGE_FOLLOWING')} : ${shortName}${myHeaderVal ? ' · ' + myHeaderVal : ''}`;
-        ctx.font = `bold ${labelFontPx}px sans-serif`;
-        const btw = ctx.measureText(bannerLabel).width;
-        const boxPadX = Math.round(5 * Math.min(1.8, fontScale));
-        const boxH = Math.round(labelFontPx + 6 * Math.min(1.6, fontScale));
-        const bx = Math.max(6, Math.min(w - btw - boxPadX * 2 - 4, x - btw / 2));
-
-        // Fond bannière
-        ctx.fillStyle = 'rgba(6, 15, 33, 0.92)';
-        ctx.fillRect(bx - boxPadX, by - Math.round(labelFontPx * 0.88), btw + boxPadX * 2, boxH);
-        ctx.strokeStyle = isUser ? '#00f0ff' : '#ffe600';
-        ctx.lineWidth = 1.4 * Math.min(1.5, boatScale);
-        ctx.strokeRect(bx - boxPadX, by - Math.round(labelFontPx * 0.88), btw + boxPadX * 2, boxH);
-
-        ctx.fillStyle = isUser ? '#00f0ff' : '#ffe600';
-        ctx.fillText(bannerLabel, bx, by);
-      } else {
-        // Label standard pour concurrents avec métrique configurée (ou distance)
-        const oppHeaderKey = this.regattaPreferences?.opponentHeaderMetric || 'distCovered';
-        const oppHeaderVal = this.formatMetricValue(oppHeaderKey, boat);
-        const text = `${shortName}${oppHeaderVal ? ' · ' + oppHeaderVal : ''}`;
-        ctx.font = `bold ${labelFontPx}px sans-serif`;
-        const tw = ctx.measureText(text).width;
-        const lx = Math.max(6, Math.min(w - tw - 8, x - tw / 2));
-        const ly = Math.max(12, y - 9);
-        if (zoom > 1) {
-          const pad = Math.round(4 * Math.min(1.6, fontScale));
-          ctx.fillStyle = 'rgba(6, 15, 33, 0.78)';
-          ctx.fillRect(lx - pad, ly - Math.round(labelFontPx * 0.86), tw + pad * 2, Math.round(labelFontPx + 4));
-        }
-        ctx.fillStyle = '#ffffff';
-        ctx.fillText(text, lx, ly);
+      // Dimensions légèrement réduites (~60% de la hauteur du couloir max) pour ne jamais déborder de la ligne d'eau
+      const badgeFontPx = Math.min(Math.floor(laneH * 0.33), Math.max(8.5, Math.round((isCompact ? 8.5 : 10) * fontScale)));
+      const badgePadX = Math.round((isCompact ? 5 : 6.5) * Math.min(1.5, fontScale));
+      const badgeH = Math.min(Math.floor(laneH * 0.62), Math.max(14, Math.round(badgeFontPx + 5 * Math.min(1.4, fontScale))));
+      let badgeText = '';
+      let badgeW = 0;
+      if (hasDataBadge) {
+        badgeText = badgeItems.join(' · ');
+        ctx.font = `bold ${badgeFontPx}px sans-serif`;
+        badgeW = ctx.measureText(badgeText).width + badgePadX * 2;
       }
 
-      // =========================================================================
-      // DONNÉES DE LIGNE D'EAU CONFIGURABLES : JOUEUR ET CONCURRENTS
-      // 2 métriques configurables placées devant ou derrière avec bascule automatique
-      // =========================================================================
-      if (this.isRaceActive || (boat.currentDisplayDist > 0 && boat.status !== 'finished') || boat.status === 'finished') {
-        const mKeys = isUser
-          ? (this.regattaPreferences?.myLaneMetrics || ['position', 'distRemaining'])
-          : (this.regattaPreferences?.opponentLaneMetrics || ['distRemaining', 'pace']);
-        const posPref = isUser
-          ? (this.regattaPreferences?.myLanePosition || 'auto')
-          : (this.regattaPreferences?.opponentLanePosition || 'auto');
-
-        const val1 = this.formatMetricValue(mKeys[0], boat);
-        const val2 = this.formatMetricValue(mKeys[1], boat);
-        const badgeItems = [val1, val2].filter(Boolean);
-
-        if (badgeItems.length > 0) {
-          const badgeText = badgeItems.join(' · ');
-          const rankInfo = this.getRacerRank(boat.userId);
-          const badgeColor = isUser ? (rankInfo?.color || '#00f0ff') : 'rgba(0, 240, 255, 0.75)';
-          const badgeFontPx = Math.min(Math.floor(laneH * 0.42), Math.max(10, Math.round((isCompact ? 9.5 : 11.5) * fontScale)));
-          ctx.font = `bold ${badgeFontPx}px sans-serif`;
-          const badgeTextWidth = ctx.measureText(badgeText).width;
-          const padX = Math.round((isCompact ? 6 : 8) * Math.min(1.8, fontScale));
-          const badgeW = badgeTextWidth + padX * 2;
-          const badgeH = Math.min(laneH * 0.78, Math.max(16, Math.round(badgeFontPx + 8 * Math.min(1.6, fontScale))));
-
-          const gap = Math.round((isCompact ? 8 : 12) * boatScale);
-          const frontBadgeX = x + hullRx + gap;
-          const backBadgeX = x - hullRx - gap - badgeW;
-
-          let badgeX = frontBadgeX;
-          if (posPref === 'front') {
-            badgeX = (frontBadgeX + badgeW > w - 6) ? Math.max(4, backBadgeX) : frontBadgeX;
-          } else if (posPref === 'back') {
-            badgeX = (backBadgeX < 4) ? Math.min(w - badgeW - 6, frontBadgeX) : backBadgeX;
-          } else {
-            // 'auto' : privilégier devant, basculer derrière si espace insuffisant
-            badgeX = (frontBadgeX + badgeW <= w - 6) ? frontBadgeX : Math.max(4, backBadgeX);
-          }
-          const badgeY = y - badgeH / 2;
-
-          ctx.save();
-          ctx.fillStyle = isUser ? 'rgba(6, 15, 33, 0.92)' : 'rgba(6, 15, 33, 0.84)';
-          ctx.strokeStyle = badgeColor;
-          ctx.lineWidth = (isUser ? 1.4 : 1.0) * Math.min(1.5, boatScale);
-          if (isUser) {
-            ctx.shadowColor = badgeColor;
-            ctx.shadowBlur = (rankInfo?.rank && rankInfo.rank <= 3) ? 8 : 4;
-          }
-
-          const radius = badgeH / 2;
-          if (typeof ctx.roundRect === 'function') {
-            ctx.beginPath();
-            ctx.roundRect(badgeX, badgeY, badgeW, badgeH, radius);
-            ctx.fill();
-            ctx.stroke();
-          } else {
-            ctx.beginPath();
-            ctx.rect(badgeX, badgeY, badgeW, badgeH);
-            ctx.fill();
-            ctx.stroke();
-          }
-          ctx.restore();
-
-          ctx.save();
-          ctx.fillStyle = '#ffffff';
-          ctx.font = `bold ${badgeFontPx}px sans-serif`;
-          ctx.textAlign = 'left';
-          ctx.textBaseline = 'middle';
-          ctx.fillText(badgeText, badgeX + padX, y);
-          ctx.restore();
+      // Côté résolu pour la bulle de données ('front' = à droite du kayak, 'back' = à gauche du kayak)
+      let resolvedDataSide: 'front' | 'back' = 'front';
+      if (dataPosPref === 'front') {
+        resolvedDataSide = (x + hullRx + gap + badgeW > maxXBound && x - hullRx - gap - badgeW >= minXBound) ? 'back' : 'front';
+      } else if (dataPosPref === 'back') {
+        resolvedDataSide = (x - hullRx - gap - badgeW < minXBound && x + hullRx + gap + badgeW <= maxXBound) ? 'front' : 'back';
+      } else {
+        // 'auto' : à droite (devant) au départ (< 50% de la distance), bascule à gauche (derrière) dès 50% franchis
+        resolvedDataSide = isPastHalfway ? 'back' : 'front';
+        if (resolvedDataSide === 'front' && x + hullRx + gap + badgeW > maxXBound && x - hullRx - gap - badgeW >= minXBound) {
+          resolvedDataSide = 'back';
+        } else if (resolvedDataSide === 'back' && x - hullRx - gap - badgeW < minXBound && x + hullRx + gap + badgeW <= maxXBound) {
+          resolvedDataSide = 'front';
         }
+      }
+
+      // 2. Préparation de la bulle du nom du kayak
+      const rawNamePosPref: KayakNamePosition = (isUser || isFocused)
+        ? (this.regattaPreferences?.myNamePosition || 'auto')
+        : (this.regattaPreferences?.opponentNamePosition || 'auto');
+
+      const shortName = isCompact && boat.name.length > 10 ? `${boat.name.slice(0, 9)}…` : boat.name;
+      const baseLabelPx = isCompact ? 9 : 10.5;
+      const labelFontPx = Math.min(Math.floor(laneH * 0.33), Math.max(8.5, Math.round(baseLabelPx * fontScale)));
+      const namePadX = Math.round((isCompact ? 5 : 6.5) * Math.min(1.5, fontScale));
+      const nameBoxH = Math.min(Math.floor(laneH * 0.62), Math.max(14, Math.round(labelFontPx + 5 * Math.min(1.4, fontScale))));
+
+      let nameBannerLabel = '';
+      if (isUser || isFocused) {
+        const myHeaderKey = this.regattaPreferences?.myHeaderMetric || 'distCovered';
+        const myHeaderVal = this.formatMetricValue(myHeaderKey, boat);
+        nameBannerLabel = `${isUser ? this.i18n.t('CANVAS_BADGE_YOU') : this.i18n.t('CANVAS_BADGE_FOLLOWING')} : ${shortName}${myHeaderVal ? ' · ' + myHeaderVal : ''}`;
+      } else {
+        const oppHeaderKey = this.regattaPreferences?.opponentHeaderMetric || 'distCovered';
+        const oppHeaderVal = this.formatMetricValue(oppHeaderKey, boat);
+        nameBannerLabel = `${shortName}${oppHeaderVal ? ' · ' + oppHeaderVal : ''}`;
+      }
+
+      ctx.font = `bold ${labelFontPx}px sans-serif`;
+      const nameTextW = ctx.measureText(nameBannerLabel).width;
+      const nameBoxW = nameTextW + namePadX * 2;
+
+      // Résolution de la position effective du nom : 'above' | 'below' | 'front' | 'back' | 'none'
+      let resolvedNamePos: 'above' | 'below' | 'front' | 'back' | 'none' = 'above';
+      if (rawNamePosPref === 'none') {
+        resolvedNamePos = 'none';
+      } else if (rawNamePosPref === 'above') {
+        resolvedNamePos = (effectiveLaneIdx === 0 || (y - hullRy - nameBoxH - 4 < topOffset)) ? 'below' : 'above';
+      } else if (rawNamePosPref === 'below') {
+        resolvedNamePos = (y + hullRy + nameBoxH + 4 > h - 2) ? 'above' : 'below';
+      } else if (rawNamePosPref === 'front') {
+        resolvedNamePos = (x + hullRx + gap + nameBoxW > maxXBound && x - hullRx - gap - nameBoxW >= minXBound) ? 'back' : 'front';
+      } else if (rawNamePosPref === 'back') {
+        resolvedNamePos = (x - hullRx - gap - nameBoxW < minXBound && x + hullRx + gap + nameBoxW <= maxXBound) ? 'front' : 'back';
+      } else {
+        // 'auto' : Au-dessus par défaut (ou en-dessous sur la ligne 1 tout en haut)
+        resolvedNamePos = (effectiveLaneIdx === 0 || (y - hullRy - nameBoxH - 6 < topOffset)) ? 'below' : 'above';
+      }
+
+      // 3. Dessin de la bulle du nom du kayak (si visible)
+      let occupiedFrontOffset = 0;
+      let occupiedBackOffset = 0;
+
+      if (resolvedNamePos !== 'none' && nameBannerLabel) {
+        const nameStrokeColor = isUser ? '#00f0ff' : (isFocused ? '#ffe600' : 'rgba(255, 255, 255, 0.45)');
+        const nameTextColor = isUser ? '#00f0ff' : (isFocused ? '#ffe600' : '#ffffff');
+        const nameBgColor = (isUser || isFocused) ? 'rgba(6, 15, 33, 0.92)' : 'rgba(6, 15, 33, 0.84)';
+
+        let nameBoxX = 0;
+        let nameBoxY = 0;
+
+        if (resolvedNamePos === 'above' || resolvedNamePos === 'below') {
+          const isBelow = resolvedNamePos === 'below';
+          if (isUser || isFocused) {
+            const arrowBounce = Math.sin(nowSec * 5.5) * 2;
+            ctx.fillStyle = isUser ? '#00f0ff' : '#ffe600';
+            ctx.beginPath();
+            if (isBelow) {
+              const arrowY = y + hullRy + 3 * boatScale + arrowBounce;
+              ctx.moveTo(x, arrowY);
+              ctx.lineTo(x - 3.8 * boatScale, arrowY + 5.5 * boatScale);
+              ctx.lineTo(x + 3.8 * boatScale, arrowY + 5.5 * boatScale);
+              ctx.closePath();
+              ctx.fill();
+              nameBoxY = Math.min(h - nameBoxH - 2, arrowY + 6.5 * boatScale);
+            } else {
+              const arrowY = Math.max(topOffset + nameBoxH + 5, y - hullRy - 3 * boatScale + arrowBounce);
+              ctx.moveTo(x, arrowY);
+              ctx.lineTo(x - 3.8 * boatScale, arrowY - 5.5 * boatScale);
+              ctx.lineTo(x + 3.8 * boatScale, arrowY - 5.5 * boatScale);
+              ctx.closePath();
+              ctx.fill();
+              nameBoxY = Math.max(topOffset + 2, arrowY - 6.5 * boatScale - nameBoxH);
+            }
+          } else {
+            if (isBelow) {
+              nameBoxY = Math.min(h - nameBoxH - 2, y + hullRy + 3 * boatScale);
+            } else {
+              nameBoxY = Math.max(topOffset + 2, y - hullRy - 3 * boatScale - nameBoxH);
+            }
+          }
+          nameBoxX = Math.max(6, Math.min(w - nameBoxW - 6, x - nameBoxW / 2));
+        } else if (resolvedNamePos === 'front') {
+          nameBoxX = Math.min(maxXBound - nameBoxW, x + hullRx + gap);
+          nameBoxY = y - nameBoxH / 2;
+          occupiedFrontOffset = nameBoxW + Math.round(5 * boatScale);
+        } else {
+          // 'back'
+          nameBoxX = Math.max(minXBound, x - hullRx - gap - nameBoxW);
+          nameBoxY = y - nameBoxH / 2;
+          occupiedBackOffset = nameBoxW + Math.round(5 * boatScale);
+        }
+
+        ctx.save();
+        ctx.fillStyle = nameBgColor;
+        ctx.strokeStyle = nameStrokeColor;
+        ctx.lineWidth = ((isUser || isFocused) ? 1.3 : 0.9) * Math.min(1.4, boatScale);
+        const nameRadius = Math.min(6, nameBoxH / 2);
+        if (typeof ctx.roundRect === 'function') {
+          ctx.beginPath();
+          ctx.roundRect(nameBoxX, nameBoxY, nameBoxW, nameBoxH, nameRadius);
+          ctx.fill();
+          ctx.stroke();
+        } else {
+          ctx.fillRect(nameBoxX, nameBoxY, nameBoxW, nameBoxH);
+          ctx.strokeRect(nameBoxX, nameBoxY, nameBoxW, nameBoxH);
+        }
+        ctx.fillStyle = nameTextColor;
+        ctx.font = `bold ${labelFontPx}px sans-serif`;
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(nameBannerLabel, nameBoxX + namePadX, nameBoxY + nameBoxH / 2);
+        ctx.restore();
+      }
+
+      // 4. Dessin de la bulle de données sur la ligne d'eau (Donnée 1 · Donnée 2)
+      if (hasDataBadge) {
+        const rankInfo = this.getRacerRank(boat.userId);
+        const badgeColor = isUser ? (rankInfo?.color || '#00f0ff') : 'rgba(0, 240, 255, 0.75)';
+
+        let frontBadgeX = x + hullRx + gap + occupiedFrontOffset;
+        let backBadgeX = x - hullRx - gap - occupiedBackOffset - badgeW;
+
+        let badgeX = resolvedDataSide === 'front' ? frontBadgeX : backBadgeX;
+        // Si la bulle du nom occupe déjà ce côté et qu'on manque de place, basculer de l'autre côté s'il est libre
+        if (resolvedDataSide === 'front' && frontBadgeX + badgeW > maxXBound) {
+          if (occupiedFrontOffset > 0 && backBadgeX >= minXBound) {
+            badgeX = backBadgeX;
+          } else {
+            badgeX = Math.max(minXBound, maxXBound - badgeW);
+          }
+        } else if (resolvedDataSide === 'back' && backBadgeX < minXBound) {
+          if (occupiedBackOffset > 0 && frontBadgeX + badgeW <= maxXBound) {
+            badgeX = frontBadgeX;
+          } else {
+            badgeX = minXBound;
+          }
+        }
+
+        const badgeY = y - badgeH / 2;
+
+        ctx.save();
+        ctx.fillStyle = isUser ? 'rgba(6, 15, 33, 0.92)' : 'rgba(6, 15, 33, 0.84)';
+        ctx.strokeStyle = badgeColor;
+        ctx.lineWidth = (isUser ? 1.3 : 1.0) * Math.min(1.4, boatScale);
+        if (isUser) {
+          ctx.shadowColor = badgeColor;
+          ctx.shadowBlur = (rankInfo?.rank && rankInfo.rank <= 3) ? 6 : 3;
+        }
+
+        const radius = badgeH / 2;
+        if (typeof ctx.roundRect === 'function') {
+          ctx.beginPath();
+          ctx.roundRect(badgeX, badgeY, badgeW, badgeH, radius);
+          ctx.fill();
+          ctx.stroke();
+        } else {
+          ctx.beginPath();
+          ctx.rect(badgeX, badgeY, badgeW, badgeH);
+          ctx.fill();
+          ctx.stroke();
+        }
+        ctx.restore();
+
+        ctx.save();
+        ctx.fillStyle = '#ffffff';
+        ctx.font = `bold ${badgeFontPx}px sans-serif`;
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(badgeText, badgeX + badgePadX, y);
+        ctx.restore();
       }
     });
     ctx.restore();

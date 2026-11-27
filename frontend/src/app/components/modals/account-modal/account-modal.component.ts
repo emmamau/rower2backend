@@ -7,6 +7,7 @@ import {
   KayakPattern,
   hexToRgba,
   RegattaMetricKey,
+  KayakNamePosition,
   RegattaMetricOption,
   REGATTA_METRICS_CATALOG,
   DuelPreferences
@@ -89,9 +90,11 @@ export class AccountModalComponent implements OnChanges, OnDestroy {
   @Input() myLaneMetrics: [RegattaMetricKey, RegattaMetricKey] = ['position', 'distRemaining'];
   @Input() myLanePosition: 'auto' | 'front' | 'back' = 'auto';
   @Input() myHeaderMetric: RegattaMetricKey = 'distCovered';
+  @Input() myNamePosition: KayakNamePosition = 'auto';
   @Input() opponentLaneMetrics: [RegattaMetricKey, RegattaMetricKey] = ['distRemaining', 'pace'];
   @Input() opponentLanePosition: 'auto' | 'front' | 'back' = 'auto';
   @Input() opponentHeaderMetric: RegattaMetricKey = 'distCovered';
+  @Input() opponentNamePosition: KayakNamePosition = 'auto';
   @Input() watermarkMetric: RegattaMetricKey = 'chrono';
   @Input() isSavingRegattaPreferences = false;
   @Input() regattaPreferencesFeedback = '';
@@ -174,9 +177,11 @@ export class AccountModalComponent implements OnChanges, OnDestroy {
   @Output() myLaneMetricsChange = new EventEmitter<[RegattaMetricKey, RegattaMetricKey]>();
   @Output() myLanePositionChange = new EventEmitter<'auto' | 'front' | 'back'>();
   @Output() myHeaderMetricChange = new EventEmitter<RegattaMetricKey>();
+  @Output() myNamePositionChange = new EventEmitter<KayakNamePosition>();
   @Output() opponentLaneMetricsChange = new EventEmitter<[RegattaMetricKey, RegattaMetricKey]>();
   @Output() opponentLanePositionChange = new EventEmitter<'auto' | 'front' | 'back'>();
   @Output() opponentHeaderMetricChange = new EventEmitter<RegattaMetricKey>();
+  @Output() opponentNamePositionChange = new EventEmitter<KayakNamePosition>();
   @Output() watermarkMetricChange = new EventEmitter<RegattaMetricKey>();
 
   @Output() regAcceptsDuelsChange = new EventEmitter<boolean>();
@@ -318,10 +323,20 @@ export class AccountModalComponent implements OnChanges, OnDestroy {
     this.myHeaderMetricChange.emit(k);
   }
 
+  setMyNamePosition(pos: KayakNamePosition): void {
+    this.myNamePosition = pos;
+    this.myNamePositionChange.emit(pos);
+  }
+
   setOpponentHeaderMetric(key: string): void {
     const k = key as RegattaMetricKey;
     this.opponentHeaderMetric = k;
     this.opponentHeaderMetricChange.emit(k);
+  }
+
+  setOpponentNamePosition(pos: KayakNamePosition): void {
+    this.opponentNamePosition = pos;
+    this.opponentNamePositionChange.emit(pos);
   }
 
   setWatermarkMetric(key: string): void {

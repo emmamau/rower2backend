@@ -23,6 +23,7 @@ import {
   RegattaMetricKey,
   RegattaPreferences,
   LaneDataPosition,
+  KayakNamePosition,
   RegattaMetricOption,
   REGATTA_METRICS_CATALOG,
   DEFAULT_REGATTA_PREFERENCES,
@@ -127,6 +128,8 @@ export class AppComponent implements OnInit, OnDestroy {
   isPreStartCountdown = false;
   isPrestartTimerDismissed = false;
   threeSecondsCount = 3;
+  private goHoldUntilMs = 0;
+  private goHideTimer: any = null;
 
   // Live race gap metrics
   myRank: number | null = null;
@@ -438,9 +441,11 @@ export class AppComponent implements OnInit, OnDestroy {
   myLaneMetrics: [RegattaMetricKey, RegattaMetricKey] = [...DEFAULT_REGATTA_PREFERENCES.myLaneMetrics];
   myLanePosition: LaneDataPosition = DEFAULT_REGATTA_PREFERENCES.myLanePosition;
   myHeaderMetric: RegattaMetricKey = DEFAULT_REGATTA_PREFERENCES.myHeaderMetric;
+  myNamePosition: KayakNamePosition = DEFAULT_REGATTA_PREFERENCES.myNamePosition;
   opponentLaneMetrics: [RegattaMetricKey, RegattaMetricKey] = [...DEFAULT_REGATTA_PREFERENCES.opponentLaneMetrics];
   opponentLanePosition: LaneDataPosition = DEFAULT_REGATTA_PREFERENCES.opponentLanePosition;
   opponentHeaderMetric: RegattaMetricKey = DEFAULT_REGATTA_PREFERENCES.opponentHeaderMetric;
+  opponentNamePosition: KayakNamePosition = DEFAULT_REGATTA_PREFERENCES.opponentNamePosition;
   watermarkMetric: RegattaMetricKey = DEFAULT_REGATTA_PREFERENCES.watermarkMetric;
   isSavingRegattaPreferences = false;
   regattaPreferencesFeedback = '';
@@ -453,9 +458,11 @@ export class AppComponent implements OnInit, OnDestroy {
       myLaneMetrics: this.myLaneMetrics,
       myLanePosition: this.myLanePosition,
       myHeaderMetric: this.myHeaderMetric,
+      myNamePosition: this.myNamePosition,
       opponentLaneMetrics: this.opponentLaneMetrics,
       opponentLanePosition: this.opponentLanePosition,
       opponentHeaderMetric: this.opponentHeaderMetric,
+      opponentNamePosition: this.opponentNamePosition,
       watermarkMetric: this.watermarkMetric,
     };
   }
@@ -674,9 +681,11 @@ export class AppComponent implements OnInit, OnDestroy {
     this.myLaneMetrics = [...prefs.myLaneMetrics];
     this.myLanePosition = prefs.myLanePosition;
     this.myHeaderMetric = prefs.myHeaderMetric;
+    this.myNamePosition = prefs.myNamePosition;
     this.opponentLaneMetrics = [...prefs.opponentLaneMetrics];
     this.opponentLanePosition = prefs.opponentLanePosition;
     this.opponentHeaderMetric = prefs.opponentHeaderMetric;
+    this.opponentNamePosition = prefs.opponentNamePosition;
     this.watermarkMetric = prefs.watermarkMetric;
   }
 
@@ -742,9 +751,11 @@ export class AppComponent implements OnInit, OnDestroy {
     this.myLaneMetrics = [...DEFAULT_REGATTA_PREFERENCES.myLaneMetrics];
     this.myLanePosition = DEFAULT_REGATTA_PREFERENCES.myLanePosition;
     this.myHeaderMetric = DEFAULT_REGATTA_PREFERENCES.myHeaderMetric;
+    this.myNamePosition = DEFAULT_REGATTA_PREFERENCES.myNamePosition;
     this.opponentLaneMetrics = [...DEFAULT_REGATTA_PREFERENCES.opponentLaneMetrics];
     this.opponentLanePosition = DEFAULT_REGATTA_PREFERENCES.opponentLanePosition;
     this.opponentHeaderMetric = DEFAULT_REGATTA_PREFERENCES.opponentHeaderMetric;
+    this.opponentNamePosition = DEFAULT_REGATTA_PREFERENCES.opponentNamePosition;
     this.watermarkMetric = DEFAULT_REGATTA_PREFERENCES.watermarkMetric;
     this.regattaPreferencesError = '';
     this.regattaPreferencesFeedback = 'Paramètres par défaut restaurés.';
@@ -1734,18 +1745,14 @@ export class AppComponent implements OnInit, OnDestroy {
 
           // Décompte visuel synchronisé avec le backend et la montre
           const isRunning = this.isRaceActive;
-          const isRoomWaiting = Boolean(
-            this.activePrivateRoom &&
-            (this.activePrivateRoom.status === 'LOBBY' ||
-             (this.activePrivateRoom as any).internalStatus === 'LOBBY' ||
-             this.activePrivateRoom.race?.status === 'LOBBY' ||
-             (raceData.status === 'waiting' && this.activePrivateRoom))
-          );
+          const isRoomWaiting = this.isPrivateRoomInWaitingLobby(raceData);
 
           if (isRunning) {
             this.countdownSeconds = 0;
-            this.is3sCountdown = false;
             this.isPreStartCountdown = false;
+            if (Date.now() >= this.goHoldUntilMs) {
+              this.is3sCountdown = false;
+            }
             this.gameRemainingSeconds = raceData.remainingSeconds !== undefined ? raceData.remainingSeconds : 3300;
             if (this.siteView === 'home' && !this.userExplicitlyNavigatedHome) {
               this.siteView = this.activeViewMode === 'cockpit' ? 'cockpit' : 'regatta';
@@ -5711,6 +5718,28 @@ export class AppComponent implements OnInit, OnDestroy {
    */
   onPrivateRaceStartTriggered(event?: { countdownSeconds?: number; isFirstStroke?: boolean }): void {
     this.isPrivateModalOpen = false;
+    if (event && !event.isFirstStroke && event.countdownSeconds && event.countdownSeconds > 0) {
+      this.countdownSeconds = event.countdownSeconds;
+      if (this.activePrivateRoom) {
+        this.activePrivateRoom.status = 'COUNTDOWN';
+        (this.activePrivateRoom as any).internalStatus = 'COUNTDOWN';
+        this.activePrivateRoom.waitingForHost = false;
+        if (this.activePrivateRoom.race) {
+          this.activePrivateRoom.race.status = 'COUNTDOWN';
+          (this.activePrivateRoom.race as any).internalStatus = 'COUNTDOWN';
+        }
+      }
+      if (this.nextRaceInfo) {
+        this.nextRaceInfo.status = 'COUNTDOWN';
+        (this.nextRaceInfo as any).internalStatus = 'COUNTDOWN';
+        this.nextRaceInfo.waitingForHost = false;
+        if (this.nextRaceInfo.race) {
+          this.nextRaceInfo.race.status = 'COUNTDOWN';
+          (this.nextRaceInfo.race as any).internalStatus = 'COUNTDOWN';
+        }
+      }
+      this.syncCountdownUI();
+    }
     this.setSiteView('regatta');
     this.enterFullscreen().catch(() => {});
     this.lockLandscape().catch(() => {});
@@ -5724,15 +5753,23 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   onPrivateRoomUpdated(updated: PrivateRacePayload): void {
-    const prevStatus = (this.activePrivateRoom?.status || this.activePrivateRoom?.race?.status || '').toString().toUpperCase();
+    const prevStatus = (this.activePrivateRoom?.status || this.activePrivateRoom?.race?.status || (this.activePrivateRoom as any)?.internalStatus || '').toString().toUpperCase();
     this.activePrivateRoom = updated;
     this.nextRaceInfo = updated;
-    const updatedStatus = (updated?.status || updated?.race?.status || (updated as any)?.internalStatus || '').toString().toUpperCase();
+    const updatedStatus = (
+      (updated as any)?.internalStatus ||
+      (updated?.race as any)?.internalStatus ||
+      updated?.race?.status ||
+      updated?.status ||
+      ''
+    ).toString().toUpperCase();
 
-    if (updatedStatus === 'COUNTDOWN' && updated?.secondsRemaining && updated.secondsRemaining > 0) {
-      this.countdownSeconds = updated.secondsRemaining;
+    if ((updatedStatus === 'COUNTDOWN' || (!updated?.waitingForHost && updated?.secondsRemaining && updated.secondsRemaining > 0 && updated.secondsRemaining <= 15)) && updated?.secondsRemaining && updated.secondsRemaining > 0) {
+      if (this.countdownSeconds <= 0 || Math.abs(this.countdownSeconds - updated.secondsRemaining) > 3) {
+        this.countdownSeconds = updated.secondsRemaining;
+      }
       this.syncCountdownUI();
-    } else if (updatedStatus !== 'RUNNING' && updatedStatus !== 'IN_PROGRESS') {
+    } else if (updatedStatus !== 'RUNNING' && updatedStatus !== 'IN_PROGRESS' && updatedStatus !== 'COUNTDOWN') {
       this.countdownSeconds = 0;
       this.isPreStartCountdown = false;
       this.is3sCountdown = false;
@@ -6209,26 +6246,43 @@ export class AppComponent implements OnInit, OnDestroy {
       if (update.status === 'COUNTDOWN') {
         const sec = update.details?.countdownSeconds ?? update.details?.secondsUntilStart ?? 10;
         this.countdownSeconds = sec;
-        if (isPrivateTarget && this.activePrivateRoom?.race) {
-          this.activePrivateRoom.race.status = 'COUNTDOWN';
+        if (isPrivateTarget && this.activePrivateRoom) {
           this.activePrivateRoom.status = 'COUNTDOWN';
-          if ((this.isSmartphone || this.isMobileOrTablet) && !this.userExplicitlyNavigatedHome) {
+          (this.activePrivateRoom as any).internalStatus = 'COUNTDOWN';
+          this.activePrivateRoom.waitingForHost = false;
+          if (this.activePrivateRoom.race) {
+            this.activePrivateRoom.race.status = 'COUNTDOWN';
+            (this.activePrivateRoom.race as any).internalStatus = 'COUNTDOWN';
+          }
+          if (!this.userExplicitlyNavigatedHome) {
             this.isPrivateModalOpen = false;
-            if (this.siteView !== 'regatta') {
+            if (this.siteView !== 'regatta' && this.siteView !== 'cockpit') {
               this.setSiteView('regatta');
             }
-            this.enterFullscreen().catch(() => {});
-            this.lockLandscape().catch(() => {});
+            if (this.isSmartphone || this.isMobileOrTablet) {
+              this.enterFullscreen().catch(() => {});
+              this.lockLandscape().catch(() => {});
+            }
           }
         }
-        if (isPublicTarget && this.nextRaceInfo?.race) {
-          this.nextRaceInfo.race.status = 'COUNTDOWN';
+        if (isPublicTarget && this.nextRaceInfo) {
+          this.nextRaceInfo.status = 'COUNTDOWN';
+          (this.nextRaceInfo as any).internalStatus = 'COUNTDOWN';
+          if (this.nextRaceInfo.race) {
+            this.nextRaceInfo.race.status = 'COUNTDOWN';
+            (this.nextRaceInfo.race as any).internalStatus = 'COUNTDOWN';
+          }
         }
         this.syncCountdownUI();
       } else if (update.status === 'RUNNING') {
+        const wasInPreStartOr3s = this.is3sCountdown || this.isPreStartCountdown || this.countdownSeconds > 0;
         this.countdownSeconds = 0;
-        this.is3sCountdown = false;
         this.isPreStartCountdown = false;
+        if (wasInPreStartOr3s || Date.now() < this.goHoldUntilMs) {
+          this.triggerGoOverlayHold();
+        } else {
+          this.is3sCountdown = false;
+        }
         this.finishedRacerIds.clear();
         this.finisherCount = 0;
         this.hasCelebratedFinish = false;
@@ -6680,6 +6734,56 @@ export class AppComponent implements OnInit, OnDestroy {
     });
   }
 
+  private isPrivateRoomInWaitingLobby(raceData?: any): boolean {
+    if (!this.activePrivateRoom) return false;
+    const room = this.activePrivateRoom;
+    const data = raceData || this.nextRaceInfo || room;
+    const internalSt = String(
+      (data as any)?.internalStatus ||
+      (data?.race as any)?.internalStatus ||
+      (room as any)?.internalStatus ||
+      (room.race as any)?.internalStatus ||
+      ''
+    ).toUpperCase();
+    const raceSt = String(data?.race?.status || room.race?.status || '').toUpperCase();
+    const topSt = String(data?.status || room.status || '').toUpperCase();
+
+    if (internalSt === 'COUNTDOWN' || raceSt === 'COUNTDOWN' || topSt === 'COUNTDOWN') {
+      return false;
+    }
+    if (internalSt === 'RUNNING' || raceSt === 'RUNNING' || topSt === 'RUNNING' || topSt === 'IN_PROGRESS') {
+      return false;
+    }
+    const sec = Number(data?.secondsRemaining ?? room?.secondsRemaining ?? this.countdownSeconds ?? 0);
+    const waitingForHost = data?.waitingForHost ?? room?.waitingForHost;
+    if (waitingForHost === false && sec > 0 && sec <= 15) {
+      return false;
+    }
+    return Boolean(
+      internalSt === 'LOBBY' ||
+      raceSt === 'LOBBY' ||
+      topSt === 'LOBBY' ||
+      topSt === 'WAITING'
+    );
+  }
+
+  private triggerGoOverlayHold(): void {
+    this.is3sCountdown = true;
+    this.isPreStartCountdown = false;
+    this.threeSecondsCount = 0;
+    this.goHoldUntilMs = Date.now() + 1000;
+    if (this.goHideTimer) {
+      clearTimeout(this.goHideTimer);
+    }
+    this.goHideTimer = setTimeout(() => {
+      this.goHideTimer = null;
+      if (this.countdownSeconds <= 0) {
+        this.is3sCountdown = false;
+        this.cdr.markForCheck();
+      }
+    }, 1000);
+  }
+
   private initCountdownTicker(): void {
     if (this.countdownTickerSub) {
       this.countdownTickerSub.unsubscribe();
@@ -6696,13 +6800,7 @@ export class AppComponent implements OnInit, OnDestroy {
         return;
       }
       const isRunning = this.isRaceActive;
-      const isRoomWaiting = Boolean(
-        this.activePrivateRoom &&
-        (this.activePrivateRoom.status === 'LOBBY' ||
-         (this.activePrivateRoom as any).internalStatus === 'LOBBY' ||
-         this.activePrivateRoom.race?.status === 'LOBBY' ||
-         (this.nextRaceInfo?.status === 'waiting' && this.activePrivateRoom))
-      );
+      const isRoomWaiting = this.isPrivateRoomInWaitingLobby();
 
       if (!isRunning && !isRoomWaiting && this.countdownSeconds > 0) {
         this.countdownSeconds--;
@@ -6710,18 +6808,21 @@ export class AppComponent implements OnInit, OnDestroy {
           this.nextRaceInfo.secondsRemaining = this.countdownSeconds;
           this.nextRaceInfo.formattedCountdown = this.formattedPreRaceCountdown;
         }
-        this.syncCountdownUI();
         if (this.countdownSeconds === 0) {
           if (this.nextRaceInfo?.status === 'post_race_pause') {
+            this.is3sCountdown = false;
+            this.isPreStartCountdown = false;
             this.loadNextRaceInfo();
           } else {
-            // Attendre la confirmation officielle RUNNING par le backend (WebSocket / HTTP poll)
-            // Ne jamais forcer localement le statut RUNNING/in_progress sans le serveur
+            // Afficher « GO ! » pendant 1s au passage à 0s en attendant/accompagnant le statut RUNNING du backend
+            this.triggerGoOverlayHold();
             this.loadNextRaceInfo();
             if (this.siteView === 'regatta' || this.siteView === 'cockpit') {
               this.startImmersionAutoFade();
             }
           }
+        } else {
+          this.syncCountdownUI();
         }
         this.cdr.markForCheck();
       } else if (isRoomWaiting) {
@@ -6732,6 +6833,9 @@ export class AppComponent implements OnInit, OnDestroy {
         this.formattedGameRemaining = this.i18n.formatDetailedCountdown(this.gameRemainingSeconds);
         this.cdr.markForCheck();
       } else if (isRunning && this.gameRemainingSeconds > 0) {
+        if (this.is3sCountdown && Date.now() >= this.goHoldUntilMs) {
+          this.is3sCountdown = false;
+        }
         this.gameRemainingSeconds--;
         this.formattedGameRemaining = this.i18n.formatDetailedCountdown(this.gameRemainingSeconds);
         if (this.myActivity && this.nextRaceInfo?.status === 'in_progress') {
@@ -6739,6 +6843,9 @@ export class AppComponent implements OnInit, OnDestroy {
         }
         this.cdr.markForCheck();
       } else if (!isRunning) {
+        if (this.is3sCountdown && Date.now() >= this.goHoldUntilMs) {
+          this.is3sCountdown = false;
+        }
         this.gameRemainingSeconds = this.gameMaxDurationSeconds || 3300;
         this.formattedGameRemaining = this.i18n.formatDetailedCountdown(this.gameRemainingSeconds);
         this.cdr.markForCheck();
@@ -6748,17 +6855,19 @@ export class AppComponent implements OnInit, OnDestroy {
 
   private syncCountdownUI(): void {
     const isRunning = this.isRaceActive;
-    const isRoomWaiting = Boolean(
-      this.activePrivateRoom &&
-      (this.activePrivateRoom.status === 'LOBBY' ||
-       (this.activePrivateRoom as any).internalStatus === 'LOBBY' ||
-       this.activePrivateRoom.race?.status === 'LOBBY' ||
-       (this.nextRaceInfo?.status === 'waiting' && this.activePrivateRoom))
-    );
+    const isRoomWaiting = this.isPrivateRoomInWaitingLobby();
 
-    if (isRunning || isRoomWaiting || this.countdownSeconds <= 0) {
+    if (this.nextRaceInfo?.status === 'post_race_pause') {
       this.is3sCountdown = false;
       this.isPreStartCountdown = false;
+      return;
+    }
+
+    if (isRunning || isRoomWaiting || this.countdownSeconds <= 0) {
+      this.isPreStartCountdown = false;
+      if (Date.now() >= this.goHoldUntilMs) {
+        this.is3sCountdown = false;
+      }
       return;
     }
 
@@ -6772,6 +6881,12 @@ export class AppComponent implements OnInit, OnDestroy {
       this.is3sCountdown = true;
       this.isPreStartCountdown = false;
       this.threeSecondsCount = this.countdownSeconds;
+      if (this.isAnyModalOpen) {
+        this.closeAllOverlayModals();
+      }
+      if (this.siteView === 'home' && !this.userExplicitlyNavigatedHome) {
+        this.setSiteView('regatta');
+      }
     } else {
       this.is3sCountdown = false;
       this.isPreStartCountdown = true;

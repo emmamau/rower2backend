@@ -69,15 +69,19 @@ export type RegattaMetricKey =
 
 export type LaneDataPosition = 'auto' | 'front' | 'back';
 
+export type KayakNamePosition = 'auto' | 'above' | 'below' | 'front' | 'back' | 'none';
+
 export interface RegattaPreferences {
   zoomLevel: number;
   selectedMetrics: RegattaMetricKey[];
   myLaneMetrics: [RegattaMetricKey, RegattaMetricKey];
   myLanePosition: LaneDataPosition;
   myHeaderMetric: RegattaMetricKey;
+  myNamePosition: KayakNamePosition;
   opponentLaneMetrics: [RegattaMetricKey, RegattaMetricKey];
   opponentLanePosition: LaneDataPosition;
   opponentHeaderMetric: RegattaMetricKey;
+  opponentNamePosition: KayakNamePosition;
   watermarkMetric: RegattaMetricKey;
 }
 
@@ -126,9 +130,11 @@ export const DEFAULT_REGATTA_PREFERENCES: RegattaPreferences = {
   myLaneMetrics: ['position', 'distRemaining'],
   myLanePosition: 'auto',
   myHeaderMetric: 'distCovered',
+  myNamePosition: 'auto',
   opponentLaneMetrics: ['distRemaining', 'pace'],
   opponentLanePosition: 'auto',
   opponentHeaderMetric: 'distCovered',
+  opponentNamePosition: 'auto',
   watermarkMetric: 'chrono',
 };
 
@@ -176,6 +182,13 @@ export function sanitizeRegattaPreferences(prefs?: any): RegattaPreferences {
     return (s === 'front' || s === 'back' || s === 'auto') ? s : 'auto';
   };
 
+  const sanitizeNamePosition = (pos: any): KayakNamePosition => {
+    const s = String(pos || '').trim().toLowerCase();
+    return (s === 'above' || s === 'below' || s === 'front' || s === 'back' || s === 'none' || s === 'auto')
+      ? (s as KayakNamePosition)
+      : 'auto';
+  };
+
   const sanitizeSingleMetric = (key: any, fallback: RegattaMetricKey): RegattaMetricKey => {
     const s = String(key || '').trim() as RegattaMetricKey;
     return validSet.has(s) ? s : fallback;
@@ -187,9 +200,11 @@ export function sanitizeRegattaPreferences(prefs?: any): RegattaPreferences {
     myLaneMetrics: sanitizeMetricPair(prefs?.myLaneMetrics, DEFAULT_REGATTA_PREFERENCES.myLaneMetrics),
     myLanePosition: sanitizePosition(prefs?.myLanePosition),
     myHeaderMetric: sanitizeSingleMetric(prefs?.myHeaderMetric, DEFAULT_REGATTA_PREFERENCES.myHeaderMetric),
+    myNamePosition: sanitizeNamePosition(prefs?.myNamePosition),
     opponentLaneMetrics: sanitizeMetricPair(prefs?.opponentLaneMetrics, DEFAULT_REGATTA_PREFERENCES.opponentLaneMetrics),
     opponentLanePosition: sanitizePosition(prefs?.opponentLanePosition),
     opponentHeaderMetric: sanitizeSingleMetric(prefs?.opponentHeaderMetric, DEFAULT_REGATTA_PREFERENCES.opponentHeaderMetric),
+    opponentNamePosition: sanitizeNamePosition(prefs?.opponentNamePosition),
     watermarkMetric: sanitizeSingleMetric(prefs?.watermarkMetric, DEFAULT_REGATTA_PREFERENCES.watermarkMetric),
   };
 }

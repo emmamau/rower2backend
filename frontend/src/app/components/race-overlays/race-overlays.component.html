@@ -373,8 +373,8 @@
   </div>
 </div>
 
-<!-- 3 SECONDS RACE COUNTDOWN OVERLAY (TRÈS ÉNORME AU MILIEU DE L'ÉCRAN) -->
-<div class="three-sec-overlay" *ngIf="is3sCountdown && !isAnyModalOpen">
+<!-- 3 SECONDS RACE COUNTDOWN OVERLAY (TRÈS ÉNORME AU MILIEU DE L'ÉCRAN SUR LES LIGNES D'EAU) -->
+<div class="three-sec-overlay" *ngIf="is3sCountdown">
   <div class="three-sec-huge-wrap">
     <div class="three-sec-title">{{ i18n.t('COUNTDOWN_TITLE') }}</div>
     <div class="three-sec-number" [class.is-go]="threeSecondsCount <= 0">

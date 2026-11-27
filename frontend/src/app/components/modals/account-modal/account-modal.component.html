@@ -1302,6 +1302,55 @@
                   }
                 </select>
               </div>
+
+              <!-- Position de l'affichage du nom du kayak (Mon Kayak) -->
+              <div class="lane-pos-row" style="margin-top: 0.45rem;">
+                <span class="field-label-sm">{{ i18n.t('ACCOUNT_REGATTA_NAME_POS_LABEL') }} :</span>
+                <div class="lane-pos-pill-group">
+                  <button
+                    type="button"
+                    class="btn-pos-pill"
+                    [class.active]="myNamePosition === 'auto'"
+                    (click)="setMyNamePosition('auto')">
+                    🔄 {{ i18n.t('ACCOUNT_REGATTA_POS_AUTO') }}
+                  </button>
+                  <button
+                    type="button"
+                    class="btn-pos-pill"
+                    [class.active]="myNamePosition === 'above'"
+                    (click)="setMyNamePosition('above')">
+                    ⬆️ {{ i18n.t('ACCOUNT_REGATTA_NAME_POS_ABOVE') }}
+                  </button>
+                  <button
+                    type="button"
+                    class="btn-pos-pill"
+                    [class.active]="myNamePosition === 'below'"
+                    (click)="setMyNamePosition('below')">
+                    ⬇️ {{ i18n.t('ACCOUNT_REGATTA_NAME_POS_BELOW') }}
+                  </button>
+                  <button
+                    type="button"
+                    class="btn-pos-pill"
+                    [class.active]="myNamePosition === 'front'"
+                    (click)="setMyNamePosition('front')">
+                    ➡️ {{ i18n.t('ACCOUNT_REGATTA_POS_FRONT') }}
+                  </button>
+                  <button
+                    type="button"
+                    class="btn-pos-pill"
+                    [class.active]="myNamePosition === 'back'"
+                    (click)="setMyNamePosition('back')">
+                    ⬅️ {{ i18n.t('ACCOUNT_REGATTA_POS_BACK') }}
+                  </button>
+                  <button
+                    type="button"
+                    class="btn-pos-pill"
+                    [class.active]="myNamePosition === 'none'"
+                    (click)="setMyNamePosition('none')">
+                    🚫 {{ i18n.t('REGATTA_METRIC_DO_NOT_DISPLAY') }}
+                  </button>
+                </div>
+              </div>
             </div>
 
             <!-- B. Kayaks Concurrents (Bots & Adversaires) -->
@@ -1374,6 +1423,55 @@
                     <option [value]="m.key">{{ m.icon }} {{ getRegattaMetricLabel(m.key) }}</option>
                   }
                 </select>
+              </div>
+
+              <!-- Position de l'affichage du nom des kayaks concurrents -->
+              <div class="lane-pos-row" style="margin-top: 0.45rem;">
+                <span class="field-label-sm">{{ i18n.t('ACCOUNT_REGATTA_OPPONENTS_NAME_POS_LABEL') }} :</span>
+                <div class="lane-pos-pill-group">
+                  <button
+                    type="button"
+                    class="btn-pos-pill"
+                    [class.active]="opponentNamePosition === 'auto'"
+                    (click)="setOpponentNamePosition('auto')">
+                    🔄 {{ i18n.t('ACCOUNT_REGATTA_POS_AUTO') }}
+                  </button>
+                  <button
+                    type="button"
+                    class="btn-pos-pill"
+                    [class.active]="opponentNamePosition === 'above'"
+                    (click)="setOpponentNamePosition('above')">
+                    ⬆️ {{ i18n.t('ACCOUNT_REGATTA_NAME_POS_ABOVE') }}
+                  </button>
+                  <button
+                    type="button"
+                    class="btn-pos-pill"
+                    [class.active]="opponentNamePosition === 'below'"
+                    (click)="setOpponentNamePosition('below')">
+                    ⬇️ {{ i18n.t('ACCOUNT_REGATTA_NAME_POS_BELOW') }}
+                  </button>
+                  <button
+                    type="button"
+                    class="btn-pos-pill"
+                    [class.active]="opponentNamePosition === 'front'"
+                    (click)="setOpponentNamePosition('front')">
+                    ➡️ {{ i18n.t('ACCOUNT_REGATTA_POS_FRONT') }}
+                  </button>
+                  <button
+                    type="button"
+                    class="btn-pos-pill"
+                    [class.active]="opponentNamePosition === 'back'"
+                    (click)="setOpponentNamePosition('back')">
+                    ⬅️ {{ i18n.t('ACCOUNT_REGATTA_POS_BACK') }}
+                  </button>
+                  <button
+                    type="button"
+                    class="btn-pos-pill"
+                    [class.active]="opponentNamePosition === 'none'"
+                    (click)="setOpponentNamePosition('none')">
+                    🚫 {{ i18n.t('REGATTA_METRIC_DO_NOT_DISPLAY') }}
+                  </button>
+                </div>
               </div>
             </div>
 

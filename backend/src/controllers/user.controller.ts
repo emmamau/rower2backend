@@ -90,9 +90,11 @@ const DEFAULT_REGATTA_PREFERENCES: RegattaPreferences = {
   myLaneMetrics: ["position", "distRemaining"],
   myLanePosition: "auto",
   myHeaderMetric: "distCovered",
+  myNamePosition: "auto",
   opponentLaneMetrics: ["distRemaining", "pace"],
   opponentLanePosition: "auto",
   opponentHeaderMetric: "distCovered",
+  opponentNamePosition: "auto",
   watermarkMetric: "chrono",
 };
 
@@ -139,6 +141,13 @@ function sanitizeRegattaPreferences(prefs?: any): RegattaPreferences {
     return (s === "front" || s === "back" || s === "auto") ? s : "auto";
   };
 
+  const sanitizeNamePosition = (pos: any): "auto" | "above" | "below" | "front" | "back" | "none" => {
+    const s = String(pos || "").trim().toLowerCase();
+    return (s === "above" || s === "below" || s === "front" || s === "back" || s === "none" || s === "auto")
+      ? (s as "auto" | "above" | "below" | "front" | "back" | "none")
+      : "auto";
+  };
+
   const sanitizeSingleMetric = (key: any, fallback: RegattaMetricKey): RegattaMetricKey => {
     const s = String(key || "").trim() as RegattaMetricKey;
     return validSet.has(s) ? s : fallback;
@@ -150,9 +159,11 @@ function sanitizeRegattaPreferences(prefs?: any): RegattaPreferences {
     myLaneMetrics: sanitizeMetricPair(prefs?.myLaneMetrics, DEFAULT_REGATTA_PREFERENCES.myLaneMetrics || ["position", "distRemaining"]),
     myLanePosition: sanitizePosition(prefs?.myLanePosition),
     myHeaderMetric: sanitizeSingleMetric(prefs?.myHeaderMetric, DEFAULT_REGATTA_PREFERENCES.myHeaderMetric || "distCovered"),
+    myNamePosition: sanitizeNamePosition(prefs?.myNamePosition),
     opponentLaneMetrics: sanitizeMetricPair(prefs?.opponentLaneMetrics, DEFAULT_REGATTA_PREFERENCES.opponentLaneMetrics || ["distRemaining", "pace"]),
     opponentLanePosition: sanitizePosition(prefs?.opponentLanePosition),
     opponentHeaderMetric: sanitizeSingleMetric(prefs?.opponentHeaderMetric, DEFAULT_REGATTA_PREFERENCES.opponentHeaderMetric || "distCovered"),
+    opponentNamePosition: sanitizeNamePosition(prefs?.opponentNamePosition),
     watermarkMetric: sanitizeSingleMetric(prefs?.watermarkMetric, DEFAULT_REGATTA_PREFERENCES.watermarkMetric || "chrono"),
   };
 }
@@ -1621,9 +1632,11 @@ export const updateRegattaPreferences = async (req: Request, res: Response): Pro
       myLaneMetrics: regattaPreferences.myLaneMetrics,
       myLanePosition: regattaPreferences.myLanePosition,
       myHeaderMetric: regattaPreferences.myHeaderMetric,
+      myNamePosition: regattaPreferences.myNamePosition,
       opponentLaneMetrics: regattaPreferences.opponentLaneMetrics,
       opponentLanePosition: regattaPreferences.opponentLanePosition,
       opponentHeaderMetric: regattaPreferences.opponentHeaderMetric,
+      opponentNamePosition: regattaPreferences.opponentNamePosition,
       watermarkMetric: regattaPreferences.watermarkMetric,
     });
 

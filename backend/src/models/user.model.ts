@@ -30,15 +30,19 @@ export type RegattaMetricKey =
 
 export type LaneDataPosition = 'auto' | 'front' | 'back';
 
+export type KayakNamePosition = 'auto' | 'above' | 'below' | 'front' | 'back' | 'none';
+
 export interface RegattaPreferences {
   zoomLevel: number;
   selectedMetrics: RegattaMetricKey[];
   myLaneMetrics?: [RegattaMetricKey, RegattaMetricKey];
   myLanePosition?: LaneDataPosition;
   myHeaderMetric?: RegattaMetricKey;
+  myNamePosition?: KayakNamePosition;
   opponentLaneMetrics?: [RegattaMetricKey, RegattaMetricKey];
   opponentLanePosition?: LaneDataPosition;
   opponentHeaderMetric?: RegattaMetricKey;
+  opponentNamePosition?: KayakNamePosition;
   watermarkMetric?: RegattaMetricKey;
 }
 

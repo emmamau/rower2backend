@@ -10,14 +10,12 @@
 .three-sec-overlay {
   position: fixed;
   inset: 0;
-  background: radial-gradient(circle at center, rgba(0, 0, 0, 0.65) 0%, rgba(0, 0, 0, 0.88) 100%);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
+  background: radial-gradient(circle at center, rgba(6, 13, 29, 0.35) 0%, rgba(6, 13, 29, 0.08) 65%, transparent 100%);
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 1rem;
-  z-index: 9999;
+  z-index: 100000;
   pointer-events: none;
 }
 
