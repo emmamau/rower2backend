@@ -402,9 +402,23 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
         this.refreshActiveRoom();
       }
     });
-    this.duelSocketSub = this.socketService.onDuelEvent().subscribe(() => {
-      if (this.isOpen && this.activeUserId) {
+    this.duelSocketSub = this.socketService.onDuelEvent().subscribe((ev) => {
+      if (
+        ev.eventType === 'challenge_cancelled' ||
+        ev.eventType === 'challenge_deleted' ||
+        (ev.eventType === 'challenge_responded' && ev.accepted === false)
+      ) {
+        this.removeSavedDuelSalonLocal({
+          challengeId: ev.challengeId,
+          roomId: ev.roomId,
+          roomCode: ev.roomCode
+        });
+      }
+      if (this.activeUserId) {
         this.refreshMyDuels();
+        if (this.isOpen) {
+          this.refreshMyRooms();
+        }
       }
     });
   }
@@ -1937,6 +1951,66 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
 
   closeAndRevokeActiveRoom(): void {
     if (!this.activeRoom || this.isActionBusy) return;
+    const duelChallenge = this.activeDuelChallenge;
+    const isDuel = this.isDuel1v1Room || Boolean(duelChallenge);
+
+    if (isDuel && duelChallenge) {
+      const slotStartStr = duelChallenge.slotStart || this.activeRoom.scheduledStartTime || this.activeRoom.race?.scheduledStartTime || '';
+      const isLateAccepted = duelChallenge.status === 'ACCEPTED' && Boolean(slotStartStr) && this.isDuelWithin24h(String(slotStartStr));
+      const opponentLabel = this.activeDuelOpponentDisplay || 'votre adversaire';
+      const confirmMsg = isLateAccepted
+        ? `⚠️ Attention : ce duel contre ${opponentLabel} est confirmé et a lieu dans moins de 24h.\nSon annulation entraînera un forfait (-10 points) et supprimera le duel pour les deux joueurs.\n\nVoulez-vous vraiment annuler et supprimer ce duel ?`
+        : `Voulez-vous vraiment supprimer ce duel contre ${opponentLabel} ?\nLe duel et son salon seront supprimés pour les deux joueurs et votre adversaire sera notifié.`;
+      const confirmed = typeof window !== 'undefined' ? window.confirm(confirmMsg) : true;
+      if (!confirmed) return;
+
+      const raceId = this.activeRoom.race.id;
+      const roomCode = this.activeRoomCode;
+      this.isActionBusy = true;
+      this.actionError = '';
+
+      const onDuelClosedSuccess = (msg?: string) => {
+        this.isActionBusy = false;
+        this.removeSavedDuelSalonLocal({
+          challengeId: duelChallenge.id,
+          roomId: duelChallenge.roomId || raceId,
+          roomCode: duelChallenge.roomCode || roomCode
+        });
+        if (msg) {
+          this.showFeedback(msg);
+        }
+        this.refreshMyDuels();
+        this.refreshMyRooms();
+        this.closeModal();
+        this.roomClosedOrLeft.emit({ closedOnServer: true, raceId });
+        this.cdr.markForCheck();
+      };
+
+      const onDuelClosedError = (err: any) => {
+        this.isActionBusy = false;
+        this.actionError = err?.error?.message || err?.error?.error || 'Impossible de supprimer ce duel.';
+        this.cdr.markForCheck();
+      };
+
+      if (duelChallenge.status === 'PENDING' && this.isChallengedPlayer) {
+        this.rowerService.respondToDuelChallenge(duelChallenge.id, this.activeUserId, 'refuse').subscribe({
+          next: (res) => onDuelClosedSuccess(res?.message || 'Duel refusé et supprimé pour les deux joueurs.'),
+          error: onDuelClosedError
+        });
+      } else if (duelChallenge.status === 'PENDING' || duelChallenge.status === 'ACCEPTED') {
+        this.rowerService.cancelDuelChallenge(duelChallenge.id, this.activeUserId).subscribe({
+          next: (res) => onDuelClosedSuccess(res?.message || 'Duel supprimé pour les deux joueurs.'),
+          error: onDuelClosedError
+        });
+      } else {
+        this.rowerService.deleteDuelChallenge(duelChallenge.id, this.activeUserId).subscribe({
+          next: (res) => onDuelClosedSuccess(res?.message || 'Duel supprimé avec succès.'),
+          error: onDuelClosedError
+        });
+      }
+      return;
+    }
+
     const confirmed = typeof window !== 'undefined' ? window.confirm('Voulez-vous vraiment supprimer définitivement ce salon privé ?') : true;
     if (!confirmed) return;
 
@@ -1975,8 +2049,117 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
     this.roomClosedOrLeft.emit({ closedOnServer: false });
   }
 
+  private findChallengeForSalon(salon: SavedPrivateSalon): DuelChallenge | null {
+    const codeNorm = (salon.code || '').trim().toLowerCase();
+    const idNorm = (salon.id || '').trim();
+    const chIdNorm = (salon.duelChallengeId || '').trim();
+    const allDuels = [...(this.receivedDuelChallenges || []), ...(this.sentDuelChallenges || [])];
+    return (
+      allDuels.find(
+        (d) =>
+          (chIdNorm && d.id === chIdNorm) ||
+          (idNorm && (d.roomId === idNorm || d.id === idNorm)) ||
+          (codeNorm && d.roomCode && d.roomCode.toLowerCase() === codeNorm)
+      ) || null
+    );
+  }
+
+  private isChallengeChallengedByMe(challenge: DuelChallenge | null, salon?: SavedPrivateSalon): boolean {
+    const uid = (this.activeUserId || '').trim().toLowerCase();
+    const uname = (this.activeUserName || '').trim().toLowerCase();
+    if (!uid && !uname) return false;
+    const challengedId = (challenge?.challengedUserId || salon?.challengedUserId || '').trim().toLowerCase();
+    const challengedLogin = (challenge?.challengedLogin || salon?.challengedLogin || '').trim().toLowerCase();
+    return Boolean(
+      (challengedId && challengedId === uid) ||
+      (challengedLogin && (challengedLogin === uid || (uname && challengedLogin === uname)))
+    );
+  }
+
   removeOrCloseSavedSalon(salon: SavedPrivateSalon, event: Event): void {
     event.stopPropagation();
+
+    if (this.isSalonDuel(salon)) {
+      const matchedChallenge = this.findChallengeForSalon(salon);
+      const status = matchedChallenge?.status || salon.duelStatus || 'PENDING';
+      const slotStartStr = matchedChallenge?.slotStart || salon.scheduledStartTime || '';
+      const isLateAccepted = status === 'ACCEPTED' && Boolean(slotStartStr) && this.isDuelWithin24h(String(slotStartStr));
+      const opponentLabel = this.getDuelOpponentDisplay(matchedChallenge || salon);
+
+      const confirmMsg = isLateAccepted
+        ? `⚠️ Attention : ce duel contre ${opponentLabel} est confirmé et a lieu dans moins de 24h.\nSon annulation entraînera un forfait (-10 points) et supprimera le duel pour les deux joueurs.\n\nVoulez-vous vraiment annuler et supprimer ce duel ?`
+        : `Voulez-vous vraiment supprimer le duel contre ${opponentLabel} ?\nLe duel et son salon seront supprimés pour les deux joueurs et votre adversaire sera notifié.`;
+
+      const confirmed = typeof window !== 'undefined' ? window.confirm(confirmMsg) : true;
+      if (!confirmed) return;
+
+      const challengeId = matchedChallenge?.id || salon.duelChallengeId || (salon.id.startsWith('duel_') ? salon.id : '');
+      const isChallenged = this.isChallengeChallengedByMe(matchedChallenge, salon);
+
+      const finalizeLocalDuelRemoval = (msg?: string) => {
+        this.removeSavedDuelSalonLocal({
+          challengeId: challengeId || undefined,
+          roomId: matchedChallenge?.roomId || salon.id,
+          roomCode: matchedChallenge?.roomCode || salon.code
+        });
+        if (msg) {
+          this.showFeedback(msg);
+          this.duelManageMessage = msg;
+        }
+        if (
+          this.activeRoom &&
+          (this.activeRoom.race?.id === salon.id ||
+            (salon.code && this.activeRoomCode.toLowerCase() === salon.code.toLowerCase()))
+        ) {
+          this.roomClosedOrLeft.emit({ closedOnServer: true, raceId: salon.id });
+        }
+        this.refreshMyDuels();
+        this.refreshMyRooms();
+        this.cdr.markForCheck();
+      };
+
+      if (challengeId && this.activeUserId) {
+        if (status === 'PENDING' && isChallenged) {
+          this.rowerService.respondToDuelChallenge(challengeId, this.activeUserId, 'refuse').subscribe({
+            next: (res) => finalizeLocalDuelRemoval(res?.message || 'Duel refusé et supprimé pour les deux joueurs.'),
+            error: () => {
+              this.rowerService.closePrivateRace(salon.code || salon.id, this.activeUserId).subscribe({
+                next: () => finalizeLocalDuelRemoval('Duel supprimé pour les deux joueurs.'),
+                error: () => finalizeLocalDuelRemoval()
+              });
+            }
+          });
+          return;
+        }
+
+        if (status === 'PENDING' || status === 'ACCEPTED') {
+          this.rowerService.cancelDuelChallenge(challengeId, this.activeUserId).subscribe({
+            next: (res) => finalizeLocalDuelRemoval(res?.message || 'Duel annulé et supprimé pour les deux joueurs.'),
+            error: () => {
+              this.rowerService.closePrivateRace(salon.code || salon.id, this.activeUserId).subscribe({
+                next: () => finalizeLocalDuelRemoval('Duel supprimé pour les deux joueurs.'),
+                error: () => finalizeLocalDuelRemoval()
+              });
+            }
+          });
+          return;
+        }
+
+        this.rowerService.deleteDuelChallenge(challengeId, this.activeUserId).subscribe({
+          next: (res) => finalizeLocalDuelRemoval(res?.message || 'Duel supprimé avec succès.'),
+          error: () => finalizeLocalDuelRemoval()
+        });
+        return;
+      }
+
+      // Fallback via closePrivateRace (qui résout et annule désormais aussi le duel côté serveur)
+      this.rowerService.closePrivateRace(salon.code || salon.id, this.activeUserId).subscribe({
+        next: () => finalizeLocalDuelRemoval('Duel supprimé pour les deux joueurs.'),
+        error: () => finalizeLocalDuelRemoval()
+      });
+      return;
+    }
+
     if (salon.isHost || this.isUserAdmin) {
       const confirmed = typeof window !== 'undefined'
         ? window.confirm(`Voulez-vous vraiment supprimer définitivement le salon « ${salon.title} » ?`)
@@ -2209,7 +2392,26 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
         // Prune locally stored salons that no longer exist on backend
         if (knownCodes.length > 0) {
           const activeIds = new Set(serverRaces.map((r) => r.race.id));
-          this.savedSalons = this.savedSalons.filter((s) => s.isDuel1v1 || activeIds.has(s.id));
+          const allLoadedDuels = [...(this.receivedDuelChallenges || []), ...(this.sentDuelChallenges || [])];
+          this.savedSalons = this.savedSalons.filter((s) => {
+            if (activeIds.has(s.id)) return true;
+            if (!s.isDuel1v1) return false;
+            const codeNorm = (s.code || '').trim().toLowerCase();
+            const matchedDuel = allLoadedDuels.find(
+              (d) =>
+                (s.duelChallengeId && d.id === s.duelChallengeId) ||
+                (d.roomId && d.roomId === s.id) ||
+                (d.id === s.id) ||
+                (codeNorm && d.roomCode && d.roomCode.toLowerCase() === codeNorm)
+            );
+            if (matchedDuel) {
+              return matchedDuel.status === 'PENDING' || matchedDuel.status === 'ACCEPTED';
+            }
+            if (s.duelStatus && s.duelStatus !== 'PENDING' && s.duelStatus !== 'ACCEPTED') {
+              return false;
+            }
+            return allLoadedDuels.length === 0;
+          });
           this.persistSavedSalons();
         }
         this.roomsOrDuelsCountChanged.emit();
@@ -2253,6 +2455,15 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
         (d.roomId && d.roomId === idNorm)
       ) || null;
 
+    if (isDuel && challenge && challenge.status && challenge.status !== 'PENDING' && challenge.status !== 'ACCEPTED') {
+      this.removeSavedDuelSalonLocal({
+        challengeId: challenge.id,
+        roomId: challenge.roomId || payload.race.id,
+        roomCode: challenge.roomCode || code
+      });
+      return;
+    }
+
     const entry: SavedPrivateSalon = {
       id: payload.race.id,
       code,
@@ -2264,6 +2475,7 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
       startMode: startMode === 'scheduled' ? 'scheduled' : 'manual',
       scheduledStartTime: scheduledStartTime ? String(scheduledStartTime) : undefined,
       isDuel1v1: isDuel || Boolean(challenge),
+      duelChallengeId: challenge?.id,
       duelStatus: challenge?.status,
       challengerUserId: challenge?.challengerUserId,
       challengerName: challenge?.challengerName,
@@ -2291,6 +2503,28 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
     this.savedSalons = this.savedSalons.filter((s) => s.id !== raceId);
     this.liveRoomsMap.delete(raceId);
     this.persistSavedSalons();
+    this.roomsOrDuelsCountChanged.emit();
+  }
+
+  private removeSavedDuelSalonLocal(criteria: { challengeId?: string; roomId?: string; roomCode?: string }): void {
+    const chId = (criteria.challengeId || '').trim();
+    const rId = (criteria.roomId || '').trim();
+    const rCode = (criteria.roomCode || '').trim().toLowerCase();
+    if (!chId && !rId && !rCode) return;
+
+    const beforeLen = this.savedSalons.length;
+    this.savedSalons = this.savedSalons.filter((s) => {
+      if (chId && (s.duelChallengeId === chId || s.id === chId)) return false;
+      if (rId && s.id === rId) return false;
+      if (rCode && s.code && s.code.trim().toLowerCase() === rCode) return false;
+      return true;
+    });
+    if (rId) {
+      this.liveRoomsMap.delete(rId);
+    }
+    if (this.savedSalons.length !== beforeLen) {
+      this.persistSavedSalons();
+    }
     this.roomsOrDuelsCountChanged.emit();
   }
 
@@ -2533,19 +2767,63 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
 
   private syncDuelsToSavedSalons(): void {
     const all = [...this.receivedDuelChallenges, ...this.sentDuelChallenges];
-    if (all.length === 0) return;
+    const activeDuels = all.filter((d) => d && (d.status === 'PENDING' || d.status === 'ACCEPTED'));
+    const inactiveDuels = all.filter((d) => d && d.status !== 'PENDING' && d.status !== 'ACCEPTED');
+
+    const activeRoomIds = new Set(activeDuels.map((d) => (d.roomId || '').trim()).filter(Boolean));
+    const activeCodes = new Set(activeDuels.map((d) => (d.roomCode || '').trim().toLowerCase()).filter(Boolean));
+    const activeChallengeIds = new Set(activeDuels.map((d) => (d.id || '').trim()).filter(Boolean));
+
+    const inactiveRoomIds = new Set(inactiveDuels.map((d) => (d.roomId || '').trim()).filter(Boolean));
+    const inactiveCodes = new Set(inactiveDuels.map((d) => (d.roomCode || '').trim().toLowerCase()).filter(Boolean));
+    const inactiveChallengeIds = new Set(inactiveDuels.map((d) => (d.id || '').trim()).filter(Boolean));
 
     let hasChanges = false;
-    for (const d of all) {
+
+    // 1. Purger de savedSalons tous les salons de duel qui ne sont plus actifs (CANCELLED, REFUSED, EXPIRED, FORFEIT, COMPLETED ou supprimés)
+    const beforeCount = this.savedSalons.length;
+    this.savedSalons = this.savedSalons.filter((s) => {
+      const sId = (s.id || '').trim();
+      const sCode = (s.code || '').trim().toLowerCase();
+      const sChId = (s.duelChallengeId || '').trim();
+
+      const matchesInactive =
+        (sChId && inactiveChallengeIds.has(sChId)) ||
+        (sId && (inactiveRoomIds.has(sId) || inactiveChallengeIds.has(sId))) ||
+        (sCode && inactiveCodes.has(sCode));
+      if (matchesInactive) {
+        if (sId) this.liveRoomsMap.delete(sId);
+        return false;
+      }
+
+      if (s.isDuel1v1) {
+        const matchesActive =
+          (sChId && activeChallengeIds.has(sChId)) ||
+          (sId && (activeRoomIds.has(sId) || activeChallengeIds.has(sId))) ||
+          (sCode && activeCodes.has(sCode));
+        if (!matchesActive) {
+          if (sId) this.liveRoomsMap.delete(sId);
+          return false;
+        }
+      }
+      return true;
+    });
+    if (this.savedSalons.length !== beforeCount) {
+      hasChanges = true;
+    }
+
+    // 2. Ajouter ou mettre à jour les duels actifs (PENDING ou ACCEPTED)
+    for (const d of activeDuels) {
       if (!d.roomCode && !d.roomId) continue;
-      if (!['PENDING', 'ACCEPTED'].includes(d.status)) continue;
 
       const codeNorm = (d.roomCode || '').trim().toLowerCase();
       const idNorm = (d.roomId || '').trim();
 
-      const existingIdx = this.savedSalons.findIndex(s =>
-        (idNorm && s.id === idNorm) ||
-        (codeNorm && s.code && s.code.toLowerCase() === codeNorm)
+      const existingIdx = this.savedSalons.findIndex(
+        (s) =>
+          (d.id && s.duelChallengeId === d.id) ||
+          (idNorm && s.id === idNorm) ||
+          (codeNorm && s.code && s.code.toLowerCase() === codeNorm)
       );
 
       const isHost = d.challengerUserId === this.activeUserId;
@@ -2560,6 +2838,7 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
         startMode: 'scheduled',
         scheduledStartTime: d.slotStart ? String(d.slotStart) : undefined,
         isDuel1v1: true,
+        duelChallengeId: d.id,
         duelStatus: d.status,
         challengerUserId: d.challengerUserId,
         challengerName: d.challengerName,
@@ -2617,10 +2896,17 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
             }
           });
         }
-        if (action === 'refuse' && this.activeRoom) {
-          setTimeout(() => {
-            this.leaveToPublicRace();
-          }, 1500);
+        if (action === 'refuse') {
+          this.removeSavedDuelSalonLocal({
+            challengeId: challenge.id,
+            roomId: challenge.roomId,
+            roomCode: challenge.roomCode
+          });
+          if (this.activeRoom) {
+            setTimeout(() => {
+              this.leaveToPublicRace();
+            }, 1500);
+          }
         }
         this.cdr.markForCheck();
       },
@@ -2642,6 +2928,18 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
       next: (res) => {
         this.duelActionBusyId = '';
         this.duelManageMessage = res?.message || 'Duel annulé et créneau libéré.';
+        this.removeSavedDuelSalonLocal({
+          challengeId: challenge.id,
+          roomId: challenge.roomId,
+          roomCode: challenge.roomCode
+        });
+        if (
+          this.activeRoom &&
+          ((challenge.roomId && this.activeRoom.race?.id === challenge.roomId) ||
+            (challenge.roomCode && this.activeRoomCode.toLowerCase() === challenge.roomCode.toLowerCase()))
+        ) {
+          this.roomClosedOrLeft.emit({ closedOnServer: true, raceId: challenge.roomId });
+        }
         this.refreshMyDuels();
         this.refreshMyRooms();
         this.cdr.markForCheck();
@@ -2664,7 +2962,13 @@ export class PrivateRoomManagerComponent implements OnInit, OnChanges, OnDestroy
       next: (res) => {
         this.duelActionBusyId = '';
         this.duelManageMessage = res?.message || 'Défi supprimé avec succès.';
+        this.removeSavedDuelSalonLocal({
+          challengeId: challenge.id,
+          roomId: challenge.roomId,
+          roomCode: challenge.roomCode
+        });
         this.refreshMyDuels();
+        this.refreshMyRooms();
         this.cdr.markForCheck();
       },
       error: (err) => {

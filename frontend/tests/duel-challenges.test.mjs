@@ -159,3 +159,35 @@ test('Duel Email Invitations: models, service, private-room-manager resend UI an
   assert.match(appHtml, /\[pendingRegistrationEmail\]="pendingRegistrationEmail"/);
   assert.match(privHtml, /Invité\s*:\s*\{\{\s*activeDuelChallenge\.challengedEmail\s*\}\}/);
 });
+
+test('Duel 1v1 Deletion from Mes Salons (✕): cancels/refuses duel on server for both players, prunes savedSalons so it does not reappear, and handles real-time opponent exit', () => {
+  const privHtml = fs.readFileSync(
+    path.join(frontendAppDir, 'components/private-room-manager/private-room-manager.component.html'),
+    'utf8'
+  );
+  const privTs = fs.readFileSync(
+    path.join(frontendAppDir, 'components/private-room-manager/private-room-manager.component.ts'),
+    'utf8'
+  );
+  const socketServiceTs = fs.readFileSync(path.join(frontendAppDir, 'services/socket.service.ts'), 'utf8');
+  const appTs = readAppTsBundle();
+
+  // 1. removeOrCloseSavedSalon handles duel salons for both challenger and challenged players
+  assert.match(privTs, /removeOrCloseSavedSalon\(salon:\s*SavedPrivateSalon,\s*event:\s*Event\):\s*void[\s\S]*?if\s*\(this\.isSalonDuel\(salon\)\)/);
+  assert.match(privTs, /findChallengeForSalon\(salon:\s*SavedPrivateSalon\):\s*DuelChallenge\s*\|\s*null/);
+  assert.match(privTs, /removeSavedDuelSalonLocal\(/);
+  assert.match(privTs, /Son annulation entraînera un forfait \(-10 points\) et supprimera le duel pour les deux joueurs/);
+
+  // 2. syncDuelsToSavedSalons prunes inactive (CANCELLED, REFUSED, EXPIRED, FORFEIT, COMPLETED) duels so they never reappear
+  assert.match(privTs, /syncDuelsToSavedSalons\(\):\s*void[\s\S]*?inactiveDuels/);
+  assert.match(privTs, /matchesInactive/);
+
+  // 3. Both challenger and challenged players can delete the duel from the room controls too
+  assert.match(privHtml, /isDuel1v1Room\s*&&\s*\(isChallengedPlayer\s*\|\|\s*isChallengerPlayer\)/);
+
+  // 4. SocketService & AppComponent handle real-time duel cancellation/deletion for the opponent
+  assert.match(socketServiceTs, /duel:challenge_deleted/);
+  assert.match(socketServiceTs, /roomId\?:\s*string/);
+  assert.match(appTs, /removeDuelFromLocalStorage/);
+  assert.match(appTs, /isCurrentActiveDuelRoom\(\)/);
+});

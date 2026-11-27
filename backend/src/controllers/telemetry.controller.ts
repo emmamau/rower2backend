@@ -1735,8 +1735,72 @@ export class TelemetryController {
         (typeof req.query.hostUserId === "string" ? req.query.hostUserId : undefined);
       const isAdmin = await isUserAdminHelper(hostUserId);
 
+      // Si le salon correspond à un défi de duel 1v1 actif (PENDING ou ACCEPTED),
+      // autoriser l'un ou l'autre des deux joueurs (challenger ou challenged) à le fermer/annuler
+      const duelChallenge = await duelService.getChallengeByRoom(identifier);
+      if (duelChallenge && (duelChallenge.status === "PENDING" || duelChallenge.status === "ACCEPTED")) {
+        const actorId = hostUserId || (isAdmin ? duelChallenge.challengerUserId : "");
+        if (!actorId && !isAdmin) {
+          res.status(403).json({ error: "Identifiant utilisateur requis pour supprimer ce duel." });
+          return;
+        }
+        const actor = actorId ? await userStore.findUser(actorId) : null;
+        const cleanActor = actorId.trim().toLowerCase();
+        const isChallenged =
+          Boolean(cleanActor) &&
+          ((duelChallenge.challengedUserId && duelChallenge.challengedUserId.trim().toLowerCase() === cleanActor) ||
+            (duelChallenge.challengedLogin && duelChallenge.challengedLogin.trim().toLowerCase() === cleanActor) ||
+            (actor &&
+              ((actor.id && duelChallenge.challengedUserId && actor.id.toLowerCase() === duelChallenge.challengedUserId.toLowerCase()) ||
+                (actor.login && duelChallenge.challengedLogin && actor.login.toLowerCase() === duelChallenge.challengedLogin.toLowerCase()))));
+
+        let duelOutcome: any;
+        if (duelChallenge.status === "PENDING" && isChallenged) {
+          duelOutcome = await duelService.respondToChallenge({
+            challengeId: duelChallenge.id,
+            responderUserId: actorId,
+            action: "refuse",
+          });
+        } else {
+          duelOutcome = await duelService.cancelChallenge({
+            challengeId: duelChallenge.id,
+            userId: actorId || duelChallenge.challengerUserId,
+          });
+        }
+
+        if ("error" in duelOutcome) {
+          res.status(duelOutcome.statusCode).json({ error: duelOutcome.error, message: duelOutcome.error });
+          return;
+        }
+
+        const closedRaceId = duelChallenge.roomId || identifier;
+        try {
+          await Races.update({ status: "cancelled" }, { where: { id: closedRaceId } });
+        } catch {
+          // Non-blocking
+        }
+
+        res.status(200).json({
+          success: true,
+          raceId: closedRaceId,
+          challengeId: duelChallenge.id,
+          isForfeit: Boolean(duelOutcome.isForfeit),
+          challenge: duelOutcome.challenge,
+        });
+        return;
+      }
+
       const outcome = raceManager.closePrivateRace(identifier, hostUserId, isAdmin);
       if ("error" in outcome) {
+        if (duelChallenge) {
+          // Le salon d'un duel déjà annulé/refusé/expiré est déjà fermé en mémoire
+          res.status(200).json({
+            success: true,
+            raceId: duelChallenge.roomId || identifier,
+            challengeId: duelChallenge.id,
+          });
+          return;
+        }
         res.status(outcome.statusCode).json({ error: outcome.error });
         return;
       }

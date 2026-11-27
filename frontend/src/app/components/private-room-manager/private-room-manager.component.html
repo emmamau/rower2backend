@@ -1469,6 +1469,14 @@
                 (click)="closeAndRevokeActiveRoom()">
                 {{ i18n.t('BTN_CLOSE_ROOM') }}
               </button>
+            } @else if (isDuel1v1Room && (isChallengedPlayer || isChallengerPlayer) && !isActiveRoomRunning) {
+              <button
+                type="button"
+                class="priv-btn priv-btn-danger"
+                [disabled]="isActionBusy"
+                (click)="closeAndRevokeActiveRoom()">
+                🗑️ Supprimer le duel
+              </button>
             }
           </div>
 

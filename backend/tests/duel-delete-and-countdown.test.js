@@ -1,8 +1,15 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
+const db = require("../dist/models").default;
 const { formatDetailedCountdown, getWaitingStatusMessage } = require("../dist/services/race-manager.service");
 const duelService = require("../dist/services/duel.service").default;
 const userStore = require("../dist/services/user-store.service").default;
+
+test.after(async () => {
+  if (db?.sequelize?.close) {
+    await db.sequelize.close().catch(() => {});
+  }
+});
 
 test("1. formatDetailedCountdown formats days, hours, minutes and seconds when needed, otherwise minutes by default", () => {
   // 1. Duration >= 1 day: displays days, hours, minutes, seconds
@@ -130,4 +137,109 @@ test("3. duelService.deleteChallenge allows deleting REFUSED, CANCELLED and EXPI
 
   const checkGone2 = await duelService.getChallengeById(challengeId2);
   assert.equal(checkGone2, null, "Cancelled and deleted duel must no longer exist");
+});
+
+test("4. Closing a duel private room via DELETE /api/v1/races/private/:identifier cancels/refuses the duel challenge for both players so it never reappears", async () => {
+  const http = require("node:http");
+  const express = require("express");
+  const initDuelRoutes = require("../dist/routes/duel.routes").default;
+  const initTelemetryRoutes = require("../dist/routes/telemetry.routes").default;
+
+  const app = express();
+  app.use(express.json());
+  initDuelRoutes(app);
+  initTelemetryRoutes(app);
+  const server = http.createServer(app);
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const baseUrl = `http://127.0.0.1:${server.address().port}`;
+
+  try {
+    const uidA = `duel_close_a_${Date.now()}`;
+    const uidB = `duel_close_b_${Date.now()}`;
+    await userStore.createUser({
+      id: uidA,
+      login: uidA,
+      name: "Player A",
+      email: `${uidA}@test.com`,
+      isSubscriber: true,
+      subscriptionTier: "premium",
+      duelPreferences: { acceptsDuels: true, isAbsent: false, refusedDays: [], availableWindows: [{ startTime: "00:00", endTime: "23:59" }], timezone: "Europe/Paris" }
+    });
+    await userStore.createUser({
+      id: uidB,
+      login: uidB,
+      name: "Player B",
+      email: `${uidB}@test.com`,
+      duelPreferences: { acceptsDuels: true, isAbsent: false, refusedDays: [], availableWindows: [{ startTime: "00:00", endTime: "23:59" }], timezone: "Europe/Paris" }
+    });
+
+    // Case 1: Challenger closes the duel room via DELETE /api/v1/races/private/:code while PENDING
+    const slot1 = new Date(Date.now() + 48 * 3600000);
+    const created1 = await duelService.createChallenge({
+      challengerId: uidA,
+      challengedLoginOrId: uidB,
+      slotStart: slot1.toISOString(),
+      slotEnd: new Date(slot1.getTime() + 3600000).toISOString(),
+      targetDistance: 2000,
+    });
+    assert.ok("challenge" in created1);
+    const ch1 = created1.challenge;
+
+    const closeRes1 = await fetch(`${baseUrl}/api/v1/races/private/${ch1.roomCode}`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ hostUserId: uidA }),
+    });
+    assert.equal(closeRes1.status, 200);
+    const closeData1 = await closeRes1.json();
+    assert.equal(closeData1.success, true);
+
+    const updatedCh1 = await duelService.getChallengeById(ch1.id);
+    assert.equal(updatedCh1.status, "CANCELLED", "Challenge must be CANCELLED when challenger closes the duel room");
+
+    // Case 2: Challenged player closes the duel room via DELETE /api/v1/races/private/:code while PENDING -> REFUSED
+    const slot2 = new Date(Date.now() + 72 * 3600000);
+    const created2 = await duelService.createChallenge({
+      challengerId: uidA,
+      challengedLoginOrId: uidB,
+      slotStart: slot2.toISOString(),
+      slotEnd: new Date(slot2.getTime() + 3600000).toISOString(),
+      targetDistance: 2000,
+    });
+    assert.ok("challenge" in created2);
+    const ch2 = created2.challenge;
+
+    const closeRes2 = await fetch(`${baseUrl}/api/v1/races/private/${ch2.roomCode}`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ hostUserId: uidB }),
+    });
+    assert.equal(closeRes2.status, 200);
+    const updatedCh2 = await duelService.getChallengeById(ch2.id);
+    assert.equal(updatedCh2.status, "REFUSED", "Challenge must be REFUSED when challenged player deletes a PENDING duel room");
+
+    // Case 3: Challenged player closes an ACCEPTED duel room (> 24h) -> CANCELLED for both players
+    const slot3 = new Date(Date.now() + 96 * 3600000);
+    const created3 = await duelService.createChallenge({
+      challengerId: uidA,
+      challengedLoginOrId: uidB,
+      slotStart: slot3.toISOString(),
+      slotEnd: new Date(slot3.getTime() + 3600000).toISOString(),
+      targetDistance: 2000,
+    });
+    assert.ok("challenge" in created3);
+    const ch3 = created3.challenge;
+    await duelService.respondToChallenge({ challengeId: ch3.id, responderUserId: uidB, action: "accept" });
+
+    const closeRes3 = await fetch(`${baseUrl}/api/v1/races/private/${ch3.roomCode}`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ hostUserId: uidB }),
+    });
+    assert.equal(closeRes3.status, 200);
+    const updatedCh3 = await duelService.getChallengeById(ch3.id);
+    assert.equal(updatedCh3.status, "CANCELLED", "Accepted duel (>24h) must be CANCELLED when challenged player deletes the duel room");
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
 });

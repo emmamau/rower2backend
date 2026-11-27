@@ -999,6 +999,9 @@ export class DuelService {
         challengerLogin: challenge.challengerLogin,
         challengedUserId: challenge.challengedUserId,
         challengedLogin: challenge.challengedLogin,
+        roomId: challenge.roomId,
+        roomCode: challenge.roomCode,
+        roomPin: challenge.roomPin,
       });
 
       return { challenge };
@@ -1069,6 +1072,7 @@ export class DuelService {
       challengedLogin: challenge.challengedLogin,
       slotStart: start.toISOString(),
       slotEnd: end.toISOString(),
+      roomId: challenge.roomId,
       roomCode: challenge.roomCode,
       roomPin: challenge.roomPin,
     });
@@ -1094,6 +1098,7 @@ export class DuelService {
     }
 
     const actor = await userStore.findUser(params.userId);
+    const isAdminActor = Boolean(actor && (actor.isAdmin || actor.role === "admin" || isEmmaAdminUser(actor.id, actor.name)));
     const isChallenger =
       sameUserIdentifier(params.userId, challenge.challengerUserId) ||
       sameUserIdentifier(params.userId, challenge.challengerLogin) ||
@@ -1105,20 +1110,21 @@ export class DuelService {
       userMatchesId(actor, challenge.challengedUserId) ||
       userMatchesId(actor, challenge.challengedLogin);
 
-    if (!isChallenger && !isChallenged) {
+    if (!isChallenger && !isChallenged && !isAdminActor) {
       return { error: "Seuls les participants de ce duel peuvent l'annuler.", statusCode: 403 };
     }
 
-    const cancellingUserId = isChallenger ? challenge.challengerUserId : challenge.challengedUserId;
-    const cancellingName = isChallenger ? challenge.challengerName : challenge.challengedName;
-    const cancellingLogin = isChallenger ? challenge.challengerLogin : challenge.challengedLogin;
+    const effectiveChallengerSide = isChallenger || (!isChallenged && isAdminActor);
+    const cancellingUserId = effectiveChallengerSide ? challenge.challengerUserId : challenge.challengedUserId;
+    const cancellingName = effectiveChallengerSide ? challenge.challengerName : challenge.challengedName;
+    const cancellingLogin = effectiveChallengerSide ? challenge.challengerLogin : challenge.challengedLogin;
 
-    const opponentUserId = isChallenger ? challenge.challengedUserId : challenge.challengerUserId;
-    const opponentName = isChallenger ? challenge.challengedName : challenge.challengerName;
-    const opponent = await userStore.findUser(opponentUserId);
+    const opponentUserId = effectiveChallengerSide ? challenge.challengedUserId : challenge.challengerUserId;
+    const opponentName = effectiveChallengerSide ? challenge.challengedName : challenge.challengerName;
+    const opponent = opponentUserId ? await userStore.findUser(opponentUserId) : null;
 
     const msUntilSlot = new Date(challenge.slotStart).getTime() - now.getTime();
-    const isForfeit = challenge.status === "ACCEPTED" && msUntilSlot <= DUEL_LATE_CANCEL_MS;
+    const isForfeit = !isAdminActor && challenge.status === "ACCEPTED" && msUntilSlot <= DUEL_LATE_CANCEL_MS;
 
     if (challenge.roomId) {
       raceManager.closePrivateRace(challenge.roomId, challenge.challengerUserId, true);
@@ -1157,8 +1163,14 @@ export class DuelService {
         isForfeit: true,
         forfeitUserId: cancellingUserId,
         winnerUserId: opponentUserId,
+        cancelledByUserId: cancellingUserId,
         challengerUserId: challenge.challengerUserId,
+        challengerLogin: challenge.challengerLogin,
         challengedUserId: challenge.challengedUserId,
+        challengedLogin: challenge.challengedLogin,
+        roomId: challenge.roomId,
+        roomCode: challenge.roomCode,
+        roomPin: challenge.roomPin,
         slotFreed: true,
       });
 
@@ -1192,7 +1204,12 @@ export class DuelService {
       isForfeit: false,
       cancelledByUserId: cancellingUserId,
       challengerUserId: challenge.challengerUserId,
+      challengerLogin: challenge.challengerLogin,
       challengedUserId: challenge.challengedUserId,
+      challengedLogin: challenge.challengedLogin,
+      roomId: challenge.roomId,
+      roomCode: challenge.roomCode,
+      roomPin: challenge.roomPin,
       slotFreed: true,
     });
 
@@ -1251,6 +1268,13 @@ export class DuelService {
     socketGateway.broadcast("duel:challenge_deleted", {
       challengeId: cleanId,
       deletedByUserId: params.userId,
+      challengerUserId: challenge.challengerUserId,
+      challengerLogin: challenge.challengerLogin,
+      challengedUserId: challenge.challengedUserId,
+      challengedLogin: challenge.challengedLogin,
+      roomId: challenge.roomId,
+      roomCode: challenge.roomCode,
+      roomPin: challenge.roomPin,
     });
 
     return { success: true, message: "Duel supprimé avec succès." };

@@ -195,6 +195,7 @@ export interface SavedPrivateSalon {
   startMode?: 'manual' | 'scheduled';
   scheduledStartTime?: string;
   isDuel1v1?: boolean;
+  duelChallengeId?: string;
   opponentName?: string;
   opponentLogin?: string;
   opponentEmail?: string;

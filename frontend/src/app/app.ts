@@ -6586,24 +6586,91 @@ export class AppComponent implements OnInit, OnDestroy {
         (ev.challengerLogin && myIds.has(ev.challengerLogin.toLowerCase()))
       );
 
+      const removeDuelFromLocalStorage = () => {
+        try {
+          if (typeof localStorage === 'undefined') return;
+          const uid = (this.activeUserId || this.currentUser?.login || this.currentUser?.id || '').trim().toLowerCase();
+          const keys = [
+            uid ? `rower_saved_private_salons_${uid}` : '',
+            this.currentUser?.id ? `rower_saved_private_salons_${String(this.currentUser.id).trim().toLowerCase()}` : '',
+            this.currentUser?.login ? `rower_saved_private_salons_${String(this.currentUser.login).trim().toLowerCase()}` : '',
+            'rower_saved_private_salons_guest'
+          ].filter(Boolean);
+          const evRoomId = (ev.roomId || '').trim();
+          const evCode = (ev.roomCode || '').trim().toLowerCase();
+          const evChId = (ev.challengeId || '').trim();
+          if (!evRoomId && !evCode && !evChId) return;
+
+          for (const key of new Set(keys)) {
+            const raw = localStorage.getItem(key);
+            if (!raw) continue;
+            const parsed = JSON.parse(raw);
+            if (!Array.isArray(parsed)) continue;
+            const filtered = parsed.filter((s: any) => {
+              if (!s) return false;
+              if (evChId && (s.duelChallengeId === evChId || s.id === evChId)) return false;
+              if (evRoomId && s.id === evRoomId) return false;
+              if (evCode && s.code && String(s.code).trim().toLowerCase() === evCode) return false;
+              return true;
+            });
+            if (filtered.length !== parsed.length) {
+              localStorage.setItem(key, JSON.stringify(filtered));
+            }
+          }
+        } catch {}
+      };
+
+      const isCurrentActiveDuelRoom = (): boolean => {
+        if (!this.activePrivateRoom) return false;
+        const activeId = (this.activePrivateRoom.race?.id || this.activePrivateRoom.id || '').trim();
+        const activeCode = (this.activePrivateRoom.code || this.activePrivateRoom.race?.code || '').trim().toLowerCase();
+        const activeChId = (
+          this.activePrivateRoom.duelChallenge?.id ||
+          (this.activePrivateRoom.race as any)?.duelChallenge?.id ||
+          ''
+        ).trim();
+        return Boolean(
+          (ev.challengeId && activeChId && activeChId === ev.challengeId) ||
+          (ev.roomId && activeId && activeId === ev.roomId) ||
+          (ev.roomCode && activeCode && activeCode === ev.roomCode.trim().toLowerCase())
+        );
+      };
+
       if (ev.eventType === 'challenge_received' && involvesChallenged) {
         this.triggerFinishToast(`⚔️ Nouveau défi en duel reçu de ${ev.challengerLogin || 'un abonné'} ! Consultez vos salons privés.`);
-      } else if (ev.eventType === 'challenge_responded' && involvesChallenger) {
+      } else if (ev.eventType === 'challenge_responded' && (involvesChallenger || involvesChallenged)) {
         if (ev.accepted) {
-          this.triggerFinishToast(`✅ ${ev.challengedLogin || 'Votre adversaire'} a accepté votre défi ! Créneau bloqué (Salon ${ev.roomCode || ''}).`);
+          if (involvesChallenger) {
+            this.triggerFinishToast(`✅ ${ev.challengedLogin || 'Votre adversaire'} a accepté votre défi ! Créneau bloqué (Salon ${ev.roomCode || ''}).`);
+          }
         } else {
-          this.triggerFinishToast(`❌ ${ev.challengedLogin || 'Votre adversaire'} a refusé votre défi en duel.`);
+          removeDuelFromLocalStorage();
+          if (involvesChallenger) {
+            this.triggerFinishToast(`❌ ${ev.challengedLogin || 'Votre adversaire'} a refusé/supprimé votre défi en duel.`);
+          }
+          if (isCurrentActiveDuelRoom()) {
+            this.exitPrivateRoomToPublic(true);
+          }
         }
       } else if (ev.eventType === 'challenge_cancelled' && (involvesChallenged || involvesChallenger)) {
+        removeDuelFromLocalStorage();
         const actorMatch = ev.cancelledByUserId && myIds.has(ev.cancelledByUserId.toLowerCase());
         if (!actorMatch) {
           if (ev.isForfeit) {
             this.triggerFinishToast('🏆 Duel annulé par votre adversaire dans les 24h : victoire par forfait (+10 pts) !');
           } else {
-            this.triggerFinishToast('🚫 Un duel programmé a été annulé par votre adversaire. Le créneau est libéré.');
+            this.triggerFinishToast('🚫 Duel supprimé / annulé par votre adversaire. Le créneau est libéré.');
           }
         }
+        if (isCurrentActiveDuelRoom()) {
+          this.exitPrivateRoomToPublic(true);
+        }
         this.loadUserProfile();
+      } else if (ev.eventType === 'challenge_deleted' && (involvesChallenged || involvesChallenger)) {
+        removeDuelFromLocalStorage();
+        if (isCurrentActiveDuelRoom()) {
+          this.exitPrivateRoomToPublic(true);
+        }
       }
       if (this.isStandingsOpen && this.standingsActiveTab === 'duels') {
         this.loadDuelLeaderboard();

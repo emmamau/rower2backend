@@ -40,7 +40,7 @@ export interface PrivateRoomUpdatePayload {
 }
 
 export interface DuelSocketEventPayload {
-  eventType: 'challenge_received' | 'challenge_responded' | 'challenge_cancelled';
+  eventType: 'challenge_received' | 'challenge_responded' | 'challenge_cancelled' | 'challenge_deleted';
   challengeId: string;
   challengerUserId?: string;
   challengerLogin?: string;
@@ -52,9 +52,11 @@ export interface DuelSocketEventPayload {
   forfeitUserId?: string;
   winnerUserId?: string;
   cancelledByUserId?: string;
+  deletedByUserId?: string;
   slotStart?: string;
   slotEnd?: string;
   targetDistance?: number;
+  roomId?: string;
   roomCode?: string;
   roomPin?: string;
   slotFreed?: boolean;
@@ -133,6 +135,10 @@ export class SocketService {
 
     this.socket.on('duel:challenge_cancelled', (data: any) => {
       this.duelEventSubject.next({ ...(data || {}), eventType: 'challenge_cancelled' });
+    });
+
+    this.socket.on('duel:challenge_deleted', (data: any) => {
+      this.duelEventSubject.next({ ...(data || {}), eventType: 'challenge_deleted' });
     });
 
     this.socket.on('garmin:paired', (data: any) => {
