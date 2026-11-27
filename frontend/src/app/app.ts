@@ -4940,19 +4940,33 @@ export class AppComponent implements OnInit, OnDestroy {
     this.cdr.markForCheck();
   }
 
-  isTierActive(tierId: string): boolean {
-    if (this.pioneerMode) return true;
+  private findSubscriptionTier(tierId: string): any | null {
     const clean = String(tierId || '').toLowerCase().trim();
-    const tier = (this.subscriptionTiers || []).find((t: any) => {
+    return (this.subscriptionTiers || []).find((t: any) => {
       const code = String(t.code || t.id || '').toLowerCase().trim();
       return code === clean ||
         (clean === 'competitor' && (code === 'intermediate' || code === 'standard' || code === 'club')) ||
         (clean === 'club_elite' && (code === 'premium' || code === 'pro' || code === 'elite_pro')) ||
-        (clean === 'intermediate' && code === 'standard') ||
-        (clean === 'premium' && code === 'elite_pro');
-    });
-    if (!tier) return true;
-    return tier.isActive !== false;
+        (clean === 'intermediate' && (code === 'standard' || code === 'competitor')) ||
+        (clean === 'premium' && (code === 'elite_pro' || code === 'club_elite'));
+    }) || null;
+  }
+
+  isPioneerEnabledForTier(tierId: string): boolean {
+    if (String(tierId || '').toLowerCase().trim() === 'free') return false;
+    const tier = this.findSubscriptionTier(tierId);
+    return tier ? tier.isPioneerEnabled === true : this.pioneerMode;
+  }
+
+  isPaidEnabledForTier(tierId: string): boolean {
+    if (String(tierId || '').toLowerCase().trim() === 'free') return true;
+    const tier = this.findSubscriptionTier(tierId);
+    return tier ? (tier.isPaidEnabled ?? tier.isActive) !== false : true;
+  }
+
+  isTierActive(tierId: string): boolean {
+    if (String(tierId || '').toLowerCase().trim() === 'free') return true;
+    return this.isPioneerEnabledForTier(tierId) || this.isPaidEnabledForTier(tierId);
   }
 
   subscribeToTier(tierId: string): void {
@@ -4979,7 +4993,7 @@ export class AppComponent implements OnInit, OnDestroy {
     this.subscriptionError = '';
 
     // En mode Pionnier : activation gratuite instantanée sans Stripe
-    if (this.pioneerMode && normalizedTier !== 'free') {
+    if (normalizedTier !== 'free' && this.isPioneerEnabledForTier(normalizedTier)) {
       this.rowerService.activatePioneerPlan(this.activeUserId, normalizedTier).subscribe({
         next: (res) => {
           this.subscriptionLoading = false;

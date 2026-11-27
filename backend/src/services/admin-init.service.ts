@@ -66,6 +66,13 @@ export class AdminInitService {
             END IF;
           END IF;
 
+          -- Colonnes sur subscription_plans : mode Pionnier par offre
+          IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'subscription_plans') THEN
+            IF NOT EXISTS (SELECT FROM information_schema.columns WHERE table_name = 'subscription_plans' AND column_name = 'is_pioneer_enabled') THEN
+              ALTER TABLE subscription_plans ADD COLUMN is_pioneer_enabled BOOLEAN DEFAULT ${process.env.LAUNCH_PIONEER_MODE !== "false" ? "TRUE" : "FALSE"};
+            END IF;
+          END IF;
+
           -- Colonnes sur users (si présente)
           IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'users') THEN
             IF NOT EXISTS (SELECT FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'role') THEN

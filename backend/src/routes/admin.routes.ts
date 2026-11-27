@@ -45,7 +45,6 @@ export default (app: Application): void => {
   router.patch("/plans/:id/toggle", AdminController.togglePlan);
   router.delete("/plans/:id", AdminController.deletePlan);
   router.get("/pioneer/stats", AdminController.getPioneerStats);
-  router.post("/pioneer/toggle", AdminController.togglePioneerMode);
 
   // 7. Gestion de l'Anti-Triche & Mode Tests de Charge
   router.get("/anti-cheat/status", AdminController.getAntiCheatStatus);

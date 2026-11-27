@@ -43,29 +43,44 @@ export class SubscriptionModalComponent {
     return false;
   }
 
-  isTierActive(tierId: string): boolean {
-    if (this.pioneerMode) return true;
+  private findTier(tierId: string): any | null {
     const clean = String(tierId || '').toLowerCase().trim();
-    const tier = (this.subscriptionTiers || []).find((t: any) => {
+    return (this.subscriptionTiers || []).find((t: any) => {
       const code = String(t.code || t.id || '').toLowerCase().trim();
       return code === clean ||
         (clean === 'competitor' && (code === 'intermediate' || code === 'standard' || code === 'club')) ||
         (clean === 'club_elite' && (code === 'premium' || code === 'pro' || code === 'elite_pro')) ||
-        (clean === 'intermediate' && code === 'standard') ||
-        (clean === 'premium' && code === 'elite_pro');
-    });
+        (clean === 'intermediate' && (code === 'standard' || code === 'competitor')) ||
+        (clean === 'premium' && (code === 'elite_pro' || code === 'club_elite'));
+    }) || null;
+  }
+
+  /** Accès Pionnier gratuit proposé pour cette offre. */
+  isPioneerTier(tierId: string): boolean {
+    const clean = String(tierId || '').toLowerCase().trim();
+    if (clean === 'free') return false;
+    const tier = this.findTier(tierId);
+    if (!tier) return this.pioneerMode;
+    return tier.isPioneerEnabled === true;
+  }
+
+  /** Souscription payante autorisée pour cette offre. */
+  isPaidTier(tierId: string): boolean {
+    const clean = String(tierId || '').toLowerCase().trim();
+    if (clean === 'free') return true;
+    const tier = this.findTier(tierId);
     if (!tier) return true;
-    return tier.isActive !== false;
+    return (tier.isPaidEnabled ?? tier.isActive) !== false;
+  }
+
+  /** Offre disponible : Découverte toujours, sinon payant OU Pionnier. */
+  isTierActive(tierId: string): boolean {
+    const clean = String(tierId || '').toLowerCase().trim();
+    if (clean === 'free') return true;
+    return this.isPioneerTier(tierId) || this.isPaidTier(tierId);
   }
 
   hasPaidTierActive(): boolean {
-    if (this.pioneerMode) return true;
-    if (this.isTierActive('competitor') || this.isTierActive('club_elite')) {
-      return true;
-    }
-    return (this.subscriptionTiers || []).some((t: any) => {
-      const code = String(t.code || t.id || '').toLowerCase().trim();
-      return code !== 'free' && t.isActive === true;
-    });
+    return this.isTierActive('competitor') || this.isTierActive('club_elite');
   }
 }

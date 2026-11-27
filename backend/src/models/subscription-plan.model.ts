@@ -15,6 +15,7 @@ export interface SubscriptionPlanAttributes {
   canCreateDuel1v1: boolean;
   canScheduleRaces: boolean;
   isActive: boolean;
+  isPioneerEnabled: boolean;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -92,6 +93,12 @@ export default (sequelize: Sequelize, _DataTypesInstance: typeof DataTypes): Sub
         type: DataTypes.BOOLEAN,
         field: "is_active",
         defaultValue: true,
+      },
+      isPioneerEnabled: {
+        type: DataTypes.BOOLEAN,
+        field: "is_pioneer_enabled",
+        // Valeur initiale héritée de l'ancien interrupteur global LAUNCH_PIONEER_MODE
+        defaultValue: process.env.LAUNCH_PIONEER_MODE !== "false",
       },
     },
     {

@@ -46,7 +46,7 @@
       <div class="pricing-card club-tier popular" [class.current-tier]="isCurrentTier('competitor')">
         <div class="popular-ribbon">{{ i18n.t('PLAN_RECOMMENDED') }}</div>
         <div class="pricing-header">
-          <div *ngIf="pioneerMode" class="pioneer-ribbon">{{ i18n.t('SUB_PIONEER_BADGE') }}</div>
+          <div *ngIf="isPioneerTier('competitor')" class="pioneer-ribbon">{{ i18n.t('SUB_PIONEER_BADGE') }}</div>
           <h4>{{ i18n.t('SUB_CLUB_TITLE') }}</h4>
           <ng-container *ngIf="isTierActive('intermediate')">
             <div class="pricing-price">5,99 €</div>
@@ -65,14 +65,14 @@
         <button
           type="button"
           class="btn-pricing btn-club"
-          [class.btn-pioneer]="pioneerMode && !isCurrentTier('competitor')"
+          [class.btn-pioneer]="isPioneerTier('competitor') && !isCurrentTier('competitor')"
           [class.current-btn]="isCurrentTier('competitor')"
           (click)="subscribeToTier('intermediate')"
           [disabled]="subscriptionLoading || isCurrentTier('competitor') || !isTierActive('intermediate')"
           [title]="!isTierActive('intermediate') ? i18n.t('SUB_STRIPE_DISABLED_TIP') : (isCurrentTier('competitor') ? i18n.t('SUB_CURRENT_PLAN_TIP') : i18n.t('SUB_SUBSCRIBE_CLUB_TIP'))">
-          {{ isCurrentTier('competitor') ? i18n.t('SUB_CURRENT_PLAN_BTN') : (!isTierActive('intermediate') ? i18n.t('PLAN_DISABLED') : (pioneerMode ? i18n.t('SUB_PIONEER_BTN') : i18n.t('SUB_CHOOSE_CLUB'))) }}<!-- Choisir l\'Offre Club (5,99 €/m) -->
+          {{ isCurrentTier('competitor') ? i18n.t('SUB_CURRENT_PLAN_BTN') : (!isTierActive('intermediate') ? i18n.t('PLAN_DISABLED') : (isPioneerTier('competitor') ? i18n.t('SUB_PIONEER_BTN') : i18n.t('SUB_CHOOSE_CLUB'))) }}<!-- Choisir l\'Offre Club (5,99 €/m) -->
         </button>
-        <p class="pioneer-disclaimer" *ngIf="pioneerMode && !isCurrentTier('competitor')">
+        <p class="pioneer-disclaimer" *ngIf="isPioneerTier('competitor') && !isCurrentTier('competitor')">
           {{ i18n.t('SUB_PIONEER_DISCLAIMER') }}
         </p>
       </div>
@@ -80,7 +80,7 @@
       <!-- 3. Offre Club / Élite (8,99 €) -->
       <div class="pricing-card pro-tier" [class.current-tier]="isCurrentTier('club_elite')">
         <div class="pricing-header">
-          <div *ngIf="pioneerMode" class="pioneer-ribbon">{{ i18n.t('SUB_PIONEER_BADGE') }}</div>
+          <div *ngIf="isPioneerTier('club_elite')" class="pioneer-ribbon">{{ i18n.t('SUB_PIONEER_BADGE') }}</div>
           <h4>{{ i18n.t('SUB_PRO_TITLE') }}</h4>
           <ng-container *ngIf="isTierActive('premium')">
             <div class="pricing-price">8,99 €</div>
@@ -99,14 +99,14 @@
         <button
           type="button"
           class="btn-pricing btn-pro"
-          [class.btn-pioneer]="pioneerMode && !isCurrentTier('club_elite')"
+          [class.btn-pioneer]="isPioneerTier('club_elite') && !isCurrentTier('club_elite')"
           [class.current-btn]="isCurrentTier('club_elite')"
           (click)="subscribeToTier('premium')"
           [disabled]="subscriptionLoading || isCurrentTier('club_elite') || !isTierActive('premium')"
           [title]="!isTierActive('premium') ? i18n.t('SUB_STRIPE_DISABLED_TIP') : (isCurrentTier('club_elite') ? i18n.t('SUB_CURRENT_PLAN_TIP') : i18n.t('SUB_SUBSCRIBE_PRO_TIP'))">
-          {{ isCurrentTier('club_elite') ? i18n.t('SUB_CURRENT_PLAN_BTN') : (!isTierActive('premium') ? i18n.t('PLAN_DISABLED') : (pioneerMode ? i18n.t('SUB_PIONEER_BTN') : i18n.t('SUB_CHOOSE_PRO'))) }}<!-- Choisir Élite Pro (8,99 €/m) -->
+          {{ isCurrentTier('club_elite') ? i18n.t('SUB_CURRENT_PLAN_BTN') : (!isTierActive('premium') ? i18n.t('PLAN_DISABLED') : (isPioneerTier('club_elite') ? i18n.t('SUB_PIONEER_BTN') : i18n.t('SUB_CHOOSE_PRO'))) }}<!-- Choisir Élite Pro (8,99 €/m) -->
         </button>
-        <p class="pioneer-disclaimer" *ngIf="pioneerMode && !isCurrentTier('club_elite')">
+        <p class="pioneer-disclaimer" *ngIf="isPioneerTier('club_elite') && !isCurrentTier('club_elite')">
           {{ i18n.t('SUB_PIONEER_DISCLAIMER') }}
         </p>
       </div>

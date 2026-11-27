@@ -193,6 +193,7 @@ export interface SubscriptionPlanItem {
   canCreateDuel1v1: boolean;
   canScheduleRaces: boolean;
   isActive: boolean;
+  isPioneerEnabled?: boolean;
 }
 
 export interface PioneerUserItem {
@@ -206,7 +207,6 @@ export interface PioneerUserItem {
 
 export interface AdminPioneerStatsResponse {
   success: boolean;
-  pioneerMode: boolean;
   totalPioneers: number;
   competitorCount: number;
   clubEliteCount: number;
@@ -432,10 +432,10 @@ export class AdminService {
     );
   }
 
-  togglePlan(planId: number | string, isActive?: boolean): Observable<{ success: boolean; message: string; plan: SubscriptionPlanItem }> {
+  togglePlan(planId: number | string, isActive?: boolean, mode: 'paid' | 'pioneer' = 'paid'): Observable<{ success: boolean; message: string; plan: SubscriptionPlanItem }> {
     return this.http.patch<{ success: boolean; message: string; plan: SubscriptionPlanItem }>(
       `${this.apiUrl}/api/admin/plans/${planId}/toggle`,
-      { isActive },
+      { isActive, mode },
       { headers: this.getAuthHeaders() }
     );
   }
@@ -450,14 +450,6 @@ export class AdminService {
   getPioneerStats(): Observable<AdminPioneerStatsResponse> {
     return this.http.get<AdminPioneerStatsResponse>(
       `${this.apiUrl}/api/admin/pioneer/stats`,
-      { headers: this.getAuthHeaders() }
-    );
-  }
-
-  togglePioneerMode(active?: boolean): Observable<{ success: boolean; pioneerMode: boolean; message: string }> {
-    return this.http.post<{ success: boolean; pioneerMode: boolean; message: string }>(
-      `${this.apiUrl}/api/admin/pioneer/toggle`,
-      { active },
       { headers: this.getAuthHeaders() }
     );
   }

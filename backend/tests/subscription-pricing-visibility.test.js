@@ -72,11 +72,11 @@ test("Subscription pricing visibility rules: prices only given when active, null
     assert.equal(premium.priceEur, null);
     assert.equal(premium.priceFormatted, null);
 
+    // Découverte : toujours disponible, indépendamment de son ancien drapeau isActive
     const free = body.tiers.find((t) => t.id === "free");
     assert.ok(free);
-    assert.equal(free.isActive, false);
-    assert.equal(free.priceEur, null);
-    assert.equal(free.priceFormatted, null);
+    assert.equal(free.isActive, true);
+    assert.equal(free.priceEur, 0);
 
     // Re-active for other tests
     await subscriptionPlanService.setPlanActive("STANDARD", true);

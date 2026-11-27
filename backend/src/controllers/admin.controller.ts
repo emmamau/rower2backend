@@ -1233,6 +1233,7 @@ export class AdminController {
         canCreateDuel1v1: canCreateDuel1v1 !== undefined ? Boolean(canCreateDuel1v1) : true,
         canScheduleRaces: canScheduleRaces !== undefined ? Boolean(canScheduleRaces) : false,
         isActive: isActive !== undefined ? Boolean(isActive) : true,
+        isPioneerEnabled: req.body?.isPioneerEnabled !== undefined ? Boolean(req.body.isPioneerEnabled) : (process.env.LAUNCH_PIONEER_MODE !== "false"),
       });
 
       subscriptionPlanService.invalidateCache();
@@ -1297,10 +1298,18 @@ export class AdminController {
     }
   }
 
+  /**
+   * PATCH /api/admin/plans/:id/toggle
+   * Body : { isActive?: boolean, mode?: "paid" | "pioneer" }
+   * - mode "paid" (défaut) : active/désactive la souscription payante (Stripe)
+   * - mode "pioneer" : active/désactive l'accès Pionnier gratuit
+   * La Découverte (FREE) n'a pas d'interrupteur : elle reste toujours disponible.
+   */
   public static async togglePlan(req: Request, res: Response): Promise<void> {
     try {
       const { id } = req.params;
       const { isActive } = req.body || {};
+      const mode = String(req.body?.mode || "paid").toLowerCase() === "pioneer" ? "pioneer" : "paid";
       const cleanCode = (id || "").trim().toUpperCase();
 
       let plan: any = null;
@@ -1317,28 +1326,47 @@ export class AdminController {
         // Fallback en mémoire si la base SQL n'est pas connectée (mode test/CI)
       }
 
-      let newActive = false;
+      const resolvedCode = String(plan?.get?.("code") || cleanCode).toUpperCase();
+      if (resolvedCode === "FREE") {
+        res.status(400).json({
+          success: false,
+          message: "L'offre Découverte est toujours disponible et ne peut pas être désactivée.",
+        });
+        return;
+      }
+
+      const field = mode === "pioneer" ? "isPioneerEnabled" : "isActive";
+      const snakeField = mode === "pioneer" ? "is_pioneer_enabled" : "is_active";
+
+      let newValue = false;
       let planName = cleanCode;
       let planJson: any = null;
 
       if (plan) {
-        const currentActive = Boolean(plan.get("isActive") ?? plan.get("is_active") ?? true);
-        newActive = isActive !== undefined ? Boolean(isActive) : !currentActive;
-        await plan.update({ isActive: newActive });
+        const current = Boolean(plan.get(field) ?? plan.get(snakeField) ?? true);
+        newValue = isActive !== undefined ? Boolean(isActive) : !current;
+        await plan.update({ [field]: newValue });
         planName = plan.get("name") || cleanCode;
         planJson = typeof plan.toJSON === "function" ? plan.toJSON() : plan;
-        await subscriptionPlanService.setPlanActive(cleanCode, newActive);
+        if (mode === "pioneer") {
+          await subscriptionPlanService.setPlanPioneerEnabled(cleanCode, newValue);
+        } else {
+          await subscriptionPlanService.setPlanActive(cleanCode, newValue);
+        }
       } else {
-        newActive = await subscriptionPlanService.setPlanActive(cleanCode, isActive);
+        newValue = mode === "pioneer"
+          ? await subscriptionPlanService.setPlanPioneerEnabled(cleanCode, isActive)
+          : await subscriptionPlanService.setPlanActive(cleanCode, isActive);
         planName = cleanCode === "STANDARD" ? "Offre Club" : (cleanCode === "PREMIUM" ? "Offre Élite Pro" : cleanCode);
-        planJson = { code: cleanCode, name: planName, isActive: newActive };
+        planJson = { code: cleanCode, name: planName, [field]: newValue };
       }
 
       subscriptionPlanService.invalidateCache();
 
+      const label = mode === "pioneer" ? "Accès Pionnier" : "Souscription payante";
       res.status(200).json({
         success: true,
-        message: `Offre '${planName}' ${newActive ? "activée" : "désactivée"} avec succès.`,
+        message: `${label} de l'offre '${planName}' ${newValue ? "activé(e)" : "désactivé(e)"} avec succès.`,
         plan: planJson,
       });
     } catch (err: unknown) {
@@ -1697,9 +1725,6 @@ export class AdminController {
     return subscriptionController.getPioneerStats(req, res);
   }
 
-  public static async togglePioneerMode(req: Request, res: Response): Promise<void> {
-    return subscriptionController.togglePioneerMode(req, res);
-  }
 }
 
 export default AdminController;

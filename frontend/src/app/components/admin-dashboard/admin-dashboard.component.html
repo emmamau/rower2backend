@@ -558,24 +558,9 @@
           <div>
             <div style="display: flex; align-items: center; gap: 10px;">
               <h3 class="card-title" style="margin: 0; color: #00e5ff;">🚀 {{ i18n.t('ADMIN_PIONEER_TITLE') }}</h3>
-              <span class="badge" [style.background]="pioneerStats?.pioneerMode ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)'" [style.color]="pioneerStats?.pioneerMode ? '#10b981' : '#ef4444'" style="font-weight: 700; font-size: 0.8rem; padding: 4px 10px; border-radius: 9999px;">
-                {{ pioneerStats?.pioneerMode ? ('🟢 ' + i18n.t('ADMIN_PIONEER_STATUS_ON')) : ('🔴 ' + i18n.t('ADMIN_PIONEER_STATUS_OFF')) }}
-              </span>
             </div>
             <p style="margin: 4px 0 0 0; color: #94a3b8; font-size: 0.88rem;">{{ i18n.t('ADMIN_PIONEER_SUBTITLE') }}</p>
           </div>
-          <button
-            type="button"
-            class="btn-action"
-            [style.background]="pioneerStats?.pioneerMode ? 'rgba(239, 68, 68, 0.2)' : 'rgba(16, 185, 129, 0.2)'"
-            [style.color]="pioneerStats?.pioneerMode ? '#ef4444' : '#10b981'"
-            [style.border]="pioneerStats?.pioneerMode ? '1px solid #ef4444' : '1px solid #10b981'"
-            style="padding: 8px 16px; font-weight: bold; border-radius: 8px; cursor: pointer;"
-            (click)="togglePioneerMode()"
-            [disabled]="isTogglingPioneer"
-          >
-            {{ pioneerStats?.pioneerMode ? ('🛑 ' + i18n.t('ADMIN_PIONEER_BTN_DEACTIVATE')) : ('🚀 ' + i18n.t('ADMIN_PIONEER_BTN_ACTIVATE')) }}
-          </button>
         </div>
 
         <!-- Compteurs Synthétiques -->
@@ -674,27 +659,55 @@
               <span>{{ i18n.t('ADMIN_PLANS_SCHEDULE') }}</span>
               <strong>{{ p.canScheduleRaces ? ('✓ ' + i18n.t('ADMIN_PLANS_SCHED_ON')) : ('✕ ' + i18n.t('ADMIN_PLANS_SCHED_OFF')) }}</strong>
             </li>
-            <li class="quota-item">
+            <ng-container *ngIf="p.code !== 'FREE'">
+              <li class="quota-item">
+                <span>💳 {{ i18n.t('ADMIN_PLANS_PAID_MODE') }}</span>
+                <strong [style.color]="p.isActive ? '#10b981' : '#ef4444'">
+                  {{ p.isActive ? ('🟢 ' + i18n.t('ADMIN_PLANS_ACTIVE')) : ('🔴 ' + i18n.t('ADMIN_PLANS_INACTIVE')) }}
+                </strong>
+              </li>
+              <li class="quota-item">
+                <span>🚀 {{ i18n.t('ADMIN_PLANS_PIONEER_MODE') }}</span>
+                <strong [style.color]="p.isPioneerEnabled !== false ? '#10b981' : '#ef4444'">
+                  {{ p.isPioneerEnabled !== false ? ('🟢 ' + i18n.t('ADMIN_PLANS_ACTIVE')) : ('🔴 ' + i18n.t('ADMIN_PLANS_INACTIVE')) }}
+                </strong>
+              </li>
+              <li class="quota-item" *ngIf="!p.isActive && p.isPioneerEnabled === false">
+                <strong style="color: #ef4444;">⛔ {{ i18n.t('ADMIN_PLANS_BLOCKED') }}</strong>
+              </li>
+            </ng-container>
+            <li class="quota-item" *ngIf="p.code === 'FREE'">
               <span>{{ i18n.t('ADMIN_PLANS_STATUS') }}</span>
-              <strong [style.color]="p.isActive ? '#10b981' : '#ef4444'">
-                {{ p.isActive ? ('🟢 ' + i18n.t('ADMIN_PLANS_ACTIVE')) : ('🔴 ' + i18n.t('ADMIN_PLANS_INACTIVE')) }}
-              </strong>
+              <strong style="color: #10b981;">🟢 {{ i18n.t('ADMIN_PLANS_ALWAYS_AVAILABLE') }}</strong>
             </li>
           </ul>
 
           <div style="display: flex; gap: 8px; margin-top: 10px;">
-            <button
-              type="button"
-              class="btn-action"
-              [style.background-color]="p.isActive ? 'rgba(239, 68, 68, 0.2)' : 'rgba(16, 185, 129, 0.2)'"
-              [style.color]="p.isActive ? '#ef4444' : '#10b981'"
-              [style.border]="p.isActive ? '1px solid #ef4444' : '1px solid #10b981'"
-              style="flex: 1; padding: 10px; font-weight: bold; border-radius: 6px; cursor: pointer;"
-              (click)="togglePlanStatus(p)"
-              [title]="p.isActive ? i18n.t('ADMIN_PLANS_DEACTIVATE_TIP') : i18n.t('ADMIN_PLANS_ACTIVATE_TIP')"
-            >
-              {{ p.isActive ? ('🔴 ' + i18n.t('ADMIN_PLANS_BTN_DEACTIVATE')) : ('🟢 ' + i18n.t('ADMIN_PLANS_BTN_ACTIVATE')) }}
-            </button>
+            <ng-container *ngIf="p.code !== 'FREE'">
+              <button
+                type="button"
+                class="btn-action"
+                [style.background-color]="p.isActive ? 'rgba(239, 68, 68, 0.2)' : 'rgba(16, 185, 129, 0.2)'"
+                [style.color]="p.isActive ? '#ef4444' : '#10b981'"
+                [style.border]="p.isActive ? '1px solid #ef4444' : '1px solid #10b981'"
+                style="flex: 1; padding: 10px; font-weight: bold; border-radius: 6px; cursor: pointer;"
+                (click)="togglePlanStatus(p, 'paid')"
+                [title]="p.isActive ? i18n.t('ADMIN_PLANS_DEACTIVATE_TIP') : i18n.t('ADMIN_PLANS_ACTIVATE_TIP')"
+              >
+                💳 {{ p.isActive ? i18n.t('ADMIN_PLANS_BTN_DEACTIVATE') : i18n.t('ADMIN_PLANS_BTN_ACTIVATE') }}
+              </button>
+              <button
+                type="button"
+                class="btn-action"
+                [style.background-color]="p.isPioneerEnabled !== false ? 'rgba(239, 68, 68, 0.2)' : 'rgba(16, 185, 129, 0.2)'"
+                [style.color]="p.isPioneerEnabled !== false ? '#ef4444' : '#10b981'"
+                [style.border]="p.isPioneerEnabled !== false ? '1px solid #ef4444' : '1px solid #10b981'"
+                style="flex: 1; padding: 10px; font-weight: bold; border-radius: 6px; cursor: pointer;"
+                (click)="togglePlanStatus(p, 'pioneer')"
+              >
+                🚀 {{ p.isPioneerEnabled !== false ? i18n.t('ADMIN_PLANS_BTN_DEACTIVATE') : i18n.t('ADMIN_PLANS_BTN_ACTIVATE') }}
+              </button>
+            </ng-container>
             <button
               type="button"
               class="btn-action btn-action-pwd"

@@ -7,13 +7,6 @@ import stripeService from "../services/stripe.service";
 import emailService from "../services/email.service";
 import subscriptionPlanService from "../services/subscription-plan.service";
 
-let launchPioneerMode: boolean = process.env.LAUNCH_PIONEER_MODE !== "false";
-
-export const getPioneerMode = (): boolean => launchPioneerMode;
-export const setPioneerMode = (active: boolean): void => {
-  launchPioneerMode = Boolean(active);
-};
-
 export interface SubscriptionTierConfig {
   id: "free" | "competitor" | "club_elite" | "intermediate" | "premium";
   name: string;
@@ -180,36 +173,57 @@ export const getSubscriptionTiers = async (_req: Request, res: Response): Promis
     });
     const freeDb = plans.find((p: any) => String(p.code || "").toUpperCase() === "FREE");
 
-    const isCompetitorActive = competitorDb ? Boolean(competitorDb.isActive ?? competitorDb.is_active ?? true) : true;
-    const isClubEliteActive = clubEliteDb ? Boolean(clubEliteDb.isActive ?? clubEliteDb.is_active ?? true) : true;
-    const isFreeActive = freeDb ? Boolean(freeDb.isActive ?? freeDb.is_active ?? true) : true;
+    void freeDb;
+    const readFlag = (row: any, camel: string, snake: string): boolean => {
+      if (!row) return true;
+      const v = row[camel] ?? row[snake];
+      return v === undefined || v === null ? true : Boolean(v);
+    };
 
-    const isPioneer = getPioneerMode();
-
-    const formatTier = (tierConfig: SubscriptionTierConfig, isActive: boolean) => ({
+    // Découverte : toujours disponible, sans interrupteur
+    const formatFree = (tierConfig: SubscriptionTierConfig) => ({
       ...tierConfig,
-      priceEur: isActive ? tierConfig.priceEur : null,
-      priceFormatted: isActive ? tierConfig.priceFormatted : null,
-      isActive,
+      isActive: true,
+      isPaidEnabled: true,
+      isPioneerEnabled: false,
+      isAvailable: true,
     });
+
+    // Offres payantes : 2 interrupteurs (Payant / Pionnier). Bloquée si les deux sont désactivés.
+    const formatTier = (tierConfig: SubscriptionTierConfig, row: any) => {
+      const isPaidEnabled = readFlag(row, "isActive", "is_active");
+      const isPioneerEnabled = readFlag(row, "isPioneerEnabled", "is_pioneer_enabled");
+      return {
+        ...tierConfig,
+        priceEur: isPaidEnabled ? tierConfig.priceEur : null,
+        priceFormatted: isPaidEnabled ? tierConfig.priceFormatted : null,
+        isActive: isPaidEnabled,
+        isPaidEnabled,
+        isPioneerEnabled,
+        isAvailable: isPaidEnabled || isPioneerEnabled,
+      };
+    };
+
+    const tiers = [
+      formatFree(SUBSCRIPTION_TIERS.free),
+      formatTier(SUBSCRIPTION_TIERS.competitor, competitorDb),
+      formatTier(SUBSCRIPTION_TIERS.club_elite, clubEliteDb),
+    ];
 
     res.status(200).json({
       success: true,
-      pioneerMode: isPioneer,
-      tiers: [
-        formatTier(SUBSCRIPTION_TIERS.free, isFreeActive),
-        formatTier(SUBSCRIPTION_TIERS.competitor, isCompetitorActive),
-        formatTier(SUBSCRIPTION_TIERS.club_elite, isClubEliteActive),
-      ],
+      // Conservé pour compatibilité : vrai si au moins une offre propose le mode Pionnier
+      pioneerMode: tiers.some((t) => t.isPioneerEnabled),
+      tiers,
     });
   } catch {
     res.status(200).json({
       success: true,
-      pioneerMode: getPioneerMode(),
+      pioneerMode: true,
       tiers: [
-        { ...SUBSCRIPTION_TIERS.free, isActive: true },
-        { ...SUBSCRIPTION_TIERS.competitor, isActive: true },
-        { ...SUBSCRIPTION_TIERS.club_elite, isActive: true },
+        { ...SUBSCRIPTION_TIERS.free, isActive: true, isPaidEnabled: true, isPioneerEnabled: false, isAvailable: true },
+        { ...SUBSCRIPTION_TIERS.competitor, isActive: true, isPaidEnabled: true, isPioneerEnabled: true, isAvailable: true },
+        { ...SUBSCRIPTION_TIERS.club_elite, isActive: true, isPaidEnabled: true, isPioneerEnabled: true, isAvailable: true },
       ],
     });
   }
@@ -299,6 +313,11 @@ export const simulateCheckout = async (req: Request, res: Response): Promise<voi
     const user = await userStore.findUser(cleanUserId);
     if (!user) {
       res.status(404).send("Utilisateur non trouvé.");
+      return;
+    }
+
+    if (normalizeTier(cleanTier) !== "free" && !(await subscriptionPlanService.isTierActive(normalizeTier(cleanTier)))) {
+      res.status(403).send("Cette offre d'abonnement est actuellement désactivée par l'administrateur.");
       return;
     }
 
@@ -803,14 +822,6 @@ export const handleStripeWebhook = async (req: Request, res: Response): Promise<
  */
 export const activatePioneer = async (req: Request, res: Response): Promise<void> => {
   try {
-    if (!getPioneerMode()) {
-      res.status(403).json({
-        success: false,
-        message: "Le mode Accès Pionnier n'est pas actif actuellement.",
-      });
-      return;
-    }
-
     const { userId, plan, sourceTrigger } = req.body || {};
     const cleanUserId = String(userId || "").trim();
     if (!cleanUserId) {
@@ -827,6 +838,14 @@ export const activatePioneer = async (req: Request, res: Response): Promise<void
     const normalizedPlan = normalizeTier(plan);
     if (normalizedPlan === "free") {
       res.status(400).json({ success: false, message: "Veuillez sélectionner l'offre Compétiteur ou Club / Élite." });
+      return;
+    }
+
+    if (!(await subscriptionPlanService.isPioneerEnabledForTier(normalizedPlan))) {
+      res.status(403).json({
+        success: false,
+        message: "L'accès Pionnier n'est pas disponible pour cette offre actuellement.",
+      });
       return;
     }
 
@@ -896,7 +915,6 @@ export const getPioneerStats = async (_req: Request, res: Response): Promise<voi
 
     res.status(200).json({
       success: true,
-      pioneerMode: getPioneerMode(),
       totalPioneers: pioneerUsers.length,
       competitorCount,
       clubEliteCount,
@@ -916,26 +934,6 @@ export const getPioneerStats = async (_req: Request, res: Response): Promise<voi
   }
 };
 
-/**
- * POST /api/v1/subscriptions/toggle-pioneer
- * Permet à l'administrateur de basculer le mode Pionnier à chaud
- */
-export const togglePioneerMode = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { active } = req.body || {};
-    const newActive = active !== undefined ? Boolean(active) : !getPioneerMode();
-    setPioneerMode(newActive);
-    res.status(200).json({
-      success: true,
-      pioneerMode: newActive,
-      message: `Mode Accès Pionnier ${newActive ? "activé" : "désactivé"}.`,
-    });
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : String(err);
-    res.status(500).json({ success: false, message: "Erreur toggle mode pionnier: " + msg });
-  }
-};
-
 export default {
   SUBSCRIPTION_TIERS,
   getFrontendBaseUrl,
@@ -949,8 +947,5 @@ export default {
   handleStripeWebhook,
   activatePioneer,
   getPioneerStats,
-  togglePioneerMode,
-  getPioneerMode,
-  setPioneerMode,
   normalizeTier,
 };

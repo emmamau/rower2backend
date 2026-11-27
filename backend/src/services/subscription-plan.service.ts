@@ -15,6 +15,7 @@ export interface PlanLimits {
   priceMonthly: number;
   priceYearly: number;
   isActive?: boolean;
+  isPioneerEnabled?: boolean;
 }
 
 const DEFAULT_FALLBACK_LIMITS: Record<string, PlanLimits> = {
@@ -256,6 +257,60 @@ export class SubscriptionPlanService {
     const fallbackKey = lookupCode === "COMPETITOR" ? "competitor" : (lookupCode === "CLUB_ELITE" ? "club_elite" : clean);
     const fb = DEFAULT_FALLBACK_LIMITS[fallbackKey];
     return fb && fb.isActive !== undefined ? Boolean(fb.isActive) : true;
+  }
+
+  private normalizeLookupCode(code: string): string {
+    let lookupCode = (code || "").trim().toUpperCase();
+    if (lookupCode === "INTERMEDIATE" || lookupCode === "CLUB" || lookupCode === "STANDARD") lookupCode = "COMPETITOR";
+    if (lookupCode === "PREMIUM" || lookupCode === "PRO" || lookupCode === "ELITE_PRO") lookupCode = "CLUB_ELITE";
+    return lookupCode;
+  }
+
+  /** Mode « Pionnier gratuit » activé pour cette offre (la Découverte n'a pas de mode Pionnier). */
+  public async isPioneerEnabledForTier(tierCode: string): Promise<boolean> {
+    const lookupCode = this.normalizeLookupCode(tierCode || "free");
+    if (lookupCode === "FREE") return false;
+
+    await this.loadAllPlans();
+    let dbPlan = this.cachedPlans.get(lookupCode);
+    if (!dbPlan && lookupCode === "COMPETITOR") dbPlan = this.cachedPlans.get("STANDARD");
+    if (!dbPlan && lookupCode === "CLUB_ELITE") dbPlan = this.cachedPlans.get("PREMIUM");
+    if (dbPlan) {
+      const v = dbPlan.isPioneerEnabled ?? dbPlan.is_pioneer_enabled;
+      return v === undefined || v === null ? true : Boolean(v);
+    }
+    const fallbackKey = lookupCode === "COMPETITOR" ? "competitor" : "club_elite";
+    const fb = DEFAULT_FALLBACK_LIMITS[fallbackKey];
+    return fb && fb.isPioneerEnabled !== undefined ? Boolean(fb.isPioneerEnabled) : true;
+  }
+
+  /** Une offre est souscrivable si elle est activée en payant OU en Pionnier. La Découverte l'est toujours. */
+  public async isTierSubscribable(tierCode: string): Promise<boolean> {
+    if (this.normalizeLookupCode(tierCode || "free") === "FREE") return true;
+    return (await this.isTierActive(tierCode)) || (await this.isPioneerEnabledForTier(tierCode));
+  }
+
+  public async setPlanPioneerEnabled(code: string, targetEnabled?: boolean): Promise<boolean> {
+    const lookupCode = this.normalizeLookupCode(code);
+    await this.loadAllPlans();
+    let existing = this.cachedPlans.get(lookupCode);
+    if (!existing && lookupCode === "COMPETITOR") existing = this.cachedPlans.get("STANDARD");
+    if (!existing && lookupCode === "CLUB_ELITE") existing = this.cachedPlans.get("PREMIUM");
+    const current = existing
+      ? ((existing.isPioneerEnabled ?? existing.is_pioneer_enabled) !== false)
+      : true;
+    const next = targetEnabled !== undefined ? Boolean(targetEnabled) : !current;
+
+    if (existing) {
+      existing.isPioneerEnabled = next;
+      existing.is_pioneer_enabled = next;
+    }
+    for (const key of Object.keys(DEFAULT_FALLBACK_LIMITS)) {
+      if (DEFAULT_FALLBACK_LIMITS[key].code?.toUpperCase() === lookupCode) {
+        DEFAULT_FALLBACK_LIMITS[key].isPioneerEnabled = next;
+      }
+    }
+    return next;
   }
 
   public async setPlanActive(code: string, targetActive?: boolean): Promise<boolean> {
