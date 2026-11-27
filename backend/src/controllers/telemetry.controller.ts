@@ -1423,6 +1423,78 @@ export class TelemetryController {
   }
 
   /**
+   * GET /api/v1/races/user-enrolled
+   * Retourne la liste complète des courses (salons privés créés, rejoints, en attente, défis duels 1v1)
+   * auxquelles un joueur ou sa montre (deviceToken) est inscrit, triées par priorité temporelle.
+   */
+  public static async getUserEnrolledRaces(req: Request, res: Response): Promise<void> {
+    try {
+      const query = req.query || {};
+      let userId = String(query.userId || query.login || query.guestSessionId || "").trim();
+      let deviceToken = String(query.deviceToken || req.headers["x-device-token"] || "").trim();
+      if (!deviceToken && req.headers.authorization?.startsWith("Bearer ")) {
+        deviceToken = req.headers.authorization.slice(7).trim();
+      }
+
+      const extraIds: string[] = [];
+      if (deviceToken) {
+        try {
+          const check = await pairingService.validateDeviceToken(deviceToken);
+          if (check.valid && check.pairing?.userId) {
+            if (!userId) userId = check.pairing.userId;
+            else extraIds.push(check.pairing.userId);
+          }
+        } catch {}
+      }
+
+      if (userId) {
+        try {
+          const userObj = await userStore.findUser(userId);
+          if (userObj) {
+            if (userObj.id) extraIds.push(userObj.id);
+            if (userObj.login) extraIds.push(userObj.login);
+            if (userObj.email) extraIds.push(userObj.email);
+            if (userObj.name) extraIds.push(userObj.name);
+          }
+        } catch {}
+      }
+
+      // S'assurer que les défis de duels en base sont chargés en mémoire
+      try {
+        await duelService.listAllChallenges();
+      } catch {}
+
+      const enrolledList = raceManager.findEnrolledRacesForUser(userId, deviceToken, extraIds);
+      const enrolledRaces = [];
+
+      for (const item of enrolledList) {
+        const payload = await buildPrivateRacePayload(item.race);
+        enrolledRaces.push({
+          ...payload,
+          role: item.role,
+          isEngagedOnLane: item.isEngagedOnLane,
+          assignedLane: item.lane,
+          priorityScore: item.priorityScore,
+          pinCode: item.race.pinCode || item.race.code || payload.pinCode || payload.code,
+        });
+      }
+
+      const recommendedRace = enrolledRaces.length > 0 ? enrolledRaces[0] : null;
+
+      res.status(200).json({
+        success: true,
+        userId,
+        count: enrolledRaces.length,
+        recommendedRace,
+        enrolledRaces,
+      });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      res.status(500).json({ success: false, error: "Erreur recherche courses inscrites: " + message });
+    }
+  }
+
+  /**
    * GET /api/v1/races/private/:identifier
    * Retrieve private salon state by Meet code (krm-wzx-qpl), raceId (PRIV_...), or 4-digit PIN
    */

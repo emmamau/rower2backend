@@ -2942,6 +2942,189 @@ export class RaceManager {
   }
 
   /**
+   * Retourne toutes les courses auxquelles un utilisateur (ou sa montre via deviceToken) est inscrit :
+   * - Salons privés en cours (RUNNING, COUNTDOWN)
+   * - Salons programmés (startMode === 'scheduled')
+   * - Salons ouverts en attente (LOBBY)
+   * - Défis de duels 1v1 actifs (PENDING ou ACCEPTED, réhydratés en salons s'ils ne sont pas encore en mémoire)
+   * - Salons où l'utilisateur est hôte, participant engagé ou en attente d'approbation
+   * Triées par ordre de priorité (RUNNING/COUNTDOWN > Programmées les plus proches > LOBBY ouverts).
+   */
+  public findEnrolledRacesForUser(
+    userId?: string,
+    deviceToken?: string,
+    extraUserIds?: string[]
+  ): Array<{
+    race: RaceState;
+    role: "host" | "participant" | "pending" | "duel_challenger" | "duel_challenged";
+    isEngagedOnLane: boolean;
+    lane: number;
+    priorityScore: number;
+  }> {
+    const candidateIds = new Set<string>();
+    if (userId && String(userId).trim()) {
+      candidateIds.add(String(userId).trim().toLowerCase());
+    }
+    if (Array.isArray(extraUserIds)) {
+      for (const id of extraUserIds) {
+        if (id && String(id).trim()) {
+          candidateIds.add(String(id).trim().toLowerCase());
+        }
+      }
+    }
+    const cleanToken = deviceToken ? String(deviceToken).trim() : "";
+    if (candidateIds.size === 0 && !cleanToken) return [];
+
+    const nowMs = Date.now();
+
+    // 1. Réhydrater tous les défis de duels 1v1 actifs (PENDING ou ACCEPTED) concernant cet utilisateur
+    try {
+      const duelSvc = require("./duel.service").default;
+      if (duelSvc) {
+        for (const cid of candidateIds) {
+          if (typeof duelSvc.getUpcomingChallengesForUser === "function") {
+            const challenges = duelSvc.getUpcomingChallengesForUser(cid);
+            for (const ch of challenges) {
+              if (ch.roomId && !this.privateRacesById.has(ch.roomId)) {
+                const endMs = new Date(ch.slotEnd).getTime();
+                if (!Number.isFinite(endMs) || nowMs <= endMs) {
+                  this.restoreDuelRaceFromChallenge(ch);
+                }
+              }
+            }
+          }
+        }
+      }
+    } catch {}
+
+    const results: Array<{
+      race: RaceState;
+      role: "host" | "participant" | "pending" | "duel_challenger" | "duel_challenged";
+      isEngagedOnLane: boolean;
+      lane: number;
+      priorityScore: number;
+    }> = [];
+
+    const matchesId = (val?: string): boolean => {
+      if (!val) return false;
+      return candidateIds.has(String(val).trim().toLowerCase());
+    };
+
+    for (const race of this.privateRacesById.values()) {
+      if (
+        race.status === "STOPPED" ||
+        race.status === "CANCELLED" ||
+        race.status === "ABANDONED" ||
+        race.status === "COMPLETED"
+      ) {
+        continue;
+      }
+
+      let participant: PrivateParticipantInfo | null = null;
+      let isPending = false;
+
+      if (race.participants) {
+        for (const [pUserId, p] of race.participants.entries()) {
+          if (matchesId(pUserId) || matchesId(p.userId) || matchesId(p.userName)) {
+            participant = p;
+            break;
+          }
+          if (cleanToken && p.deviceToken === cleanToken) {
+            participant = p;
+            break;
+          }
+        }
+      }
+
+      if (!participant && race.pendingParticipants) {
+        for (const [pUserId, p] of race.pendingParticipants.entries()) {
+          if (matchesId(pUserId) || matchesId(p.userId) || matchesId(p.userName)) {
+            participant = p;
+            isPending = true;
+            break;
+          }
+          if (cleanToken && p.deviceToken === cleanToken) {
+            participant = p;
+            isPending = true;
+            break;
+          }
+        }
+      }
+
+      const isHost = matchesId(race.hostUserId) || matchesId(race.originalHostUserId) || matchesId(race.hostUserName);
+
+      // Vérifier également si c'est un duel 1v1 dont l'utilisateur est le challenger ou le défié
+      let duelRole: "duel_challenger" | "duel_challenged" | null = null;
+      if (race.isDuel1v1) {
+        try {
+          const duelSvc = require("./duel.service").default;
+          const memChallenges = duelSvc?.inMemoryChallenges;
+          if (memChallenges) {
+            for (const ch of memChallenges.values()) {
+              if (ch.roomId === race.id && (ch.status === "PENDING" || ch.status === "ACCEPTED")) {
+                if (matchesId(ch.challengerUserId) || matchesId(ch.challengerLogin)) {
+                  duelRole = "duel_challenger";
+                } else if (matchesId(ch.challengedUserId) || matchesId(ch.challengedLogin) || matchesId(ch.challengedEmail)) {
+                  duelRole = "duel_challenged";
+                }
+              }
+            }
+          }
+        } catch {}
+      }
+
+      if (!participant && !isHost && !duelRole) {
+        continue;
+      }
+
+      if (participant && (participant.hasLeft === true || participant.status === "abandoned")) {
+        continue;
+      }
+      if (!participant && isHost && race.hostHasLeft === true) {
+        continue;
+      }
+
+      const isEngagedOnLane = Boolean(
+        participant &&
+        !isPending &&
+        participant.lane !== undefined &&
+        participant.lane > 0 &&
+        participant.connectionState !== "PENDING_PIN" &&
+        participant.pinValidated !== false &&
+        (participant.isPaired || participant.deviceToken || participant.deviceId || participant.pinValidated)
+      );
+
+      const lane = participant?.lane || 0;
+      const role: "host" | "participant" | "pending" | "duel_challenger" | "duel_challenged" =
+        duelRole || (isPending ? "pending" : (isHost ? "host" : "participant"));
+
+      // Calcul d'un score de priorité (plus petit = plus prioritaire)
+      let priorityScore = 1000;
+      if (race.status === "COUNTDOWN") {
+        priorityScore = 10;
+      } else if (race.status === "RUNNING") {
+        priorityScore = 20;
+      } else if (race.startMode === "scheduled" && race.scheduledStartTime) {
+        const diffMin = Math.abs(new Date(race.scheduledStartTime).getTime() - nowMs) / 60000;
+        priorityScore = 100 + Math.min(800, Math.round(diffMin));
+      } else if (race.status === "LOBBY") {
+        priorityScore = 500;
+      }
+
+      results.push({
+        race,
+        role,
+        isEngagedOnLane,
+        lane,
+        priorityScore,
+      });
+    }
+
+    results.sort((a, b) => a.priorityScore - b.priorityScore);
+    return results;
+  }
+
+  /**
    * Compte le nombre de salons privés actifs (en attente ou en cours) ouverts par un hôte
    */
   public getActiveRoomsCount(hostUserId: string): number {

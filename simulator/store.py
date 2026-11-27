@@ -79,13 +79,22 @@ class VirtualWatch:
         self.is_paired: bool = False
         self.is_enabled: bool = True
 
-        # Race engagement
+        # Race engagement & synchronization
         self.race_id: Optional[str] = None
+        self.race_title: Optional[str] = None
         self.race_mode: Optional[str] = None  # "PUBLIC", "PRIVATE", "DUEL"
+        self.game_mode: Optional[str] = None  # "solo", "bot_duel", "duel_1v1", "multi"
+        self.bot_start_mode: Optional[str] = None  # "countdown", "first_stroke"
+        self.start_mode: Optional[str] = None  # "manual", "scheduled"
+        self.scheduled_start_time: Optional[str] = None
+        self.waiting_status_message: Optional[str] = None
         self.race_pin: Optional[str] = None
         self.lane: int = watch_id
         self.race_status: str = "IDLE"  # "IDLE", "LOBBY", "COUNTDOWN", "RUNNING", "FINISHED"
         self.target_distance: int = 2000
+        self.is_ble_ready: bool = False
+        self.engaged_at_ts: float = 0.0
+        self.enrolled_races: List[Dict[str, Any]] = []
 
         # Physical pace settings
         self.target_split: float = 120.0  # 2:00.0 / 500m
@@ -118,7 +127,7 @@ class VirtualWatch:
         self.target_power = max(50, min(1000, watts))
         self.target_split = watts_to_split(self.target_power)
 
-    def reset_race(self):
+    def reset_race(self, clear_assignment: bool = False):
         self.current_distance = 0.0
         self.elapsed_time = 0.0
         self.stroke_count = 0
@@ -126,12 +135,26 @@ class VirtualWatch:
         self.current_split = self.target_split
         self.current_spm = 24.0
         self.current_hr = 132
-        self.race_status = "IDLE"
         self.is_simulating = False
         self.last_poll_timestamp = 0.0
         self.initial_waiting_sent = False
         self.countdown_remaining = None
         self.error_message = None
+        if clear_assignment:
+            self.race_id = None
+            self.race_title = None
+            self.race_mode = None
+            self.game_mode = None
+            self.bot_start_mode = None
+            self.start_mode = None
+            self.scheduled_start_time = None
+            self.waiting_status_message = None
+            self.race_pin = None
+            self.race_status = "IDLE"
+            self.is_ble_ready = False
+            self.engaged_at_ts = 0.0
+        else:
+            self.race_status = "LOBBY" if self.race_id else "IDLE"
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -145,11 +168,20 @@ class VirtualWatch:
             "is_paired": self.is_paired,
             "is_enabled": self.is_enabled,
             "race_id": self.race_id,
+            "race_title": self.race_title,
             "race_mode": self.race_mode,
+            "game_mode": self.game_mode,
+            "bot_start_mode": self.bot_start_mode,
+            "start_mode": self.start_mode,
+            "scheduled_start_time": self.scheduled_start_time,
+            "waiting_status_message": self.waiting_status_message,
             "race_pin": self.race_pin,
             "lane": self.lane,
             "race_status": self.race_status,
             "target_distance": self.target_distance,
+            "is_ble_ready": self.is_ble_ready,
+            "countdown_remaining": self.countdown_remaining,
+            "enrolled_races": self.enrolled_races,
             "target_split": self.target_split,
             "target_power": self.target_power,
             "current_distance": round(self.current_distance, 1),
@@ -175,6 +207,8 @@ class VirtualWatch:
         if "target_power" in data: self.set_power(int(data["target_power"]))
         if "race_pin" in data: self.race_pin = data["race_pin"]
         if "race_id" in data: self.race_id = data["race_id"]
+        if "race_title" in data: self.race_title = data["race_title"]
+        if "race_mode" in data: self.race_mode = data["race_mode"]
         if "target_distance" in data: self.target_distance = int(data["target_distance"])
 
 class SimulatorStore:
@@ -184,6 +218,8 @@ class SimulatorStore:
         self.backend_url: str = "http://localhost:3000"
         self.load_test_key: Optional[str] = None
         self.spoof_garmin_signature: bool = False
+        self.auto_sync_on_engage: bool = True
+        self.first_stroke_auto_delay_sec: float = 3.0
         self.watches: Dict[int, VirtualWatch] = {i: VirtualWatch(i) for i in range(1, count + 1)}
         self.load()
 
@@ -192,6 +228,16 @@ class SimulatorStore:
 
     def get_all_watches(self) -> List[VirtualWatch]:
         return [self.watches[i] for i in range(1, self.count + 1)]
+
+    def get_watches_for_race(self, race_id: str) -> List[VirtualWatch]:
+        clean = (race_id or "").strip().upper()
+        result = []
+        for w in self.get_all_watches():
+            w_rid = (w.race_id or "").strip().upper()
+            w_pin = (w.race_pin or "").strip().upper()
+            if clean and (w_rid == clean or w_pin == clean):
+                result.append(w)
+        return result
 
     def apply_profile(self, watch_id: Optional[int], profile_key: str):
         if profile_key == "peloton":
@@ -245,6 +291,8 @@ class SimulatorStore:
                 "backend_url": self.backend_url,
                 "load_test_key": self.load_test_key,
                 "spoof_garmin_signature": self.spoof_garmin_signature,
+                "auto_sync_on_engage": self.auto_sync_on_engage,
+                "first_stroke_auto_delay_sec": self.first_stroke_auto_delay_sec,
                 "watches": {
                     str(w.id): {
                         "user_id": w.user_id,
@@ -256,12 +304,14 @@ class SimulatorStore:
                         "target_power": w.target_power,
                         "race_pin": w.race_pin,
                         "race_id": w.race_id,
+                        "race_title": w.race_title,
+                        "race_mode": w.race_mode,
                         "target_distance": w.target_distance,
                     }
                     for w in self.watches.values()
                 }
             }
-            os.makedirs(os.path.dirname(self.filepath), exist_ok=True)
+            os.makedirs(os.path.dirname(self.filepath) or ".", exist_ok=True)
             with open(self.filepath, "w", encoding="utf-8") as f:
                 json.dump(data, f, indent=2, ensure_ascii=False)
         except Exception as e:
@@ -281,6 +331,10 @@ class SimulatorStore:
                 self.load_test_key = data["load_test_key"]
             if "spoof_garmin_signature" in data:
                 self.spoof_garmin_signature = bool(data["spoof_garmin_signature"])
+            if "auto_sync_on_engage" in data:
+                self.auto_sync_on_engage = bool(data["auto_sync_on_engage"])
+            if "first_stroke_auto_delay_sec" in data:
+                self.first_stroke_auto_delay_sec = float(data["first_stroke_auto_delay_sec"])
             saved_watches = data.get("watches", {})
             for str_id, w_data in saved_watches.items():
                 w_id = int(str_id)

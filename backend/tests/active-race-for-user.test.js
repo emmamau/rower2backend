@@ -89,3 +89,57 @@ test('findActiveRaceForUser & GET /api/v1/races/my-active: resolves active room 
     await close();
   }
 });
+
+test('GET /api/v1/races/user-enrolled: returns all enrolled salons and duels sorted by temporal priority', async () => {
+  const { baseUrl, close } = await createTestServer();
+  const raceManager = RaceManager.getInstance();
+
+  try {
+    const userId = 'virtual_player_07';
+
+    // 1. Open lobby salon where player is host
+    const hostSalon = raceManager.createPrivateRace({
+      hostUserId: userId,
+      title: 'Salon Hote',
+      targetDistance: 2000,
+      pinCode: 'H1111',
+      requireApproval: false,
+    });
+
+    // 2. Scheduled salon starting in 5 minutes where player is participant
+    const scheduledSoon = new Date(Date.now() + 5 * 60 * 1000).toISOString();
+    const soonSalon = raceManager.createPrivateRace({
+      hostUserId: 'other_organizer',
+      title: 'Salon Imminent 5min',
+      targetDistance: 1500,
+      pinCode: 'S2222',
+      startMode: 'scheduled',
+      scheduledStartTime: scheduledSoon,
+      requireApproval: false,
+    });
+    raceManager.joinPrivateRace(soonSalon.id, userId, 'Virtual 07', 'FR', {
+      deviceToken: 'tok_virtual_07',
+      viaPin: true,
+      bypassApproval: true,
+    });
+
+    const res = await fetch(`${baseUrl}/api/v1/races/user-enrolled?userId=${userId}`);
+    assert.equal(res.status, 200);
+    const body = await res.json();
+    assert.equal(body.success, true);
+    assert.ok(body.count >= 2);
+    assert.ok(Array.isArray(body.enrolledRaces));
+
+    // Scheduled race in 5min has higher priority than unscheduled open lobby
+    assert.equal(body.recommendedRace.race.id, soonSalon.id);
+    assert.equal(body.recommendedRace.pinCode, soonSalon.pinCode);
+    assert.equal(body.recommendedRace.isEngagedOnLane, true);
+
+    const hostEntry = body.enrolledRaces.find((r) => r.race.id === hostSalon.id);
+    assert.ok(hostEntry);
+    assert.equal(hostEntry.role, 'host');
+    assert.equal(hostEntry.pinCode, hostSalon.pinCode);
+  } finally {
+    await close();
+  }
+});

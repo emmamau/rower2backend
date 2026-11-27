@@ -430,7 +430,10 @@ export class AppComponent implements OnInit, OnDestroy {
       this.isWatchGuidanceModalOpen ||
       this.isRaceLeaderboardModalOpen ||
       this.isWeeklySummaryModalOpen ||
-      this.isUnifiedConfigOpen
+      this.isUnifiedConfigOpen ||
+      this.isConfigRaceOpen ||
+      this.isAdminConfigOpen ||
+      this.isRegattaLaunchSplashOpen
     );
   }
 
@@ -1782,7 +1785,7 @@ export class AppComponent implements OnInit, OnDestroy {
               this.is3sCountdown = false;
             }
             this.gameRemainingSeconds = raceData.remainingSeconds !== undefined ? raceData.remainingSeconds : 3300;
-            if (this.siteView === 'home' && !this.userExplicitlyNavigatedHome) {
+            if (!this.isAnyModalOpen && this.siteView === 'home' && !this.userExplicitlyNavigatedHome) {
               this.siteView = this.activeViewMode === 'cockpit' ? 'cockpit' : 'regatta';
             }
           } else if (isRoomWaiting) {
@@ -7003,10 +7006,7 @@ export class AppComponent implements OnInit, OnDestroy {
       this.is3sCountdown = true;
       this.isPreStartCountdown = false;
       this.threeSecondsCount = this.countdownSeconds;
-      if (this.isAnyModalOpen) {
-        this.closeAllOverlayModals();
-      }
-      if (this.siteView === 'home' && !this.userExplicitlyNavigatedHome) {
+      if (!this.isAnyModalOpen && this.siteView === 'home' && !this.userExplicitlyNavigatedHome) {
         this.setSiteView('regatta');
       }
     } else {
