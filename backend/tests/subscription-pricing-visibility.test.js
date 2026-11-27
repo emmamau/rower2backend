@@ -6,7 +6,7 @@ const express = require("express");
 const { getSubscriptionTiers } = require("../dist/controllers/subscription.controller");
 const subscriptionPlanService = require("../dist/services/subscription-plan.service").default;
 
-test("Subscription pricing visibility rules: prices only given when active, null by default", async (t) => {
+test("Subscription pricing visibility rules: prices are always returned, even when inactive", async (t) => {
   const app = express();
   app.use(express.json());
   app.get("/api/v1/subscriptions/tiers", getSubscriptionTiers);
@@ -49,7 +49,7 @@ test("Subscription pricing visibility rules: prices only given when active, null
     assert.equal(free.priceEur, 0);
   });
 
-  await t.test("When plans are inactive, getSubscriptionTiers returns null prices and isActive: false", async () => {
+  await t.test("When plans are inactive, getSubscriptionTiers still returns prices and isActive: false", async () => {
     await subscriptionPlanService.setPlanActive("STANDARD", false);
     await subscriptionPlanService.setPlanActive("PREMIUM", false);
     await subscriptionPlanService.setPlanActive("FREE", false);
@@ -63,14 +63,14 @@ test("Subscription pricing visibility rules: prices only given when active, null
     const standard = body.tiers.find((t) => t.id === "competitor" || t.id === "intermediate");
     assert.ok(standard);
     assert.equal(standard.isActive, false);
-    assert.equal(standard.priceEur, null);
-    assert.equal(standard.priceFormatted, null);
+    assert.equal(standard.priceEur, 5.99);
+    assert.ok(standard.priceFormatted.includes("5,99"));
 
     const premium = body.tiers.find((t) => t.id === "club_elite" || t.id === "premium");
     assert.ok(premium);
     assert.equal(premium.isActive, false);
-    assert.equal(premium.priceEur, null);
-    assert.equal(premium.priceFormatted, null);
+    assert.equal(premium.priceEur, 8.99);
+    assert.ok(premium.priceFormatted.includes("8,99"));
 
     // Découverte : toujours disponible, indépendamment de son ancien drapeau isActive
     const free = body.tiers.find((t) => t.id === "free");

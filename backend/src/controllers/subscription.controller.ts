@@ -195,8 +195,6 @@ export const getSubscriptionTiers = async (_req: Request, res: Response): Promis
       const isPioneerEnabled = readFlag(row, "isPioneerEnabled", "is_pioneer_enabled");
       return {
         ...tierConfig,
-        priceEur: isPaidEnabled ? tierConfig.priceEur : null,
-        priceFormatted: isPaidEnabled ? tierConfig.priceFormatted : null,
         isActive: isPaidEnabled,
         isPaidEnabled,
         isPioneerEnabled,

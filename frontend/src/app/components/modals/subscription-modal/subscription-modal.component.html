@@ -18,10 +18,8 @@
       <div class="pricing-card free-tier" [class.current-tier]="isCurrentTier('free')">
         <div class="pricing-header">
           <h4>{{ i18n.t('SUB_FREE_TITLE') }}</h4>
-          <ng-container *ngIf="isTierActive('free')">
-            <div class="pricing-price">0 €</div>
+                      <div class="pricing-price">0 €</div>
             <span class="pricing-period">{{ i18n.t('SUB_PER_MONTH') }}</span>
-          </ng-container>
         </div>
         <ul class="pricing-features">
           <li>✓ {{ i18n.t('SUB_FREE_FEAT_1') }}</li>
@@ -48,10 +46,8 @@
         <div class="pricing-header">
           <div *ngIf="isPioneerTier('competitor')" class="pioneer-ribbon">{{ i18n.t('SUB_PIONEER_BADGE') }}</div>
           <h4>{{ i18n.t('SUB_CLUB_TITLE') }}</h4>
-          <ng-container *ngIf="isTierActive('intermediate')">
-            <div class="pricing-price">5,99 €</div>
+                      <div class="pricing-price">5,99 €</div>
             <span class="pricing-period">{{ i18n.t('SUB_PER_MONTH') }}</span>
-          </ng-container>
         </div>
         <ul class="pricing-features">
           <li>✓ {{ i18n.t('SUB_CLUB_FEAT_1') }}</li>
@@ -82,10 +78,8 @@
         <div class="pricing-header">
           <div *ngIf="isPioneerTier('club_elite')" class="pioneer-ribbon">{{ i18n.t('SUB_PIONEER_BADGE') }}</div>
           <h4>{{ i18n.t('SUB_PRO_TITLE') }}</h4>
-          <ng-container *ngIf="isTierActive('premium')">
-            <div class="pricing-price">8,99 €</div>
+                      <div class="pricing-price">8,99 €</div>
             <span class="pricing-period">{{ i18n.t('SUB_PER_MONTH') }}</span>
-          </ng-container>
         </div>
         <ul class="pricing-features">
           <li>✓ {{ i18n.t('SUB_PRO_FEAT_1') }}</li>
