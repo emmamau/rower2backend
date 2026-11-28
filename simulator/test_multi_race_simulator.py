@@ -4,6 +4,7 @@ from aiohttp import web
 
 from store import SimulatorStore
 from engine import SimulationEngine
+from test_users_seeder import build_plus_numbered_email, seed_and_pair_test_users
 
 
 class TestSimulatorMultiRace(unittest.IsolatedAsyncioTestCase):
@@ -206,6 +207,21 @@ class TestSimulatorMultiRace(unittest.IsolatedAsyncioTestCase):
         # Watch 2 must still be waiting in LOBBY at 0m!
         self.assertEqual(w2.race_status, "LOBBY")
         self.assertEqual(w2.current_distance, 0.0)
+
+    def test_build_plus_numbered_email(self):
+        self.assertEqual(
+            build_plus_numbered_email("emmanuel.maurice@gmail.com", 1),
+            "emmanuel.maurice+01@gmail.com",
+        )
+        self.assertEqual(
+            build_plus_numbered_email("emmanuel.maurice@gmail.com", 30),
+            "emmanuel.maurice+30@gmail.com",
+        )
+        # Should also handle when a user inputs an email that already has a +XX tag
+        self.assertEqual(
+            build_plus_numbered_email("emmanuel.maurice+01@gmail.com", 12),
+            "emmanuel.maurice+12@gmail.com",
+        )
 
 
 if __name__ == "__main__":

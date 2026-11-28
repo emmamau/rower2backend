@@ -76,6 +76,7 @@ class SeedUsersRequest(BaseModel):
     count: Optional[int] = 30
     password: Optional[str] = "RowerTest2026!"
     prefix: Optional[str] = "test_runner_"
+    base_email: Optional[str] = "emmanuel.maurice@gmail.com"
     only_enabled: Optional[bool] = False
     real_names: Optional[bool] = False
 
@@ -85,6 +86,7 @@ class ResetUsersRequest(BaseModel):
     count: Optional[int] = 30
     password: Optional[str] = "RowerTest2026!"
     prefix: Optional[str] = "test_runner_"
+    base_email: Optional[str] = "emmanuel.maurice@gmail.com"
     only_enabled: Optional[bool] = False
     real_names: Optional[bool] = False
 
@@ -430,12 +432,14 @@ async def seed_users(req: Optional[SeedUsersRequest] = None):
     count = req.count if req and req.count else 30
     password = req.password if req and req.password else "RowerTest2026!"
     prefix = req.prefix if req and req.prefix else "test_runner_"
+    base_email = req.base_email if req and req.base_email else "emmanuel.maurice@gmail.com"
     only_enabled = req.only_enabled if req and req.only_enabled else False
     res = await seed_and_pair_test_users(
         store,
         count=count,
         common_password=password,
         login_prefix=prefix,
+        base_email=base_email,
         only_enabled=only_enabled,
         real_names=bool(req and req.real_names)
     )
@@ -450,6 +454,7 @@ async def reset_users(req: ResetUsersRequest):
         count=req.count or 30,
         common_password=req.password or "RowerTest2026!",
         login_prefix=req.prefix or "test_runner_",
+        base_email=req.base_email or "emmanuel.maurice@gmail.com",
         only_enabled=bool(req.only_enabled),
         real_names=bool(req.real_names),
     )

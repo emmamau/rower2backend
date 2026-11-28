@@ -251,6 +251,13 @@
             <input type="text" id="seedPrefix" value="test_runner_">
           </div>
         </div>
+        <div class="modal-field">
+          <label>Email de base (génère automatiquement <code>+01</code> à <code>+30</code>) :</label>
+          <input type="email" id="seedBaseEmail" value="emmanuel.maurice@gmail.com" placeholder="emmanuel.maurice@gmail.com">
+          <span style="font-size: 11px; color: var(--text-muted);">
+            Exemple généré : <code>emmanuel.maurice+01@gmail.com</code>, <code>emmanuel.maurice+02@gmail.com</code>, etc.
+          </span>
+        </div>
         <div style="display: flex; align-items: center; gap: 8px; margin-top: 4px;">
           <input type="checkbox" id="seedOnlyEnabled" style="accent-color: var(--accent-blue); width: 16px; height: 16px;">
           <label for="seedOnlyEnabled" style="font-size: 12px; cursor: pointer;">Créer/Appairer uniquement pour les kayaks ACTIVÉS</label>
@@ -1217,6 +1224,7 @@
       const pwd = document.getElementById("seedCommonPassword").value.trim();
       const count = parseInt(document.getElementById("seedCount").value) || 30;
       const prefix = document.getElementById("seedPrefix").value.trim() || "test_runner_";
+      const baseEmail = document.getElementById("seedBaseEmail").value.trim() || "emmanuel.maurice@gmail.com";
       const onlyEnabled = document.getElementById("seedOnlyEnabled").checked;
       const realNames = document.getElementById("seedRealNames").checked;
 
@@ -1237,6 +1245,7 @@
             count: count,
             password: pwd,
             prefix: prefix,
+            base_email: baseEmail,
             only_enabled: onlyEnabled,
             real_names: realNames
           })
@@ -1257,6 +1266,7 @@
       const pwd = document.getElementById("seedCommonPassword").value.trim();
       const count = parseInt(document.getElementById("seedCount").value) || 30;
       const prefix = document.getElementById("seedPrefix").value.trim() || "test_runner_";
+      const baseEmail = document.getElementById("seedBaseEmail").value.trim() || "emmanuel.maurice@gmail.com";
       const onlyEnabled = document.getElementById("seedOnlyEnabled").checked;
       const realNames = document.getElementById("seedRealNames").checked;
       const adminLogin = document.getElementById("resetAdminLogin").value.trim();
@@ -1273,7 +1283,7 @@
         const res = await fetch("/api/reset-users", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ admin_login: adminLogin, admin_password: adminPassword, count, password: pwd, prefix, only_enabled: onlyEnabled, real_names: realNames })
+          body: JSON.stringify({ admin_login: adminLogin, admin_password: adminPassword, count, password: pwd, prefix, base_email: baseEmail, only_enabled: onlyEnabled, real_names: realNames })
         });
         const data = await res.json();
         showToast(data.message || "Reset terminé", data.success ? "success" : "error");
