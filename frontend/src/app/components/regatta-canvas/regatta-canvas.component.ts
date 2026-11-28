@@ -1909,9 +1909,10 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
       }
     }
 
-    // 4. Dessin des kayaks visibles avec texte agrandi au maximum selon le zoom
-    const hullRx = followMode ? (isCompact ? 44 : 68) : (isCompact ? 14 : 18) * boatScale;
-    const hullRy = Math.min(laneH * 0.24, (isCompact ? 4.5 : 5) * boatScale);
+    // 4. Dessin des kayaks visibles : proportions harmonieuses K1 / Skiff (~4:1) sans étirement excessif
+    const kScale = followMode ? (isCompact ? 1.32 : 1.55) : boatScale;
+    const hullRx = (isCompact ? 17 : 21) * kScale;
+    const hullRy = Math.min(laneH * 0.28, Math.max(4.5, hullRx * 0.26));
 
     visibleBoats.forEach((boat, visibleIdx) => {
       // Si zoom actif (> 1), positionner chaque kayak visible dans son couloir zoomé (0..visibleCount-1)
@@ -1948,39 +1949,41 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
       const strokeFreq = effectiveSpm > 0 ? effectiveSpm / 60 : 0;
       const laneOffset = (boat.lane || visibleIdx) * 1.1;
       const strokeAngle = isMoving
-        ? Math.sin(nowSec * strokeFreq * Math.PI * 2 + laneOffset) * 0.58
+        ? Math.sin(nowSec * strokeFreq * Math.PI * 2 + laneOffset) * 0.54
         : 0;
 
-      const oarLen = Math.min(laneH * 0.42, (isCompact ? 7 : 9) * boatScale);
-      const dxOar = Math.sin(strokeAngle) * oarLen;
+      // Envergure des rames proportionnée à la coque et bornée au couloir
+      const oarPivotX = x - hullRx * 0.04;
+      const oarLen = Math.min(laneH * 0.45, Math.max(hullRy * 1.95, (isCompact ? 9.5 : 11.5) * kScale));
+      const dxOar = Math.sin(strokeAngle) * oarLen * 0.85;
       const dyOar = Math.cos(strokeAngle) * oarLen;
-      const x1 = x - dxOar;
+      const x1 = oarPivotX - dxOar;
       const y1 = y - dyOar;
-      const x2 = x + dxOar;
+      const x2 = oarPivotX + dxOar;
       const y2 = y + dyOar;
 
       // =========================================================================
       // MISE EN VALEUR JOUEUR CONNECTÉ : Sillage accentué & Traînée d'eau
       // =========================================================================
       if (isUser || isFocused) {
-        ctx.fillStyle = hexToRgba(effectiveGlowColor, 0.40);
+        ctx.fillStyle = hexToRgba(effectiveGlowColor, 0.36);
         ctx.beginPath();
-        ctx.ellipse(Math.max(marginX - camOffset, x - hullRx - 6 * boatScale), y, (isCompact ? 16 : 24) * boatScale, (isCompact ? 4.5 : 6) * boatScale, 0, 0, Math.PI * 2);
+        ctx.ellipse(Math.max(marginX - camOffset, x - hullRx - 5 * kScale), y, hullRx * 0.65, hullRy * 0.78, 0, 0, Math.PI * 2);
         ctx.fill();
 
-        ctx.fillStyle = hexToRgba(effectiveGlowColor, 0.20);
+        ctx.fillStyle = hexToRgba(effectiveGlowColor, 0.18);
         ctx.beginPath();
-        ctx.ellipse(Math.max(marginX - camOffset, x - hullRx - 16 * boatScale), y, (isCompact ? 24 : 36) * boatScale, (isCompact ? 6 : 8) * boatScale, 0, 0, Math.PI * 2);
+        ctx.ellipse(Math.max(marginX - camOffset, x - hullRx - 13 * kScale), y, hullRx * 0.95, hullRy * 1.05, 0, 0, Math.PI * 2);
         ctx.fill();
       } else {
         const wakeColor = custom ? hexToRgba(effectiveGlowColor, 0.25) : 'rgba(0, 240, 255, 0.18)';
         ctx.fillStyle = wakeColor;
         ctx.beginPath();
-        ctx.ellipse(Math.max(marginX - camOffset, x - hullRx + 2), y, (isCompact ? 9 : 13) * boatScale, 3.5 * boatScale, 0, 0, Math.PI * 2);
+        ctx.ellipse(Math.max(marginX - camOffset, x - hullRx - 2 * kScale), y, hullRx * 0.52, hullRy * 0.62, 0, 0, Math.PI * 2);
         ctx.fill();
       }
 
-      // Éclaboussures d'attaque
+      // Sillage dynamique en V & halo du kayak suivi en mode Caméra Suiveuse
       if (followMode) {
         this.drawFollowWake(ctx, x, y, boat, nowSec, hullRx, laneH);
         if (isFocused) {
@@ -1988,11 +1991,12 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
         }
       }
 
-      if (isMoving && Math.abs(strokeAngle) > 0.25) {
-        ctx.fillStyle = isUser ? 'rgba(0, 240, 255, 0.6)' : 'rgba(0, 240, 255, 0.38)';
+      // Éclaboussures d'attaque aux pelles
+      if (isMoving && Math.abs(strokeAngle) > 0.22) {
+        ctx.fillStyle = isUser ? 'rgba(0, 240, 255, 0.65)' : 'rgba(190, 245, 255, 0.42)';
         ctx.beginPath();
-        ctx.arc(x1, y1, (isCompact ? 1.8 : 2.4) * boatScale, 0, Math.PI * 2);
-        ctx.arc(x2, y2, (isCompact ? 1.8 : 2.4) * boatScale, 0, Math.PI * 2);
+        ctx.arc(x1, y1, (isCompact ? 1.8 : 2.3) * Math.min(1.6, kScale), 0, Math.PI * 2);
+        ctx.arc(x2, y2, (isCompact ? 1.8 : 2.3) * Math.min(1.6, kScale), 0, Math.PI * 2);
         ctx.fill();
       }
 
@@ -2004,33 +2008,37 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
         ctx.shadowColor = effectiveGlowColor;
         ctx.shadowBlur = (isUser || isFocused) ? (14 + Math.sin(nowSec * 5) * 5) : 8;
         ctx.strokeStyle = effectiveGlowColor;
-        ctx.lineWidth = ((isUser || isFocused) ? 2.5 : 1.5) * Math.min(1.5, boatScale);
+        ctx.lineWidth = ((isUser || isFocused) ? 2.2 : 1.4) * Math.min(1.5, kScale);
         ctx.beginPath();
-        ctx.ellipse(x, y, hullRx + 4 * boatScale, hullRy + 3 * boatScale, 0, 0, Math.PI * 2);
+        ctx.ellipse(x, y, hullRx + 3.5 * kScale, hullRy + 2.5 * kScale, 0, 0, Math.PI * 2);
         ctx.stroke();
         ctx.restore();
       }
 
-      // Rames
-      ctx.strokeStyle = isUser ? '#00f0ff' : '#e2e8f0';
-      ctx.lineWidth = (isCompact ? 1.4 : 1.8) * Math.min(1.6, boatScale);
+      // Manche de la pagaie / rames (carbone sombre + reflets)
+      ctx.save();
+      ctx.strokeStyle = isUser ? '#00f0ff' : '#cbd5e1';
+      ctx.lineWidth = (isCompact ? 1.5 : 1.9) * Math.min(1.5, kScale);
       ctx.lineCap = 'round';
       ctx.beginPath();
       ctx.moveTo(x1, y1);
       ctx.lineTo(x2, y2);
       ctx.stroke();
+      ctx.restore();
 
-      // Pelles
+      // Pelles profilées asymétriques (forme cuillère hydrodynamique)
+      const bladeRx = (isCompact ? 3.2 : 4.1) * Math.min(1.55, kScale);
+      const bladeRy = (isCompact ? 1.7 : 2.2) * Math.min(1.55, kScale);
       ctx.fillStyle = effectiveBladeColor;
-      ctx.strokeStyle = '#ffffff';
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.92)';
       ctx.lineWidth = 1;
 
       // Pelle bâbord
       ctx.save();
       ctx.translate(x1, y1);
-      ctx.rotate(-strokeAngle);
+      ctx.rotate(-strokeAngle * 0.85);
       ctx.beginPath();
-      ctx.ellipse(0, 0, (isCompact ? 2.5 : 3.2) * boatScale, (isCompact ? 1.5 : 2.0) * boatScale, 0, 0, Math.PI * 2);
+      ctx.ellipse(0, 0, bladeRx, bladeRy, 0, 0, Math.PI * 2);
       ctx.fill();
       ctx.stroke();
       ctx.restore();
@@ -2038,23 +2046,44 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
       // Pelle tribord
       ctx.save();
       ctx.translate(x2, y2);
-      ctx.rotate(-strokeAngle);
+      ctx.rotate(-strokeAngle * 0.85);
       ctx.beginPath();
-      ctx.ellipse(0, 0, (isCompact ? 2.5 : 3.2) * boatScale, (isCompact ? 1.5 : 2.0) * boatScale, 0, 0, Math.PI * 2);
+      ctx.ellipse(0, 0, bladeRx, bladeRy, 0, 0, Math.PI * 2);
       ctx.fill();
       ctx.stroke();
       ctx.restore();
 
-      // Coque de base
+      // =========================================================================
+      // COQUE K1 / SKIFF PROFILÉE HAUT DE GAMME (Courbes de Bézier + Volume 3D)
+      // - Proue (droite, x + hullRx) fine et fendante
+      // - Maître-bau légèrement en avant du centre, poupe (gauche, x - hullRx) fuselée
+      // =========================================================================
       ctx.save();
       const traceHull = () => {
+        const bowX = x + hullRx;
+        const sternX = x - hullRx;
         ctx.beginPath();
-        ctx.moveTo(x + hullRx, y);
-        ctx.quadraticCurveTo(x, y - hullRy, x - hullRx, y);
-        ctx.quadraticCurveTo(x, y + hullRy, x + hullRx, y);
+        ctx.moveTo(bowX, y);
+        // Flanc supérieur (proue -> maître-bau -> poupe)
+        ctx.bezierCurveTo(
+          x + hullRx * 0.48, y - hullRy * 0.96,
+          x - hullRx * 0.42, y - hullRy * 1.04,
+          sternX, y
+        );
+        // Flanc inférieur (poupe -> maître-bau -> proue)
+        ctx.bezierCurveTo(
+          x - hullRx * 0.42, y + hullRy * 1.04,
+          x + hullRx * 0.48, y + hullRy * 0.96,
+          bowX, y
+        );
         ctx.closePath();
       };
 
+      // Légère ombre portée sous la coque pour la détacher de l'eau
+      ctx.save();
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.55)';
+      ctx.shadowBlur = 5;
+      ctx.shadowOffsetY = 1.5;
       traceHull();
 
       if (effectivePattern === 'gradient') {
@@ -2069,45 +2098,94 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
         ctx.save();
         ctx.clip();
         ctx.fillStyle = effectiveBladeColor;
-        ctx.fillRect(x - hullRx, y - hullRy * 2, hullRx, hullRy * 4);
+        ctx.fillRect(x - hullRx, y - hullRy * 2, hullRx * 1.05, hullRy * 4);
         ctx.restore();
       } else {
         ctx.fillStyle = effectiveHullColor;
         ctx.fill();
       }
+      ctx.restore();
+
+      // Volume 3D du pont + lignes de pont (deck lines) + motifs
+      ctx.save();
+      traceHull();
+      ctx.clip();
+
+      // Dégradé transversal (lumière zénithale sur le galbe du pont)
+      const deckGrad = ctx.createLinearGradient(x, y - hullRy, x, y + hullRy);
+      deckGrad.addColorStop(0, 'rgba(255, 255, 255, 0.34)');
+      deckGrad.addColorStop(0.45, 'rgba(255, 255, 255, 0.04)');
+      deckGrad.addColorStop(1, 'rgba(0, 0, 0, 0.36)');
+      ctx.fillStyle = deckGrad;
+      ctx.fillRect(x - hullRx, y - hullRy * 1.2, hullRx * 2, hullRy * 2.4);
 
       // Racing stripes pattern
       if (effectivePattern === 'racing-stripe') {
-        ctx.save();
-        ctx.clip();
         ctx.strokeStyle = 'rgba(255, 255, 255, 0.85)';
-        ctx.lineWidth = (isCompact ? 1.0 : 1.4) * Math.min(1.5, boatScale);
+        ctx.lineWidth = (isCompact ? 1.0 : 1.35) * Math.min(1.4, kScale);
+        const stripeOff = Math.max(1.2, hullRy * 0.28);
         ctx.beginPath();
-        ctx.moveTo(x - hullRx + 2, y - 1.2 * boatScale);
-        ctx.lineTo(x + hullRx - 2, y - 1.2 * boatScale);
-        ctx.moveTo(x - hullRx + 2, y + 1.2 * boatScale);
-        ctx.lineTo(x + hullRx - 2, y + 1.2 * boatScale);
+        ctx.moveTo(x - hullRx + 3, y - stripeOff);
+        ctx.lineTo(x + hullRx - 3, y - stripeOff);
+        ctx.moveTo(x - hullRx + 3, y + stripeOff);
+        ctx.lineTo(x + hullRx - 3, y + stripeOff);
         ctx.stroke();
-        ctx.restore();
+      } else {
+        // Nervure centrale de pont (arête hydrodynamique avant & arrière)
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.42)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(x + hullRx * 0.32, y);
+        ctx.lineTo(x + hullRx - 2, y);
+        ctx.moveTo(x - hullRx + 2, y);
+        ctx.lineTo(x - hullRx * 0.42, y);
+        ctx.stroke();
       }
 
+      // Pointe d'étrave (nose cap carbone/lumineux à la proue)
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.78)';
+      ctx.fillRect(x + hullRx * 0.78, y - hullRy * 1.1, hullRx * 0.24, hullRy * 2.2);
+      ctx.restore();
+
+      // Contour extérieur net de la coque
       traceHull();
-      ctx.strokeStyle = isUser ? '#ffffff' : 'rgba(255, 255, 255, 0.4)';
-      ctx.lineWidth = isUser ? 1.5 * Math.min(1.5, boatScale) : 1;
+      ctx.strokeStyle = isUser ? '#ffffff' : 'rgba(255, 255, 255, 0.62)';
+      ctx.lineWidth = isUser ? 1.6 * Math.min(1.4, kScale) : 1.1;
       ctx.stroke();
       ctx.restore();
 
-      // Cockpit
-      ctx.fillStyle = '#060913';
+      // Hiloire & Cockpit ergonomique (forme goutte d'eau entourée d'un rebord carbone)
+      const cockpitX = x - hullRx * 0.06;
+      const cockpitRx = hullRx * 0.34;
+      const cockpitRy = hullRy * 0.56;
+      ctx.save();
+      ctx.fillStyle = '#050811';
+      ctx.strokeStyle = isUser ? 'rgba(0, 240, 255, 0.75)' : 'rgba(226, 232, 240, 0.45)';
+      ctx.lineWidth = 1.1;
       ctx.beginPath();
-      ctx.ellipse(x - 1, y, hullRx * 0.36, hullRy * 0.6, 0, 0, Math.PI * 2);
+      ctx.ellipse(cockpitX, y, cockpitRx, cockpitRy, 0, 0, Math.PI * 2);
       ctx.fill();
+      ctx.stroke();
+      ctx.restore();
 
-      // Rameur
-      ctx.fillStyle = isUser ? '#ffe600' : '#fcd34d';
+      // Rameur (épaules + tête qui accompagne légèrement la cadence du coup de rame)
+      const bodyShiftX = Math.sin(strokeAngle) * Math.min(2.2, hullRx * 0.06);
+      const rowerX = cockpitX - hullRx * 0.04 + bodyShiftX;
+      ctx.save();
+      // Épaules / gilet
+      ctx.fillStyle = isUser ? '#00f0ff' : effectiveBladeColor;
       ctx.beginPath();
-      ctx.arc(x - hullRx * 0.12, y, (isCompact ? 2.2 : 2.8) * boatScale, 0, Math.PI * 2);
+      ctx.ellipse(rowerX, y, hullRy * 0.38, hullRy * 0.50, 0, 0, Math.PI * 2);
       ctx.fill();
+      // Tête / casquette
+      ctx.fillStyle = isUser ? '#ffe600' : '#fcd34d';
+      ctx.strokeStyle = '#060913';
+      ctx.lineWidth = 0.9;
+      ctx.beginPath();
+      ctx.arc(rowerX + hullRx * 0.02, y, Math.max(2.2, hullRy * 0.36), 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
 
       // =========================================================================
       // BULLE DU NOM DU KAYAK ET BULLE DE DONNÉES DE LIGNE D'EAU CONFIGURABLES

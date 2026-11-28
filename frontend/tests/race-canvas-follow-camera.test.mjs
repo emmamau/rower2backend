@@ -8,7 +8,12 @@ import { fileURLToPath } from 'node:url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, '..');
 const require = createRequire(import.meta.url);
-const ts = require('typescript');
+let ts;
+try {
+  ts = require('typescript');
+} catch {
+  ts = require(path.resolve(rootDir, '../backend/node_modules/typescript'));
+}
 
 const read = (rel) => fs.readFileSync(path.join(rootDir, rel), 'utf-8');
 
