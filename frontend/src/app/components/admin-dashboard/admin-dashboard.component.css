@@ -1052,3 +1052,61 @@
   }
 }
 
+
+/* ---- Sélecteur du mode de rendu du canevas ---- */
+.canvas-mode-section {
+  margin-top: 24px;
+  padding-top: 18px;
+  border-top: 1px solid rgba(0, 240, 255, 0.2);
+}
+.canvas-mode-heading {
+  margin-bottom: 12px;
+  color: #00f0ff;
+  font-size: 0.95rem;
+}
+.canvas-mode-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+}
+.canvas-mode-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  text-align: start;
+  padding: 14px 16px;
+  min-block-size: 44px;
+  border-radius: 12px;
+  border: 1.5px solid rgba(0, 240, 255, 0.25);
+  background: rgba(6, 13, 29, 0.7);
+  color: #e2e8f0;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.canvas-mode-card.selected {
+  border-color: #00f0ff;
+  box-shadow: 0 0 14px rgba(0, 240, 255, 0.35);
+  background: rgba(0, 240, 255, 0.08);
+}
+.canvas-mode-card:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+.canvas-mode-title {
+  font-weight: 700;
+  color: #00f0ff;
+}
+.canvas-mode-badge {
+  margin-inline-start: 8px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-style: normal;
+  background: #00f0ff;
+  color: #03070f;
+}
+.canvas-mode-desc {
+  font-size: 0.82rem;
+  color: #94a3b8;
+}

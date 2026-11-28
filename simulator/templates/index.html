@@ -255,8 +255,11 @@
           <input type="checkbox" id="seedOnlyEnabled" style="accent-color: var(--accent-blue); width: 16px; height: 16px;">
           <label for="seedOnlyEnabled" style="font-size: 12px; cursor: pointer;">Créer/Appairer uniquement pour les kayaks ACTIVÉS</label>
         </div>
-        <div class="modal-field" style="border-top:1px solid #333; padding-top:10px;">
-          <label>♻️ Reset complet : compte ADMIN requis pour supprimer les anciens comptes</label>
+        <div style="display: flex; align-items: center; gap: 8px; margin-top: 4px;">
+          <input type="checkbox" id="seedRealNames" style="accent-color: var(--accent-blue); width: 16px; height: 16px;">
+          <label for="seedRealNames" style="font-size: 12px; cursor: pointer;">Utiliser de vrais prénoms (ex: Léa Martin, Lucas Bernard) — le login reste test_runner_XX</label>
+        </div>
+        <div class="modal-field" style="border-top:1px solid #333; padding-top:10px;">          <label>♻️ Reset complet : compte ADMIN requis pour supprimer les anciens comptes</label>
           <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
             <input type="text" id="resetAdminLogin" placeholder="Login admin">
             <input type="password" id="resetAdminPassword" placeholder="Mot de passe admin">
@@ -1215,6 +1218,7 @@
       const count = parseInt(document.getElementById("seedCount").value) || 30;
       const prefix = document.getElementById("seedPrefix").value.trim() || "test_runner_";
       const onlyEnabled = document.getElementById("seedOnlyEnabled").checked;
+      const realNames = document.getElementById("seedRealNames").checked;
 
       if (!pwd || pwd.length < 8) {
         return showToast("Le mot de passe doit comporter au moins 8 caractères.", "error");
@@ -1233,7 +1237,8 @@
             count: count,
             password: pwd,
             prefix: prefix,
-            only_enabled: onlyEnabled
+            only_enabled: onlyEnabled,
+            real_names: realNames
           })
         });
         const data = await res.json();
@@ -1253,6 +1258,7 @@
       const count = parseInt(document.getElementById("seedCount").value) || 30;
       const prefix = document.getElementById("seedPrefix").value.trim() || "test_runner_";
       const onlyEnabled = document.getElementById("seedOnlyEnabled").checked;
+      const realNames = document.getElementById("seedRealNames").checked;
       const adminLogin = document.getElementById("resetAdminLogin").value.trim();
       const adminPassword = document.getElementById("resetAdminPassword").value;
       if (!adminLogin || !adminPassword) return showToast("Login et mot de passe admin requis.", "error");
@@ -1267,7 +1273,7 @@
         const res = await fetch("/api/reset-users", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ admin_login: adminLogin, admin_password: adminPassword, count, password: pwd, prefix, only_enabled: onlyEnabled })
+          body: JSON.stringify({ admin_login: adminLogin, admin_password: adminPassword, count, password: pwd, prefix, only_enabled: onlyEnabled, real_names: realNames })
         });
         const data = await res.json();
         showToast(data.message || "Reset terminé", data.success ? "success" : "error");

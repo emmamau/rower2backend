@@ -77,6 +77,7 @@ class SeedUsersRequest(BaseModel):
     password: Optional[str] = "RowerTest2026!"
     prefix: Optional[str] = "test_runner_"
     only_enabled: Optional[bool] = False
+    real_names: Optional[bool] = False
 
 class ResetUsersRequest(BaseModel):
     admin_login: str
@@ -85,6 +86,7 @@ class ResetUsersRequest(BaseModel):
     password: Optional[str] = "RowerTest2026!"
     prefix: Optional[str] = "test_runner_"
     only_enabled: Optional[bool] = False
+    real_names: Optional[bool] = False
 
 class BulkEngageRequest(BaseModel):
     watch_ids: List[int]
@@ -434,7 +436,8 @@ async def seed_users(req: Optional[SeedUsersRequest] = None):
         count=count,
         common_password=password,
         login_prefix=prefix,
-        only_enabled=only_enabled
+        only_enabled=only_enabled,
+        real_names=bool(req and req.real_names)
     )
     return res
 
@@ -448,6 +451,7 @@ async def reset_users(req: ResetUsersRequest):
         common_password=req.password or "RowerTest2026!",
         login_prefix=req.prefix or "test_runner_",
         only_enabled=bool(req.only_enabled),
+        real_names=bool(req.real_names),
     )
 
 if __name__ == "__main__":

@@ -11610,3 +11610,17 @@ app-cockpit-view {
 
 
 
+
+/* ---- Mode de rendu du canevas : ligne suivie dans les classements en direct ---- */
+.mini-lead-row.followed-racer {
+  background: rgba(0, 240, 255, 0.16);
+  box-shadow: inset 3px 0 0 #00f0ff;
+}
+@media (pointer: coarse) {
+  .cockpit-floating-leaderboard .mini-lead-row,
+  .regatta-floating-leaderboard-panel .mini-lead-row {
+    min-block-size: 44px;
+    align-items: center;
+    touch-action: manipulation;
+  }
+}

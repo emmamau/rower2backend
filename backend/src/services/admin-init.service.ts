@@ -90,6 +90,9 @@ export class AdminInitService {
             IF NOT EXISTS (SELECT FROM information_schema.columns WHERE table_name = 'public_race_settings' AND column_name = 'inactivity_abandon_sec') THEN
               ALTER TABLE public_race_settings ADD COLUMN inactivity_abandon_sec INTEGER DEFAULT 60;
             END IF;
+            IF NOT EXISTS (SELECT FROM information_schema.columns WHERE table_name = 'public_race_settings' AND column_name = 'race_canvas_mode') THEN
+              ALTER TABLE public_race_settings ADD COLUMN race_canvas_mode VARCHAR(20) NOT NULL DEFAULT 'follow_camera';
+            END IF;
           END IF;
         END $$;
       `);
@@ -116,6 +119,7 @@ export class AdminInitService {
           interRaceDelaySec: 120,
           overtakeThresholdM: 5,
           inactivityAbandonSec: 60,
+          raceCanvasMode: "follow_camera",
         },
       });
       if (setting) {

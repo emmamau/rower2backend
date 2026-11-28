@@ -10,7 +10,8 @@ import {
   OnChanges,
   SimpleChanges,
   ChangeDetectorRef,
-  Optional
+  Optional,
+  signal
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { LiveRacerMetric } from '../../services/socket.service';
@@ -24,6 +25,22 @@ import {
   DEFAULT_REGATTA_PREFERENCES
 } from '../../models/user.model';
 import { I18nService } from '../../services/i18n.service';
+import { RaceCanvasModeService, RaceCanvasMode, DEFAULT_RACE_CANVAS_MODE } from '../../services/race-canvas-mode.service';
+import { RaceMinimapComponent, MinimapFrame } from './race-minimap.component';
+import {
+  PIXELS_PER_METER,
+  BUOY_SPACING_M,
+  DISTANCE_MARK_M,
+  SIGN_MARK_M,
+  BUOY_RED_END_M,
+  computeFollowCameraTarget,
+  smoothCameraX,
+  boatScreenX,
+  visibleRangeM,
+  multiplesInRange,
+  buoyColorAt,
+  computeOffscreenBadges
+} from './race-camera';
 
 export { sanitizeKayakCustomization };
 
@@ -54,7 +71,7 @@ interface BoatRenderState {
 @Component({
   selector: 'app-regatta-canvas',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, RaceMinimapComponent],
   template: `
     <div #wrapperEl class="canvas-wrapper">
       <canvas
@@ -66,7 +83,24 @@ interface BoatRenderState {
         (click)="onCanvasClick($event)"></canvas>
 
       <!-- Barre d'outils en haut à gauche : Mode Dynamique/Fixe -->
-      <div class="canvas-top-left-controls">
+      <!-- Mini-map tactique (mode follow_camera) -->
+      <app-race-minimap
+        #minimap
+        *ngIf="isFollowMode"
+        [heightPx]="minimapHeight"
+        [style.height.px]="minimapHeight"
+        (racerSelect)="onFollowSelect($event)"></app-race-minimap>
+
+      <!-- Bouton de recentrage sur son propre kayak -->
+      <button
+        type="button"
+        class="recenter-btn"
+        *ngIf="showRecenterButton"
+        (click)="recenterOnMyBoat()">
+        🎯 Recentrer sur mon kayak
+      </button>
+
+      <div class="canvas-top-left-controls" [style.top.px]="isFollowMode ? minimapHeight + 8 : null">
         <button
           type="button"
           class="lane-mode-toggle"
@@ -110,6 +144,24 @@ interface BoatRenderState {
     </div>
   `,
   styles: [`
+    .recenter-btn {
+      position: absolute;
+      inset-inline-start: 50%;
+      bottom: 12px;
+      transform: translateX(-50%);
+      z-index: 8;
+      min-block-size: 44px;
+      padding: 0 18px;
+      border-radius: 999px;
+      border: 1.5px solid #00f0ff;
+      background: rgba(6, 13, 29, 0.92);
+      color: #00f0ff;
+      font: 700 14px sans-serif;
+      white-space: nowrap;
+      box-shadow: 0 0 16px rgba(0, 240, 255, 0.45);
+      cursor: pointer;
+      touch-action: manipulation;
+    }
     :host {
       display: flex;
       flex-direction: column;
@@ -286,6 +338,31 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
   public visibleBoatsCount = 0;
   public totalBoatsCount = 0;
 
+  // --- Mode de rendu du canevas (global_fit | follow_camera) ---
+  @ViewChild('minimap') minimapRef?: RaceMinimapComponent;
+  /** Kayak explicitement suivi par la caméra ('' = cible par défaut : mon kayak, sinon le leader) */
+  public readonly followedBoatId = signal('');
+  public readonly isParticipant = signal(false);
+  private cameraInit = false;
+  private lastMode: RaceCanvasMode | null = null;
+  private frameDeltaT = 0.016;
+  private frameFollowedId = '';
+  private offscreenHits: { x: number; y: number; w: number; h: number; userId: string }[] = [];
+
+  get isFollowMode(): boolean {
+    return (this.canvasModeService?.mode() ?? DEFAULT_RACE_CANVAS_MODE) === 'follow_camera';
+  }
+
+  get minimapHeight(): number {
+    const small = (typeof window !== 'undefined' && window.innerHeight <= 500) || this.cssHeight <= 320;
+    return small ? 32 : 44;
+  }
+
+  get showRecenterButton(): boolean {
+    const followed = this.followedBoatId();
+    return this.isFollowMode && this.isParticipant() && !!followed && followed !== this.activeUserId;
+  }
+
   // Défilement vertical du plan d'eau (Vertical Scroll / Drag)
   public scrollY: number = 0;
   public maxScrollY: number = 0;
@@ -297,6 +374,7 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
   private lastUserScrollTime = 0;
 
   get effectiveZoomLevel(): number {
+    if (this.isFollowMode) return 1; // échelle fixe 16 px/m en caméra suiveuse
     const raw = Number(this.zoomLevel);
     if (!Number.isFinite(raw) || raw < 1) return 1;
     return Math.min(4, Math.max(1, Math.round(raw * 2) / 2));
@@ -359,7 +437,8 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
 
   constructor(
     public i18n: I18nService,
-    @Optional() private cdr?: ChangeDetectorRef
+    @Optional() private cdr?: ChangeDetectorRef,
+    @Optional() private canvasModeService?: RaceCanvasModeService
   ) {
     if (typeof window !== 'undefined' && window.localStorage) {
       const saved = localStorage.getItem('regatta_lane_mode');
@@ -418,6 +497,9 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
   ];
 
   get effectiveFocusedUserId(): string {
+    if (this.isFollowMode) {
+      return this.frameFollowedId || this.resolveFollowedId();
+    }
     return this.focusedUserId || this.activeUserId || '';
   }
 
@@ -471,6 +553,39 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
     return { rank, medal, label, color };
   }
 
+  /** Cible par défaut : kayak choisi, sinon mon kayak (participant), sinon le leader (spectateur) */
+  private resolveFollowedId(): string {
+    const selected = this.followedBoatId();
+    if (selected && this.boatsMap.has(selected)) return selected;
+    if (this.activeUserId && this.boatsMap.has(this.activeUserId)) return this.activeUserId;
+    let leader: BoatRenderState | null = null;
+    for (const b of this.boatsMap.values()) {
+      if (!leader || b.currentDisplayDist > leader.currentDisplayDist) leader = b;
+    }
+    return leader ? leader.userId : '';
+  }
+
+  private refreshParticipation(): void {
+    this.isParticipant.set(!!this.activeUserId && this.boatsMap.has(this.activeUserId));
+    const selected = this.followedBoatId();
+    if (selected && !this.boatsMap.has(selected) && this.boatsMap.size > 0) {
+      this.followedBoatId.set('');
+    }
+  }
+
+  /** Changement de kayak suivi en 1 clic (canevas, mini-map, badge hors-champ) */
+  public onFollowSelect(userId: string): void {
+    if (!userId) return;
+    this.followedBoatId.set(userId);
+    this.racerSelected.emit(userId);
+  }
+
+  public recenterOnMyBoat(): void {
+    if (!this.activeUserId) return;
+    this.followedBoatId.set(this.activeUserId);
+    this.racerSelected.emit(this.activeUserId);
+  }
+
   ngAfterViewInit(): void {
     const canvas = this.canvasRef.nativeElement;
     this.ctx = canvas.getContext('2d');
@@ -502,6 +617,12 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
     }
     if (changes['zoomLevel']) {
       this.resizeCanvas();
+    }
+    if (changes['focusedUserId']) {
+      this.followedBoatId.set(this.focusedUserId || '');
+    }
+    if (changes['racers'] || changes['activeUserId']) {
+      this.refreshParticipation();
     }
   }
 
@@ -694,6 +815,7 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
   }
 
   public selectRacerToFollow(userId: string): void {
+    if (this.isFollowMode) this.followedBoatId.set(userId);
     this.racerSelected.emit(userId);
   }
 
@@ -735,6 +857,18 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
     const rect = canvas.getBoundingClientRect();
     const clickX = event.clientX - rect.left;
     const clickY = event.clientY - rect.top;
+    const followMode = this.isFollowMode;
+
+    if (followMode) {
+      const hit = this.offscreenHits.find(
+        (hb) => clickX >= hb.x && clickX <= hb.x + hb.w && clickY >= hb.y && clickY <= hb.y + hb.h
+      );
+      if (hit) {
+        this.selectedKayakForClaim = null;
+        this.onFollowSelect(hit.userId);
+        return;
+      }
+    }
 
     const zoom = this.effectiveZoomLevel;
     const { visibleBoats } = this.getVisibleBoatsWindow();
@@ -742,12 +876,12 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
 
     const isCompact = this.cssWidth < 520;
     const baseMarginX = isCompact ? 36 : 64;
-    const marginX = Math.round(baseMarginX + (zoom - 1) * (isCompact ? 12 : 18));
+    const marginX = followMode ? 0 : Math.round(baseMarginX + (zoom - 1) * (isCompact ? 12 : 18));
     const rightPad = isCompact ? 24 : 40;
-    const trackW = Math.max(120, this.cssWidth - marginX - rightPad);
+    const trackW = followMode ? Math.max(1, this.targetDistance || 2000) * PIXELS_PER_METER : Math.max(120, this.cssWidth - marginX - rightPad);
 
     const isSmallLandscape = (typeof window !== 'undefined' && window.innerHeight <= 500) || this.cssHeight <= 320;
-    const topOffset = isSmallLandscape ? 24 : (isCompact ? 38 : 46);
+    const topOffset = (isSmallLandscape ? 24 : (isCompact ? 38 : 46)) + (followMode ? this.minimapHeight : 0);
     const bottomPad = isSmallLandscape ? 8 : (isCompact ? 12 : 20);
     const availableLaneH = Math.max(20, this.cssHeight - topOffset - bottomPad);
     const minLaneH = isSmallLandscape ? 26 : 34;
@@ -766,13 +900,16 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
       const rawX = marginX + trackW * progress;
       const x = rawX - this.cameraX;
 
-      if (Math.abs(clickY - y) <= laneH * 0.75 && Math.abs(clickX - x) <= 60 * Math.min(1.8, zoom)) {
+      if (Math.abs(clickY - y) <= laneH * 0.75 && Math.abs(clickX - x) <= (followMode ? 80 : 60 * Math.min(1.8, zoom))) {
         foundBoat = boat;
         break;
       }
     }
 
-    if (foundBoat) {
+    if (foundBoat && followMode && !this.canClaimBoat(foundBoat)) {
+      this.selectedKayakForClaim = null;
+      this.onFollowSelect(foundBoat.userId);
+    } else if (foundBoat) {
       this.selectedKayakForClaim = foundBoat;
       this.claimPopupPos = {
         x: Math.max(10, Math.min(this.cssWidth - 220, clickX - 80)),
@@ -845,6 +982,7 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
 
   public clearAllBoats(): void {
     this.boatsMap.clear();
+    this.cameraInit = false;
     this.visibleBoatsCount = 0;
     this.totalBoatsCount = 0;
   }
@@ -1029,6 +1167,7 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
     const render = (timestamp: number) => {
       const deltaT = Math.min(0.1, Math.max(0, (timestamp - this.lastFrameTimestamp) / 1000));
       this.lastFrameTimestamp = timestamp;
+      this.frameDeltaT = deltaT;
 
       this.updateBoatsPhysics(deltaT);
       this.drawCanvasScene();
@@ -1227,6 +1366,297 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
     });
   }
 
+  /** Caméra suiveuse : kayak suivi à 25 % de l'écran, bornée au départ et à l'arrivée, avec lissage */
+  private updateFollowCamera(followed: BoatRenderState | undefined, w: number): void {
+    const raceDist = this.targetDistance || 2000;
+    const target = followed ? computeFollowCameraTarget(followed.currentDisplayDist, raceDist, w) : 0;
+    if (!this.cameraInit || !followed) {
+      this.cameraX = target;
+      this.cameraInit = !!followed;
+    } else {
+      this.cameraX = smoothCameraX(this.cameraX, target, this.frameDeltaT);
+    }
+  }
+
+  /** Repères du bassin (culling sur [cameraX, cameraX + largeur]) */
+  private drawFollowTrackDecor(
+    ctx: CanvasRenderingContext2D,
+    p: { w: number; h: number; topOffset: number; laneH: number; boatCount: number; camOffset: number; finishX: number; isSmallLandscape: boolean }
+  ): void {
+    const raceDist = this.targetDistance || 2000;
+    const { startM, endM } = visibleRangeM(p.camOffset, p.w, 30);
+    const yTop = p.topOffset - this.scrollY;
+    const yBot = p.topOffset + p.boatCount * p.laneH - this.scrollY;
+
+    // Lignes de distance tous les 100 m (accentuées tous les 500 m)
+    for (const m of multiplesInRange(DISTANCE_MARK_M, startM, endM, raceDist)) {
+      const x = boatScreenX(m, p.camOffset);
+      const major = m % SIGN_MARK_M === 0;
+      ctx.strokeStyle = major ? 'rgba(0, 240, 255, 0.38)' : 'rgba(0, 240, 255, 0.16)';
+      ctx.lineWidth = major ? 1.6 : 1;
+      ctx.beginPath();
+      ctx.moveTo(x, yTop);
+      ctx.lineTo(x, yBot);
+      ctx.stroke();
+    }
+
+    // Début des 250 derniers mètres
+    const lastStretchM = raceDist - BUOY_RED_END_M;
+    if (lastStretchM > 0 && lastStretchM >= startM && lastStretchM <= endM) {
+      const x = boatScreenX(lastStretchM, p.camOffset);
+      ctx.save();
+      ctx.setLineDash([6, 6]);
+      ctx.strokeStyle = 'rgba(255, 0, 85, 0.6)';
+      ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      ctx.moveTo(x, yTop);
+      ctx.lineTo(x, yBot);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // Bouées de couloir tous les 25 m
+    const buoyR = p.isSmallLandscape ? 2.2 : 3.2;
+    const buoyMarks = multiplesInRange(BUOY_SPACING_M, startM, endM, raceDist);
+    for (let l = 0; l <= p.boatCount; l++) {
+      const by = p.topOffset + l * p.laneH - this.scrollY;
+      if (by < p.topOffset - 20 || by > p.h + 20) continue;
+      for (const m of buoyMarks) {
+        const color = buoyColorAt(m, raceDist);
+        ctx.fillStyle = color === 'red' ? '#ff0055' : color === 'yellow' ? '#ffe600' : '#f8fafc';
+        ctx.beginPath();
+        ctx.arc(boatScreenX(m, p.camOffset), by, buoyR, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    // Ponton de départ à 0 m
+    const startX = boatScreenX(0, p.camOffset);
+    if (startX > -60 && startX < p.w + 10) {
+      ctx.fillStyle = '#6b4a2f';
+      ctx.fillRect(startX - 30, yTop, 30, yBot - yTop);
+      ctx.strokeStyle = 'rgba(0, 0, 0, 0.35)';
+      ctx.lineWidth = 1;
+      for (let py = yTop; py < yBot; py += 10) {
+        ctx.beginPath();
+        ctx.moveTo(startX - 30, py);
+        ctx.lineTo(startX, py);
+        ctx.stroke();
+      }
+      ctx.fillStyle = '#f8fafc';
+      ctx.fillRect(startX - 1.5, yTop, 3, yBot - yTop);
+    }
+
+    // Ligne d'arrivée en damier
+    if (p.finishX > -20 && p.finishX < p.w + 20) {
+      const s = 8;
+      const rows = Math.ceil((yBot - yTop) / s);
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < 2; c++) {
+          ctx.fillStyle = (r + c) % 2 === 0 ? '#ffffff' : '#0b1220';
+          ctx.fillRect(p.finishX - s + c * s, yTop + r * s, s, s);
+        }
+      }
+    }
+  }
+
+  /** Repères de distance épinglés en haut : 100 m et panneaux 500 m / 1000 m / 1500 m / Derniers 250m */
+  private drawFollowTopMarkers(
+    ctx: CanvasRenderingContext2D,
+    p: { w: number; topOffset: number; camOffset: number; markerFontPx: number }
+  ): void {
+    const raceDist = this.targetDistance || 2000;
+    const { startM, endM } = visibleRangeM(p.camOffset, p.w, 60);
+    const baseY = Math.max(p.markerFontPx + 2, p.topOffset - 6);
+
+    const drawSign = (x: number, label: string, color: string) => {
+      ctx.font = `800 ${p.markerFontPx + 1}px monospace`;
+      const tw = ctx.measureText(label).width;
+      const bw = tw + 14;
+      const bh = p.markerFontPx + 8;
+      const bx = x - bw / 2;
+      const by = baseY - bh + 4;
+      ctx.fillStyle = 'rgba(6, 13, 29, 0.92)';
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1.5;
+      if (typeof ctx.roundRect === 'function') {
+        ctx.beginPath();
+        ctx.roundRect(bx, by, bw, bh, 5);
+        ctx.fill();
+        ctx.stroke();
+      } else {
+        ctx.fillRect(bx, by, bw, bh);
+        ctx.strokeRect(bx, by, bw, bh);
+      }
+      ctx.fillStyle = color;
+      ctx.textAlign = 'center';
+      ctx.fillText(label, x, baseY);
+      ctx.textAlign = 'left';
+    };
+
+    ctx.font = `700 ${p.markerFontPx}px monospace`;
+    ctx.fillStyle = 'rgba(0, 240, 255, 0.7)';
+    ctx.textAlign = 'center';
+    for (const m of multiplesInRange(DISTANCE_MARK_M, startM, endM, raceDist)) {
+      if (m % SIGN_MARK_M === 0) continue;
+      ctx.fillText(`${m}m`, boatScreenX(m, p.camOffset), baseY);
+    }
+    ctx.textAlign = 'left';
+
+    for (const m of multiplesInRange(SIGN_MARK_M, startM, endM, raceDist)) {
+      if (m === 0 || m >= raceDist) continue;
+      drawSign(boatScreenX(m, p.camOffset), `${m}m`, '#00f0ff');
+    }
+    const lastStretchM = raceDist - BUOY_RED_END_M;
+    if (lastStretchM > 0 && lastStretchM >= startM && lastStretchM <= endM) {
+      drawSign(boatScreenX(lastStretchM, p.camOffset), 'Derniers 250m', '#ff3366');
+    }
+  }
+
+  /** Sillage : chevrons animés derrière le kayak, proportionnels à la vitesse instantanée (m/s) */
+  private drawFollowWake(
+    ctx: CanvasRenderingContext2D,
+    x: number,
+    y: number,
+    boat: BoatRenderState,
+    nowSec: number,
+    hullRx: number,
+    laneH: number
+  ): void {
+    const speed = Math.max(0, boat.currentSpeedMs || 0);
+    if (speed < 0.3) return;
+    const len = Math.min(150, 28 + speed * 16);
+    const spread = Math.min(laneH * 0.42, 3 + speed * 0.9);
+    ctx.save();
+    ctx.lineWidth = 1.4;
+    ctx.lineCap = 'round';
+    for (let i = 0; i < 4; i++) {
+      const phase = (nowSec * (0.35 + speed * 0.12) + i / 4) % 1;
+      const off = hullRx * 0.6 + phase * len;
+      const alpha = (1 - phase) * 0.42;
+      const sp = spread * (0.35 + phase * 0.65);
+      ctx.strokeStyle = `rgba(190, 245, 255, ${alpha.toFixed(3)})`;
+      ctx.beginPath();
+      ctx.moveTo(x - off + 5, y - sp);
+      ctx.lineTo(x - off, y);
+      ctx.lineTo(x - off + 5, y + sp);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  /** Halo turquoise sous le kayak actuellement suivi par la caméra */
+  private drawFollowHalo(
+    ctx: CanvasRenderingContext2D,
+    x: number,
+    y: number,
+    hullRx: number,
+    laneH: number,
+    nowSec: number
+  ): void {
+    const radius = hullRx + 22;
+    const pulse = 0.30 + Math.sin(nowSec * 3) * 0.06;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(1, Math.max(0.12, (laneH * 0.5) / radius));
+    const g = ctx.createRadialGradient(0, 0, 4, 0, 0, radius);
+    g.addColorStop(0, `rgba(0, 240, 255, ${pulse.toFixed(3)})`);
+    g.addColorStop(1, 'rgba(0, 240, 255, 0)');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(0, 0, radius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  /** Mini-map tactique + badges cliquables des kayaks hors du champ de vision */
+  private drawFollowOverlays(
+    ctx: CanvasRenderingContext2D,
+    p: { w: number; topOffset: number; camOffset: number }
+  ): void {
+    const raceDist = this.targetDistance || 2000;
+    const followedId = this.frameFollowedId;
+    const all = Array.from(this.boatsMap.values());
+
+    if (this.minimapRef) {
+      const range = visibleRangeM(p.camOffset, p.w, 0);
+      const frame: MinimapFrame = {
+        racers: all.map((b) => ({
+          userId: b.userId,
+          name: b.name,
+          dist: b.currentDisplayDist,
+          color: b.color,
+          isSelf: b.userId === this.activeUserId
+        })),
+        targetDistance: raceDist,
+        followedId,
+        viewStartM: range.startM,
+        viewEndM: range.endM
+      };
+      this.minimapRef.render(frame, p.w);
+    }
+
+    this.offscreenHits = [];
+    const followed = this.boatsMap.get(followedId);
+    if (!followed) return;
+
+    const res = computeOffscreenBadges(
+      all.map((b) => ({ userId: b.userId, name: b.name, dist: b.currentDisplayDist })),
+      followedId,
+      followed.currentDisplayDist,
+      p.camOffset,
+      p.w,
+      3
+    );
+
+    const badgeH = 34;
+    const gapY = 6;
+    const maxBadgeW = Math.max(120, p.w * 0.46);
+    ctx.save();
+    ctx.font = '700 12px sans-serif';
+    ctx.textBaseline = 'middle';
+
+    const drawSide = (items: typeof res.left, hidden: number, side: 'left' | 'right') => {
+      items.forEach((b, i) => {
+        const textW = Math.min(maxBadgeW - 20, ctx.measureText(b.label).width);
+        const bw = textW + 20;
+        const bx = side === 'left' ? 6 : p.w - bw - 6;
+        const by = p.topOffset + 6 + i * (badgeH + gapY);
+        ctx.fillStyle = 'rgba(6, 13, 29, 0.9)';
+        ctx.strokeStyle = 'rgba(0, 240, 255, 0.85)';
+        ctx.lineWidth = 1.5;
+        if (typeof ctx.roundRect === 'function') {
+          ctx.beginPath();
+          ctx.roundRect(bx, by, bw, badgeH, badgeH / 2);
+          ctx.fill();
+          ctx.stroke();
+        } else {
+          ctx.fillRect(bx, by, bw, badgeH);
+          ctx.strokeRect(bx, by, bw, badgeH);
+        }
+        ctx.fillStyle = '#e2e8f0';
+        ctx.textAlign = 'left';
+        ctx.fillText(b.label, bx + 10, by + badgeH / 2, textW);
+        // Zone tactile légèrement élargie
+        this.offscreenHits.push({ x: bx - 4, y: by - 2, w: bw + 8, h: badgeH + 4, userId: b.userId });
+      });
+      if (hidden > 0) {
+        const label = `+${hidden}`;
+        const bw = ctx.measureText(label).width + 16;
+        const bx = side === 'left' ? 6 : p.w - bw - 6;
+        const by = p.topOffset + 6 + items.length * (badgeH + gapY);
+        ctx.fillStyle = 'rgba(6, 13, 29, 0.75)';
+        ctx.fillRect(bx, by, bw, 24);
+        ctx.fillStyle = 'rgba(226, 232, 240, 0.8)';
+        ctx.textAlign = 'center';
+        ctx.fillText(label, bx + bw / 2, by + 12);
+      }
+    };
+    drawSide(res.left, res.hiddenLeft, 'left');
+    drawSide(res.right, res.hiddenRight, 'right');
+    ctx.restore();
+  }
+
   private drawCanvasScene(): void {
     if (!this.ctx) return;
     const ctx = this.ctx;
@@ -1234,6 +1664,18 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
     const h = this.cssHeight;
     const isCompact = w < 520;
     const nowSec = performance.now() / 1000;
+    const followMode = this.isFollowMode;
+    {
+      const modeKey: RaceCanvasMode = followMode ? 'follow_camera' : 'global_fit';
+      if (this.lastMode !== modeKey) {
+        // Bascule de mode (admin) : retour à la cible par défaut et caméra réinitialisée
+        if (this.lastMode !== null) this.followedBoatId.set('');
+        this.lastMode = modeKey;
+        this.cameraInit = false;
+        this.cameraX = 0;
+      }
+    }
+    this.frameFollowedId = followMode ? this.resolveFollowedId() : '';
     const zoom = this.effectiveZoomLevel;
 
     // 1. Fond plan d'eau dynamique
@@ -1246,12 +1688,12 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
 
     const isSmallLandscape = (typeof window !== 'undefined' && window.innerHeight <= 500) || h <= 320;
     const baseMarginX = isCompact ? 36 : 64;
-    const marginX = Math.round(baseMarginX + (zoom - 1) * (isCompact ? 12 : 18));
+    const marginX = followMode ? 0 : Math.round(baseMarginX + (zoom - 1) * (isCompact ? 12 : 18));
     const rightPad = isCompact ? 24 : 40;
-    const trackW = Math.max(120, w - marginX - rightPad);
+    const trackW = followMode ? Math.max(1, this.targetDistance || 2000) * PIXELS_PER_METER : Math.max(120, w - marginX - rightPad);
 
     const baseTopOffset = isSmallLandscape ? 24 : (isCompact ? 38 : 46);
-    const topOffset = isSmallLandscape ? 24 : (isCompact ? 38 : 46);
+    const topOffset = (isSmallLandscape ? 24 : (isCompact ? 38 : 46)) + (followMode ? this.minimapHeight : 0);
     const bottomPad = isSmallLandscape ? 8 : (isCompact ? 12 : 20);
     const availableLaneH = Math.max(20, h - topOffset - bottomPad);
 
@@ -1295,7 +1737,9 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
     const targetUserId = this.effectiveFocusedUserId;
     const targetBoat = this.boatsMap.get(targetUserId);
 
-    if (targetBoat && isCompact) {
+    if (followMode) {
+      this.updateFollowCamera(targetBoat, w);
+    } else if (targetBoat && isCompact) {
       const targetBoatX = marginX + trackW * Math.min(1.0, Math.max(0, targetBoat.currentDisplayDist / (this.targetDistance || 2000)));
       const desiredCamX = targetBoatX - (w * 0.42);
       const clampedCamX = Math.max(0, Math.min(trackW * 0.4, desiredCamX));
@@ -1312,7 +1756,7 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
     ctx.rect(0, topOffset, w, h - topOffset);
     ctx.clip();
 
-    const markers = w < 380 ? [0, 0.5, 1.0] : [0, 0.25, 0.5, 0.75, 1.0];
+    const markers: number[] = followMode ? [] : (w < 380 ? [0, 0.5, 1.0] : [0, 0.25, 0.5, 0.75, 1.0]);
     const markerFontPx = Math.round((isCompact ? 10 : 11) * Math.min(1.85, 1 + (zoom - 1) * 0.4));
     ctx.strokeStyle = 'rgba(0, 240, 255, 0.16)';
     ctx.lineWidth = 1;
@@ -1356,6 +1800,10 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
         ctx.arc(finishX, buoyY, finishBuoyRadius, 0, Math.PI * 2);
         ctx.fill();
       }
+    }
+
+    if (followMode) {
+      this.drawFollowTrackDecor(ctx, { w, h, topOffset, laneH, boatCount, camOffset, finishX, isSmallLandscape });
     }
 
     if (visibleBoats.length === 0) {
@@ -1462,7 +1910,7 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
     }
 
     // 4. Dessin des kayaks visibles avec texte agrandi au maximum selon le zoom
-    const hullRx = (isCompact ? 14 : 18) * boatScale;
+    const hullRx = followMode ? (isCompact ? 44 : 68) : (isCompact ? 14 : 18) * boatScale;
     const hullRy = Math.min(laneH * 0.24, (isCompact ? 4.5 : 5) * boatScale);
 
     visibleBoats.forEach((boat, visibleIdx) => {
@@ -1533,6 +1981,13 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
       }
 
       // Éclaboussures d'attaque
+      if (followMode) {
+        this.drawFollowWake(ctx, x, y, boat, nowSec, hullRx, laneH);
+        if (isFocused) {
+          this.drawFollowHalo(ctx, x, y, hullRx, laneH, nowSec);
+        }
+      }
+
       if (isMoving && Math.abs(strokeAngle) > 0.25) {
         ctx.fillStyle = isUser ? 'rgba(0, 240, 255, 0.6)' : 'rgba(0, 240, 255, 0.38)';
         ctx.beginPath();
@@ -1888,6 +2343,10 @@ export class RegattaCanvasComponent implements AfterViewInit, OnDestroy, OnChang
     ctx.restore();
 
     // 5. Repères de distance épinglés en haut du plan d'eau
+    if (followMode) {
+      this.drawFollowTopMarkers(ctx, { w, topOffset, camOffset, markerFontPx });
+      this.drawFollowOverlays(ctx, { w, topOffset, camOffset });
+    }
     ctx.font = `700 ${markerFontPx}px monospace`;
     ctx.fillStyle = 'rgba(0, 240, 255, 0.85)';
     markers.forEach((pct) => {

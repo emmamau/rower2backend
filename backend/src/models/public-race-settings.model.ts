@@ -1,5 +1,9 @@
 import { Sequelize, DataTypes, Model, ModelStatic } from "sequelize";
 
+export const RACE_CANVAS_MODES = ["global_fit", "follow_camera"] as const;
+export type RaceCanvasMode = (typeof RACE_CANVAS_MODES)[number];
+export const DEFAULT_RACE_CANVAS_MODE: RaceCanvasMode = "follow_camera";
+
 export interface PublicRaceSettingsAttributes {
   id: number;
   isEnabled: boolean;
@@ -10,6 +14,7 @@ export interface PublicRaceSettingsAttributes {
   interRaceDelaySec: number;
   overtakeThresholdM: number;
   inactivityAbandonSec: number;
+  raceCanvasMode: RaceCanvasMode;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -64,6 +69,13 @@ export default (sequelize: Sequelize, _DataTypesInstance: typeof DataTypes): Pub
         type: DataTypes.INTEGER,
         field: "inactivity_abandon_sec",
         defaultValue: 60,
+      },
+      raceCanvasMode: {
+        type: DataTypes.STRING(20),
+        field: "race_canvas_mode",
+        allowNull: false,
+        defaultValue: DEFAULT_RACE_CANVAS_MODE,
+        validate: { isIn: [RACE_CANVAS_MODES as unknown as string[]] },
       },
     },
     {

@@ -315,6 +315,7 @@ export class RaceManager {
   public inactivityAbandonMs: number = 60 * 1000;
   /** Distance minimale de dépassement pour le changement d'eau (configurable dynamiquement par l'admin). */
   public overtakeThresholdM: number = 5;
+  public raceCanvasMode: "global_fit" | "follow_camera" = "follow_camera";
 
   private static instance: RaceManager;
   private currentPublicRace: RaceState | null = null;
@@ -372,6 +373,10 @@ export class RaceManager {
           const customOvertake = Number(plain.overtakeThresholdM ?? plain.overtake_threshold_m ?? 5);
           if (!isNaN(customOvertake) && customOvertake >= 1 && customOvertake <= 50) {
             this.overtakeThresholdM = customOvertake;
+          }
+          const customCanvasMode = String(plain.raceCanvasMode ?? plain.race_canvas_mode ?? "follow_camera");
+          if (customCanvasMode === "global_fit" || customCanvasMode === "follow_camera") {
+            this.raceCanvasMode = customCanvasMode;
           }
           const customInactivity = Number(plain.inactivityAbandonSec ?? plain.inactivity_abandon_sec ?? 60);
           if (!isNaN(customInactivity) && customInactivity >= 15 && customInactivity <= 600) {

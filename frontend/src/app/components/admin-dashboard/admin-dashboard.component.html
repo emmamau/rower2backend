@@ -222,6 +222,41 @@
             </div>
           </div>
 
+          <div class="canvas-mode-section">
+            <h4 class="card-subtitle canvas-mode-heading">🌊 Mode de rendu du bassin (Canevas de course)</h4>
+            <div class="canvas-mode-options" role="radiogroup" aria-label="Mode de rendu du bassin (Canevas de course)">
+              <button
+                type="button"
+                class="canvas-mode-card"
+                role="radio"
+                [class.selected]="currentCanvasMode === 'follow_camera'"
+                [attr.aria-checked]="currentCanvasMode === 'follow_camera'"
+                [disabled]="isCanvasModeSaving"
+                (click)="selectCanvasMode('follow_camera')">
+                <span class="canvas-mode-title">
+                  🎥 Caméra Suiveuse – Échelle réelle
+                  <em class="canvas-mode-badge">Recommandé</em>
+                </span>
+                <span class="canvas-mode-desc">
+                  Défilement proportionnel à la distance (16 px/m), suivi du kayak du joueur ou d'un concurrent sélectionné, mini-map tactique et repères de distance.
+                </span>
+              </button>
+              <button
+                type="button"
+                class="canvas-mode-card"
+                role="radio"
+                [class.selected]="currentCanvasMode === 'global_fit'"
+                [attr.aria-checked]="currentCanvasMode === 'global_fit'"
+                [disabled]="isCanvasModeSaving"
+                (click)="selectCanvasMode('global_fit')">
+                <span class="canvas-mode-title">🗺️ Vue Globale – Bassin complet</span>
+                <span class="canvas-mode-desc">
+                  Vue d'ensemble fixe affichant 100 % de la distance de la course sur la largeur de l'écran.
+                </span>
+              </button>
+            </div>
+          </div>
+
           <button
             type="submit"
             class="btn-submit"

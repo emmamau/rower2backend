@@ -1256,7 +1256,12 @@ export const stopRace = async (req: Request, res: Response): Promise<void> => {
   }
 };
 
+export const getCanvasMode = async (_req: Request, res: Response): Promise<void> => {
+  res.status(200).json({ success: true, raceCanvasMode: raceManager.raceCanvasMode });
+};
+
 export default {
+  getCanvasMode,
   getNextRace,
   joinRace,
   getRaceHistory,

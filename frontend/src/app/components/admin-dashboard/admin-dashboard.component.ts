@@ -16,6 +16,7 @@ import {
   PioneerUserItem
 } from '../../services/admin.service';
 import { I18nService } from '../../services/i18n.service';
+import { RaceCanvasModeService, RaceCanvasMode, normalizeRaceCanvasMode } from '../../services/race-canvas-mode.service';
 
 @Component({
   selector: 'app-admin-dashboard',
@@ -56,8 +57,10 @@ export class AdminDashboardComponent implements OnInit {
     botCount: 2,
     interRaceDelaySec: 120,
     overtakeThresholdM: 5,
-    inactivityAbandonSec: 60
+    inactivityAbandonSec: 60,
+    raceCanvasMode: 'follow_camera'
   };
+  isCanvasModeSaving = false;
   isPublicLoading = false;
   isPublicSubmitting = false;
   isAbortingPublicRace = false;
@@ -147,7 +150,8 @@ export class AdminDashboardComponent implements OnInit {
   constructor(
     private adminService: AdminService,
     private cdr: ChangeDetectorRef,
-    public i18n: I18nService
+    public i18n: I18nService,
+    private canvasModeService: RaceCanvasModeService
   ) {}
 
   ngOnInit(): void {
@@ -284,6 +288,37 @@ export class AdminDashboardComponent implements OnInit {
       error: (err) => {
         this.isPublicLoading = false;
         this.errorMessage = this.formatAdminError(err, 'ADMIN_ERR_LOAD_PUBLIC');
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  get currentCanvasMode(): RaceCanvasMode {
+    return this.publicSettings.raceCanvasMode === 'global_fit' ? 'global_fit' : 'follow_camera';
+  }
+
+  /** Enregistrement immédiat du mode de rendu du canevas (sans toucher aux autres champs du formulaire) */
+  selectCanvasMode(mode: RaceCanvasMode): void {
+    if (this.isCanvasModeSaving || mode === this.currentCanvasMode) return;
+    const previous = this.currentCanvasMode;
+    this.publicSettings = { ...this.publicSettings, raceCanvasMode: mode };
+    this.isCanvasModeSaving = true;
+    this.clearMessages();
+    this.adminService.updatePublicRaceSettings({ raceCanvasMode: mode }).subscribe({
+      next: (res) => {
+        this.isCanvasModeSaving = false;
+        if (res.success) {
+          const saved = normalizeRaceCanvasMode(res.settings?.raceCanvasMode) ?? mode;
+          this.publicSettings = { ...this.publicSettings, raceCanvasMode: saved };
+          this.canvasModeService.set(saved);
+          this.feedbackMessage = `✓ Mode de rendu enregistré : ${saved === 'follow_camera' ? 'Caméra Suiveuse' : 'Vue Globale'}`;
+        }
+        this.cdr.markForCheck();
+      },
+      error: (err) => {
+        this.isCanvasModeSaving = false;
+        this.publicSettings = { ...this.publicSettings, raceCanvasMode: previous };
+        this.errorMessage = this.formatAdminError(err, 'ADMIN_ERR_SAVE_PUBLIC');
         this.cdr.markForCheck();
       }
     });

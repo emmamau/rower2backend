@@ -8,6 +8,9 @@ export default (app: Application): void => {
   // GET /api/race/next (Prochaine course planifiée avec décompte)
   router.get("/next", raceController.getNextRace);
 
+  // GET /api/race/canvas-mode (mode de rendu du canevas, public)
+  router.get("/canvas-mode", raceController.getCanvasMode);
+
   // POST /api/race/join (Rejoindre la prochaine course et lancer l'attente avec vérification Anti-Triche)
   router.post("/join", verifyAntiCheat, raceController.joinRace);
 

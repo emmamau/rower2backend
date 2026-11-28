@@ -406,6 +406,7 @@
           *ngFor="let racer of sortedLiveMetrics; let rank = index"
           class="mini-lead-row"
           [class.active-player]="racer.userId === activeUserId"
+      [class.followed-racer]="racer.userId === selectedSpectatorUserId"
           [class.focused-racer]="racer.userId === selectedSpectatorUserId"
           (click)="spectatorSelect.emit(racer.userId)"
           [title]="i18n.t('REGATTA_CLICK_FOCUS_TIP')">

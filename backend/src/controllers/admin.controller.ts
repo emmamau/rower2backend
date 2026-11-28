@@ -54,6 +54,7 @@ export class AdminController {
         interRaceDelaySec: raceManager.publicInterRaceDelaySec,
         overtakeThresholdM: raceManager.overtakeThresholdM,
         inactivityAbandonSec: Math.round(raceManager.inactivityAbandonMs / 1000),
+        raceCanvasMode: raceManager.raceCanvasMode,
       };
     } else {
       const plain = typeof (setting as any).toJSON === "function" ? (setting as any).toJSON() : setting;
@@ -61,6 +62,7 @@ export class AdminController {
         ...plain,
         overtakeThresholdM: Number(plain.overtakeThresholdM ?? plain.overtake_threshold_m ?? raceManager.overtakeThresholdM ?? 5),
         inactivityAbandonSec: Number(plain.inactivityAbandonSec ?? plain.inactivity_abandon_sec ?? Math.round((raceManager.inactivityAbandonMs || 60000) / 1000)),
+        raceCanvasMode: String(plain.raceCanvasMode ?? plain.race_canvas_mode ?? raceManager.raceCanvasMode ?? "follow_camera"),
       };
     }
 
@@ -94,9 +96,20 @@ export class AdminController {
         inactivityAbandonSec,
         is_enabled,
         isEnabled,
+        race_canvas_mode,
+        raceCanvasMode,
       } = req.body || {};
 
       const updates: any = {};
+      if (race_canvas_mode !== undefined || raceCanvasMode !== undefined) {
+        const mode = String(race_canvas_mode ?? raceCanvasMode);
+        if (mode !== "global_fit" && mode !== "follow_camera") {
+          res.status(400).json({ success: false, message: "Le mode de rendu du canevas doit etre 'global_fit' ou 'follow_camera'." });
+          return;
+        }
+        updates.raceCanvasMode = mode;
+        raceManager.raceCanvasMode = mode;
+      }
       if (overtake_threshold_m !== undefined || overtakeThresholdM !== undefined) {
         const val = Number(overtake_threshold_m ?? overtakeThresholdM);
         if (isNaN(val) || val < 1 || val > 50) {
@@ -162,6 +175,7 @@ export class AdminController {
         socketGateway.broadcast("settings:updated", {
           overtakeThresholdM: raceManager.overtakeThresholdM,
           inactivityAbandonSec: Math.round(raceManager.inactivityAbandonMs / 1000),
+          raceCanvasMode: raceManager.raceCanvasMode,
         });
       } catch {}
 
@@ -170,6 +184,7 @@ export class AdminController {
         ...plainRow,
         overtakeThresholdM: Number(plainRow.overtakeThresholdM ?? plainRow.overtake_threshold_m ?? raceManager.overtakeThresholdM ?? 5),
         inactivityAbandonSec: Number(plainRow.inactivityAbandonSec ?? plainRow.inactivity_abandon_sec ?? Math.round((raceManager.inactivityAbandonMs || 60000) / 1000)),
+        raceCanvasMode: String(plainRow.raceCanvasMode ?? plainRow.race_canvas_mode ?? raceManager.raceCanvasMode ?? "follow_camera"),
       };
 
       res.status(200).json({

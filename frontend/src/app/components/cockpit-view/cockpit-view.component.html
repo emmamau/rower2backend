@@ -27,6 +27,7 @@
       *ngFor="let racer of sortedLiveMetrics; let rank = index"
       class="mini-lead-row"
       [class.active-player]="racer.userId === activeUserId"
+      [class.followed-racer]="racer.userId === selectedSpectatorUserId"
       (click)="spectatorSelect.emit(racer.userId)">
       <span class="mini-lead-rank">{{ rank + 1 }}</span>
       <span class="mini-lead-name">{{ racer.name }}</span>

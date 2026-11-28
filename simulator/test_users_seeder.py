@@ -4,12 +4,25 @@ from typing import Dict, Any, List
 import aiohttp
 from store import SimulatorStore
 
+# 30 identités réalistes : index pair -> M, index impair -> F (cohérent avec le sexe envoyé)
+REAL_IDENTITIES = {
+    1: ("Léa", "Martin"), 2: ("Lucas", "Bernard"), 3: ("Emma", "Dubois"), 4: ("Hugo", "Thomas"),
+    5: ("Chloé", "Robert"), 6: ("Louis", "Richard"), 7: ("Manon", "Petit"), 8: ("Gabriel", "Durand"),
+    9: ("Camille", "Leroy"), 10: ("Arthur", "Moreau"), 11: ("Inès", "Simon"), 12: ("Jules", "Laurent"),
+    13: ("Sarah", "Lefebvre"), 14: ("Raphaël", "Michel"), 15: ("Jade", "Garcia"), 16: ("Nathan", "David"),
+    17: ("Louise", "Bertrand"), 18: ("Adam", "Roux"), 19: ("Alice", "Vincent"), 20: ("Maxime", "Fournier"),
+    21: ("Juliette", "Morel"), 22: ("Théo", "Girard"), 23: ("Clara", "André"), 24: ("Antoine", "Lefèvre"),
+    25: ("Océane", "Mercier"), 26: ("Paul", "Dupont"), 27: ("Margaux", "Lambert"), 28: ("Tom", "Bonnet"),
+    29: ("Pauline", "François"), 30: ("Baptiste", "Martinez"),
+}
+
 async def seed_and_pair_test_users(
     store: SimulatorStore,
     count: int = 30,
     common_password: str = "RowerTest2026!",
     login_prefix: str = "test_runner_",
-    only_enabled: bool = False
+    only_enabled: bool = False,
+    real_names: bool = False
 ) -> Dict[str, Any]:
     """
     Creates test user accounts on the platform (if not already existing) with a common password,
@@ -36,6 +49,8 @@ async def seed_and_pair_test_users(
             email = f"{prefix}{i:02d}@testrower.com"
             first_name = "Rameur"
             last_name = f"Test {i:02d}"
+            if real_names and i in REAL_IDENTITIES:
+                first_name, last_name = REAL_IDENTITIES[i]
 
             # 1. Register or Login
             token = None
@@ -118,7 +133,7 @@ async def seed_and_pair_test_users(
                         p_data = await p_resp.json()
                         dev_token = p_data.get("deviceToken")
                         watch.user_id = login
-                        watch.user_name = f"{first_name} {i:02d}"
+                        watch.user_name = f"{first_name} {last_name}" if real_names else f"{first_name} {i:02d}"
                         watch.device_token = dev_token
                         watch.is_paired = True
                         watch.error_message = None
@@ -147,7 +162,8 @@ async def reset_and_recreate_test_users(
     count: int = 30,
     common_password: str = "RowerTest2026!",
     login_prefix: str = "test_runner_",
-    only_enabled: bool = False
+    only_enabled: bool = False,
+    real_names: bool = False
 ) -> Dict[str, Any]:
     """
     Deletes every simulator test account (via the admin API), clears the local watch pairings,
@@ -211,7 +227,7 @@ async def reset_and_recreate_test_users(
     # 4. Recreate accounts and re-pair
     res = await seed_and_pair_test_users(
         store, count=count, common_password=common_password,
-        login_prefix=login_prefix, only_enabled=only_enabled
+        login_prefix=login_prefix, only_enabled=only_enabled, real_names=real_names
     )
     res["deleted"] = deleted
     res["not_found"] = not_found
@@ -224,6 +240,7 @@ if __name__ == "__main__":
     parser.add_argument("--count", type=int, default=30, help="Number of test users to create (1-30)")
     parser.add_argument("--password", type=str, default="RowerTest2026!", help="Common password for test users")
     parser.add_argument("--prefix", type=str, default="test_runner_", help="Login prefix (e.g. test_runner_)")
+    parser.add_argument("--real-names", action="store_true", help="Use realistic first/last names")
     parser.add_argument("--backend", type=str, default=None, help="Target backend URL override")
     args = parser.parse_args()
 
@@ -232,7 +249,7 @@ if __name__ == "__main__":
         st.backend_url = args.backend.rstrip("/")
 
     print(f"Création de {args.count} comptes sur {st.backend_url} avec le mot de passe '{args.password}'...")
-    res = asyncio.run(seed_and_pair_test_users(st, count=args.count, common_password=args.password, login_prefix=args.prefix))
+    res = asyncio.run(seed_and_pair_test_users(st, count=args.count, common_password=args.password, login_prefix=args.prefix, real_names=args.real_names))
     print(res["message"])
     if res["errors"]:
         print("Erreurs rencontrées:", res["errors"])

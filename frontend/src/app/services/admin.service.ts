@@ -13,6 +13,7 @@ export interface AdminPublicRaceSettings {
   interRaceDelaySec: number;
   overtakeThresholdM?: number;
   inactivityAbandonSec?: number;
+  raceCanvasMode?: 'global_fit' | 'follow_camera';
 }
 
 export interface AdminUserItem {
